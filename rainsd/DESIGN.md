@@ -26,8 +26,7 @@ The arrangement of these components is shown in the figure below:
 
 ![rainsd component diagram](rainsd.png)
 
-
-## query engine design {#engine}
+## Query Engine Design
 
 The query engine is built around two tables: an *assertion cache*, a
 *pending queries cache*..
@@ -84,7 +83,7 @@ shards efficiently. Suggestion: when asserting a shard, add it (as provenance)
 to a range index, and consult this range on a cache miss. Zones should be
 similarly stored (without range index), and returned as a last resort.
 
-## verification engine design {#verify}
+## Verification Engine Design
 
 The verification engine caches the current set of public keys used to verify
 assertions in each zone the server knows about. It is fed delegation
@@ -98,3 +97,21 @@ It takes incoming assertions and verifies their signatures. It has the following
 - `verify(shard) -> assertion or nil`: verify a shard. recursively verify contained assertions which have their own signatures. strip any signatures that did not verify. if no signatures remain, returns nil.
 - `verify(zone) -> assertion or nil`: verify a shard. recursively verify contained shards and assertions which have their own signatures. strip any signatures that did not verify. if no signatures remain, returns nil.
 - `reap()`: remove expired delegations. This is probably simply called by a goroutine waiting on a tick channel.
+
+## Inbox Design
+
+The inbox's ensures that each section of each incoming message gets handled to
+completion or expiry. It provides a single entry point, `deliver(message,
+from)`, which unpacks the incoming message, verifies signatures on it and on
+its sections using the verification engine, then processes it, using either
+the query() or assert() entry points on the query engine.
+
+## Switchboard Design
+
+The switchboard listens for incoming connections from servers or clients,
+opens connections to servers to which messages need to be sent but for which
+no active connection is available, and maintains actively opened and passively
+opened connections to servers and clients on a most-recently-used basis. It
+provides a single entry point, `sendto(message, to)`, which sends a message to
+a named RAINS server.
+
