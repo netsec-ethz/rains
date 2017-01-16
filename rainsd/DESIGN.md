@@ -22,6 +22,11 @@ In addition, the RAINS server uses the following component provided by `rainslib
   handles marshaling and unmarshaling of RAINS messages into and out of CBOR, the parsing and
   generation of RAINS zonefiles, and utilities for signing assertions and verifying signatures.
 
+The arrangement of these components is shown in the figure below:
+
+![rainsd component diagram](rainsd.png)
+
+
 ## query engine design {#engine}
 
 The query engine is built around two tables: an *assertion cache*, a

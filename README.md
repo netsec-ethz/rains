@@ -28,9 +28,6 @@ design document:
 - The [rainsfic](rainsfic/DESIGN.md) design document
 - The [rainslib](rainslib/DESIGN.md) design document
 
-The general arrangement of components, system-wide design considerations, and
-miscellaneous design considerations, are given [here](DESIGN-NOTES.md).
-
 A general project plan for RAINS development is given [here](PROJECT-PLAN.md);
 small matters of programming appear in the 
 [issue tracker](https://github.com/netsec-ethz/rains/issues/).
