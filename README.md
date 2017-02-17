@@ -16,6 +16,8 @@ provides common handling for the CBOR-based RAINS information model, and the
 client-side RAINS stub resolver (...bonus points for integrating this with
 Go's net. package in an idiomatic way...)
 
+(TODO: draw a nice picture of how all this fits together.)
+
 ## Understanding RAINS
 
 The development of the RAINS server and tools is currently in early design
