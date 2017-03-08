@@ -1,6 +1,6 @@
 # RAINS Project Plan
 
-- Milestone 1: Implementation of a single RAINS server which is working and has all the basic functionality (without cryptography). 
+- Milestone 1: (4 Weeks, 07.04.17) Implementation of a single RAINS server which is working and has all the basic functionality (without cryptography). 
   There are several test cases which ensure that the server works correctly.
 
 - Task 1: Compare Design with Internet draft.
@@ -12,14 +12,14 @@
 - Task 3: Write tests for `switchboard.go`.
 - Task 4: Implement structure of `verify.go` (`verify()` just returns true, `delegate()` does nothing)
 - Task 5: Implement `inbox.go`. There are three internal steps performed after each other.
-    - call `verify()` to check the signature of the incoming package. Silently drop it if sig does not match.
+    - call `verify()` to check the signature of the incoming message. Silently drop it if sig does not match.
     - Parse query options (Must happen before checking the expiration date, due to option Code 5 [ Expired assertions are acceptable ])
-    - check the expiration date of the package and drop it or forward it by calling `assert() or query()` of the engine. (also pass along the parsed query options as a bit pattern?)    
+    - check the expiration date of the message and drop or forward it by calling `assert() or query()` of the engine. (also pass along the parsed query options as a bit pattern?)  
           Use 2 queues for incoming messages based on the query token. 
     - Prio 1: Responses of self issued queries 
     - Prio 2: Incoming queries form clients or proactively pushed asserts/shards/zones by another RAINS server.
-          Log if packets where successfully forwarded or if they are dropped. Monitor the dropped packets and take appropriate action if you see malicious attempts. 
-          (e.g. a lot of expired packets from the same source -> possible DOS attack (Fill up Prio 2 queue) on the `verify()` step. Especially if they all need 
+          Log if messages were successfully forwarded or if they are dropped. Monitor the dropped messages and take appropriate action if you see malicious attempts. 
+          (e.g. a lot of expired messages from the same source -> possible DOS attack (Fill up Prio 2 queue) on the `verify()` step. Especially if they all need 
           different public keys -> The `verify()` step issues a lot of requests which then fill up the primary queue.)
 - Task 6: Write tests for `inbox.go`.
 - Task 7: Implement `engine.go`
@@ -36,26 +36,25 @@
 - Task 10: Write tests for `notification.go`.
 
 
-- Milestone 2: Implement a command line tool called rainsdig which enables you to interact with the RAINS server. It should be similar to dig for DNS
+- Milestone 2: (1 Week) Implement a command line tool called rainsdig which enables you to interact with the RAINS server. It should be similar to dig for DNS
 
 - Task 1: Implement `createQuery()` which builds a query based on the user input
 - Task 2: Implement `sendQuery()` which opens a connection to the server and sends the query. 
 - Task 3: Implement `responseHandler()` which prints the query response in a human readable way to the console.
 
+- Milestone 3: (min. 1 Week) Implement rainspub, which generates signed assertions. Including tests which ensure that rainspub is working correctly.
 
-- Milestone 3: Add the cryptographic part to the RAINS server.
+
+- Milestone 4: (1 Week) Implement a command line tool which interacts with rainspub and allows you to generate and publish signed assertions to a RAINS server.
+
+
+- Milestone 5: (2 Weeks) Add the cryptographic part to the RAINS server.
 
 - Task 1: Implement `verify()`, `reap()` which removes expired entries from cache 1 and the two caches
     - cache 1: contains public zone keys. (Before usage they must be checked for validity!)
     - cache 2: pending query map from identifying public key params to a list of open queries waiting to be verified by this public key. (avoid several equal requests)
 - Task 2: Implement `delegate()` which adds a new element to the cache and verifies the pending queries with the key.
 - Task 3: Write tests for `verify.go`.
-
-
-- Milestone 4: Implement rainspub, which generates signed assertions. Including tests which ensure that rainspub is working correctly.
-
-
-- Milestone 5: Implement a command line tool which interacts with rainspub and allows you to generate and publish signed assertions to a RAINS server.
 
 
 - Milestone 6: Write a monitoring service which based on the logs lets us perform benchmark and performance tests in different production environments.
