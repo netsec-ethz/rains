@@ -5,29 +5,17 @@
 package rainsd
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
-	"strings"
+	"strconv"
 )
 
 const (
-	config = "config"
+	configPath = "config"
 )
-
-//HostAddr contains a value which uniquely identifies a host (Rains Server or Client)
-type HostAddr struct {
-	IPAddr string
-}
-
-//ConnInfo contains all necessary information to uniquely identify a connection
-type ConnInfo struct {
-	Host HostAddr
-	Port string
-}
-
-//CBORMessage encodes a message as a Concise Binary Object Representation (CBOR)
-type CBORMessage []byte
 
 //TODO create cache of RAINS Servers to which this server has an open connection, replacement strategy when full should be configurable
 //create an object with an interface (method) where we can change replacement strategies
@@ -36,18 +24,29 @@ type CBORMessage []byte
 //TODO periodically send heartbeat to all server connections (store ConnInfo of servers in a different cache and look up writer in the active cache)
 
 //SendTo sends the given message to the specified receiver.
-func SendTo(message CBORMessage, receiver ConnInfo) {
+func SendTo(message RainsMessage, receiver ConnInfo) {
 	//TODO look up writer from active cache based on ConnInfo
 	//If no connection found-> create new connection
 	//send message out
 	//TODO log if send was successful or not
+	/*tr := &http.Transport{
+		MaxIdleConns:       10,
+		IdleConnTimeout:    30 * time.Second,
+		DisableCompression: true,
+	}*/
+	server := &http.Server{}
+	log.Fatal(server.ListenAndServeTLS(Config.CertificateFile, Config.PrivateKeyFile))
+
+	conn, err := net.Dial("tcp", "golang.org:80")
+
 }
 
 //listens for incoming connections and calls handler
 func listen() {
 	http.HandleFunc("/", handler)
-	conn := getIPAddrandPort()
-	log.Fatal(http.ListenAndServe(conn.Host.IPAddr+":"+conn.Port, nil))
+	connInfo := getIPAddrandPort()
+	port := strconv.Itoa(int(connInfo.Port))
+	log.Fatal(http.ListenAndServe(connInfo.Host.IPAddr+":"+port, nil))
 }
 
 //handler adds some server connections to the cache (depending on the configuration) and forwards the received message to the inbox
@@ -58,29 +57,19 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 //fetches HostAddr and port number form config file on which this server is listening to
 func getIPAddrandPort() ConnInfo {
-	addr, ok := configs["IPAddr"]
-	if !ok {
-		log.Fatal("IPAddr not in config")
+	if Config.ServerIPAddr == "" || Config.ServerPort == 0 {
+		log.Fatal("Server's IPAddr or port are not in config")
 	}
-	port, ok := configs["port"]
-	if !ok {
-		log.Fatal("port not in config")
-	}
-	host := HostAddr{IPAddr: addr}
-	return ConnInfo{Host: host, Port: port}
+	host := HostAddr{Config.ServerIPAddr}
+	return ConnInfo{Host: host, Port: Config.ServerPort}
 }
 
-var configs map[string]string
-
 //load config and stores it into config map encoded as key,value in each line
+//TODO move this function to a global place
 func loadConfig() {
-	file, err := ioutil.ReadFile(config)
+	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	configs = make(map[string]string)
-	for _, line := range strings.Split(string(file), "\n") {
-		conf := strings.Split(line, ",")
-		configs[conf[0]] = conf[1]
-	}
+	json.Unmarshal(file, &Config)
 }
