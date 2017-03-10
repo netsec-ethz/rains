@@ -1,5 +1,11 @@
 package rainsd
 
+import (
+	"encoding/json"
+	"io/ioutil"
+	"log"
+)
+
 type rainsdConfig struct {
 	ServerIPAddr   string
 	ServerPort     uint
@@ -153,3 +159,25 @@ type Object struct {
 
 //Config contains configurations for this server
 var Config rainsdConfig
+
+//load config and stores it into global variable config
+func loadConfig() {
+	file, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	json.Unmarshal(file, &Config)
+}
+
+/*
+FOR TESTING PURPOSE ONLY
+*/
+
+//UShortAssertion is an unsigned short assertion
+type UShortAssertion string
+
+//ShortAssertion is an signed short assertion
+type ShortAssertion string
+
+//ShortQuery is a short query
+type ShortQuery string
