@@ -7,6 +7,10 @@ import (
 	"strconv"
 )
 
+const (
+	configPath = "server.conf"
+)
+
 type rainsdConfig struct {
 	ServerIPAddr   string
 	ServerPort     uint
