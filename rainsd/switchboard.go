@@ -7,6 +7,7 @@ package rainsd
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"io/ioutil"
 	"net"
 	"strconv"
 
@@ -16,7 +17,7 @@ import (
 
 	"errors"
 
-	"github.com/golang/groupcache/lru"
+	"github.com/hashicorp/golang-lru"
 	log "github.com/inconshreveable/log15"
 )
 
@@ -47,41 +48,55 @@ y+QQwhgbAkl8kkGwLh5q8TcgFeHzkHcc/nQQdoMRBBnGpjKZ44Egrpg=
 -----END CERTIFICATE-----`
 )
 
-//TODO make an interface such that different cache implementation can be used in the future
-var connCache = lru.New(int(Config.MaxConnections))
-var serverConnInfo = getIPAddrandPort()
+//TODO CFE make an interface such that different cache implementation can be used in the future
+//TODO CFE this uses MPL 2.0 licence, write it ourself (Brian has sample code)
+var connCache *lru.Cache
+var serverConnInfo ConnInfo
 var roots *x509.CertPool
 
 func init() {
-	//TODO remove after we have proper starting procedure
+	//TODO CFE remove after we have proper starting procedure
+	var err error
+	//init config
 	loadConfig()
+	serverConnInfo, err = getIPAddrandPort()
+	if err != nil {
+		log.Error("error", err)
+		panic(err)
+	}
+	//init cache
+	connCache, err = lru.NewWithEvict(int(Config.MaxConnections),
+		func(key interface{}, value interface{}) {
+			if value, ok := value.(net.Conn); ok {
+				value.Close()
+			}
+		})
 	//init certificate
 	roots = x509.NewCertPool()
-	ok := roots.AppendCertsFromPEM([]byte(rootPEM))
+	file, err := ioutil.ReadFile(Config.CertificateFile)
+	if err != nil {
+		log.Error("error", err)
+	}
+	ok := roots.AppendCertsFromPEM(file)
 	if !ok {
 		log.Error("failed to parse root certificate")
 		panic("failed to parse root certificate")
 	}
-	connCache.OnEvicted = func(key lru.Key, value interface{}) {
-		if value, ok := value.(net.Conn); ok {
-			value.Close()
-		}
-	}
 	listen()
 }
 
-//TODO periodically send heartbeat to all server connections (store ConnInfo of servers in a different cache and look up writer in the active cache)
+//TODO CFE periodically send heartbeat to all server connections (store ConnInfo of servers in a different cache and look up writer in the active cache)
 
 //SendTo sends the given message to the specified receiver.
-//TODO replace string with RainsMessage
+//TODO CFE replace string with RainsMessage
 func SendTo(message string, receiver ConnInfo) {
 	sendLog := log.New("Connection info", receiver)
-	conn, ok := connCache.Get(creat4Tuple(receiver, serverConnInfo))
+	conn, ok := connCache.Get(create4Tuple(receiver, serverConnInfo))
 	if ok {
 		//connection is cached
 		if conn, ok := conn.(net.Conn); ok {
 			conn.Write(frame(message))
-			sendLog.Info("Send successful")
+			sendLog.Info("Send successful (cached)")
 		} else {
 			sendLog.Error("Cannot cast cache entry to net.Conn")
 		}
@@ -93,12 +108,13 @@ func SendTo(message string, receiver ConnInfo) {
 			return
 		}
 		conn.Write(frame(message))
-		connCache.Add(creat4Tuple(receiver, serverConnInfo), conn)
-		sendLog.Info("Send successful")
+		connCache.Add(create4Tuple(receiver, serverConnInfo), conn)
+		sendLog.Info("Send successful (new connection)")
 	}
 
 }
 
+//creatConnection establishes a connection based on the type and data of the ConnInfo
 func creatConnection(receiver ConnInfo) (net.Conn, error) {
 	switch receiver.Type {
 	case 1:
@@ -108,7 +124,8 @@ func creatConnection(receiver ConnInfo) (net.Conn, error) {
 	}
 }
 
-func creat4Tuple(client ConnInfo, server ConnInfo) string {
+//create4Tuple returns a string containing the 4 tuple of the connection
+func create4Tuple(client ConnInfo, server ConnInfo) string {
 	sep := "_"
 	switch client.Type {
 	case 1:
@@ -119,13 +136,13 @@ func creat4Tuple(client ConnInfo, server ConnInfo) string {
 	}
 }
 
-//TODO replace string with RainsMessage
+//TODO CFE replace string with RainsMessage
 func frame(message string) []byte {
 	return []byte(message + "\n")
 }
 
 //deframe reads a framed message from r and returns the transformed message
-//TODO replace string with RainsMessage
+//TODO CFE replace string with RainsMessage
 func deframe(frame []byte) string {
 	return string(frame)
 }
@@ -145,6 +162,7 @@ func listen() {
 	listener, err := tls.Listen("tcp", addrAndport, &tls.Config{Certificates: []tls.Certificate{cer}})
 	if err != nil {
 		srvLogger.Error("Listener error on startup", "error", err)
+		return
 	}
 	defer listener.Close()
 	defer srvLogger.Info("Shutdown listener")
@@ -156,30 +174,33 @@ func listen() {
 			continue
 		}
 		connInfo := parseRemoteAddr(conn.RemoteAddr().String())
-		connCache.Add(creat4Tuple(connInfo, serverConnInfo), conn)
+		connCache.Add(create4Tuple(connInfo, serverConnInfo), conn)
 		go handleConnection(conn, connInfo)
 	}
 }
 
+//handleConnection passes all incoming messages to the inbox which processes them.
 func handleConnection(conn net.Conn, client ConnInfo) {
 	scan := bufio.NewScanner(bufio.NewReader(conn))
 	for scan.Scan() {
-		log.Info("Received a message", "conn", conn)
+		log.Info("Received a message", "client", client)
 		msg := deframe(scan.Bytes())
 		Deliver(msg, client)
 	}
 }
 
+//parseRemoteAddr translates an address obtained from net.Conn.RemoteAddr() to the internal representation ConnInfo
 func parseRemoteAddr(s string) ConnInfo {
 	addrAndPort := strings.Split(s, ":")
 	port, _ := strconv.Atoi(addrAndPort[1])
 	return ConnInfo{Type: 1, IPAddr: addrAndPort[0], Port: uint(port)}
 }
 
-//fetches HostAddr and port number form config file on which this server is listening to
-func getIPAddrandPort() ConnInfo {
+//getIPAddrandPort fetches HostAddr and port number from config file on which this server is listening to
+func getIPAddrandPort() (ConnInfo, error) {
 	if Config.ServerIPAddr == "" || Config.ServerPort == 0 {
 		log.Error("Server's IPAddr or port are not in config")
+		return ConnInfo{}, errors.New("Server's IPAddr or port are not in config")
 	}
-	return ConnInfo{Type: 1, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}
+	return ConnInfo{Type: 1, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}, nil
 }
