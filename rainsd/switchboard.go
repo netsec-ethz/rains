@@ -7,8 +7,6 @@ package rainsd
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"io"
-	"log"
 	"net"
 	"strconv"
 
@@ -16,7 +14,10 @@ import (
 
 	"strings"
 
+	"errors"
+
 	"github.com/golang/groupcache/lru"
+	log "github.com/inconshreveable/log15"
 )
 
 const (
@@ -58,9 +59,15 @@ func init() {
 	roots = x509.NewCertPool()
 	ok := roots.AppendCertsFromPEM([]byte(rootPEM))
 	if !ok {
-		log.Fatal("failed to parse root certificate")
+		log.Error("failed to parse root certificate")
+		panic("failed to parse root certificate")
 	}
-	listen()
+	connCache.OnEvicted = func(key lru.Key, value interface{}) {
+		if value, ok := value.(net.Conn); ok {
+			value.Close()
+		}
+	}
+	listenTLS()
 }
 
 //TODO periodically send heartbeat to all server connections (store ConnInfo of servers in a different cache and look up writer in the active cache)
@@ -68,30 +75,48 @@ func init() {
 //SendTo sends the given message to the specified receiver.
 //TODO replace string with RainsMessage
 func SendTo(message string, receiver ConnInfo) {
+	sendLog := log.New("Connection info", receiver)
 	conn, ok := connCache.Get(creat4Tuple(receiver, serverConnInfo))
-	port := strconv.Itoa(int(receiver.Port))
-	if !ok {
-		conn, err := tls.Dial("tcp", receiver.Host.IPAddr+":"+port, &tls.Config{RootCAs: roots})
+	if ok {
+		//connection is cached
+		if conn, ok := conn.(net.Conn); ok {
+			conn.Write(frame(message))
+			sendLog.Info("Send successful")
+		} else {
+			sendLog.Error("Cannot cast cache entry to net.Conn")
+		}
+	} else {
+		//connection is not cached
+		conn, err := creatConnection(receiver)
 		if err != nil {
-			log.Println("Could not connect to" + receiver.Host.IPAddr + ":" + port)
+			sendLog.Warn("Could not establish connection", "error", err)
 			return
 		}
 		conn.Write(frame(message))
 		connCache.Add(creat4Tuple(receiver, serverConnInfo), conn)
-		log.Println("Successfully connect to" + receiver.Host.IPAddr + ":" + port)
-		return
+		sendLog.Info("Send successful")
 	}
-	if conn, ok := conn.(net.Conn); ok {
-		conn.Write(frame(message))
-		log.Println("Successfully connect to" + receiver.Host.IPAddr + ":" + port)
-		return
+
+}
+
+func creatConnection(receiver ConnInfo) (net.Conn, error) {
+	switch receiver.Type {
+	case 1:
+		return tls.Dial("tcp", receiver.IPAddrAndPort(), &tls.Config{RootCAs: roots})
+	default:
+		return nil, errors.New("No matching type found for Connection info")
 	}
-	log.Println("Could not connect to" + receiver.Host.IPAddr + ":" + port)
 }
 
 func creat4Tuple(client ConnInfo, server ConnInfo) string {
 	sep := "_"
-	return client.Host.IPAddr + sep + strconv.Itoa(int(client.Port)) + sep + server.Host.IPAddr + sep + strconv.Itoa(int(server.Port))
+	switch client.Type {
+	case 1:
+		return client.IPAddr + sep + client.PortToString() + sep + server.IPAddr + sep + server.PortToString()
+	default:
+		log.Warn("No matching type found for client ConnInfo")
+		return ""
+	}
 }
 
 //TODO replace string with RainsMessage
@@ -101,60 +126,54 @@ func frame(message string) []byte {
 
 //deframe reads a framed message from r and returns the transformed message
 //TODO replace string with RainsMessage
-func deframe(r io.Reader) string {
-	scanner := bufio.NewScanner(r)
-	scanner.Scan()
-	return scanner.Text()
+func deframe(frame []byte) string {
+	return string(frame)
 }
 
-//listens for incoming connections and calls handler
-func listen() {
-	addrAndport := serverConnInfo.Host.IPAddr + ":" + strconv.Itoa(int(serverConnInfo.Port))
-	log.Println("Start listening on addr and port: " + addrAndport)
+//listens for incoming TLS over TCP connections and calls handler
+func listenTLS() {
+	addrAndport := serverConnInfo.IPAddrAndPort()
+	srvLogger := log.New("addr", addrAndport)
 
+	srvLogger.Info("Start listener")
 	listener, err := tls.Listen("tcp", addrAndport, &tls.Config{RootCAs: roots})
 	if err != nil {
-		log.Fatal("Cannot listen on addr and port:" + addrAndport)
+		srvLogger.Error("Listener error on startup", "error", err)
 	}
 	defer listener.Close()
+	defer srvLogger.Info("Shutdown listener")
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Println(err)
+			srvLogger.Error("error", err)
 			continue
 		}
-
-		connCache.Add(creat4Tuple(parseRemoteAddr(conn.RemoteAddr().String()), serverConnInfo), conn)
-		//TODO close connection if it gets removed. -> onevicted
-		go handleConnection(conn)
+		connInfo := parseRemoteAddr(conn.RemoteAddr().String())
+		connCache.Add(creat4Tuple(connInfo, serverConnInfo), conn)
+		go handleConnection(conn, connInfo)
 	}
 }
 
-func handleConnection(conn net.Conn) {
-	r := bufio.NewReader(conn)
-	for {
-		msg, err := r.ReadString('\n')
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		Deliver(msg, parseRemoteAddr(conn.RemoteAddr().String()))
+func handleConnection(conn net.Conn, client ConnInfo) {
+	scan := bufio.NewScanner(bufio.NewReader(conn))
+	for scan.Scan() {
+		log.Info("Received a message", "conn", conn)
+		msg := deframe(scan.Bytes())
+		Deliver(msg, client)
 	}
 }
 
 func parseRemoteAddr(s string) ConnInfo {
 	addrAndPort := strings.Split(s, ":")
-	host := HostAddr{addrAndPort[0]}
 	port, _ := strconv.Atoi(addrAndPort[1])
-	return ConnInfo{Host: host, Port: uint(port)}
+	return ConnInfo{Type: 1, IPAddr: addrAndPort[0], Port: uint(port)}
 }
 
 //fetches HostAddr and port number form config file on which this server is listening to
 func getIPAddrandPort() ConnInfo {
 	if Config.ServerIPAddr == "" || Config.ServerPort == 0 {
-		log.Fatal("Server's IPAddr or port are not in config")
+		log.Error("Server's IPAddr or port are not in config")
 	}
-	host := HostAddr{Config.ServerIPAddr}
-	return ConnInfo{Host: host, Port: Config.ServerPort}
+	return ConnInfo{Type: 1, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}
 }

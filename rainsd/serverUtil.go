@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"strconv"
 )
 
 type rainsdConfig struct {
@@ -15,15 +16,22 @@ type rainsdConfig struct {
 	PrivateKeyFile  string
 }
 
-//HostAddr contains a value which uniquely identifies a host (Rains Server or Client)
-type HostAddr struct {
+//ConnInfo contains address information about one actor of a connection of the declared type
+//type 1 contains IPAddr and Port information
+type ConnInfo struct {
+	Type   int
 	IPAddr string
+	Port   uint
 }
 
-//ConnInfo contains all necessary information to uniquely identify a connection
-type ConnInfo struct {
-	Host HostAddr
-	Port uint
+//IPAddrAndPort returns IP address and port in the format IPAddr:Port
+func (c ConnInfo) IPAddrAndPort() string {
+	return c.IPAddr + ":" + c.PortToString()
+}
+
+//PortToString return the port number as a string
+func (c ConnInfo) PortToString() string {
+	return strconv.Itoa(int(c.Port))
 }
 
 //RainsMessage contains the data of a message
