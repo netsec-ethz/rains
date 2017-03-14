@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"strconv"
@@ -63,7 +64,8 @@ func (f newLineFramer) Data() []byte {
 }
 
 func init() {
-	//TODO CFE remove after we have proper starting procedure
+	//TODO CFE remove after we have proper starting procedure.
+	//TODO Do not call panic but instead return error or if we are in main() log error and exit
 	var err error
 	//init config
 	loadConfig()
@@ -137,11 +139,10 @@ func SendTo(message []byte, receiver ConnInfo) {
 func createConnection(receiver ConnInfo) (net.Conn, error) {
 	switch receiver.Type {
 	case TCP:
-		tcp := "tcp"
 		dialer := &net.Dialer{
 			KeepAlive: Config.KeepAlivePeriod,
 		}
-		return tls.DialWithDialer(dialer, tcp, receiver.IPAddrAndPort(), &tls.Config{RootCAs: roots})
+		return tls.DialWithDialer(dialer, "tcp", receiver.IPAddrAndPort(), &tls.Config{RootCAs: roots})
 	default:
 		return nil, errors.New("No matching type found for Connection info")
 	}
@@ -149,10 +150,9 @@ func createConnection(receiver ConnInfo) (net.Conn, error) {
 
 //create4Tuple returns a string containing the 4 tuple of the connection
 func create4Tuple(client ConnInfo, server ConnInfo) string {
-	sep := "_"
 	switch client.Type {
 	case TCP:
-		return client.IPAddr + sep + client.PortToString() + sep + server.IPAddr + sep + server.PortToString()
+		return fmt.Sprintf("%s_%d_%s_%d", client.IPAddr, client.Port, server.IPAddr, server.Port)
 	default:
 		log.Warn("No matching type found for client ConnInfo")
 		return ""
@@ -164,14 +164,14 @@ func listen() {
 	addrAndport := serverConnInfo.IPAddrAndPort()
 	srvLogger := log.New("addr", addrAndport)
 
-	cer, err := tls.LoadX509KeyPair(Config.CertificateFile, Config.PrivateKeyFile)
+	cert, err := tls.LoadX509KeyPair(Config.CertificateFile, Config.PrivateKeyFile)
 	if err != nil {
 		srvLogger.Error("Cannot load certificate", "error", err)
 		return
 	}
 
 	srvLogger.Info("Start listener")
-	listener, err := tls.Listen("tcp", addrAndport, &tls.Config{Certificates: []tls.Certificate{cer}})
+	listener, err := tls.Listen("tcp", addrAndport, &tls.Config{Certificates: []tls.Certificate{cert}})
 	if err != nil {
 		srvLogger.Error("Listener error on startup", "error", err)
 		return
@@ -206,7 +206,7 @@ func handleConnection(conn net.Conn, client ConnInfo) {
 func parseRemoteAddr(s string) ConnInfo {
 	addrAndPort := strings.Split(s, ":")
 	port, _ := strconv.Atoi(addrAndPort[1])
-	return ConnInfo{Type: TCP, IPAddr: addrAndPort[0], Port: uint(port)}
+	return ConnInfo{Type: TCP, IPAddr: addrAndPort[0], Port: uint16(port)}
 }
 
 //getIPAddrandPort fetches HostAddr and port number from config file on which this server is listening to

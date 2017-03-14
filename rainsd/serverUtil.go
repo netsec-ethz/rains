@@ -14,7 +14,7 @@ const (
 
 type rainsdConfig struct {
 	ServerIPAddr    string
-	ServerPort      uint
+	ServerPort      uint16
 	MaxConnections  uint
 	KeepAlivePeriod time.Duration
 	TCPTimeout      time.Duration
@@ -38,7 +38,7 @@ const (
 type ConnInfo struct {
 	Type   ProtocolType
 	IPAddr string
-	Port   uint
+	Port   uint16
 }
 
 //IPAddrAndPort returns IP address and port in the format IPAddr:Port
@@ -58,7 +58,7 @@ var Config rainsdConfig
 func loadConfig() {
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Could not open config file...", "path", configPath, "error", err)
 	}
 	json.Unmarshal(file, &Config)
 }
