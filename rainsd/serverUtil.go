@@ -19,6 +19,9 @@ type rainsdConfig struct {
 	KeepAlivePeriod time.Duration
 	TCPTimeout      time.Duration
 
+	PrioBufferSize   uint
+	NormalBufferSize uint
+
 	CertificateFile string
 	PrivateKeyFile  string
 }
