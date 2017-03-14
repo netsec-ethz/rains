@@ -5,47 +5,18 @@
 package rainsd
 
 import (
+	"bufio"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"io/ioutil"
 	"net"
 	"strconv"
-
-	"bufio"
-
 	"strings"
-
-	"errors"
+	"time"
 
 	"github.com/hashicorp/golang-lru"
 	log "github.com/inconshreveable/log15"
-)
-
-const (
-	rootPEM = `
------BEGIN CERTIFICATE-----
-MIID5TCCAs2gAwIBAgIJAJGmPmx+xCpcMA0GCSqGSIb3DQEBCwUAMIGIMQswCQYD
-VQQGEwJDSDEPMA0GA1UECAwGWnVyaWNoMQ8wDQYDVQQHDAZadXJpY2gxDDAKBgNV
-BAoMA0VUSDEPMA0GA1UECwwGTmV0U2VjMQ8wDQYDVQQDDAZzZXJ2ZXIxJzAlBgkq
-hkiG9w0BCQEWGGZlaGxtYWNoQHN0dWRlbnQuZXRoei5jaDAeFw0xNzAzMTMxMDE3
-MTlaFw0yNzAzMTExMDE3MTlaMIGIMQswCQYDVQQGEwJDSDEPMA0GA1UECAwGWnVy
-aWNoMQ8wDQYDVQQHDAZadXJpY2gxDDAKBgNVBAoMA0VUSDEPMA0GA1UECwwGTmV0
-U2VjMQ8wDQYDVQQDDAZzZXJ2ZXIxJzAlBgkqhkiG9w0BCQEWGGZlaGxtYWNoQHN0
-dWRlbnQuZXRoei5jaDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBANaI
-rGRyjAKsj7Ma1xwXT7vlB1Bstr60GRQr/QKCr3EadhgXfX4u4SlCnoswVV8X8t9v
-Ik8lxozfO/jYrJd/J2YG+cRHlm5dVR2t3cAe+AhhOyMi9tpBcGY9uizeD5sPyGqh
-3ZF4XjqMQyN5N8OANNNCEs87zYfwVDzifR2tYpZdUMKjI0G7WpydSmywKjZq11VE
-8rgd6vOGimLOLZaxS3yA+N2d8L9YAohBAKrhCUaDnqt5Yj092e3QP5hBuyjR+NSd
-vCVX/fAMVMkUSD+QpLR8RYEK8ykHCZzWJaNO6vH41KAyZiE34H4rg05booADnF0B
-gbDY2ClVV/iwYs0KgIkCAwEAAaNQME4wHQYDVR0OBBYEFAkWeBV9SFceJAxe6J/g
-ZeC2fJeZMB8GA1UdIwQYMBaAFAkWeBV9SFceJAxe6J/gZeC2fJeZMAwGA1UdEwQF
-MAMBAf8wDQYJKoZIhvcNAQELBQADggEBAGSKwxsOau6GcQEF7La3aoVba3bRanQh
-/EJVzSc4GECTgonMFnn3PfzOTTG4iL5FPyLZ9Hu3pJXwP7eyHwR9sGYvvepDhwXA
-0syIuR282H06ByXwl8nIQRjRi1agISEZAyp1Y3iEkEjmCE1PUKAK4qzFvSTSdJJv
-tBk5pNPDR/UJwH1kK375cpeFjSH4sw4yIz13fAfrOV2y5n7yN8/dj1pNse7V5vKo
-thj2gY5vhK5JpSdRP5Tiwb6nju/zj8AxxVpWlX3I6PeQ+yCTPPVvIBCd1EiJwYyI
-y+QQwhgbAkl8kkGwLh5q8TcgFeHzkHcc/nQQdoMRBBnGpjKZ44Egrpg=
------END CERTIFICATE-----`
 )
 
 //TODO CFE make an interface such that different cache implementation can be used in the future
@@ -53,6 +24,43 @@ y+QQwhgbAkl8kkGwLh5q8TcgFeHzkHcc/nQQdoMRBBnGpjKZ44Egrpg=
 var connCache *lru.Cache
 var serverConnInfo ConnInfo
 var roots *x509.CertPool
+var framer scanner
+
+//TODO CFE what should the name of this interface be?
+type scanner interface {
+	//Frame takes a message and adds a frame to it
+	Frame(msg []byte) ([]byte, error)
+
+	//Deframe extracts the next frame from a stream.
+	//It blocks until it encounters the delimiter.
+	//It returns false when the stream is closed.
+	//The data is available through Data
+	Deframe() bool
+
+	//Data contains the frame read from the stream by Deframe
+	Data() []byte
+}
+
+type newLineFramer struct {
+	Scanner   *bufio.Scanner
+	firstCall bool
+}
+
+func (f newLineFramer) Frame(msg []byte) ([]byte, error) {
+	return append(msg, "\n"...), nil
+}
+
+func (f *newLineFramer) Deframe() bool {
+	if f.firstCall {
+		f.Scanner.Split(bufio.ScanLines)
+		f.firstCall = false
+	}
+	return f.Scanner.Scan()
+}
+
+func (f newLineFramer) Data() []byte {
+	return f.Scanner.Bytes()
+}
 
 func init() {
 	//TODO CFE remove after we have proper starting procedure
@@ -82,43 +90,58 @@ func init() {
 		log.Error("failed to parse root certificate")
 		panic("failed to parse root certificate")
 	}
+	//init framer
+	framer = &newLineFramer{}
 	listen()
 }
 
-//TODO CFE periodically send heartbeat to all server connections (store ConnInfo of servers in a different cache and look up writer in the active cache)
-
 //SendTo sends the given message to the specified receiver.
 //TODO CFE replace string with RainsMessage
-func SendTo(message string, receiver ConnInfo) {
+func SendTo(message []byte, receiver ConnInfo) {
 	sendLog := log.New("Connection info", receiver)
 	conn, ok := connCache.Get(create4Tuple(receiver, serverConnInfo))
 	if ok {
 		//connection is cached
 		if conn, ok := conn.(net.Conn); ok {
-			conn.Write(frame(message))
+			frame, err := framer.Frame(message)
+			if err != nil {
+				log.Error("Error", err)
+				return
+			}
+			conn.Write(frame)
+			connCache.Add(create4Tuple(receiver, serverConnInfo), conn)
 			sendLog.Info("Send successful (cached)")
 		} else {
 			sendLog.Error("Cannot cast cache entry to net.Conn")
 		}
 	} else {
 		//connection is not cached
-		conn, err := creatConnection(receiver)
+		conn, err := createConnection(receiver)
 		if err != nil {
 			sendLog.Warn("Could not establish connection", "error", err)
 			return
 		}
-		conn.Write(frame(message))
+		frame, err := framer.Frame(message)
+		if err != nil {
+			log.Error("Error", err)
+			return
+		}
+		conn.Write(frame)
 		connCache.Add(create4Tuple(receiver, serverConnInfo), conn)
 		sendLog.Info("Send successful (new connection)")
 	}
 
 }
 
-//creatConnection establishes a connection based on the type and data of the ConnInfo
-func creatConnection(receiver ConnInfo) (net.Conn, error) {
+//createConnection establishes a connection based on the type and data of the ConnInfo
+func createConnection(receiver ConnInfo) (net.Conn, error) {
 	switch receiver.Type {
-	case 1:
-		return tls.Dial("tcp", receiver.IPAddrAndPort(), &tls.Config{RootCAs: roots})
+	case TCP:
+		tcp := "tcp"
+		dialer := &net.Dialer{
+			KeepAlive: Config.KeepAlivePeriod,
+		}
+		return tls.DialWithDialer(dialer, tcp, receiver.IPAddrAndPort(), &tls.Config{RootCAs: roots})
 	default:
 		return nil, errors.New("No matching type found for Connection info")
 	}
@@ -128,23 +151,12 @@ func creatConnection(receiver ConnInfo) (net.Conn, error) {
 func create4Tuple(client ConnInfo, server ConnInfo) string {
 	sep := "_"
 	switch client.Type {
-	case 1:
+	case TCP:
 		return client.IPAddr + sep + client.PortToString() + sep + server.IPAddr + sep + server.PortToString()
 	default:
 		log.Warn("No matching type found for client ConnInfo")
 		return ""
 	}
-}
-
-//TODO CFE replace string with RainsMessage
-func frame(message string) []byte {
-	return []byte(message + "\n")
-}
-
-//deframe reads a framed message from r and returns the transformed message
-//TODO CFE replace string with RainsMessage
-func deframe(frame []byte) string {
-	return string(frame)
 }
 
 //listens for incoming TLS over TCP connections and calls handler
@@ -181,11 +193,12 @@ func listen() {
 
 //handleConnection passes all incoming messages to the inbox which processes them.
 func handleConnection(conn net.Conn, client ConnInfo) {
-	scan := bufio.NewScanner(bufio.NewReader(conn))
-	for scan.Scan() {
+	//TODO CFE replace newLineFramer when we have a CBOR framer!
+	scan := newLineFramer{Scanner: bufio.NewScanner(bufio.NewReader(conn)), firstCall: true}
+	for scan.Deframe() {
 		log.Info("Received a message", "client", client)
-		msg := deframe(scan.Bytes())
-		Deliver(msg, client)
+		Deliver(scan.Data(), client)
+		conn.SetDeadline(time.Now().Add(Config.TCPTimeout))
 	}
 }
 
@@ -193,7 +206,7 @@ func handleConnection(conn net.Conn, client ConnInfo) {
 func parseRemoteAddr(s string) ConnInfo {
 	addrAndPort := strings.Split(s, ":")
 	port, _ := strconv.Atoi(addrAndPort[1])
-	return ConnInfo{Type: 1, IPAddr: addrAndPort[0], Port: uint(port)}
+	return ConnInfo{Type: TCP, IPAddr: addrAndPort[0], Port: uint(port)}
 }
 
 //getIPAddrandPort fetches HostAddr and port number from config file on which this server is listening to
@@ -202,5 +215,5 @@ func getIPAddrandPort() (ConnInfo, error) {
 		log.Error("Server's IPAddr or port are not in config")
 		return ConnInfo{}, errors.New("Server's IPAddr or port are not in config")
 	}
-	return ConnInfo{Type: 1, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}, nil
+	return ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}, nil
 }
