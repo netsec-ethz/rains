@@ -2,7 +2,7 @@
 
 # RAINS Zonefile Compiler
 # Turns RAINS zonefiles into CBOR, and vice versa
-# Prototype/testing; to be incorporated into RAINSD
+# Prototype/testing. Under current development.
 
 # NOTE: this implements zonefile declarations in zone-context order, the
 # design document (which is normative) uses context-zone order. Change this
@@ -21,7 +21,6 @@ K_SUBJECT_ZONE   = 4
 K_QUERY_NAME     = 5 
 K_CONTEXT        = 6 
 K_OBJECTS        = 7 
-K_QUERY_CONTEXTS = 8
 K_QUERY_TYPES    = 9
 K_QUERY_OPTS     = 10
 K_SHARD_RANGE    = 11
@@ -49,7 +48,9 @@ SEC_ZONE          = 3
 SEC_QUERY         = 4 
 SEC_NOTIFICATION  = 23
 
-ALGORITHMS = { "ECDSA256" : 2,
+ALGORITHMS = { "ed25519"  : 0,
+               "ed448"    : 1,
+               "ECDSA256" : 2,
                "ECDSA384" : 3}
 
 Token = namedtuple("Token", ["t", "v", "p"])
@@ -150,7 +151,7 @@ def section(ts):
     else:
         raise ValueError("expected :Z:, :S:, or :A: at "+str(ts[0].p[0]))
 
-def zone(ts, zone_name, context_name):
+def zone(ts, context_name, zone_name):
     out = { K_SUBJECT_ZONE:    zone_name,
             K_CONTEXT:      context_name,
             K_CONTENT:      [] }
@@ -160,10 +161,10 @@ def zone(ts, zone_name, context_name):
     # eat content
     while ts[0].t != "]":
         if ts[0].t == ":S:":
-            s, ts = shard(ts[1:], zone_name, context_name, False)
+            s, ts = shard(ts[1:], context_name, zone_name, False)
             out[K_CONTENT].append(s)
         elif ts[0].t == ":A:":
-            a, ts = assertion(ts[1:], zone_name, context_name, False)
+            a, ts = assertion(ts[1:], context_name, zone_name, False)
             out[K_CONTENT].append(a)
         else:
             raise ValueError("expected :S:, :A:, or ] at "+str(ts[0].p[0]))
@@ -174,7 +175,7 @@ def zone(ts, zone_name, context_name):
 
     return out, ts
 
-def shard(ts, zone_name, context_name, is_section):
+def shard(ts, context_name, zone_name, is_section):
     out = { K_SUBJECT_ZONE:    zone_name,
             K_CONTEXT:      context_name,
             K_CONTENT:      [],
@@ -206,7 +207,7 @@ def shard(ts, zone_name, context_name, is_section):
     # eat content
     while ts[0].t != "]":
         if ts[0].t == ":A:":
-            a, ts = assertion(ts[1:], zone_name, context_name, False)
+            a, ts = assertion(ts[1:], context_name, zone_name, False)
             out[K_CONTENT].append(a)
         else:
             raise ValueError("expected :A: or ] at "+str(ts[0].p[0]))
@@ -226,7 +227,7 @@ def shard(ts, zone_name, context_name, is_section):
 
     return out, ts
 
-def assertion(ts, zone_name, context_name, is_section):
+def assertion(ts, context_name, zone_name, is_section):
     out = { K_SUBJECT_ZONE:    zone_name,
             K_CONTEXT:      context_name,
             K_OBJECTS:      [] }
@@ -377,7 +378,7 @@ def signature(ts):
 
 
 test_zone_1 = """
-:Z: example.com . [
+:Z: . example.com [
     :S: [
         :A: _smtp._tcp [ :srv: mx 25 10 ]
         :A: foobaz [
