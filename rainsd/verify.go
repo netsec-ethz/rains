@@ -1,6 +1,6 @@
 package rainsd
 
-type cipherSuit string
+type cipherSuite string
 type publicKey []byte
 
 //zoneKeyCache contains a set of zone public keys
@@ -18,7 +18,7 @@ func Verify(msg string) string {
 
 //Delegate adds the given public key to the zoneKeyCache
 //TODO CFE implement
-func Delegate(context string, zone string, cipher cipherSuit, key publicKey, until int) {
+func Delegate(context string, zone string, cipher cipherSuite, key publicKey, until int) {
 
 }
 
