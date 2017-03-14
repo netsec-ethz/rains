@@ -11,11 +11,11 @@ func init() {
 
 //Deliver handles all incoming messages. It verifies the signatures on the message, parses the query options,
 //check expiration date and if it is valid sends it on to the engine which then processes the message.
-func Deliver(msg string, sender ConnInfo) {
+func Deliver(msg []byte, sender ConnInfo) {
 	//TODO check if self issued query
 	//TODO CFE push to correct queue
 
-	SendTo("new message", sender)
+	SendTo([]byte("new message"), sender)
 }
 
 func queueWorker() {
