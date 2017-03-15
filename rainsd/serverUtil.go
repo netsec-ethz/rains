@@ -12,6 +12,7 @@ const (
 	configPath = "config/server.conf"
 )
 
+//rainsdConfig lists possible configurations of a rains server
 type rainsdConfig struct {
 	ServerIPAddr    string
 	ServerPort      uint16
@@ -19,9 +20,18 @@ type rainsdConfig struct {
 	KeepAlivePeriod time.Duration
 	TCPTimeout      time.Duration
 
+	PrioBufferSize   uint
+	NormalBufferSize uint
+	PrioWorkerSize   uint
+	NormalWorkerSize uint
+
 	CertificateFile string
 	PrivateKeyFile  string
 }
+
+//DefaultConfig is a rainsdConfig object containing default values
+var defaultConfig = rainsdConfig{ServerIPAddr: "127.0.0.1", ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriod: time.Minute, TCPTimeout: 5 * time.Minute,
+	PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerSize: 2, NormalWorkerSize: 10, CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key"}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int
@@ -36,6 +46,12 @@ type ConnInfo struct {
 	Type   ProtocolType
 	IPAddr string
 	Port   uint16
+}
+
+//MsgSender contains the message and connection infos about the sender
+type MsgSender struct {
+	Sender ConnInfo
+	Msg    []byte
 }
 
 //IPAddrAndPort returns IP address and port in the format IPAddr:Port

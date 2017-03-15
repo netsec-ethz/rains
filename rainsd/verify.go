@@ -1,5 +1,9 @@
 package rainsd
 
+import (
+	log "github.com/inconshreveable/log15"
+)
+
 type cipherSuite string
 type publicKey []byte
 
@@ -12,8 +16,13 @@ var queryCache map[string][]string
 
 //Verify verifies an assertion and strips away all signatures that do not verify. if no signatures remain, returns nil.
 //TODO CFE implement properly, be able to process assertions, shard and zones!
-func Verify(msg string) string {
-	return msg
+func Verify(msgSender MsgSender) {
+	//TODO CFE check sig
+	//TODO CFE parse query options
+	//TODO CFE check expiration date
+	//TODO CFE forward packet
+	log.Warn("Good!")
+	SendTo(msgSender.Msg, msgSender.Sender)
 }
 
 //Delegate adds the given public key to the zoneKeyCache
