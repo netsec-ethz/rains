@@ -48,6 +48,12 @@ type ConnInfo struct {
 	Port   uint16
 }
 
+//MsgSender contains the message and connection infos about the sender
+type MsgSender struct {
+	Sender ConnInfo
+	Msg    []byte
+}
+
 //IPAddrAndPort returns IP address and port in the format IPAddr:Port
 func (c ConnInfo) IPAddrAndPort() string {
 	return c.IPAddr + ":" + c.PortToString()

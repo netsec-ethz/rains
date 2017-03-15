@@ -2,21 +2,21 @@ package rainsd
 
 import (
 	"strings"
-
 	"time"
 
 	log "github.com/inconshreveable/log15"
 )
 
-//there is always at least one worker actively working on this channel
-var prioChannel chan []byte
-var normalChannel chan []byte
+//incoming messages are buffered in one of these channels until they get processed by a worker go routine
+var prioChannel chan MsgSender
+var normalChannel chan MsgSender
 
 //activeTokens contains tokens created by this server (indicate self issued queries)
-//TODO create a mechanism such that this map does not grow too much in case of an attack. Have a counter (Buffered channel) and block in verify step if too many queries open
+//TODO create a mechanism such that this map does not grow too much in case of an attack.
+//Have a counter (Buffered channel) and block in verify step if too many queries open
 var activeTokens = make(map[[32]byte]bool)
 
-//utility only used for testing purposes
+//TODO CFE remove later: utility only used for testing purposes
 func addToken(s string) {
 	if len(s) > 32 {
 		s = s[:32]
@@ -27,10 +27,10 @@ func addToken(s string) {
 }
 
 func init() {
-	//TODO CFE initialize both queues and the token cache
+	//TODO CFE remove after we have proper starting procedure.
 	loadConfig()
-	prioChannel = make(chan []byte, Config.PrioBufferSize)
-	normalChannel = make(chan []byte, Config.NormalBufferSize)
+	prioChannel = make(chan MsgSender, Config.PrioBufferSize)
+	normalChannel = make(chan MsgSender, Config.NormalBufferSize)
 	createWorker()
 }
 
@@ -54,27 +54,26 @@ func Deliver(message []byte, sender ConnInfo) {
 		copy(token[0:len(tok)], []byte(tok))
 		if _, ok := activeTokens[token]; ok {
 			log.Info("active Token encountered", "Token", token)
-			prioChannel <- message
+			prioChannel <- MsgSender{Sender: sender, Msg: message}
 		} else {
 			log.Info("token not in active token cache", "Token", token)
-			normalChannel <- message
+			normalChannel <- MsgSender{Sender: sender, Msg: message}
 		}
 	case ":Q:":
 		log.Info("Received query", "msg", message)
-		normalChannel <- message
+		normalChannel <- MsgSender{Sender: sender, Msg: message}
 	case ":N:":
 		log.Info("Received notification", "msg", message)
 		//TODO CFE should we handle notifications in a separate buffer as we do not expect a lot of them and in case of
 		//Capability hash not understood or Message too large we instantly want to resend it to reduce query latency.
-		prioChannel <- message
+		prioChannel <- MsgSender{Sender: sender, Msg: message}
 	default:
 		log.Warn("Unknown message type")
 	}
-
-	//TODO CFE remove after next step is done
-	SendTo([]byte("new message"), sender)
 }
 
+//createWorker creates go routines which process messages from the prioChannel and normalChannel.
+//number of go routines per queue are loaded from the config
 func createWorker() {
 	prio := Config.PrioWorkerSize
 	normal := Config.NormalWorkerSize
@@ -84,10 +83,10 @@ func createWorker() {
 		normal = defaultConfig.NormalWorkerSize
 	}
 	for i := 0; i < int(prio); i++ {
-		workPrio()
+		go workPrio()
 	}
 	for i := 0; i < int(normal); i++ {
-		workBoth()
+		go workBoth()
 	}
 }
 
@@ -116,11 +115,13 @@ func workBoth() {
 
 //workPrio only works on prioChannel. This is necessary to avoid deadlock
 func workPrio() {
-	select {
-	case msg := <-prioChannel:
-		Verify(msg)
-	default:
-		//TODO CFE add to config?
-		time.Sleep(50 * time.Millisecond)
+	for {
+		select {
+		case msg := <-prioChannel:
+			Verify(msg)
+		default:
+			//TODO CFE add to config?
+			time.Sleep(50 * time.Millisecond)
+		}
 	}
 }
