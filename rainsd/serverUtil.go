@@ -12,6 +12,7 @@ const (
 	configPath = "config/server.conf"
 )
 
+//rainsdConfig lists possible configurations of a rains server
 type rainsdConfig struct {
 	ServerIPAddr    string
 	ServerPort      uint16
@@ -25,6 +26,10 @@ type rainsdConfig struct {
 	CertificateFile string
 	PrivateKeyFile  string
 }
+
+//DefaultConfig is a rainsdConfig object containing default values
+var defaultConfig = rainsdConfig{ServerIPAddr: "127.0.0.1", ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriod: time.Minute, TCPTimeout: 5 * time.Minute,
+	PrioBufferSize: 1000, NormalBufferSize: 100000, CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key"}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int
