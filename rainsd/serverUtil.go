@@ -22,6 +22,8 @@ type rainsdConfig struct {
 
 	PrioBufferSize   uint
 	NormalBufferSize uint
+	PrioWorkerSize   uint
+	NormalWorkerSize uint
 
 	CertificateFile string
 	PrivateKeyFile  string
@@ -29,7 +31,7 @@ type rainsdConfig struct {
 
 //DefaultConfig is a rainsdConfig object containing default values
 var defaultConfig = rainsdConfig{ServerIPAddr: "127.0.0.1", ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriod: time.Minute, TCPTimeout: 5 * time.Minute,
-	PrioBufferSize: 1000, NormalBufferSize: 100000, CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key"}
+	PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerSize: 2, NormalWorkerSize: 10, CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key"}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int
