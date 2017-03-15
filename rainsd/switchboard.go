@@ -81,6 +81,10 @@ func init() {
 				value.Close()
 			}
 		})
+	if err != nil {
+		log.Error("Cannot create connCache", "error", err)
+		panic(err)
+	}
 	//init certificate
 	roots = x509.NewCertPool()
 	file, err := ioutil.ReadFile(Config.CertificateFile)
@@ -166,8 +170,12 @@ func listen() {
 
 	cert, err := tls.LoadX509KeyPair(Config.CertificateFile, Config.PrivateKeyFile)
 	if err != nil {
-		srvLogger.Error("Cannot load certificate", "error", err)
-		return
+		srvLogger.Warn("Path to CertificateFile or privateKeyFile might be invalid. Default values are used", "CertPath", Config.CertificateFile, "KeyPath", Config.PrivateKeyFile)
+		cert, err = tls.LoadX509KeyPair(defaultConfig.CertificateFile, defaultConfig.PrivateKeyFile)
+		if err != nil {
+			srvLogger.Error("Cannot load certificate", "error", err)
+			return
+		}
 	}
 
 	srvLogger.Info("Start listener")
@@ -212,8 +220,8 @@ func parseRemoteAddr(s string) ConnInfo {
 //getIPAddrandPort fetches HostAddr and port number from config file on which this server is listening to
 func getIPAddrandPort() (ConnInfo, error) {
 	if Config.ServerIPAddr == "" || Config.ServerPort == 0 {
-		log.Error("Server's IPAddr or port are not in config")
-		return ConnInfo{}, errors.New("Server's IPAddr or port are not in config")
+		log.Warn("Server's IPAddr or port are not in config")
+		return ConnInfo{Type: TCP, IPAddr: defaultConfig.ServerIPAddr, Port: defaultConfig.ServerPort}, nil
 	}
 	return ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}, nil
 }
