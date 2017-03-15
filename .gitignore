@@ -7,6 +7,9 @@
 _obj
 _test
 
+#Files
+/questions.md
+
 # Architecture specific extensions/prefixes
 *.[568vq]
 [568vq].out
@@ -22,3 +25,7 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+#Key, cert
+*.crt
+*.key
