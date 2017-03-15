@@ -81,6 +81,10 @@ func init() {
 				value.Close()
 			}
 		})
+	if err != nil {
+		log.Error("Cannot create connCache", "error", err)
+		panic(err)
+	}
 	//init certificate
 	roots = x509.NewCertPool()
 	file, err := ioutil.ReadFile(Config.CertificateFile)
