@@ -3,33 +3,25 @@ package rainsd
 import (
 	"strings"
 
-	"crypto/sha256"
-	"strconv"
+	"rains/rainslib"
 
 	"github.com/hashicorp/golang-lru"
 	log "github.com/inconshreveable/log15"
 )
 
-//CipherType is the type of a cipher
-type CipherType int
-
-const (
-	Sha256 CipherType = iota
-)
-
 type publicKey struct {
-	Type       CipherType
+	Type       rainslib.CipherType
 	Key        []byte
 	ValidUntil uint
 }
 
-//zoneKeyCache contains a set of zone public keys
+//zoneKeys contains a set of zone public keys
 //TODO CFE make an interface such that different cache implementation can be used in the future -> same as switchboard
 var zoneKeys *lru.Cache
 
-//queryCache contains a mapping from all self issued active queries to the set of go routines waiting for it.
+//pendingSignatures contains a mapping from all self issued pending queries to the set of messages waiting for it.
 //TODO CFE make an interface such that different cache implementation can be used in the future -> same as switchboard
-var activeQueries *lru.Cache
+var pendingSignatures *lru.Cache
 
 func init() {
 	var err error
@@ -40,9 +32,9 @@ func init() {
 		log.Error("Cannot create zoneKeyCache", "error", err)
 		panic(err)
 	}
-	activeQueries, err = lru.New(int(Config.ActiveQueryCacheSize))
+	pendingSignatures, err = lru.New(int(Config.PendingSignatureCacheSize))
 	if err != nil {
-		log.Error("Cannot create activeQueryCache", "error", err)
+		log.Error("Cannot create pendingSignatureCache", "error", err)
 		panic(err)
 	}
 }
@@ -50,16 +42,20 @@ func init() {
 //Verify verifies an assertion and strips away all signatures that do not verify. if no signatures remain, returns nil.
 //TODO CFE implement properly, be able to process assertions, shard and zones!
 func Verify(msgSender MsgSender) {
+	v := msgSender.Msg.Content[0]
+	if v, ok := v.(rainslib.NotificationBody); ok {
+		Notify(v, msgSender.Sender)
+	}
 	verifySignature(msgSender)
 	//TODO CFE parse query options
 	//TODO CFE check expiration date
 	//TODO CFE forward packet
 	log.Warn("Good!")
-	SendTo(msgSender.Msg, msgSender.Sender)
+	SendTo([]byte("Test"), msgSender.Sender)
 }
 
 func verifySignature(msgSender MsgSender) {
-	context := getValue(msgSender.Msg, ":cz:", ":zn:")
+	/*context := getValue(msgSender.Msg, ":cz:", ":zn:")
 	zone := getValue(msgSender.Msg, ":zn:", ":sn:")
 	if _, ok := zoneKeys.Get(context + zone); ok {
 		//TODO CFE distinguish between assertions, shards and zones
@@ -84,7 +80,7 @@ func verifySignature(msgSender MsgSender) {
 		}
 
 	} else {
-		if activeQueries.Contains(context + zone) {
+		if pendingSignatures.Contains(context + zone) {
 			//add msgSender to list in a concurrancy safe way!
 		} else {
 			//TODO CFE create Query
@@ -94,9 +90,9 @@ func verifySignature(msgSender MsgSender) {
 			connInfo := ConnInfo{Type: TCP, IPAddr: "127.0.0.1", Port: 5021}
 			SendTo([]byte(query), connInfo)
 			//add msgSender to list in a concurrancy safe way!
-			activeQueries.Add(context+zone, msgSender)
+			pendingSignatures.Add(context+zone, msgSender)
 		}
-	}
+	}*/
 }
 
 func getValue(message []byte, startToken string, endToken string) string {
@@ -111,7 +107,7 @@ func getValue(message []byte, startToken string, endToken string) string {
 }
 
 //Delegate adds the given public key to the zoneKeyCache
-func Delegate(context string, zone string, cipherType CipherType, key []byte, until uint) {
+func Delegate(context string, zone string, cipherType rainslib.CipherType, key []byte, until uint) {
 	pubKey := publicKey{Type: cipherType, Key: key, ValidUntil: until}
 	zoneKeys.Add(context+zone, pubKey)
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"rains/rainslib"
 	"strconv"
 	"time"
 )
@@ -30,14 +31,21 @@ type rainsdConfig struct {
 	NormalWorkerSize uint
 
 	//verify
-	ZoneKeyCacheSize     uint
-	ActiveQueryCacheSize uint
+	ZoneKeyCacheSize          uint
+	PendingSignatureCacheSize uint
+
+	//engine
+	AssertionCacheSize    uint
+	PendingQueryCacheSize uint
+
+	//notification
+	CapabilitiesCacheSize uint
 }
 
 //DefaultConfig is a rainsdConfig object containing default values
 var defaultConfig = rainsdConfig{ServerIPAddr: "127.0.0.1", ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriod: time.Minute, TCPTimeout: 5 * time.Minute,
 	CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key", PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerSize: 2, NormalWorkerSize: 10,
-	ZoneKeyCacheSize: 1000, ActiveQueryCacheSize: 1000}
+	ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 100}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int
@@ -57,7 +65,7 @@ type ConnInfo struct {
 //MsgSender contains the message and connection infos about the sender
 type MsgSender struct {
 	Sender ConnInfo
-	Msg    []byte
+	Msg    rainslib.RainsMessage
 }
 
 //IPAddrAndPort returns IP address and port in the format IPAddr:Port
