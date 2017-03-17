@@ -166,15 +166,12 @@ type Object struct {
 	Value interface{}
 }
 
-/*
-FOR TESTING PURPOSE ONLY
-*/
+//RainsMsgParser translates between byte slices and RainsMessage.
+//It must always hold that: rainsMsg = ParseByteSlice(ParseRainsMsg(rainsMsg)) && byteMsg = ParseRainsMsg(ParseByteSlice(byteMsg))
+type RainsMsgParser interface {
+	//ParseByteSlice parses the byte slice to a RainsMessage.
+	ParseByteSlice(msg []byte) (RainsMessage, error)
 
-//UShortAssertion is an unsigned short assertion
-type UShortAssertion string
-
-//ShortAssertion is an signed short assertion
-type ShortAssertion string
-
-//ShortQuery is a short query
-type ShortQuery string
+	//ParseRainsMsg parses a RainsMessage to a byte slice representation.
+	ParseRainsMsg(msg RainsMessage) ([]byte, error)
+}

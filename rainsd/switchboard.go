@@ -16,13 +16,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/golang-lru"
 	log "github.com/inconshreveable/log15"
 )
 
-//TODO CFE make an interface such that different cache implementation can be used in the future
 //TODO CFE this uses MPL 2.0 licence, write it ourself (Brian has sample code)
-var connCache *lru.Cache
+var connCache Cache
 var serverConnInfo ConnInfo
 var roots *x509.CertPool
 var framer scanner
@@ -75,12 +73,13 @@ func init() {
 		panic(err)
 	}
 	//init cache
-	connCache, err = lru.NewWithEvict(int(Config.MaxConnections),
+	connCache = &LRUCache{}
+	err = connCache.NewWithEvict(
 		func(key interface{}, value interface{}) {
 			if value, ok := value.(net.Conn); ok {
 				value.Close()
 			}
-		})
+		}, int(Config.MaxConnections))
 	if err != nil {
 		log.Error("Cannot create connCache", "error", err)
 		panic(err)

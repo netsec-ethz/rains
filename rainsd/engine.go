@@ -3,21 +3,18 @@ package rainsd
 import (
 	"rains/rainslib"
 
-	lru "github.com/hashicorp/golang-lru"
 	log "github.com/inconshreveable/log15"
 )
 
 //assertionCache contains a set of assertions
-//TODO CFE make an interface such that different cache implementation can be used in the future -> same as switchboard
-var assertionCache *lru.Cache
+var assertionCache Cache
 
 //pendinQueries contains a mapping from all self issued pending queries to the set of go routines waiting for it.
-//TODO CFE make an interface such that different cache implementation can be used in the future -> same as switchboard
-var pendinQueries *lru.Cache
+var pendinQueries Cache
 
 func init() {
 	loadConfig()
-
+	//TODO CFE init cache
 }
 
 //AssertA adds an assertion to the assertion cache. Triggers any pending queries answered by it.

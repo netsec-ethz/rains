@@ -7,6 +7,8 @@ import (
 	"rains/rainslib"
 	"strconv"
 	"time"
+
+	lru "github.com/hashicorp/golang-lru"
 )
 
 const (
@@ -88,4 +90,73 @@ func loadConfig() {
 		log.Fatal("Could not open config file...", "path", configPath, "error", err)
 	}
 	json.Unmarshal(file, &Config)
+}
+
+//Cache implementations can have different replacement strategies
+type Cache interface {
+	//New creates a cache with the given parameters
+	New(params ...interface{}) error
+	//NewWithEvict creates a cache with the given parameters and a callback function when an element gets evicted
+	NewWithEvict(onEvicted func(key interface{}, value interface{}), params ...interface{}) error
+	//Add adds a value to the cache. If the cache is full the oldest element according to some metric will be replaced. Returns true if an eviction occurred.
+	Add(key, value interface{}) bool
+	//Contains checks if a key is in the cache, without updating the recentness or deleting it for being stale.
+	Contains(key interface{}) bool
+	//Get returns the key's value from the cache. The boolean value is false if there exist no element with the given key in the cache
+	Get(key interface{}) (interface{}, bool)
+	//Len returns the number of elements in the cache.
+	Len() int
+	//Remove deletes the given key value pair from the cache
+	Remove(key interface{})
+	//RemoveOldest deletes the given key value pair from the cache according to some metric
+	RemoveOldest()
+}
+
+//LRUCache is a concurrency safe cache with a least recently used eviction strategy
+type LRUCache struct {
+	Cache *lru.Cache
+}
+
+//New creates a lru cache with the given parameters
+func (c *LRUCache) New(params ...interface{}) error {
+	var err error
+	c.Cache, err = lru.New(params[0].(int))
+	return err
+}
+
+//NewWithEvict creates a lru cache with the given parameters and an eviction callback function
+func (c *LRUCache) NewWithEvict(onEvicted func(key interface{}, value interface{}), params ...interface{}) error {
+	var err error
+	c.Cache, err = lru.NewWithEvict(params[0].(int), onEvicted)
+	return err
+}
+
+//Add adds a value to the cache. If the cache is full the least recently used element will be replaced. Returns true if an eviction occurred.
+func (c *LRUCache) Add(key, value interface{}) bool {
+	return c.Cache.Add(key, value)
+}
+
+//Contains checks if a key is in the cache, without updating the recentness or deleting it for being stale.
+func (c *LRUCache) Contains(key interface{}) bool {
+	return c.Cache.Contains(key)
+}
+
+//Get returns the key's value from the cache. The boolean value is false if there exist no element with the given key in the cache
+func (c *LRUCache) Get(key interface{}) (interface{}, bool) {
+	return c.Cache.Get(key)
+}
+
+//Len returns the number of elements in the cache.
+func (c *LRUCache) Len() int {
+	return c.Cache.Len()
+}
+
+//Remove deletes the given key value pair from the cache
+func (c *LRUCache) Remove(key interface{}) {
+	c.Cache.Remove(key)
+}
+
+//RemoveOldest deletes the least recently used key value pair from the cache
+func (c *LRUCache) RemoveOldest() {
+	c.Cache.RemoveOldest()
 }
