@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"fmt"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -19,7 +21,7 @@ type RainsMsgParser struct{}
 //simple Signed Assertion: :SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>:OT:<object type>:OD:<object data>[signature*]
 //simple Signed Shard: :SS::CN:<context-name>:ZN:<zone-name>:RB:<range-begin>:RE:<range-end>[Contained Assertion*][signature*]
 //simple Query: :QU::VU:<valid-until>:CN:<context-name>:SN:<subject-name>:OT:<objtype>
-//simple Notification: :NO:TN:<token this notification refers to>:NT:<type>:ND:<data>
+//simple Notification: :NO::TN:<token this notification refers to>:NT:<type>:ND:<data>
 //signature: :VF:<valid-from>:VU:<valid-until>:KA:<key-algorithm>:SD:<signature-data>
 //NOT YET SUPPORTED
 //simple Contained Assertion: :CA::SN:<subject-name>:OT:<object type>:OD:<object data>
@@ -50,9 +52,65 @@ func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, e
 	return rainslib.RainsMessage{Token: token, Content: msgBodies, Signatures: signatures, Capabilities: capabilities}, nil
 }
 
-//ParseRainsMsg parses a RainsMessage to a byte slice representation according to the above specified formats:.
-func (p RainsMsgParser) ParseRainsMsg(msg rainslib.RainsMessage) ([]byte, error) {
-	return []byte{}, nil
+//ParseRainsMsg parses a RainsMessage to a byte slice representation with format:
+//<token>[MessageBody][signatures*]:cap:<capabilities>
+func (p RainsMsgParser) ParseRainsMsg(m rainslib.RainsMessage) ([]byte, error) {
+	msg := string(m.Token) + "["
+	for _, body := range m.Content {
+		switch body := body.(type) {
+		case rainslib.AssertionBody:
+			msg += revParseSignedAssertion(body)
+		case rainslib.ShardBody:
+			msg += revParseSignedShard(body)
+		case rainslib.QueryBody:
+			msg += revParseQuery(body)
+		case rainslib.NotificationBody:
+			msg += revParseNotification(body)
+		default:
+			log.Warn("Unknown message section body type", "type", body)
+			return []byte{}, errors.New("Unknown message section body type")
+		}
+	}
+	return []byte(fmt.Sprintf("%s][%s]:cap:%s", msg, revParseSignature(m.Signatures), m.Capabilities)), nil
+}
+
+//revParseSignedAssertion parses a signed assertion to its string representation with format:
+//:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>:OT:<object type>:OD:<object data>[signature*]
+func revParseSignedAssertion(a rainslib.AssertionBody) string {
+	assertion := fmt.Sprintf(":SA::CN:%s:ZN:%s:SN:%s:OT:%v:OD:%v[", a.Context, a.SubjectZone, a.SubjectName, a.Content.Type, a.Content.Value)
+	return assertion + revParseSignature(a.Signature) + "]"
+}
+
+//revParseSignedShard parses a signed shard to its string representation with format:
+//:SS::CN:<context-name>:ZN:<zone-name>:RB:<range-begin>:RE:<range-end>[Contained Assertion*][signature*]
+func revParseSignedShard(s rainslib.ShardBody) string {
+	shard := fmt.Sprintf(":SS::CN:%s:ZN:%s:RB:%s:RE:%s[", s.Context, s.SubjectZone, s.RangeFrom, s.RangeTo)
+	for _, assertion := range s.Content {
+		shard += revParseSignedAssertion(assertion)
+	}
+	return fmt.Sprintf("%s][%s]", shard, revParseSignature(s.Signatures))
+}
+
+//revParseSignature parses a rains signature to its string representation with format:
+//signature: :VF:<valid-from>:VU:<valid-until>:KA:<key-algorithm>:SD:<signature-data>
+func revParseSignature(sigs []rainslib.Signature) string {
+	signatures := ""
+	for _, sig := range sigs {
+		signatures += fmt.Sprintf(":VF:%d:VU:%d:KA:%v:SD:%s", sig.ValidSince, sig.ValidUntil, sig.Algorithm, sig.Data)
+	}
+	return signatures
+}
+
+//revParseQuery parses a rains query to its string representation with format:
+//:QU::VU:<valid-until>:CN:<context-name>:SN:<subject-name>:OT:<objtype>
+func revParseQuery(q rainslib.QueryBody) string {
+	return fmt.Sprintf(":QU::VU:%d:CN:%s:SN:%s:OT:%d", q.Expires, q.Context, q.SubjectName, q.Types)
+}
+
+//revParseNotification parses a rains notification to its string representation with format:
+//:NO::TN:<token this notification refers to>:NT:<type>:ND:<data>
+func revParseNotification(n rainslib.NotificationBody) string {
+	return fmt.Sprintf(":NO::TN:%s:NT:%v:ND:%s", n.Token, n.Type, n.Data)
 }
 
 //parseMessageBodies parses message section bodies according to their type (assertion, query, notification)

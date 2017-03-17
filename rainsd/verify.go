@@ -1,11 +1,10 @@
 package rainsd
 
 import (
+	"fmt"
+	"rains/rainslib"
 	"strings"
 
-	"rains/rainslib"
-
-	"github.com/hashicorp/golang-lru"
 	log "github.com/inconshreveable/log15"
 )
 
@@ -16,23 +15,23 @@ type publicKey struct {
 }
 
 //zoneKeys contains a set of zone public keys
-//TODO CFE make an interface such that different cache implementation can be used in the future -> same as switchboard
-var zoneKeys *lru.Cache
+var zoneKeys Cache
 
 //pendingSignatures contains a mapping from all self issued pending queries to the set of messages waiting for it.
-//TODO CFE make an interface such that different cache implementation can be used in the future -> same as switchboard
-var pendingSignatures *lru.Cache
+var pendingSignatures Cache
 
 func init() {
 	var err error
 	loadConfig()
 	//init cache
-	zoneKeys, err = lru.New(int(Config.ZoneKeyCacheSize))
+	zoneKeys = &LRUCache{}
+	err = zoneKeys.New(int(Config.ZoneKeyCacheSize))
 	if err != nil {
 		log.Error("Cannot create zoneKeyCache", "error", err)
 		panic(err)
 	}
-	pendingSignatures, err = lru.New(int(Config.PendingSignatureCacheSize))
+	pendingSignatures = &LRUCache{}
+	err = pendingSignatures.New(int(Config.PendingSignatureCacheSize))
 	if err != nil {
 		log.Error("Cannot create pendingSignatureCache", "error", err)
 		panic(err)
@@ -44,6 +43,7 @@ func init() {
 func Verify(msgSender MsgSender) {
 	if v, ok := msgSender.Msg.(rainslib.NotificationBody); ok {
 		Notify(v, msgSender.Sender)
+		SendTo([]byte(fmt.Sprintf(":NO::TN:%s:NT:%v:ND:%s", v.Token, v.Type, v.Data)), msgSender.Sender)
 	}
 	verifySignature(msgSender)
 	//TODO CFE parse query options
