@@ -74,26 +74,23 @@ func Deliver(message []byte, sender ConnInfo) {
 	}
 	//TODO CFE check capabilities
 	for _, m := range msg.Content {
-		//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-		//TODO problem, we have several message sections but channel are messages. -> when do we assign something in the priority channel?
-		//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		switch m.(type) {
 		case rainslib.AssertionBody:
 			var token [32]byte
 			copy(token[0:len(msg.Token)], msg.Token)
 			if _, ok := activeTokens[token]; ok {
 				log.Info("active Token encountered", "Token", token)
-				prioChannel <- MsgSender{Sender: sender, Msg: msg}
+				prioChannel <- MsgSender{Sender: sender, Msg: m}
 			} else {
 				log.Info("token not in active token cache", "Token", token)
-				normalChannel <- MsgSender{Sender: sender, Msg: msg}
+				normalChannel <- MsgSender{Sender: sender, Msg: m}
 			}
 		case rainslib.QueryBody:
-			normalChannel <- MsgSender{Sender: sender, Msg: msg}
+			normalChannel <- MsgSender{Sender: sender, Msg: m}
 		case rainslib.NotificationBody:
 			//TODO CFE should we handle notifications in a separate buffer as we do not expect a lot of them and in case of
 			//Capability hash not understood or Message too large we instantly want to resend it to reduce query latency.
-			prioChannel <- MsgSender{Sender: sender, Msg: msg}
+			prioChannel <- MsgSender{Sender: sender, Msg: m}
 		default:
 			log.Warn("Unknown message type")
 		}

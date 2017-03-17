@@ -67,7 +67,7 @@ type ConnInfo struct {
 //MsgSender contains the message and connection infos about the sender
 type MsgSender struct {
 	Sender ConnInfo
-	Msg    rainslib.RainsMessage
+	Msg    rainslib.MessageBody
 }
 
 //IPAddrAndPort returns IP address and port in the format IPAddr:Port

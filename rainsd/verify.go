@@ -42,8 +42,7 @@ func init() {
 //Verify verifies an assertion and strips away all signatures that do not verify. if no signatures remain, returns nil.
 //TODO CFE implement properly, be able to process assertions, shard and zones!
 func Verify(msgSender MsgSender) {
-	v := msgSender.Msg.Content[0]
-	if v, ok := v.(rainslib.NotificationBody); ok {
+	if v, ok := msgSender.Msg.(rainslib.NotificationBody); ok {
 		Notify(v, msgSender.Sender)
 	}
 	verifySignature(msgSender)
