@@ -49,7 +49,7 @@ func Verify(msgSender MsgSender) {
 	//TODO CFE parse query options
 	//TODO CFE check expiration date
 	//TODO CFE forward packet
-	log.Warn("Good!")
+	log.Info("Good!")
 	SendTo([]byte("Test"), msgSender.Sender)
 }
 

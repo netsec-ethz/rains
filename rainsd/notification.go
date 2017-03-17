@@ -8,7 +8,7 @@ import (
 
 //Notify handles incoming notification messages
 func Notify(body rainslib.NotificationBody, sender ConnInfo) {
-	log.Info("Received notification message", "msg", body)
+	log.Info("Handle Notification", "NotificationBody", body)
 	switch body.Type {
 	case rainslib.Heartbeat:
 		//Do nothing

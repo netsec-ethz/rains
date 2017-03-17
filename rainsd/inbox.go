@@ -72,19 +72,17 @@ func Deliver(message []byte, sender ConnInfo) {
 		SendTo([]byte(":N: Msg malformated"), sender)
 		return
 	}
+	if len(msg.Token) > 32 {
+		log.Error("Token is larger than 32 byte", "Token", msg.Token)
+		return
+	}
 	//TODO CFE check capabilities
 	for _, m := range msg.Content {
 		switch m.(type) {
 		case rainslib.AssertionBody:
-			var token [32]byte
-			copy(token[0:len(msg.Token)], msg.Token)
-			if _, ok := activeTokens[token]; ok {
-				log.Info("active Token encountered", "Token", token)
-				prioChannel <- MsgSender{Sender: sender, Msg: m}
-			} else {
-				log.Info("token not in active token cache", "Token", token)
-				normalChannel <- MsgSender{Sender: sender, Msg: m}
-			}
+			addMsgBodyToQueue(m, msg.Token, sender)
+		case rainslib.ShardBody:
+			addMsgBodyToQueue(m, msg.Token, sender)
 		case rainslib.QueryBody:
 			normalChannel <- MsgSender{Sender: sender, Msg: m}
 		case rainslib.NotificationBody:
@@ -94,6 +92,18 @@ func Deliver(message []byte, sender ConnInfo) {
 		default:
 			log.Warn("Unknown message type")
 		}
+	}
+}
+
+func addMsgBodyToQueue(msgBody rainslib.MessageBody, tok rainslib.Token, sender ConnInfo) {
+	var token [32]byte
+	copy(token[0:len(tok)], tok)
+	if _, ok := activeTokens[token]; ok {
+		log.Info("active Token encountered", "Token", token)
+		prioChannel <- MsgSender{Sender: sender, Msg: msgBody}
+	} else {
+		log.Info("token not in active token cache", "Token", token)
+		normalChannel <- MsgSender{Sender: sender, Msg: msgBody}
 	}
 }
 

@@ -24,7 +24,7 @@ type AssertionBody struct {
 	SubjectName string
 	Content     Object
 	//Optional for contained assertions
-	Signature   Signature
+	Signature   []Signature
 	SubjectZone string
 	Context     string
 }
@@ -37,7 +37,8 @@ type ShardBody struct {
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
-	Range       []string
+	RangeFrom   string
+	RangeTo     string
 }
 
 //ZoneBody contains information about the zone
