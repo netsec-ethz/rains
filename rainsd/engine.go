@@ -9,8 +9,8 @@ import (
 //assertionCache contains a set of assertions
 var assertionCache Cache
 
-//pendinQueries contains a mapping from all self issued pending queries to the set of go routines waiting for it.
-var pendinQueries Cache
+//pendingQueries contains a mapping from all self issued pending queries to the set of go routines waiting for it.
+var pendingQueries Cache
 
 func init() {
 	loadConfig()
