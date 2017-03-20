@@ -80,8 +80,8 @@ func Deliver(message []byte, sender ConnInfo) {
 	}
 	//TODO CFE this part must be refactored once we have a CBOR parser so we can distinguish an array of capabilities from a sha has entry
 	if msg.Capabilities != "" {
-		if cap, ok := capabilities.Get(msg.Capabilities); ok {
-			peerToCapability.Add(sender, cap)
+		if caps, ok := capabilities.Get(msg.Capabilities); ok {
+			peerToCapability.Add(sender, caps)
 		} else {
 			switch Capability(msg.Capabilities) {
 			case TLSOverTCP:
@@ -89,7 +89,7 @@ func Deliver(message []byte, sender ConnInfo) {
 			case NoCapability:
 				peerToCapability.Add(sender, NoCapability)
 			default:
-				log.Warn("Sent capability value does not match know capability")
+				log.Warn("Sent capability value does not match know capability", "rcvCaps", msg.Capabilities)
 			}
 		}
 	}
