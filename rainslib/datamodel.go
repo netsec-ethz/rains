@@ -60,8 +60,21 @@ type QueryBody struct {
 
 	//Optional
 	Expires int
-	Options []int
+	Options []QueryOptions
 }
+
+type QueryOptions int
+
+const (
+	MinE2ELatency QueryOptions = 1 + iota
+	MinLastHopAnswerSize
+	MinInfoLeakage
+	CachedAnswersOnly
+	ExpiredAssertionsOk
+	TokenTracing
+	NoVerificationDelegation
+	NoProactiveCaching
+)
 
 type ObjectType int
 

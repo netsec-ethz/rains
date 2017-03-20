@@ -20,7 +20,7 @@ type RainsMsgParser struct{}
 //simple RainsMessage format: <token>[MessageBody*][signatures*]:cap:<capabilities
 //simple Signed Assertion: :SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>:OT:<object type>:OD:<object data>[signature*]
 //simple Signed Shard: :SS::CN:<context-name>:ZN:<zone-name>:RB:<range-begin>:RE:<range-end>[Contained Assertion*][signature*]
-//simple Query: :QU::VU:<valid-until>:CN:<context-name>:SN:<subject-name>:OT:<objtype>
+//simple Query: :QU::VU:<valid-until>:CN:<context-name>:SN:<subject-name>:OT:<objtype>[<option1>:...:<option_n>]
 //simple Notification: :NO::TN:<token this notification refers to>:NT:<type>:ND:<data>
 //signature: :VF:<valid-from>:VU:<valid-until>:KA:<key-algorithm>:SD:<signature-data>
 //NOT YET SUPPORTED
@@ -283,7 +283,9 @@ func parseQuery(msg string, token rainslib.Token) (rainslib.QueryBody, error) {
 	cn := strings.Index(msg, ":CN:")
 	sn := strings.Index(msg, ":SN:")
 	ot := strings.Index(msg, ":OT:")
-	if vu == -1 || cn == -1 || sn == -1 || ot == -1 {
+	optsBegin := strings.Index(msg, "[")
+	optsEnd := strings.Index(msg, "]")
+	if vu == -1 || cn == -1 || sn == -1 || ot == -1 || optsBegin == -1 || optsEnd == -1 {
 		log.Warn("Query Msg Body malformated")
 		return rainslib.QueryBody{}, errors.New("Query Msg Body malformated")
 	}
@@ -292,12 +294,21 @@ func parseQuery(msg string, token rainslib.Token) (rainslib.QueryBody, error) {
 		log.Warn("Valid Until malformated")
 		return rainslib.QueryBody{}, errors.New("Valid Until malformated")
 	}
-	objType, err := strconv.Atoi(msg[ot+4 : len(msg)])
+	objType, err := strconv.Atoi(msg[ot+4 : optsBegin])
 	if err != nil {
 		log.Warn("objType malformated")
 		return rainslib.QueryBody{}, errors.New("objType malformated")
 	}
-	return rainslib.QueryBody{Token: token, Expires: expires, Context: msg[cn+4 : sn], SubjectName: msg[sn+4 : ot], Types: rainslib.ObjectType(objType)}, nil
+	var opts []rainslib.QueryOptions
+	for _, opt := range strings.Split(msg[optsBegin+1:optsEnd], ":") {
+		val, err := strconv.Atoi(opt)
+		if err != nil {
+			opts = []rainslib.QueryOptions{}
+			break
+		}
+		opts = append(opts, rainslib.QueryOptions(val))
+	}
+	return rainslib.QueryBody{Token: token, Expires: expires, Context: msg[cn+4 : sn], SubjectName: msg[sn+4 : ot], Types: rainslib.ObjectType(objType), Options: opts}, nil
 }
 
 //parseNotification parses a notification message section body of the following format:

@@ -13,7 +13,7 @@ import (
 //incoming messages are buffered in one of these channels until they get processed by a worker go routine
 var prioChannel chan MsgBodySender
 var normalChannel chan MsgBodySender
-var notificationChannel chan MsgSender
+var notificationChannel chan MsgBodySender
 
 //activeTokens contains tokens created by this server (indicate self issued queries)
 //TODO create a mechanism such that this map does not grow too much in case of an attack.
@@ -44,7 +44,7 @@ func init() {
 	loadConfig()
 	prioChannel = make(chan MsgBodySender, Config.PrioBufferSize)
 	normalChannel = make(chan MsgBodySender, Config.NormalBufferSize)
-	notificationChannel = make(chan MsgSender, Config.NotificationBufferSize)
+	notificationChannel = make(chan MsgBodySender, Config.NotificationBufferSize)
 	createWorker()
 	//TODO CFE for testing purposes (afterwards remove)
 	addToken("456")
@@ -103,7 +103,7 @@ func Deliver(message []byte, sender ConnInfo) {
 		case rainslib.QueryBody:
 			addQueryToQueue(msg, m, sender)
 		case rainslib.NotificationBody:
-			addNotifToQueue(rainslib.RainsMessage{Token: msg.Token, Content: []rainslib.MessageBody{m}}, sender)
+			addNotifToQueue(m, msg.Token, sender)
 		default:
 			log.Warn("Unknown message type")
 		}
@@ -125,17 +125,17 @@ func addMsgBodyToQueue(msgBody rainslib.MessageBody, tok rainslib.Token, sender 
 	copy(token[0:len(tok)], tok)
 	if _, ok := activeTokens[token]; ok {
 		log.Info("active Token encountered", "Token", token)
-		prioChannel <- MsgBodySender{Sender: sender, Msg: msgBody}
+		prioChannel <- MsgBodySender{Sender: sender, Msg: msgBody, Token: tok}
 	} else {
 		log.Info("token not in active token cache", "Token", token)
-		normalChannel <- MsgBodySender{Sender: sender, Msg: msgBody}
+		normalChannel <- MsgBodySender{Sender: sender, Msg: msgBody, Token: tok}
 	}
 }
 
 //addQueryToQueue checks that the token of the message and of the query body are the same and if so adds it to a queue
 func addQueryToQueue(msg rainslib.RainsMessage, body rainslib.QueryBody, sender ConnInfo) {
 	if bytes.Equal(msg.Token, body.Token) {
-		normalChannel <- MsgBodySender{Sender: sender, Msg: msg}
+		normalChannel <- MsgBodySender{Sender: sender, Msg: msg, Token: msg.Token}
 	} else {
 		log.Warn("Token of message and query body do not match.", "msgToken", msg.Token, "queryBodyToken", body.Token)
 		sendNotificationMsg(msg.Token, sender, rainslib.RcvMalformatMsg)
@@ -144,14 +144,13 @@ func addQueryToQueue(msg rainslib.RainsMessage, body rainslib.QueryBody, sender 
 }
 
 //addNotifToQueue adds a rains message containing one notification message body to the queue if the token is present in the activeToken cache
-func addNotifToQueue(msg rainslib.RainsMessage, sender ConnInfo) {
+func addNotifToQueue(msg rainslib.NotificationBody, tok rainslib.Token, sender ConnInfo) {
 	var token [32]byte
-	tok := msg.Content[0].(rainslib.NotificationBody).Token
 	copy(token[0:len(tok)], tok)
 	if _, ok := activeTokens[token]; ok {
 		log.Info("active Token encountered", "Token", token)
 		delete(activeTokens, token)
-		notificationChannel <- MsgSender{Sender: sender, Msg: msg}
+		notificationChannel <- MsgBodySender{Sender: sender, Msg: msg, Token: tok}
 	} else {
 		log.Warn("Token not in active token cache, drop message", "Token", token)
 	}
@@ -212,7 +211,7 @@ func workNotification() {
 	for {
 		select {
 		case msg := <-notificationChannel:
-			Notify(msg.Msg, msg.Sender)
+			Notify(msg)
 		default:
 			//TODO CFE add to config?
 			time.Sleep(50 * time.Millisecond)

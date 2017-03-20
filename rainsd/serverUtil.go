@@ -71,14 +71,10 @@ type ConnInfo struct {
 type MsgBodySender struct {
 	Sender ConnInfo
 	Msg    rainslib.MessageBody
+	Token  rainslib.Token
 }
 
-//MsgSender contains the message and connection infos about the sender
-type MsgSender struct {
-	Sender ConnInfo
-	Msg    rainslib.RainsMessage
-}
-
+//Capability is a type which defines what a server or client is capable of
 type Capability string
 
 const (
