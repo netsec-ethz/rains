@@ -5,6 +5,8 @@ import (
 	"rains/utils/parser"
 	"time"
 
+	"bytes"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -67,12 +69,13 @@ func init() {
 //Deliver pushes all incoming messages to the prio or normal channel based on some strategy
 func Deliver(message []byte, sender ConnInfo) {
 	if uint(len(message)) > Config.MaxMsgLength {
-		sendNotificationMsg(message, sender, rainslib.MsgTooLarge)
+		token, _ := msgParser.Token(message)
+		sendNotificationMsg(token, sender, rainslib.MsgTooLarge)
 		return
 	}
 	msg, err := msgParser.ParseByteSlice(message)
 	if err != nil {
-		sendNotificationMsg(message, sender, rainslib.RcvMalformatMsg)
+		sendNotificationMsg(msg.Token, sender, rainslib.RcvMalformatMsg)
 		return
 	}
 	//TODO CFE this part must be refactored once we have a CBOR parser so we can distinguish an array of capabilities from a sha has entry
@@ -90,14 +93,15 @@ func Deliver(message []byte, sender ConnInfo) {
 			}
 		}
 	}
+	//TODO CFE verify signatures against infrastructure key for the RAINS Server originating the message
 	for _, m := range msg.Content {
-		switch m.(type) {
+		switch m := m.(type) {
 		case rainslib.AssertionBody:
 			addMsgBodyToQueue(m, msg.Token, sender)
 		case rainslib.ShardBody:
 			addMsgBodyToQueue(m, msg.Token, sender)
 		case rainslib.QueryBody:
-			normalChannel <- MsgBodySender{Sender: sender, Msg: m}
+			addQueryToQueue(msg, m, sender)
 		case rainslib.NotificationBody:
 			addNotifToQueue(rainslib.RainsMessage{Token: msg.Token, Content: []rainslib.MessageBody{m}}, sender)
 		default:
@@ -107,11 +111,7 @@ func Deliver(message []byte, sender ConnInfo) {
 }
 
 //sendNotificationMsg sends a notification message to the sender with the given notificationType. If an error occurs during parsing no message is sent and the error is logged.
-func sendNotificationMsg(message []byte, sender ConnInfo, notificationType rainslib.NotificationType) {
-	token, err := msgParser.Token(message)
-	if err != nil {
-		return
-	}
+func sendNotificationMsg(token rainslib.Token, sender ConnInfo, notificationType rainslib.NotificationType) {
 	msg, err := CreateNotificationMsg(token, notificationType, "")
 	if err != nil {
 		return
@@ -129,6 +129,17 @@ func addMsgBodyToQueue(msgBody rainslib.MessageBody, tok rainslib.Token, sender 
 	} else {
 		log.Info("token not in active token cache", "Token", token)
 		normalChannel <- MsgBodySender{Sender: sender, Msg: msgBody}
+	}
+}
+
+//addQueryToQueue checks that the token of the message and of the query body are the same and if so adds it to a queue
+func addQueryToQueue(msg rainslib.RainsMessage, body rainslib.QueryBody, sender ConnInfo) {
+	if bytes.Equal(msg.Token, body.Token) {
+		normalChannel <- MsgBodySender{Sender: sender, Msg: msg}
+	} else {
+		log.Warn("Token of message and query body do not match.", "msgToken", msg.Token, "queryBodyToken", body.Token)
+		sendNotificationMsg(msg.Token, sender, rainslib.RcvMalformatMsg)
+		sendNotificationMsg(body.Token, sender, rainslib.RcvMalformatMsg)
 	}
 }
 

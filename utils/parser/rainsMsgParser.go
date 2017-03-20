@@ -35,21 +35,21 @@ func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, e
 	sigBegin := strings.LastIndex(msg, "[")
 	sigEnd := strings.LastIndex(msg, "]")
 	cap := strings.Index(msg, ":cap:")
-	if msgBodyBegin == -1 || msgBodyEnd == -2 || sigBegin == -1 || sigEnd == -1 || cap == -1 {
-		log.Warn("Rains Message malformated")
-		return rainslib.RainsMessage{}, errors.New("Rains Message malformated")
-	}
 	token, err := p.Token(message)
 	if err != nil {
 		return rainslib.RainsMessage{}, err
 	}
+	if msgBodyEnd == -2 || sigBegin == -1 || sigEnd == -1 || cap == -1 {
+		log.Warn("Rains Message malformated")
+		return rainslib.RainsMessage{Token: token}, errors.New("Rains Message malformated")
+	}
 	msgBodies, err := parseMessageBodies(msg[msgBodyBegin+1:msgBodyEnd], token)
 	if err != nil {
-		return rainslib.RainsMessage{}, err
+		return rainslib.RainsMessage{Token: token}, err
 	}
 	signatures, err := parseSignatures(msg[sigBegin+1 : sigEnd])
 	if err != nil {
-		return rainslib.RainsMessage{}, err
+		return rainslib.RainsMessage{Token: token}, err
 	}
 	capabilities := msg[cap+5 : len(msg)]
 	return rainslib.RainsMessage{Token: token, Content: msgBodies, Signatures: signatures, Capabilities: capabilities}, nil
