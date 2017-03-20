@@ -39,7 +39,10 @@ func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, e
 		log.Warn("Rains Message malformated")
 		return rainslib.RainsMessage{}, errors.New("Rains Message malformated")
 	}
-	token := rainslib.Token(msg[:msgBodyBegin])
+	token, err := p.Token(message)
+	if err != nil {
+		return rainslib.RainsMessage{}, err
+	}
 	msgBodies, err := parseMessageBodies(msg[msgBodyBegin+1:msgBodyEnd], token)
 	if err != nil {
 		return rainslib.RainsMessage{}, err
@@ -72,6 +75,22 @@ func (p RainsMsgParser) ParseRainsMsg(m rainslib.RainsMessage) ([]byte, error) {
 		}
 	}
 	return []byte(fmt.Sprintf("%s][%s]:cap:%s", msg, revParseSignature(m.Signatures), m.Capabilities)), nil
+}
+
+//Token returns the Token from the message represented as a byte slice with format:
+//<token>[MessageBody][signatures*]:cap:<capabilities>
+func (p RainsMsgParser) Token(message []byte) (rainslib.Token, error) {
+	msg := string(message)
+	msgBodyBegin := strings.Index(msg, "[")
+	if msgBodyBegin == -1 {
+		log.Warn("Rains Message malformated, cannot extract token")
+		return rainslib.Token{}, errors.New("Rains Message malformated, cannot extract token")
+	}
+	if msgBodyBegin > 32 {
+		log.Error("Token is larger than 32 byte", "TokenSize", msgBodyBegin)
+		return rainslib.Token{}, errors.New("Token is larger than 32 byte")
+	}
+	return rainslib.Token(msg[:msgBodyBegin]), nil
 }
 
 //revParseSignedAssertion parses a signed assertion to its string representation with format:

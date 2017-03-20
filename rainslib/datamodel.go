@@ -142,11 +142,19 @@ const (
 
 //Signature TODO What does it contain
 type Signature struct {
+	KeySpace   int
 	Algorithm  CipherType
 	ValidSince int
 	ValidUntil int
 	Data       []byte
 }
+
+//KeySpace identifies a key space
+type KeySpace int
+
+const (
+	DANE KeySpace = iota
+)
 
 //CipherType is the type of a cipher
 type CipherType int
@@ -175,4 +183,7 @@ type RainsMsgParser interface {
 
 	//ParseRainsMsg parses a RainsMessage to a byte slice representation.
 	ParseRainsMsg(msg RainsMessage) ([]byte, error)
+
+	//Token extracts the token from the byte slice
+	Token(msg []byte) (Token, error)
 }

@@ -218,9 +218,5 @@ func parseRemoteAddr(s string) ConnInfo {
 
 //getIPAddrandPort fetches HostAddr and port number from config file on which this server is listening to
 func getIPAddrandPort() (ConnInfo, error) {
-	if Config.ServerIPAddr == "" || Config.ServerPort == 0 {
-		log.Warn("Server's IPAddr or port are not in config")
-		return ConnInfo{Type: TCP, IPAddr: defaultConfig.ServerIPAddr, Port: defaultConfig.ServerPort}, nil
-	}
 	return ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}, nil
 }

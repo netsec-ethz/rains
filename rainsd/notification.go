@@ -7,31 +7,42 @@ import (
 )
 
 //Notify handles incoming notification messages
-func Notify(body rainslib.NotificationBody, sender ConnInfo) {
-	log.Info("Handle Notification", "NotificationBody", body)
+func Notify(msg rainslib.RainsMessage, sender ConnInfo) {
+	body := msg.Content[0].(rainslib.NotificationBody)
+	notifLog := log.New("NotificationMsgBody", body)
 	switch body.Type {
 	case rainslib.Heartbeat:
 		//Do nothing
 	case rainslib.CapHashNotKnown:
-		log.Info("Capability Hash was not understood", "token", body.Token)
+		notifLog.Info("Capability Hash was not understood")
 		//TODO CFE send a full capabilities list on the next message it sends to the peer
 		//store in a map key <dest> value <capabilities>. Before a message is parsed to CBOR format check if it must include capabilities.
 	case rainslib.RcvMalformatMsg:
-		log.Error("Msg malformated", "data", body.Data)
+		notifLog.Error("Sent msg was malformated")
 	case rainslib.RcvInconsistentMsg:
-		log.Error("Msg inconsistent", "data", body.Data)
+		notifLog.Error("Sent msg was inconsistent")
 	case rainslib.MsgTooLarge:
-		log.Info("Msg is too large", "token", body.Token, "data", body.Data)
-		//TODO handle this case properly
+		notifLog.Error("Sent msg was too large")
 	case rainslib.NoAssertionsExist:
-		log.Info("No assertion exists. Query is unanswerable.", "Token", body.Token)
+		notifLog.Info("Bad request, only clients receive this notification type")
+		msg, err := CreateNotificationMsg(msg.Token, rainslib.RcvMalformatMsg, "")
+		if err != nil {
+			return
+		}
+		SendTo(msg, sender)
 	case rainslib.UnspecServerErr:
-		log.Error("Unspecified server error", "data", body.Data)
+		notifLog.Error("Unspecified error of other server")
 	case rainslib.ServerNotCapable:
-		log.Error("Server not capable", "data", body.Data)
+		notifLog.Error("Other server was not capable")
 	case rainslib.NoAssertionAvail:
-	//TODO CFE why/when is this notification message useful?
+		notifLog.Info("No assertion was available")
+		//TODO CFE forward this msg to the query issuing it. Lookup token mapping in delegationTokenMapping
 	default:
 		log.Warn("No matching notification type")
+		msg, err := CreateNotificationMsg(msg.Token, rainslib.RcvMalformatMsg, "No matching notification type")
+		if err != nil {
+			return
+		}
+		SendTo(msg, sender)
 	}
 }

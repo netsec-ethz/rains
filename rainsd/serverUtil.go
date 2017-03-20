@@ -27,10 +27,15 @@ type rainsdConfig struct {
 	PrivateKeyFile  string
 
 	//inbox
-	PrioBufferSize   uint
-	NormalBufferSize uint
-	PrioWorkerSize   uint
-	NormalWorkerSize uint
+	MaxMsgLength           uint
+	PrioBufferSize         uint
+	NormalBufferSize       uint
+	NotificationBufferSize uint
+	PrioWorkerSize         uint
+	NormalWorkerSize       uint
+	NotificationWorkerSize uint
+	CapabilitiesCacheSize  uint
+	PeerToCapCacheSize     uint
 
 	//verify
 	ZoneKeyCacheSize          uint
@@ -39,15 +44,13 @@ type rainsdConfig struct {
 	//engine
 	AssertionCacheSize    uint
 	PendingQueryCacheSize uint
-
-	//notification
-	CapabilitiesCacheSize uint
 }
 
 //DefaultConfig is a rainsdConfig object containing default values
 var defaultConfig = rainsdConfig{ServerIPAddr: "127.0.0.1", ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriod: time.Minute, TCPTimeout: 5 * time.Minute,
-	CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key", PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerSize: 2, NormalWorkerSize: 10,
-	ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 100}
+	CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key", MaxMsgLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerSize: 2,
+	NormalWorkerSize: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
+	NotificationBufferSize: 20, NotificationWorkerSize: 2, PeerToCapCacheSize: 1000}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int
@@ -64,11 +67,24 @@ type ConnInfo struct {
 	Port   uint16
 }
 
-//MsgSender contains the message and connection infos about the sender
-type MsgSender struct {
+//MsgBodySender contains the message section body and connection infos about the sender
+type MsgBodySender struct {
 	Sender ConnInfo
 	Msg    rainslib.MessageBody
 }
+
+//MsgSender contains the message and connection infos about the sender
+type MsgSender struct {
+	Sender ConnInfo
+	Msg    rainslib.RainsMessage
+}
+
+type Capability string
+
+const (
+	NoCapability Capability = "none"
+	TLSOverTCP   Capability = "urn:x-rains:tlssrv"
+)
 
 //IPAddrAndPort returns IP address and port in the format IPAddr:Port
 func (c ConnInfo) IPAddrAndPort() string {
@@ -85,11 +101,29 @@ var Config rainsdConfig
 
 //load config and stores it into global variable config
 func loadConfig() {
+	Config = defaultConfig
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Fatal("Could not open config file...", "path", configPath, "error", err)
 	}
 	json.Unmarshal(file, &Config)
+}
+
+//CreateNotificationMsg creates a notification messages
+func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.NotificationType, data string) ([]byte, error) {
+	content := []rainslib.MessageBody{rainslib.NotificationBody{Type: rainslib.MsgTooLarge, Token: token, Data: data}}
+	msg := rainslib.RainsMessage{Token: GenerateToken(), Content: content}
+	//TODO CFE do we sign a notification msg?
+	return msgParser.ParseRainsMsg(msg)
+}
+
+var counter = 0
+
+//GenerateTocken generates a new unique Token
+func GenerateToken() rainslib.Token {
+	//TODO CFE use uuid to create token
+	counter++
+	return rainslib.Token([]byte(strconv.Itoa(counter)))
 }
 
 //Cache implementations can have different replacement strategies
