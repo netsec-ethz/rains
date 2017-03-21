@@ -97,8 +97,9 @@ func init() {
 	}
 	//init framer
 	framer = &newLineFramer{}
-	//init verify
+	//init other modules
 	initVerif()
+	initEngine()
 	listen()
 }
 

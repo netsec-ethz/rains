@@ -44,7 +44,7 @@ func Verify(msgSender MsgBodySender) {
 		if VerifySignature(body, msgSender.Token, msgSender.Sender, nil) {
 			AssertA(body)
 		} else {
-			log.Warn("Drop Assertion, failed verification step", "Assertion", *body)
+			log.Warn("Pending or dropped Assertion (due to validation failure)", "Assertion", *body)
 		}
 	case *rainslib.ShardBody:
 		if !containedAssertionsAndShardsValid(msgSender) {
@@ -130,38 +130,71 @@ func containedAssertionValid(body *rainslib.AssertionBody, context string, subje
 
 //VerifySignature verifies all signatures and strips off invalid signatures. If the public key is missing it issues a query and put the msg body on waiting queue and
 //adds a callback to the pendingQueries cache
-//returns false if there is no signature left on the message
+//returns false if there is no signature left on the message or when some public keys are missing
 //TODO CFE verify whole signature chain (do not forget to check expiration)
 func VerifySignature(body rainslib.MessageBodyWithSig, token rainslib.Token, sender ConnInfo, c chan<- bool) bool {
 	if c != nil {
 		defer func(c chan<- bool) { c <- true }(c)
 	}
-	keyIDs := make(map[string]string)
+	keyIDs := make(map[PendingQueryCacheKey]string)
 	for _, sig := range body.Sigs() {
 		if sig.KeySpace != rainslib.RainsKeySpace {
 			log.Warn("Unsupported keyspace", "KeySpaceID", sig.KeySpace)
 		}
-		keyIDs[strconv.Itoa(int(sig.KeySpace))+body.GetContext()+body.GetSubjectZone()] = strconv.Itoa(int(sig.KeySpace))
+		keyIDs[PendingQueryCacheKey{KeySpace: strconv.Itoa(int(sig.KeySpace)), Context: body.GetContext(), SubjectZone: body.GetSubjectZone()}] = strconv.Itoa(int(sig.KeySpace))
 	}
-	if publicKeys, missingKeys, ok := publicKeysPresent(keyIDs); ok {
+	publicKeys, missingKeys, ok := publicKeysPresent(keyIDs)
+	if ok {
 		//all public keys are present
 		return validSignature(body, publicKeys)
-	} else {
-		missingKeys["a"] = true
-		if c == nil {
-			//This is the first pass, send queries for public keys and add msgBody to pendingQueryqueue
+	}
+	for missingKey := range missingKeys {
+		if v, ok := pendingQueries.Get(missingKey); ok {
+			if v.(PendingQueryCacheValue).ValidUntil < time.Now().Unix() && v.(PendingQueryCacheValue).Retries > 0 {
+				handleMissingPublicKey(missingKey, sender, body)
+				continue
+			}
 		} else {
-			//check hard deadline and strip off signature with what we have so far.
+			handleMissingPublicKey(missingKey, sender, body)
 		}
 	}
 	return false
 }
 
+func handleMissingPublicKey(cacheKey PendingQueryCacheKey, sender ConnInfo, body rainslib.MessageBodyWithSig) {
+	//TODO CFE How large should we set the expiration time of the query
+	expTime := time.Now().Unix() + 1000
+	//FIXME CFE slice is not thread safe! replace it with a e.g. thread safe list or something
+	if v, ok := pendingQueries.Get(cacheKey); ok {
+		value := v.(PendingQueryCacheValue)
+		value.Msg = append(value.Msg, body)
+		value.Retries--
+		value.ValidUntil = expTime
+		pendingQueries.Add(cacheKey, value)
+	} else {
+		//TODO CFE add umber of retries to ServerConfig
+		pendingQueries.Add(cacheKey, PendingQueryCacheValue{ValidUntil: expTime, Retries: 1, Msg: []rainslib.MessageBodyWithSig{body}})
+	}
+	sendDelegationQuery(cacheKey, expTime, sender)
+}
+
+//sendDelegationQuery sendes a delegation query to sender.
+func sendDelegationQuery(cacheKey PendingQueryCacheKey, expTime int64, sender ConnInfo) {
+	token := GenerateToken()
+	queryBody := rainslib.QueryBody{Context: cacheKey.Context, SubjectName: cacheKey.SubjectZone, Expires: int(expTime), Token: token, Types: rainslib.Delegation}
+	query := rainslib.RainsMessage{Token: GenerateToken(), Content: []rainslib.MessageBody{queryBody}}
+	msg, err := msgParser.ParseRainsMsg(query)
+	if err != nil {
+		log.Warn("Cannot parse a delegation Query", "Query", query)
+	}
+	SendTo(msg, sender)
+}
+
 //publicKeysPresent returns true if all public keys are in the cache together with a map of keys and missingKeys
-func publicKeysPresent(keyIDs map[string]string) (map[string]rainslib.PublicKey, map[string]bool, bool) {
+func publicKeysPresent(keyIDs map[PendingQueryCacheKey]string) (map[string]rainslib.PublicKey, map[PendingQueryCacheKey]bool, bool) {
 	allKeysPresent := true
 	keys := make(map[string]rainslib.PublicKey)
-	missingKeys := make(map[string]bool)
+	missingKeys := make(map[PendingQueryCacheKey]bool)
 	for keyID, keySpace := range keyIDs {
 		if key, ok := zoneKeys.Get(keyID); ok {
 			if int64(key.(rainslib.PublicKey).ValidUntil) < time.Now().Unix() {

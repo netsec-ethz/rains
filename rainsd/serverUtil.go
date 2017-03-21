@@ -207,3 +207,17 @@ func GenerateHMAC(msg []byte, hashType rainslib.AlgorithmType, key []byte) []byt
 	}
 	return h.Sum(msg)
 }
+
+//PendingQueryCacheKey is the key for the pendingQuery cache
+type PendingQueryCacheKey struct {
+	KeySpace    string
+	Context     string
+	SubjectZone string
+}
+
+//PendingQueryCacheValue is the value received from the pendingQuery cache
+type PendingQueryCacheValue struct {
+	ValidUntil int64
+	Retries    int
+	Msg        []rainslib.MessageBodyWithSig
+}

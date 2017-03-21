@@ -9,12 +9,29 @@ import (
 //assertionCache contains a set of assertions
 var assertionCache Cache
 
-//pendingQueries contains a mapping from all self issued pending queries to the set of go routines waiting for it.
+//pendingQueries contains a mapping from all self issued pending queries to the set of message bodies waiting for it.
+//key: <keyspace><context><subjectzone> value: <msgBody><deadline>
+//TODO make the value thread safe. We store a list of <msgBody><deadline> objects which can be added and deleted
 var pendingQueries Cache
 
-func init() {
+func initEngine() {
+	var err error
 	loadConfig()
-	//TODO CFE init cache
+	//TODO CFE move to central place
+	pendingQueries = &LRUCache{}
+	//TODO CFE add size to server config
+	err = pendingQueries.New(100)
+	if err != nil {
+		log.Error("Cannot create pendingQueriesCache", "error", err)
+		panic(err)
+	}
+	assertionCache = &LRUCache{}
+	//TODO CFE add size to server config
+	err = assertionCache.New(100)
+	if err != nil {
+		log.Error("Cannot create assertionCache", "error", err)
+		panic(err)
+	}
 }
 
 //AssertA adds an assertion to the assertion cache. Triggers any pending queries answered by it.
