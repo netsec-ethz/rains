@@ -1,14 +1,17 @@
 package rainsd
 
 import (
+	"crypto/hmac"
+	"crypto/sha512"
 	"encoding/json"
+	"hash"
 	"io/ioutil"
-	"log"
 	"rains/rainslib"
 	"strconv"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
+	log "github.com/inconshreveable/log15"
 )
 
 const (
@@ -100,7 +103,7 @@ func loadConfig() {
 	Config = defaultConfig
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
-		log.Fatal("Could not open config file...", "path", configPath, "error", err)
+		log.Warn("Could not open config file...", "path", configPath, "error", err)
 	}
 	json.Unmarshal(file, &Config)
 }
@@ -189,4 +192,18 @@ func (c *LRUCache) Remove(key interface{}) {
 //RemoveOldest deletes the least recently used key value pair from the cache
 func (c *LRUCache) RemoveOldest() {
 	c.Cache.RemoveOldest()
+}
+
+//GenerateHMAC returns a hmac of the input message with the given hash function
+func GenerateHMAC(msg []byte, hashType rainslib.AlgorithmType, key []byte) []byte {
+	var h hash.Hash
+	switch hashType {
+	case rainslib.Sha256:
+		h = hmac.New(sha512.New512_256, key)
+	case rainslib.Sha384:
+		h = hmac.New(sha512.New384, key)
+	default:
+		log.Warn("Not supported hash type.", "hashType", hashType)
+	}
+	return h.Sum(msg)
 }

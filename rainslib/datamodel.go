@@ -1,5 +1,9 @@
 package rainslib
 
+import (
+	log "github.com/inconshreveable/log15"
+)
+
 //RainsMessage contains the data of a message
 type RainsMessage struct {
 	//Mandatory
@@ -18,27 +22,89 @@ type Token []byte
 type MessageBody interface {
 }
 
+//MessageBodyWithSig can be either an Assertion, Shard or Zone
+type MessageBodyWithSig interface {
+	Sigs() []Signature
+	DeleteSig(int)
+	DeleteAllSigs()
+	GetContext() string
+	GetSubjectZone() string
+}
+
 //AssertionBody contains information about the assertion
 type AssertionBody struct {
 	//Mandatory
 	SubjectName string
 	Content     Object
 	//Optional for contained assertions
-	Signature   []Signature
+	Signatures  []Signature
 	SubjectZone string
 	Context     string
+}
+
+//Sigs return the assertion's signatures
+func (a *AssertionBody) Sigs() []Signature {
+	return a.Signatures
+}
+
+//DeleteSig deletes ith signature
+func (a *AssertionBody) DeleteSig(i int) {
+	a.Signatures = append(a.Signatures[:i], a.Signatures[i+1:]...)
+}
+
+//DeleteAllSigs deletes all signatures
+func (a *AssertionBody) DeleteAllSigs() {
+	a.Signatures = []Signature{}
+}
+
+//GetContext returns the context of the assertion
+func (a *AssertionBody) GetContext() string {
+	return a.Context
+}
+
+//GetSubjectZone returns the zone of the assertion
+func (a *AssertionBody) GetSubjectZone() string {
+	return a.SubjectZone
 }
 
 //ShardBody contains information about the shard
 type ShardBody struct {
 	//Mandatory
-	Content []AssertionBody
+	Content []*AssertionBody
 	//Optional for contained shards
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
 	RangeFrom   string
 	RangeTo     string
+}
+
+//Sigs return the shard's signatures
+func (s *ShardBody) Sigs() []Signature {
+	return s.Signatures
+}
+
+//DeleteSig deletes ith signature
+func (s *ShardBody) DeleteSig(i int) {
+	s.Signatures = append(s.Signatures[:i], s.Signatures[i+1:]...)
+}
+
+//DeleteAllSigs deletes all signatures
+func (s *ShardBody) DeleteAllSigs() {
+	s.Signatures = []Signature{}
+	for _, assertion := range s.Content {
+		assertion.DeleteAllSigs()
+	}
+}
+
+//GetContext returns the context of the shard
+func (s *ShardBody) GetContext() string {
+	return s.Context
+}
+
+//GetSubjectZone returns the zone of the shard
+func (s *ShardBody) GetSubjectZone() string {
+	return s.SubjectZone
 }
 
 //ZoneBody contains information about the zone
@@ -48,6 +114,41 @@ type ZoneBody struct {
 	SubjectZone string
 	Context     string
 	Content     []MessageBody //TODO can be assert and/or shardbody but not zonebody, how do we want to handle that?
+}
+
+//Sigs return the zone's signatures
+func (z *ZoneBody) Sigs() []Signature {
+	return z.Signatures
+}
+
+//DeleteSig deletes ith signature
+func (z *ZoneBody) DeleteSig(i int) {
+	z.Signatures = append(z.Signatures[:i], z.Signatures[i+1:]...)
+}
+
+//DeleteAllSigs deletes all signatures
+func (z *ZoneBody) DeleteAllSigs() {
+	z.Signatures = []Signature{}
+	for _, body := range z.Content {
+		switch body := body.(type) {
+		case AssertionBody:
+			body.DeleteAllSigs()
+		case ShardBody:
+			body.DeleteAllSigs()
+		default:
+			log.Warn("Unknown message body", "messageBody", body)
+		}
+	}
+}
+
+//GetContext returns the context of the zone
+func (z *ZoneBody) GetContext() string {
+	return z.Context
+}
+
+//GetSubjectZone returns the zone of the zone
+func (z *ZoneBody) GetSubjectZone() string {
+	return z.SubjectZone
 }
 
 //QueryBody contains information about the query
@@ -155,26 +256,35 @@ const (
 
 //Signature TODO What does it contain
 type Signature struct {
-	KeySpace   int
-	Algorithm  CipherType
+	KeySpace   KeySpaceID
+	Algorithm  AlgorithmType
 	ValidSince int
 	ValidUntil int
 	Data       []byte
 }
 
-//KeySpace identifies a key space
-type KeySpace int
+//KeySpaceID identifies a key space
+type KeySpaceID int
 
 const (
-	DANE KeySpace = iota
+	RainsKeySpace KeySpaceID = iota
 )
 
-//CipherType is the type of a cipher
-type CipherType int
+//AlgorithmType is the type of a cipher
+type AlgorithmType int
 
 const (
-	Sha256 CipherType = iota
+	Sha256 AlgorithmType = iota
+	Sha384
 )
+
+//PublicKey contains information about a public key
+type PublicKey struct {
+	//TODO CFE remove type if not needed anywhere
+	Type       AlgorithmType
+	Key        []byte
+	ValidUntil uint
+}
 
 //NamesetExpression  encodes a modified POSIX Extended Regular Expression format
 type NamesetExpression string
@@ -199,4 +309,7 @@ type RainsMsgParser interface {
 
 	//Token extracts the token from the byte slice
 	Token(msg []byte) (Token, error)
+
+	//RevParseSignedAssertion parses an AssertionBody to a byte slice representation
+	RevParseSignedAssertion(*AssertionBody) string
 }

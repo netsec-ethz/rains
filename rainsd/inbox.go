@@ -1,11 +1,10 @@
 package rainsd
 
 import (
+	"bytes"
 	"rains/rainslib"
 	"rains/utils/parser"
 	"time"
-
-	"bytes"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -78,6 +77,7 @@ func Deliver(message []byte, sender ConnInfo) {
 		sendNotificationMsg(msg.Token, sender, rainslib.RcvMalformatMsg)
 		return
 	}
+	log.Info("Parsed Message", "Msg", msg)
 	//TODO CFE this part must be refactored once we have a CBOR parser so we can distinguish an array of capabilities from a sha has entry
 	if msg.Capabilities != "" {
 		if caps, ok := capabilities.Get(msg.Capabilities); ok {
@@ -96,13 +96,13 @@ func Deliver(message []byte, sender ConnInfo) {
 	//TODO CFE verify signatures against infrastructure key for the RAINS Server originating the message
 	for _, m := range msg.Content {
 		switch m := m.(type) {
-		case rainslib.AssertionBody:
+		case *rainslib.AssertionBody:
 			addMsgBodyToQueue(m, msg.Token, sender)
-		case rainslib.ShardBody:
+		case *rainslib.ShardBody:
 			addMsgBodyToQueue(m, msg.Token, sender)
-		case rainslib.QueryBody:
-			addQueryToQueue(msg, m, sender)
-		case rainslib.NotificationBody:
+		case *rainslib.QueryBody:
+			addQueryToQueue(m, msg, sender)
+		case *rainslib.NotificationBody:
 			addNotifToQueue(m, msg.Token, sender)
 		default:
 			log.Warn("Unknown message type")
@@ -133,9 +133,9 @@ func addMsgBodyToQueue(msgBody rainslib.MessageBody, tok rainslib.Token, sender 
 }
 
 //addQueryToQueue checks that the token of the message and of the query body are the same and if so adds it to a queue
-func addQueryToQueue(msg rainslib.RainsMessage, body rainslib.QueryBody, sender ConnInfo) {
+func addQueryToQueue(body *rainslib.QueryBody, msg rainslib.RainsMessage, sender ConnInfo) {
 	if bytes.Equal(msg.Token, body.Token) {
-		normalChannel <- MsgBodySender{Sender: sender, Msg: msg, Token: msg.Token}
+		normalChannel <- MsgBodySender{Sender: sender, Msg: body, Token: msg.Token}
 	} else {
 		log.Warn("Token of message and query body do not match.", "msgToken", msg.Token, "queryBodyToken", body.Token)
 		sendNotificationMsg(msg.Token, sender, rainslib.RcvMalformatMsg)
@@ -144,9 +144,9 @@ func addQueryToQueue(msg rainslib.RainsMessage, body rainslib.QueryBody, sender 
 }
 
 //addNotifToQueue adds a rains message containing one notification message body to the queue if the token is present in the activeToken cache
-func addNotifToQueue(msg rainslib.NotificationBody, tok rainslib.Token, sender ConnInfo) {
+func addNotifToQueue(msg *rainslib.NotificationBody, tok rainslib.Token, sender ConnInfo) {
 	var token [32]byte
-	copy(token[0:len(tok)], tok)
+	copy(token[0:len(msg.Token)], msg.Token)
 	if _, ok := activeTokens[token]; ok {
 		log.Info("active Token encountered", "Token", token)
 		delete(activeTokens, token)

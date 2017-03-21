@@ -19,7 +19,7 @@ func init() {
 
 //AssertA adds an assertion to the assertion cache. Triggers any pending queries answered by it.
 //The assertion's signatures MUST have already been verified
-func AssertA(assertion rainslib.AssertionBody) {
+func AssertA(assertion *rainslib.AssertionBody) {
 	log.Info("Start processing Assertion", "assertion", assertion)
 }
 
@@ -38,6 +38,6 @@ func AssertZ(zone rainslib.ZoneBody) {
 }
 
 //Query directly answers the query if result is cached. Otherwise it issues a new query and puts this query to the pendingQueries Cache.
-func Query(query rainslib.QueryBody) {
+func Query(query *rainslib.QueryBody) {
 	log.Info("Start processing query", "query", query)
 }
