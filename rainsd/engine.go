@@ -43,14 +43,14 @@ func AssertA(assertion *rainslib.AssertionBody) {
 //AssertS adds assertions to the assertion cache and shards to the ???ShardCache???. Trigger any pending queries answered by it
 //TODO CFE do we need a shardCache?
 //The shard's signatures and all contained assertion signatures MUST have already been verified
-func AssertS(shard rainslib.ShardBody) {
+func AssertS(shard *rainslib.ShardBody) {
 	log.Info("Start processing Shard", "shard", shard)
 }
 
 //AssertZ adds assertions to the assertion cache and shards to the ???ShardCache??? and zone to the ???zoneCache???. Trigger any pending queries answered by it
 //TODO CFE do we need a zoneCache?
 //The zone's signatures and all contained shard and assertion signatures MUST have already been verified
-func AssertZ(zone rainslib.ZoneBody) {
+func AssertZ(zone *rainslib.ZoneBody) {
 	log.Info("Start processing zone", "zone", zone)
 }
 

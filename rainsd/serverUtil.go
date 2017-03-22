@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"rains/rainslib"
 	"strconv"
+	"sync"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -208,16 +209,61 @@ func GenerateHMAC(msg []byte, hashType rainslib.AlgorithmType, key []byte) []byt
 	return h.Sum(msg)
 }
 
-//PendingQueryCacheKey is the key for the pendingQuery cache
-type PendingQueryCacheKey struct {
+//PendingSignatureCacheKey is the key for the pendingQuery cache
+type PendingSignatureCacheKey struct {
 	KeySpace    string
 	Context     string
 	SubjectZone string
 }
 
-//PendingQueryCacheValue is the value received from the pendingQuery cache
-type PendingQueryCacheValue struct {
-	ValidUntil int64
-	Retries    int
-	Msg        []rainslib.MessageBodyWithSig
+//PendingSignatureCacheValue is the value received from the pendingQuery cache
+type PendingSignatureCacheValue struct {
+	ValidUntil  int64
+	retries     int
+	mux         sync.Mutex
+	MsgBodyList MsgBodyWithSigList
+}
+
+//Retries returns the number of retries. If 0 no retries are attempted
+func (v *PendingSignatureCacheValue) Retries() int {
+	v.mux.Lock()
+	defer func(v *PendingSignatureCacheValue) { v.mux.Unlock() }(v)
+	return v.retries
+}
+
+//DecRetries decreses the retry value by 1
+func (v *PendingSignatureCacheValue) DecRetries() {
+	v.mux.Lock()
+	if v.retries > 0 {
+		v.retries--
+	}
+}
+
+//MsgBodyWithSigList is a thread safe list of msgBodyWithSig
+//To handle the case that we do not drop an incoming msgBody during the handling of the callback, we close the list after callback and return false
+//Then the calling method can handle the new msgBody directly.
+type MsgBodyWithSigList struct {
+	mux                sync.Mutex
+	closed             bool
+	MsgBodyWithSigList []rainslib.MessageBodyWithSig
+}
+
+//Add adds an message body with signature to the list (It is thread safe)
+//returns true if it was able to add the element to the list
+func (l *MsgBodyWithSigList) Add(body rainslib.MessageBodyWithSig) bool {
+	l.mux.Lock()
+	defer func(l *MsgBodyWithSigList) { l.mux.Unlock() }(l)
+	if !l.closed {
+		l.MsgBodyWithSigList = append(l.MsgBodyWithSigList, body)
+		return true
+	}
+	return false
+}
+
+//GetList returns the list and closes the data structure
+func (l *MsgBodyWithSigList) GetListAndClose() []rainslib.MessageBodyWithSig {
+	l.mux.Lock()
+	defer func(l *MsgBodyWithSigList) { l.mux.Unlock() }(l)
+	l.closed = true
+	return l.MsgBodyWithSigList
 }

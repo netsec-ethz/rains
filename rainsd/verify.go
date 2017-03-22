@@ -7,13 +7,18 @@ import (
 
 	"bytes"
 
+	"fmt"
+
 	log "github.com/inconshreveable/log15"
 )
 
 //zoneKeys contains a set of zone public keys
+//key: PendingSignatureCacheKey value:PublicKey
 var zoneKeys Cache
 
-//pendingSignatures contains a mapping from all self issued pending queries to the set of messages waiting for it.
+//pendingSignatures contains a mapping from all self issued pending queries to the set of message bodies waiting for it together with a timeout.
+//key: PendingSignatureCacheKey value: *PendingSignatureCacheValue
+//TODO make the value thread safe. Store a list of PendingSignatureCacheValue objects which can be added and deleted
 var pendingSignatures Cache
 
 func initVerif() {
@@ -25,8 +30,8 @@ func initVerif() {
 		log.Error("Cannot create zoneKeyCache", "error", err)
 		panic(err)
 	}
-	//TODO CFE to remove, here fore testing purposes
-	zoneKeys.Add("0..ch", rainslib.PublicKey{Key: []byte("Test"), Type: rainslib.Sha256, ValidUntil: 1690086564})
+	//TODO CFE to remove, here for testing purposes
+	zoneKeys.Add(PendingSignatureCacheKey{KeySpace: "0", Context: ".", SubjectZone: ".ch"}, rainslib.PublicKey{Key: []byte("Test"), Type: rainslib.Sha256, ValidUntil: 1690086564})
 	pendingSignatures = &LRUCache{}
 	err = pendingSignatures.New(int(Config.PendingSignatureCacheSize))
 	if err != nil {
@@ -35,8 +40,8 @@ func initVerif() {
 	}
 }
 
-//Verify verifies the incoming message. It sends a notification if the msg is inconsistent and it validates the signatures, stripping of invalid once. If no signature remain on
-//an assertion, shard or zone then the corresponding msg body gets removed.
+//Verify verifies the incoming message body. It sends a notification if the msg body is inconsistent and it validates the signatures, stripping of invalid once.
+//If no signature remain on an assertion, shard or zone then the corresponding msg body gets removed.
 func Verify(msgSender MsgBodySender) {
 	log.Info("Verify Message Body", "MsgBody", msgSender.Msg)
 	switch body := msgSender.Msg.(type) {
@@ -50,18 +55,26 @@ func Verify(msgSender MsgBodySender) {
 		if !containedAssertionsAndShardsValid(msgSender) {
 			return
 		}
-		VerifySignature(body, msgSender.Token, msgSender.Sender, nil)
+		if VerifySignature(body, msgSender.Token, msgSender.Sender, nil) {
+			AssertS(body)
+		} else {
+			log.Warn("Pending or dropped Shard (due to validation failure)", "Shard", *body)
+		}
 	case *rainslib.ZoneBody:
 		if !containedAssertionsAndShardsValid(msgSender) {
 			return
 		}
-		VerifySignature(body, msgSender.Token, msgSender.Sender, nil)
+		if VerifySignature(body, msgSender.Token, msgSender.Sender, nil) {
+			AssertZ(body)
+		} else {
+			log.Warn("Pending or dropped Zone (due to validation failure)", "Zone", *body)
+		}
 	case *rainslib.QueryBody:
 		if validQuery(body, msgSender.Sender) {
 			Query(body)
 		}
 	default:
-		log.Warn("Not supported Msg section body to verify", "MsgSectionBody", body)
+		log.Warn("Not supported Msg body to verify", "MsgBody", body)
 	}
 }
 
@@ -76,35 +89,33 @@ func validQuery(body *rainslib.QueryBody, sender ConnInfo) bool {
 }
 
 //containedAssertionsAndShardsValid compares the context and the subject zone of the outer message body with the contained message bodies.
-//If they differ, a inconsistency notification msg is sent to the sender and false is returned
+//If they differ, an inconsistency notification msg is sent to the sender and false is returned
 func containedAssertionsAndShardsValid(msgSender MsgBodySender) bool {
 	switch msg := msgSender.Msg.(type) {
-	case rainslib.ShardBody:
+	case *rainslib.ShardBody:
 		for _, assertion := range msg.Content {
-			if !containedAssertionValid(assertion, msg.Context, msg.SubjectZone, msgSender.Token, msgSender.Sender) {
+			if !containedBodyValid(assertion, msg.Context, msg.SubjectZone, msgSender.Token, msgSender.Sender) {
 				return false
 			}
 		}
-	case rainslib.ZoneBody:
+	case *rainslib.ZoneBody:
 		for _, body := range msg.Content {
 			switch body := body.(type) {
 			case *rainslib.AssertionBody:
-				if !containedAssertionValid(body, msg.Context, msg.SubjectZone, msgSender.Token, msgSender.Sender) {
+				if !containedBodyValid(body, msg.Context, msg.SubjectZone, msgSender.Token, msgSender.Sender) {
 					return false
 				}
 			case *rainslib.ShardBody:
-				if body.Context != msg.Context || body.SubjectZone != msg.SubjectZone {
-					log.Warn("Shard is inconsistent with Zone's context or subject zone", "ShardBody", body, "zoneBody", msg)
-					sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.RcvInconsistentMsg)
+				if !containedBodyValid(body, msg.Context, msg.SubjectZone, msgSender.Token, msgSender.Sender) {
 					return false
 				}
 				for _, assertion := range body.Content {
-					if !containedAssertionValid(assertion, msg.Context, msg.SubjectZone, msgSender.Token, msgSender.Sender) {
+					if !containedBodyValid(assertion, msg.Context, msg.SubjectZone, msgSender.Token, msgSender.Sender) {
 						return false
 					}
 				}
 			default:
-				log.Warn("Unknown Message Body contained in zone", "msgBody", body)
+				log.Warn("Unknown Body contained in zone", "msgBody", body)
 				sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.RcvInconsistentMsg)
 				return false
 			}
@@ -117,84 +128,58 @@ func containedAssertionsAndShardsValid(msgSender MsgBodySender) bool {
 	return true
 }
 
-//containedAssertionValid checks if a contained shard's context and subject zone is equal to the parameters.
+//containedBodyValid checks if a contained body's context and subject zone is equal to the parameters.
 //If not a inconsistency notification message is sent to the sender and false is returned
-func containedAssertionValid(body *rainslib.AssertionBody, context string, subjectZone string, token rainslib.Token, sender ConnInfo) bool {
-	if body.Context != context || body.SubjectZone != subjectZone {
-		log.Warn("Assertion is inconsistent with Shard's or zone's context or zone.", "Assertion", body, "context", context, "zone", subjectZone)
+func containedBodyValid(body rainslib.MessageBodyWithSig, context string, subjectZone string, token rainslib.Token, sender ConnInfo) bool {
+	if body.GetContext() != context || body.GetSubjectZone() != subjectZone {
+		log.Warn(fmt.Sprintf("Contained %T's context or zone is inconsistent with outer body's", body),
+			fmt.Sprintf("%T", body), body, "Outer context", context, "Outerzone", subjectZone)
 		sendNotificationMsg(token, sender, rainslib.RcvInconsistentMsg)
 		return false
 	}
 	return true
 }
 
-//VerifySignature verifies all signatures and strips off invalid signatures. If the public key is missing it issues a query and put the msg body on waiting queue and
-//adds a callback to the pendingQueries cache
+//VerifySignature verifies all signatures and strips off invalid signatures. If the public key is missing it issues a query and put the msg body on a waiting queue and
+//adds a callback to the pendingSignatures cache
 //returns false if there is no signature left on the message or when some public keys are missing
 //TODO CFE verify whole signature chain (do not forget to check expiration)
 func VerifySignature(body rainslib.MessageBodyWithSig, token rainslib.Token, sender ConnInfo, c chan<- bool) bool {
 	if c != nil {
 		defer func(c chan<- bool) { c <- true }(c)
 	}
-	keyIDs := make(map[PendingQueryCacheKey]string)
+	keyIDs := make(map[PendingSignatureCacheKey]string)
 	for _, sig := range body.Sigs() {
 		if sig.KeySpace != rainslib.RainsKeySpace {
 			log.Warn("Unsupported keyspace", "KeySpaceID", sig.KeySpace)
 		}
-		keyIDs[PendingQueryCacheKey{KeySpace: strconv.Itoa(int(sig.KeySpace)), Context: body.GetContext(), SubjectZone: body.GetSubjectZone()}] = strconv.Itoa(int(sig.KeySpace))
+		cacheKey := PendingSignatureCacheKey{KeySpace: strconv.Itoa(int(sig.KeySpace)), Context: body.GetContext(), SubjectZone: body.GetSubjectZone()}
+		keyIDs[cacheKey] = strconv.Itoa(int(sig.KeySpace))
 	}
 	publicKeys, missingKeys, ok := publicKeysPresent(keyIDs)
 	if ok {
-		//all public keys are present
+		log.Info("All public keys are present.", "MsgBodyWithSig", body)
 		return validSignature(body, publicKeys)
 	}
+	log.Info("Some public keys are missing", "#MissingKeys", len(missingKeys))
 	for missingKey := range missingKeys {
-		if v, ok := pendingQueries.Get(missingKey); ok {
-			if v.(PendingQueryCacheValue).ValidUntil < time.Now().Unix() && v.(PendingQueryCacheValue).Retries > 0 {
-				handleMissingPublicKey(missingKey, sender, body)
-				continue
+		if v, ok := pendingSignatures.Get(missingKey); ok {
+			v := v.(*PendingSignatureCacheValue)
+			if v.ValidUntil < time.Now().Unix() && v.Retries() > 0 {
+				handleMissingPublicKey(missingKey, sender, body, v)
 			}
 		} else {
-			handleMissingPublicKey(missingKey, sender, body)
+			handleMissingPublicKey(missingKey, sender, body, nil)
 		}
 	}
 	return false
 }
 
-func handleMissingPublicKey(cacheKey PendingQueryCacheKey, sender ConnInfo, body rainslib.MessageBodyWithSig) {
-	//TODO CFE How large should we set the expiration time of the query
-	expTime := time.Now().Unix() + 1000
-	//FIXME CFE slice is not thread safe! replace it with a e.g. thread safe list or something
-	if v, ok := pendingQueries.Get(cacheKey); ok {
-		value := v.(PendingQueryCacheValue)
-		value.Msg = append(value.Msg, body)
-		value.Retries--
-		value.ValidUntil = expTime
-		pendingQueries.Add(cacheKey, value)
-	} else {
-		//TODO CFE add umber of retries to ServerConfig
-		pendingQueries.Add(cacheKey, PendingQueryCacheValue{ValidUntil: expTime, Retries: 1, Msg: []rainslib.MessageBodyWithSig{body}})
-	}
-	sendDelegationQuery(cacheKey, expTime, sender)
-}
-
-//sendDelegationQuery sendes a delegation query to sender.
-func sendDelegationQuery(cacheKey PendingQueryCacheKey, expTime int64, sender ConnInfo) {
-	token := GenerateToken()
-	queryBody := rainslib.QueryBody{Context: cacheKey.Context, SubjectName: cacheKey.SubjectZone, Expires: int(expTime), Token: token, Types: rainslib.Delegation}
-	query := rainslib.RainsMessage{Token: GenerateToken(), Content: []rainslib.MessageBody{queryBody}}
-	msg, err := msgParser.ParseRainsMsg(query)
-	if err != nil {
-		log.Warn("Cannot parse a delegation Query", "Query", query)
-	}
-	SendTo(msg, sender)
-}
-
 //publicKeysPresent returns true if all public keys are in the cache together with a map of keys and missingKeys
-func publicKeysPresent(keyIDs map[PendingQueryCacheKey]string) (map[string]rainslib.PublicKey, map[PendingQueryCacheKey]bool, bool) {
+func publicKeysPresent(keyIDs map[PendingSignatureCacheKey]string) (map[string]rainslib.PublicKey, map[PendingSignatureCacheKey]bool, bool) {
 	allKeysPresent := true
 	keys := make(map[string]rainslib.PublicKey)
-	missingKeys := make(map[PendingQueryCacheKey]bool)
+	missingKeys := make(map[PendingSignatureCacheKey]bool)
 	for keyID, keySpace := range keyIDs {
 		if key, ok := zoneKeys.Get(keyID); ok {
 			if int64(key.(rainslib.PublicKey).ValidUntil) < time.Now().Unix() {
@@ -203,14 +188,61 @@ func publicKeysPresent(keyIDs map[PendingQueryCacheKey]string) (map[string]rains
 				allKeysPresent = false
 				missingKeys[keyID] = true
 			} else {
-				keys[keySpace] = key.(rainslib.PublicKey)
+				log.Info("Corresponding Public key in cash.", "CacheKey", keyID, "PublicKey", key)
+				if key, ok := key.(rainslib.PublicKey); ok {
+					keys[keySpace] = key
+				} else {
+					allKeysPresent = false
+					missingKeys[keyID] = true
+					log.Warn("Value in zoneKeyCache is not a public key", "Value", key)
+				}
 			}
 		} else {
+			log.Info("Public key not in zoneKeyCache", "CacheKey", keyID)
 			allKeysPresent = false
 			missingKeys[keyID] = true
 		}
 	}
 	return keys, missingKeys, allKeysPresent
+}
+
+//handleMissingPublicKey adds or updates the current msg body to pendingSignatures and sends a delegation query for the missing key
+func handleMissingPublicKey(cacheKey PendingSignatureCacheKey, sender ConnInfo, body rainslib.MessageBodyWithSig, value *PendingSignatureCacheValue) {
+	//TODO CFE How large should we set the expiration time of the query
+	expTime := time.Now().Unix() + 1000
+	if value != nil {
+		value.MsgBodyList.Add(body)
+		value.DecRetries()
+	} else {
+		//TODO CFE add number of retries to ServerConfig
+		list := MsgBodyWithSigList{MsgBodyWithSigList: []rainslib.MessageBodyWithSig{body}}
+		if !pendingSignatures.Add(cacheKey, PendingSignatureCacheValue{ValidUntil: expTime, retries: 1, MsgBodyList: list}) {
+			//Was not able to add msgBody to pendingqueue, retry
+			if v, ok := pendingSignatures.Get(cacheKey); ok {
+				if v, ok := v.(PendingSignatureCacheValue); ok {
+					handleMissingPublicKey(cacheKey, sender, body, &v)
+					return
+				}
+			}
+			log.Error("verify.handleMissingPublicKey(): Cannot add callback for msgBody", "MsgBody", body)
+			return
+		}
+	}
+	sendDelegationQuery(cacheKey, expTime, sender)
+}
+
+//sendDelegationQuery sendes a delegation query back to the sender of the MsgBodyWithSig
+func sendDelegationQuery(cacheKey PendingSignatureCacheKey, expTime int64, sender ConnInfo) {
+	token := GenerateToken()
+	queryBody := rainslib.QueryBody{Context: cacheKey.Context, SubjectName: cacheKey.SubjectZone, Expires: int(expTime), Token: token, Types: rainslib.Delegation}
+	query := rainslib.RainsMessage{Token: GenerateToken(), Content: []rainslib.MessageBody{&queryBody}}
+	msg, err := msgParser.ParseRainsMsg(query)
+	if err != nil {
+		log.Warn("Cannot parse a delegation Query", "Query", query)
+	}
+	log.Info("Send delegation Query", "Query", queryBody)
+	//TODO CFE is the sender correctly chosen?
+	SendTo(msg, sender)
 }
 
 //validSignature validates the signatures on a MessageBodyWithSig and strips all signatures away that are not valid.
@@ -251,8 +283,8 @@ func validAssertionSignatures(body *rainslib.AssertionBody, keys map[string]rain
 }
 
 //Delegate adds the given public key to the zoneKeyCache
-func Delegate(context string, zone string, cipherType rainslib.AlgorithmType, keySpace rainslib.KeySpaceID, key []byte, until uint) {
+func Delegate(context string, subjectZone string, cipherType rainslib.AlgorithmType, keySpace rainslib.KeySpaceID, key []byte, until uint) {
 	pubKey := rainslib.PublicKey{Type: cipherType, Key: key, ValidUntil: until}
 	ks := strconv.Itoa(int(keySpace))
-	zoneKeys.Add(ks+context+zone, pubKey)
+	zoneKeys.Add(PendingSignatureCacheKey{KeySpace: ks, Context: context, SubjectZone: subjectZone}, pubKey)
 }
