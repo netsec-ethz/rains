@@ -310,6 +310,6 @@ type RainsMsgParser interface {
 	//Token extracts the token from the byte slice
 	Token(msg []byte) (Token, error)
 
-	//RevParseSignedAssertion parses an AssertionBody to a byte slice representation
-	RevParseSignedAssertion(*AssertionBody) string
+	//RevParseSignedMsgBody parses an MessageBodyWithSig to a byte slice representation
+	RevParseSignedMsgBody(body MessageBodyWithSig) (string, error)
 }

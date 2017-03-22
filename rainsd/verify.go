@@ -254,8 +254,7 @@ func validSignature(body rainslib.MessageBodyWithSig, keys map[string]rainslib.P
 	case *rainslib.AssertionBody:
 		return validAssertionSignatures(body, keys)
 	case *rainslib.ShardBody:
-		//TODO CFE implement this case
-		log.Warn("Not yet supported CFE")
+		return validShardSignature(body, keys)
 	case *rainslib.ZoneBody:
 		//TODO CFE implement this case
 		log.Warn("Not yet supported CFE")
@@ -270,13 +269,41 @@ func validSignature(body rainslib.MessageBodyWithSig, keys map[string]rainslib.P
 func validAssertionSignatures(body *rainslib.AssertionBody, keys map[string]rainslib.PublicKey) bool {
 	assertionStub := &rainslib.AssertionBody{}
 	*assertionStub = *body
-	assertionStub.DeleteAllSigs()
-	bareAssertion := msgParser.RevParseSignedAssertion(assertionStub)
-	for i, sig := range body.Signatures {
+	return validateSignature(assertionStub, body, keys)
+}
+
+//validShardSignature validates all signatures on and contained in a shard body and strips all signatures away that are not valid.
+//It returns false if there are no signatures left
+func validShardSignature(body *rainslib.ShardBody, keys map[string]rainslib.PublicKey) bool {
+	//TODO CFE FIXME deep copy elements
+	shardStub := &rainslib.ShardBody{}
+	*shardStub = *body
+	hasSig := validateSignature(shardStub, body, keys)
+	for i, assertion := range body.Content {
+		assertionStub := &rainslib.AssertionBody{}
+		*assertionStub = *assertion
+		if !validateSignature(assertionStub, assertion, keys) {
+			body.Content = append(body.Content[:i], body.Content[:i+1]...)
+		}
+	}
+	//if shard has no valid sig, still use valid assertions
+	if !hasSig {
+		for _, assertion := range body.Content {
+			AssertA(assertion)
+		}
+	}
+	return hasSig
+}
+
+func validateSignature(stub, body rainslib.MessageBodyWithSig, keys map[string]rainslib.PublicKey) bool {
+	log.Info(fmt.Sprintf("Validate %T", body), "MsgBody", body)
+	stub.DeleteAllSigs()
+	bareStub, _ := msgParser.RevParseSignedMsgBody(stub)
+	for i, sig := range body.Sigs() {
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Warn("signature expired", "expTime", sig.ValidUntil)
 			body.DeleteSig(i)
-		} else if newSig := GenerateHMAC([]byte(bareAssertion), sig.Algorithm, keys[strconv.Itoa(int(sig.KeySpace))].Key)[len(bareAssertion):]; !bytes.Equal(newSig, sig.Data) {
+		} else if newSig := GenerateHMAC([]byte(bareStub), sig.Algorithm, keys[strconv.Itoa(int(sig.KeySpace))].Key)[len(bareStub):]; !bytes.Equal(newSig, sig.Data) {
 			log.Warn("signatures do not match", "signature", sig.Data, "calculatedSig", newSig)
 			body.DeleteSig(i)
 		}

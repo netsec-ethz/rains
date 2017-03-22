@@ -61,9 +61,9 @@ func (p RainsMsgParser) ParseRainsMsg(m rainslib.RainsMessage) ([]byte, error) {
 	for _, body := range m.Content {
 		switch body := body.(type) {
 		case *rainslib.AssertionBody:
-			msg += p.RevParseSignedAssertion(body)
+			msg += revParseSignedAssertion(body)
 		case *rainslib.ShardBody:
-			msg += revParseSignedShard(body, p)
+			msg += revParseSignedShard(body)
 		case *rainslib.QueryBody:
 			msg += revParseQuery(body)
 		case *rainslib.NotificationBody:
@@ -92,19 +92,32 @@ func (p RainsMsgParser) Token(message []byte) (rainslib.Token, error) {
 	return rainslib.Token(msg[:msgBodyBegin]), nil
 }
 
+//RevParseSignedMsgBody parses an MessageBodyWithSig to a byte slice representation
+func (p RainsMsgParser) RevParseSignedMsgBody(body rainslib.MessageBodyWithSig) (string, error) {
+	switch body := body.(type) {
+	case *rainslib.AssertionBody:
+		return revParseSignedAssertion(body), nil
+	case *rainslib.ShardBody:
+		return revParseSignedShard(body), nil
+	default:
+		log.Warn("Parser: Unknown message section body type", "type", body)
+		return "", errors.New("Unknown message section body type")
+	}
+}
+
 //RevParseSignedAssertion parses a signed assertion to its string representation with format:
 //:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>:OT:<object type>:OD:<object data>[signature*]
-func (p RainsMsgParser) RevParseSignedAssertion(a *rainslib.AssertionBody) string {
+func revParseSignedAssertion(a *rainslib.AssertionBody) string {
 	assertion := fmt.Sprintf(":SA::CN:%s:ZN:%s:SN:%s:OT:%v:OD:%v[", a.Context, a.SubjectZone, a.SubjectName, a.Content.Type, a.Content.Value)
 	return assertion + revParseSignature(a.Signatures) + "]"
 }
 
-//revParseSignedShard parses a signed shard to its string representation with format:
+//RevParseSignedShard parses a signed shard to its string representation with format:
 //:SS::CN:<context-name>:ZN:<zone-name>:RB:<range-begin>:RE:<range-end>[Contained Assertion*][signature*]
-func revParseSignedShard(s *rainslib.ShardBody, p RainsMsgParser) string {
+func revParseSignedShard(s *rainslib.ShardBody) string {
 	shard := fmt.Sprintf(":SS::CN:%s:ZN:%s:RB:%s:RE:%s[", s.Context, s.SubjectZone, s.RangeFrom, s.RangeTo)
 	for _, assertion := range s.Content {
-		shard += p.RevParseSignedAssertion(assertion)
+		shard += revParseSignedAssertion(assertion)
 	}
 	return fmt.Sprintf("%s][%s]", shard, revParseSignature(s.Signatures))
 }
