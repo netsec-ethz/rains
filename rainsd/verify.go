@@ -3,6 +3,7 @@ package rainsd
 import (
 	"rains/rainslib"
 	"strconv"
+	"sync"
 	"time"
 
 	"bytes"
@@ -46,7 +47,7 @@ func Verify(msgSender MsgBodySender) {
 	log.Info("Verify Message Body", "MsgBody", msgSender.Msg)
 	switch body := msgSender.Msg.(type) {
 	case *rainslib.AssertionBody:
-		if VerifySignature(body, msgSender.Token, msgSender.Sender, nil) {
+		if VerifySignature(body, msgSender.Sender, false, nil) {
 			AssertA(body)
 		} else {
 			log.Warn("Pending or dropped Assertion (due to validation failure)", "Assertion", *body)
@@ -55,7 +56,7 @@ func Verify(msgSender MsgBodySender) {
 		if !containedAssertionsAndShardsValid(msgSender) {
 			return
 		}
-		if VerifySignature(body, msgSender.Token, msgSender.Sender, nil) {
+		if VerifySignature(body, msgSender.Sender, false, nil) {
 			AssertS(body)
 		} else {
 			log.Warn("Pending or dropped Shard (due to validation failure)", "Shard", *body)
@@ -64,7 +65,7 @@ func Verify(msgSender MsgBodySender) {
 		if !containedAssertionsAndShardsValid(msgSender) {
 			return
 		}
-		if VerifySignature(body, msgSender.Token, msgSender.Sender, nil) {
+		if VerifySignature(body, msgSender.Sender, false, nil) {
 			AssertZ(body)
 		} else {
 			log.Warn("Pending or dropped Zone (due to validation failure)", "Zone", *body)
@@ -144,10 +145,7 @@ func containedBodyValid(body rainslib.MessageBodyWithSig, context string, subjec
 //adds a callback to the pendingSignatures cache
 //returns false if there is no signature left on the message or when some public keys are missing
 //TODO CFE verify whole signature chain (do not forget to check expiration)
-func VerifySignature(body rainslib.MessageBodyWithSig, token rainslib.Token, sender ConnInfo, c chan<- bool) bool {
-	if c != nil {
-		defer func(c chan<- bool) { c <- true }(c)
-	}
+func VerifySignature(body rainslib.MessageBodyWithSig, sender ConnInfo, forceValidate bool, wg *sync.WaitGroup) bool {
 	keyIDs := make(map[PendingSignatureCacheKey]string)
 	for _, sig := range body.Sigs() {
 		if sig.KeySpace != rainslib.RainsKeySpace {
@@ -157,8 +155,12 @@ func VerifySignature(body rainslib.MessageBodyWithSig, token rainslib.Token, sen
 		keyIDs[cacheKey] = strconv.Itoa(int(sig.KeySpace))
 	}
 	publicKeys, missingKeys, ok := publicKeysPresent(keyIDs)
-	if ok {
-		log.Info("All public keys are present.", "MsgBodyWithSig", body)
+	if ok || forceValidate {
+		if forceValidate {
+			log.Info("ForceValidate", "MsgBodyWithSig", body, "publicKeys", publicKeys)
+		} else {
+			log.Info("All public keys are present.", "MsgBodyWithSig", body)
+		}
 		return validSignature(body, publicKeys)
 	}
 	log.Info("Some public keys are missing", "#MissingKeys", len(missingKeys))
@@ -287,4 +289,46 @@ func Delegate(context string, subjectZone string, cipherType rainslib.AlgorithmT
 	pubKey := rainslib.PublicKey{Type: cipherType, Key: key, ValidUntil: until}
 	ks := strconv.Itoa(int(keySpace))
 	zoneKeys.Add(PendingSignatureCacheKey{KeySpace: ks, Context: context, SubjectZone: subjectZone}, pubKey)
+}
+
+func workPendingSignatures() {
+	for {
+		//TODO CFE add to config?
+		time.Sleep(time.Second)
+		keys := pendingSignatures.Keys()
+		var wg sync.WaitGroup
+		for _, key := range keys {
+			if v, ok := pendingSignatures.Get(key); ok {
+				if v, ok := v.(PendingSignatureCacheValue); ok {
+					if v.ValidUntil < time.Now().Unix() && v.Retries() == 0 {
+						list := v.MsgBodyList.GetListAndClose()
+						pendingSignatures.Remove(key)
+						for _, body := range list {
+							wg.Add(1)
+							go handleExpiredPendingSignatures(body, &wg)
+						}
+					}
+				} else {
+					log.Warn("Value of pendingSignatures is not PendingSignatureCacheValue", "value", v)
+				}
+			}
+		}
+		wg.Wait()
+	}
+}
+
+func handleExpiredPendingSignatures(body rainslib.MessageBodyWithSig, wg *sync.WaitGroup) {
+	defer wg.Done()
+	if VerifySignature(body, ConnInfo{}, true, wg) {
+		switch body := body.(type) {
+		case *rainslib.AssertionBody:
+			AssertA(body)
+		case *rainslib.ShardBody:
+			AssertS(body)
+		case *rainslib.ZoneBody:
+			AssertZ(body)
+		default:
+			log.Warn("verify.handleExpiredPendingSignatures(): Not supported Message Body with Signature", "MsgBody", body)
+		}
+	}
 }

@@ -138,6 +138,8 @@ type Cache interface {
 	Contains(key interface{}) bool
 	//Get returns the key's value from the cache. The boolean value is false if there exist no element with the given key in the cache
 	Get(key interface{}) (interface{}, bool)
+	//Keys returns a slice of the keys in the cache
+	Keys() []interface{}
 	//Len returns the number of elements in the cache.
 	Len() int
 	//Remove deletes the given key value pair from the cache
@@ -178,6 +180,11 @@ func (c *LRUCache) Contains(key interface{}) bool {
 //Get returns the key's value from the cache. The boolean value is false if there exist no element with the given key in the cache
 func (c *LRUCache) Get(key interface{}) (interface{}, bool) {
 	return c.Cache.Get(key)
+}
+
+//Keys returns a slice of the keys in the cache sorted from oldest to newest
+func (c *LRUCache) Keys() []interface{} {
+	return c.Cache.Keys()
 }
 
 //Len returns the number of elements in the cache.

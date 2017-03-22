@@ -168,6 +168,9 @@ func createWorker() {
 	for i := 0; i < int(Config.NotificationWorkerSize); i++ {
 		go workNotification()
 	}
+	for i := 0; i < int(2); i++ {
+		go workPendingSignatures()
+	}
 }
 
 //workBoth works on the prioChannel and on the normalChannel. A worker only fetches a message from the normalChannel if the prioChannel is empty
