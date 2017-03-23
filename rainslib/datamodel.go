@@ -297,7 +297,7 @@ const (
 //Signature TODO What does it contain
 type Signature struct {
 	KeySpace   KeySpaceID
-	Algorithm  AlgorithmType
+	Algorithm  SignatureAlgorithmType
 	ValidSince int
 	ValidUntil int
 	Data       []byte
@@ -310,19 +310,31 @@ const (
 	RainsKeySpace KeySpaceID = iota
 )
 
-//AlgorithmType is the type of a cipher
-type AlgorithmType int
+//SignatureAlgorithmType specifies a signature algorithm type
+type SignatureAlgorithmType int
 
 const (
-	Sha256 AlgorithmType = iota
+	Ed25519 SignatureAlgorithmType = iota
+	Ed448
+	Ecdsa256
+	Ecdsa384
+)
+
+//HashAlgorithmType specifies a hash algorithm type
+type HashAlgorithmType int
+
+const (
+	NoHashAlgo HashAlgorithmType = iota
+	Sha256
 	Sha384
+	Sha512
 )
 
 //PublicKey contains information about a public key
 type PublicKey struct {
 	//TODO CFE remove type if not needed anywhere
-	Type       AlgorithmType
-	Key        []byte
+	Type       SignatureAlgorithmType
+	Key        interface{}
 	ValidUntil uint
 }
 

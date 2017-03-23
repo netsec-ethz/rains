@@ -1,14 +1,15 @@
 package rainsd
 
 import (
-	"bytes"
 	"fmt"
+	"math/rand"
 	"rains/rainslib"
 	"strconv"
 	"sync"
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 )
 
 //zoneKeys contains a set of zone public keys
@@ -30,7 +31,8 @@ func initVerif() {
 		panic(err)
 	}
 	//TODO CFE to remove, here for testing purposes
-	zoneKeys.Add(PendingSignatureCacheKey{KeySpace: "0", Context: ".", SubjectZone: ".ch"}, rainslib.PublicKey{Key: []byte("Test"), Type: rainslib.Sha256, ValidUntil: 1690086564})
+	pubKey, _, _ := ed25519.GenerateKey(rand.New(rand.NewSource(time.Now().UnixNano())))
+	zoneKeys.Add(PendingSignatureCacheKey{KeySpace: "0", Context: ".", SubjectZone: ".ch"}, rainslib.PublicKey{Key: pubKey, Type: rainslib.Ed25519, ValidUntil: 1690086564})
 	pendingSignatures = &LRUCache{}
 	err = pendingSignatures.New(int(Config.PendingSignatureCacheSize))
 	if err != nil {
@@ -238,7 +240,7 @@ func sendDelegationQuery(cacheKey PendingSignatureCacheKey, expTime int64, sende
 func validSignature(body rainslib.MessageBodyWithSig, keys map[string]rainslib.PublicKey) bool {
 	switch body := body.(type) {
 	case *rainslib.AssertionBody:
-		return validateSignature(body, keys)
+		return validateSignatures(body, keys)
 	case *rainslib.ShardBody:
 		return validShardSignature(body, keys)
 	case *rainslib.ZoneBody:
@@ -252,9 +254,9 @@ func validSignature(body rainslib.MessageBodyWithSig, keys map[string]rainslib.P
 //validShardSignature validates all signatures on and contained in a shard body and strips all signatures away that are not valid.
 //It returns false if there are no signatures left on the shard (In this case it processes all valid assertions before returning)
 func validShardSignature(body *rainslib.ShardBody, keys map[string]rainslib.PublicKey) bool {
-	hasSig := validateSignature(body, keys)
+	hasSig := validateSignatures(body, keys)
 	for i, assertion := range body.Content {
-		if !validateSignature(assertion, keys) {
+		if !validateSignatures(assertion, keys) {
 			body.Content = append(body.Content[:i], body.Content[:i+1]...)
 		}
 	}
@@ -270,24 +272,24 @@ func validShardSignature(body *rainslib.ShardBody, keys map[string]rainslib.Publ
 //validZoneSignature validates all signatures on and contained in a zone body and strips all signatures away that are not valid.
 //It returns false if there are no signatures left on the zone (In this case it processes all valid assertions and shards before returning)
 func validZoneSignature(body *rainslib.ZoneBody, keys map[string]rainslib.PublicKey) bool {
-	hasSig := validateSignature(body, keys)
+	hasSig := validateSignatures(body, keys)
 	for i, b := range body.Content {
 		switch b := b.(type) {
 		case *rainslib.AssertionBody:
-			if !validateSignature(b, keys) {
+			if !validateSignatures(b, keys) {
 				body.Content = append(body.Content[:i], body.Content[:i+1]...)
 			}
 		case *rainslib.ShardBody:
-			if validateSignature(b, keys) {
+			if validateSignatures(b, keys) {
 				for i, assertion := range b.Content {
-					if !validateSignature(assertion, keys) {
+					if !validateSignatures(assertion, keys) {
 						b.Content = append(b.Content[:i], b.Content[:i+1]...)
 					}
 				}
 			} else {
 				//All Shard's Signatures are invalid, add valid contained assertions to the zone body's Content (they will not be revalidated at the end of this loop)
 				for _, assertion := range b.Content {
-					if validateSignature(assertion, keys) {
+					if validateSignatures(assertion, keys) {
 						body.Content = append(body.Content, assertion)
 					}
 				}
@@ -312,7 +314,7 @@ func validZoneSignature(body *rainslib.ZoneBody, keys map[string]rainslib.Public
 	return hasSig
 }
 
-func validateSignature(body rainslib.MessageBodyWithSig, keys map[string]rainslib.PublicKey) bool {
+func validateSignatures(body rainslib.MessageBodyWithSig, keys map[string]rainslib.PublicKey) bool {
 	log.Info(fmt.Sprintf("Validate %T", body), "MsgBody", body)
 	stub := body.CreateStub()
 	bareStub, _ := msgParser.RevParseSignedMsgBody(stub)
@@ -320,16 +322,17 @@ func validateSignature(body rainslib.MessageBodyWithSig, keys map[string]rainsli
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Warn("signature expired", "expTime", sig.ValidUntil)
 			body.DeleteSig(i)
-		} else if newSig := GenerateHMAC([]byte(bareStub), sig.Algorithm, keys[strconv.Itoa(int(sig.KeySpace))].Key)[len(bareStub):]; !bytes.Equal(newSig, sig.Data) {
-			log.Warn("signatures do not match", "signature", sig.Data, "calculatedSig", newSig)
+		} else if VerifySignature(sig.Algorithm, keys[strconv.Itoa(int(sig.KeySpace))].Key, []byte(bareStub), sig.Data) {
+			log.Warn("signatures do not match")
 			body.DeleteSig(i)
 		}
+		log.Error("Successful Signature Validated")
 	}
 	return len(body.Sigs()) > 0
 }
 
 //Delegate adds the given public key to the zoneKeyCache
-func Delegate(context string, subjectZone string, cipherType rainslib.AlgorithmType, keySpace rainslib.KeySpaceID, key []byte, until uint) {
+func Delegate(context string, subjectZone string, cipherType rainslib.SignatureAlgorithmType, keySpace rainslib.KeySpaceID, key []byte, until uint) {
 	pubKey := rainslib.PublicKey{Type: cipherType, Key: key, ValidUntil: until}
 	ks := strconv.Itoa(int(keySpace))
 	zoneKeys.Add(PendingSignatureCacheKey{KeySpace: ks, Context: context, SubjectZone: subjectZone}, pubKey)

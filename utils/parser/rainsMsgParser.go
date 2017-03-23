@@ -53,7 +53,7 @@ func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, e
 }
 
 //ParseRainsMsg parses a RainsMessage to a byte slice representation with format:
-//<token>[MessageBody][signatures*]:cap:<capabilities>
+//<token>[MessageBody:::::...:::::MessageBody][signatures*]:cap:<capabilities
 func (p RainsMsgParser) ParseRainsMsg(m rainslib.RainsMessage) ([]byte, error) {
 	msg := string(m.Token) + "["
 	for _, body := range m.Content {
@@ -77,7 +77,7 @@ func (p RainsMsgParser) ParseRainsMsg(m rainslib.RainsMessage) ([]byte, error) {
 }
 
 //Token returns the Token from the message represented as a byte slice with format:
-//<token>[MessageBody][signatures*]:cap:<capabilities>
+//<token>[MessageBody:::::...:::::MessageBody][signatures*]:cap:<capabilities
 func (p RainsMsgParser) Token(message []byte) (rainslib.Token, error) {
 	msg := string(message)
 	msgBodyBegin := strings.Index(msg, "[")
@@ -434,7 +434,7 @@ func parseSignatures(msg string) ([]rainslib.Signature, error) {
 			log.Warn("signature's algoID malformated")
 			return []rainslib.Signature{}, errors.New("signature's cipher malformated")
 		}
-		signature := rainslib.Signature{Algorithm: rainslib.AlgorithmType(algoType), Data: []byte(sig[sd+4 : len(sig)]), ValidSince: validSince, ValidUntil: validUntil,
+		signature := rainslib.Signature{Algorithm: rainslib.SignatureAlgorithmType(algoType), Data: []byte(sig[sd+4 : len(sig)]), ValidSince: validSince, ValidUntil: validUntil,
 			KeySpace: rainslib.KeySpaceID(keySpace)}
 		signatures = append(signatures, signature)
 	}
