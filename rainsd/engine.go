@@ -34,23 +34,38 @@ func initEngine() {
 	}
 }
 
-//AssertA adds an assertion to the assertion cache. Triggers any pending queries answered by it.
+//Assert adds an message body with valid signatures to the assertion/shard/zone cache. Triggers any pending queries answered by it.
+//The message body's signatures MUST have already been verified
+func Assert(body rainslib.MessageBodyWithSig) {
+	switch body := body.(type) {
+	case *rainslib.AssertionBody:
+		assertAssertion(body)
+	case *rainslib.ShardBody:
+		assertShard(body)
+	case *rainslib.ZoneBody:
+		assertZone(body)
+	default:
+		log.Warn("engine.Assert(): Unknown message body", "messageBody", body)
+	}
+}
+
+//assertAssertion adds an assertion to the assertion cache. Triggers any pending queries answered by it.
 //The assertion's signatures MUST have already been verified
-func AssertA(assertion *rainslib.AssertionBody) {
+func assertAssertion(assertion *rainslib.AssertionBody) {
 	log.Info("Start processing Assertion", "assertion", assertion)
 }
 
-//AssertS adds assertions to the assertion cache and shards to the ???ShardCache???. Trigger any pending queries answered by it
+//assertShard adds assertions to the assertion cache and shards to the ???ShardCache???. Trigger any pending queries answered by it
 //TODO CFE do we need a shardCache?
 //The shard's signatures and all contained assertion signatures MUST have already been verified
-func AssertS(shard *rainslib.ShardBody) {
+func assertShard(shard *rainslib.ShardBody) {
 	log.Info("Start processing Shard", "shard", shard)
 }
 
-//AssertZ adds assertions to the assertion cache and shards to the ???ShardCache??? and zone to the ???zoneCache???. Trigger any pending queries answered by it
+//assertZone adds assertions to the assertion cache and shards to the ???ShardCache??? and zone to the ???zoneCache???. Trigger any pending queries answered by it
 //TODO CFE do we need a zoneCache?
 //The zone's signatures and all contained shard and assertion signatures MUST have already been verified
-func AssertZ(zone *rainslib.ZoneBody) {
+func assertZone(zone *rainslib.ZoneBody) {
 	log.Info("Start processing zone", "zone", zone)
 }
 

@@ -27,13 +27,13 @@ var peerToCapability Cache
 
 var msgParser rainslib.RainsMsgParser
 
-//TODO CFE remove later: utility only used for testing purposes
-func addToken(s string) {
-	if len(s) > 32 {
-		s = s[:32]
+//addToActiveTokenCache adds tok to the active tocken cache
+func addToActiveTokenCache(tok string) {
+	if len(tok) > 32 {
+		tok = tok[:32]
 	}
 	var token [32]byte
-	copy(token[0:len(s)], []byte(s))
+	copy(token[0:len(tok)], []byte(tok))
 	activeTokens[token] = true
 }
 
@@ -46,7 +46,7 @@ func init() {
 	notificationChannel = make(chan MsgBodySender, Config.NotificationBufferSize)
 	createWorker()
 	//TODO CFE for testing purposes (afterwards remove)
-	addToken("456")
+	addToActiveTokenCache("456")
 	capabilities = &LRUCache{}
 	err = capabilities.New(int(Config.CapabilitiesCacheSize))
 	if err != nil {

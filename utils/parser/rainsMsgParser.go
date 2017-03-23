@@ -99,6 +99,9 @@ func (p RainsMsgParser) RevParseSignedMsgBody(body rainslib.MessageBodyWithSig) 
 		return revParseSignedAssertion(body), nil
 	case *rainslib.ShardBody:
 		return revParseSignedShard(body), nil
+	case *rainslib.ZoneBody:
+		log.Warn("Zone not yet supported CFE")
+		return "", errors.New("Zone not yet supported CFE")
 	default:
 		log.Warn("Parser: Unknown message section body type", "type", body)
 		return "", errors.New("Unknown message section body type")

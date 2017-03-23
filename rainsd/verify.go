@@ -44,29 +44,14 @@ func initVerif() {
 func Verify(msgSender MsgBodySender) {
 	log.Info("Verify Message Body", "MsgBody", msgSender.Msg)
 	switch body := msgSender.Msg.(type) {
-	case *rainslib.AssertionBody:
-		if VerifySignature(body, msgSender.Sender, false, nil) {
-			AssertA(body)
-		} else {
-			log.Warn("Pending or dropped Assertion (due to validation failure)", "Assertion", *body)
-		}
-	case *rainslib.ShardBody:
+	case *rainslib.AssertionBody, *rainslib.ShardBody, *rainslib.ZoneBody:
 		if !containedAssertionsAndShardsValid(msgSender) {
 			return
 		}
-		if VerifySignature(body, msgSender.Sender, false, nil) {
-			AssertS(body)
+		if VerifySignatures(body.(rainslib.MessageBodyWithSig), msgSender.Sender, false, nil) {
+			Assert(body.(rainslib.MessageBodyWithSig))
 		} else {
-			log.Warn("Pending or dropped Shard (due to validation failure)", "Shard", *body)
-		}
-	case *rainslib.ZoneBody:
-		if !containedAssertionsAndShardsValid(msgSender) {
-			return
-		}
-		if VerifySignature(body, msgSender.Sender, false, nil) {
-			AssertZ(body)
-		} else {
-			log.Warn("Pending or dropped Zone (due to validation failure)", "Zone", *body)
+			log.Warn(fmt.Sprintf("Pending or dropped %T (due to validation failure)", body), "MsgBodyWithSig", body)
 		}
 	case *rainslib.QueryBody:
 		if validQuery(body, msgSender.Sender) {
@@ -91,6 +76,8 @@ func validQuery(body *rainslib.QueryBody, sender ConnInfo) bool {
 //If they differ, an inconsistency notification msg is sent to the sender and false is returned
 func containedAssertionsAndShardsValid(msgSender MsgBodySender) bool {
 	switch msg := msgSender.Msg.(type) {
+	case *rainslib.AssertionBody:
+		return true
 	case *rainslib.ShardBody:
 		for _, assertion := range msg.Content {
 			if !containedBodyValid(assertion, msg.Context, msg.SubjectZone, msgSender.Token, msgSender.Sender) {
@@ -120,7 +107,7 @@ func containedAssertionsAndShardsValid(msgSender MsgBodySender) bool {
 			}
 		}
 	default:
-		log.Warn("Message Body is not a Shard nor a Zone Body", "body", msg)
+		log.Warn("verify.containedAssertionsAndShardsValid(): Message Body is not supported", "body", msg)
 		sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.RcvInconsistentMsg)
 		return false
 	}
@@ -139,11 +126,11 @@ func containedBodyValid(body rainslib.MessageBodyWithSig, context string, subjec
 	return true
 }
 
-//VerifySignature verifies all signatures and strips off invalid signatures. If the public key is missing it issues a query and put the msg body on a waiting queue and
+//VerifySignatures verifies all signatures and strips off invalid signatures. If the public key is missing it issues a query and put the msg body on a waiting queue and
 //adds a callback to the pendingSignatures cache
 //returns false if there is no signature left on the message or when some public keys are missing
 //TODO CFE verify whole signature chain (do not forget to check expiration)
-func VerifySignature(body rainslib.MessageBodyWithSig, sender ConnInfo, forceValidate bool, wg *sync.WaitGroup) bool {
+func VerifySignatures(body rainslib.MessageBodyWithSig, sender ConnInfo, forceValidate bool, wg *sync.WaitGroup) bool {
 	keyIDs := make(map[PendingSignatureCacheKey]string)
 	for _, sig := range body.Sigs() {
 		if sig.KeySpace != rainslib.RainsKeySpace {
@@ -241,6 +228,7 @@ func sendDelegationQuery(cacheKey PendingSignatureCacheKey, expTime int64, sende
 		log.Warn("Cannot parse a delegation Query", "Query", query)
 	}
 	log.Info("Send delegation Query", "Query", queryBody)
+	addToActiveTokenCache(string(token))
 	//TODO CFE is the sender correctly chosen?
 	SendTo(msg, sender)
 }
@@ -250,7 +238,7 @@ func sendDelegationQuery(cacheKey PendingSignatureCacheKey, expTime int64, sende
 func validSignature(body rainslib.MessageBodyWithSig, keys map[string]rainslib.PublicKey) bool {
 	switch body := body.(type) {
 	case *rainslib.AssertionBody:
-		return validAssertionSignatures(body, keys)
+		return validateSignature(body, keys)
 	case *rainslib.ShardBody:
 		return validShardSignature(body, keys)
 	case *rainslib.ZoneBody:
@@ -262,42 +250,72 @@ func validSignature(body rainslib.MessageBodyWithSig, keys map[string]rainslib.P
 	return false
 }
 
-//validAssertionSignatures validates the signatures on an assertion body and strips all signatures away that are not valid.
-//It returns false if there are no signatures left
-func validAssertionSignatures(body *rainslib.AssertionBody, keys map[string]rainslib.PublicKey) bool {
-	assertionStub := &rainslib.AssertionBody{}
-	*assertionStub = *body
-	return validateSignature(assertionStub, body, keys)
-}
-
 //validShardSignature validates all signatures on and contained in a shard body and strips all signatures away that are not valid.
-//It returns false if there are no signatures left
+//It returns false if there are no signatures left on the shard (In this case it processes all valid assertions before returning)
 func validShardSignature(body *rainslib.ShardBody, keys map[string]rainslib.PublicKey) bool {
-	//TODO CFE FIXME deep copy elements
-	shardStub := &rainslib.ShardBody{}
-	*shardStub = *body
-	hasSig := validateSignature(shardStub, body, keys)
+	hasSig := validateSignature(body, keys)
 	for i, assertion := range body.Content {
-		assertionStub := &rainslib.AssertionBody{}
-		*assertionStub = *assertion
-		if !validateSignature(assertionStub, assertion, keys) {
+		if !validateSignature(assertion, keys) {
 			body.Content = append(body.Content[:i], body.Content[:i+1]...)
 		}
 	}
 	//if shard has no valid sig, still use valid assertions
 	if !hasSig {
 		for _, assertion := range body.Content {
-			AssertA(assertion)
+			Assert(assertion)
 		}
 	}
 	return hasSig
 }
 
-func validateSignature(stub, body rainslib.MessageBodyWithSig, keys map[string]rainslib.PublicKey) bool {
+//validZoneSignature validates all signatures on and contained in a zone body and strips all signatures away that are not valid.
+//It returns false if there are no signatures left on the zone (In this case it processes all valid assertions and shards before returning)
+func validZoneSignature(body *rainslib.ZoneBody, keys map[string]rainslib.PublicKey) bool {
+	hasSig := validateSignature(body, keys)
+	for i, b := range body.Content {
+		switch b := b.(type) {
+		case *rainslib.AssertionBody:
+			if !validateSignature(b, keys) {
+				body.Content = append(body.Content[:i], body.Content[:i+1]...)
+			}
+		case *rainslib.ShardBody:
+			if validateSignature(b, keys) {
+				for i, assertion := range b.Content {
+					if !validateSignature(assertion, keys) {
+						b.Content = append(b.Content[:i], b.Content[:i+1]...)
+					}
+				}
+			} else {
+				//All Shard's Signatures are invalid, add valid contained assertions to the zone body's Content (they will not be revalidated at the end of this loop)
+				for _, assertion := range b.Content {
+					if validateSignature(assertion, keys) {
+						body.Content = append(body.Content, assertion)
+					}
+				}
+			}
+		default:
+			log.Warn("Verfy.validZoneSignature(): Unknown message body", "messageBody", body)
+		}
+	}
+	//if zone has no valid sig, still use valid shards and assertions
+	if !hasSig {
+		for _, body := range body.Content {
+			switch body := body.(type) {
+			case *rainslib.AssertionBody:
+				Assert(body)
+			case *rainslib.ShardBody:
+				Assert(body)
+			default:
+				log.Warn("Verfy.validZoneSignature(): Unknown message body", "messageBody", body)
+			}
+		}
+	}
+	return hasSig
+}
+
+func validateSignature(body rainslib.MessageBodyWithSig, keys map[string]rainslib.PublicKey) bool {
 	log.Info(fmt.Sprintf("Validate %T", body), "MsgBody", body)
-	log.Error("", "assertion", body.(*rainslib.ShardBody).Content[0])
-	stub.DeleteAllSigs()
-	log.Error("", "assertion", *body.(*rainslib.ShardBody).Content[0])
+	stub := body.CreateStub()
 	bareStub, _ := msgParser.RevParseSignedMsgBody(stub)
 	for i, sig := range body.Sigs() {
 		if int64(sig.ValidUntil) < time.Now().Unix() {
@@ -346,16 +364,7 @@ func workPendingSignatures() {
 
 func handleExpiredPendingSignatures(body rainslib.MessageBodyWithSig, wg *sync.WaitGroup) {
 	defer wg.Done()
-	if VerifySignature(body, ConnInfo{}, true, wg) {
-		switch body := body.(type) {
-		case *rainslib.AssertionBody:
-			AssertA(body)
-		case *rainslib.ShardBody:
-			AssertS(body)
-		case *rainslib.ZoneBody:
-			AssertZ(body)
-		default:
-			log.Warn("verify.handleExpiredPendingSignatures(): Not supported Message Body with Signature", "MsgBody", body)
-		}
+	if VerifySignatures(body, ConnInfo{}, true, wg) {
+		Assert(body)
 	}
 }
