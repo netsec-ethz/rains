@@ -1,14 +1,12 @@
 package rainsd
 
 import (
+	"bytes"
+	"fmt"
 	"rains/rainslib"
 	"strconv"
 	"sync"
 	"time"
-
-	"bytes"
-
-	"fmt"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -297,7 +295,9 @@ func validShardSignature(body *rainslib.ShardBody, keys map[string]rainslib.Publ
 
 func validateSignature(stub, body rainslib.MessageBodyWithSig, keys map[string]rainslib.PublicKey) bool {
 	log.Info(fmt.Sprintf("Validate %T", body), "MsgBody", body)
+	log.Error("", "assertion", body.(*rainslib.ShardBody).Content[0])
 	stub.DeleteAllSigs()
+	log.Error("", "assertion", *body.(*rainslib.ShardBody).Content[0])
 	bareStub, _ := msgParser.RevParseSignedMsgBody(stub)
 	for i, sig := range body.Sigs() {
 		if int64(sig.ValidUntil) < time.Now().Unix() {

@@ -29,6 +29,7 @@ type MessageBodyWithSig interface {
 	DeleteAllSigs()
 	GetContext() string
 	GetSubjectZone() string
+	CreateStub() MessageBodyWithSig
 }
 
 //AssertionBody contains information about the assertion
@@ -65,6 +66,14 @@ func (a *AssertionBody) GetContext() string {
 //GetSubjectZone returns the zone of the assertion
 func (a *AssertionBody) GetSubjectZone() string {
 	return a.SubjectZone
+}
+
+//CreateStub creates a copy of the assertion without the signatures.
+func (a *AssertionBody) CreateStub() MessageBodyWithSig {
+	stub := &AssertionBody{}
+	*stub = *a
+	stub.DeleteAllSigs()
+	return stub
 }
 
 //ShardBody contains information about the shard
@@ -107,13 +116,25 @@ func (s *ShardBody) GetSubjectZone() string {
 	return s.SubjectZone
 }
 
+//CreateStub creates a copy of the shard and its contained assertions without the signatures.
+func (s *ShardBody) CreateStub() MessageBodyWithSig {
+	stub := &ShardBody{}
+	*stub = *s
+	stub.Content = []*AssertionBody{}
+	for _, assertion := range s.Content {
+		stub.Content = append(stub.Content, assertion.CreateStub().(*AssertionBody))
+	}
+	stub.DeleteAllSigs()
+	return stub
+}
+
 //ZoneBody contains information about the zone
 type ZoneBody struct {
 	//Mandatory
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
-	Content     []MessageBody //TODO can be assert and/or shardbody but not zonebody, how do we want to handle that?
+	Content     []MessageBodyWithSig
 }
 
 //Sigs return the zone's signatures
@@ -131,12 +152,12 @@ func (z *ZoneBody) DeleteAllSigs() {
 	z.Signatures = []Signature{}
 	for _, body := range z.Content {
 		switch body := body.(type) {
-		case AssertionBody:
+		case *AssertionBody:
 			body.DeleteAllSigs()
-		case ShardBody:
+		case *ShardBody:
 			body.DeleteAllSigs()
 		default:
-			log.Warn("Unknown message body", "messageBody", body)
+			log.Warn("Datamodel: Unknown message body", "messageBody", body)
 		}
 	}
 }
@@ -149,6 +170,25 @@ func (z *ZoneBody) GetContext() string {
 //GetSubjectZone returns the zone of the zone
 func (z *ZoneBody) GetSubjectZone() string {
 	return z.SubjectZone
+}
+
+//CreateStub creates a copy of the zone and the contained shards and assertions without the signatures.
+func (z *ZoneBody) CreateStub() MessageBodyWithSig {
+	stub := &ZoneBody{}
+	*stub = *z
+	stub.Content = []MessageBodyWithSig{}
+	for _, body := range z.Content {
+		switch body := body.(type) {
+		case *AssertionBody:
+			stub.Content = append(stub.Content, body.CreateStub())
+		case *ShardBody:
+			stub.Content = append(stub.Content, body.CreateStub())
+		default:
+			log.Warn("Datamodel: Unknown message body", "messageBody", body)
+		}
+	}
+	stub.DeleteAllSigs()
+	return stub
 }
 
 //QueryBody contains information about the query
