@@ -37,7 +37,7 @@ func Notify(msgSender MsgBodySender) {
 		notifLog.Info("No assertion was available")
 		//TODO CFE forward this msg to the query issuing it. Lookup token mapping in delegationTokenMapping
 	default:
-		log.Warn("No matching notification type")
+		notifLog.Warn("No matching notification type")
 		msg, err := CreateNotificationMsg(msgSender.Token, rainslib.RcvMalformatMsg, "No matching notification type")
 		if err != nil {
 			return

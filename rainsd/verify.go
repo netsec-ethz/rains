@@ -107,7 +107,7 @@ func containedAssertionsAndShardsValid(msgSender MsgBodySender) bool {
 			}
 		}
 	default:
-		log.Warn("verify.containedAssertionsAndShardsValid(): Message Body is not supported", "body", msg)
+		log.Warn("Message Body is not supported", "body", msg)
 		sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.RcvInconsistentMsg)
 		return false
 	}
@@ -211,7 +211,7 @@ func handleMissingPublicKey(cacheKey PendingSignatureCacheKey, sender ConnInfo, 
 					return
 				}
 			}
-			log.Error("verify.handleMissingPublicKey(): Cannot add callback for msgBody", "MsgBody", body)
+			log.Error("Cannot add callback for msgBody", "MsgBody", body)
 			return
 		}
 	}
@@ -242,10 +242,9 @@ func validSignature(body rainslib.MessageBodyWithSig, keys map[string]rainslib.P
 	case *rainslib.ShardBody:
 		return validShardSignature(body, keys)
 	case *rainslib.ZoneBody:
-		//TODO CFE implement this case
-		log.Warn("Not yet supported CFE")
+		return validZoneSignature(body, keys)
 	default:
-		log.Warn("Verify.validSignature(): Not supported Msg Body")
+		log.Warn("Not supported Msg Body")
 	}
 	return false
 }

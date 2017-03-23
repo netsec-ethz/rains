@@ -1,4 +1,4 @@
-//The switchboard listens for incoming connections from servers or clients,
+//The  incoming connections from servers or clients,
 //opens connections to servers to which messages need to be sent but for which no active connection is available
 //and provides the SendTo function which sends the message to the specified server.
 
@@ -64,6 +64,8 @@ func (f newLineFramer) Data() []byte {
 func init() {
 	//TODO CFE remove after we have proper starting procedure.
 	//TODO Do not call panic but instead return error or if we are in main() log error and exit
+	h := log.CallerFileHandler(log.StdoutHandler)
+	log.Root().SetHandler(h)
 	var err error
 	//init config
 	loadConfig()
@@ -160,7 +162,7 @@ func create4Tuple(client ConnInfo, server ConnInfo) string {
 	case TCP:
 		return fmt.Sprintf("%s_%d_%s_%d", client.IPAddr, client.Port, server.IPAddr, server.Port)
 	default:
-		log.Warn("No matching type found for client ConnInfo")
+		log.Warn("le(): No matching type found for client ConnInfo")
 		return ""
 	}
 }

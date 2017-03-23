@@ -45,7 +45,7 @@ func Assert(body rainslib.MessageBodyWithSig) {
 	case *rainslib.ZoneBody:
 		assertZone(body)
 	default:
-		log.Warn("engine.Assert(): Unknown message body", "messageBody", body)
+		log.Warn("Unknown message body", "messageBody", body)
 	}
 }
 

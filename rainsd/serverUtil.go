@@ -111,7 +111,7 @@ func loadConfig() {
 
 //CreateNotificationMsg creates a notification messages
 func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.NotificationType, data string) ([]byte, error) {
-	content := []rainslib.MessageBody{rainslib.NotificationBody{Type: rainslib.MsgTooLarge, Token: token, Data: data}}
+	content := []rainslib.MessageBody{&rainslib.NotificationBody{Type: rainslib.MsgTooLarge, Token: token, Data: data}}
 	msg := rainslib.RainsMessage{Token: GenerateToken(), Content: content}
 	//TODO CFE do we sign a notification msg?
 	return msgParser.ParseRainsMsg(msg)
@@ -119,7 +119,7 @@ func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.Notif
 
 var counter = 0
 
-//GenerateTocken generates a new unique Token
+//GenerateToken generates a new unique Token
 func GenerateToken() rainslib.Token {
 	//TODO CFE use uuid to create token
 	counter++

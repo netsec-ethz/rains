@@ -157,7 +157,7 @@ func (z *ZoneBody) DeleteAllSigs() {
 		case *ShardBody:
 			body.DeleteAllSigs()
 		default:
-			log.Warn("Datamodel: Unknown message body", "messageBody", body)
+			log.Warn("Unknown message body", "messageBody", body)
 		}
 	}
 }
@@ -184,7 +184,7 @@ func (z *ZoneBody) CreateStub() MessageBodyWithSig {
 		case *ShardBody:
 			stub.Content = append(stub.Content, body.CreateStub())
 		default:
-			log.Warn("Datamodel: Unknown message body", "messageBody", body)
+			log.Warn("Unknown message body", "messageBody", body)
 		}
 	}
 	stub.DeleteAllSigs()

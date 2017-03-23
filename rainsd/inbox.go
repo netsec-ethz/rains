@@ -2,6 +2,7 @@ package rainsd
 
 import (
 	"bytes"
+	"fmt"
 	"rains/rainslib"
 	"rains/utils/parser"
 	"time"
@@ -96,16 +97,14 @@ func Deliver(message []byte, sender ConnInfo) {
 	//TODO CFE verify signatures against infrastructure key for the RAINS Server originating the message
 	for _, m := range msg.Content {
 		switch m := m.(type) {
-		case *rainslib.AssertionBody:
-			addMsgBodyToQueue(m, msg.Token, sender)
-		case *rainslib.ShardBody:
+		case *rainslib.AssertionBody, *rainslib.ShardBody, *rainslib.ZoneBody:
 			addMsgBodyToQueue(m, msg.Token, sender)
 		case *rainslib.QueryBody:
 			addQueryToQueue(m, msg, sender)
 		case *rainslib.NotificationBody:
 			addNotifToQueue(m, msg.Token, sender)
 		default:
-			log.Warn("Unknown message type")
+			log.Warn(fmt.Sprintf("unsupported message body type %T", m))
 		}
 	}
 }
