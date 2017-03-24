@@ -17,3 +17,11 @@ Its design is fairly simple, based around a linear workflow:
 an authority server (in the traditional, DNS-like sense) is therefore
 constructed by running `rainspub` and `rainsd` at the same time, with
 `rainspub` pushing only to the colocated `rainsd`.
+
+Optional step: Airgapping
+To make it harder for an adversary to steal a zone key, the machine holding the key (e.g. a laptop with possibly a camera) is inside a box which, once closed, cannot be opened.
+The machine works as follows:
+- Read in data to be signed with its camera by parsing a QR code.
+- Sign the data using the private key.
+- Generate a QR code of the signed data and display it on the screen
+It needs to be verified if such a setup achieves high enough bandwidth.
