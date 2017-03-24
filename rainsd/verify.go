@@ -242,92 +242,71 @@ func validSignature(section rainslib.MessageSectionWithSig, keys map[string]rain
 	case *rainslib.AssertionSection:
 		return validateSignatures(section, keys)
 	case *rainslib.ShardSection:
-		return validShardSignature(section, keys)
+		return validShardSignatures(section, keys)
 	case *rainslib.ZoneSection:
-		return validZoneSignature(section, keys)
+		return validZoneSignatures(section, keys)
 	default:
 		log.Warn("Not supported Msg Section")
 	}
 	return false
 }
 
-//validShardSignature validates all signatures on and contained in a shard section and strips all signatures away that are not valid.
-//It returns false if there are no signatures left on the shard (In this case it processes all valid assertions before returning)
-func validShardSignature(section *rainslib.ShardSection, keys map[string]rainslib.PublicKey) bool {
-	hasSig := validateSignatures(section, keys)
-	for i, assertion := range section.Content {
+//validShardSignatures validates all signatures on the shard and contained in the shard's content
+//It returns false if there is a signatures that does not verify
+func validShardSignatures(section *rainslib.ShardSection, keys map[string]rainslib.PublicKey) bool {
+	if !validateSignatures(section, keys) {
+		return false
+	}
+	for _, assertion := range section.Content {
 		if !validateSignatures(assertion, keys) {
-			section.Content = append(section.Content[:i], section.Content[:i+1]...)
+			return false
 		}
 	}
-	//if shard has no valid sig, still use valid assertions
-	if !hasSig {
-		for _, assertion := range section.Content {
-			Assert(assertion)
-		}
-	}
-	return hasSig
+	return true
 }
 
-//validZoneSignature validates all signatures on and contained in a zone section and strips all signatures away that are not valid.
-//It returns false if there are no signatures left on the zone (In this case it processes all valid assertions and shards before returning)
-func validZoneSignature(section *rainslib.ZoneSection, keys map[string]rainslib.PublicKey) bool {
-	hasSig := validateSignatures(section, keys)
-	for i, b := range section.Content {
-		switch b := b.(type) {
+//validZoneSignatures validates all signatures on the zone and contained in a zone's conetent
+//It returns false if there is a signatures that does not verify
+func validZoneSignatures(section *rainslib.ZoneSection, keys map[string]rainslib.PublicKey) bool {
+	if !validateSignatures(section, keys) {
+		return false
+	}
+	for _, sec := range section.Content {
+		switch sec := sec.(type) {
 		case *rainslib.AssertionSection:
-			if !validateSignatures(b, keys) {
-				section.Content = append(section.Content[:i], section.Content[:i+1]...)
+			if !validateSignatures(sec, keys) {
+				return false
 			}
 		case *rainslib.ShardSection:
-			if validateSignatures(b, keys) {
-				for i, assertion := range b.Content {
-					if !validateSignatures(assertion, keys) {
-						b.Content = append(b.Content[:i], b.Content[:i+1]...)
-					}
-				}
-			} else {
-				//All Shard's Signatures are invalid, add valid contained assertions to the zone section's Content (they will not be revalidated at the end of this loop)
-				for _, assertion := range b.Content {
-					if validateSignatures(assertion, keys) {
-						section.Content = append(section.Content, assertion)
-					}
-				}
+			if !validShardSignatures(sec, keys) {
+				return false
 			}
 		default:
-			log.Warn("Verfy.validZoneSignature(): Unknown message section", "messageSection", section)
+			log.Warn("Unknown message section", "messageSection", section)
 		}
 	}
-	//if zone has no valid sig, still use valid shards and assertions
-	if !hasSig {
-		for _, section := range section.Content {
-			switch section := section.(type) {
-			case *rainslib.AssertionSection:
-				Assert(section)
-			case *rainslib.ShardSection:
-				Assert(section)
-			default:
-				log.Warn("Verfy.validZoneSignature(): Unknown message section", "messageSection", section)
-			}
-		}
-	}
-	return hasSig
+	return true
 }
 
+//validateSignatures returns true if all signatures of the section are valid
 func validateSignatures(section rainslib.MessageSectionWithSig, keys map[string]rainslib.PublicKey) bool {
 	log.Info(fmt.Sprintf("Validate %T", section), "MsgSection", section)
+	if len(section.Sigs()) == 0 {
+		log.Warn("Section does not contain any signature")
+		return false
+	}
 	stub := section.CreateStub()
 	bareStub, _ := msgParser.RevParseSignedMsgSection(stub)
-	for i, sig := range section.Sigs() {
+	for _, sig := range section.Sigs() {
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Warn("signature expired", "expTime", sig.ValidUntil)
-			section.DeleteSig(i)
+			return false
 		} else if !VerifySignature(sig.Algorithm, keys[strconv.Itoa(int(sig.KeySpace))].Key, []byte(bareStub), sig.Data) {
 			log.Warn("signatures do not match")
-			section.DeleteSig(i)
+			return false
 		}
 	}
-	return len(section.Sigs()) > 0
+	return true
 }
 
 //Delegate adds the given public key to the zoneKeyCache
