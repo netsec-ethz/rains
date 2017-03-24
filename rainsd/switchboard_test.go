@@ -18,7 +18,8 @@ func TestGetIPAddrandPort(t *testing.T) {
 	}
 }
 
-func TestGetIPAddrandPortError(t *testing.T) {
+//We use default values for now in case of an error
+/*func TestGetIPAddrandPortError(t *testing.T) {
 	var tests = []rainsdConfig{
 		rainsdConfig{ServerIPAddr: "", ServerPort: 0, MaxConnections: 1000, CertificateFile: "server.crt", PrivateKeyFile: "server.key"},
 		rainsdConfig{ServerIPAddr: "127.0.0.1", ServerPort: 0, MaxConnections: 1000, CertificateFile: "server.crt", PrivateKeyFile: "server.key"},
@@ -30,7 +31,7 @@ func TestGetIPAddrandPortError(t *testing.T) {
 			t.Errorf("GetIPAddrandPort() on %v = nil", test)
 		}
 	}
-}
+}*/
 
 func TestParseRemoteAddr(t *testing.T) {
 	var tests = []struct {

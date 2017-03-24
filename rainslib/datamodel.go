@@ -3,31 +3,28 @@ package rainslib
 //RainsMessage contains the data of a message
 type RainsMessage struct {
 	//Mandatory
-	Token   []byte
-	Content []MessageSection
+	Token   Token
+	Content []MessageBody
 
 	//Optional
 	Signatures   []Signature
 	Capabilities string
 }
 
-//MessageSection can be either an Assertion, Shard, Zone, or Query.
-type MessageSection struct {
-	Type int
-	Body MessageBody //TODO create correct type
-}
+//Token is a byte slice with maximal length 32
+type Token []byte
 
-//MessageBody can be either an Assertion, Shard, Zone, or Query body
+//MessageBody can be either an Assertion, Shard, Zone, Query or Notification body
 type MessageBody interface {
 }
 
 //AssertionBody contains information about the assertion
 type AssertionBody struct {
 	//Mandatory
-	Subject string
-	Content []Object
+	SubjectName string
+	Content     Object
 	//Optional for contained assertions
-	Signatures  []Signature
+	Signature   []Signature
 	SubjectZone string
 	Context     string
 }
@@ -40,7 +37,8 @@ type ShardBody struct {
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
-	Range       []string
+	RangeFrom   string
+	RangeTo     string
 }
 
 //ZoneBody contains information about the zone
@@ -55,14 +53,31 @@ type ZoneBody struct {
 //QueryBody contains information about the query
 type QueryBody struct {
 	//Mandatory
-	Token   []byte
-	Name    string
-	Context []string
-	Types   []int
+	Token       Token
+	SubjectName string
+	Context     string
+	Types       ObjectType
+
 	//Optional
 	Expires int
 	Options []int
 }
+
+type ObjectType int
+
+const (
+	Name ObjectType = 1 + iota
+	IP6Addr
+	IP4Addr
+	Redirection
+	Delegation
+	Nameset
+	CertInfo
+	ServiceInfo
+	Registrar
+	Registrant
+	Infrakey
+)
 
 //SubjectAddr TODO correct?
 type SubjectAddr struct {
@@ -105,19 +120,48 @@ type AddressQueryBody struct {
 //NotificationBody contains information about the notification
 type NotificationBody struct {
 	//Mandatory
-	Token []byte
-	Type  int
+	Token Token
+	Type  NotificationType
 	//Optional
 	Data string
 }
 
+type NotificationType int
+
+const (
+	Heartbeat          NotificationType = 100
+	CapHashNotKnown    NotificationType = 399
+	RcvMalformatMsg    NotificationType = 400
+	RcvInconsistentMsg NotificationType = 403
+	NoAssertionsExist  NotificationType = 404
+	MsgTooLarge        NotificationType = 413
+	UnspecServerErr    NotificationType = 500
+	ServerNotCapable   NotificationType = 501
+	NoAssertionAvail   NotificationType = 504
+)
+
 //Signature TODO What does it contain
 type Signature struct {
-	AlgorithmID int
-	ValidSince  int
-	ValidUntil  int
-	Data        []interface{}
+	KeySpace   int
+	Algorithm  CipherType
+	ValidSince int
+	ValidUntil int
+	Data       []byte
 }
+
+//KeySpace identifies a key space
+type KeySpace int
+
+const (
+	DANE KeySpace = iota
+)
+
+//CipherType is the type of a cipher
+type CipherType int
+
+const (
+	Sha256 CipherType = iota
+)
 
 //NamesetExpression  encodes a modified POSIX Extended Regular Expression format
 type NamesetExpression string
@@ -127,19 +171,19 @@ type CertificateObject string
 
 //Object is a container for different values determined by the given type.
 type Object struct {
-	Type  int
+	Type  ObjectType
 	Value interface{}
 }
 
-/*
-FOR TESTING PURPOSE ONLY
-*/
+//RainsMsgParser translates between byte slices and RainsMessage.
+//It must always hold that: rainsMsg = ParseByteSlice(ParseRainsMsg(rainsMsg)) && byteMsg = ParseRainsMsg(ParseByteSlice(byteMsg))
+type RainsMsgParser interface {
+	//ParseByteSlice parses the byte slice to a RainsMessage.
+	ParseByteSlice(msg []byte) (RainsMessage, error)
 
-//UShortAssertion is an unsigned short assertion
-type UShortAssertion string
+	//ParseRainsMsg parses a RainsMessage to a byte slice representation.
+	ParseRainsMsg(msg RainsMessage) ([]byte, error)
 
-//ShortAssertion is an signed short assertion
-type ShortAssertion string
-
-//ShortQuery is a short query
-type ShortQuery string
+	//Token extracts the token from the byte slice
+	Token(msg []byte) (Token, error)
+}
