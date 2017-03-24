@@ -62,6 +62,8 @@ ALGORITHMS = { "ed25519"  : 1,
 
 KEYSPACES = { "rains"     : 0 }
 
+INDENT_LEN = 4 # let the religious wars begin
+
 Token = namedtuple("Token", ["t", "v", "p"])
 
 def debug_scanner_open(s,t):
@@ -143,35 +145,46 @@ def _consume_symbol(ts, sym):
         raise ValueError("expected "+str(sym)+", got "+str(ts.v), "at "+str(ts[0].p[0]))
     return ts[1:]
 
-def _message(ts):
+def _p_message(ts):
     content = []
 
     while len(ts):
-        sec, ts = _section(ts)
+        sec, ts = _p_section(ts)
         content.append(sec)
     
     return { K_CONTENT: content }
 
-def _section(ts):
+def _p_section(ts):
     if ts[0].t == ":Z:":
         if not is_string(ts[1]) or not is_string(ts[2]) :
             raise ValueError("missing zone and/or context in :Z: at"+str(ts[0].p[0]))
-        z, ts = _zone(ts[3:], ts[1].v, ts[2].v)
+        z, ts = _p_zone(ts[3:], ts[1].v, ts[2].v)
         return [ SEC_ZONE, z ], ts
     elif ts[0].t == ":S:":
         if not is_string(ts[1]) or not is_string(ts[2]) :
             raise ValueError("missing zone and/or context in bare :S: at"+str(ts[0].p[0]))
-        s, ts = _shard(ts[3:], ts[1].v, ts[2].v, True)
+        s, ts = _p_shard(ts[3:], ts[1].v, ts[2].v, True)
         return [ SEC_SHARD, s], ts
     elif ts[0].t == ":A:":
         if not is_string(ts[1]) or not is_string(ts[2]) :
             raise ValueError("missing zone and/or context in bare :A: at"+str(ts[0].p[0]))
-        a, ts = _assertion(ts[3:], ts[1].v, ts[2].v, True)
+        a, ts = _p_assertion(ts[3:], ts[1].v, ts[2].v, True)
         return [ SEC_ASSERTION, a ], ts
     else:
         raise ValueError("expected :Z:, :S:, or :A: at "+str(ts[0].p[0]))
 
-def _zone(ts, context_name, zone_name):
+def _g_section(sec, indent=0):
+    if sec[0] == SEC_ZONE:
+        return _g_zone(sec[1], indent)
+    elif sec[0] == SEC_SHARD:
+        return _g_shard(sec[1], indent)
+    elif sec[0] == SEC_ASSERTION:
+        return _g_assertion(sec[1], indent)
+    else:
+        # count be a query or notification, but rzfc doesn't care about these
+        return ""
+
+def _p_zone(ts, context_name, zone_name):
     out = { K_SUBJECT_ZONE:    zone_name,
             K_CONTEXT:      context_name,
             K_CONTENT:      [] }
@@ -181,21 +194,38 @@ def _zone(ts, context_name, zone_name):
     # eat content
     while ts[0].t != "]":
         if ts[0].t == ":S:":
-            s, ts = _shard(ts[1:], context_name, zone_name, False)
+            s, ts = _p_shard(ts[1:], context_name, zone_name, False)
             out[K_CONTENT].append(s)
         elif ts[0].t == ":A:":
-            a, ts = _assertion(ts[1:], context_name, zone_name, False)
+            a, ts = _p_assertion(ts[1:], context_name, zone_name, False)
             out[K_CONTENT].append(a)
         else:
             raise ValueError("expected :S:, :A:, or ] at "+str(ts[0].p[0]))
     ts = _consume_symbol(ts, "]")
 
     # and signatures, if present
-    out[K_SIGNATURES], ts = _signatures(ts)
+    out[K_SIGNATURES], ts = _p_signatures(ts)
 
     return out, ts
 
-def _shard(ts, context_name, zone_name, is_section):
+def _g_zone(z, indent=0):
+
+    istr = " " * indent * INDENT_LEN
+    cstrs = []
+
+    for sec in z[K_CONTENT]:
+        if sec[0] == SEC_SHARD:
+            cstrs.append(_g_shard(s[1], indent+1))
+        elif sec[0] == SEC_ASSERTION:
+            cstrs.append(_g_assertion(s[1], indent+1))
+        else:
+            raise ValueError("illegal content in zone")
+
+    return istr + ":Z: {} {} [\n".format(z[K_CONTEXT], z[K_SUBJECT_ZONE]) +\
+        "\n".join(cstrs) + istr + "]\n"
+
+
+def _p_shard(ts, context_name, zone_name, is_section):
     out = { K_SUBJECT_ZONE:    zone_name,
             K_CONTEXT:      context_name,
             K_CONTENT:      [],
@@ -227,14 +257,14 @@ def _shard(ts, context_name, zone_name, is_section):
     # eat content
     while ts[0].t != "]":
         if ts[0].t == ":A:":
-            a, ts = _assertion(ts[1:], context_name, zone_name, False)
+            a, ts = _p_assertion(ts[1:], context_name, zone_name, False)
             out[K_CONTENT].append(a)
         else:
             raise ValueError("expected :A: or ] at "+str(ts[0].p[0]))
     ts = _consume_symbol(ts, "]")
 
     # and signatures, if present
-    out[K_SIGNATURES], ts = _signatures(ts)
+    out[K_SIGNATURES], ts = _p_signatures(ts)
 
     if not is_section:
         del(out[K_SUBJECT_ZONE])
@@ -247,7 +277,10 @@ def _shard(ts, context_name, zone_name, is_section):
 
     return out, ts
 
-def _assertion(ts, context_name, zone_name, is_section):
+def g_shard(s, indent=0):
+    pass
+
+def _p_assertion(ts, context_name, zone_name, is_section):
     out = { K_SUBJECT_ZONE:    zone_name,
             K_CONTEXT:      context_name,
             K_OBJECTS:      [] }
@@ -262,12 +295,12 @@ def _assertion(ts, context_name, zone_name, is_section):
 
     # eat object content
     while ts[0].t != "]":
-        o, ts = _objekt(ts)
+        o, ts = _p_objekt(ts)
         out[K_OBJECTS].append(o)
     ts = _consume_symbol(ts, "]")
 
     # and signatures, if present
-    out[K_SIGNATURES], ts = _signatures(ts)
+    out[K_SIGNATURES], ts = _p_signatures(ts)
 
     if not is_section:
         del(out[K_SUBJECT_ZONE])
@@ -275,7 +308,10 @@ def _assertion(ts, context_name, zone_name, is_section):
 
     return out, ts
 
-def _objekt(ts):
+def _g_assertion(a, indent=0):
+    pass
+
+def _p_objekt(ts):
     if ts[0].t == ":ip4:":
         if ts[1].t != "VAL_IP4":
             raise ValueError("expected IPv4 address at "+str(ts[0].p[0]))
@@ -358,20 +394,20 @@ def _objekt(ts):
     else:
         raise ValueError("expected object at at "+str(ts[0].p[0]))
 
-def _signatures(ts):
+def _p_signatures(ts):
     out = []
 
     # check for signature
     if len(ts) and ts[0].t == "(":
         ts = ts[1:]
         while ts[0].t != ")":
-            s, ts = _signature(ts)
+            s, ts = _p_signature(ts)
             out.append(s)
         ts = _consume_symbol(")")
 
     return out, ts
 
-def _signature(ts):
+def _p_signature(ts):
     ts = _consume_symbol(":sig:", ts)
     if is_string(ts[0].t):
         alg = ALGORITHMS[ts[0].v]
@@ -408,20 +444,75 @@ def compile(zstr):
 
     """
     ts, rest = scanner.scan(zstr)
-    return _message(ts)
+    return _p_message(ts)
 
-def decompile(z):
+def zone_iterator(m):
+    """
+    Takes a RAINS message as a Python dict, iterates over zones (and only zones)
+    in the message toplevel.
+    
+    """
+
+    for section in m[K_CONTENT]:
+        if section[0] == SEC_ZONE:
+            yield section
+
+def shard_iterator(m):
+    """
+    Takes a RAINS message as a Python dict, iterates over shards, whether in the
+    message toplevel or contained within zones. Contained shards will be made
+    complete by filling in context and zone.
+
+    """
+
+    pass
+
+def assertion_iterator(m):
+    """
+    Takes a RAINS message as a Python dict, iterates over assertions, whether in
+    the message toplevel or contained within zones or shards. Contained
+    assertions will be made complete by filling in context and zone.
+
+    """
+
+    pass
+
+
+def shardify(z, count=None, size=None):
+    """
+    Takes a Python dict structure containing a parsed zone, and either a
+    shard count or a maximum shard size, and splits the zone into shards,
+    returning the modified structure.
+
+    """
+    pass
+
+def sign(m, cipher, private_key, validity_start, validity_end):
+    """
+    Takes a Python dict structure containing a RAINS message, and signs every
+    zone, shard, and assertion within the message, returning the modified
+    message.
+
+    """
+    pass
+
+def decompile(m):
     """
     Takes a RAINS message as a Python dict, returns a pretty-printed zonefile
     as a string
 
     """
-    for sections in z[K_CONTENT]:
-        pass # WORK POINTER
+    mstr = ""
 
-def shard_zone(z, count=None, size=None):
+    for sections in z[K_CONTENT]:
+        mstr += _g_section(section)
+    
+    return mstr
+        
+
+def shardify(z, count=None, size=None):
     """
-    Takes a Python dict structure containing a parsed zonefile, and either a
+    Takes a Python dict structure containing a parsed zone, and either a
     shard count or a maximum shard size, and splits the zone into shards,
     returning the modified structure.
 
