@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha512"
 	"encoding/json"
-	"hash"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -74,10 +73,10 @@ type ConnInfo struct {
 	Port   uint16
 }
 
-//MsgBodySender contains the message section body and connection infos about the sender
-type MsgBodySender struct {
+//MsgSectionSender contains the message section section and connection infos about the sender
+type MsgSectionSender struct {
 	Sender ConnInfo
-	Msg    rainslib.MessageBody
+	Msg    rainslib.MessageSection
 	Token  rainslib.Token
 }
 
@@ -114,7 +113,7 @@ func loadConfig() {
 
 //CreateNotificationMsg creates a notification messages
 func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.NotificationType, data string) ([]byte, error) {
-	content := []rainslib.MessageBody{&rainslib.NotificationBody{Type: rainslib.MsgTooLarge, Token: token, Data: data}}
+	content := []rainslib.MessageSection{&rainslib.NotificationSection{Type: rainslib.MsgTooLarge, Token: token, Data: data}}
 	msg := rainslib.RainsMessage{Token: GenerateToken(), Content: content}
 	//TODO CFE do we sign a notification msg?
 	return msgParser.ParseRainsMsg(msg)
@@ -147,8 +146,8 @@ type Cache interface {
 	Len() int
 	//Remove deletes the given key value pair from the cache
 	Remove(key interface{})
-	//RemoveOldest deletes the given key value pair from the cache according to some metric
-	RemoveOldest()
+	//RemoveWithStrategy deletes the given key value pair from the cache according to some strategy
+	RemoveWithStrategy()
 }
 
 //LRUCache is a concurrency safe cache with a least recently used eviction strategy
@@ -200,23 +199,9 @@ func (c *LRUCache) Remove(key interface{}) {
 	c.Cache.Remove(key)
 }
 
-//RemoveOldest deletes the least recently used key value pair from the cache
-func (c *LRUCache) RemoveOldest() {
+//RemoveWithStrategy deletes the least recently used key value pair from the cache
+func (c *LRUCache) RemoveWithStrategy() {
 	c.Cache.RemoveOldest()
-}
-
-//GenerateHMAC returns a hmac of the input message with the given hash function
-func GenerateHMAC(msg []byte, hashType rainslib.SignatureAlgorithmType, key []byte) []byte {
-	var h hash.Hash
-	switch hashType {
-	/*case rainslib.Sha256:
-		h = hmac.New(sha512.New512_256, key)
-	case rainslib.Sha384:
-		h = hmac.New(sha512.New384, key)*/
-	default:
-		log.Warn("Not supported hash type.", "hashType", hashType)
-	}
-	return h.Sum(msg)
 }
 
 //SignData returns a signature of the input data signed with the specified signing algorithm and the given private key.
@@ -303,10 +288,10 @@ type PendingSignatureCacheKey struct {
 
 //PendingSignatureCacheValue is the value received from the pendingQuery cache
 type PendingSignatureCacheValue struct {
-	ValidUntil  int64
-	retries     int
-	mux         sync.Mutex
-	MsgBodyList MsgBodyWithSigList
+	ValidUntil     int64
+	retries        int
+	mux            sync.Mutex
+	MsgSectionList MsgSectionWithSigList
 }
 
 //Retries returns the number of retries. If 0 no retries are attempted
@@ -324,31 +309,31 @@ func (v *PendingSignatureCacheValue) DecRetries() {
 	}
 }
 
-//MsgBodyWithSigList is a thread safe list of msgBodyWithSig
-//To handle the case that we do not drop an incoming msgBody during the handling of the callback, we close the list after callback and return false
-//Then the calling method can handle the new msgBody directly.
-type MsgBodyWithSigList struct {
-	mux                sync.Mutex
-	closed             bool
-	MsgBodyWithSigList []rainslib.MessageBodyWithSig
+//MsgSectionWithSigList is a thread safe list of msgSectionWithSig
+//To handle the case that we do not drop an incoming msgSection during the handling of the callback, we close the list after callback and return false
+//Then the calling method can handle the new msgSection directly.
+type MsgSectionWithSigList struct {
+	mux                   sync.Mutex
+	closed                bool
+	MsgSectionWithSigList []rainslib.MessageSectionWithSig
 }
 
-//Add adds an message body with signature to the list (It is thread safe)
+//Add adds an message section with signature to the list (It is thread safe)
 //returns true if it was able to add the element to the list
-func (l *MsgBodyWithSigList) Add(body rainslib.MessageBodyWithSig) bool {
+func (l *MsgSectionWithSigList) Add(section rainslib.MessageSectionWithSig) bool {
 	l.mux.Lock()
-	defer func(l *MsgBodyWithSigList) { l.mux.Unlock() }(l)
+	defer func(l *MsgSectionWithSigList) { l.mux.Unlock() }(l)
 	if !l.closed {
-		l.MsgBodyWithSigList = append(l.MsgBodyWithSigList, body)
+		l.MsgSectionWithSigList = append(l.MsgSectionWithSigList, section)
 		return true
 	}
 	return false
 }
 
 //GetList returns the list and closes the data structure
-func (l *MsgBodyWithSigList) GetListAndClose() []rainslib.MessageBodyWithSig {
+func (l *MsgSectionWithSigList) GetListAndClose() []rainslib.MessageSectionWithSig {
 	l.mux.Lock()
-	defer func(l *MsgBodyWithSigList) { l.mux.Unlock() }(l)
+	defer func(l *MsgSectionWithSigList) { l.mux.Unlock() }(l)
 	l.closed = true
-	return l.MsgBodyWithSigList
+	return l.MsgSectionWithSigList
 }

@@ -11,9 +11,9 @@ import (
 )
 
 //incoming messages are buffered in one of these channels until they get processed by a worker go routine
-var prioChannel chan MsgBodySender
-var normalChannel chan MsgBodySender
-var notificationChannel chan MsgBodySender
+var prioChannel chan MsgSectionSender
+var normalChannel chan MsgSectionSender
+var notificationChannel chan MsgSectionSender
 
 //activeTokens contains tokens created by this server (indicate self issued queries)
 //TODO create a mechanism such that this map does not grow too much in case of an attack.
@@ -42,9 +42,9 @@ func init() {
 	//TODO CFE remove after we have proper starting procedure.
 	var err error
 	loadConfig()
-	prioChannel = make(chan MsgBodySender, Config.PrioBufferSize)
-	normalChannel = make(chan MsgBodySender, Config.NormalBufferSize)
-	notificationChannel = make(chan MsgBodySender, Config.NotificationBufferSize)
+	prioChannel = make(chan MsgSectionSender, Config.PrioBufferSize)
+	normalChannel = make(chan MsgSectionSender, Config.NormalBufferSize)
+	notificationChannel = make(chan MsgSectionSender, Config.NotificationBufferSize)
 	createWorker()
 	//TODO CFE for testing purposes (afterwards remove)
 	addToActiveTokenCache("456")
@@ -98,14 +98,14 @@ func Deliver(message []byte, sender ConnInfo) {
 	//TODO CFE verify signatures against infrastructure key for the RAINS Server originating the message -> separate cache for that?
 	for _, m := range msg.Content {
 		switch m := m.(type) {
-		case *rainslib.AssertionBody, *rainslib.ShardBody, *rainslib.ZoneBody:
-			addMsgBodyToQueue(m, msg.Token, sender)
-		case *rainslib.QueryBody:
+		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection:
+			addMsgSectionToQueue(m, msg.Token, sender)
+		case *rainslib.QuerySection:
 			addQueryToQueue(m, msg, sender)
-		case *rainslib.NotificationBody:
+		case *rainslib.NotificationSection:
 			addNotifToQueue(m, msg.Token, sender)
 		default:
-			log.Warn(fmt.Sprintf("unsupported message body type %T", m))
+			log.Warn(fmt.Sprintf("unsupported message section type %T", m))
 		}
 	}
 }
@@ -119,38 +119,38 @@ func sendNotificationMsg(token rainslib.Token, sender ConnInfo, notificationType
 	SendTo(msg, sender)
 }
 
-//addMsgBodyToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg body to the prio cache, otherwise to the normal cache.
-func addMsgBodyToQueue(msgBody rainslib.MessageBody, tok rainslib.Token, sender ConnInfo) {
+//addMsgSectionToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg section to the prio cache, otherwise to the normal cache.
+func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token, sender ConnInfo) {
 	var token [32]byte
 	copy(token[0:len(tok)], tok)
 	if _, ok := activeTokens[token]; ok {
 		log.Info("active Token encountered", "Token", token)
-		prioChannel <- MsgBodySender{Sender: sender, Msg: msgBody, Token: tok}
+		prioChannel <- MsgSectionSender{Sender: sender, Msg: msgSection, Token: tok}
 	} else {
 		log.Info("token not in active token cache", "Token", token)
-		normalChannel <- MsgBodySender{Sender: sender, Msg: msgBody, Token: tok}
+		normalChannel <- MsgSectionSender{Sender: sender, Msg: msgSection, Token: tok}
 	}
 }
 
-//addQueryToQueue checks that the token of the message and of the query body are the same and if so adds it to a queue
-func addQueryToQueue(body *rainslib.QueryBody, msg rainslib.RainsMessage, sender ConnInfo) {
-	if bytes.Equal(msg.Token, body.Token) {
-		normalChannel <- MsgBodySender{Sender: sender, Msg: body, Token: msg.Token}
+//addQueryToQueue checks that the token of the message and of the query section are the same and if so adds it to a queue
+func addQueryToQueue(section *rainslib.QuerySection, msg rainslib.RainsMessage, sender ConnInfo) {
+	if bytes.Equal(msg.Token, section.Token) {
+		normalChannel <- MsgSectionSender{Sender: sender, Msg: section, Token: msg.Token}
 	} else {
-		log.Warn("Token of message and query body do not match.", "msgToken", msg.Token, "queryBodyToken", body.Token)
+		log.Warn("Token of message and query section do not match.", "msgToken", msg.Token, "querySectionToken", section.Token)
 		sendNotificationMsg(msg.Token, sender, rainslib.BadMessage)
-		sendNotificationMsg(body.Token, sender, rainslib.BadMessage)
+		sendNotificationMsg(section.Token, sender, rainslib.BadMessage)
 	}
 }
 
-//addNotifToQueue adds a rains message containing one notification message body to the queue if the token is present in the activeToken cache
-func addNotifToQueue(msg *rainslib.NotificationBody, tok rainslib.Token, sender ConnInfo) {
+//addNotifToQueue adds a rains message containing one notification message section to the queue if the token is present in the activeToken cache
+func addNotifToQueue(msg *rainslib.NotificationSection, tok rainslib.Token, sender ConnInfo) {
 	var token [32]byte
 	copy(token[0:len(msg.Token)], msg.Token)
 	if _, ok := activeTokens[token]; ok {
 		log.Info("active Token encountered", "Token", token)
 		delete(activeTokens, token)
-		notificationChannel <- MsgBodySender{Sender: sender, Msg: msg, Token: tok}
+		notificationChannel <- MsgSectionSender{Sender: sender, Msg: msg, Token: tok}
 	} else {
 		log.Warn("Token not in active token cache, drop message", "Token", token)
 	}

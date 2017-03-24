@@ -8,7 +8,7 @@ import (
 type RainsMessage struct {
 	//Mandatory
 	Token   Token
-	Content []MessageBody
+	Content []MessageSection
 
 	//Optional
 	Signatures   []Signature
@@ -18,22 +18,22 @@ type RainsMessage struct {
 //Token is a byte slice with maximal length 32
 type Token []byte
 
-//MessageBody can be either an Assertion, Shard, Zone, Query or Notification body
-type MessageBody interface {
+//MessageSection can be either an Assertion, Shard, Zone, Query or Notification section
+type MessageSection interface {
 }
 
-//MessageBodyWithSig can be either an Assertion, Shard or Zone
-type MessageBodyWithSig interface {
+//MessageSectionWithSig can be either an Assertion, Shard or Zone
+type MessageSectionWithSig interface {
 	Sigs() []Signature
 	DeleteSig(int)
 	DeleteAllSigs()
 	GetContext() string
 	GetSubjectZone() string
-	CreateStub() MessageBodyWithSig
+	CreateStub() MessageSectionWithSig
 }
 
-//AssertionBody contains information about the assertion
-type AssertionBody struct {
+//AssertionSection contains information about the assertion
+type AssertionSection struct {
 	//Mandatory
 	SubjectName string
 	Content     []Object
@@ -44,42 +44,42 @@ type AssertionBody struct {
 }
 
 //Sigs return the assertion's signatures
-func (a *AssertionBody) Sigs() []Signature {
+func (a *AssertionSection) Sigs() []Signature {
 	return a.Signatures
 }
 
 //DeleteSig deletes ith signature
-func (a *AssertionBody) DeleteSig(i int) {
+func (a *AssertionSection) DeleteSig(i int) {
 	a.Signatures = append(a.Signatures[:i], a.Signatures[i+1:]...)
 }
 
 //DeleteAllSigs deletes all signatures
-func (a *AssertionBody) DeleteAllSigs() {
+func (a *AssertionSection) DeleteAllSigs() {
 	a.Signatures = []Signature{}
 }
 
 //GetContext returns the context of the assertion
-func (a *AssertionBody) GetContext() string {
+func (a *AssertionSection) GetContext() string {
 	return a.Context
 }
 
 //GetSubjectZone returns the zone of the assertion
-func (a *AssertionBody) GetSubjectZone() string {
+func (a *AssertionSection) GetSubjectZone() string {
 	return a.SubjectZone
 }
 
 //CreateStub creates a copy of the assertion without the signatures.
-func (a *AssertionBody) CreateStub() MessageBodyWithSig {
-	stub := &AssertionBody{}
+func (a *AssertionSection) CreateStub() MessageSectionWithSig {
+	stub := &AssertionSection{}
 	*stub = *a
 	stub.DeleteAllSigs()
 	return stub
 }
 
-//ShardBody contains information about the shard
-type ShardBody struct {
+//ShardSection contains information about the shard
+type ShardSection struct {
 	//Mandatory
-	Content []*AssertionBody
+	Content []*AssertionSection
 	//Optional for contained shards
 	Signatures  []Signature
 	SubjectZone string
@@ -89,17 +89,17 @@ type ShardBody struct {
 }
 
 //Sigs return the shard's signatures
-func (s *ShardBody) Sigs() []Signature {
+func (s *ShardSection) Sigs() []Signature {
 	return s.Signatures
 }
 
 //DeleteSig deletes ith signature
-func (s *ShardBody) DeleteSig(i int) {
+func (s *ShardSection) DeleteSig(i int) {
 	s.Signatures = append(s.Signatures[:i], s.Signatures[i+1:]...)
 }
 
 //DeleteAllSigs deletes all signatures
-func (s *ShardBody) DeleteAllSigs() {
+func (s *ShardSection) DeleteAllSigs() {
 	s.Signatures = []Signature{}
 	for _, assertion := range s.Content {
 		assertion.DeleteAllSigs()
@@ -107,92 +107,92 @@ func (s *ShardBody) DeleteAllSigs() {
 }
 
 //GetContext returns the context of the shard
-func (s *ShardBody) GetContext() string {
+func (s *ShardSection) GetContext() string {
 	return s.Context
 }
 
 //GetSubjectZone returns the zone of the shard
-func (s *ShardBody) GetSubjectZone() string {
+func (s *ShardSection) GetSubjectZone() string {
 	return s.SubjectZone
 }
 
 //CreateStub creates a copy of the shard and its contained assertions without the signatures.
-func (s *ShardBody) CreateStub() MessageBodyWithSig {
-	stub := &ShardBody{}
+func (s *ShardSection) CreateStub() MessageSectionWithSig {
+	stub := &ShardSection{}
 	*stub = *s
-	stub.Content = []*AssertionBody{}
+	stub.Content = []*AssertionSection{}
 	for _, assertion := range s.Content {
-		stub.Content = append(stub.Content, assertion.CreateStub().(*AssertionBody))
+		stub.Content = append(stub.Content, assertion.CreateStub().(*AssertionSection))
 	}
 	stub.DeleteAllSigs()
 	return stub
 }
 
-//ZoneBody contains information about the zone
-type ZoneBody struct {
+//ZoneSection contains information about the zone
+type ZoneSection struct {
 	//Mandatory
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
-	Content     []MessageBodyWithSig
+	Content     []MessageSectionWithSig
 }
 
 //Sigs return the zone's signatures
-func (z *ZoneBody) Sigs() []Signature {
+func (z *ZoneSection) Sigs() []Signature {
 	return z.Signatures
 }
 
 //DeleteSig deletes ith signature
-func (z *ZoneBody) DeleteSig(i int) {
+func (z *ZoneSection) DeleteSig(i int) {
 	z.Signatures = append(z.Signatures[:i], z.Signatures[i+1:]...)
 }
 
 //DeleteAllSigs deletes all signatures
-func (z *ZoneBody) DeleteAllSigs() {
+func (z *ZoneSection) DeleteAllSigs() {
 	z.Signatures = []Signature{}
-	for _, body := range z.Content {
-		switch body := body.(type) {
-		case *AssertionBody:
-			body.DeleteAllSigs()
-		case *ShardBody:
-			body.DeleteAllSigs()
+	for _, section := range z.Content {
+		switch section := section.(type) {
+		case *AssertionSection:
+			section.DeleteAllSigs()
+		case *ShardSection:
+			section.DeleteAllSigs()
 		default:
-			log.Warn("Unknown message body", "messageBody", body)
+			log.Warn("Unknown message section", "messageSection", section)
 		}
 	}
 }
 
 //GetContext returns the context of the zone
-func (z *ZoneBody) GetContext() string {
+func (z *ZoneSection) GetContext() string {
 	return z.Context
 }
 
 //GetSubjectZone returns the zone of the zone
-func (z *ZoneBody) GetSubjectZone() string {
+func (z *ZoneSection) GetSubjectZone() string {
 	return z.SubjectZone
 }
 
 //CreateStub creates a copy of the zone and the contained shards and assertions without the signatures.
-func (z *ZoneBody) CreateStub() MessageBodyWithSig {
-	stub := &ZoneBody{}
+func (z *ZoneSection) CreateStub() MessageSectionWithSig {
+	stub := &ZoneSection{}
 	*stub = *z
-	stub.Content = []MessageBodyWithSig{}
-	for _, body := range z.Content {
-		switch body := body.(type) {
-		case *AssertionBody:
-			stub.Content = append(stub.Content, body.CreateStub())
-		case *ShardBody:
-			stub.Content = append(stub.Content, body.CreateStub())
+	stub.Content = []MessageSectionWithSig{}
+	for _, section := range z.Content {
+		switch section := section.(type) {
+		case *AssertionSection:
+			stub.Content = append(stub.Content, section.CreateStub())
+		case *ShardSection:
+			stub.Content = append(stub.Content, section.CreateStub())
 		default:
-			log.Warn("Unknown message body", "messageBody", body)
+			log.Warn("Unknown message section", "messageSection", section)
 		}
 	}
 	stub.DeleteAllSigs()
 	return stub
 }
 
-//QueryBody contains information about the query
-type QueryBody struct {
+//QuerySection contains information about the query
+type QuerySection struct {
 	//Mandatory
 	Token       Token
 	SubjectName string
@@ -207,30 +207,31 @@ type QueryBody struct {
 type QueryOptions int
 
 const (
-	MinE2ELatency QueryOptions = 1 + iota
-	MinLastHopAnswerSize
-	MinInfoLeakage
-	CachedAnswersOnly
-	ExpiredAssertionsOk
-	TokenTracing
-	NoVerificationDelegation
-	NoProactiveCaching
+	MinE2ELatency            QueryOptions = 1
+	MinLastHopAnswerSize     QueryOptions = 2
+	MinInfoLeakage           QueryOptions = 3
+	CachedAnswersOnly        QueryOptions = 4
+	ExpiredAssertionsOk      QueryOptions = 5
+	TokenTracing             QueryOptions = 6
+	NoVerificationDelegation QueryOptions = 7
+	NoProactiveCaching       QueryOptions = 8
 )
 
 type ObjectType int
 
 const (
-	Name ObjectType = 1 + iota
-	IP6Addr
-	IP4Addr
-	Redirection
-	Delegation
-	Nameset
-	CertInfo
-	ServiceInfo
-	Registrar
-	Registrant
-	Infrakey
+	Name        ObjectType = 1
+	IP6Addr     ObjectType = 2
+	IP4Addr     ObjectType = 3
+	Redirection ObjectType = 4
+	Delegation  ObjectType = 5
+	Nameset     ObjectType = 6
+	CertInfo    ObjectType = 7
+	ServiceInfo ObjectType = 8
+	Registrar   ObjectType = 9
+	Registrant  ObjectType = 10
+	InfraKey    ObjectType = 11
+	ExtraKey    ObjectType = 12
 )
 
 //SubjectAddr TODO correct?
@@ -240,8 +241,8 @@ type SubjectAddr struct {
 	Address       string
 }
 
-//AddressAssertionBody contains information about the address assertion
-type AddressAssertionBody struct {
+//AddressAssertionSection contains information about the address assertion
+type AddressAssertionSection struct {
 	//Mandatory
 	SubjectAddr
 	Content []Object
@@ -250,17 +251,17 @@ type AddressAssertionBody struct {
 	Context    string
 }
 
-//AddressZoneBody contains information about the address zone
-type AddressZoneBody struct {
+//AddressZoneSection contains information about the address zone
+type AddressZoneSection struct {
 	//Mandatory
 	SubjectAddr
 	Signatures []Signature
 	Context    string
-	Content    []AddressAssertionBody
+	Content    []AddressAssertionSection
 }
 
-//AddressQueryBody contains information about the address query
-type AddressQueryBody struct {
+//AddressQuerySection contains information about the address query
+type AddressQuerySection struct {
 	//Mandatory
 	SubjectAddr
 	Token   []byte
@@ -271,8 +272,8 @@ type AddressQueryBody struct {
 	Options []int
 }
 
-//NotificationBody contains information about the notification
-type NotificationBody struct {
+//NotificationSection contains information about the notification
+type NotificationSection struct {
 	//Mandatory
 	Token Token
 	Type  NotificationType
@@ -294,7 +295,7 @@ const (
 	NoAssertionAvail   NotificationType = 504
 )
 
-//Signature TODO What does it contain
+//Signature on a Rains message or section
 type Signature struct {
 	KeySpace   KeySpaceID
 	Algorithm  SignatureAlgorithmType
@@ -307,27 +308,27 @@ type Signature struct {
 type KeySpaceID int
 
 const (
-	RainsKeySpace KeySpaceID = iota
+	RainsKeySpace KeySpaceID = 0
 )
 
 //SignatureAlgorithmType specifies a signature algorithm type
 type SignatureAlgorithmType int
 
 const (
-	Ed25519 SignatureAlgorithmType = iota
-	Ed448
-	Ecdsa256
-	Ecdsa384
+	Ed25519  SignatureAlgorithmType = 1
+	Ed448    SignatureAlgorithmType = 2
+	Ecdsa256 SignatureAlgorithmType = 3
+	Ecdsa384 SignatureAlgorithmType = 4
 )
 
 //HashAlgorithmType specifies a hash algorithm type
 type HashAlgorithmType int
 
 const (
-	NoHashAlgo HashAlgorithmType = iota
-	Sha256
-	Sha384
-	Sha512
+	NoHashAlgo HashAlgorithmType = 0
+	Sha256     HashAlgorithmType = 1
+	Sha384     HashAlgorithmType = 2
+	Sha512     HashAlgorithmType = 3
 )
 
 //PublicKey contains information about a public key
@@ -362,6 +363,6 @@ type RainsMsgParser interface {
 	//Token extracts the token from the byte slice
 	Token(msg []byte) (Token, error)
 
-	//RevParseSignedMsgBody parses an MessageBodyWithSig to a byte slice representation
-	RevParseSignedMsgBody(body MessageBodyWithSig) (string, error)
+	//RevParseSignedMsgSection parses an MessageSectionWithSig to a byte slice representation
+	RevParseSignedMsgSection(section MessageSectionWithSig) (string, error)
 }

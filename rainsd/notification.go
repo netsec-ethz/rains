@@ -7,9 +7,9 @@ import (
 )
 
 //Notify handles incoming notification messages
-func Notify(msgSender MsgBodySender) {
-	notifLog := log.New("NotificationMsgBody", msgSender.Msg)
-	switch msgSender.Msg.(*rainslib.NotificationBody).Type {
+func Notify(msgSender MsgSectionSender) {
+	notifLog := log.New("NotificationMsgSection", msgSender.Msg)
+	switch msgSender.Msg.(*rainslib.NotificationSection).Type {
 	case rainslib.Heartbeat:
 		//Do nothing
 	case rainslib.CapHashNotKnown:
