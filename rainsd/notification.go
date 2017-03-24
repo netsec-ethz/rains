@@ -28,7 +28,7 @@ func Notify(msgSender MsgSectionSender) {
 		if err != nil {
 			return
 		}
-		SendTo(msg, msgSender.Sender)
+		sendTo(msg, msgSender.Sender)
 	case rainslib.UnspecServerErr:
 		notifLog.Error("Unspecified error of other server")
 	case rainslib.ServerNotCapable:
@@ -42,6 +42,6 @@ func Notify(msgSender MsgSectionSender) {
 		if err != nil {
 			return
 		}
-		SendTo(msg, msgSender.Sender)
+		sendTo(msg, msgSender.Sender)
 	}
 }

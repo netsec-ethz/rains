@@ -15,8 +15,8 @@ var normalChannel chan MsgSectionSender
 var notificationChannel chan MsgSectionSender
 
 //activeTokens contains tokens created by this server (indicate self issued queries)
-//TODO create a mechanism such that this map does not grow too much in case of an attack.
-//Have a counter (Buffered channel) and block in verify step if too many queries open
+//TODO create a mechanism such that this map does not grow too much in case of an attack. -> If the token is evicted before answer -> answer comes not on prio queue.
+//Solution: if full do not add it to cache and these answers are then not handled with priority.???
 var activeTokens = make(map[[16]byte]bool)
 
 //capabilities contains a map with key <hash of a set of capabilities> value <[]capabilities>
@@ -25,7 +25,38 @@ var capabilities Cache
 //capabilities contains a map with key ConnInfo value <capabilities>
 var peerToCapability Cache
 
-var msgParser rainslib.RainsMsgParser
+func initInbox() error {
+	//init Channels
+	prioChannel = make(chan MsgSectionSender, Config.PrioBufferSize)
+	normalChannel = make(chan MsgSectionSender, Config.NormalBufferSize)
+	notificationChannel = make(chan MsgSectionSender, Config.NotificationBufferSize)
+
+	//init Cache
+	capabilities = &LRUCache{}
+	err := capabilities.New(int(Config.CapabilitiesCacheSize))
+	if err != nil {
+		log.Error("Cannot create capabilitiesCache", "error", err)
+		return err
+	}
+	capabilities.Add("e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745", []Capability{TLSOverTCP})
+	capabilities.Add("76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71", []Capability{NoCapability})
+
+	peerToCapability = &LRUCache{}
+	err = peerToCapability.New(int(Config.PeerToCapCacheSize))
+	if err != nil {
+		log.Error("Cannot create peerToCapability", "error", err)
+		return err
+	}
+
+	//init parser
+	msgParser = parser.RainsMsgParser{}
+
+	createWorker()
+
+	//TODO CFE for testing purposes (afterwards remove)
+	addToActiveTokenCache("456")
+	return nil
+}
 
 //addToActiveTokenCache adds tok to the active tocken cache
 func addToActiveTokenCache(tok string) {
@@ -37,36 +68,8 @@ func addToActiveTokenCache(tok string) {
 	activeTokens[token] = true
 }
 
-func init() {
-	//TODO CFE remove after we have proper starting procedure.
-	var err error
-	loadConfig()
-	prioChannel = make(chan MsgSectionSender, Config.PrioBufferSize)
-	normalChannel = make(chan MsgSectionSender, Config.NormalBufferSize)
-	notificationChannel = make(chan MsgSectionSender, Config.NotificationBufferSize)
-	createWorker()
-	//TODO CFE for testing purposes (afterwards remove)
-	addToActiveTokenCache("456")
-	capabilities = &LRUCache{}
-	err = capabilities.New(int(Config.CapabilitiesCacheSize))
-	if err != nil {
-		log.Error("Cannot create capabilitiesCache", "error", err)
-		panic(err)
-	}
-	capabilities.Add("e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745", []Capability{TLSOverTCP})
-	capabilities.Add("76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71", []Capability{NoCapability})
-	peerToCapability = &LRUCache{}
-	err = peerToCapability.New(int(Config.PeerToCapCacheSize))
-	if err != nil {
-		log.Error("Cannot create peerToCapability", "error", err)
-		panic(err)
-	}
-	//init parser
-	msgParser = parser.RainsMsgParser{}
-}
-
-//Deliver pushes all incoming messages to the prio or normal channel based on some strategy
-func Deliver(message []byte, sender ConnInfo) {
+//deliver pushes all incoming messages to the prio or normal channel based on some strategy
+func deliver(message []byte, sender ConnInfo) {
 	if uint(len(message)) > Config.MaxMsgLength {
 		token, _ := msgParser.Token(message)
 		sendNotificationMsg(token, sender, rainslib.MsgTooLarge)
@@ -94,7 +97,9 @@ func Deliver(message []byte, sender ConnInfo) {
 			}
 		}
 	}
-	//TODO CFE verify signatures against infrastructure key for the RAINS Server originating the message -> separate cache for that?
+	if !verifyMessageSignature(msg.Signatures) {
+		return
+	}
 	for _, m := range msg.Content {
 		switch m := m.(type) {
 		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection:
@@ -116,7 +121,7 @@ func sendNotificationMsg(token rainslib.Token, sender ConnInfo, notificationType
 		log.Warn("Cannot send notification error due to parser error")
 		return
 	}
-	SendTo(msg, sender)
+	sendTo(msg, sender)
 }
 
 //addMsgSectionToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg section to the prio cache, otherwise to the normal cache.
@@ -174,9 +179,9 @@ func workBoth() {
 	for {
 		select {
 		case msg := <-prioChannel:
-			Verify(msg)
+			verify(msg)
 		case msg := <-normalChannel:
-			Verify(msg)
+			verify(msg)
 		default:
 			//TODO CFE add to config?
 			time.Sleep(50 * time.Millisecond)
@@ -189,7 +194,7 @@ func workPrio() {
 	for {
 		select {
 		case msg := <-prioChannel:
-			Verify(msg)
+			verify(msg)
 		default:
 			//TODO CFE add to config?
 			time.Sleep(50 * time.Millisecond)

@@ -12,7 +12,7 @@ func TestGetIPAddrandPort(t *testing.T) {
 	}
 	for _, test := range tests {
 		Config = test.input
-		if got, err := getIPAddrandPort(); got != test.want || err != nil {
+		if got := getIPAddrandPort(); got != test.want {
 			t.Errorf("GetIPAddrandPort() on %v = %v", test.input, got)
 		}
 	}

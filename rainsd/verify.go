@@ -12,45 +12,67 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-//zoneKeys contains a set of zone public keys
+//zoneKeyCache contains a set of zone public keys
 //key: PendingSignatureCacheKey value:PublicKey
-var zoneKeys Cache
+var zoneKeyCache Cache
+
+//infrastructureKeyCache contains a set of infrastructure public keys
+var infrastructureKeyCache Cache
+
+//externalKeyCache contains a set of external public keys
+var externalKeyCache Cache
 
 //pendingSignatures contains a mapping from all self issued pending queries to the set of message bodies waiting for it together with a timeout.
 //key: PendingSignatureCacheKey value: *PendingSignatureCacheValue
-//TODO make the value thread safe. Store a list of PendingSignatureCacheValue objects which can be added and deleted
 var pendingSignatures Cache
 
-func initVerif() {
-	var err error
+func initVerify() error {
 	//init cache
-	zoneKeys = &LRUCache{}
-	err = zoneKeys.New(int(Config.ZoneKeyCacheSize))
+	zoneKeyCache = &LRUCache{}
+	err := zoneKeyCache.New(int(Config.ZoneKeyCacheSize))
 	if err != nil {
 		log.Error("Cannot create zoneKeyCache", "error", err)
-		panic(err)
+		return err
 	}
 	//TODO CFE to remove, here for testing purposes
 	pubKey, _, _ := ed25519.GenerateKey(rand.New(rand.NewSource(time.Now().UnixNano())))
-	zoneKeys.Add(PendingSignatureCacheKey{KeySpace: "0", Context: ".", SubjectZone: ".ch"}, rainslib.PublicKey{Key: pubKey, Type: rainslib.Ed25519, ValidUntil: 1690086564})
+	zoneKeyCache.Add(PendingSignatureCacheKey{KeySpace: "0", Context: ".", SubjectZone: ".ch"}, rainslib.PublicKey{Key: pubKey, Type: rainslib.Ed25519, ValidUntil: 1690086564})
+
 	pendingSignatures = &LRUCache{}
 	err = pendingSignatures.New(int(Config.PendingSignatureCacheSize))
 	if err != nil {
 		log.Error("Cannot create pendingSignatureCache", "error", err)
-		panic(err)
+		return err
 	}
+
+	infrastructureKeyCache = &LRUCache{}
+	//TODO CFE add to config
+	err = infrastructureKeyCache.New(10)
+	if err != nil {
+		log.Error("Cannot create infrastructureKeyCache", "error", err)
+		return err
+	}
+
+	externalKeyCache = &LRUCache{}
+	//TODO CFE add to config
+	err = externalKeyCache.New(10)
+	if err != nil {
+		log.Error("Cannot create externalKeyCache", "error", err)
+		return err
+	}
+	return nil
 }
 
-//Verify verifies the incoming message section. It sends a notification if the msg section is inconsistent and it validates the signatures, stripping of invalid once.
+//verify verifies the incoming message section. It sends a notification if the msg section is inconsistent and it validates the signatures, stripping of invalid once.
 //If no signature remain on an assertion, shard or zone then the corresponding msg section gets removed.
-func Verify(msgSender MsgSectionSender) {
+func verify(msgSender MsgSectionSender) {
 	log.Info("Verify Message Section", "MsgSection", msgSender.Msg)
 	switch section := msgSender.Msg.(type) {
 	case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection:
 		if !containedAssertionsAndShardsValid(msgSender) {
 			return
 		}
-		if VerifySignatures(section.(rainslib.MessageSectionWithSig), msgSender.Sender, false, nil) {
+		if verifySignatures(section.(rainslib.MessageSectionWithSig), msgSender.Sender, false, nil) {
 			Assert(section.(rainslib.MessageSectionWithSig))
 		} else {
 			log.Warn(fmt.Sprintf("Pending or dropped %T (due to validation failure)", section), "MsgSectionWithSig", section)
@@ -62,6 +84,13 @@ func Verify(msgSender MsgSectionSender) {
 	default:
 		log.Warn("Not supported Msg section to verify", "MsgSection", section)
 	}
+}
+
+//verifyMessageSignature verifies signatures of the message against the infrastructure key of the RAINS Server originating the message
+func verifyMessageSignature(signatures []rainslib.Signature) bool {
+	//TODO Implement (What about messages without signatures e.g. from clients)
+	log.Warn("Not yet implemented CFE")
+	return true
 }
 
 //validQuery validates the expiration time of the query
@@ -128,11 +157,11 @@ func containedSectionValid(section rainslib.MessageSectionWithSig, context strin
 	return true
 }
 
-//VerifySignatures verifies all signatures and strips off invalid signatures. If the public key is missing it issues a query and put the msg section on a waiting queue and
+//verifySignatures verifies all signatures and strips off invalid signatures. If the public key is missing it issues a query and put the msg section on a waiting queue and
 //adds a callback to the pendingSignatures cache
 //returns false if there is no signature left on the message or when some public keys are missing
 //TODO CFE verify whole signature chain (do not forget to check expiration)
-func VerifySignatures(section rainslib.MessageSectionWithSig, sender ConnInfo, forceValidate bool, wg *sync.WaitGroup) bool {
+func verifySignatures(section rainslib.MessageSectionWithSig, sender ConnInfo, forceValidate bool, wg *sync.WaitGroup) bool {
 	keyIDs := make(map[PendingSignatureCacheKey]string)
 	for _, sig := range section.Sigs() {
 		if sig.KeySpace != rainslib.RainsKeySpace {
@@ -170,10 +199,10 @@ func publicKeysPresent(keyIDs map[PendingSignatureCacheKey]string) (map[string]r
 	keys := make(map[string]rainslib.PublicKey)
 	missingKeys := make(map[PendingSignatureCacheKey]bool)
 	for keyID, keySpace := range keyIDs {
-		if key, ok := zoneKeys.Get(keyID); ok {
+		if key, ok := zoneKeyCache.Get(keyID); ok {
 			if int64(key.(rainslib.PublicKey).ValidUntil) < time.Now().Unix() {
 				log.Info("Key is not valid anymore")
-				zoneKeys.Remove(keyID)
+				zoneKeyCache.Remove(keyID)
 				allKeysPresent = false
 				missingKeys[keyID] = true
 			} else {
@@ -232,7 +261,7 @@ func sendDelegationQuery(cacheKey PendingSignatureCacheKey, expTime int64, sende
 	log.Info("Send delegation Query", "Query", querySection)
 	activeTokens[token] = true
 	//TODO CFE is the sender correctly chosen?
-	SendTo(msg, sender)
+	sendTo(msg, sender)
 }
 
 //validSignature validates the signatures on a MessageSectionWithSig and strips all signatures away that are not valid.
@@ -309,11 +338,11 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[string]
 	return len(section.Sigs()) > 0
 }
 
-//Delegate adds the given public key to the zoneKeyCache
-func Delegate(context string, subjectZone string, cipherType rainslib.SignatureAlgorithmType, keySpace rainslib.KeySpaceID, key []byte, until uint) {
+//delegate adds the given public key to the zoneKeyCache
+func delegate(context string, subjectZone string, cipherType rainslib.SignatureAlgorithmType, keySpace rainslib.KeySpaceID, key []byte, until uint) {
 	pubKey := rainslib.PublicKey{Type: cipherType, Key: key, ValidUntil: until}
 	ks := strconv.Itoa(int(keySpace))
-	zoneKeys.Add(PendingSignatureCacheKey{KeySpace: ks, Context: context, SubjectZone: subjectZone}, pubKey)
+	zoneKeyCache.Add(PendingSignatureCacheKey{KeySpace: ks, Context: context, SubjectZone: subjectZone}, pubKey)
 }
 
 func workPendingSignatures() {
@@ -344,7 +373,11 @@ func workPendingSignatures() {
 
 func handleExpiredPendingSignatures(section rainslib.MessageSectionWithSig, wg *sync.WaitGroup) {
 	defer wg.Done()
-	if VerifySignatures(section, ConnInfo{}, true, wg) {
+	if verifySignatures(section, ConnInfo{}, true, wg) {
 		Assert(section)
 	}
+}
+
+func reap() {
+	//TODO CFE implement and create a worker that calls this function from time to time
 }

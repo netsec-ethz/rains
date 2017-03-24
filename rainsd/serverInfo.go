@@ -1,0 +1,189 @@
+package rainsd
+
+import (
+	"crypto/x509"
+	"rains/rainslib"
+	"strconv"
+	"sync"
+	"time"
+)
+
+var serverConnInfo ConnInfo
+var roots *x509.CertPool
+var msgParser rainslib.RainsMsgParser
+
+//Config contains configurations for this server
+var Config = defaultConfig
+
+//rainsdConfig lists possible configurations of a rains server
+type rainsdConfig struct {
+	//switchboard
+	ServerIPAddr    string
+	ServerPort      uint16
+	MaxConnections  uint
+	KeepAlivePeriod time.Duration
+	TCPTimeout      time.Duration
+	CertificateFile string
+	PrivateKeyFile  string
+
+	//inbox
+	MaxMsgLength           uint
+	PrioBufferSize         uint
+	NormalBufferSize       uint
+	NotificationBufferSize uint
+	PrioWorkerSize         uint
+	NormalWorkerSize       uint
+	NotificationWorkerSize uint
+	CapabilitiesCacheSize  uint
+	PeerToCapCacheSize     uint
+
+	//verify
+	ZoneKeyCacheSize          uint
+	PendingSignatureCacheSize uint
+
+	//engine
+	AssertionCacheSize    uint
+	PendingQueryCacheSize uint
+}
+
+//DefaultConfig is a rainsdConfig object containing default values
+var defaultConfig = rainsdConfig{ServerIPAddr: "127.0.0.1", ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriod: time.Minute, TCPTimeout: 5 * time.Minute,
+	CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key", MaxMsgLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerSize: 2,
+	NormalWorkerSize: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
+	NotificationBufferSize: 20, NotificationWorkerSize: 2, PeerToCapCacheSize: 1000}
+
+//ProtocolType enumerates protocol types
+type ProtocolType int
+
+const (
+	TCP ProtocolType = iota
+)
+
+//ConnInfo contains address information about one actor of a connection of the declared type
+//type 1 contains IPAddr and Port information
+type ConnInfo struct {
+	Type   ProtocolType
+	IPAddr string
+	Port   uint16
+}
+
+//IPAddrAndPort returns IP address and port in the format IPAddr:Port
+func (c ConnInfo) IPAddrAndPort() string {
+	return c.IPAddr + ":" + c.PortToString()
+}
+
+//PortToString return the port number as a string
+func (c ConnInfo) PortToString() string {
+	return strconv.Itoa(int(c.Port))
+}
+
+//MsgSectionSender contains the message section section and connection infos about the sender
+type MsgSectionSender struct {
+	Sender ConnInfo
+	Msg    rainslib.MessageSection
+	Token  rainslib.Token
+}
+
+//Capability is a type which defines what a server or client is capable of
+type Capability string
+
+const (
+	NoCapability Capability = ""
+	TLSOverTCP   Capability = "urn:x-rains:tlssrv"
+)
+
+//Cache implementations can have different replacement strategies
+type Cache interface {
+	//New creates a cache with the given parameters
+	New(params ...interface{}) error
+	//NewWithEvict creates a cache with the given parameters and a callback function when an element gets evicted
+	NewWithEvict(onEvicted func(key interface{}, value interface{}), params ...interface{}) error
+	//Add adds a value to the cache. If the cache is full the oldest element according to some metric will be replaced. Returns true if an eviction occurred.
+	Add(key, value interface{}) bool
+	//Contains checks if a key is in the cache, without updating the recentness or deleting it for being stale.
+	Contains(key interface{}) bool
+	//Get returns the key's value from the cache. The boolean value is false if there exist no element with the given key in the cache
+	Get(key interface{}) (interface{}, bool)
+	//Keys returns a slice of the keys in the cache
+	Keys() []interface{}
+	//Len returns the number of elements in the cache.
+	Len() int
+	//Remove deletes the given key value pair from the cache
+	Remove(key interface{})
+	//RemoveWithStrategy deletes the given key value pair from the cache according to some strategy
+	RemoveWithStrategy()
+}
+
+//PendingSignatureCacheKey is the key for the pendingQuery cache
+type PendingSignatureCacheKey struct {
+	KeySpace    string
+	Context     string
+	SubjectZone string
+}
+
+//PendingSignatureCacheValue is the value received from the pendingQuery cache
+type PendingSignatureCacheValue struct {
+	ValidUntil     int64
+	retries        int
+	mux            sync.Mutex
+	MsgSectionList MsgSectionWithSigList
+}
+
+//Retries returns the number of retries. If 0 no retries are attempted
+func (v *PendingSignatureCacheValue) Retries() int {
+	v.mux.Lock()
+	defer func(v *PendingSignatureCacheValue) { v.mux.Unlock() }(v)
+	return v.retries
+}
+
+//DecRetries decreses the retry value by 1
+func (v *PendingSignatureCacheValue) DecRetries() {
+	v.mux.Lock()
+	if v.retries > 0 {
+		v.retries--
+	}
+}
+
+//MsgSectionWithSigList is a thread safe list of msgSectionWithSig
+//To handle the case that we do not drop an incoming msgSection during the handling of the callback, we close the list after callback and return false
+//Then the calling method can handle the new msgSection directly.
+type MsgSectionWithSigList struct {
+	mux                   sync.Mutex
+	closed                bool
+	MsgSectionWithSigList []rainslib.MessageSectionWithSig
+}
+
+//Add adds an message section with signature to the list (It is thread safe)
+//returns true if it was able to add the element to the list
+func (l *MsgSectionWithSigList) Add(section rainslib.MessageSectionWithSig) bool {
+	l.mux.Lock()
+	defer func(l *MsgSectionWithSigList) { l.mux.Unlock() }(l)
+	if !l.closed {
+		l.MsgSectionWithSigList = append(l.MsgSectionWithSigList, section)
+		return true
+	}
+	return false
+}
+
+//GetList returns the list and closes the data structure
+func (l *MsgSectionWithSigList) GetListAndClose() []rainslib.MessageSectionWithSig {
+	l.mux.Lock()
+	defer func(l *MsgSectionWithSigList) { l.mux.Unlock() }(l)
+	l.closed = true
+	return l.MsgSectionWithSigList
+}
+
+//TODO CFE what should the name of this interface be?
+type scanner interface {
+	//Frame takes a message and adds a frame to it
+	Frame(msg []byte) ([]byte, error)
+
+	//Deframe extracts the next frame from a stream.
+	//It blocks until it encounters the delimiter.
+	//It returns false when the stream is closed.
+	//The data is available through Data
+	Deframe() bool
+
+	//Data contains the frame read from the stream by Deframe
+	Data() []byte
+}

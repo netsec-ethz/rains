@@ -14,24 +14,23 @@ var assertionCache Cache
 //TODO make the value thread safe. We store a list of <msgSection><deadline> objects which can be added and deleted
 var pendingQueries Cache
 
-func initEngine() {
-	var err error
-	loadConfig()
-	//TODO CFE move to central place
+func initEngine() error {
+	//init Cache
 	pendingQueries = &LRUCache{}
 	//TODO CFE add size to server config
-	err = pendingQueries.New(100)
+	err := pendingQueries.New(100)
 	if err != nil {
 		log.Error("Cannot create pendingQueriesCache", "error", err)
-		panic(err)
+		return err
 	}
 	assertionCache = &LRUCache{}
 	//TODO CFE add size to server config
 	err = assertionCache.New(100)
 	if err != nil {
 		log.Error("Cannot create assertionCache", "error", err)
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 //Assert adds an message section with valid signatures to the assertion/shard/zone cache. Triggers any pending queries answered by it.
