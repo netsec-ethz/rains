@@ -2,6 +2,7 @@ package rainsd
 
 import (
 	"crypto/ecdsa"
+	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/json"
 	"io/ioutil"
@@ -84,7 +85,7 @@ type MsgSectionSender struct {
 type Capability string
 
 const (
-	NoCapability Capability = "none"
+	NoCapability Capability = ""
 	TLSOverTCP   Capability = "urn:x-rains:tlssrv"
 )
 
@@ -115,17 +116,18 @@ func loadConfig() {
 func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.NotificationType, data string) ([]byte, error) {
 	content := []rainslib.MessageSection{&rainslib.NotificationSection{Type: rainslib.MsgTooLarge, Token: token, Data: data}}
 	msg := rainslib.RainsMessage{Token: GenerateToken(), Content: content}
-	//TODO CFE do we sign a notification msg?
 	return msgParser.ParseRainsMsg(msg)
 }
-
-var counter = 0
 
 //GenerateToken generates a new unique Token
 func GenerateToken() rainslib.Token {
 	//TODO CFE use uuid to create token
-	counter++
-	return rainslib.Token([]byte(strconv.Itoa(counter)))
+	token := [16]byte{}
+	_, err := rand.Read(token[:])
+	if err != nil {
+		log.Warn("Error during random token generation")
+	}
+	return rainslib.Token(token)
 }
 
 //Cache implementations can have different replacement strategies
@@ -217,7 +219,7 @@ func SignData(algoType rainslib.SignatureAlgorithmType, privateKey interface{}, 
 	case rainslib.Ecdsa256:
 		if pkey, ok := privateKey.(*ecdsa.PrivateKey); ok {
 			//TODO CFE or use sha256?
-			hash := sha512.Sum512_256(data)
+			hash := sha256.Sum256(data)
 			return signEcdsa(pkey, data, hash[:])
 		}
 		log.Warn("Could not cast key to ecdsa.PrivateKey", "privateKey", privateKey)
@@ -233,9 +235,15 @@ func SignData(algoType rainslib.SignatureAlgorithmType, privateKey interface{}, 
 	return nil
 }
 
+//PRG pseudo random generator
+type PRG struct{}
+
+func (prg PRG) Read(p []byte) (n int, err error) {
+	return rand.Read(p)
+}
+
 func signEcdsa(privateKey *ecdsa.PrivateKey, data, hash []byte) interface{} {
-	//TODO CFE use other randomsource?
-	r, s, err := ecdsa.Sign(rand.New(rand.NewSource(time.Now().UnixNano())), privateKey, hash)
+	r, s, err := ecdsa.Sign(PRG{}, privateKey, hash)
 	if err != nil {
 		log.Warn("Could not sign data with Ecdsa256", "error", err)
 	}
@@ -256,7 +264,7 @@ func VerifySignature(algoType rainslib.SignatureAlgorithmType, publicKey interfa
 		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
 			//TODO CFE or use sha256?
 			if sig, ok := signature.([]*big.Int); ok && len(sig) == 2 {
-				hash := sha512.Sum512_256(data)
+				hash := sha256.Sum256(data)
 				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])
 			}
 			log.Warn("Could not cast signature ", "signature", signature)

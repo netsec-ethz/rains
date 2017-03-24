@@ -16,7 +16,7 @@ type RainsMessage struct {
 }
 
 //Token is a byte slice with maximal length 32
-type Token []byte
+type Token [16]byte
 
 //MessageSection can be either an Assertion, Shard, Zone, Query or Notification section
 type MessageSection interface {

@@ -230,7 +230,7 @@ func sendDelegationQuery(cacheKey PendingSignatureCacheKey, expTime int64, sende
 		log.Warn("Cannot parse a delegation Query", "Query", query)
 	}
 	log.Info("Send delegation Query", "Query", querySection)
-	addToActiveTokenCache(string(token))
+	activeTokens[token] = true
 	//TODO CFE is the sender correctly chosen?
 	SendTo(msg, sender)
 }
@@ -288,7 +288,7 @@ func validZoneSignatures(section *rainslib.ZoneSection, keys map[string]rainslib
 	return true
 }
 
-//validateSignatures returns true if all signatures of the section are valid
+//validateSignatures returns true if all signatures of the section are valid. It removes valid signatures that are expired
 func validateSignatures(section rainslib.MessageSectionWithSig, keys map[string]rainslib.PublicKey) bool {
 	log.Info(fmt.Sprintf("Validate %T", section), "MsgSection", section)
 	if len(section.Sigs()) == 0 {
@@ -297,16 +297,16 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[string]
 	}
 	stub := section.CreateStub()
 	bareStub, _ := msgParser.RevParseSignedMsgSection(stub)
-	for _, sig := range section.Sigs() {
+	for i, sig := range section.Sigs() {
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Warn("signature expired", "expTime", sig.ValidUntil)
-			return false
+			section.DeleteSig(i)
 		} else if !VerifySignature(sig.Algorithm, keys[strconv.Itoa(int(sig.KeySpace))].Key, []byte(bareStub), sig.Data) {
 			log.Warn("signatures do not match")
 			return false
 		}
 	}
-	return true
+	return len(section.Sigs()) > 0
 }
 
 //Delegate adds the given public key to the zoneKeyCache

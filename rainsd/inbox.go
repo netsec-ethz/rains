@@ -1,7 +1,6 @@
 package rainsd
 
 import (
-	"bytes"
 	"fmt"
 	"rains/rainslib"
 	"rains/utils/parser"
@@ -18,7 +17,7 @@ var notificationChannel chan MsgSectionSender
 //activeTokens contains tokens created by this server (indicate self issued queries)
 //TODO create a mechanism such that this map does not grow too much in case of an attack.
 //Have a counter (Buffered channel) and block in verify step if too many queries open
-var activeTokens = make(map[[32]byte]bool)
+var activeTokens = make(map[[16]byte]bool)
 
 //capabilities contains a map with key <hash of a set of capabilities> value <[]capabilities>
 var capabilities Cache
@@ -30,10 +29,10 @@ var msgParser rainslib.RainsMsgParser
 
 //addToActiveTokenCache adds tok to the active tocken cache
 func addToActiveTokenCache(tok string) {
-	if len(tok) > 32 {
-		tok = tok[:32]
+	if len(tok) > 16 {
+		tok = tok[:16]
 	}
-	var token [32]byte
+	var token [16]byte
 	copy(token[0:len(tok)], []byte(tok))
 	activeTokens[token] = true
 }
@@ -103,7 +102,7 @@ func Deliver(message []byte, sender ConnInfo) {
 		case *rainslib.QuerySection:
 			addQueryToQueue(m, msg, sender)
 		case *rainslib.NotificationSection:
-			addNotifToQueue(m, msg.Token, sender)
+			addNotificationToQueue(m, msg.Token, sender)
 		default:
 			log.Warn(fmt.Sprintf("unsupported message section type %T", m))
 		}
@@ -114,6 +113,7 @@ func Deliver(message []byte, sender ConnInfo) {
 func sendNotificationMsg(token rainslib.Token, sender ConnInfo, notificationType rainslib.NotificationType) {
 	msg, err := CreateNotificationMsg(token, notificationType, "")
 	if err != nil {
+		log.Warn("Cannot send notification error due to parser error")
 		return
 	}
 	SendTo(msg, sender)
@@ -121,20 +121,18 @@ func sendNotificationMsg(token rainslib.Token, sender ConnInfo, notificationType
 
 //addMsgSectionToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg section to the prio cache, otherwise to the normal cache.
 func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token, sender ConnInfo) {
-	var token [32]byte
-	copy(token[0:len(tok)], tok)
-	if _, ok := activeTokens[token]; ok {
-		log.Info("active Token encountered", "Token", token)
+	if _, ok := activeTokens[tok]; ok {
+		log.Info("active Token encountered", "Token", tok)
 		prioChannel <- MsgSectionSender{Sender: sender, Msg: msgSection, Token: tok}
 	} else {
-		log.Info("token not in active token cache", "Token", token)
+		log.Info("token not in active token cache", "Token", tok)
 		normalChannel <- MsgSectionSender{Sender: sender, Msg: msgSection, Token: tok}
 	}
 }
 
 //addQueryToQueue checks that the token of the message and of the query section are the same and if so adds it to a queue
 func addQueryToQueue(section *rainslib.QuerySection, msg rainslib.RainsMessage, sender ConnInfo) {
-	if bytes.Equal(msg.Token, section.Token) {
+	if msg.Token == section.Token {
 		normalChannel <- MsgSectionSender{Sender: sender, Msg: section, Token: msg.Token}
 	} else {
 		log.Warn("Token of message and query section do not match.", "msgToken", msg.Token, "querySectionToken", section.Token)
@@ -143,16 +141,14 @@ func addQueryToQueue(section *rainslib.QuerySection, msg rainslib.RainsMessage, 
 	}
 }
 
-//addNotifToQueue adds a rains message containing one notification message section to the queue if the token is present in the activeToken cache
-func addNotifToQueue(msg *rainslib.NotificationSection, tok rainslib.Token, sender ConnInfo) {
-	var token [32]byte
-	copy(token[0:len(msg.Token)], msg.Token)
-	if _, ok := activeTokens[token]; ok {
-		log.Info("active Token encountered", "Token", token)
-		delete(activeTokens, token)
+//addNotificationToQueue adds a rains message containing one notification message section to the queue if the token is present in the activeToken cache
+func addNotificationToQueue(msg *rainslib.NotificationSection, tok rainslib.Token, sender ConnInfo) {
+	if _, ok := activeTokens[tok]; ok {
+		log.Info("active Token encountered", "Token", tok)
+		delete(activeTokens, tok)
 		notificationChannel <- MsgSectionSender{Sender: sender, Msg: msg, Token: tok}
 	} else {
-		log.Warn("Token not in active token cache, drop message", "Token", token)
+		log.Warn("Token not in active token cache, drop message", "Token", tok)
 	}
 }
 
@@ -176,17 +172,9 @@ func createWorker() {
 //workBoth works on the prioChannel and on the normalChannel. A worker only fetches a message from the normalChannel if the prioChannel is empty
 func workBoth() {
 	for {
-	innerLoop:
-		for {
-			select {
-			case msg := <-prioChannel:
-				Verify(msg)
-			default:
-				break innerLoop
-			}
-		}
-
 		select {
+		case msg := <-prioChannel:
+			Verify(msg)
 		case msg := <-normalChannel:
 			Verify(msg)
 		default:

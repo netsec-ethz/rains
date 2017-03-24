@@ -55,7 +55,7 @@ func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, e
 //ParseRainsMsg parses a RainsMessage to a byte slice representation with format:
 //<token>[MessageSection:::::...:::::MessageSection][signatures*]:cap:<capabilities
 func (p RainsMsgParser) ParseRainsMsg(m rainslib.RainsMessage) ([]byte, error) {
-	msg := string(m.Token) + "["
+	msg := string(m.Token[:]) + "["
 	for _, section := range m.Content {
 		switch section := section.(type) {
 		case *rainslib.AssertionSection:
@@ -85,11 +85,13 @@ func (p RainsMsgParser) Token(message []byte) (rainslib.Token, error) {
 		log.Warn("Rains Message malformated, cannot extract token")
 		return rainslib.Token{}, errors.New("Rains Message malformated, cannot extract token")
 	}
-	if msgSectionBegin > 32 {
-		log.Error("Token is larger than 32 byte", "TokenSize", msgSectionBegin)
-		return rainslib.Token{}, errors.New("Token is larger than 32 byte")
+	if msgSectionBegin > 16 {
+		log.Error("Token is larger than 16 byte", "TokenSize", msgSectionBegin)
+		return rainslib.Token{}, errors.New("Token is larger than 16 byte")
 	}
-	return rainslib.Token(msg[:msgSectionBegin]), nil
+	token := [16]byte{}
+	copy(token[:msgSectionBegin], message[:msgSectionBegin])
+	return rainslib.Token(token), nil
 }
 
 //RevParseSignedMsgSection parses an MessageSectionWithSig to a byte slice representation
@@ -530,5 +532,7 @@ func parseNotification(msg string) (*rainslib.NotificationSection, error) {
 		log.Warn("Notification Type malformated")
 		return &rainslib.NotificationSection{}, errors.New("notification type malformated")
 	}
-	return &rainslib.NotificationSection{Token: rainslib.Token(msg[tn+4 : nt]), Type: rainslib.NotificationType(ntype), Data: msg[nd+4 : len(msg)]}, nil
+	token := [16]byte{}
+	copy(token[:nt-tn-4], msg[tn+4:nt])
+	return &rainslib.NotificationSection{Token: rainslib.Token(token), Type: rainslib.NotificationType(ntype), Data: msg[nd+4 : len(msg)]}, nil
 }
