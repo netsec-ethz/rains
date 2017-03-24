@@ -16,8 +16,8 @@ type RainsMsgParser struct{}
 //ParseByteSlice parses the byte slice to a RainsMessage according to the following format:
 //It is ASSUMED that signature data does not contain the '[' char.
 //RainsMessage format: <token>[MessageBody:::::...:::::MessageBody][signatures*]:cap:<capabilities
-//Signed Assertion: :SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>:OT:<object type>:OD:<object data>[signature*]
-//Contained Assertion: :CA::SN:<subject-name>:OT:<object type>:OD:<object data>[signature*]
+//Signed Assertion: :SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>[(:OT:<object type>:OD:<object data>)*][signature*]
+//Contained Assertion: :CA::SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 //Signed Shard: :SS::CN:<context-name>:ZN:<zone-name>:RB:<range-begin>:RE:<range-end>[Contained Assertion*][signature*]
 //Contained Shard: :CS::RB:<range-begin>:RE:<range-end>[Contained Assertion*][signature*]
 //Zone: :SZ::CN:<context-name>:ZN:<zone-name>[(Contained Shard|Contained Assertion):::...:::(Contained Shard|Contained Assertion)][signature*]
@@ -108,17 +108,27 @@ func (p RainsMsgParser) RevParseSignedMsgBody(body rainslib.MessageBodyWithSig) 
 }
 
 //RevParseSignedAssertion parses a signed assertion to its string representation with format:
-//:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>:OT:<object type>:OD:<object data>[signature*]
+//:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 func revParseSignedAssertion(a *rainslib.AssertionBody) string {
-	assertion := fmt.Sprintf(":SA::CN:%s:ZN:%s:SN:%s:OT:%v:OD:%v[", a.Context, a.SubjectZone, a.SubjectName, a.Content.Type, a.Content.Value)
+	assertion := fmt.Sprintf(":SA::CN:%s:ZN:%s:SN:%s[%s]][", a.Context, a.SubjectZone, a.SubjectName, revParseObjects(a.Content))
 	return assertion + revParseSignature(a.Signatures) + "]"
 }
 
 //revParseContainedAssertion parses a contained assertion to its string representation with format:
-//:SA::SN:<subject-name>:OT:<object type>:OD:<object data>[signature*]
+//:SA::SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 func revParseContainedAssertion(a *rainslib.AssertionBody) string {
-	assertion := fmt.Sprintf(":CA::SN:%s:OT:%v:OD:%v[", a.SubjectName, a.Content.Type, a.Content.Value)
+	assertion := fmt.Sprintf(":CA::SN:%s:[%s]][", a.SubjectName, revParseObjects(a.Content))
 	return assertion + revParseSignature(a.Signatures) + "]"
+}
+
+//revParseObjects parses objects to their string representation with format:
+//(:OT:<object type>:OD:<object data>)*
+func revParseObjects(content []rainslib.Object) string {
+	objs := ""
+	for _, obj := range content {
+		objs += fmt.Sprintf(":OT:%v:OD:%v", obj.Type, obj.Value)
+	}
+	return objs
 }
 
 //RevParseSignedShard parses a signed shard to its string representation with format:
@@ -235,25 +245,23 @@ func parseSignedAssertion(msg string) (*rainslib.AssertionBody, error) {
 	cn := strings.Index(msg, ":CN:")
 	zn := strings.Index(msg, ":ZN:")
 	sn := strings.Index(msg, ":SN:")
-	ot := strings.Index(msg, ":OT:")
-	od := strings.Index(msg, ":OD:")
-	sigBegin := strings.Index(msg, "[")
-	sigEnd := strings.Index(msg, "]")
-	if cn == -1 || zn == -1 || sn == -1 || ot == -1 || od == -1 || sigBegin == -1 || sigEnd == -1 {
+	objBegin := strings.Index(msg, "[")
+	objEnd := strings.Index(msg, "]")
+	sigBegin := strings.LastIndex(msg, "[")
+	sigEnd := strings.LastIndex(msg, "]")
+	if cn == -1 || zn == -1 || sn == -1 || objBegin == -1 || objEnd == -1 || sigBegin == -1 || sigEnd == -1 {
 		log.Warn("Assertion Msg Body malformated")
 		return &rainslib.AssertionBody{}, errors.New("Assertion Msg Body malformated")
 	}
-	objType, err := strconv.Atoi(msg[ot+4 : od])
+	objects, err := parseObjects(msg[objBegin+1 : objEnd])
 	if err != nil {
-		log.Warn("objType malformated")
-		return &rainslib.AssertionBody{}, errors.New("objType malformated")
+		return &rainslib.AssertionBody{}, err
 	}
 	signatures, err := parseSignatures(msg[sigBegin+1 : sigEnd])
 	if err != nil {
 		return &rainslib.AssertionBody{}, err
 	}
-	object := rainslib.Object{Type: rainslib.ObjectType(objType), Value: msg[od+4 : sigBegin]}
-	assertionBody := rainslib.AssertionBody{Context: msg[cn+4 : zn], SubjectZone: msg[zn+4 : sn], SubjectName: msg[sn+4 : ot], Content: object, Signatures: signatures}
+	assertionBody := rainslib.AssertionBody{Context: msg[cn+4 : zn], SubjectZone: msg[zn+4 : sn], SubjectName: msg[sn+4 : objBegin], Content: objects, Signatures: signatures}
 	return &assertionBody, nil
 }
 
@@ -262,15 +270,18 @@ func parseSignedAssertion(msg string) (*rainslib.AssertionBody, error) {
 func parseContainedAssertion(msg, context, subjectZone string) (*rainslib.AssertionBody, error) {
 	log.Info("Parse Contained Assertion", "Assertion", msg)
 	sn := strings.Index(msg, ":SN:")
-	ot := strings.Index(msg, ":OT:")
-	od := strings.Index(msg, ":OD:")
+	objBegin := strings.Index(msg, "[")
+	objEnd := strings.Index(msg, "]")
 	sigBegin := strings.Index(msg, "[")
 	sigEnd := strings.Index(msg, "]")
-	if sn == -1 || ot == -1 || od == -1 || sigBegin == -1 || sigEnd == -1 {
+	if sn == -1 || objBegin == -1 || objEnd == -1 || sigBegin == -1 || sigEnd == -1 {
 		log.Warn("Assertion Msg Body malformated")
 		return &rainslib.AssertionBody{}, errors.New("Assertion Msg Body malformated")
 	}
-	objType, err := strconv.Atoi(msg[ot+4 : od])
+	objects, err := parseObjects(msg[objBegin+1 : objEnd])
+	if err != nil {
+		return &rainslib.AssertionBody{}, err
+	}
 	if err != nil {
 		log.Warn("objType malformated")
 		return &rainslib.AssertionBody{}, errors.New("objType malformated")
@@ -279,9 +290,35 @@ func parseContainedAssertion(msg, context, subjectZone string) (*rainslib.Assert
 	if err != nil {
 		return &rainslib.AssertionBody{}, err
 	}
-	object := rainslib.Object{Type: rainslib.ObjectType(objType), Value: msg[od+4 : sigBegin]}
-	assertionBody := rainslib.AssertionBody{Context: context, SubjectZone: subjectZone, SubjectName: msg[sn+4 : ot], Content: object, Signatures: signatures}
+	assertionBody := rainslib.AssertionBody{Context: context, SubjectZone: subjectZone, SubjectName: msg[sn+4 : objBegin], Content: objects, Signatures: signatures}
 	return &assertionBody, nil
+}
+
+//parseObjects parses objects with format:
+//(:OT:<object type>:OD:<object data>)*
+func parseObjects(inputObjects string) ([]rainslib.Object, error) {
+	log.Info("Parse Objects", "objects", inputObjects)
+	objects := []rainslib.Object{}
+	if len(inputObjects) == 0 {
+		return objects, nil
+	}
+	objs := strings.Split(inputObjects, ":OT:")[1:]
+	for _, obj := range objs {
+		od := strings.Index(obj, ":OD:")
+		if od == -1 {
+			log.Warn("object malformated", "Object", obj)
+			return []rainslib.Object{}, errors.New("object malformated")
+		}
+		objectType, err := strconv.Atoi(obj[:od])
+		if err != nil {
+			log.Warn("Object's objectType malformated")
+			return []rainslib.Object{}, errors.New("Object's objectType malformated")
+		}
+
+		object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: obj[od:]}
+		objects = append(objects, object)
+	}
+	return objects, nil
 }
 
 //parseSignedShard parses a signed shard message body with format:

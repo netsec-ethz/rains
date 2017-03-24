@@ -2,6 +2,7 @@ package rainsd
 
 import (
 	"crypto/ecdsa"
+	"crypto/sha512"
 	"encoding/json"
 	"hash"
 	"io/ioutil"
@@ -11,8 +12,6 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
-	"crypto/sha512"
 
 	lru "github.com/hashicorp/golang-lru"
 	log "github.com/inconshreveable/log15"

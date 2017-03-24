@@ -36,7 +36,7 @@ type MessageBodyWithSig interface {
 type AssertionBody struct {
 	//Mandatory
 	SubjectName string
-	Content     Object
+	Content     []Object
 	//Optional for contained assertions
 	Signatures  []Signature
 	SubjectZone string
@@ -285,7 +285,7 @@ type NotificationType int
 const (
 	Heartbeat          NotificationType = 100
 	CapHashNotKnown    NotificationType = 399
-	RcvMalformatMsg    NotificationType = 400
+	BadMessage         NotificationType = 400
 	RcvInconsistentMsg NotificationType = 403
 	NoAssertionsExist  NotificationType = 404
 	MsgTooLarge        NotificationType = 413

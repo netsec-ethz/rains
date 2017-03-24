@@ -16,7 +16,7 @@ func Notify(msgSender MsgBodySender) {
 		notifLog.Info("Capability Hash was not understood")
 		//TODO CFE send a full capabilities list on the next message it sends to the peer
 		//store in a map key <dest> value <capabilities>. Before a message is parsed to CBOR format check if it must include capabilities.
-	case rainslib.RcvMalformatMsg:
+	case rainslib.BadMessage:
 		notifLog.Error("Sent msg was malformated")
 	case rainslib.RcvInconsistentMsg:
 		notifLog.Error("Sent msg was inconsistent")
@@ -24,7 +24,7 @@ func Notify(msgSender MsgBodySender) {
 		notifLog.Error("Sent msg was too large")
 	case rainslib.NoAssertionsExist:
 		notifLog.Info("Bad request, only clients receive this notification type")
-		msg, err := CreateNotificationMsg(msgSender.Token, rainslib.RcvMalformatMsg, "")
+		msg, err := CreateNotificationMsg(msgSender.Token, rainslib.BadMessage, "")
 		if err != nil {
 			return
 		}
@@ -38,7 +38,7 @@ func Notify(msgSender MsgBodySender) {
 		//TODO CFE forward this msg to the query issuing it. Lookup token mapping in delegationTokenMapping
 	default:
 		notifLog.Warn("No matching notification type")
-		msg, err := CreateNotificationMsg(msgSender.Token, rainslib.RcvMalformatMsg, "No matching notification type")
+		msg, err := CreateNotificationMsg(msgSender.Token, rainslib.BadMessage, "No matching notification type")
 		if err != nil {
 			return
 		}

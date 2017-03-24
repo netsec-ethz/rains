@@ -75,11 +75,12 @@ func Deliver(message []byte, sender ConnInfo) {
 	}
 	msg, err := msgParser.ParseByteSlice(message)
 	if err != nil {
-		sendNotificationMsg(msg.Token, sender, rainslib.RcvMalformatMsg)
+		sendNotificationMsg(msg.Token, sender, rainslib.BadMessage)
 		return
 	}
 	log.Info("Parsed Message", "Msg", msg)
-	//TODO CFE this part must be refactored once we have a CBOR parser so we can distinguish an array of capabilities from a sha has entry
+	//TODO CFE this part must be refactored once we have a CBOR parser so we can distinguish an array of capabilities from a sha hash entry
+	//TODO send caps not understood back to sender if hash not in cash
 	if msg.Capabilities != "" {
 		if caps, ok := capabilities.Get(msg.Capabilities); ok {
 			peerToCapability.Add(sender, caps)
@@ -94,7 +95,7 @@ func Deliver(message []byte, sender ConnInfo) {
 			}
 		}
 	}
-	//TODO CFE verify signatures against infrastructure key for the RAINS Server originating the message
+	//TODO CFE verify signatures against infrastructure key for the RAINS Server originating the message -> separate cache for that?
 	for _, m := range msg.Content {
 		switch m := m.(type) {
 		case *rainslib.AssertionBody, *rainslib.ShardBody, *rainslib.ZoneBody:
@@ -137,8 +138,8 @@ func addQueryToQueue(body *rainslib.QueryBody, msg rainslib.RainsMessage, sender
 		normalChannel <- MsgBodySender{Sender: sender, Msg: body, Token: msg.Token}
 	} else {
 		log.Warn("Token of message and query body do not match.", "msgToken", msg.Token, "queryBodyToken", body.Token)
-		sendNotificationMsg(msg.Token, sender, rainslib.RcvMalformatMsg)
-		sendNotificationMsg(body.Token, sender, rainslib.RcvMalformatMsg)
+		sendNotificationMsg(msg.Token, sender, rainslib.BadMessage)
+		sendNotificationMsg(body.Token, sender, rainslib.BadMessage)
 	}
 }
 
