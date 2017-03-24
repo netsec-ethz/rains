@@ -322,11 +322,10 @@ func validateSignatures(body rainslib.MessageBodyWithSig, keys map[string]rainsl
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Warn("signature expired", "expTime", sig.ValidUntil)
 			body.DeleteSig(i)
-		} else if VerifySignature(sig.Algorithm, keys[strconv.Itoa(int(sig.KeySpace))].Key, []byte(bareStub), sig.Data) {
+		} else if !VerifySignature(sig.Algorithm, keys[strconv.Itoa(int(sig.KeySpace))].Key, []byte(bareStub), sig.Data) {
 			log.Warn("signatures do not match")
 			body.DeleteSig(i)
 		}
-		log.Error("Successful Signature Validated")
 	}
 	return len(body.Sigs()) > 0
 }
