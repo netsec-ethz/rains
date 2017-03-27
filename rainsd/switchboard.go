@@ -18,7 +18,7 @@ import (
 )
 
 //TODO CFE this uses MPL 2.0 licence, write it ourself (Brian has sample code)
-var connCache Cache
+var connCache cache
 var framer scanner
 
 //InitSwitchboard initializes the switchboard

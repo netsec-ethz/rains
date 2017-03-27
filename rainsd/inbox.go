@@ -10,9 +10,9 @@ import (
 )
 
 //incoming messages are buffered in one of these channels until they get processed by a worker go routine
-var prioChannel chan MsgSectionSender
-var normalChannel chan MsgSectionSender
-var notificationChannel chan MsgSectionSender
+var prioChannel chan msgSectionSender
+var normalChannel chan msgSectionSender
+var notificationChannel chan msgSectionSender
 
 //activeTokens contains tokens created by this server (indicate self issued queries)
 //TODO create a mechanism such that this map does not grow too much in case of an attack. -> If the token is evicted before answer -> answer comes not on prio queue.
@@ -20,16 +20,16 @@ var notificationChannel chan MsgSectionSender
 var activeTokens = make(map[[16]byte]bool)
 
 //capabilities contains a map with key <hash of a set of capabilities> value <[]capabilities>
-var capabilities Cache
+var capabilities cache
 
 //capabilities contains a map with key ConnInfo value <capabilities>
-var peerToCapability Cache
+var peerToCapability cache
 
 func initInbox() error {
 	//init Channels
-	prioChannel = make(chan MsgSectionSender, Config.PrioBufferSize)
-	normalChannel = make(chan MsgSectionSender, Config.NormalBufferSize)
-	notificationChannel = make(chan MsgSectionSender, Config.NotificationBufferSize)
+	prioChannel = make(chan msgSectionSender, Config.PrioBufferSize)
+	normalChannel = make(chan msgSectionSender, Config.NormalBufferSize)
+	notificationChannel = make(chan msgSectionSender, Config.NotificationBufferSize)
 
 	//init Cache
 	capabilities = &LRUCache{}
@@ -128,17 +128,17 @@ func sendNotificationMsg(token rainslib.Token, sender ConnInfo, notificationType
 func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token, sender ConnInfo) {
 	if _, ok := activeTokens[tok]; ok {
 		log.Info("active Token encountered", "Token", tok)
-		prioChannel <- MsgSectionSender{Sender: sender, Msg: msgSection, Token: tok}
+		prioChannel <- msgSectionSender{Sender: sender, Msg: msgSection, Token: tok}
 	} else {
 		log.Info("token not in active token cache", "Token", tok)
-		normalChannel <- MsgSectionSender{Sender: sender, Msg: msgSection, Token: tok}
+		normalChannel <- msgSectionSender{Sender: sender, Msg: msgSection, Token: tok}
 	}
 }
 
 //addQueryToQueue checks that the token of the message and of the query section are the same and if so adds it to a queue
 func addQueryToQueue(section *rainslib.QuerySection, msg rainslib.RainsMessage, sender ConnInfo) {
 	if msg.Token == section.Token {
-		normalChannel <- MsgSectionSender{Sender: sender, Msg: section, Token: msg.Token}
+		normalChannel <- msgSectionSender{Sender: sender, Msg: section, Token: msg.Token}
 	} else {
 		log.Warn("Token of message and query section do not match.", "msgToken", msg.Token, "querySectionToken", section.Token)
 		sendNotificationMsg(msg.Token, sender, rainslib.BadMessage)
@@ -151,7 +151,7 @@ func addNotificationToQueue(msg *rainslib.NotificationSection, tok rainslib.Toke
 	if _, ok := activeTokens[tok]; ok {
 		log.Info("active Token encountered", "Token", tok)
 		delete(activeTokens, tok)
-		notificationChannel <- MsgSectionSender{Sender: sender, Msg: msg, Token: tok}
+		notificationChannel <- msgSectionSender{Sender: sender, Msg: msg, Token: tok}
 	} else {
 		log.Warn("Token not in active token cache, drop message", "Token", tok)
 	}

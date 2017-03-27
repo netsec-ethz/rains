@@ -77,8 +77,8 @@ func (c ConnInfo) PortToString() string {
 	return strconv.Itoa(int(c.Port))
 }
 
-//MsgSectionSender contains the message section section and connection infos about the sender
-type MsgSectionSender struct {
+//msgSectionSender contains the message section section and connection infos about the sender
+type msgSectionSender struct {
 	Sender ConnInfo
 	Msg    rainslib.MessageSection
 	Token  rainslib.Token
@@ -92,13 +92,13 @@ const (
 	TLSOverTCP   Capability = "urn:x-rains:tlssrv"
 )
 
-//Cache implementations can have different replacement strategies
-type Cache interface {
+//cache implementations can have different replacement strategies
+type cache interface {
 	//New creates a cache with the given parameters
 	New(params ...interface{}) error
 	//NewWithEvict creates a cache with the given parameters and a callback function when an element gets evicted
 	NewWithEvict(onEvicted func(key interface{}, value interface{}), params ...interface{}) error
-	//Add adds a value to the cache. If the cache is full the oldest element according to some metric will be replaced. Returns true if an eviction occurred.
+	//Add adds a value to the cache. If the cache is full the oldest element according to some metric will be replaced. Returns true if it was able to add the element???
 	Add(key, value interface{}) bool
 	//Contains checks if a key is in the cache, without updating the recentness or deleting it for being stale.
 	Contains(key interface{}) bool
@@ -114,40 +114,67 @@ type Cache interface {
 	RemoveWithStrategy()
 }
 
-//PendingSignatureCacheKey is the key for the pendingQuery cache
-type PendingSignatureCacheKey struct {
+//pendingSignatureCacheKey is the key for the pendingQuery cache
+type pendingSignatureCacheKey struct {
 	KeySpace    string
 	Context     string
 	SubjectZone string
 }
 
-//PendingSignatureCacheValue is the value received from the pendingQuery cache
-type PendingSignatureCacheValue struct {
+//pendingSignatureCacheValue is the value received from the pendingQuery cache
+type pendingSignatureCacheValue struct {
 	ValidUntil     int64
 	retries        int
 	mux            sync.Mutex
-	MsgSectionList MsgSectionWithSigList
+	MsgSectionList msgSectionWithSigList
 }
 
 //Retries returns the number of retries. If 0 no retries are attempted
-func (v *PendingSignatureCacheValue) Retries() int {
+func (v *pendingSignatureCacheValue) Retries() int {
 	v.mux.Lock()
-	defer func(v *PendingSignatureCacheValue) { v.mux.Unlock() }(v)
+	defer func(v *pendingSignatureCacheValue) { v.mux.Unlock() }(v)
 	return v.retries
 }
 
 //DecRetries decreses the retry value by 1
-func (v *PendingSignatureCacheValue) DecRetries() {
+func (v *pendingSignatureCacheValue) DecRetries() {
 	v.mux.Lock()
 	if v.retries > 0 {
 		v.retries--
 	}
 }
 
-//MsgSectionWithSigList is a thread safe list of msgSectionWithSig
+//assertionCacheKey is the key for the pendingQueryCache and the assertionCache.
+type assertionCacheKey struct {
+	Context     string
+	SubjectZone string
+	ObjectType  rainslib.ObjectType
+	SubjectName string
+}
+
+//assertionCacheValue is the value type of the assertionCache.
+type assertionCacheValue struct {
+	ValidUntil int
+	Retry      bool
+	mux        sync.Mutex
+	List       queryAnswerList
+}
+
+type queryAnswerList struct {
+	ConnInfo ConnInfo
+	Token    rainslib.Token
+}
+
+//negAssertionCacheKey is the key for the negAssertionCache
+type negAssertionCacheKey struct {
+	Context string
+	Subject string
+}
+
+//msgSectionWithSigList is a thread safe list of msgSectionWithSig
 //To handle the case that we do not drop an incoming msgSection during the handling of the callback, we close the list after callback and return false
 //Then the calling method can handle the new msgSection directly.
-type MsgSectionWithSigList struct {
+type msgSectionWithSigList struct {
 	mux                   sync.Mutex
 	closed                bool
 	MsgSectionWithSigList []rainslib.MessageSectionWithSig
@@ -155,9 +182,9 @@ type MsgSectionWithSigList struct {
 
 //Add adds an message section with signature to the list (It is thread safe)
 //returns true if it was able to add the element to the list
-func (l *MsgSectionWithSigList) Add(section rainslib.MessageSectionWithSig) bool {
+func (l *msgSectionWithSigList) Add(section rainslib.MessageSectionWithSig) bool {
 	l.mux.Lock()
-	defer func(l *MsgSectionWithSigList) { l.mux.Unlock() }(l)
+	defer func(l *msgSectionWithSigList) { l.mux.Unlock() }(l)
 	if !l.closed {
 		l.MsgSectionWithSigList = append(l.MsgSectionWithSigList, section)
 		return true
@@ -166,9 +193,9 @@ func (l *MsgSectionWithSigList) Add(section rainslib.MessageSectionWithSig) bool
 }
 
 //GetList returns the list and closes the data structure
-func (l *MsgSectionWithSigList) GetListAndClose() []rainslib.MessageSectionWithSig {
+func (l *msgSectionWithSigList) GetListAndClose() []rainslib.MessageSectionWithSig {
 	l.mux.Lock()
-	defer func(l *MsgSectionWithSigList) { l.mux.Unlock() }(l)
+	defer func(l *msgSectionWithSigList) { l.mux.Unlock() }(l)
 	l.closed = true
 	return l.MsgSectionWithSigList
 }
