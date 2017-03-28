@@ -6,9 +6,9 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
-//Notify handles incoming notification messages
-func Notify(msgSender msgSectionSender) {
-	notifLog := log.New("NotificationMsgSection", msgSender.Msg)
+//notify handles incoming notification messages
+func notify(msgSender msgSectionSender) {
+	notifLog := log.New("notificationMsgSection", msgSender.Msg)
 	switch msgSender.Msg.(*rainslib.NotificationSection).Type {
 	case rainslib.Heartbeat:
 		//Do nothing
@@ -17,7 +17,7 @@ func Notify(msgSender msgSectionSender) {
 		//TODO CFE send a full capabilities list on the next message it sends to the peer
 		//store in a map key <dest> value <capabilities>. Before a message is parsed to CBOR format check if it must include capabilities.
 	case rainslib.BadMessage:
-		notifLog.Error("Sent msg was malformated")
+		notifLog.Error("Sent msg was malformed")
 	case rainslib.RcvInconsistentMsg:
 		notifLog.Error("Sent msg was inconsistent")
 	case rainslib.MsgTooLarge:

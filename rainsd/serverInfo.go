@@ -2,6 +2,7 @@ package rainsd
 
 import (
 	"crypto/x509"
+	"net"
 	"rains/rainslib"
 	"strconv"
 	"sync"
@@ -18,24 +19,24 @@ var Config = defaultConfig
 //rainsdConfig lists possible configurations of a rains server
 type rainsdConfig struct {
 	//switchboard
-	ServerIPAddr    string
-	ServerPort      uint16
-	MaxConnections  uint
-	KeepAlivePeriod time.Duration
-	TCPTimeout      time.Duration
-	CertificateFile string
-	PrivateKeyFile  string
+	ServerIPAddr          net.IP
+	ServerPort            uint16
+	MaxConnections        uint
+	KeepAlivePeriodMicros time.Duration
+	TCPTimeoutMicros      time.Duration
+	CertificateFile       string
+	PrivateKeyFile        string
 
 	//inbox
-	MaxMsgLength           uint
-	PrioBufferSize         uint
-	NormalBufferSize       uint
-	NotificationBufferSize uint
-	PrioWorkerSize         uint
-	NormalWorkerSize       uint
-	NotificationWorkerSize uint
-	CapabilitiesCacheSize  uint
-	PeerToCapCacheSize     uint
+	MaxMsgByteLength        uint
+	PrioBufferSize          uint
+	NormalBufferSize        uint
+	NotificationBufferSize  uint
+	PrioWorkerCount         uint
+	NormalWorkerCount       uint
+	NotificationWorkerCount uint
+	CapabilitiesCacheSize   uint
+	PeerToCapCacheSize      uint
 
 	//verify
 	ZoneKeyCacheSize          uint
@@ -47,10 +48,10 @@ type rainsdConfig struct {
 }
 
 //DefaultConfig is a rainsdConfig object containing default values
-var defaultConfig = rainsdConfig{ServerIPAddr: "127.0.0.1", ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriod: time.Minute, TCPTimeout: 5 * time.Minute,
-	CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key", MaxMsgLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerSize: 2,
-	NormalWorkerSize: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
-	NotificationBufferSize: 20, NotificationWorkerSize: 2, PeerToCapCacheSize: 1000}
+var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriodMicros: time.Minute, TCPTimeoutMicros: 5 * time.Minute,
+	CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key", MaxMsgByteLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerCount: 2,
+	NormalWorkerCount: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
+	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int
@@ -60,16 +61,15 @@ const (
 )
 
 //ConnInfo contains address information about one actor of a connection of the declared type
-//type 1 contains IPAddr and Port information
 type ConnInfo struct {
 	Type   ProtocolType
-	IPAddr string
+	IPAddr net.IP
 	Port   uint16
 }
 
 //IPAddrAndPort returns IP address and port in the format IPAddr:Port
 func (c ConnInfo) IPAddrAndPort() string {
-	return c.IPAddr + ":" + c.PortToString()
+	return c.IPAddr.String() + ":" + c.PortToString()
 }
 
 //PortToString return the port number as a string

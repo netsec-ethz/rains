@@ -83,7 +83,7 @@ func createConnection(receiver ConnInfo) (net.Conn, error) {
 	switch receiver.Type {
 	case TCP:
 		dialer := &net.Dialer{
-			KeepAlive: Config.KeepAlivePeriod,
+			KeepAlive: Config.KeepAlivePeriodMicros,
 		}
 		return tls.DialWithDialer(dialer, "tcp", receiver.IPAddrAndPort(), &tls.Config{RootCAs: roots})
 	default:
@@ -97,7 +97,7 @@ func create4Tuple(client ConnInfo, server ConnInfo) string {
 	case TCP:
 		return fmt.Sprintf("%s_%d_%s_%d", client.IPAddr, client.Port, server.IPAddr, server.Port)
 	default:
-		log.Warn("le(): No matching type found for client ConnInfo")
+		log.Warn("No matching type found for client ConnInfo", "connInfo", client)
 		return ""
 	}
 }
@@ -145,7 +145,7 @@ func handleConnection(conn net.Conn, client ConnInfo) {
 	for scan.Deframe() {
 		log.Info("Received a message", "client", client)
 		deliver(scan.Data(), client)
-		conn.SetDeadline(time.Now().Add(Config.TCPTimeout))
+		conn.SetDeadline(time.Now().Add(Config.TCPTimeoutMicros))
 	}
 }
 
@@ -153,7 +153,7 @@ func handleConnection(conn net.Conn, client ConnInfo) {
 func parseRemoteAddr(s string) ConnInfo {
 	addrAndPort := strings.Split(s, ":")
 	port, _ := strconv.Atoi(addrAndPort[1])
-	return ConnInfo{Type: TCP, IPAddr: addrAndPort[0], Port: uint16(port)}
+	return ConnInfo{Type: TCP, IPAddr: net.ParseIP(addrAndPort[0]), Port: uint16(port)}
 }
 
 //getIPAddrandPort fetches HostAddr and port number from config file on which this server is listening to

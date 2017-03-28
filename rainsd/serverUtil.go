@@ -96,10 +96,9 @@ func SignData(algoType rainslib.SignatureAlgorithmType, privateKey interface{}, 
 		}
 		log.Warn("Could not cast key to ed25519.PrivateKey", "privateKey", privateKey)
 	case rainslib.Ed448:
-		log.Warn("Not yet Supported!")
+		log.Warn("Ed448 not yet Supported!")
 	case rainslib.Ecdsa256:
 		if pkey, ok := privateKey.(*ecdsa.PrivateKey); ok {
-			//TODO CFE or use sha256?
 			hash := sha256.Sum256(data)
 			return signEcdsa(pkey, data, hash[:])
 		}
@@ -133,10 +132,9 @@ func VerifySignature(algoType rainslib.SignatureAlgorithmType, publicKey interfa
 		}
 		log.Warn("Could not cast key to ed25519.PublicKey", "publicKey", publicKey)
 	case rainslib.Ed448:
-		log.Warn("Not yet Supported!")
+		log.Warn("Ed448 not yet Supported!")
 	case rainslib.Ecdsa256:
 		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
-			//TODO CFE or use sha256?
 			if sig, ok := signature.([]*big.Int); ok && len(sig) == 2 {
 				hash := sha256.Sum256(data)
 				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])

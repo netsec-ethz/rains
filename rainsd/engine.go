@@ -37,6 +37,7 @@ func initEngine() error {
 		log.Error("Cannot create assertionCache", "error", err)
 		return err
 	}
+	negAssertionCache = &LRUCache{}
 	//TODO CFE add size to server config
 	err = negAssertionCache.New(100)
 	if err != nil {
@@ -66,7 +67,7 @@ func assert(section rainslib.MessageSectionWithSig, isAuthoritative bool) {
 func assertAssertion(assertion *rainslib.AssertionSection) {
 	log.Info("Start processing Assertion", "assertion", assertion)
 	if cacheAssertion(assertion) {
-		//TODO CFE add assertion to assertionCache
+		//add assertion to assertionCache
 	}
 
 	//if the assertions' type is delegation then look it up in the pending signatures cache. get queue elements and delete entry, process queue elements. start go routine for
@@ -84,9 +85,9 @@ func cacheAssertion(assertion *rainslib.AssertionSection) bool {
 func assertShard(shard *rainslib.ShardSection) {
 	log.Info("Start processing Shard", "shard", shard)
 	if cacheShard(shard) {
-		//TODO CFE add shard to negCache and assertions to assertionCache
+		//add shard to negCache and assertions to assertionCache
 	}
-	//TODO CFE check if pending query cache contains sections which are in the range of the shard zone and return all of them and afterwards delete them
+	//check if pending query cache contains sections which are in the range of the shard zone and return all of them and afterwards delete them
 	//Process them in separate go routines by checking if the token matches.
 	//If so, return the shard to all pending queries on the queue.
 	// use waitgroup to synchronize, but only wait at the end of this method.
@@ -102,9 +103,9 @@ func cacheShard(shard *rainslib.ShardSection) bool {
 func assertZone(zone *rainslib.ZoneSection) {
 	log.Info("Start processing zone", "zone", zone)
 	if cacheZone(zone) {
-		//TODO CFE add contained shards and zone to negCache and contained assertions to assertionCache
+		//add contained shards and zone to negCache and contained assertions to assertionCache
 	}
-	//TODO CFE check if pending query cache contains sections which are in same context and zone, return all of them and afterwards delete them
+	//check if pending query cache contains sections which are in same context and zone, return all of them and afterwards delete them
 	//Process them in separate go routines by checking if the token matches.
 	//If so, return the shard to all pending queries on the queue.
 	//use waitgroup to synchronize, but only wait at the end of this method.
