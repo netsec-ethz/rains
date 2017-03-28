@@ -152,9 +152,7 @@ func (z *ZoneSection) DeleteAllSigs() {
 	z.Signatures = []Signature{}
 	for _, section := range z.Content {
 		switch section := section.(type) {
-		case *AssertionSection:
-			section.DeleteAllSigs()
-		case *ShardSection:
+		case *AssertionSection, *ShardSection:
 			section.DeleteAllSigs()
 		default:
 			log.Warn("Unknown message section", "messageSection", section)
@@ -179,9 +177,7 @@ func (z *ZoneSection) CreateStub() MessageSectionWithSig {
 	stub.Content = []MessageSectionWithSig{}
 	for _, section := range z.Content {
 		switch section := section.(type) {
-		case *AssertionSection:
-			stub.Content = append(stub.Content, section.CreateStub())
-		case *ShardSection:
+		case *AssertionSection, *ShardSection:
 			stub.Content = append(stub.Content, section.CreateStub())
 		default:
 			log.Warn("Unknown message section", "messageSection", section)
@@ -201,20 +197,20 @@ type QuerySection struct {
 
 	//Optional
 	Expires int
-	Options []QueryOptions
+	Options []QueryOption
 }
 
-type QueryOptions int
+type QueryOption int
 
 const (
-	MinE2ELatency            QueryOptions = 1
-	MinLastHopAnswerSize     QueryOptions = 2
-	MinInfoLeakage           QueryOptions = 3
-	CachedAnswersOnly        QueryOptions = 4
-	ExpiredAssertionsOk      QueryOptions = 5
-	TokenTracing             QueryOptions = 6
-	NoVerificationDelegation QueryOptions = 7
-	NoProactiveCaching       QueryOptions = 8
+	MinE2ELatency            QueryOption = 1
+	MinLastHopAnswerSize     QueryOption = 2
+	MinInfoLeakage           QueryOption = 3
+	CachedAnswersOnly        QueryOption = 4
+	ExpiredAssertionsOk      QueryOption = 5
+	TokenTracing             QueryOption = 6
+	NoVerificationDelegation QueryOption = 7
+	NoProactiveCaching       QueryOption = 8
 )
 
 type ObjectType int
