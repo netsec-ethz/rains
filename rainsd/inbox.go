@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"rains/rainslib"
 	"rains/utils/parser"
-	"time"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -184,8 +183,6 @@ func workBoth() {
 		case msg := <-normalChannel:
 			verify(msg)
 		default:
-			//TODO CFE add to config?
-			time.Sleep(50 * time.Millisecond)
 		}
 	}
 }
@@ -197,8 +194,6 @@ func workPrio() {
 		case msg := <-prioChannel:
 			verify(msg)
 		default:
-			//TODO CFE add to config?
-			time.Sleep(50 * time.Millisecond)
 		}
 	}
 }
@@ -210,8 +205,6 @@ func workNotification() {
 		case msg := <-notificationChannel:
 			notify(msg)
 		default:
-			//TODO CFE add to config?
-			time.Sleep(50 * time.Millisecond)
 		}
 	}
 }

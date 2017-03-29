@@ -17,7 +17,7 @@ var assertionCache cache
 var negAssertionCache cache
 
 //pendingQueries contains a mapping from all self issued pending queries to the set of message bodies waiting for it.
-//key: <keyspace><context><subjectzone> value: <msgSection><deadline>
+//key: <context><subjectzone> value: <msgSection><deadline>
 //TODO make the value thread safe. We store a list of <msgSection><deadline> objects which can be added and deleted
 var pendingQueries cache
 
