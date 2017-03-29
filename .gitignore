@@ -29,3 +29,6 @@ _testmain.go
 #Key, cert
 *.crt
 *.key
+
+#server main() function binary
+/server/server

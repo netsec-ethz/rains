@@ -1,4 +1,4 @@
-//The switchboard listens for incoming connections from servers or clients,
+//The  incoming connections from servers or clients,
 //opens connections to servers to which messages need to be sent but for which no active connection is available
 //and provides the SendTo function which sends the message to the specified server.
 
@@ -7,10 +7,8 @@ package rainsd
 import (
 	"bufio"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"strconv"
 	"strings"
@@ -20,61 +18,15 @@ import (
 )
 
 //TODO CFE this uses MPL 2.0 licence, write it ourself (Brian has sample code)
-var connCache Cache
-var serverConnInfo ConnInfo
-var roots *x509.CertPool
+var connCache cache
 var framer scanner
 
-//TODO CFE what should the name of this interface be?
-type scanner interface {
-	//Frame takes a message and adds a frame to it
-	Frame(msg []byte) ([]byte, error)
-
-	//Deframe extracts the next frame from a stream.
-	//It blocks until it encounters the delimiter.
-	//It returns false when the stream is closed.
-	//The data is available through Data
-	Deframe() bool
-
-	//Data contains the frame read from the stream by Deframe
-	Data() []byte
-}
-
-type newLineFramer struct {
-	Scanner   *bufio.Scanner
-	firstCall bool
-}
-
-func (f newLineFramer) Frame(msg []byte) ([]byte, error) {
-	return append(msg, "\n"...), nil
-}
-
-func (f *newLineFramer) Deframe() bool {
-	if f.firstCall {
-		f.Scanner.Split(bufio.ScanLines)
-		f.firstCall = false
-	}
-	return f.Scanner.Scan()
-}
-
-func (f newLineFramer) Data() []byte {
-	return f.Scanner.Bytes()
-}
-
-func init() {
-	//TODO CFE remove after we have proper starting procedure.
-	//TODO Do not call panic but instead return error or if we are in main() log error and exit
-	var err error
-	//init config
-	loadConfig()
-	serverConnInfo, err = getIPAddrandPort()
-	if err != nil {
-		log.Error("error", err)
-		panic(err)
-	}
+//InitSwitchboard initializes the switchboard
+func initSwitchboard() error {
+	serverConnInfo = getIPAddrandPort()
 	//init cache
 	connCache = &LRUCache{}
-	err = connCache.NewWithEvict(
+	err := connCache.NewWithEvict(
 		func(key interface{}, value interface{}) {
 			if value, ok := value.(net.Conn); ok {
 				value.Close()
@@ -82,27 +34,15 @@ func init() {
 		}, int(Config.MaxConnections))
 	if err != nil {
 		log.Error("Cannot create connCache", "error", err)
-		panic(err)
-	}
-	//init certificate
-	roots = x509.NewCertPool()
-	file, err := ioutil.ReadFile(Config.CertificateFile)
-	if err != nil {
-		log.Error("error", err)
-	}
-	ok := roots.AppendCertsFromPEM(file)
-	if !ok {
-		log.Error("failed to parse root certificate")
-		panic("failed to parse root certificate")
+		return err
 	}
 	//init framer
 	framer = &newLineFramer{}
-	listen()
+	return nil
 }
 
-//SendTo sends the given message to the specified receiver.
-//TODO CFE replace string with RainsMessage
-func SendTo(message []byte, receiver ConnInfo) {
+//sendTo sends the given message to the specified receiver.
+func sendTo(message []byte, receiver ConnInfo) {
 	sendLog := log.New("Connection info", receiver)
 	conn, ok := connCache.Get(create4Tuple(receiver, serverConnInfo))
 	if ok {
@@ -143,7 +83,7 @@ func createConnection(receiver ConnInfo) (net.Conn, error) {
 	switch receiver.Type {
 	case TCP:
 		dialer := &net.Dialer{
-			KeepAlive: Config.KeepAlivePeriod,
+			KeepAlive: Config.KeepAlivePeriodMicros,
 		}
 		return tls.DialWithDialer(dialer, "tcp", receiver.IPAddrAndPort(), &tls.Config{RootCAs: roots})
 	default:
@@ -157,13 +97,13 @@ func create4Tuple(client ConnInfo, server ConnInfo) string {
 	case TCP:
 		return fmt.Sprintf("%s_%d_%s_%d", client.IPAddr, client.Port, server.IPAddr, server.Port)
 	default:
-		log.Warn("No matching type found for client ConnInfo")
+		log.Warn("No matching type found for client ConnInfo", "connInfo", client)
 		return ""
 	}
 }
 
-//listens for incoming TLS over TCP connections and calls handler
-func listen() {
+//Listen listens for incoming TLS over TCP connections and calls handler
+func Listen() {
 	addrAndport := serverConnInfo.IPAddrAndPort()
 	srvLogger := log.New("addr", addrAndport)
 
@@ -204,8 +144,8 @@ func handleConnection(conn net.Conn, client ConnInfo) {
 	scan := newLineFramer{Scanner: bufio.NewScanner(bufio.NewReader(conn)), firstCall: true}
 	for scan.Deframe() {
 		log.Info("Received a message", "client", client)
-		Deliver(scan.Data(), client)
-		conn.SetDeadline(time.Now().Add(Config.TCPTimeout))
+		deliver(scan.Data(), client)
+		conn.SetDeadline(time.Now().Add(Config.TCPTimeoutMicros))
 	}
 }
 
@@ -213,10 +153,10 @@ func handleConnection(conn net.Conn, client ConnInfo) {
 func parseRemoteAddr(s string) ConnInfo {
 	addrAndPort := strings.Split(s, ":")
 	port, _ := strconv.Atoi(addrAndPort[1])
-	return ConnInfo{Type: TCP, IPAddr: addrAndPort[0], Port: uint16(port)}
+	return ConnInfo{Type: TCP, IPAddr: net.ParseIP(addrAndPort[0]), Port: uint16(port)}
 }
 
 //getIPAddrandPort fetches HostAddr and port number from config file on which this server is listening to
-func getIPAddrandPort() (ConnInfo, error) {
-	return ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}, nil
+func getIPAddrandPort() ConnInfo {
+	return ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}
 }

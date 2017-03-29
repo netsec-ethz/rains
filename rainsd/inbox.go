@@ -1,6 +1,7 @@
 package rainsd
 
 import (
+	"fmt"
 	"rains/rainslib"
 	"rains/utils/parser"
 	"time"
@@ -9,73 +10,79 @@ import (
 )
 
 //incoming messages are buffered in one of these channels until they get processed by a worker go routine
-var prioChannel chan MsgBodySender
-var normalChannel chan MsgBodySender
-var notificationChannel chan MsgSender
+var prioChannel chan msgSectionSender
+var normalChannel chan msgSectionSender
+var notificationChannel chan msgSectionSender
 
 //activeTokens contains tokens created by this server (indicate self issued queries)
-//TODO create a mechanism such that this map does not grow too much in case of an attack.
-//Have a counter (Buffered channel) and block in verify step if too many queries open
-var activeTokens = make(map[[32]byte]bool)
+//TODO create a mechanism such that this map does not grow too much in case of an attack. -> If the token is evicted before answer -> answer comes not on prio queue.
+//Solution: if full do not add it to cache and these answers are then not handled with priority.???
+var activeTokens = make(map[[16]byte]bool)
 
 //capabilities contains a map with key <hash of a set of capabilities> value <[]capabilities>
-var capabilities Cache
+var capabilities cache
 
 //capabilities contains a map with key ConnInfo value <capabilities>
-var peerToCapability Cache
+var peerToCapability cache
 
-var msgParser rainslib.RainsMsgParser
+func initInbox() error {
+	//init Channels
+	prioChannel = make(chan msgSectionSender, Config.PrioBufferSize)
+	normalChannel = make(chan msgSectionSender, Config.NormalBufferSize)
+	notificationChannel = make(chan msgSectionSender, Config.NotificationBufferSize)
 
-//TODO CFE remove later: utility only used for testing purposes
-func addToken(s string) {
-	if len(s) > 32 {
-		s = s[:32]
-	}
-	var token [32]byte
-	copy(token[0:len(s)], []byte(s))
-	activeTokens[token] = true
-}
-
-func init() {
-	//TODO CFE remove after we have proper starting procedure.
-	var err error
-	loadConfig()
-	prioChannel = make(chan MsgBodySender, Config.PrioBufferSize)
-	normalChannel = make(chan MsgBodySender, Config.NormalBufferSize)
-	notificationChannel = make(chan MsgSender, Config.NotificationBufferSize)
-	createWorker()
-	//TODO CFE for testing purposes (afterwards remove)
-	addToken("456")
+	//init Cache
 	capabilities = &LRUCache{}
-	err = capabilities.New(int(Config.CapabilitiesCacheSize))
+	err := capabilities.New(int(Config.CapabilitiesCacheSize))
 	if err != nil {
 		log.Error("Cannot create capabilitiesCache", "error", err)
-		panic(err)
+		return err
 	}
 	capabilities.Add("e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745", []Capability{TLSOverTCP})
 	capabilities.Add("76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71", []Capability{NoCapability})
+
 	peerToCapability = &LRUCache{}
 	err = peerToCapability.New(int(Config.PeerToCapCacheSize))
 	if err != nil {
 		log.Error("Cannot create peerToCapability", "error", err)
-		panic(err)
+		return err
 	}
+
 	//init parser
 	msgParser = parser.RainsMsgParser{}
+
+	createWorker()
+
+	//TODO CFE for testing purposes (afterwards remove)
+	addToActiveTokenCache("456")
+	return nil
 }
 
-//Deliver pushes all incoming messages to the prio or normal channel based on some strategy
-func Deliver(message []byte, sender ConnInfo) {
-	if uint(len(message)) > Config.MaxMsgLength {
-		sendNotificationMsg(message, sender, rainslib.MsgTooLarge)
+//addToActiveTokenCache adds tok to the active tocken cache
+func addToActiveTokenCache(tok string) {
+	if len(tok) > 16 {
+		tok = tok[:16]
+	}
+	var token [16]byte
+	copy(token[0:len(tok)], []byte(tok))
+	activeTokens[token] = true
+}
+
+//deliver pushes all incoming messages to the prio or normal channel based on some strategy
+func deliver(message []byte, sender ConnInfo) {
+	if uint(len(message)) > Config.MaxMsgByteLength {
+		token, _ := msgParser.Token(message)
+		sendNotificationMsg(token, sender, rainslib.MsgTooLarge)
 		return
 	}
 	msg, err := msgParser.ParseByteSlice(message)
 	if err != nil {
-		sendNotificationMsg(message, sender, rainslib.RcvMalformatMsg)
+		sendNotificationMsg(msg.Token, sender, rainslib.BadMessage)
 		return
 	}
-	//TODO CFE this part must be refactored once we have a CBOR parser so we can distinguish an array of capabilities from a sha has entry
+	log.Info("Parsed Message", "msg", msg)
+	//TODO CFE this part must be refactored once we have a CBOR parser so we can distinguish an array of capabilities from a sha hash entry
+	//TODO send caps not understood back to sender if hash not in cash
 	if msg.Capabilities != "" {
 		if caps, ok := capabilities.Get(msg.Capabilities); ok {
 			peerToCapability.Add(sender, caps)
@@ -90,92 +97,92 @@ func Deliver(message []byte, sender ConnInfo) {
 			}
 		}
 	}
+	if !verifyMessageSignature(msg.Signatures) {
+		return
+	}
 	for _, m := range msg.Content {
-		switch m.(type) {
-		case rainslib.AssertionBody:
-			addMsgBodyToQueue(m, msg.Token, sender)
-		case rainslib.ShardBody:
-			addMsgBodyToQueue(m, msg.Token, sender)
-		case rainslib.QueryBody:
-			normalChannel <- MsgBodySender{Sender: sender, Msg: m}
-		case rainslib.NotificationBody:
-			addNotifToQueue(rainslib.RainsMessage{Token: msg.Token, Content: []rainslib.MessageBody{m}}, sender)
+		switch m := m.(type) {
+		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection:
+			addMsgSectionToQueue(m, msg.Token, sender)
+		case *rainslib.QuerySection:
+			addQueryToQueue(m, msg, sender)
+		case *rainslib.NotificationSection:
+			addNotificationToQueue(m, msg.Token, sender)
 		default:
-			log.Warn("Unknown message type")
+			log.Warn(fmt.Sprintf("unsupported message section type %T", m))
 		}
 	}
 }
 
 //sendNotificationMsg sends a notification message to the sender with the given notificationType. If an error occurs during parsing no message is sent and the error is logged.
-func sendNotificationMsg(message []byte, sender ConnInfo, notificationType rainslib.NotificationType) {
-	token, err := msgParser.Token(message)
-	if err != nil {
-		return
-	}
+func sendNotificationMsg(token rainslib.Token, sender ConnInfo, notificationType rainslib.NotificationType) {
 	msg, err := CreateNotificationMsg(token, notificationType, "")
 	if err != nil {
+		log.Warn("Cannot send notification error due to parser error", "error", err)
 		return
 	}
-	SendTo(msg, sender)
+	sendTo(msg, sender)
 }
 
-//addMsgBodyToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg body to the prio cache, otherwise to the normal cache.
-func addMsgBodyToQueue(msgBody rainslib.MessageBody, tok rainslib.Token, sender ConnInfo) {
-	var token [32]byte
-	copy(token[0:len(tok)], tok)
-	if _, ok := activeTokens[token]; ok {
-		log.Info("active Token encountered", "Token", token)
-		prioChannel <- MsgBodySender{Sender: sender, Msg: msgBody}
+//addMsgSectionToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg section to the prio cache, otherwise to the normal cache.
+func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token, sender ConnInfo) {
+	if _, ok := activeTokens[tok]; ok {
+		log.Info("active Token encountered", "token", tok)
+		prioChannel <- msgSectionSender{Sender: sender, Msg: msgSection, Token: tok}
 	} else {
-		log.Info("token not in active token cache", "Token", token)
-		normalChannel <- MsgBodySender{Sender: sender, Msg: msgBody}
+		log.Info("token not in active token cache", "token", tok)
+		normalChannel <- msgSectionSender{Sender: sender, Msg: msgSection, Token: tok}
 	}
 }
 
-//addNotifToQueue adds a rains message containing one notification message body to the queue if the token is present in the activeToken cache
-func addNotifToQueue(msg rainslib.RainsMessage, sender ConnInfo) {
-	var token [32]byte
-	tok := msg.Content[0].(rainslib.NotificationBody).Token
-	copy(token[0:len(tok)], tok)
-	if _, ok := activeTokens[token]; ok {
-		log.Info("active Token encountered", "Token", token)
-		delete(activeTokens, token)
-		notificationChannel <- MsgSender{Sender: sender, Msg: msg}
+//addQueryToQueue checks that the token of the message and of the query section are the same and if so adds it to a queue
+func addQueryToQueue(section *rainslib.QuerySection, msg rainslib.RainsMessage, sender ConnInfo) {
+	if msg.Token == section.Token {
+		normalChannel <- msgSectionSender{Sender: sender, Msg: section, Token: msg.Token}
 	} else {
-		log.Warn("Token not in active token cache, drop message", "Token", token)
+		log.Warn("Token of message and query section do not match.", "msgToken", msg.Token, "querySectionToken", section.Token)
+		sendNotificationMsg(msg.Token, sender, rainslib.BadMessage)
+		sendNotificationMsg(section.Token, sender, rainslib.BadMessage)
+	}
+}
+
+//addNotificationToQueue adds a rains message containing one notification message section to the queue if the token is present in the activeToken cache
+func addNotificationToQueue(msg *rainslib.NotificationSection, tok rainslib.Token, sender ConnInfo) {
+	if _, ok := activeTokens[tok]; ok {
+		log.Info("active Token encountered", "token", tok)
+		delete(activeTokens, tok)
+		notificationChannel <- msgSectionSender{Sender: sender, Msg: msg, Token: tok}
+	} else {
+		log.Warn("Token not in active token cache, drop message", "token", tok)
 	}
 }
 
 //createWorker creates go routines which process messages from the prioChannel and normalChannel.
 //number of go routines per queue are loaded from the config
 func createWorker() {
-	for i := 0; i < int(Config.PrioWorkerSize); i++ {
+	for i := 0; i < int(Config.PrioWorkerCount); i++ {
 		go workPrio()
 	}
-	for i := 0; i < int(Config.NormalWorkerSize); i++ {
+	for i := 0; i < int(Config.NormalWorkerCount); i++ {
 		go workBoth()
 	}
-	for i := 0; i < int(Config.NotificationWorkerSize); i++ {
+	for i := 0; i < int(Config.NotificationWorkerCount); i++ {
 		go workNotification()
+	}
+	//TODO CFE load number from config
+	for i := 0; i < 2; i++ {
+		go workPendingSignatures()
 	}
 }
 
 //workBoth works on the prioChannel and on the normalChannel. A worker only fetches a message from the normalChannel if the prioChannel is empty
 func workBoth() {
 	for {
-	innerLoop:
-		for {
-			select {
-			case msg := <-prioChannel:
-				Verify(msg)
-			default:
-				break innerLoop
-			}
-		}
-
 		select {
+		case msg := <-prioChannel:
+			verify(msg)
 		case msg := <-normalChannel:
-			Verify(msg)
+			verify(msg)
 		default:
 			//TODO CFE add to config?
 			time.Sleep(50 * time.Millisecond)
@@ -188,7 +195,7 @@ func workPrio() {
 	for {
 		select {
 		case msg := <-prioChannel:
-			Verify(msg)
+			verify(msg)
 		default:
 			//TODO CFE add to config?
 			time.Sleep(50 * time.Millisecond)
@@ -201,7 +208,7 @@ func workNotification() {
 	for {
 		select {
 		case msg := <-notificationChannel:
-			Notify(msg.Msg, msg.Sender)
+			notify(msg)
 		default:
 			//TODO CFE add to config?
 			time.Sleep(50 * time.Millisecond)
