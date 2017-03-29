@@ -13,6 +13,11 @@ var prioChannel chan msgSectionSender
 var normalChannel chan msgSectionSender
 var notificationChannel chan msgSectionSender
 
+//These channels limit the number of go routines working on the queue to avoid memory exhaustion.
+var prioWorkers chan struct{}
+var normalWorkers chan struct{}
+var notificationWorkers chan struct{}
+
 //activeTokens contains tokens created by this server (indicate self issued queries)
 //TODO create a mechanism such that this map does not grow too much in case of an attack. -> If the token is evicted before answer -> answer comes not on prio queue.
 //Solution: if full do not add it to cache and these answers are then not handled with priority.???
@@ -29,6 +34,11 @@ func initInbox() error {
 	prioChannel = make(chan msgSectionSender, Config.PrioBufferSize)
 	normalChannel = make(chan msgSectionSender, Config.NormalBufferSize)
 	notificationChannel = make(chan msgSectionSender, Config.NotificationBufferSize)
+
+	//init max amount of concurrent workers
+	prioWorkers = make(chan struct{}, Config.PrioWorkerCount)
+	normalWorkers = make(chan struct{}, Config.NormalWorkerCount)
+	notificationWorkers = make(chan struct{}, Config.NotificationWorkerCount)
 
 	//init Cache
 	capabilities = &LRUCache{}
@@ -50,7 +60,9 @@ func initInbox() error {
 	//init parser
 	msgParser = parser.RainsMsgParser{}
 
-	createWorker()
+	go workPrio()
+	go workNotification()
+	go workBoth()
 
 	//TODO CFE for testing purposes (afterwards remove)
 	addToActiveTokenCache("456")
@@ -156,55 +168,62 @@ func addNotificationToQueue(msg *rainslib.NotificationSection, tok rainslib.Toke
 	}
 }
 
-//createWorker creates go routines which process messages from the prioChannel and normalChannel.
-//number of go routines per queue are loaded from the config
-func createWorker() {
-	for i := 0; i < int(Config.PrioWorkerCount); i++ {
-		go workPrio()
-	}
-	for i := 0; i < int(Config.NormalWorkerCount); i++ {
-		go workBoth()
-	}
-	for i := 0; i < int(Config.NotificationWorkerCount); i++ {
-		go workNotification()
-	}
-	//TODO CFE load number from config
-	for i := 0; i < 2; i++ {
-		go workPendingSignatures()
-	}
-}
-
-//workBoth works on the prioChannel and on the normalChannel. A worker only fetches a message from the normalChannel if the prioChannel is empty
+//workBoth works on the prioChannel and on the normalChannel. A worker only fetches a message from the normalChannel if the prioChannel is empty.
+//the channel normalWorkers enforces a maximum number of go routines working on the prioChannel and normalChannel.
 func workBoth() {
 	for {
+		prioWorkers <- struct{}{}
 		select {
 		case msg := <-prioChannel:
-			verify(msg)
-		case msg := <-normalChannel:
-			verify(msg)
+			go handlePrio(msg)
+			continue
 		default:
+			//do nothing
+		}
+		select {
+		case msg := <-normalChannel:
+			go handleNormal(msg)
+		default:
+			<-prioWorkers
 		}
 	}
 }
 
-//workPrio only works on prioChannel. This is necessary to avoid deadlock
+//handleNormal handles sections on the normalChannel
+func handleNormal(msg msgSectionSender) {
+	verify(msg)
+	<-normalWorkers
+}
+
+//workPrio works on the prioChannel. It waits on the prioChannel and creates a new go routine which handles the section.
+//the channel prioWorkers enforces a maximum number of go routines working on the prioChannel.
+//The prio channel is necessary to avoid a deadlock
 func workPrio() {
 	for {
-		select {
-		case msg := <-prioChannel:
-			verify(msg)
-		default:
-		}
+		prioWorkers <- struct{}{}
+		msg := <-prioChannel
+		go handlePrio(msg)
 	}
 }
 
-//workNotification works on notificationChannel.
+//handlePrio handles sections on the prioChannel
+func handlePrio(msg msgSectionSender) {
+	verify(msg)
+	<-prioWorkers
+}
+
+//workNotification works on the notificationChannel. It waits on the notificationChannel and creates a new go routine which handles the notification.
+//the channel notificationWorkers enforces a maximum number of go routines working on the notificationChannel
 func workNotification() {
 	for {
-		select {
-		case msg := <-notificationChannel:
-			notify(msg)
-		default:
-		}
+		notificationWorkers <- struct{}{}
+		msg := <-notificationChannel
+		go handleNotification(msg)
 	}
+}
+
+//handleNotification works on notificationChannel.
+func handleNotification(msg msgSectionSender) {
+	notify(msg)
+	<-notificationWorkers
 }
