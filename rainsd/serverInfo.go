@@ -214,3 +214,19 @@ type scanner interface {
 	//Data contains the frame read from the stream by Deframe
 	Data() []byte
 }
+
+//list is an interface for a concurrency safe map data structure where all methods are concurrency safe.
+type container interface {
+	//Add appends item to the current list.
+	//It returns false if it was not able to add the element because the underlying datastructure was deleted in the meantime
+	Add(item interface{}) bool
+
+	//Delete removes item from the list.
+	Delete(item interface{})
+
+	//GetAll returns all elements contained in the datastructure
+	GetAll() []interface{}
+
+	//GetAllAndDelete returns all contained elements and deletes the datastructure.
+	GetAllAndDelete() []interface{}
+}
