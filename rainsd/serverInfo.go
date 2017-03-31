@@ -215,8 +215,8 @@ type scanner interface {
 	Data() []byte
 }
 
-//list is an interface for a concurrency safe map data structure where all methods are concurrency safe.
-type container interface {
+//Container is an interface for a map data structure which might be concurrency safe
+type Container interface {
 	//Add appends item to the current list.
 	//It returns false if it was not able to add the element because the underlying datastructure was deleted in the meantime
 	Add(item interface{}) bool
