@@ -2,7 +2,7 @@ package cache
 
 import (
 	"container/list"
-	"errors"
+	"fmt"
 	"sync"
 )
 
@@ -22,7 +22,7 @@ type Cache struct {
 	mux sync.RWMutex
 
 	list            *list.List //contains elements that are not affected by LRU removal strategy
-	lrulist         *list.List
+	lruList         *list.List
 	cache           map[string]*list.Element
 	cacheAnyContext map[string]*list.Element
 }
@@ -37,7 +37,7 @@ type entry struct {
 //New creates a cache where the first parameter entry must contain the maximum size of the cache (>0).
 //The second Parameter specifies if cacheAnyContext is used. on input 'context' is it used and on 'noContext' not.
 func New(params ...interface{}) (*Cache, error) {
-	maxSize, anyContext, err := checkParams(params)
+	maxSize, anyContext, err := checkParams(params...)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func New(params ...interface{}) (*Cache, error) {
 		maxEntries:    maxSize,
 		hasAnyContext: anyContext,
 		list:          list.New(),
-		lrulist:       list.New(),
+		lruList:       list.New(),
 		cache:         make(map[string]*list.Element),
 	}
 	if anyContext {
@@ -55,8 +55,8 @@ func New(params ...interface{}) (*Cache, error) {
 }
 
 //NewWithEvict creates a cache with the given parameters and a callback function when an element gets evicted
-func (c *Cache) NewWithEvict(onEvicted func(value interface{}, key ...string), params ...interface{}) (*Cache, error) {
-	maxSize, anyContext, err := checkParams(params)
+func NewWithEvict(onEvicted func(value interface{}, key ...string), params ...interface{}) (*Cache, error) {
+	maxSize, anyContext, err := checkParams(params...)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (c *Cache) NewWithEvict(onEvicted func(value interface{}, key ...string), p
 		hasAnyContext: anyContext,
 		onEvicted:     onEvicted,
 		list:          list.New(),
-		lrulist:       list.New(),
+		lruList:       list.New(),
 		cache:         make(map[string]*list.Element),
 	}
 	if anyContext {
@@ -76,19 +76,19 @@ func (c *Cache) NewWithEvict(onEvicted func(value interface{}, key ...string), p
 
 func checkParams(params ...interface{}) (int, bool, error) {
 	if len(params) < 2 {
-		return 0, false, errors.New("Not enough parameters")
+		return 0, false, fmt.Errorf("Not enough parameters, got %d, with values: param1=%v", len(params), params)
 	}
 	maxSize, ok := params[0].(int)
 	if !ok || maxSize < 1 {
-		return 0, false, errors.New("Invalid maximum size parameter")
+		return 0, false, fmt.Errorf("Invalid maxEntries parameter:%v", params[0])
 	}
-	if params[1] == "context" {
+	if params[1] == "anyContext" {
 		return maxSize, true, nil
 	}
-	if params[1] == "noContext" {
+	if params[1] == "noAnyContext" {
 		return maxSize, false, nil
 	}
-	return 0, false, errors.New("Invalid value on second parameter")
+	return 0, false, fmt.Errorf("Invalid value on second parameter (hasAnyContext): param2=%v", params[1])
 }
 
 //Add adds a value to the cache. If the cache is full the least recently used non internal element will be replaced. Returns true if it added an element.
@@ -96,7 +96,7 @@ func (c *Cache) Add(value interface{}, internal bool, context string, keys ...st
 	if c.cache == nil {
 		c.hasAnyContext = true
 		c.list = list.New()
-		c.lrulist = list.New()
+		c.lruList = list.New()
 		c.cache = make(map[string]*list.Element)
 		c.cacheAnyContext = make(map[string]*list.Element)
 	}
@@ -106,7 +106,7 @@ func (c *Cache) Add(value interface{}, internal bool, context string, keys ...st
 		if internal {
 			if !v.Value.(*entry).internal {
 				//value exist in external list, move it to internal
-				c.lrulist.Remove(v)
+				c.lruList.Remove(v)
 				c.list.PushFront(v)
 			} else {
 				//value exist in correct list
@@ -116,10 +116,10 @@ func (c *Cache) Add(value interface{}, internal bool, context string, keys ...st
 			if v.Value.(*entry).internal {
 				//value exist in internal list, move it to external list.
 				c.list.Remove(v)
-				c.lrulist.PushFront(v)
+				c.lruList.PushFront(v)
 			} else {
 				//value exist in correct list
-				c.lrulist.MoveToFront(v)
+				c.lruList.MoveToFront(v)
 			}
 		}
 		return false
@@ -129,7 +129,7 @@ func (c *Cache) Add(value interface{}, internal bool, context string, keys ...st
 	if internal {
 		element = c.list.PushFront(&entry{internal: true, context: context, key: key, value: value})
 	} else {
-		element = c.lrulist.PushFront(&entry{internal: false, context: context, key: key, value: value})
+		element = c.lruList.PushFront(&entry{internal: false, context: context, key: key, value: value})
 	}
 	c.cache[context+":"+key] = element
 	if c.hasAnyContext {
@@ -171,7 +171,7 @@ func (c *Cache) Get(context string, keys ...string) (interface{}, bool) {
 	key := parseKeys(keys)
 	c.mux.RLock()
 	defer c.mux.RUnlock()
-	var v interface{}
+	var v *list.Element
 	var ok bool
 	if c.hasAnyContext && context == "" {
 		v, ok = c.cacheAnyContext[key]
@@ -181,7 +181,7 @@ func (c *Cache) Get(context string, keys ...string) (interface{}, bool) {
 	if !ok {
 		return nil, false
 	}
-	return v, true
+	return v.Value.(*entry).value, true
 }
 
 //Keys returns a slice of the keys in the cache
@@ -199,7 +199,7 @@ func (c *Cache) Keys() []interface{} {
 func (c *Cache) Len() int {
 	c.mux.RLock()
 	defer c.mux.RUnlock()
-	return c.list.Len() + c.lrulist.Len()
+	return c.list.Len() + c.lruList.Len()
 }
 
 //Remove deletes the key value pair from the cache based on the given key
@@ -211,11 +211,14 @@ func (c *Cache) Remove(context string, keys ...string) bool {
 		if element.Value.(*entry).internal {
 			c.list.Remove(element)
 		} else {
-			c.lrulist.Remove(element)
+			c.lruList.Remove(element)
 		}
 		delete(c.cache, context+":"+key)
 		if c.hasAnyContext {
 			delete(c.cacheAnyContext, key)
+		}
+		if c.onEvicted != nil {
+			c.onEvicted(element.Value.(*entry).value, context+":"+key)
 		}
 		return true
 	}
@@ -226,16 +229,18 @@ func (c *Cache) Remove(context string, keys ...string) bool {
 func (c *Cache) RemoveWithStrategy() bool {
 	c.mux.Lock()
 	defer c.mux.Unlock()
-	element := c.lrulist.Back()
+	element := c.lruList.Back()
 	if element == nil {
 		return false
 	}
-	c.lrulist.Remove(element)
-	context := element.Value.(*entry).context
-	key := element.Value.(*entry).key
-	delete(c.cache, context+":"+key)
+	c.lruList.Remove(element)
+	value := element.Value.(*entry)
+	delete(c.cache, value.context+":"+value.key)
 	if c.hasAnyContext {
-		delete(c.cacheAnyContext, key)
+		delete(c.cacheAnyContext, value.key)
+	}
+	if c.onEvicted != nil {
+		c.onEvicted(value.value, value.context+":"+value.key)
 	}
 	return true
 }
