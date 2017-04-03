@@ -2,6 +2,8 @@ package cache
 
 import (
 	"fmt"
+	"strconv"
+	"sync"
 	"testing"
 )
 
@@ -252,6 +254,33 @@ func TestAdd(t *testing.T) {
 	if cache.list.Len() != 0 {
 		t.Error("Element inserted in wrong list")
 	}
+	//check that cache size exceeds not maximum
+	cache, _ = New(1, "anyContext")
+	cache.Add("val", false, ".", "many", "keys")
+	cache.Add("val", false, ".", "many", "keys2")
+	cache.Add("val", false, ".", "many", "keys3")
+	if len(cache.cache) > 1 || len(cache.cacheAnyContext) > 1 || cache.lruList.Len() > 1 {
+		t.Errorf("Too many elements in cache. len(cache)=%d, len(cacheAnyContext)=%d, lrulist.Len()=%d",
+			len(cache.cache), len(cache.cacheAnyContext), cache.lruList.Len())
+	}
+	//concurrency test
+	runs := 1000
+	cache, _ = New(runs, "anyContext")
+	var wg sync.WaitGroup
+	for i := 0; i < runs; i++ {
+		wg.Add(1)
+		go addValue(i, cache, &wg)
+	}
+	wg.Wait()
+	if len(cache.cache) != runs || len(cache.cacheAnyContext) != runs || cache.lruList.Len() != runs {
+		t.Errorf("Race condition: some data was not added to the set. len(cache)=%d, len(cacheAnyContext)=%d, lrulist.Len()=%d",
+			len(cache.cache), len(cache.cacheAnyContext), cache.lruList.Len())
+	}
+}
+
+func addValue(i int, cache *Cache, wg *sync.WaitGroup) {
+	cache.Add(i, false, ".", "hello", strconv.Itoa(i))
+	wg.Done()
 }
 
 func TestParseKeys(t *testing.T) {
@@ -289,6 +318,23 @@ func TestContains(t *testing.T) {
 	if cache.Contains("con", "hey", "you") {
 		t.Error("cache should not contain key con:hey:you anymore")
 	}
+
+	//concurrency test
+	runs := 100000
+	cache, _ = New(runs, "anyContext")
+	var wg sync.WaitGroup
+	for i := 0; i < runs; i++ {
+		wg.Add(1)
+		go containsValue(cache, &wg, t)
+	}
+	wg.Wait()
+}
+
+func containsValue(cache *Cache, wg *sync.WaitGroup, t *testing.T) {
+	if cache.Contains(".", "hello") {
+		t.Error("Does not contain this value")
+	}
+	wg.Done()
 }
 
 func TestGet(t *testing.T) {
@@ -422,6 +468,28 @@ func TestRemove(t *testing.T) {
 	if cache.lruList.Len() != 1 {
 		t.Error("element in external list should not be affected")
 	}
+
+	//concurrency test
+	runs := 1000
+	cache, _ = New(runs, "anyContext")
+	for i := 0; i < runs; i++ {
+		cache.Add("val", false, ".", "Hello", strconv.Itoa(i))
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < runs; i++ {
+		wg.Add(1)
+		go removeValue(i, cache, &wg)
+	}
+	wg.Wait()
+	if len(cache.cache) != 0 || len(cache.cacheAnyContext) != 0 || cache.lruList.Len() != 0 {
+		t.Errorf("Race condition: some data was not removed from the set. len(cache)=%d, len(cacheAnyContext)=%d, lrulist.Len()=%d",
+			len(cache.cache), len(cache.cacheAnyContext), cache.lruList.Len())
+	}
+}
+
+func removeValue(i int, cache *Cache, wg *sync.WaitGroup) {
+	cache.Remove(".", "Hello", strconv.Itoa(i))
+	wg.Done()
 }
 
 func TestRemoveWithStrategy(t *testing.T) {
@@ -471,4 +539,26 @@ func TestRemoveWithStrategy(t *testing.T) {
 	if cache.lruList.Front().Value.(*entry).value.(string) != "value" {
 		t.Error("Wrong element deleted")
 	}
+
+	//concurrency test
+	runs := 1000
+	cache, _ = New(runs, "anyContext")
+	for i := 0; i < runs; i++ {
+		cache.Add("val", false, ".", "Hello", strconv.Itoa(i))
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < runs; i++ {
+		wg.Add(1)
+		go removeWithStrategyValue(cache, &wg)
+	}
+	wg.Wait()
+	if len(cache.cache) != 0 || len(cache.cacheAnyContext) != 0 || cache.lruList.Len() != 0 {
+		t.Errorf("Race condition: some data was not removed from the set. len(cache)=%d, len(cacheAnyContext)=%d, lrulist.Len()=%d",
+			len(cache.cache), len(cache.cacheAnyContext), cache.lruList.Len())
+	}
+}
+
+func removeWithStrategyValue(cache *Cache, wg *sync.WaitGroup) {
+	cache.RemoveWithStrategy()
+	wg.Done()
 }
