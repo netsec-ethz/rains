@@ -84,6 +84,7 @@ func generateMsg() ([]byte, error) {
 
 func sendQuery(query []byte, ipAddress string, port uint) error {
 	conf := &tls.Config{
+		//TODO CFE add this to cmd line options
 		InsecureSkipVerify: true,
 	}
 	ipAddr := net.ParseIP(ipAddress)

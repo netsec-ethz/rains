@@ -29,12 +29,15 @@ func (set *Set) Add(item interface{}) bool {
 }
 
 //Delete removes item from the hash set if it is contained. This method is concurrency safe.
-func (set *Set) Delete(item interface{}) {
+//Returns true if item was contained
+func (set *Set) Delete(item interface{}) bool {
 	set.mux.Lock()
 	defer set.mux.Unlock()
-	if !set.isDeleted {
+	if _, ok := set.data[item]; !set.isDeleted && ok {
 		delete(set.data, item)
+		return true
 	}
+	return false
 }
 
 //GetAll returns a slice of all elements contained in the hash set.

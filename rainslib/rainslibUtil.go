@@ -13,7 +13,7 @@ func GenerateToken() Token {
 	token := [16]byte{}
 	_, err := rand.Read(token[:])
 	if err != nil {
-		log.Warn("Error during random token generation")
+		log.Warn("Error during random token generation", "error", err)
 	}
 	return Token(token)
 }

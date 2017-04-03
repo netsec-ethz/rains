@@ -75,23 +75,32 @@ func TestDelete(t *testing.T) {
 	//test if deletion deletes the specified value
 	set := New()
 	set.data[5] = true
-	set.Delete(5)
+	ok := set.Delete(5)
 	if len(set.data) != 0 {
 		t.Errorf("Delete did not work. %v", set.data)
+	}
+	if !ok {
+		t.Errorf("Wrong return value=%v", ok)
 	}
 	set = New()
 	set.data[5] = true
 	set.data[6] = true
-	set.Delete(5)
+	ok = set.Delete(5)
 	if !set.data[6] || set.data[5] {
 		t.Errorf("Delete did not work. %v", set.data)
 	}
-	//check that deleting a non existing value does not result in a panic
+	if !ok {
+		t.Errorf("Wrong return value=%v", ok)
+	}
+	//check that deleting a non existing value does not result in a panic and that return value is correct
 	set = New()
 	set.data[5] = true
-	set.Delete(7)
+	ok = set.Delete(7)
 	if !set.data[5] {
 		t.Errorf("Delete did not work. %v", set.data)
+	}
+	if ok {
+		t.Errorf("Wrong return value=%v", ok)
 	}
 	//"concurrency test"
 	set = New()
