@@ -422,6 +422,7 @@ func TestLen(t *testing.T) {
 	}
 }
 
+//TODO CFE test onEvicted function
 func TestRemove(t *testing.T) {
 	cache, _ := New(10, "anyContext")
 	ele := cache.lruList.PushBack(&entry{value: "value", internal: false})
@@ -492,6 +493,7 @@ func removeValue(i int, cache *Cache, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
+//TODO CFE test onEvicted function
 func TestRemoveWithStrategy(t *testing.T) {
 	cache, _ := New(10, "anyContext")
 	if cache.RemoveWithStrategy() {

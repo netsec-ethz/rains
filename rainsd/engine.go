@@ -47,19 +47,31 @@ func initEngine() error {
 	return nil
 }
 
-//assert adds an message section with valid signatures to the assertion/shard/zone cache. Triggers any pending queries answered by it.
-//The message section's signatures MUST have already been verified
+//assert checks the consistency of the incoming section with sections in the cache.
+//it adds a section with valid signatures to the assertion/shard/zone cache. Triggers any pending queries answered by it.
+//The section's signatures MUST have already been verified
 func assert(section rainslib.MessageSectionWithSig, isAuthoritative bool) {
 	switch section := section.(type) {
 	case *rainslib.AssertionSection:
-		assertAssertion(section)
+		if isAssertionConsistent(section) {
+			assertAssertion(section)
+		}
 	case *rainslib.ShardSection:
-		assertShard(section)
+		if isShardConsistent(section) {
+			assertShard(section)
+		}
 	case *rainslib.ZoneSection:
-		assertZone(section)
+		if isZoneConsistent(section) {
+			assertZone(section)
+		}
 	default:
 		log.Warn("Unknown message section", "messageSection", section)
 	}
+}
+
+//isAssertionConsistent checks if the incoming assertion is consistent with the elements in the cache. If not every element of this zone is dropped and it return false
+func isAssertionConsistent(assertion *rainslib.AssertionSection) bool {
+	return true
 }
 
 //assertAssertion adds an assertion to the assertion cache. Triggers any pending queries answered by it.
@@ -80,6 +92,11 @@ func cacheAssertion(assertion *rainslib.AssertionSection) bool {
 	return true
 }
 
+//isShardConsistent checks if the incoming shard is consistent with the elements in the cache. If not every element of this zone is dropped and it return false
+func isShardConsistent(assertion *rainslib.ShardSection) bool {
+	return true
+}
+
 //assertShard adds a shard to the negAssertion cache. Trigger any pending queries answered by it
 //The shard's signatures and all contained assertion signatures MUST have already been verified
 func assertShard(shard *rainslib.ShardSection) {
@@ -95,6 +112,11 @@ func assertShard(shard *rainslib.ShardSection) {
 
 func cacheShard(shard *rainslib.ShardSection) bool {
 	log.Info("Shard will be cached", "shard", shard)
+	return true
+}
+
+//isZoneConsistent checks if the incoming zone is consistent with the elements in the cache. If not every element of this zone is dropped and it return false
+func isZoneConsistent(assertion *rainslib.ZoneSection) bool {
 	return true
 }
 

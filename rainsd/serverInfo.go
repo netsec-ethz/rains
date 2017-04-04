@@ -114,6 +114,13 @@ type cache interface {
 	RemoveWithStrategy()
 }
 
+//assertCache used for caching assertions, it allows range queries
+type assertCache interface {
+	cache
+	//GetInRange returns sets of assertions grouped by context and zone which are in the given range.
+	GetInRange(context, zone, begin, end string) []container
+}
+
 //pendingSignatureCacheKey is the key for the pendingQuery cache
 type pendingSignatureCacheKey struct {
 	KeySpace    string
@@ -215,8 +222,8 @@ type scanner interface {
 	Data() []byte
 }
 
-//Container is an interface for a map data structure which might be concurrency safe
-type Container interface {
+//container is an interface for a map data structure which might be concurrency safe
+type container interface {
 	//Add appends item to the current list.
 	//It returns false if it was not able to add the element because the underlying datastructure was deleted in the meantime
 	Add(item interface{}) bool
