@@ -9,7 +9,10 @@ import (
 	"errors"
 	"io/ioutil"
 	"math/big"
+	"net"
 	"rains/rainslib"
+
+	"rains/utils/cache"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
@@ -146,4 +149,16 @@ func VerifySignature(algoType rainslib.SignatureAlgorithmType, publicKey interfa
 		log.Warn("Signature algorithm type not supported", "type", algoType)
 	}
 	return false
+}
+
+func createConnectionCache() (connectionCache, error) {
+	c, err := cache.NewWithEvict(func(value interface{}, key ...string) {
+		if value, ok := value.(net.Conn); ok {
+			value.Close()
+		}
+	}, int(Config.MaxConnections), "noAnyContext")
+	if err != nil {
+		return nil, err
+	}
+	return connectionCacheImpl{cache: c}, nil
 }

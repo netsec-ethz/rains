@@ -3,8 +3,13 @@ package rainsd
 import (
 	"bufio"
 	"crypto/rand"
+	"net"
+	"rains/utils/cache"
+
+	"fmt"
 
 	lru "github.com/hashicorp/golang-lru"
+	log "github.com/inconshreveable/log15"
 )
 
 type newLineFramer struct {
@@ -88,4 +93,26 @@ func (c *LRUCache) Remove(key interface{}) {
 //RemoveWithStrategy deletes the least recently used key value pair from the cache
 func (c *LRUCache) RemoveWithStrategy() {
 	c.Cache.RemoveOldest()
+}
+
+type connectionCacheImpl struct {
+	cache *cache.Cache
+}
+
+func (c connectionCacheImpl) Add(connInfo string, conn net.Conn) bool {
+	return c.cache.Add(conn, false, "", connInfo)
+}
+
+func (c connectionCacheImpl) Get(connInfo string) (net.Conn, bool) {
+	if v, ok := c.cache.Get("", connInfo); ok {
+		if val, ok := v.(net.Conn); ok {
+			return val, true
+		}
+		log.Warn("Cache entry is not of type net.Conn", "type", fmt.Sprintf("%T", v))
+	}
+	return nil, false
+}
+
+func (c connectionCacheImpl) Len() int {
+	return c.cache.Len()
 }

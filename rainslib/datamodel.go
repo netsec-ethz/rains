@@ -328,8 +328,9 @@ const (
 //PublicKey contains information about a public key
 type PublicKey struct {
 	//TODO CFE remove type if not needed anywhere
-	Type       SignatureAlgorithmType
+	Type       KeyAlgorithmType
 	Key        interface{}
+	ValidFrom  int64
 	ValidUntil int64
 }
 

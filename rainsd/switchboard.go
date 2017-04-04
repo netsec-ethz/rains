@@ -23,19 +23,14 @@ var framer scanner
 
 //InitSwitchboard initializes the switchboard
 func initSwitchboard() error {
+	var err error
 	serverConnInfo = getIPAddrandPort()
 	//init cache
-	/*connCache = &LRUCache{}
-	err := connCache.NewWithEvict(
-		func(key interface{}, value interface{}) {
-			if value, ok := value.(net.Conn); ok {
-				value.Close()
-			}
-		}, int(Config.MaxConnections))
+	connCache, err = createConnectionCache()
 	if err != nil {
 		log.Error("Cannot create connCache", "error", err)
 		return err
-	}*/
+	}
 	//init framer
 	framer = &newLineFramer{}
 	return nil

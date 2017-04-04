@@ -98,16 +98,10 @@ type keyCacheKey struct {
 	keyAlgo rainslib.KeyAlgorithmType
 }
 
-type keyCacheValue struct {
-	key        rainslib.PublicKey
-	validFrom  int64
-	validUntil int64
-}
-
 //keyCache is the Interface which must be implemented by all caches for keys.
 type keyCache interface {
 	//Add adds a keyCacheValue to the cache. If the cache is full the oldest element according to some metric will be replaced. Returns true if it was able to add the public key.
-	Add(key keyCacheKey, value keyCacheValue) bool
+	Add(key keyCacheKey, value rainslib.PublicKey) bool
 	//Get returns a valid public key matching the given cacheKey. It returns false if there exists no valid public key in the cache.
 	//Get must always check the validity of the public key before returning.
 	Get(key keyCacheKey) (rainslib.PublicKey, bool)
