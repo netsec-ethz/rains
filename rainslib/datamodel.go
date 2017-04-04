@@ -12,7 +12,7 @@ type RainsMessage struct {
 
 	//Optional
 	Signatures   []Signature
-	Capabilities string
+	Capabilities Capability
 }
 
 //Token is a byte slice with maximal length 32
@@ -21,6 +21,9 @@ type Token [16]byte
 //MessageSection can be either an Assertion, Shard, Zone, Query or Notification section
 type MessageSection interface {
 }
+
+//Capability is a urn of a capability
+type Capability string
 
 //MessageSectionWithSig can be either an Assertion, Shard or Zone
 type MessageSectionWithSig interface {
@@ -298,6 +301,10 @@ const (
 	RainsKeySpace KeySpaceID = 0
 )
 
+//AlgorithmType specifies an identifier an algorithm
+//TODO CFE how do we want to distinguish SignatureAlgorithmType and HashAlgorithmType
+type KeyAlgorithmType int
+
 //SignatureAlgorithmType specifies a signature algorithm type
 type SignatureAlgorithmType int
 
@@ -323,7 +330,7 @@ type PublicKey struct {
 	//TODO CFE remove type if not needed anywhere
 	Type       SignatureAlgorithmType
 	Key        interface{}
-	ValidUntil uint
+	ValidUntil int64
 }
 
 //NamesetExpression  encodes a modified POSIX Extended Regular Expression format

@@ -23,11 +23,8 @@ var notificationWorkers chan struct{}
 //Solution: if full do not add it to cache and these answers are then not handled with priority.???
 var activeTokens = make(map[[16]byte]bool)
 
-//capabilities contains a map with key <hash of a set of capabilities> value <[]capabilities>
-var capabilities cache
-
-//capabilities contains a map with key ConnInfo value <capabilities>
-var peerToCapability cache
+//capabilities stores known hashes of capabilities and for each connInfo what capability the communication partner has.
+var capabilities capabilityCache
 
 func initInbox() error {
 	//init Channels
@@ -41,7 +38,7 @@ func initInbox() error {
 	notificationWorkers = make(chan struct{}, Config.NotificationWorkerCount)
 
 	//init Cache
-	capabilities = &LRUCache{}
+	/*capabilities = &LRUCache{}
 	err := capabilities.New(int(Config.CapabilitiesCacheSize))
 	if err != nil {
 		log.Error("Cannot create capabilitiesCache", "error", err)
@@ -56,7 +53,7 @@ func initInbox() error {
 		log.Error("Cannot create peerToCapability", "error", err)
 		return err
 	}
-
+	*/
 	//init parser
 	msgParser = parser.RainsMsgParser{}
 
@@ -95,17 +92,17 @@ func deliver(message []byte, sender ConnInfo) {
 	//TODO CFE this part must be refactored once we have a CBOR parser so we can distinguish an array of capabilities from a sha hash entry
 	//TODO send caps not understood back to sender if hash not in cash
 	if msg.Capabilities != "" {
-		if caps, ok := capabilities.Get(msg.Capabilities); ok {
-			peerToCapability.Add(sender, caps)
+		if caps, ok := capabilities.GetFromHash([]byte(msg.Capabilities)); ok {
+			capabilities.Add(sender, caps)
 		} else {
-			switch Capability(msg.Capabilities) {
+			/*switch Capability(msg.Capabilities) {
 			case TLSOverTCP:
 				peerToCapability.Add(sender, TLSOverTCP)
 			case NoCapability:
 				peerToCapability.Add(sender, NoCapability)
 			default:
 				log.Warn("Sent capability value does not match know capability", "rcvCaps", msg.Capabilities)
-			}
+			}*/
 		}
 	}
 	if !verifyMessageSignature(msg.Signatures) {

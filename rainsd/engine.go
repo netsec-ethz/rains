@@ -7,31 +7,31 @@ import (
 )
 
 //assertionCache contains a set of valid assertions where some of them might be expired.
-//A flag indicates if an entry might be evicted or not.
-var assertionCache cache
+//An entry is marked as extrenal if it might be evicted.
+var assertions assertionCache
 
-//negAssertionCache contains for each zone and context a range tree to find all shards and zones containing a specific assertion
-//for a zone the range is infinit: range nil,nil
+//negAssertionCache contains for each zone and context an interval tree to find all shards and zones containing a specific assertion
+//for a zone the range is infinit: range "",""
 //for a shard the range is given as declared in the section.
-//A flag indicates if an entry might be evicted or not.
-var negAssertionCache cache
+//An entry is marked as extrenal if it might be evicted.
+var negAssertionCache negativeAssertionCache
 
 //pendingQueries contains a mapping from all self issued pending queries to the set of message bodies waiting for it.
 //key: <context><subjectzone> value: <msgSection><deadline>
 //TODO make the value thread safe. We store a list of <msgSection><deadline> objects which can be added and deleted
-var pendingQueries cache
+var pendingQueries pendingQueryCache
 
 func initEngine() error {
 	//init Cache
-	pendingQueries = &LRUCache{}
+	/*pendingQueries = &LRUCache{}
 	//TODO CFE add size to server config
 	err := pendingQueries.New(100)
 	if err != nil {
 		log.Error("Cannot create pendingQueriesCache", "error", err)
 		return err
 	}
-	assertionCache = &LRUCache{}
 	//TODO CFE add size to server config
+	assertionCache, err = aCache.New(100, "anyContext")
 	err = assertionCache.New(100)
 	if err != nil {
 		log.Error("Cannot create assertionCache", "error", err)
@@ -43,7 +43,7 @@ func initEngine() error {
 	if err != nil {
 		log.Error("Cannot create assertionCache", "error", err)
 		return err
-	}
+	}*/
 	return nil
 }
 

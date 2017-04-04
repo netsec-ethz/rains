@@ -35,7 +35,7 @@ type entry struct {
 }
 
 //New creates a cache where the first parameter entry must contain the maximum size of the cache (>0).
-//The second Parameter specifies if cacheAnyContext is used. on input 'context' is it used and on 'noContext' not.
+//The second Parameter specifies if cacheAnyContext is used. on input 'anyContext' is it used and on 'noAnyContext' not.
 func New(params ...interface{}) (*Cache, error) {
 	maxSize, anyContext, err := checkParams(params...)
 	if err != nil {

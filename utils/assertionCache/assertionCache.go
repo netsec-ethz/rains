@@ -14,6 +14,7 @@ type elem struct {
 
 //Cache is a LRU cache where some elements are not subject to the LRU removal strategy. This cache is safe for concurrent use.
 type Cache struct {
+	//TODO CFE maybe remove locks from cache so we do not have to lock it twice here and have a separate thread safe cache for operation solely on cache.
 	mux sync.RWMutex
 
 	//cache for fast access to set of assertions
@@ -23,7 +24,7 @@ type Cache struct {
 }
 
 //New creates a cache where the first parameter entry must contain the maximum size of the cache (>0).
-//The second Parameter specifies if cacheAnyContext is used. on input 'context' is it used and on 'noContext' not.
+//The second Parameter specifies if cacheAnyContext is used. on input 'anyContext' is it used and on 'noAnyContext' not.
 func New(params ...interface{}) (*Cache, error) {
 	cache := Cache{
 		sortedAssertions: make(map[string][]elem),

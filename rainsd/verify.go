@@ -2,33 +2,30 @@ package rainsd
 
 import (
 	"fmt"
-	"math/rand"
 	"rains/rainslib"
-	"strconv"
 	"sync"
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	"golang.org/x/crypto/ed25519"
 )
 
 //zoneKeyCache contains a set of zone public keys
 //key: PendingSignatureCacheKey value:PublicKey
-var zoneKeyCache cache
+var zoneKeyCache keyCache
 
 //infrastructureKeyCache contains a set of infrastructure public keys
-var infrastructureKeyCache cache
+var infrastructureKeyCache keyCache
 
 //externalKeyCache contains a set of external public keys
-var externalKeyCache cache
+var externalKeyCache keyCache
 
 //pendingSignatures contains a mapping from all self issued pending queries to the set of message bodies waiting for it together with a timeout.
 //key: PendingSignatureCacheKey value: *PendingSignatureCacheValue
-var pendingSignatures cache
+var pendingSignatures pendingSignatureCache
 
 func initVerify() error {
 	//init cache
-	zoneKeyCache = &LRUCache{}
+	/*zoneKeyCache = &LRUCache{}
 	err := zoneKeyCache.New(int(Config.ZoneKeyCacheSize))
 	if err != nil {
 		log.Error("Cannot create zoneKeyCache", "error", err)
@@ -59,7 +56,7 @@ func initVerify() error {
 	if err != nil {
 		log.Error("Cannot create externalKeyCache", "error", err)
 		return err
-	}
+	}*/
 	return nil
 }
 
@@ -170,24 +167,26 @@ func containedSectionInRange(subjectName string, shard *rainslib.ShardSection, m
 	return true
 }
 
-//verifySignatures verifies all signatures and strips off invalid signatures. If the public key is missing it issues a query and put the msg section on a waiting queue and
+//verifySignatures verifies all signatures and strips off expired signatures. If the public key is missing it issues a query and put the msg section on a waiting queue and
 //adds a callback to the pendingSignatures cache
 //returns false if there is no signature left on the message or when some public keys are missing
 //TODO CFE verify whole signature chain (do not forget to check expiration)
 func verifySignatures(section rainslib.MessageSectionWithSig, sender ConnInfo, forceValidate bool, wg *sync.WaitGroup) bool {
-	keyIDs := make(map[pendingSignatureCacheKey]string)
+	keyIDs := make(map[keyCacheKey]bool)
 	for _, sig := range section.Sigs() {
 		if sig.KeySpace != rainslib.RainsKeySpace {
 			log.Warn("Unsupported keyspace", "keySpaceID", sig.KeySpace)
+			continue
 		}
-		cacheKey := pendingSignatureCacheKey{
-			KeySpace:    strconv.Itoa(int(sig.KeySpace)),
-			Context:     section.GetContext(),
-			SubjectZone: section.GetSubjectZone(),
+		mapKey := keyCacheKey{
+			context: section.GetContext(),
+			zone:    section.GetSubjectZone(),
+			keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm),
 		}
-		keyIDs[cacheKey] = strconv.Itoa(int(sig.KeySpace))
+		keyIDs[mapKey] = true
 	}
 	publicKeys, missingKeys, ok := publicKeysPresent(keyIDs)
+	//FIXME CFE what is forceValidate for? -> revalidate keys if the answer of a missing public key arrived is logic correct???
 	if ok || forceValidate {
 		if forceValidate {
 			log.Info("ForceValidate", "msgSectionWithSig", section, "publicKeys", publicKeys)
@@ -197,38 +196,30 @@ func verifySignatures(section rainslib.MessageSectionWithSig, sender ConnInfo, f
 		return validSignature(section, publicKeys)
 	}
 	log.Info("Some public keys are missing", "#missingKeys", len(missingKeys))
+	value := pendingSignatureCacheValue{
+		section: section,
+		//TODO CFE add expiration time of the query to server config
+		ValidUntil: time.Now().Add(10 * time.Second).Unix(),
+	}
 	for missingKey := range missingKeys {
-		if v, ok := pendingSignatures.Get(missingKey); ok {
-			v := v.(*pendingSignatureCacheValue)
-			if v.ValidUntil < time.Now().Unix() && v.Retries() > 0 {
-				handleMissingPublicKey(missingKey, sender, section, v)
-			}
-		} else {
-			handleMissingPublicKey(missingKey, sender, section, nil)
+		//FIXME CFE is this logic correct with the add
+		if ok := pendingSignatures.Add(missingKey.context, missingKey.zone, value); ok {
+			//handleMissingPublicKey(missingKey, sender, section, value)
+			sendDelegationQuery(missingKey, value.ValidUntil, sender)
 		}
 	}
 	return false
 }
 
 //publicKeysPresent returns true if all public keys are in the cache together with a map of keys and missingKeys
-func publicKeysPresent(keyIDs map[pendingSignatureCacheKey]string) (map[string]rainslib.PublicKey, map[pendingSignatureCacheKey]bool, bool) {
-	keys := make(map[string]rainslib.PublicKey)
-	missingKeys := make(map[pendingSignatureCacheKey]bool)
-	for keyID, keySpace := range keyIDs {
+func publicKeysPresent(keyIDs map[keyCacheKey]bool) (map[rainslib.KeyAlgorithmType]rainslib.PublicKey, map[keyCacheKey]bool, bool) {
+	keys := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
+	missingKeys := make(map[keyCacheKey]bool)
+	for keyID := range keyIDs {
 		if key, ok := zoneKeyCache.Get(keyID); ok {
-			if int64(key.(rainslib.PublicKey).ValidUntil) < time.Now().Unix() {
-				log.Info("Key is not valid anymore")
-				zoneKeyCache.Remove(keyID)
-				missingKeys[keyID] = true
-			} else {
-				log.Info("Corresponding Public key in cache.", "cacheKey", keyID, "publicKey", key)
-				if key, ok := key.(rainslib.PublicKey); ok {
-					keys[keySpace] = key
-				} else {
-					missingKeys[keyID] = true
-					log.Warn("Value in zoneKeyCache is not a public key", "value", key)
-				}
-			}
+			//returned key is guaranteed to be not expired
+			log.Info("Corresponding Public key in cache.", "cacheKey", keyID, "publicKey", key)
+			keys[keyID.keyAlgo] = key
 		} else {
 			log.Info("Public key not in zoneKeyCache", "cacheKey", keyID)
 			missingKeys[keyID] = true
@@ -237,11 +228,10 @@ func publicKeysPresent(keyIDs map[pendingSignatureCacheKey]string) (map[string]r
 	return keys, missingKeys, len(missingKeys) == 0
 }
 
-//handleMissingPublicKey adds or updates the current msg section to pendingSignatures and sends a delegation query for the missing key
-func handleMissingPublicKey(cacheKey pendingSignatureCacheKey, sender ConnInfo, section rainslib.MessageSectionWithSig, value *pendingSignatureCacheValue) {
-	//TODO CFE add expiration time of the query to server config
-	expTime := time.Now().Unix() + 1000
-	if value != nil {
+//handleMissingPublicKey adds or updates the current section to pendingSignatures and sends a delegation query for the missing key
+func handleMissingPublicKey(cacheKey keyCacheKey, sender ConnInfo, section rainslib.MessageSectionWithSig, value pendingSignatureCacheValue) {
+	//FIXME CFE is this methods used???
+	/*if value != nil {
 		value.MsgSectionList.Add(section)
 		value.DecRetries()
 	} else {
@@ -258,16 +248,16 @@ func handleMissingPublicKey(cacheKey pendingSignatureCacheKey, sender ConnInfo, 
 			log.Error("Cannot add callback for msgSection", "msgSection", section)
 			return
 		}
-	}
-	sendDelegationQuery(cacheKey, expTime, sender)
+	}*/
+
 }
 
 //sendDelegationQuery sendes a delegation query back to the sender of the MsgSectionWithSig
-func sendDelegationQuery(cacheKey pendingSignatureCacheKey, expTime int64, sender ConnInfo) {
+func sendDelegationQuery(cacheKey keyCacheKey, expTime int64, sender ConnInfo) {
 	token := rainslib.GenerateToken()
 	querySection := rainslib.QuerySection{
-		Context: cacheKey.Context,
-		Name:    cacheKey.SubjectZone,
+		Context: cacheKey.context,
+		Name:    cacheKey.zone,
 		Expires: int(expTime),
 		Token:   token,
 		Types:   rainslib.Delegation,
@@ -285,7 +275,7 @@ func sendDelegationQuery(cacheKey pendingSignatureCacheKey, expTime int64, sende
 
 //validSignature validates the signatures on a MessageSectionWithSig and strips all signatures away that are not valid.
 //Returns false If there are no signatures left
-func validSignature(section rainslib.MessageSectionWithSig, keys map[string]rainslib.PublicKey) bool {
+func validSignature(section rainslib.MessageSectionWithSig, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
 	switch section := section.(type) {
 	case *rainslib.AssertionSection:
 		return validateSignatures(section, keys)
@@ -301,7 +291,7 @@ func validSignature(section rainslib.MessageSectionWithSig, keys map[string]rain
 
 //validShardSignatures validates all signatures on the shard and contained in the shard's content
 //It returns false if there is a signatures that does not verify
-func validShardSignatures(section *rainslib.ShardSection, keys map[string]rainslib.PublicKey) bool {
+func validShardSignatures(section *rainslib.ShardSection, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
 	if !validateSignatures(section, keys) {
 		return false
 	}
@@ -315,7 +305,7 @@ func validShardSignatures(section *rainslib.ShardSection, keys map[string]rainsl
 
 //validZoneSignatures validates all signatures on the zone and contained in a zone's conetent
 //It returns false if there is a signatures that does not verify
-func validZoneSignatures(section *rainslib.ZoneSection, keys map[string]rainslib.PublicKey) bool {
+func validZoneSignatures(section *rainslib.ZoneSection, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
 	if !validateSignatures(section, keys) {
 		return false
 	}
@@ -337,7 +327,7 @@ func validZoneSignatures(section *rainslib.ZoneSection, keys map[string]rainslib
 }
 
 //validateSignatures returns true if all signatures of the section are valid. It removes valid signatures that are expired
-func validateSignatures(section rainslib.MessageSectionWithSig, keys map[string]rainslib.PublicKey) bool {
+func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
 	log.Info(fmt.Sprintf("Validate %T", section), "msgSection", section)
 	if len(section.Sigs()) == 0 {
 		log.Warn("Section does not contain any signature")
@@ -349,7 +339,7 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[string]
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Warn("signature expired", "expTime", sig.ValidUntil)
 			section.DeleteSig(i)
-		} else if !VerifySignature(sig.Algorithm, keys[strconv.Itoa(int(sig.KeySpace))].Key, []byte(bareStub), sig.Data) {
+		} else if !VerifySignature(sig.Algorithm, keys[rainslib.KeyAlgorithmType(sig.Algorithm)].Key, []byte(bareStub), sig.Data) {
 			log.Warn("signatures do not match")
 			return false
 		}
@@ -358,13 +348,13 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[string]
 }
 
 //delegate adds the given public key to the zoneKeyCache
-func delegate(context string, subjectZone string, cipherType rainslib.SignatureAlgorithmType, keySpace rainslib.KeySpaceID, key []byte, until uint) {
+/*func delegate(context string, subjectZone string, cipherType rainslib.SignatureAlgorithmType, keySpace rainslib.KeySpaceID, key []byte, until uint) {
 	pubKey := rainslib.PublicKey{Type: cipherType, Key: key, ValidUntil: until}
 	ks := strconv.Itoa(int(keySpace))
 	zoneKeyCache.Add(pendingSignatureCacheKey{KeySpace: ks, Context: context, SubjectZone: subjectZone}, pubKey)
-}
+}*/
 
-func workPendingSignatures() {
+/*func workPendingSignatures() {
 	for {
 		//TODO CFE add to config?
 		time.Sleep(time.Second)
@@ -388,7 +378,7 @@ func workPendingSignatures() {
 		}
 		wg.Wait()
 	}
-}
+}*/
 
 func handleExpiredPendingSignatures(section rainslib.MessageSectionWithSig, wg *sync.WaitGroup) {
 	defer wg.Done()

@@ -92,42 +92,151 @@ const (
 	TLSOverTCP   Capability = "urn:x-rains:tlssrv"
 )
 
-//cache implementations can have different replacement strategies
-type cache interface {
-	//New creates a cache with the given parameters
-	New(params ...interface{}) error
-	//NewWithEvict creates a cache with the given parameters and a callback function when an element gets evicted
-	NewWithEvict(onEvicted func(key interface{}, value interface{}), params ...interface{}) error
-	//Add adds a value to the cache. If the cache is full the oldest element according to some metric will be replaced. Returns true if it was able to add the element???
-	Add(key, value interface{}) bool
-	//Contains checks if a key is in the cache, without updating the recentness or deleting it for being stale.
-	Contains(key interface{}) bool
-	//Get returns the key's value from the cache. The boolean value is false if there exist no element with the given key in the cache
-	Get(key interface{}) (interface{}, bool)
-	//Keys returns a slice of the keys in the cache
-	Keys() []interface{}
+type keyCacheKey struct {
+	context string
+	zone    string
+	keyAlgo rainslib.KeyAlgorithmType
+}
+
+type keyCacheValue struct {
+	key        rainslib.PublicKey
+	validFrom  int64
+	validUntil int64
+}
+
+//keyCache is the Interface which must be implemented by all caches for keys.
+type keyCache interface {
+	//Add adds a keyCacheValue to the cache. If the cache is full the oldest element according to some metric will be replaced. Returns true if it was able to add the public key.
+	Add(key keyCacheKey, value keyCacheValue) bool
+	//Get returns a valid public key matching the given cacheKey. It returns false if there exists no valid public key in the cache.
+	//Get must always check the validity of the public key before returning.
+	Get(key keyCacheKey) (rainslib.PublicKey, bool)
+	//Keys returns all keyCacheKeys present in the cache
+	Keys() []keyCacheKey
 	//Len returns the number of elements in the cache.
 	Len() int
-	//Remove deletes the given key value pair from the cache
-	Remove(key interface{})
-	//RemoveWithStrategy deletes the given key value pair from the cache according to some strategy
+	//Remove deletes the given key from the cache together with its associated value
+	Remove(key keyCacheKey)
+	//RemoveWithStrategy deletes a key value pair from the cache according to some strategy
 	RemoveWithStrategy()
 }
 
-//assertCache used for caching assertions, it allows range queries
-type assertCache interface {
-	cache
-	//GetInRange returns sets of assertions grouped by context and zone which are in the given range.
-	GetInRange(context, zone, begin, end string) []container
+//capabilityCache contains known capabilities
+type capabilityCache interface {
+	//Add adds a capability to the cash. Returns true if it was able to add the capability
+	//If cache is full it removes a capability according to some metric
+	Add(connInfo ConnInfo, capability rainslib.Capability) bool
+	//Get returns a capability associated with the given connection information. It returns false if there exists no capability in the cache matching the input.
+	Get(connInfo ConnInfo) (rainslib.Capability, bool)
+	//Get returns the capability from which the hash was taken. It returns false if matching capability is not in cache.
+	GetFromHash(hash []byte) (rainslib.Capability, bool)
+	//Len returns the number of elements in the cache.
+	Len() int
 }
 
-//pendingSignatureCacheKey is the key for the pendingQuery cache
-type pendingSignatureCacheKey struct {
-	KeySpace    string
-	Context     string
-	SubjectZone string
+//connectionCache stores all active connections
+type connectionCache interface {
+	//Add adds a new connection to the cash. Returns true if it was able to add the connection
+	//If the cache is full it closes and removes a connection according to some metric
+	Add(connInfo string, conn net.Conn) bool
+	//Get returns an active connection associated with the given connection information. It returns false if there exists no active connection with the given connInfo
+	Get(connInfo string) (net.Conn, bool)
+	//Len returns the number of elements in the cache.
+	Len() int
 }
 
+//pendingSignatureCacheValue is the value received from the pendingQuery cache
+type pendingSignatureCacheValue struct {
+	section    rainslib.MessageSectionWithSig
+	ValidUntil int64
+}
+
+//pendingSignatureCache stores all sections with a signature waiting for a public key to arrive so they can be verified
+type pendingSignatureCache interface {
+	//Add adds a section together with a validity to the cache. Returns true if there is not yet a pending query for this request
+	//If the cache is full it removes a section according to some metric.
+	Add(context, zone string, section pendingSignatureCacheValue) bool
+	//Get returns all still valid sections associated with the given context and zone. It returns an empty list if there exists no valid section
+	Get(context, zone string) []rainslib.MessageSectionWithSig
+	//RemoveExpiredSections goes through the cache and removes all invalid sections. If for a given context and zone there is no section left it removes the entry from cache.
+	RemoveExpiredSections()
+	//Len returns the number of elements in the cache.
+	Len() int
+}
+
+//pendingSignatureCacheValue is the value received from the pendingQuery cache
+type pendingQueryCacheValue struct {
+	ConnInfo   ConnInfo
+	Token      rainslib.Token //Token from the received query
+	ValidUntil int64
+}
+
+//pendingQueryCache stores connection information about queriers which are waiting for an assertion to arrive
+type pendingQueryCache interface {
+	//Add adds connection information together with a token and a validity to the cache.
+	//Returns true and a token for the query if cache did not already contain an entry for context,zone,name,objType else return false
+	//If the cache is full it removes a pendingQueryCacheValue according to some metric.
+	Add(context, zone, name string, objType rainslib.ObjectType, section pendingQueryCacheValue) (bool, rainslib.Token)
+	//Get returns all valid pendingQueryCacheValues associated with the given token. It returns false if there exists no valid value.
+	Get(token rainslib.Token) []pendingQueryCacheValue
+	//RemoveExpiredValues goes through the cache and removes all expired values and tokens. If for a given context and zone there is no value left it removes the entry from cache.
+	RemoveExpiredValues()
+	//Len returns the number of elements in the cache.
+	Len() int
+}
+
+//negativeAssertionCacheValue is the value stored in the negativeAssertionCache
+type negativeAssertionCacheValue struct {
+	section    rainslib.MessageSectionWithSig
+	validFrom  int64
+	ValidUntil int64
+}
+
+type negativeAssertionCache interface {
+	//Add adds a shard or zone together with a validity to the cache.
+	//Returns true if cache did not already contain an entry for the given context and zone
+	//If the cache is full it removes an external negativeAssertionCacheValue according to some metric.
+	Add(context, zone string, internal bool, value negativeAssertionCacheValue) bool
+	//Get returns all sections of a given context and zone which intersect with the given Range. Returns an empty list if there are none
+	//if beginRange and endRange are an empty string then the zone and all shards of that context and zone are returned
+	Get(context, zone, beginRange, endRange string) []rainslib.MessageSectionWithSig
+	//Len returns the number of elements in the cache.
+	Len() int
+	//RemoveExpiredValues goes through the cache and removes all expired values. If for a given context and zone there is no value left it removes the entry from cache.
+	RemoveExpiredValues()
+}
+
+//assertionCacheValue is the value stored in the assertionCacheValue
+type assertionCacheValue struct {
+	section    *rainslib.AssertionSection
+	validFrom  int64
+	ValidUntil int64
+}
+
+//assertionCache is used to store and efficiently lookup assertions
+type assertionCache interface {
+	//Add adds an assertion together with a validity to the cache.
+	//Returns true if cache did not already contain an entry for the given context,zone, name and objType
+	//If the cache is full it removes an external assertionCacheValue according to some metric.
+	Add(context, zone, name string, objType rainslib.ObjectType, internal bool, value assertionCacheValue) bool
+	//Get returns a set of valid assertions matching the given key. Returns an empty list if there are none
+	Get(context, zone, name string, objType rainslib.ObjectType) []*rainslib.AssertionSection
+	//GetInRange returns a set of valid assertions in the range [beginRange, endRange] matching the given context and zone. Returns an empty list if there are none.
+	GetInRange(context, zone, beginRange, endRange string) []*rainslib.AssertionSection
+	//Len returns the number of elements in the cache.
+	Len() int
+	//RemoveExpiredValues goes through the cache and removes all expired values. If for a given context and zone there is no value left it removes the entry from cache.
+	//If for a given context, zone, name and object type there is no value left it removes the entry from cache.
+	RemoveExpiredValues()
+}
+
+//contextAndZone stores a context and a zone
+type contextAndZone struct {
+	Context string
+	Zone    string
+}
+
+/*
 //pendingSignatureCacheValue is the value received from the pendingQuery cache
 type pendingSignatureCacheValue struct {
 	ValidUntil     int64
@@ -149,33 +258,11 @@ func (v *pendingSignatureCacheValue) DecRetries() {
 	if v.retries > 0 {
 		v.retries--
 	}
-}
-
-//assertionCacheKey is the key for the pendingQueryCache and the assertionCache.
-type assertionCacheKey struct {
-	Context     string
-	SubjectZone string
-	ObjectType  rainslib.ObjectType
-	SubjectName string
-}
-
-//assertionCacheValue is the value type of the assertionCache.
-type assertionCacheValue struct {
-	ValidUntil int
-	Retry      bool
-	mux        sync.Mutex
-	List       queryAnswerList
-}
+}*/
 
 type queryAnswerList struct {
 	ConnInfo ConnInfo
 	Token    rainslib.Token
-}
-
-//negAssertionCacheKey is the key for the negAssertionCache
-type negAssertionCacheKey struct {
-	Context string
-	Subject string
 }
 
 //msgSectionWithSigList is a thread safe list of msgSectionWithSig

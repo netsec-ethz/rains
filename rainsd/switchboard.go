@@ -18,14 +18,14 @@ import (
 )
 
 //TODO CFE this uses MPL 2.0 licence, write it ourself (Brian has sample code)
-var connCache cache
+var connCache connectionCache
 var framer scanner
 
 //InitSwitchboard initializes the switchboard
 func initSwitchboard() error {
 	serverConnInfo = getIPAddrandPort()
 	//init cache
-	connCache = &LRUCache{}
+	/*connCache = &LRUCache{}
 	err := connCache.NewWithEvict(
 		func(key interface{}, value interface{}) {
 			if value, ok := value.(net.Conn); ok {
@@ -35,7 +35,7 @@ func initSwitchboard() error {
 	if err != nil {
 		log.Error("Cannot create connCache", "error", err)
 		return err
-	}
+	}*/
 	//init framer
 	framer = &newLineFramer{}
 	return nil
