@@ -167,7 +167,10 @@ func revParseSignedZone(z *rainslib.ZoneSection) string {
 			log.Warn("Unsupported message section type", "msgSection", section)
 		}
 	}
-	return fmt.Sprintf("%s][%s]", zone[:len(zone)-3], revParseSignature(z.Signatures))
+	if len(z.Content) > 0 {
+		zone = zone[:len(zone)-3]
+	}
+	return fmt.Sprintf("%s][%s]", zone, revParseSignature(z.Signatures))
 }
 
 //revParseSignature parses a rains signature to its string representation with format:
@@ -181,9 +184,16 @@ func revParseSignature(sigs []rainslib.Signature) string {
 }
 
 //revParseQuery parses a rains query to its string representation with format:
-//:QU::VU:<valid-until>:CN:<context-name>:SN:<subject-name>:OT:<objtype>
+//:QU::VU:<valid-until>:CN:<context-name>:SN:<subject-name>:OT:<objtype>[<option1>:...:<option_n>]
 func revParseQuery(q *rainslib.QuerySection) string {
-	return fmt.Sprintf(":QU::VU:%d:CN:%s:SN:%s:OT:%d", q.Expires, q.Context, q.SubjectName, q.Types)
+	opts := ""
+	for _, option := range q.Options {
+		opts += fmt.Sprintf("%d:", option)
+	}
+	if len(q.Options) > 0 {
+		opts = opts[:len(opts)-1]
+	}
+	return fmt.Sprintf(":QU::VU:%d:CN:%s:SN:%s:OT:%d[%s]", q.Expires, q.Context, q.Name, q.Types, opts)
 }
 
 //revParseNotification parses a rains notification to its string representation with format:
@@ -542,12 +552,12 @@ func parseQuery(msg string, token rainslib.Token) (*rainslib.QuerySection, error
 		opts = append(opts, rainslib.QueryOption(val))
 	}
 	return &rainslib.QuerySection{
-		Token:       token,
-		Expires:     expires,
-		Context:     msg[cn+4 : sn],
-		SubjectName: msg[sn+4 : ot],
-		Types:       rainslib.ObjectType(objType),
-		Options:     opts,
+		Token:   token,
+		Expires: expires,
+		Context: msg[cn+4 : sn],
+		Name:    msg[sn+4 : ot],
+		Types:   rainslib.ObjectType(objType),
+		Options: opts,
 	}, nil
 }
 

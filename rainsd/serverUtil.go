@@ -9,7 +9,6 @@ import (
 	"errors"
 	"io/ioutil"
 	"math/big"
-	"math/rand"
 	"rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
@@ -73,18 +72,8 @@ func loadCert() error {
 //CreateNotificationMsg creates a notification messages
 func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.NotificationType, data string) ([]byte, error) {
 	content := []rainslib.MessageSection{&rainslib.NotificationSection{Type: rainslib.MsgTooLarge, Token: token, Data: data}}
-	msg := rainslib.RainsMessage{Token: GenerateToken(), Content: content}
+	msg := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Content: content}
 	return msgParser.ParseRainsMsg(msg)
-}
-
-//GenerateToken generates a new unique Token
-func GenerateToken() rainslib.Token {
-	token := [16]byte{}
-	_, err := rand.Read(token[:])
-	if err != nil {
-		log.Warn("Error during random token generation")
-	}
-	return rainslib.Token(token)
 }
 
 //SignData returns a signature of the input data signed with the specified signing algorithm and the given private key.

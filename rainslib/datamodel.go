@@ -34,10 +34,8 @@ type MessageSectionWithSig interface {
 
 //AssertionSection contains information about the assertion
 type AssertionSection struct {
-	//Mandatory
 	SubjectName string
 	Content     []Object
-	//Optional for contained assertions
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
@@ -78,9 +76,7 @@ func (a *AssertionSection) CreateStub() MessageSectionWithSig {
 
 //ShardSection contains information about the shard
 type ShardSection struct {
-	//Mandatory
-	Content []*AssertionSection
-	//Optional for contained shards
+	Content     []*AssertionSection
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
@@ -130,7 +126,6 @@ func (s *ShardSection) CreateStub() MessageSectionWithSig {
 
 //ZoneSection contains information about the zone
 type ZoneSection struct {
-	//Mandatory
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
@@ -190,13 +185,13 @@ func (z *ZoneSection) CreateStub() MessageSectionWithSig {
 //QuerySection contains information about the query
 type QuerySection struct {
 	//Mandatory
-	Token       Token
-	SubjectName string
-	Context     string
-	Types       ObjectType
+	Token   Token
+	Name    string
+	Context string
+	Types   ObjectType
+	Expires int
 
 	//Optional
-	Expires int
 	Options []QueryOption
 }
 
@@ -239,17 +234,14 @@ type SubjectAddr struct {
 
 //AddressAssertionSection contains information about the address assertion
 type AddressAssertionSection struct {
-	//Mandatory
 	SubjectAddr
-	Content []Object
-	//Optional for contained address assertions
+	Content    []Object
 	Signatures []Signature
 	Context    string
 }
 
 //AddressZoneSection contains information about the address zone
 type AddressZoneSection struct {
-	//Mandatory
 	SubjectAddr
 	Signatures []Signature
 	Context    string
@@ -258,13 +250,12 @@ type AddressZoneSection struct {
 
 //AddressQuerySection contains information about the address query
 type AddressQuerySection struct {
-	//Mandatory
 	SubjectAddr
 	Token   []byte
 	Context string
 	Types   []int
-	//Optional
 	Expires int
+	//Optional
 	Options []int
 }
 

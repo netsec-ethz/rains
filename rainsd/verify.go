@@ -264,15 +264,15 @@ func handleMissingPublicKey(cacheKey pendingSignatureCacheKey, sender ConnInfo, 
 
 //sendDelegationQuery sendes a delegation query back to the sender of the MsgSectionWithSig
 func sendDelegationQuery(cacheKey pendingSignatureCacheKey, expTime int64, sender ConnInfo) {
-	token := GenerateToken()
+	token := rainslib.GenerateToken()
 	querySection := rainslib.QuerySection{
-		Context:     cacheKey.Context,
-		SubjectName: cacheKey.SubjectZone,
-		Expires:     int(expTime),
-		Token:       token,
-		Types:       rainslib.Delegation,
+		Context: cacheKey.Context,
+		Name:    cacheKey.SubjectZone,
+		Expires: int(expTime),
+		Token:   token,
+		Types:   rainslib.Delegation,
 	}
-	query := rainslib.RainsMessage{Token: GenerateToken(), Content: []rainslib.MessageSection{&querySection}}
+	query := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Content: []rainslib.MessageSection{&querySection}}
 	msg, err := msgParser.ParseRainsMsg(query)
 	if err != nil {
 		log.Warn("Cannot parse a delegation Query", "query", query)
