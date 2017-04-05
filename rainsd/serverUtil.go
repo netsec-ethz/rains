@@ -71,6 +71,11 @@ func loadCert() error {
 	return nil
 }
 
+//getIPAddrandPort fetches HostAddr and port number from config file on which this server is listening to
+func getIPAddrandPort() ConnInfo {
+	return ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}
+}
+
 //CreateNotificationMsg creates a notification messages
 func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.NotificationType, data string) ([]byte, error) {
 	content := []rainslib.MessageSection{&rainslib.NotificationSection{Type: rainslib.MsgTooLarge, Token: token, Data: data}}

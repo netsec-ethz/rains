@@ -132,11 +132,11 @@ type capabilityCacheImpl struct {
 func (c capabilityCacheImpl) Add(connInfo ConnInfo, capabilities []rainslib.Capability) bool {
 	//FIXME CFE take a SHA-256 hash of the CBOR byte stream derived from normalizing such an array by sorting it in lexicographically increasing order,
 	//then serializing it and add it to the cache
-	return c.connInfoToCap.Add(capabilities, false, "", fmt.Sprintf("%v:%d", connInfo.IPAddr, connInfo.Port))
+	return c.connInfoToCap.Add(capabilities, false, "", connInfo.IPAddrAndPort())
 }
 
 func (c capabilityCacheImpl) Get(connInfo ConnInfo) ([]rainslib.Capability, bool) {
-	if v, ok := c.connInfoToCap.Get("", fmt.Sprintf("%v:%d", connInfo.IPAddr, connInfo.Port)); ok {
+	if v, ok := c.connInfoToCap.Get("", connInfo.IPAddrAndPort()); ok {
 		if val, ok := v.([]rainslib.Capability); ok {
 			return val, true
 		}

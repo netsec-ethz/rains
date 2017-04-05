@@ -37,6 +37,7 @@ type rainsdConfig struct {
 	NotificationWorkerCount uint
 	CapabilitiesCacheSize   uint
 	PeerToCapCacheSize      uint
+	Capabilities            []rainslib.Capability
 
 	//verify
 	ZoneKeyCacheSize          uint
@@ -51,7 +52,7 @@ type rainsdConfig struct {
 var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriodMicros: time.Minute, TCPTimeoutMicros: 5 * time.Minute,
 	CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key", MaxMsgByteLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerCount: 2,
 	NormalWorkerCount: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
-	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000}
+	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int

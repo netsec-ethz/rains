@@ -150,8 +150,3 @@ func parseRemoteAddr(s string) ConnInfo {
 	port, _ := strconv.Atoi(addrAndPort[1])
 	return ConnInfo{Type: TCP, IPAddr: net.ParseIP(addrAndPort[0]), Port: uint16(port)}
 }
-
-//getIPAddrandPort fetches HostAddr and port number from config file on which this server is listening to
-func getIPAddrandPort() ConnInfo {
-	return ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}
-}
