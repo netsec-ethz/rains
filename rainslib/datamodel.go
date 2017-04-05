@@ -11,8 +11,9 @@ type RainsMessage struct {
 	Content []MessageSection
 
 	//Optional
-	Signatures   []Signature
-	Capabilities Capability
+	Signatures []Signature
+	//FIXME CFE capabilities can also be represented as a hash, how should we model this?
+	Capabilities []Capability
 }
 
 //Token is a byte slice with maximal length 32
@@ -24,6 +25,11 @@ type MessageSection interface {
 
 //Capability is a urn of a capability
 type Capability string
+
+const (
+	NoCapability Capability = ""
+	TLSOverTCP   Capability = "urn:x-rains:tlssrv"
+)
 
 //MessageSectionWithSig can be either an Assertion, Shard or Zone
 type MessageSectionWithSig interface {

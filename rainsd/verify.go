@@ -85,8 +85,21 @@ func verify(msgSender msgSectionSender) {
 }
 
 //verifyMessageSignature verifies signatures of the message against the infrastructure key of the RAINS Server originating the message
-func verifyMessageSignature(signatures []rainslib.Signature) bool {
-	//TODO Implement (What about messages without signatures e.g. from clients)
+func verifyMessageSignature(msg rainslib.RainsMessage) bool {
+	if len(msg.Signatures) == 0 {
+		log.Info("No signature on the message")
+		return true
+	}
+	for _, sig := range msg.Signatures {
+		//TODO CFE think about how to best implement this generically perhaps combine with assertion/shard/zone checking?
+		if !validMsgSignature("", sig) {
+			return false
+		}
+	}
+	return true
+}
+
+func validMsgSignature(msgStub string, sig rainslib.Signature) bool {
 	log.Warn("Not yet implemented CFE")
 	return true
 }

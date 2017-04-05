@@ -37,23 +37,14 @@ func initInbox() error {
 	normalWorkers = make(chan struct{}, Config.NormalWorkerCount)
 	notificationWorkers = make(chan struct{}, Config.NotificationWorkerCount)
 
-	//init Cache
-	/*capabilities = &LRUCache{}
-	err := capabilities.New(int(Config.CapabilitiesCacheSize))
+	//init Capability Cache
+	var err error
+	capabilities, err = createCapabilityCache()
 	if err != nil {
-		log.Error("Cannot create capabilitiesCache", "error", err)
+		log.Error("Cannot create connCache", "error", err)
 		return err
 	}
-	capabilities.Add("e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745", []Capability{TLSOverTCP})
-	capabilities.Add("76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71", []Capability{NoCapability})
 
-	peerToCapability = &LRUCache{}
-	err = peerToCapability.New(int(Config.PeerToCapCacheSize))
-	if err != nil {
-		log.Error("Cannot create peerToCapability", "error", err)
-		return err
-	}
-	*/
 	//init parser
 	msgParser = parser.RainsMsgParser{}
 
@@ -78,36 +69,27 @@ func addToActiveTokenCache(tok string) {
 
 //deliver pushes all incoming messages to the prio or normal channel based on some strategy
 func deliver(message []byte, sender ConnInfo) {
+	//check message length
 	if uint(len(message)) > Config.MaxMsgByteLength {
 		token, _ := msgParser.Token(message)
 		sendNotificationMsg(token, sender, rainslib.MsgTooLarge)
 		return
 	}
+
 	msg, err := msgParser.ParseByteSlice(message)
 	if err != nil {
 		sendNotificationMsg(msg.Token, sender, rainslib.BadMessage)
 		return
 	}
 	log.Info("Parsed Message", "msg", msg)
-	//TODO CFE this part must be refactored once we have a CBOR parser so we can distinguish an array of capabilities from a sha hash entry
-	//TODO send caps not understood back to sender if hash not in cash
-	if msg.Capabilities != "" {
-		if caps, ok := capabilities.GetFromHash([]byte(msg.Capabilities)); ok {
-			capabilities.Add(sender, caps)
-		} else {
-			/*switch Capability(msg.Capabilities) {
-			case TLSOverTCP:
-				peerToCapability.Add(sender, TLSOverTCP)
-			case NoCapability:
-				peerToCapability.Add(sender, NoCapability)
-			default:
-				log.Warn("Sent capability value does not match know capability", "rcvCaps", msg.Capabilities)
-			}*/
-		}
-	}
-	if !verifyMessageSignature(msg.Signatures) {
+
+	processCapability(msg.Capabilities, sender)
+
+	if !verifyMessageSignature(msg) {
 		return
 	}
+
+	//handle message content
 	for _, m := range msg.Content {
 		switch m := m.(type) {
 		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection:
@@ -120,6 +102,40 @@ func deliver(message []byte, sender ConnInfo) {
 			log.Warn(fmt.Sprintf("unsupported message section type %T", m))
 		}
 	}
+}
+
+//processCapability processes capabilities and sends a notification back to the sender if the hash is not understood.
+func processCapability(caps []rainslib.Capability, sender ConnInfo) {
+	if len(caps) > 0 {
+		//FIXME CFE determine when an incoming capability is represented as a hash
+		isHash := true
+		if isHash {
+			if caps, ok := capabilities.GetFromHash([]byte(caps[0])); ok {
+				capabilities.Add(sender, caps)
+				handleCapabilities(caps)
+			} else {
+				sendNotificationMsg(rainslib.GenerateToken(), sender, rainslib.CapHashNotKnown)
+			}
+		} else {
+			capabilities.Add(sender, caps)
+			handleCapabilities(caps)
+		}
+	}
+}
+
+//handleCapabilities takes appropriate actions depending on the capability of the communication partner
+func handleCapabilities(caps []rainslib.Capability) {
+	log.Warn("Capability handling is not yet implemented")
+	/*for _, capa := range caps {
+		switch capa {
+		case rainslib.TLSOverTCP:
+			//TODO CFE impl
+		case rainslib.NoCapability:
+			//Do nothing
+		default:
+			log.Warn("Sent capability value does not match know capability", "rcvCaps", capa)
+		}
+	}*/
 }
 
 //sendNotificationMsg sends a notification message to the sender with the given notificationType. If an error occurs during parsing no message is sent and the error is logged.

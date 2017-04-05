@@ -8,7 +8,8 @@ import (
 
 	"fmt"
 
-	lru "github.com/hashicorp/golang-lru"
+	"rains/rainslib"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -40,7 +41,7 @@ func (prg PRG) Read(p []byte) (n int, err error) {
 	return rand.Read(p)
 }
 
-//TODO CFE replace this with an own implementation
+/*//TODO CFE replace this with an own implementation
 //LRUCache is a concurrency safe cache with a least recently used eviction strategy
 type LRUCache struct {
 	Cache *lru.Cache
@@ -93,18 +94,21 @@ func (c *LRUCache) Remove(key interface{}) {
 //RemoveWithStrategy deletes the least recently used key value pair from the cache
 func (c *LRUCache) RemoveWithStrategy() {
 	c.Cache.RemoveOldest()
-}
+}*/
 
+/*
+ *	Connection cache implementation
+ */
 type connectionCacheImpl struct {
 	cache *cache.Cache
 }
 
-func (c connectionCacheImpl) Add(connInfo string, conn net.Conn) bool {
-	return c.cache.Add(conn, false, "", connInfo)
+func (c connectionCacheImpl) Add(fourTuple string, conn net.Conn) bool {
+	return c.cache.Add(conn, false, "", fourTuple)
 }
 
-func (c connectionCacheImpl) Get(connInfo string) (net.Conn, bool) {
-	if v, ok := c.cache.Get("", connInfo); ok {
+func (c connectionCacheImpl) Get(fourTuple string) (net.Conn, bool) {
+	if v, ok := c.cache.Get("", fourTuple); ok {
 		if val, ok := v.(net.Conn); ok {
 			return val, true
 		}
@@ -115,4 +119,38 @@ func (c connectionCacheImpl) Get(connInfo string) (net.Conn, bool) {
 
 func (c connectionCacheImpl) Len() int {
 	return c.cache.Len()
+}
+
+/*
+ *	Capability cache implementation
+ */
+type capabilityCacheImpl struct {
+	connInfoToCap *cache.Cache
+	hashToCap     *cache.Cache
+}
+
+func (c capabilityCacheImpl) Add(connInfo ConnInfo, capabilities []rainslib.Capability) bool {
+	//FIXME CFE take a SHA-256 hash of the CBOR byte stream derived from normalizing such an array by sorting it in lexicographically increasing order,
+	//then serializing it and add it to the cache
+	return c.connInfoToCap.Add(capabilities, false, "", fmt.Sprintf("%v:%d", connInfo.IPAddr, connInfo.Port))
+}
+
+func (c capabilityCacheImpl) Get(connInfo ConnInfo) ([]rainslib.Capability, bool) {
+	if v, ok := c.connInfoToCap.Get("", fmt.Sprintf("%v:%d", connInfo.IPAddr, connInfo.Port)); ok {
+		if val, ok := v.([]rainslib.Capability); ok {
+			return val, true
+		}
+		log.Warn("Cache entry is not of type []rainslib.Capability", "type", fmt.Sprintf("%T", v))
+	}
+	return nil, false
+}
+
+func (c capabilityCacheImpl) GetFromHash(hash []byte) ([]rainslib.Capability, bool) {
+	if v, ok := c.hashToCap.Get("", string(hash)); ok {
+		if val, ok := v.([]rainslib.Capability); ok {
+			return val, true
+		}
+		log.Warn("Cache entry is not of type []rainslib.Capability", "type", fmt.Sprintf("%T", v))
+	}
+	return nil, false
 }

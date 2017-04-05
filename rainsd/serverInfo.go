@@ -115,28 +115,31 @@ type keyCache interface {
 	RemoveWithStrategy()
 }
 
-//capabilityCache contains known capabilities
-type capabilityCache interface {
-	//Add adds a capability to the cash. Returns true if it was able to add the capability
-	//If cache is full it removes a capability according to some metric
-	Add(connInfo ConnInfo, capability rainslib.Capability) bool
-	//Get returns a capability associated with the given connection information. It returns false if there exists no capability in the cache matching the input.
-	Get(connInfo ConnInfo) (rainslib.Capability, bool)
-	//Get returns the capability from which the hash was taken. It returns false if matching capability is not in cache.
-	GetFromHash(hash []byte) (rainslib.Capability, bool)
+//connectionCache stores all active connections
+type connectionCache interface {
+	//Add adds a new connection to the cash. If for the given fourTuple there is already a connection in the cache, the connection gets replaced with the new one.
+	//Returns false if the cache already contained an entry for the fourTuple.
+	//If the cache is full it closes and removes a connection according to some metric
+	Add(fourTuple string, conn net.Conn) bool
+	//Get returns a connection associated with the given four tuple.
+	//If there is an element in the cache its recentness will be updated
+	//Returns false if there is no connection for the given fourTuple in the cache.
+	Get(fourTuple string) (net.Conn, bool)
 	//Len returns the number of elements in the cache.
 	Len() int
 }
 
-//connectionCache stores all active connections
-type connectionCache interface {
-	//Add adds a new connection to the cash. Returns true if it was able to add the connection
-	//If the cache is full it closes and removes a connection according to some metric
-	Add(connInfo string, conn net.Conn) bool
-	//Get returns an active connection associated with the given connection information. It returns false if there exists no active connection with the given connInfo
-	Get(connInfo string) (net.Conn, bool)
-	//Len returns the number of elements in the cache.
-	Len() int
+//capabilityCache contains known capabilities
+type capabilityCache interface {
+	//Add adds the capabilities to the cash and creates or updates a mapping between the capabilities and the hash thereof.
+	//Returns true if the given connInfo was not yet in the cache and false if it updated the capabilities and the recentness of the entry for connInfo.
+	//If the cache is full it removes a capability according to some metric
+	Add(connInfo ConnInfo, capabilities []rainslib.Capability) bool
+	//Get returns all capabilities associated with the given connInfo and updates the recentness of the entry.
+	//It returns false if there exists no entry for connInfo
+	Get(connInfo ConnInfo) ([]rainslib.Capability, bool)
+	//GetFromHash returns true and the capabilities from which the hash was taken if present, otherwise false
+	GetFromHash(hash []byte) ([]rainslib.Capability, bool)
 }
 
 //pendingSignatureCacheValue is the value received from the pendingQuery cache

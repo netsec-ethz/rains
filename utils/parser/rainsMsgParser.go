@@ -49,7 +49,7 @@ func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, e
 		return rainslib.RainsMessage{Token: token}, err
 	}
 	capabilities := msg[cap+5 : len(msg)]
-	return rainslib.RainsMessage{Token: token, Content: msgBodies, Signatures: signatures, Capabilities: rainslib.Capability(capabilities)}, nil
+	return rainslib.RainsMessage{Token: token, Content: msgBodies, Signatures: signatures, Capabilities: []rainslib.Capability{rainslib.Capability(capabilities)}}, nil
 }
 
 //ParseRainsMsg parses a RainsMessage to a byte slice representation with format:
