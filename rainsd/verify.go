@@ -27,14 +27,6 @@ var pendingSignatures pendingSignatureCache
 func initVerify() error {
 	//init cache
 	var err error
-	/*
-		pendingSignatures = &LRUCache{}
-		err = pendingSignatures.New(int(Config.PendingSignatureCacheSize))
-		if err != nil {
-			log.Error("Cannot create pendingSignatureCache", "error", err)
-			return err
-		}
-	*/
 	zoneKeyCache, err = createKeyCache(int(Config.ZoneKeyCacheSize))
 	if err != nil {
 		log.Error("Cannot create zone key Cache", "error", err)
@@ -57,6 +49,12 @@ func initVerify() error {
 		log.Error("Cannot create external key cache", "error", err)
 		return err
 	}
+
+	pendingSignatures, err = createPendingSignatureCache(int(Config.PendingSignatureCacheSize))
+	if err != nil {
+		log.Error("Cannot create pending signature cache", "error", err)
+		return err
+	}
 	return nil
 }
 
@@ -73,8 +71,6 @@ func verify(msgSender msgSectionSender) {
 		}
 		if verifySignatures(sectionSender, nil) {
 			assert(section.(rainslib.MessageSectionWithSig), false)
-		} else {
-			log.Warn(fmt.Sprintf("Pending or dropped %T (due to validation failure)", section), "msgSectionWithSig", section)
 		}
 	case *rainslib.QuerySection:
 		if validQuery(section, msgSender.Sender) {
@@ -206,6 +202,7 @@ func verifySignatures(sectionSender sectionWithSigSender, wg *sync.WaitGroup) bo
 	if ok {
 		sendDelegationQuery(section.GetContext(), section.GetSubjectZone(), cacheValue.ValidUntil, sectionSender.Sender)
 	}
+	log.Info("Section added to pending signature cache", "section", section)
 	return false
 }
 
