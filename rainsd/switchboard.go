@@ -26,7 +26,7 @@ func initSwitchboard() error {
 	var err error
 	serverConnInfo = getIPAddrandPort()
 	//init cache
-	connCache, err = createConnectionCache()
+	connCache, err = createConnectionCache(int(Config.MaxConnections))
 	if err != nil {
 		log.Error("Cannot create connCache", "error", err)
 		return err

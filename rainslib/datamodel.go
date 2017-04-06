@@ -1,6 +1,8 @@
 package rainslib
 
 import (
+	"strconv"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -310,6 +312,10 @@ const (
 //AlgorithmType specifies an identifier an algorithm
 //TODO CFE how do we want to distinguish SignatureAlgorithmType and HashAlgorithmType
 type KeyAlgorithmType int
+
+func (k KeyAlgorithmType) String() string {
+	return strconv.Itoa(int(k))
+}
 
 //SignatureAlgorithmType specifies a signature algorithm type
 type SignatureAlgorithmType int

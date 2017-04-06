@@ -40,8 +40,10 @@ type rainsdConfig struct {
 	Capabilities            []rainslib.Capability
 
 	//verify
-	ZoneKeyCacheSize          uint
-	PendingSignatureCacheSize uint
+	ZoneKeyCacheSize           uint
+	PendingSignatureCacheSize  uint
+	InfrastructureKeyCacheSize uint
+	ExternalKeyCacheSize       uint
 
 	//engine
 	AssertionCacheSize    uint
@@ -52,7 +54,8 @@ type rainsdConfig struct {
 var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriodMicros: time.Minute, TCPTimeoutMicros: 5 * time.Minute,
 	CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key", MaxMsgByteLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerCount: 2,
 	NormalWorkerCount: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
-	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}}
+	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}, InfrastructureKeyCacheSize: 10,
+	ExternalKeyCacheSize: 5}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int
@@ -99,23 +102,6 @@ type keyCacheKey struct {
 	keyAlgo rainslib.KeyAlgorithmType
 }
 
-//keyCache is the Interface which must be implemented by all caches for keys.
-type keyCache interface {
-	//Add adds a keyCacheValue to the cache. If the cache is full the oldest element according to some metric will be replaced. Returns true if it was able to add the public key.
-	Add(key keyCacheKey, value rainslib.PublicKey) bool
-	//Get returns a valid public key matching the given cacheKey. It returns false if there exists no valid public key in the cache.
-	//Get must always check the validity of the public key before returning.
-	Get(key keyCacheKey) (rainslib.PublicKey, bool)
-	//Keys returns all keyCacheKeys present in the cache
-	Keys() []keyCacheKey
-	//Len returns the number of elements in the cache.
-	Len() int
-	//Remove deletes the given key from the cache together with its associated value
-	Remove(key keyCacheKey)
-	//RemoveWithStrategy deletes a key value pair from the cache according to some strategy
-	RemoveWithStrategy()
-}
-
 //connectionCache stores all active connections
 type connectionCache interface {
 	//Add adds a new connection to the cash. If for the given fourTuple there is already a connection in the cache, the connection gets replaced with the new one.
@@ -141,6 +127,31 @@ type capabilityCache interface {
 	Get(connInfo ConnInfo) ([]rainslib.Capability, bool)
 	//GetFromHash returns true and the capabilities from which the hash was taken if present, otherwise false
 	GetFromHash(hash []byte) ([]rainslib.Capability, bool)
+}
+
+//keyCache is the Interface which must be implemented by all caches for keys.
+type keyCache interface {
+	//Add adds the public key to the cash.
+	//Returns true if the given public key was successfully added. If it was not possible to add the key it return false.
+	//If the cache is full it removes all public keys from a keyCacheKey entry according to some metric
+	//The cache makes sure that only a small limited amount of public keys (e.g. 3) can be stored associated with a keyCacheKey
+	//If the internal flag is set, this key will only be removed after it expired.
+	Add(key keyCacheKey, value rainslib.PublicKey, internal bool) bool
+	//Get returns a valid public key matching the given keyCacheKey. It returns false if there exists no valid public key in the cache.
+	//Get must always check the validity period of the public key before returning.
+	Get(key keyCacheKey) (rainslib.PublicKey, bool)
+	//RemoveExpiredKeys deletes a public key from the cache if it is expired
+	RemoveExpiredKeys()
+}
+
+type publicKeyList interface {
+	//Add adds a public key to the list. If specified maximal list length is reached it removes the least recently used element.
+	//Returns true if it added the public key to the list.
+	Add(key rainslib.PublicKey) bool
+	//Get returns the first valid public key in the list. Returns false if there is no valid public key.
+	Get() (rainslib.PublicKey, bool)
+	//RemoveExpiredKeys deletes all expired keys from the list.
+	RemoveExpiredKeys()
 }
 
 //pendingSignatureCacheValue is the value received from the pendingQuery cache
@@ -183,27 +194,6 @@ type pendingQueryCache interface {
 	Len() int
 }
 
-//negativeAssertionCacheValue is the value stored in the negativeAssertionCache
-type negativeAssertionCacheValue struct {
-	section    rainslib.MessageSectionWithSig
-	validFrom  int64
-	ValidUntil int64
-}
-
-type negativeAssertionCache interface {
-	//Add adds a shard or zone together with a validity to the cache.
-	//Returns true if cache did not already contain an entry for the given context and zone
-	//If the cache is full it removes an external negativeAssertionCacheValue according to some metric.
-	Add(context, zone string, internal bool, value negativeAssertionCacheValue) bool
-	//Get returns all sections of a given context and zone which intersect with the given Range. Returns an empty list if there are none
-	//if beginRange and endRange are an empty string then the zone and all shards of that context and zone are returned
-	Get(context, zone, beginRange, endRange string) []rainslib.MessageSectionWithSig
-	//Len returns the number of elements in the cache.
-	Len() int
-	//RemoveExpiredValues goes through the cache and removes all expired values. If for a given context and zone there is no value left it removes the entry from cache.
-	RemoveExpiredValues()
-}
-
 //assertionCacheValue is the value stored in the assertionCacheValue
 type assertionCacheValue struct {
 	section    *rainslib.AssertionSection
@@ -225,6 +215,27 @@ type assertionCache interface {
 	Len() int
 	//RemoveExpiredValues goes through the cache and removes all expired values. If for a given context and zone there is no value left it removes the entry from cache.
 	//If for a given context, zone, name and object type there is no value left it removes the entry from cache.
+	RemoveExpiredValues()
+}
+
+//negativeAssertionCacheValue is the value stored in the negativeAssertionCache
+type negativeAssertionCacheValue struct {
+	section    rainslib.MessageSectionWithSig
+	validFrom  int64
+	ValidUntil int64
+}
+
+type negativeAssertionCache interface {
+	//Add adds a shard or zone together with a validity to the cache.
+	//Returns true if cache did not already contain an entry for the given context and zone
+	//If the cache is full it removes an external negativeAssertionCacheValue according to some metric.
+	Add(context, zone string, internal bool, value negativeAssertionCacheValue) bool
+	//Get returns all sections of a given context and zone which intersect with the given Range. Returns an empty list if there are none
+	//if beginRange and endRange are an empty string then the zone and all shards of that context and zone are returned
+	Get(context, zone, beginRange, endRange string) []rainslib.MessageSectionWithSig
+	//Len returns the number of elements in the cache.
+	Len() int
+	//RemoveExpiredValues goes through the cache and removes all expired values. If for a given context and zone there is no value left it removes the entry from cache.
 	RemoveExpiredValues()
 }
 

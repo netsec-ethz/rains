@@ -2,9 +2,12 @@ package rainsd
 
 import (
 	"fmt"
+	"math/rand"
 	"rains/rainslib"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/ed25519"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -25,38 +28,37 @@ var pendingSignatures pendingSignatureCache
 
 func initVerify() error {
 	//init cache
-	/*zoneKeyCache = &LRUCache{}
-	err := zoneKeyCache.New(int(Config.ZoneKeyCacheSize))
+	var err error
+	/*
+		pendingSignatures = &LRUCache{}
+		err = pendingSignatures.New(int(Config.PendingSignatureCacheSize))
+		if err != nil {
+			log.Error("Cannot create pendingSignatureCache", "error", err)
+			return err
+		}
+	*/
+	zoneKeyCache, err = createKeyCache(int(Config.ZoneKeyCacheSize))
 	if err != nil {
-		log.Error("Cannot create zoneKeyCache", "error", err)
+		log.Error("Cannot create connCache", "error", err)
 		return err
 	}
-	//TODO CFE to remove, here for testing purposes
+	//FIXME CFE this signature is here for testing reasons, remove for production
 	pubKey, _, _ := ed25519.GenerateKey(rand.New(rand.NewSource(time.Now().UnixNano())))
-	zoneKeyCache.Add(pendingSignatureCacheKey{KeySpace: "0", Context: ".", SubjectZone: ".ch"}, rainslib.PublicKey{Key: pubKey, Type: rainslib.Ed25519, ValidUntil: 1690086564})
+	zoneKeyCache.Add(keyCacheKey{context: ".", zone: ".ch", keyAlgo: rainslib.KeyAlgorithmType(0)},
+		rainslib.PublicKey{Key: pubKey, Type: rainslib.KeyAlgorithmType(rainslib.Ed25519), ValidUntil: 1690086564},
+		false)
 
-	pendingSignatures = &LRUCache{}
-	err = pendingSignatures.New(int(Config.PendingSignatureCacheSize))
+	infrastructureKeyCache, err = createKeyCache(int(Config.InfrastructureKeyCacheSize))
 	if err != nil {
-		log.Error("Cannot create pendingSignatureCache", "error", err)
+		log.Error("Cannot create connCache", "error", err)
 		return err
 	}
 
-	infrastructureKeyCache = &LRUCache{}
-	//TODO CFE add to config
-	err = infrastructureKeyCache.New(10)
+	externalKeyCache, err = createKeyCache(int(Config.ExternalKeyCacheSize))
 	if err != nil {
-		log.Error("Cannot create infrastructureKeyCache", "error", err)
+		log.Error("Cannot create connCache", "error", err)
 		return err
 	}
-
-	externalKeyCache = &LRUCache{}
-	//TODO CFE add to config
-	err = externalKeyCache.New(10)
-	if err != nil {
-		log.Error("Cannot create externalKeyCache", "error", err)
-		return err
-	}*/
 	return nil
 }
 

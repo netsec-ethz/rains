@@ -39,7 +39,7 @@ func initInbox() error {
 
 	//init Capability Cache
 	var err error
-	capabilities, err = createCapabilityCache()
+	capabilities, err = createCapabilityCache(int(Config.CapabilitiesCacheSize), int(Config.PeerToCapCacheSize))
 	if err != nil {
 		log.Error("Cannot create connCache", "error", err)
 		return err
@@ -83,7 +83,7 @@ func deliver(message []byte, sender ConnInfo) {
 	}
 	log.Info("Parsed Message", "msg", msg)
 
-	processCapability(msg.Capabilities, sender)
+	processCapability(msg.Capabilities, sender, msg.Token)
 
 	if !verifyMessageSignature(msg) {
 		return
@@ -105,7 +105,7 @@ func deliver(message []byte, sender ConnInfo) {
 }
 
 //processCapability processes capabilities and sends a notification back to the sender if the hash is not understood.
-func processCapability(caps []rainslib.Capability, sender ConnInfo) {
+func processCapability(caps []rainslib.Capability, sender ConnInfo, token rainslib.Token) {
 	if len(caps) > 0 {
 		//FIXME CFE determine when an incoming capability is represented as a hash
 		isHash := true
@@ -114,7 +114,7 @@ func processCapability(caps []rainslib.Capability, sender ConnInfo) {
 				capabilities.Add(sender, caps)
 				handleCapabilities(caps)
 			} else {
-				sendNotificationMsg(rainslib.GenerateToken(), sender, rainslib.CapHashNotKnown)
+				sendNotificationMsg(token, sender, rainslib.CapHashNotKnown)
 			}
 		} else {
 			capabilities.Add(sender, caps)
@@ -174,7 +174,11 @@ func addQueryToQueue(section *rainslib.QuerySection, msg rainslib.RainsMessage, 
 func addNotificationToQueue(msg *rainslib.NotificationSection, tok rainslib.Token, sender ConnInfo) {
 	if _, ok := activeTokens[tok]; ok {
 		log.Info("active Token encountered", "token", tok)
-		delete(activeTokens, tok)
+		//We do not delete the token when we receive a capability hash not understood because the other server will still process the message.
+		//In all other cases the other server stops processing the message and we can safely delete the token.
+		if msg.Type != rainslib.CapHashNotKnown {
+			delete(activeTokens, tok)
+		}
 		notificationChannel <- msgSectionSender{Sender: sender, Msg: msg, Token: tok}
 	} else {
 		log.Warn("Token not in active token cache, drop message", "token", tok)

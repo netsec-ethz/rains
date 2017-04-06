@@ -155,29 +155,37 @@ func VerifySignature(algoType rainslib.SignatureAlgorithmType, publicKey interfa
 	return false
 }
 
-func createConnectionCache() (connectionCache, error) {
+func createConnectionCache(connCacheSize int) (connectionCache, error) {
 	c, err := cache.NewWithEvict(func(value interface{}, key ...string) {
 		if value, ok := value.(net.Conn); ok {
 			value.Close()
 		}
-	}, int(Config.MaxConnections), "noAnyContext")
+	}, connCacheSize, "noAnyContext")
 	if err != nil {
 		return nil, err
 	}
-	return connectionCacheImpl{cache: c}, nil
+	return &connectionCacheImpl{cache: c}, nil
 }
 
-func createCapabilityCache() (capabilityCache, error) {
-	hc, err := cache.New(int(Config.CapabilitiesCacheSize), "noAnyContext")
+func createCapabilityCache(hashToCapCacheSize, connectionToCapSize int) (capabilityCache, error) {
+	hc, err := cache.New(hashToCapCacheSize, "noAnyContext")
 	if err != nil {
 		return nil, err
 	}
 	//FIXME CFE remove this after we can do it in the Add method of the cache
 	hc.Add([]Capability{TLSOverTCP}, false, "", "e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745")
 	hc.Add([]Capability{NoCapability}, false, "", "76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71")
-	cc, err := cache.New(int(Config.PeerToCapCacheSize), "noAnyContext")
+	cc, err := cache.New(connectionToCapSize, "noAnyContext")
 	if err != nil {
 		return nil, err
 	}
-	return capabilityCacheImpl{hashToCap: hc, connInfoToCap: cc}, nil
+	return &capabilityCacheImpl{hashToCap: hc, connInfoToCap: cc}, nil
+}
+
+func createKeyCache(keyCacheSize int) (keyCache, error) {
+	c, err := cache.New(keyCacheSize, "anyCache")
+	if err != nil {
+		return nil, err
+	}
+	return &keyCacheImpl{cache: c}, nil
 }

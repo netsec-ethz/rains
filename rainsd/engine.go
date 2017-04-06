@@ -71,6 +71,7 @@ func assert(section rainslib.MessageSectionWithSig, isAuthoritative bool) {
 
 //isAssertionConsistent checks if the incoming assertion is consistent with the elements in the cache. If not every element of this zone is dropped and it return false
 func isAssertionConsistent(assertion *rainslib.AssertionSection) bool {
+	//make sure that internal assertions are handled properly
 	return true
 }
 

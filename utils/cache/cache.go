@@ -198,13 +198,14 @@ func (c *Cache) Get(context string, keys ...string) (interface{}, bool) {
 	return nil, false
 }
 
-//Keys returns a slice of the keys in the cache
-func (c *Cache) Keys() []interface{} {
+//Keys returns a slice of the keys in the cache where the format of a key is [context, key1:...:keyn]
+func (c *Cache) Keys() [][]string {
 	c.mux.RLock()
 	defer c.mux.RUnlock()
-	keys := []interface{}{}
-	for key := range c.cache {
-		keys = append(keys, key)
+	keys := [][]string{}
+	for _, v := range c.cache {
+		e := v.Value.(*entry)
+		keys = append(keys, []string{e.context, e.key})
 	}
 	return keys
 }
