@@ -192,3 +192,11 @@ func createKeyCache(keyCacheSize int) (keyCache, error) {
 	}
 	return &keyCacheImpl{cache: c}, nil
 }
+
+func createPendingSignatureCache(cacheSize int) (pendingSignatureCache, error) {
+	c, err := cache.New(cacheSize, "noAnyContext")
+	if err != nil {
+		return nil, err
+	}
+	return &pendingSignatureCacheImpl{cache: c, maxElements: cacheSize, elementCount: 0}, nil
+}

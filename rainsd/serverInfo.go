@@ -171,12 +171,14 @@ type pendingSignatureCacheValue struct {
 type pendingSignatureCache interface {
 	//Add adds a section together with a validity to the cache. Returns true if there is not yet a pending query for this context and zone
 	//If the cache is full it removes all section stored with the least recently used <context, zone> tuple.
-	Add(context, zone string, section pendingSignatureCacheValue) bool
-	//Get returns all still valid sections associated with the given context and zone. It returns an empty list if there exists no valid section
-	Get(context, zone string) []rainslib.MessageSectionWithSig
-	//RemoveExpiredSections goes through the cache and removes all invalid sections. If for a given context and zone there is no section left it removes the entry from cache.
+	Add(context, zone string, value pendingSignatureCacheValue) bool
+	//GetAllAndDelete returns true and all valid sections associated with the given context and zone if there are any. Otherwise false.
+	//We simultaneously obtained all elements and close the set data structure. Then we remove the entry from the cache. If in the meantime an Add operation happened,
+	//then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
+	GetAllAndDelete(context, zone string) ([]rainslib.MessageSectionWithSig, bool)
+	//RemoveExpiredSections goes through the cache and removes all expired sections. If for a given context and zone there is no section left it removes the entry from cache.
 	RemoveExpiredSections()
-	//Len returns the number of elements in the cache.
+	//Len returns the number of sections in the cache.
 	Len() int
 }
 
@@ -331,8 +333,8 @@ type container interface {
 	//It returns false if it was not able to add the element because the underlying datastructure was deleted in the meantime
 	Add(item interface{}) bool
 
-	//Delete removes item from the list.
-	Delete(item interface{})
+	//Delete removes item from the list. Returns true if it was able to delete the element
+	Delete(item interface{}) bool
 
 	//GetAll returns all elements contained in the datastructure
 	GetAll() []interface{}

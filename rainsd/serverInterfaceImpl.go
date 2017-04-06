@@ -4,14 +4,12 @@ import (
 	"bufio"
 	"container/list"
 	"crypto/rand"
-	"net"
-	"rains/utils/cache"
-	"sync"
-
 	"fmt"
-
+	"net"
 	"rains/rainslib"
-
+	"rains/utils/cache"
+	setDataStruct "rains/utils/set"
+	"sync"
 	"time"
 
 	log "github.com/inconshreveable/log15"
@@ -257,4 +255,156 @@ func (l *pubKeyList) RemoveExpiredKeys() {
 			l.keys.Remove(e)
 		}
 	}
+}
+
+/*
+ * Pending signature cache implementation
+ * We have a hierarchical locking system. We first lock the cache to get a pointer to a set data structure. Then we release the lock on the cache and for
+ * operations on the set data structure we use a separate lock.
+ * We store the elementCount (number of sections in the pendingSignatureCacheImpl) separate, as each cache entry can have several sections in the set data structure.
+ * When we want to update elementCount we must lock using pendingSignatureCacheImpl.mux. This lock must never be held when doing a change the the cache or the set data structure
+ */
+type pendingSignatureCacheImpl struct {
+	cache        *cache.Cache
+	maxElements  int
+	elementCount int
+	//mux protects elementCount from simultaneous access. It must not be called before a modifying call to the cache.
+	//FIXME CFE take both mutex together, here and cache
+	mux sync.RWMutex
+}
+
+//Add adds a section together with a validity to the cache. Returns true if there is not yet a pending query for this context and zone
+//If the cache is full it removes all section stored with the least recently used <context, zone> tuple.
+func (c *pendingSignatureCacheImpl) Add(context, zone string, value pendingSignatureCacheValue) bool {
+	set := setDataStruct.New()
+	set.Add(value)
+	ok := c.cache.Add(set, false, context, zone)
+	if ok {
+		updateCount(c) //and book keeping
+		return true
+	}
+	//there is already a list in the cache, get it and add value.
+	v, ok := c.cache.Get(context, zone)
+	if ok {
+		val, ok := v.(container)
+		if ok {
+			ok := val.Add(value)
+			if ok {
+				updateCount(c) //and book keeping
+				return false
+			}
+			log.Warn("List was closed but cache entry was not yet deleted. This case must be rare!")
+			return false
+		}
+		log.Error(fmt.Sprintf("Cache element was not of type container. Got:%T", v))
+		return false
+	}
+	//cache entry was deleted in the meantime. Retry
+	log.Warn("Cache entry was delete between, trying to add new and getting the existing one. This case must be rare!")
+	return c.Add(context, zone, value)
+}
+
+//updateCount increases the element count by one and if it exceeds the cache size, deletes all sections from the least recently used cache entry.
+func updateCount(c *pendingSignatureCacheImpl) {
+	c.mux.Lock()
+	c.elementCount++
+	c.mux.Unlock()
+	if c.elementCount > c.maxElements {
+		key, _ := c.cache.GetLeastRecentlyUsedKey()
+		c.GetAllAndDelete(key[0], key[1])
+	}
+}
+
+//GetAllAndDelete returns true and all valid sections associated with the given context and zone if there are any. Otherwise false.
+//We simultaneously obtained all elements and close the set data structure. Then we remove the entry from the cache. If in the meantime an Add operation happened,
+//then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
+func (c *pendingSignatureCacheImpl) GetAllAndDelete(context, zone string) ([]rainslib.MessageSectionWithSig, bool) {
+	sections := []rainslib.MessageSectionWithSig{}
+	deleteCount := 0
+	v, ok := c.cache.Get(context, zone)
+	if !ok {
+		return sections, false
+	}
+	if set, ok := v.(container); ok {
+		secs := set.GetAllAndDelete()
+		deleteCount = len(secs)
+		c.cache.Remove(context, zone)
+		for _, section := range secs {
+			if s, ok := section.(pendingSignatureCacheValue); ok {
+				if s.ValidUntil > time.Now().Unix() {
+					sections = append(sections, s.section)
+				} else {
+					log.Info("section expired", "section", s.section, "validity", s.ValidUntil)
+				}
+			} else {
+				log.Error(fmt.Sprintf("Cache element was not of type pendingSignatureCacheValue. Got:%T", section))
+			}
+		}
+
+	} else {
+		log.Error(fmt.Sprintf("Cache element was not of type container. Got:%T", v))
+	}
+	c.mux.Lock()
+	c.elementCount -= deleteCount
+	c.mux.Unlock()
+	return sections, len(sections) > 0
+}
+
+//RemoveExpiredSections goes through the cache and removes all expired sections. If for a given context and zone there is no section left it removes the entry from cache.
+func (c *pendingSignatureCacheImpl) RemoveExpiredSections() {
+	keys := c.cache.Keys()
+	deleteCount := 0
+	for _, key := range keys {
+		v, ok := c.cache.Get(key[0], key[1])
+		if ok { //check if element is still contained
+			set, ok := v.(container)
+			if ok { //check that cache element is a data container
+				vals := set.GetAll()
+				//check validity of all container elements and remove expired once
+				allRemoved := true
+				for _, val := range vals {
+					v, ok := val.(pendingSignatureCacheValue)
+					if ok {
+						if v.ValidUntil < time.Now().Unix() {
+							ok := set.Delete(val)
+							if ok {
+								deleteCount++
+							}
+						} else {
+							allRemoved = false
+						}
+					} else {
+						log.Error(fmt.Sprintf("set element was not of type pendingSignatureCacheValue. Got:%T", val))
+					}
+				}
+				//remove entry from cache if non left. If one was added in the meantime do not delete it.
+				if allRemoved {
+					vals := set.GetAllAndDelete()
+					if len(vals) == 0 {
+						c.cache.Remove(key[0], key[1])
+					} else {
+						set := setDataStruct.New()
+						for _, val := range vals {
+							set.Add(val)
+						}
+						//FIXME CFE here another go routine could come in between. Add an update function to the cache.
+						c.cache.Remove(key[0], key[1])
+						c.cache.Add(set, false, key[0], key[1])
+					}
+				}
+			} else {
+				log.Error(fmt.Sprintf("Cache element was not of type container. Got:%T", v))
+			}
+		}
+	}
+	c.mux.Lock()
+	c.elementCount -= deleteCount
+	c.mux.Unlock()
+}
+
+//Len returns the number of sections in the cache.
+func (c *pendingSignatureCacheImpl) Len() int {
+	c.mux.RLock()
+	defer c.mux.RUnlock()
+	return c.elementCount
 }

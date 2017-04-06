@@ -259,3 +259,16 @@ func (c *Cache) RemoveWithStrategy() bool {
 	}
 	return true
 }
+
+//GetLeastRecentlyUsedKey returns true and the least recently used key if present else false
+//TODO CFE write unit test
+func (c *Cache) GetLeastRecentlyUsedKey() ([]string, bool) {
+	c.mux.RLock()
+	defer c.mux.RUnlock()
+	v := c.lruList.Back()
+	if v == nil {
+		return nil, false
+	}
+	val := v.Value.(*entry)
+	return []string{val.context, val.key}, true
+}
