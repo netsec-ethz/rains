@@ -181,20 +181,20 @@ func (c *keyCacheImpl) Add(key keyCacheKey, value rainslib.PublicKey, internal b
 	}
 	if list, ok := v.(*pubKeyList); ok {
 		list.Add(value)
+		return true
 	}
 	log.Error(fmt.Sprintf("Element in cache is not of type *pubKeyList. Got type=%T", v))
 	return false
 }
 
 //Get returns a valid public key matching the given keyCacheKey. It returns false if there exists no valid public key in the cache.
-//Get must always check the validity period of the public key before returning.
 func (c *keyCacheImpl) Get(key keyCacheKey) (rainslib.PublicKey, bool) {
 	v, ok := c.cache.Get(key.context, key.zone, key.keyAlgo.String())
 	if !ok {
 		return rainslib.PublicKey{}, false
 	}
 	list := v.(publicKeyList)
-	k, ok := list.Get()
+	k, ok := list.Get() //The returned key is guaranteed to be valid
 	if !ok {
 		return rainslib.PublicKey{}, false
 	}

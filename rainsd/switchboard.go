@@ -78,7 +78,7 @@ func createConnection(receiver ConnInfo) (net.Conn, error) {
 	switch receiver.Type {
 	case TCP:
 		dialer := &net.Dialer{
-			KeepAlive: Config.KeepAlivePeriodMicros,
+			KeepAlive: Config.KeepAlivePeriodNano,
 		}
 		return tls.DialWithDialer(dialer, "tcp", receiver.IPAddrAndPort(), &tls.Config{RootCAs: roots})
 	default:
@@ -120,7 +120,6 @@ func Listen() {
 	}
 	defer listener.Close()
 	defer srvLogger.Info("Shutdown listener")
-
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -140,7 +139,7 @@ func handleConnection(conn net.Conn, client ConnInfo) {
 	for scan.Deframe() {
 		log.Info("Received a message", "client", client)
 		deliver(scan.Data(), client)
-		conn.SetDeadline(time.Now().Add(Config.TCPTimeoutMicros))
+		conn.SetDeadline(time.Now().Add(Config.TCPTimeoutNano))
 	}
 }
 

@@ -297,8 +297,8 @@ const (
 type Signature struct {
 	KeySpace   KeySpaceID
 	Algorithm  SignatureAlgorithmType
-	ValidSince int
-	ValidUntil int
+	ValidSince int64
+	ValidUntil int64
 	Data       []byte
 }
 

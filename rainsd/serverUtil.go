@@ -155,6 +155,7 @@ func VerifySignature(algoType rainslib.SignatureAlgorithmType, publicKey interfa
 	return false
 }
 
+//createConnectionCache returns a newly created connection cache
 func createConnectionCache(connCacheSize int) (connectionCache, error) {
 	c, err := cache.NewWithEvict(func(value interface{}, key ...string) {
 		if value, ok := value.(net.Conn); ok {
@@ -167,6 +168,7 @@ func createConnectionCache(connCacheSize int) (connectionCache, error) {
 	return &connectionCacheImpl{cache: c}, nil
 }
 
+//createCapabilityCache returns a newly created capability cache
 func createCapabilityCache(hashToCapCacheSize, connectionToCapSize int) (capabilityCache, error) {
 	hc, err := cache.New(hashToCapCacheSize, "noAnyContext")
 	if err != nil {
@@ -182,8 +184,9 @@ func createCapabilityCache(hashToCapCacheSize, connectionToCapSize int) (capabil
 	return &capabilityCacheImpl{hashToCap: hc, connInfoToCap: cc}, nil
 }
 
+//createKeyCache returns a newly key capability cache
 func createKeyCache(keyCacheSize int) (keyCache, error) {
-	c, err := cache.New(keyCacheSize, "anyCache")
+	c, err := cache.New(keyCacheSize, "anyContext")
 	if err != nil {
 		return nil, err
 	}

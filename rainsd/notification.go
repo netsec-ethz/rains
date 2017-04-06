@@ -8,8 +8,8 @@ import (
 
 //notify handles incoming notification messages
 func notify(msgSender msgSectionSender) {
-	notifLog := log.New("notificationMsgSection", msgSender.Msg)
-	switch msgSender.Msg.(*rainslib.NotificationSection).Type {
+	notifLog := log.New("notificationMsgSection", msgSender.Section)
+	switch msgSender.Section.(*rainslib.NotificationSection).Type {
 	case rainslib.CapHashNotKnown:
 		notifLog.Info("Capability Hash was not understood")
 		//TODO CFE send a full capabilities list on the next message it sends to the peer (own capability are stored in config)

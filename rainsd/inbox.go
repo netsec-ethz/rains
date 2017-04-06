@@ -97,7 +97,7 @@ func deliver(message []byte, sender ConnInfo) {
 		case *rainslib.QuerySection:
 			addQueryToQueue(m, msg, sender)
 		case *rainslib.NotificationSection:
-			addNotificationToQueue(m, msg.Token, sender)
+			addNotificationToQueue(m, m.Token, sender)
 		default:
 			log.Warn(fmt.Sprintf("unsupported message section type %T", m))
 		}
@@ -106,9 +106,10 @@ func deliver(message []byte, sender ConnInfo) {
 
 //processCapability processes capabilities and sends a notification back to the sender if the hash is not understood.
 func processCapability(caps []rainslib.Capability, sender ConnInfo, token rainslib.Token) {
+	log.Info("Process capabilities")
 	if len(caps) > 0 {
 		//FIXME CFE determine when an incoming capability is represented as a hash
-		isHash := true
+		isHash := false
 		if isHash {
 			if caps, ok := capabilities.GetFromHash([]byte(caps[0])); ok {
 				capabilities.Add(sender, caps)
@@ -152,17 +153,17 @@ func sendNotificationMsg(token rainslib.Token, sender ConnInfo, notificationType
 func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token, sender ConnInfo) {
 	if _, ok := activeTokens[tok]; ok {
 		log.Info("active Token encountered", "token", tok)
-		prioChannel <- msgSectionSender{Sender: sender, Msg: msgSection, Token: tok}
+		prioChannel <- msgSectionSender{Sender: sender, Section: msgSection, Token: tok}
 	} else {
 		log.Info("token not in active token cache", "token", tok)
-		normalChannel <- msgSectionSender{Sender: sender, Msg: msgSection, Token: tok}
+		normalChannel <- msgSectionSender{Sender: sender, Section: msgSection, Token: tok}
 	}
 }
 
 //addQueryToQueue checks that the token of the message and of the query section are the same and if so adds it to a queue
 func addQueryToQueue(section *rainslib.QuerySection, msg rainslib.RainsMessage, sender ConnInfo) {
 	if msg.Token == section.Token {
-		normalChannel <- msgSectionSender{Sender: sender, Msg: section, Token: msg.Token}
+		normalChannel <- msgSectionSender{Sender: sender, Section: section, Token: msg.Token}
 	} else {
 		log.Warn("Token of message and query section do not match.", "msgToken", msg.Token, "querySectionToken", section.Token)
 		sendNotificationMsg(msg.Token, sender, rainslib.BadMessage)
@@ -179,7 +180,7 @@ func addNotificationToQueue(msg *rainslib.NotificationSection, tok rainslib.Toke
 		if msg.Type != rainslib.CapHashNotKnown {
 			delete(activeTokens, tok)
 		}
-		notificationChannel <- msgSectionSender{Sender: sender, Msg: msg, Token: tok}
+		notificationChannel <- msgSectionSender{Sender: sender, Section: msg, Token: tok}
 	} else {
 		log.Warn("Token not in active token cache, drop message", "token", tok)
 	}

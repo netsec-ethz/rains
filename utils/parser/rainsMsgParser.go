@@ -486,12 +486,12 @@ func parseSignatures(msg string) ([]rainslib.Signature, error) {
 			log.Warn("signature malformed")
 			return []rainslib.Signature{}, errors.New("signature malformed")
 		}
-		validSince, err := strconv.Atoi(sig[:vu])
+		validSince, err := strconv.ParseInt(sig[:vu], 10, 64)
 		if err != nil {
 			log.Warn("signature's validSince malformed")
 			return []rainslib.Signature{}, errors.New("signature's validSince malformed")
 		}
-		validUntil, err := strconv.Atoi(sig[vu+4 : ks])
+		validUntil, err := strconv.ParseInt(sig[vu+4:ks], 10, 64)
 		if err != nil {
 			log.Warn("signature's validUntil malformed")
 			return []rainslib.Signature{}, errors.New("signature's validUntil malformed")

@@ -19,13 +19,13 @@ var Config = defaultConfig
 //rainsdConfig lists possible configurations of a rains server
 type rainsdConfig struct {
 	//switchboard
-	ServerIPAddr          net.IP
-	ServerPort            uint16
-	MaxConnections        uint
-	KeepAlivePeriodMicros time.Duration
-	TCPTimeoutMicros      time.Duration
-	CertificateFile       string
-	PrivateKeyFile        string
+	ServerIPAddr        net.IP
+	ServerPort          uint16
+	MaxConnections      uint
+	KeepAlivePeriodNano time.Duration
+	TCPTimeoutNano      time.Duration
+	CertificateFile     string
+	PrivateKeyFile      string
 
 	//inbox
 	MaxMsgByteLength        uint
@@ -40,10 +40,11 @@ type rainsdConfig struct {
 	Capabilities            []rainslib.Capability
 
 	//verify
-	ZoneKeyCacheSize           uint
-	PendingSignatureCacheSize  uint
-	InfrastructureKeyCacheSize uint
-	ExternalKeyCacheSize       uint
+	ZoneKeyCacheSize            uint
+	PendingSignatureCacheSize   uint
+	InfrastructureKeyCacheSize  uint
+	ExternalKeyCacheSize        uint
+	DelegationQueryValidityNano time.Duration
 
 	//engine
 	AssertionCacheSize    uint
@@ -51,11 +52,11 @@ type rainsdConfig struct {
 }
 
 //DefaultConfig is a rainsdConfig object containing default values
-var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriodMicros: time.Minute, TCPTimeoutMicros: 5 * time.Minute,
+var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriodNano: time.Minute, TCPTimeoutNano: 5 * time.Minute,
 	CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key", MaxMsgByteLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerCount: 2,
 	NormalWorkerCount: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
 	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}, InfrastructureKeyCacheSize: 10,
-	ExternalKeyCacheSize: 5}
+	ExternalKeyCacheSize: 5, DelegationQueryValidityNano: 5 * time.Second}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int
@@ -83,9 +84,16 @@ func (c ConnInfo) PortToString() string {
 
 //msgSectionSender contains the message section section and connection infos about the sender
 type msgSectionSender struct {
-	Sender ConnInfo
-	Msg    rainslib.MessageSection
-	Token  rainslib.Token
+	Sender  ConnInfo
+	Section rainslib.MessageSection
+	Token   rainslib.Token
+}
+
+//sectionWithSigSender contains a section with a signature and connection infos about the sender
+type sectionWithSigSender struct {
+	Sender  ConnInfo
+	Section rainslib.MessageSectionWithSig
+	Token   rainslib.Token
 }
 
 //Capability is a type which defines what a server or client is capable of
@@ -146,8 +154,7 @@ type keyCache interface {
 
 type publicKeyList interface {
 	//Add adds a public key to the list. If specified maximal list length is reached it removes the least recently used element.
-	//Returns true if it added the public key to the list.
-	Add(key rainslib.PublicKey) bool
+	Add(key rainslib.PublicKey)
 	//Get returns the first valid public key in the list. Returns false if there is no valid public key.
 	Get() (rainslib.PublicKey, bool)
 	//RemoveExpiredKeys deletes all expired keys from the list.
@@ -162,8 +169,8 @@ type pendingSignatureCacheValue struct {
 
 //pendingSignatureCache stores all sections with a signature waiting for a public key to arrive so they can be verified
 type pendingSignatureCache interface {
-	//Add adds a section together with a validity to the cache. Returns true if there is not yet a pending query for this request
-	//If the cache is full it removes a section according to some metric.
+	//Add adds a section together with a validity to the cache. Returns true if there is not yet a pending query for this context and zone
+	//If the cache is full it removes all section stored with the least recently used <context, zone> tuple.
 	Add(context, zone string, section pendingSignatureCacheValue) bool
 	//Get returns all still valid sections associated with the given context and zone. It returns an empty list if there exists no valid section
 	Get(context, zone string) []rainslib.MessageSectionWithSig
