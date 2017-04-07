@@ -252,7 +252,7 @@ func getQueryValidity(sigs []rainslib.Signature) int64 {
 		}
 	}
 	//upper bound the validity time
-	upperBound := time.Now().Add(Config.DelegationQueryValidityNano).Unix()
+	upperBound := time.Now().Add(Config.DelegationQueryValidity).Unix()
 	if validity > upperBound {
 		validity = upperBound
 	}

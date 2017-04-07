@@ -105,12 +105,12 @@ type connectionCacheImpl struct {
 	cache *cache.Cache
 }
 
-func (c *connectionCacheImpl) Add(fourTuple string, conn net.Conn) bool {
-	return c.cache.Add(conn, false, "", fourTuple)
+func (c *connectionCacheImpl) Add(addrPair AddressPair, conn net.Conn) bool {
+	return c.cache.Add(conn, false, "", addrPair.String())
 }
 
-func (c *connectionCacheImpl) Get(fourTuple string) (net.Conn, bool) {
-	if v, ok := c.cache.Get("", fourTuple); ok {
+func (c *connectionCacheImpl) Get(addrPair AddressPair) (net.Conn, bool) {
+	if v, ok := c.cache.Get("", addrPair.String()); ok {
 		if val, ok := v.(net.Conn); ok {
 			return val, true
 		}
@@ -134,11 +134,11 @@ type capabilityCacheImpl struct {
 func (c *capabilityCacheImpl) Add(connInfo ConnInfo, capabilities []rainslib.Capability) bool {
 	//FIXME CFE take a SHA-256 hash of the CBOR byte stream derived from normalizing such an array by sorting it in lexicographically increasing order,
 	//then serializing it and add it to the cache
-	return c.connInfoToCap.Add(capabilities, false, "", connInfo.IPAddrAndPort())
+	return c.connInfoToCap.Add(capabilities, false, "", connInfo.String())
 }
 
 func (c *capabilityCacheImpl) Get(connInfo ConnInfo) ([]rainslib.Capability, bool) {
-	if v, ok := c.connInfoToCap.Get("", connInfo.IPAddrAndPort()); ok {
+	if v, ok := c.connInfoToCap.Get("", connInfo.String()); ok {
 		if val, ok := v.([]rainslib.Capability); ok {
 			return val, true
 		}
@@ -282,7 +282,8 @@ func (c *pendingSignatureCacheImpl) Add(context, zone string, value pendingSigna
 	set.Add(value)
 	ok := c.cache.Add(set, false, context, zone)
 	if ok {
-		updateCount(c) //and book keeping
+		updateCount(c)
+		handleCacheSize(c)
 		return true
 	}
 	//there is already a set in the cache, get it and add value.
@@ -292,7 +293,8 @@ func (c *pendingSignatureCacheImpl) Add(context, zone string, value pendingSigna
 		if ok {
 			ok := val.Add(value)
 			if ok {
-				updateCount(c) //and book keeping
+				updateCount(c)
+				handleCacheSize(c)
 				return false
 			}
 			log.Warn("List was closed but cache entry was not yet deleted. This case must be rare!")
@@ -306,11 +308,15 @@ func (c *pendingSignatureCacheImpl) Add(context, zone string, value pendingSigna
 	return c.Add(context, zone, value)
 }
 
-//updateCount increases the element count by one and if it exceeds the cache size, deletes all sections from the least recently used cache entry.
+//updateCount increases the element count by one
 func updateCount(c *pendingSignatureCacheImpl) {
 	c.elemCountLock.Lock()
 	c.elementCount++
 	c.elemCountLock.Unlock()
+}
+
+//handleCacheSize deletes all sections from the least recently used cache entry if it exceeds the cache siz.
+func handleCacheSize(c *pendingSignatureCacheImpl) {
 	if c.elementCount > c.maxElements {
 		key, _ := c.cache.GetLeastRecentlyUsedKey()
 		c.GetAllAndDelete(key[0], key[1])
@@ -461,7 +467,8 @@ func (c *pendingQueryCacheImpl) Add(context, zone, name string, objType rainslib
 			validUntil: value.ValidUntil,
 		}
 		c.activeTokenLock.Unlock()
-		updatePendingQueryCount(c) //and book keeping
+		updatePendingQueryCount(c)
+		handlePendingQueryCacheSize(c)
 		return true, token
 	}
 	//there is already a set in the cache, get it and add value.
@@ -471,7 +478,8 @@ func (c *pendingQueryCacheImpl) Add(context, zone, name string, objType rainslib
 		if ok {
 			ok := val.set.Add(value)
 			if ok {
-				updatePendingQueryCount(c) //and book keeping
+				updatePendingQueryCount(c)
+				handlePendingQueryCacheSize(c)
 				return false, [16]byte{}
 			}
 			log.Warn("Set was closed but cache entry was not yet deleted. This case must be rare!")
@@ -485,11 +493,15 @@ func (c *pendingQueryCacheImpl) Add(context, zone, name string, objType rainslib
 	return c.Add(context, zone, name, objType, value)
 }
 
-//updateCount increases the element count by one and if it exceeds the cache size, deletes all sections from the least recently used cache entry.
+//updatePendingQueryCount increases the element count by one
 func updatePendingQueryCount(c *pendingQueryCacheImpl) {
 	c.elemCountLock.Lock()
 	c.elementCount++
 	c.elemCountLock.Unlock()
+}
+
+//handlePendingQueryCacheSize deletes all sender infos from the least recently used cache entry if it exceeds the cache size
+func handlePendingQueryCacheSize(c *pendingQueryCacheImpl) {
 	if c.elementCount > c.maxElements {
 		key, _ := c.callBackCache.GetLeastRecentlyUsedKey()
 		v, ok := c.callBackCache.Get(key[0], key[1])
@@ -647,6 +659,7 @@ func (c *negativeAssertionCacheImpl) Add(context, zone string, internal bool, va
 	ok := c.cache.Add(l, internal, context, zone)
 	if ok {
 		updateNegElementCount(c)
+		handleNegElementCacheSize(c)
 		return true
 	}
 	//there is already a set in the cache, get it and add value.
@@ -656,6 +669,7 @@ func (c *negativeAssertionCacheImpl) Add(context, zone string, internal bool, va
 		if ok {
 			if ok := val.Add(value); ok {
 				updateNegElementCount(c)
+				handleNegElementCacheSize(c)
 				return true
 			}
 			return false //element is already contained
@@ -668,11 +682,15 @@ func (c *negativeAssertionCacheImpl) Add(context, zone string, internal bool, va
 	return c.Add(context, zone, internal, value)
 }
 
-//updateNegElementCount increases the element count by one and if it exceeds the cache size, deletes all intervals from the least recently used cache entry.
+//updateNegElementCount increases the element count by one
 func updateNegElementCount(c *negativeAssertionCacheImpl) {
 	c.elemCountLock.Lock()
 	c.elementCount++
 	c.elemCountLock.Unlock()
+}
+
+//handleNegElementCacheSize  deletes all intervals from the least recently used cache entry if it exceeds the cache size
+func handleNegElementCacheSize(c *negativeAssertionCacheImpl) {
 	if c.elementCount > c.maxElements {
 		key, _ := c.cache.GetLeastRecentlyUsedKey()
 		v, ok := c.cache.Get(key[0], key[1])
@@ -708,7 +726,7 @@ func (c *negativeAssertionCacheImpl) GetAll(context, zone string, section rainsl
 		sections := []rainslib.MessageSectionWithSig{}
 		if intervals, ok := rq.Get(section); ok && len(intervals) > 0 {
 			for _, interval := range intervals {
-				if val, ok := interval.(negativeAssertionCacheValue); ok && val.ValidUntil > time.Now().Unix() && val.validFrom < time.Now().Unix() {
+				if val, ok := interval.(negativeAssertionCacheValue); ok && val.validUntil > time.Now().Unix() && val.validFrom < time.Now().Unix() {
 					sections = append(sections, val.section)
 				}
 			}
@@ -743,7 +761,7 @@ func (c *negativeAssertionCacheImpl) RemoveExpiredValues() {
 					for _, val := range vals {
 						v, ok := val.(negativeAssertionCacheValue)
 						if ok {
-							if v.ValidUntil < time.Now().Unix() {
+							if v.validUntil < time.Now().Unix() {
 								ok := rq.Delete(val)
 								if ok {
 									deleteCount++

@@ -106,7 +106,7 @@ func deliver(message []byte, sender ConnInfo) {
 
 //processCapability processes capabilities and sends a notification back to the sender if the hash is not understood.
 func processCapability(caps []rainslib.Capability, sender ConnInfo, token rainslib.Token) {
-	log.Info("Process capabilities")
+	log.Debug("Process capabilities")
 	if len(caps) > 0 {
 		//FIXME CFE determine when an incoming capability is represented as a hash
 		isHash := false

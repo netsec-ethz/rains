@@ -71,8 +71,8 @@ func loadCert() error {
 	return nil
 }
 
-//getIPAddrandPort fetches HostAddr and port number from config file on which this server is listening to
-func getIPAddrandPort() ConnInfo {
+//getServerIPAddrandPort fetches HostAddr and port number from config file on which this server is listening to
+func getServerIPAddrandPort() ConnInfo {
 	return ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}
 }
 

@@ -2,6 +2,7 @@ package rainsd
 
 import (
 	"crypto/x509"
+	"fmt"
 	"net"
 	"rains/rainslib"
 	"strconv"
@@ -18,13 +19,13 @@ var Config = defaultConfig
 //rainsdConfig lists possible configurations of a rains server
 type rainsdConfig struct {
 	//switchboard
-	ServerIPAddr        net.IP
-	ServerPort          uint16
-	MaxConnections      uint
-	KeepAlivePeriodNano time.Duration
-	TCPTimeoutNano      time.Duration
-	CertificateFile     string
-	PrivateKeyFile      string
+	ServerIPAddr    net.IP
+	ServerPort      uint16
+	MaxConnections  uint
+	KeepAlivePeriod time.Duration
+	TCPTimeout      time.Duration
+	CertificateFile string
+	PrivateKeyFile  string
 
 	//inbox
 	MaxMsgByteLength        uint
@@ -39,11 +40,11 @@ type rainsdConfig struct {
 	Capabilities            []rainslib.Capability
 
 	//verify
-	ZoneKeyCacheSize            uint
-	PendingSignatureCacheSize   uint
-	InfrastructureKeyCacheSize  uint
-	ExternalKeyCacheSize        uint
-	DelegationQueryValidityNano time.Duration
+	ZoneKeyCacheSize           uint
+	PendingSignatureCacheSize  uint
+	InfrastructureKeyCacheSize uint
+	ExternalKeyCacheSize       uint
+	DelegationQueryValidity    time.Duration
 
 	//engine
 	AssertionCacheSize         uint
@@ -52,11 +53,11 @@ type rainsdConfig struct {
 }
 
 //DefaultConfig is a rainsdConfig object containing default values
-var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriodNano: time.Minute, TCPTimeoutNano: 5 * time.Minute,
+var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriod: time.Minute, TCPTimeout: 5 * time.Minute,
 	CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key", MaxMsgByteLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerCount: 2,
 	NormalWorkerCount: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
 	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}, InfrastructureKeyCacheSize: 10,
-	ExternalKeyCacheSize: 5, DelegationQueryValidityNano: 5 * time.Second}
+	ExternalKeyCacheSize: 5, DelegationQueryValidity: 5 * time.Second}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int
@@ -72,14 +73,30 @@ type ConnInfo struct {
 	Port   uint16
 }
 
-//IPAddrAndPort returns IP address and port in the format IPAddr:Port
-func (c ConnInfo) IPAddrAndPort() string {
-	return c.IPAddr.String() + ":" + c.PortToString()
+//String returns the string representation of the connection information according to its type
+func (c ConnInfo) String() string {
+	switch c.Type {
+	case TCP:
+		return c.IPAddr.String() + ":" + c.PortToString()
+	default:
+		return ""
+	}
 }
 
 //PortToString return the port number as a string
 func (c ConnInfo) PortToString() string {
 	return strconv.Itoa(int(c.Port))
+}
+
+//AddressPair contains address information about both peers of a connection
+type AddressPair struct {
+	local  ConnInfo
+	remote ConnInfo
+}
+
+//String returns the string representation of both connection information separated with a underscore
+func (c AddressPair) String() string {
+	return fmt.Sprintf("%#v_%#v", c.local, c.remote)
 }
 
 //msgSectionSender contains the message section section and connection infos about the sender
@@ -112,14 +129,14 @@ type keyCacheKey struct {
 
 //connectionCache stores all active connections
 type connectionCache interface {
-	//Add adds a new connection to the cash. If for the given fourTuple there is already a connection in the cache, the connection gets replaced with the new one.
-	//Returns false if the cache already contained an entry for the fourTuple.
+	//Add adds a new connection to the cash. If for the given addrPair there is already a connection in the cache, the connection gets replaced with the new one.
+	//Returns false if the cache already contained an entry for the addrPair.
 	//If the cache is full it closes and removes a connection according to some metric
-	Add(fourTuple string, conn net.Conn) bool
+	Add(addrPair AddressPair, conn net.Conn) bool
 	//Get returns a connection associated with the given four tuple.
 	//If there is an element in the cache its recentness will be updated
-	//Returns false if there is no connection for the given fourTuple in the cache.
-	Get(fourTuple string) (net.Conn, bool)
+	//Returns false if there is no connection for the given addrPair in the cache.
+	Get(addrPair AddressPair) (net.Conn, bool)
 	//Len returns the number of elements in the cache.
 	Len() int
 }
@@ -216,7 +233,7 @@ type pendingQueryCache interface {
 type assertionCacheValue struct {
 	section    *rainslib.AssertionSection
 	validFrom  int64
-	ValidUntil int64
+	validUntil int64
 }
 
 //assertionCache is used to store and efficiently lookup assertions
@@ -240,7 +257,7 @@ type assertionCache interface {
 type negativeAssertionCacheValue struct {
 	section    rainslib.MessageSectionWithSig
 	validFrom  int64
-	ValidUntil int64
+	validUntil int64
 }
 
 func (v negativeAssertionCacheValue) Begin() string {
