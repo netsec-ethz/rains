@@ -87,7 +87,7 @@ func (c *Cache) Get(context string, keys ...string) (interface{}, bool) {
 }
 
 //Keys returns a slice of the keys in the cache
-func (c *Cache) Keys() []interface{} {
+func (c *Cache) Keys() [][]string {
 	c.mux.RLock()
 	defer c.mux.RUnlock()
 	return c.cache.Keys()

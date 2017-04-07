@@ -23,15 +23,15 @@ var pendingQueries pendingQueryCache
 
 func initEngine() error {
 	//init Cache
-	/*pendingQueries = &LRUCache{}
-	//TODO CFE add size to server config
-	err := pendingQueries.New(100)
+	var err error
+	pendingQueries, err = createPendingQueryCache(int(Config.PendingQueryCacheSize))
 	if err != nil {
-		log.Error("Cannot create pendingQueriesCache", "error", err)
+		log.Error("Cannot create pending query Cache", "error", err)
 		return err
 	}
-	//TODO CFE add size to server config
-	assertionCache, err = aCache.New(100, "anyContext")
+
+	/*//TODO CFE add size to server config
+	assertionCache, err = aCache.New(1d0d,defaultConfig "anyContext") //utils.assertioncache
 	err = assertionCache.New(100)
 	if err != nil {
 		log.Error("Cannot create assertionCache", "error", err)

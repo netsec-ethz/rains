@@ -244,12 +244,14 @@ type negativeAssertionCacheValue struct {
 
 type negativeAssertionCache interface {
 	//Add adds a shard or zone together with a validity to the cache.
-	//Returns true if cache did not already contain an entry for the given context and zone
+	//Returns true if value was added to the cache.
 	//If the cache is full it removes an external negativeAssertionCacheValue according to some metric.
 	Add(context, zone string, internal bool, value negativeAssertionCacheValue) bool
-	//Get returns all sections of a given context and zone which intersect with the given Range. Returns an empty list if there are none
+	//Get returns true and the shortest sections with the longest validity of a given context and zone containing the name if there exists one. Otherwise false is returned
+	Get(context, zone, name string) ([]rainslib.MessageSectionWithSig, bool)
+	//GetAll returns true and all sections of a given context and zone which intersect with the given Range if there is at least one. Otherwise false is returned
 	//if beginRange and endRange are an empty string then the zone and all shards of that context and zone are returned
-	Get(context, zone, beginRange, endRange string) []rainslib.MessageSectionWithSig
+	GetAll(context, zone, beginRange, endRange string) ([]rainslib.MessageSectionWithSig, bool)
 	//Len returns the number of elements in the cache.
 	Len() int
 	//RemoveExpiredValues goes through the cache and removes all expired values. If for a given context and zone there is no value left it removes the entry from cache.
@@ -294,4 +296,22 @@ type setContainer interface {
 	//GetAllAndDelete returns all set elements and deletes the underlying datastructure.
 	//If the underlying datastructure is already deleted, the empty list is returned.
 	GetAllAndDelete() []interface{}
+}
+
+type interval interface {
+	//Begin of the interval
+	Begin() string
+	//End of the interval
+	End() string
+}
+
+//rangeQueryDataStruct is a datastructure which contains intervals and allows for interval intersection queries.
+//All operations must be concurrency safe.
+type rangeQueryDataStruct interface {
+	//Add inserts item into the data structure
+	Add(item interval) bool
+	//Delete deletes item from the data structure
+	Delete(item interval) bool
+	//Get returns all intervals which intersect with item.
+	Get(item interval) []interval
 }

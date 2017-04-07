@@ -85,6 +85,16 @@ func (a *AssertionSection) CreateStub() MessageSectionWithSig {
 	return stub
 }
 
+//Begin returns the begining of the interval of this assertion.
+func (a *AssertionSection) Begin() string {
+	return a.SubjectName
+}
+
+//End returns the end of the interval of this assertion.
+func (a *AssertionSection) End() string {
+	return a.SubjectName
+}
+
 //ShardSection contains information about the shard
 type ShardSection struct {
 	Content     []*AssertionSection
@@ -133,6 +143,16 @@ func (s *ShardSection) CreateStub() MessageSectionWithSig {
 	}
 	stub.DeleteAllSigs()
 	return stub
+}
+
+//Begin returns the begining of the interval of this shard.
+func (s *ShardSection) Begin() string {
+	return s.RangeFrom
+}
+
+//End returns the end of the interval of this shard.
+func (s *ShardSection) End() string {
+	return s.RangeTo
 }
 
 //ZoneSection contains information about the zone
@@ -191,6 +211,16 @@ func (z *ZoneSection) CreateStub() MessageSectionWithSig {
 	}
 	stub.DeleteAllSigs()
 	return stub
+}
+
+//Begin returns the begining of the interval of this zone.
+func (z *ZoneSection) Begin() string {
+	return ""
+}
+
+//End returns the end of the interval of this zone.
+func (z *ZoneSection) End() string {
+	return ""
 }
 
 //QuerySection contains information about the query

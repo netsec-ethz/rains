@@ -264,7 +264,7 @@ func (l *pubKeyList) RemoveExpiredKeys() {
  * We store the elementCount (number of sections in the pendingSignatureCacheImpl) separate, as each cache entry can have several sections in the set data structure.
  * When we want to update elementCount we must lock using elemCountLock. This lock must never be held when doing a change to the the cache or the set data structure.
  * It can happen that some sections get dropped. This is the case when the cache is full or when we add a section to the set while another go routine deletes the pointer to that
- * set as it was empty before. The second is case is expected to occur rarely.
+ * set as it was empty before. The second case is expected to occur rarely.
  */
 type pendingSignatureCacheImpl struct {
 	cache        *cache.Cache
@@ -423,10 +423,10 @@ type elemAndValidity struct {
  * Pending query cache implementation
  * We have a hierarchical locking system. We first lock the cache to get a pointer to a set data structure. Then we release the lock on the cache and for
  * operations on the set data structure we use a separate lock.
- * We store the elementCount (number of sections in the pendingSignatureCacheImpl) separate, as each cache entry can have several sections in the set data structure.
+ * We store the elementCount (number of sections in the pendingQueryCacheImpl) separate, as each cache entry can have several querier infos in the set data structure.
  * When we want to update elementCount we must lock using elemCountLock. This lock must never be held when doing a change to the the cache or the set data structure.
  * It can happen that some sections get dropped. This is the case when the cache is full or when we add a section to the set while another go routine deletes the pointer to that
- * set as it was empty before. The second is case is expected to occur rarely.
+ * set as it was empty before. The second case is expected to occur rarely.
  */
 type pendingQueryCacheImpl struct {
 	//callBackCache stores to a given <context,zone,name,type> the query validity and connection information of the querier waiting for the answer.
@@ -617,4 +617,90 @@ func (c *pendingQueryCacheImpl) Len() int {
 	c.elemCountLock.RLock()
 	defer c.elemCountLock.RUnlock()
 	return c.elementCount
+}
+
+/*
+ *negative assertion implementation
+ * We have a hierarchical locking system. We first lock the cache to get a pointer to a data structure which can efficiently process range queries (e.g. interval tree).
+ * Then we release the lock on the cache and for operations on the set data structure we use a separate lock.
+ * We store the elementCount (number of sections in the negativeAssertionCacheImpl) separate, as each cache entry can have several sections in the data structure.
+ * When we want to update elementCount we must lock using elemCountLock. This lock must never be held when doing a change to the the cache or the underlying data structure.
+ * It can happen that some sections get dropped. This is the case when the cache is full or when we add a section to the set while another go routine deletes the pointer to that
+ * set as it was empty before. The second case is expected to occur rarely.
+ */
+type negativeAssertionCacheImpl struct {
+	cache        *cache.Cache
+	maxElements  int
+	elementCount int
+	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the underlying data structure.
+	elemCountLock sync.RWMutex
+}
+
+//Add adds a shard or zone together with a validity to the cache.
+//Returns true if value was added to the cache.
+//If the cache is full it removes an external negativeAssertionCacheValue according to some metric.
+func (c *negativeAssertionCacheImpl) Add(context, zone string, internal bool, value negativeAssertionCacheValue) bool {
+}
+
+//Get returns true and the shortest sections with the longest validity of a given context and zone containing the name if there exists one. Otherwise false is returned
+func (c *negativeAssertionCacheImpl) Get(context, zone, name string) ([]rainslib.MessageSectionWithSig, bool) {
+}
+
+//GetAll returns true and all sections of a given context and zone which intersect with the given Range if there is at least one. Otherwise false is returned
+//if beginRange and endRange are an empty string then the zone and all shards of that context and zone are returned
+func (c *negativeAssertionCacheImpl) GetAll(context, zone, beginRange, endRange string) ([]rainslib.MessageSectionWithSig, bool) {
+}
+
+//Len returns the number of elements in the cache.
+func (c *negativeAssertionCacheImpl) Len() int {
+
+}
+
+//RemoveExpiredValues goes through the cache and removes all expired values. If for a given context and zone there is no value left it removes the entry from cache.
+func (c *negativeAssertionCacheImpl) RemoveExpiredValues() {
+
+}
+
+type sectionList struct {
+	list     list.List
+	listLock sync.RWMutex
+}
+
+//Add inserts item into the data structure
+func (l *sectionList) Add(item interval) bool {
+	l.listLock.Lock()
+	defer l.listLock.Unlock()
+	for e := l.list.Front(); e != nil; e = e.Next() {
+		if e.Value == item {
+			return false
+		}
+	}
+	l.list.PushBack(item)
+	return true
+}
+
+//Delete deletes item from the data structure
+func (l *sectionList) Delete(item interval) bool {
+	l.listLock.Lock()
+	defer l.listLock.Unlock()
+	for e := l.list.Front(); e != nil; e = e.Next() {
+		if e.Value == item {
+			l.list.Remove(e)
+			return true
+		}
+	}
+	return false
+}
+
+//Get returns all intervals which intersect with item.
+func (l *sectionList) Get(item interval) []interval {
+	intervals := []interval{}
+	l.listLock.RLock()
+	defer l.listLock.RUnlock()
+	for e := l.list.Front(); e != nil; e = e.Next() {
+		if e.Value.(interval).Begin() < item.End() || e.Value.(interval).End() > item.Begin() {
+			intervals = append(intervals, e.Value.(interval))
+		}
+	}
+	return intervals
 }

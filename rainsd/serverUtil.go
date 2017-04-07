@@ -208,3 +208,12 @@ func createPendingQueryCache(cacheSize int) (pendingQueryCache, error) {
 	}
 	return &pendingQueryCacheImpl{callBackCache: c, maxElements: cacheSize, elementCount: 0, activeTokens: make(map[[16]byte]elemAndValidity)}, nil
 }
+
+func createNegativeAssertionCache(cacheSize int) (negativeAssertionCache, error) {
+	c, err := cache.New(cacheSize, "anyContext")
+	if err != nil {
+		return nil, err
+	}
+	return &negativeAssertionCacheImpl{callBackCache: c, maxElements: cacheSize, elementCount: 0, activeTokens: make(map[[16]byte]elemAndValidity)}, nil
+
+}
