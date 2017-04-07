@@ -9,6 +9,7 @@ import (
 	"rains/rainslib"
 	"rains/utils/cache"
 	setDataStruct "rains/utils/set"
+	"sort"
 	"sync"
 	"time"
 
@@ -417,7 +418,7 @@ func (c *pendingSignatureCacheImpl) Len() int {
 	return c.elementCount
 }
 
-type elemAndValidity struct {
+type elemAndValidTo struct {
 	validUntil int64
 	context    string
 	zone       string
@@ -444,7 +445,7 @@ type pendingQueryCacheImpl struct {
 	elemCountLock sync.RWMutex
 
 	//activeTokens contains all tokens of sent out queries to be able to find the peers asking for this information.
-	activeTokens    map[[16]byte]elemAndValidity
+	activeTokens    map[[16]byte]elemAndValidTo
 	activeTokenLock sync.RWMutex
 }
 
@@ -459,7 +460,7 @@ func (c *pendingQueryCacheImpl) Add(context, zone, name string, objType rainslib
 	ok := c.callBackCache.Add(cacheValue, false, context, zone, name, objType.String())
 	if ok {
 		c.activeTokenLock.Lock()
-		c.activeTokens[token] = elemAndValidity{
+		c.activeTokens[token] = elemAndValidTo{
 			context:    context,
 			zone:       zone,
 			name:       name,
@@ -831,4 +832,206 @@ func (l *sectionList) Get(item rainslib.Interval) ([]rainslib.Interval, bool) {
 		}
 	}
 	return intervals, len(intervals) > 0
+}
+
+type elemAndValidity struct {
+	elemAndValidTo
+	validFrom int64
+}
+
+type sortedAssertions struct {
+	assertions     []elemAndValidity
+	assertionsLock sync.RWMutex
+}
+
+//Add adds e to the sorted list at the right position.
+//It returns true if it added e and false if e is already contained
+func (s *sortedAssertions) Add(e elemAndValidity) bool {
+	s.assertionsLock.Lock()
+	defer s.assertionsLock.Unlock()
+	i := sort.Search(len(s.assertions), func(i int) bool {
+		return s.assertions[i].name >= e.name
+	})
+	if s.assertions[i] == e {
+		return false
+	}
+	s.assertions = append(s.assertions[:i], append([]elemAndValidity{e}, s.assertions[i:]...)...)
+	return true
+}
+
+//Delete removes e from the sorted list.
+//Returns true if element was successfully deleted from the list. If e not part of list returns false
+func (s *sortedAssertions) Delete(e elemAndValidity) bool {
+	s.assertionsLock.Lock()
+	defer s.assertionsLock.Unlock()
+	i := sort.Search(len(s.assertions), func(i int) bool {
+		return s.assertions[i].name >= e.name
+	})
+	if s.assertions[i] != e {
+		return false
+	}
+	s.assertions = append(s.assertions[:i], s.assertions[i+1:]...)
+	return true
+}
+
+//Get returns all assertion meta data which are in the given interval
+func (s *sortedAssertions) Get(interval rainslib.Interval) []elemAndValidity {
+	s.assertionsLock.RLock()
+	defer s.assertionsLock.RUnlock()
+	elements := []elemAndValidity{}
+	i := sort.Search(len(s.assertions), func(i int) bool {
+		return s.assertions[i].name >= interval.Begin()
+	})
+	if s.assertions[i].name < interval.Begin() {
+		return elements
+	}
+	for ; i < len(s.assertions); i++ {
+		if s.assertions[i].name > interval.End() {
+			break
+		}
+		elements = append(elements, s.assertions[i])
+	}
+	return elements
+}
+
+/*
+ * assertion cache implementation
+ * We have a hierarchical locking system. We first lock the cache to get a pointer to a set data structure. Then we release the lock on the cache and for
+ * operations on the set data structure we use a separate lock.
+ * We store the elementCount (number of sections in the pendingQueryCacheImpl) separate, as each cache entry can have several querier infos in the set data structure.
+ * When we want to update elementCount we must lock using elemCountLock. This lock must never be held when doing a change to the the cache or the set data structure.
+ * It can happen that some sections get dropped. This is the case when the cache is full or when we add a section to the set while another go routine deletes the pointer to that
+ * set as it was empty before. The second case is expected to occur rarely.
+ */
+type AssertionCacheImpl struct {
+	//assertionCache stores to a given <context,zone,name,type> a set of assertions
+	assertionCache *cache.Cache
+	maxElements    int
+	elementCount   int
+	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
+	elemCountLock sync.RWMutex
+
+	//rangeMap contains a map from context and zone to a sorted list according to the name of assertions which contains elemAndValidity.
+	rangeMap     map[contextAndZone]*sortedAssertions
+	rangeMapLock sync.RWMutex
+}
+
+//Add adds an assertion together with a validity to the cache.
+//Returns true if cache did not already contain an entry for the given context,zone, name and objType
+//If the cache is full it removes an external assertionCacheValue according to some metric.
+func (c *AssertionCacheImpl) Add(context, zone, name string, objType rainslib.ObjectType, internal bool, value assertionCacheValue) bool {
+	set := setDataStruct.New()
+	set.Add(value)
+	ok := c.assertionCache.Add(set, internal, context, zone, name, objType.String())
+	if ok {
+		addAssertionToRangeMap(c, context, zone, name, objType, internal, value)
+		updateAssertionCacheCount(c)
+		handleAssertionCacheSize(c)
+		return true
+	}
+	//there is already a set in the cache, get it and add value.
+	v, ok := c.assertionCache.Get(context, zone, name, objType.String())
+	if ok {
+		set, ok := v.(setContainer)
+		if ok {
+			ok := set.Add(value)
+			if ok {
+				addAssertionToRangeMap(c, context, zone, name, objType, internal, value)
+				updateAssertionCacheCount(c)
+				handleAssertionCacheSize(c)
+				return true
+			}
+			log.Warn("Set was closed but cache entry was not yet deleted. This case must be rare!")
+			return false
+		}
+		log.Error(fmt.Sprintf("Cache element was not of type setContainer. Got:%T", v))
+		return false
+	}
+	//cache entry was deleted in the meantime. Retry
+	log.Warn("Cache entry was delete between, trying to add new and getting the existing one. This case must be rare!")
+	return c.Add(context, zone, name, objType, internal, value)
+}
+
+func addAssertionToRangeMap(c *AssertionCacheImpl, context, zone, name string, objType rainslib.ObjectType, internal bool, value assertionCacheValue) {
+	c.rangeMapLock.Lock()
+	elem := elemAndValidity{
+		elemAndValidTo: elemAndValidTo{
+			context:    context,
+			zone:       zone,
+			name:       name,
+			objType:    objType,
+			validUntil: value.validUntil},
+		validFrom: value.validFrom,
+	}
+	if val, ok := c.rangeMap[contextAndZone{Context: context, Zone: zone}]; ok {
+		val.Add(elem)
+	} else {
+		c.rangeMap[contextAndZone{Context: context, Zone: zone}] = &sortedAssertions{assertions: []elemAndValidity{elem}}
+	}
+	c.rangeMapLock.Unlock()
+}
+
+//updatePendingQueryCount increases the element count by one
+func updateAssertionCacheCount(c *AssertionCacheImpl) {
+	c.elemCountLock.Lock()
+	c.elementCount++
+	c.elemCountLock.Unlock()
+}
+
+//handlePendingQueryCacheSize deletes all sender infos from the least recently used cache entry if it exceeds the cache size
+func handleAssertionCacheSize(c *AssertionCacheImpl) {
+	//TODO CFE implement
+	log.Error("Not yet implemented CFE")
+}
+
+//Get returns true and a set of valid assertions matching the given key if there exists some. Otherwise false is returned
+func (c *AssertionCacheImpl) Get(context, zone, name string, objType rainslib.ObjectType) ([]*rainslib.AssertionSection, bool) {
+	assertions := []*rainslib.AssertionSection{}
+	v, ok := c.assertionCache.Get(context, zone, name, objType.String())
+	if ok {
+		if set, ok := v.(setContainer); ok {
+			for _, val := range set.GetAll() {
+				if value, ok := val.(assertionCacheValue); ok {
+					if value.validFrom < time.Now().Unix() && value.validUntil > time.Now().Unix() {
+						assertions = append(assertions, value.section)
+					}
+				} else {
+					log.Error(fmt.Sprintf("Cache element was not of type assertionCacheValue. Got:%T", val))
+				}
+			}
+			return assertions, true
+		}
+		log.Error(fmt.Sprintf("Cache element was not of type setContainer. Got:%T", v))
+	}
+	return nil, false
+}
+
+//GetInRange returns true and a set of valid assertions in the given interval matching the given context and zone if there are any. Otherwise false is returned
+func (c *AssertionCacheImpl) GetInRange(context, zone string, interval rainslib.Interval) ([]*rainslib.AssertionSection, bool) {
+	c.rangeMapLock.RLock()
+	sortedList, ok := c.rangeMap[contextAndZone{Context: context, Zone: zone}]
+	c.rangeMapLock.RUnlock()
+	if ok {
+		assertionMetaInfos := sortedList.Get(interval)
+		for _, elem := range assertionMetaInfos {
+			if elem.validFrom < time.Now().Unix() && elem.validUntil > time.Now().Unix() {
+				if assertions, ok := c.Get(context, zone, elem.name, elem.objType); ok {
+					return assertions, true
+				}
+			}
+		}
+	}
+	return nil, false
+}
+
+//Len returns the number of elements in the cache.
+func (c *AssertionCacheImpl) Len() int {
+	c.elemCountLock.RLock()
+	defer c.elemCountLock.RUnlock()
+	return c.elementCount
+}
+
+//RemoveExpiredValues goes through the cache and removes all expired assertions. If for a given context and zone there is no assertion left it removes the entry from cache.
+func (c *AssertionCacheImpl) RemoveExpiredValues() {
+	//TODO CFE Implement
 }

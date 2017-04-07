@@ -242,14 +242,13 @@ type assertionCache interface {
 	//Returns true if cache did not already contain an entry for the given context,zone, name and objType
 	//If the cache is full it removes an external assertionCacheValue according to some metric.
 	Add(context, zone, name string, objType rainslib.ObjectType, internal bool, value assertionCacheValue) bool
-	//Get returns a set of valid assertions matching the given key. Returns an empty list if there are none
-	Get(context, zone, name string, objType rainslib.ObjectType) []*rainslib.AssertionSection
-	//GetInRange returns a set of valid assertions in the range [beginRange, endRange] matching the given context and zone. Returns an empty list if there are none.
-	GetInRange(context, zone, beginRange, endRange string) []*rainslib.AssertionSection
+	//Get returns true and a set of valid assertions matching the given key if there exists some. Otherwise false is returned
+	Get(context, zone, name string, objType rainslib.ObjectType) ([]*rainslib.AssertionSection, bool)
+	//GetInRange returns true and a set of valid assertions in the given interval matching the given context and zone if there are any. Otherwise false is returned
+	GetInRange(context, zone string, interval rainslib.Interval) ([]*rainslib.AssertionSection, bool)
 	//Len returns the number of elements in the cache.
 	Len() int
-	//RemoveExpiredValues goes through the cache and removes all expired values. If for a given context and zone there is no value left it removes the entry from cache.
-	//If for a given context, zone, name and object type there is no value left it removes the entry from cache.
+	//RemoveExpiredValues goes through the cache and removes all expired assertions. If for a given context and zone there is no assertion left it removes the entry from cache.
 	RemoveExpiredValues()
 }
 

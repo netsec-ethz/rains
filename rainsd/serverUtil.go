@@ -206,7 +206,7 @@ func createPendingQueryCache(cacheSize int) (pendingQueryCache, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &pendingQueryCacheImpl{callBackCache: c, maxElements: cacheSize, elementCount: 0, activeTokens: make(map[[16]byte]elemAndValidity)}, nil
+	return &pendingQueryCacheImpl{callBackCache: c, maxElements: cacheSize, elementCount: 0, activeTokens: make(map[[16]byte]elemAndValidTo)}, nil
 }
 
 func createNegativeAssertionCache(cacheSize int) (negativeAssertionCache, error) {
