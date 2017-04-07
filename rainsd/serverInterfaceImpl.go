@@ -262,15 +262,17 @@ func (l *pubKeyList) RemoveExpiredKeys() {
  * We have a hierarchical locking system. We first lock the cache to get a pointer to a set data structure. Then we release the lock on the cache and for
  * operations on the set data structure we use a separate lock.
  * We store the elementCount (number of sections in the pendingSignatureCacheImpl) separate, as each cache entry can have several sections in the set data structure.
- * When we want to update elementCount we must lock using pendingSignatureCacheImpl.mux. This lock must never be held when doing a change the the cache or the set data structure
+ * When we want to update elementCount we must lock using elemCountLock. This lock must never be held when doing a change to the the cache or the set data structure.
+ * It can happen that some sections get dropped. This is the case when the cache is full or when we add a section to the set while another go routine deletes the pointer to that
+ * set as it was empty before. The second is case is expected to occur rarely.
  */
 type pendingSignatureCacheImpl struct {
 	cache        *cache.Cache
 	maxElements  int
 	elementCount int
-	//mux protects elementCount from simultaneous access. It must not be called before a modifying call to the cache.
-	//FIXME CFE take both mutex together, here and cache
-	mux sync.RWMutex
+	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
+	//TODO CFE take both mutex together, here and cache
+	elemCountLock sync.RWMutex
 }
 
 //Add adds a section together with a validity to the cache. Returns true if there is not yet a pending query for this context and zone
@@ -286,7 +288,7 @@ func (c *pendingSignatureCacheImpl) Add(context, zone string, value pendingSigna
 	//there is already a list in the cache, get it and add value.
 	v, ok := c.cache.Get(context, zone)
 	if ok {
-		val, ok := v.(container)
+		val, ok := v.(setContainer)
 		if ok {
 			ok := val.Add(value)
 			if ok {
@@ -306,9 +308,9 @@ func (c *pendingSignatureCacheImpl) Add(context, zone string, value pendingSigna
 
 //updateCount increases the element count by one and if it exceeds the cache size, deletes all sections from the least recently used cache entry.
 func updateCount(c *pendingSignatureCacheImpl) {
-	c.mux.Lock()
+	c.elemCountLock.Lock()
 	c.elementCount++
-	c.mux.Unlock()
+	c.elemCountLock.Unlock()
 	if c.elementCount > c.maxElements {
 		key, _ := c.cache.GetLeastRecentlyUsedKey()
 		c.GetAllAndDelete(key[0], key[1])
@@ -325,7 +327,7 @@ func (c *pendingSignatureCacheImpl) GetAllAndDelete(context, zone string) ([]rai
 	if !ok {
 		return sections, false
 	}
-	if set, ok := v.(container); ok {
+	if set, ok := v.(setContainer); ok {
 		secs := set.GetAllAndDelete()
 		deleteCount = len(secs)
 		c.cache.Remove(context, zone)
@@ -344,9 +346,9 @@ func (c *pendingSignatureCacheImpl) GetAllAndDelete(context, zone string) ([]rai
 	} else {
 		log.Error(fmt.Sprintf("Cache element was not of type container. Got:%T", v))
 	}
-	c.mux.Lock()
+	c.elemCountLock.Lock()
 	c.elementCount -= deleteCount
-	c.mux.Unlock()
+	c.elemCountLock.Unlock()
 	return sections, len(sections) > 0
 }
 
@@ -357,7 +359,7 @@ func (c *pendingSignatureCacheImpl) RemoveExpiredSections() {
 	for _, key := range keys {
 		v, ok := c.cache.Get(key[0], key[1])
 		if ok { //check if element is still contained
-			set, ok := v.(container)
+			set, ok := v.(setContainer)
 			if ok { //check that cache element is a data container
 				vals := set.GetAll()
 				//check validity of all container elements and remove expired once
@@ -397,14 +399,14 @@ func (c *pendingSignatureCacheImpl) RemoveExpiredSections() {
 			}
 		}
 	}
-	c.mux.Lock()
+	c.elemCountLock.Lock()
 	c.elementCount -= deleteCount
-	c.mux.Unlock()
+	c.elemCountLock.Unlock()
 }
 
 //Len returns the number of sections in the cache.
 func (c *pendingSignatureCacheImpl) Len() int {
-	c.mux.RLock()
-	defer c.mux.RUnlock()
+	c.elemCountLock.RLock()
+	defer c.elemCountLock.RUnlock()
 	return c.elementCount
 }

@@ -327,18 +327,21 @@ type scanner interface {
 	Data() []byte
 }
 
-//container is an interface for a map data structure which might be concurrency safe
-type container interface {
-	//Add appends item to the current list.
+//setContainer is an interface for a set data structure where all operations are concurrency safe
+type setContainer interface {
+	//Add appends item to the current set if not already contained.
 	//It returns false if it was not able to add the element because the underlying datastructure was deleted in the meantime
 	Add(item interface{}) bool
 
-	//Delete removes item from the list. Returns true if it was able to delete the element
+	//Delete removes item from the set.
+	//Returns true if it was able to delete the element.
 	Delete(item interface{}) bool
 
-	//GetAll returns all elements contained in the datastructure
+	//GetAll returns all elements contained in the set.
+	//If the underlying datastructure is deleted, the empty list is returned
 	GetAll() []interface{}
 
-	//GetAllAndDelete returns all contained elements and deletes the datastructure.
+	//GetAllAndDelete returns all set elements and deletes the underlying datastructure.
+	//If the underlying datastructure is already deleted, the empty list is returned.
 	GetAllAndDelete() []interface{}
 }
