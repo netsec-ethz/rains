@@ -641,13 +641,12 @@ type negativeAssertionCacheImpl struct {
 //If the cache is full it removes an external negativeAssertionCacheValue according to some metric.
 func (c *negativeAssertionCacheImpl) Add(context, zone string, internal bool, value negativeAssertionCacheValue) bool {
 	//TODO add an getOrAdd method to the cache (locking must then be changed.)
+	//FIXME CFE replace sectionList with interval tree
 	l := &sectionList{list: list.New()}
 	l.Add(value)
 	ok := c.cache.Add(l, internal, context, zone)
 	if ok {
-		c.elemCountLock.Lock()
-		c.elementCount++
-		c.elemCountLock.Unlock()
+		updateNegElementCount(c)
 		return true
 	}
 	//there is already a set in the cache, get it and add value.
@@ -656,9 +655,7 @@ func (c *negativeAssertionCacheImpl) Add(context, zone string, internal bool, va
 		val, ok := v.(rangeQueryDataStruct)
 		if ok {
 			if ok := val.Add(value); ok {
-				c.elemCountLock.Lock()
-				c.elementCount++
-				c.elemCountLock.Unlock()
+				updateNegElementCount(c)
 				return true
 			}
 			return false //element is already contained
@@ -669,6 +666,25 @@ func (c *negativeAssertionCacheImpl) Add(context, zone string, internal bool, va
 	//cache entry was deleted in the meantime. Retry
 	log.Warn("Cache entry was delete between, trying to add new and getting the existing one. This case must be rare!")
 	return c.Add(context, zone, internal, value)
+}
+
+//updateNegElementCount increases the element count by one and if it exceeds the cache size, deletes all intervals from the least recently used cache entry.
+func updateNegElementCount(c *negativeAssertionCacheImpl) {
+	c.elemCountLock.Lock()
+	c.elementCount++
+	c.elemCountLock.Unlock()
+	if c.elementCount > c.maxElements {
+		key, _ := c.cache.GetLeastRecentlyUsedKey()
+		v, ok := c.cache.Get(key[0], key[1])
+		if ok {
+			//FIXME CFE another go routine might also have a pointer to the data structure behind this entry. Then the count might be off...
+			c.cache.Remove(key[0], key[1])
+			v, _ := v.(rangeQueryDataStruct).Get(rainslib.TotalInterval{})
+			c.elemCountLock.Lock()
+			c.elementCount -= len(v)
+			c.elemCountLock.Unlock()
+		}
+	}
 }
 
 //Get returns true and the shortest sections with the longest validity of a given context and zone containing the name if there exists one. Otherwise false is returned
