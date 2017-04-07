@@ -640,34 +640,127 @@ type negativeAssertionCacheImpl struct {
 //Returns true if value was added to the cache.
 //If the cache is full it removes an external negativeAssertionCacheValue according to some metric.
 func (c *negativeAssertionCacheImpl) Add(context, zone string, internal bool, value negativeAssertionCacheValue) bool {
+	//TODO add an getOrAdd method to the cache (locking must then be changed.)
+	l := &sectionList{list: list.New()}
+	l.Add(value)
+	ok := c.cache.Add(l, internal, context, zone)
+	if ok {
+		c.elemCountLock.Lock()
+		c.elementCount++
+		c.elemCountLock.Unlock()
+		return true
+	}
+	//there is already a set in the cache, get it and add value.
+	v, ok := c.cache.Get(context, zone)
+	if ok {
+		val, ok := v.(rangeQueryDataStruct)
+		if ok {
+			if ok := val.Add(value); ok {
+				c.elemCountLock.Lock()
+				c.elementCount++
+				c.elemCountLock.Unlock()
+				return true
+			}
+			return false //element is already contained
+		}
+		log.Error(fmt.Sprintf("Cache entry is not of type rangeQueryDataStruct. Got=%T", v))
+		return false
+	}
+	//cache entry was deleted in the meantime. Retry
+	log.Warn("Cache entry was delete between, trying to add new and getting the existing one. This case must be rare!")
+	return c.Add(context, zone, internal, value)
 }
 
 //Get returns true and the shortest sections with the longest validity of a given context and zone containing the name if there exists one. Otherwise false is returned
-func (c *negativeAssertionCacheImpl) Get(context, zone, name string) ([]rainslib.MessageSectionWithSig, bool) {
+func (c *negativeAssertionCacheImpl) Get(context, zone string, assertion *rainslib.AssertionSection) (rainslib.MessageSectionWithSig, bool) {
+	sections, ok := c.GetAll(context, zone, assertion)
+	if ok {
+		//FIXME CFE return shortest shard, how to find out how large a shard is, store number of assertions to it?
+		return sections[0], true
+	}
+	return nil, false
 }
 
 //GetAll returns true and all sections of a given context and zone which intersect with the given Range if there is at least one. Otherwise false is returned
 //if beginRange and endRange are an empty string then the zone and all shards of that context and zone are returned
-func (c *negativeAssertionCacheImpl) GetAll(context, zone, beginRange, endRange string) ([]rainslib.MessageSectionWithSig, bool) {
+func (c *negativeAssertionCacheImpl) GetAll(context, zone string, section rainslib.MessageSectionWithSig) ([]rainslib.MessageSectionWithSig, bool) {
+	v, ok := c.cache.Get(context, zone)
+	if !ok {
+		return nil, false
+	}
+	if rq, ok := v.(rangeQueryDataStruct); ok {
+		sections := []rainslib.MessageSectionWithSig{}
+		if intervals, ok := rq.Get(section); ok && len(intervals) > 0 {
+			for _, interval := range intervals {
+				if val, ok := interval.(negativeAssertionCacheValue); ok && val.ValidUntil > time.Now().Unix() && val.validFrom < time.Now().Unix() {
+					sections = append(sections, val.section)
+				}
+			}
+			return sections, true
+		}
+		return nil, false
+	}
+	log.Error(fmt.Sprintf("Cache entry is not of type rangeQueryDataStruct. got=%T", v))
+	return nil, false
 }
 
 //Len returns the number of elements in the cache.
 func (c *negativeAssertionCacheImpl) Len() int {
-
+	c.elemCountLock.RLock()
+	defer c.elemCountLock.RUnlock()
+	return c.elementCount
 }
 
 //RemoveExpiredValues goes through the cache and removes all expired values. If for a given context and zone there is no value left it removes the entry from cache.
 func (c *negativeAssertionCacheImpl) RemoveExpiredValues() {
-
+	keys := c.cache.Keys()
+	deleteCount := 0
+	for _, key := range keys {
+		v, ok := c.cache.Get(key[0], key[1])
+		if ok { //check if element is still contained
+			rq, ok := v.(rangeQueryDataStruct)
+			if ok { //check that cache element is a range query data structure
+				vals, ok := rq.Get(rainslib.TotalInterval{})
+				allRemoved := true
+				if ok {
+					//check validity of all contained elements and remove expired once
+					for _, val := range vals {
+						v, ok := val.(negativeAssertionCacheValue)
+						if ok {
+							if v.ValidUntil < time.Now().Unix() {
+								ok := rq.Delete(val)
+								if ok {
+									deleteCount++
+								}
+							} else {
+								allRemoved = false
+							}
+						} else {
+							log.Error(fmt.Sprintf("set element was not of type negativeAssertionCacheValue. Got:%T", val))
+						}
+					}
+				}
+				//remove entry from cache if non left. If one was added in the meantime do not delete it.
+				if allRemoved {
+					c.cache.Remove(key[0], key[1])
+				}
+			} else {
+				log.Error(fmt.Sprintf("Cache element was not of type rangeQueryDataStruct. Got:%T", v))
+			}
+		}
+	}
+	c.elemCountLock.Lock()
+	c.elementCount -= deleteCount
+	c.elemCountLock.Unlock()
 }
 
 type sectionList struct {
-	list     list.List
+	list     *list.List
 	listLock sync.RWMutex
 }
 
 //Add inserts item into the data structure
-func (l *sectionList) Add(item interval) bool {
+func (l *sectionList) Add(item rainslib.Interval) bool {
 	l.listLock.Lock()
 	defer l.listLock.Unlock()
 	for e := l.list.Front(); e != nil; e = e.Next() {
@@ -680,7 +773,7 @@ func (l *sectionList) Add(item interval) bool {
 }
 
 //Delete deletes item from the data structure
-func (l *sectionList) Delete(item interval) bool {
+func (l *sectionList) Delete(item rainslib.Interval) bool {
 	l.listLock.Lock()
 	defer l.listLock.Unlock()
 	for e := l.list.Front(); e != nil; e = e.Next() {
@@ -693,14 +786,15 @@ func (l *sectionList) Delete(item interval) bool {
 }
 
 //Get returns all intervals which intersect with item.
-func (l *sectionList) Get(item interval) []interval {
-	intervals := []interval{}
+func (l *sectionList) Get(item rainslib.Interval) ([]rainslib.Interval, bool) {
+	intervals := []rainslib.Interval{}
 	l.listLock.RLock()
 	defer l.listLock.RUnlock()
 	for e := l.list.Front(); e != nil; e = e.Next() {
-		if e.Value.(interval).Begin() < item.End() || e.Value.(interval).End() > item.Begin() {
-			intervals = append(intervals, e.Value.(interval))
+		val := e.Value.(rainslib.Interval)
+		if val.Begin() < item.End() || val.End() > item.Begin() {
+			intervals = append(intervals, val)
 		}
 	}
-	return intervals
+	return intervals, len(intervals) > 0
 }

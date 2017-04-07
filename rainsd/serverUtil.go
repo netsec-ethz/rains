@@ -214,6 +214,6 @@ func createNegativeAssertionCache(cacheSize int) (negativeAssertionCache, error)
 	if err != nil {
 		return nil, err
 	}
-	return &negativeAssertionCacheImpl{callBackCache: c, maxElements: cacheSize, elementCount: 0, activeTokens: make(map[[16]byte]elemAndValidity)}, nil
+	return &negativeAssertionCacheImpl{cache: c, maxElements: cacheSize, elementCount: 0}, nil
 
 }

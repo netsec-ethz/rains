@@ -41,6 +41,26 @@ type MessageSectionWithSig interface {
 	GetContext() string
 	GetSubjectZone() string
 	CreateStub() MessageSectionWithSig
+	Interval
+}
+
+//Interval defines an interval over strings
+type Interval interface {
+	//Begin of the interval
+	Begin() string
+	//End of the interval
+	End() string
+}
+
+//TotalInterval is an interval over the whole namespace
+type TotalInterval struct{}
+
+func (t TotalInterval) Begin() string {
+	return ""
+}
+
+func (t TotalInterval) End() string {
+	return ""
 }
 
 //AssertionSection contains information about the assertion

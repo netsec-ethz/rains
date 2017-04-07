@@ -30,6 +30,12 @@ func initEngine() error {
 		return err
 	}
 
+	negAssertionCache, err = createNegativeAssertionCache(int(Config.NegativeAssertionCacheSize))
+	if err != nil {
+		log.Error("Cannot create negative assertion Cache", "error", err)
+		return err
+	}
+
 	/*//TODO CFE add size to server config
 	assertionCache, err = aCache.New(1d0d,defaultConfig "anyContext") //utils.assertioncache
 	err = assertionCache.New(100)
@@ -37,13 +43,7 @@ func initEngine() error {
 		log.Error("Cannot create assertionCache", "error", err)
 		return err
 	}
-	negAssertionCache = &LRUCache{}
-	//TODO CFE add size to server config
-	err = negAssertionCache.New(100)
-	if err != nil {
-		log.Error("Cannot create assertionCache", "error", err)
-		return err
-	}*/
+	*/
 	return nil
 }
 

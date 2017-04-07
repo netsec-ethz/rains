@@ -46,8 +46,9 @@ type rainsdConfig struct {
 	DelegationQueryValidityNano time.Duration
 
 	//engine
-	AssertionCacheSize    uint
-	PendingQueryCacheSize uint
+	AssertionCacheSize         uint
+	NegativeAssertionCacheSize uint
+	PendingQueryCacheSize      uint
 }
 
 //DefaultConfig is a rainsdConfig object containing default values
@@ -242,16 +243,23 @@ type negativeAssertionCacheValue struct {
 	ValidUntil int64
 }
 
+func (v negativeAssertionCacheValue) Begin() string {
+	return v.section.Begin()
+}
+
+func (v negativeAssertionCacheValue) End() string {
+	return v.section.End()
+}
+
 type negativeAssertionCache interface {
 	//Add adds a shard or zone together with a validity to the cache.
 	//Returns true if value was added to the cache.
 	//If the cache is full it removes an external negativeAssertionCacheValue according to some metric.
 	Add(context, zone string, internal bool, value negativeAssertionCacheValue) bool
-	//Get returns true and the shortest sections with the longest validity of a given context and zone containing the name if there exists one. Otherwise false is returned
-	Get(context, zone, name string) ([]rainslib.MessageSectionWithSig, bool)
-	//GetAll returns true and all sections of a given context and zone which intersect with the given Range if there is at least one. Otherwise false is returned
-	//if beginRange and endRange are an empty string then the zone and all shards of that context and zone are returned
-	GetAll(context, zone, beginRange, endRange string) ([]rainslib.MessageSectionWithSig, bool)
+	//Get returns true and the shortest valid shard/zone with the longest validity in range of the assertion if there exists one. Otherwise false is returned
+	Get(context, zone string, assertion *rainslib.AssertionSection) (rainslib.MessageSectionWithSig, bool)
+	//GetAll returns true and all valid sections of a given context and zone which intersect with the given Range if there is at least one. Otherwise false is returned
+	GetAll(context, zone string, section rainslib.MessageSectionWithSig) ([]rainslib.MessageSectionWithSig, bool)
 	//Len returns the number of elements in the cache.
 	Len() int
 	//RemoveExpiredValues goes through the cache and removes all expired values. If for a given context and zone there is no value left it removes the entry from cache.
@@ -298,20 +306,13 @@ type setContainer interface {
 	GetAllAndDelete() []interface{}
 }
 
-type interval interface {
-	//Begin of the interval
-	Begin() string
-	//End of the interval
-	End() string
-}
-
 //rangeQueryDataStruct is a datastructure which contains intervals and allows for interval intersection queries.
 //All operations must be concurrency safe.
 type rangeQueryDataStruct interface {
 	//Add inserts item into the data structure
-	Add(item interval) bool
+	Add(item rainslib.Interval) bool
 	//Delete deletes item from the data structure
-	Delete(item interval) bool
-	//Get returns all intervals which intersect with item.
-	Get(item interval) []interval
+	Delete(item rainslib.Interval) bool
+	//Get returns true all intervals which intersect with item if there are any. Otherwise false is returned
+	Get(item rainslib.Interval) ([]rainslib.Interval, bool)
 }
