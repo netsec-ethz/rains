@@ -221,6 +221,10 @@ const (
 
 type ObjectType int
 
+func (o ObjectType) String() string {
+	return strconv.Itoa(int(o))
+}
+
 const (
 	Name        ObjectType = 1
 	IP6Addr     ObjectType = 2

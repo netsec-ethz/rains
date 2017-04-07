@@ -200,3 +200,11 @@ func createPendingSignatureCache(cacheSize int) (pendingSignatureCache, error) {
 	}
 	return &pendingSignatureCacheImpl{cache: c, maxElements: cacheSize, elementCount: 0}, nil
 }
+
+func createPendingQueryCache(cacheSize int) (pendingQueryCache, error) {
+	c, err := cache.New(cacheSize, "noAnyContext")
+	if err != nil {
+		return nil, err
+	}
+	return &pendingQueryCacheImpl{callBackCache: c, maxElements: cacheSize, elementCount: 0, activeTokens: make(map[[16]byte]elemAndValidity)}, nil
+}

@@ -5,7 +5,6 @@ import (
 	"net"
 	"rains/rainslib"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -152,6 +151,7 @@ type keyCache interface {
 	RemoveExpiredKeys()
 }
 
+//publicKeyList provides some operation on a list of public keys.
 type publicKeyList interface {
 	//Add adds a public key to the list. If specified maximal list length is reached it removes the least recently used element.
 	Add(key rainslib.PublicKey)
@@ -183,20 +183,28 @@ type pendingSignatureCache interface {
 }
 
 //pendingSignatureCacheValue is the value received from the pendingQuery cache
-type pendingQueryCacheValue struct {
+type pendingQuerySetValue struct {
 	ConnInfo   ConnInfo
 	Token      rainslib.Token //Token from the received query
 	ValidUntil int64
 }
 
+//pendingSignatureCacheValue is the value received from the pendingQuery cache
+type pendingQueryCacheValue struct {
+	set   setContainer
+	token rainslib.Token //Token of this servers query
+}
+
 //pendingQueryCache stores connection information about queriers which are waiting for an assertion to arrive
 type pendingQueryCache interface {
 	//Add adds connection information together with a token and a validity to the cache.
-	//Returns true and a token for the query if cache did not already contain an entry for context,zone,name,objType else return false
+	//Returns true and a newly generated token for the query to be sent out if cache does not contain a valid entry for context,zone,name,objType.Otherwise false is returned
 	//If the cache is full it removes a pendingQueryCacheValue according to some metric.
-	Add(context, zone, name string, objType rainslib.ObjectType, section pendingQueryCacheValue) (bool, rainslib.Token)
-	//Get returns all valid pendingQueryCacheValues associated with the given token. It returns false if there exists no valid value.
-	Get(token rainslib.Token) []pendingQueryCacheValue
+	Add(context, zone, name string, objType rainslib.ObjectType, value pendingQuerySetValue) (bool, rainslib.Token)
+	//GetAllAndDelete returns true and all valid pendingQuerySetValues associated with the given token if there are any. Otherwise false
+	//We simultaneously obtained all elements and close the set data structure. Then we remove the entry from the cache. If in the meantime an Add operation happened,
+	//then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
+	GetAllAndDelete(token rainslib.Token) ([]pendingQuerySetValue, bool)
 	//RemoveExpiredValues goes through the cache and removes all expired values and tokens. If for a given context and zone there is no value left it removes the entry from cache.
 	RemoveExpiredValues()
 	//Len returns the number of elements in the cache.
@@ -252,64 +260,6 @@ type negativeAssertionCache interface {
 type contextAndZone struct {
 	Context string
 	Zone    string
-}
-
-/*
-//pendingSignatureCacheValue is the value received from the pendingQuery cache
-type pendingSignatureCacheValue struct {
-	ValidUntil     int64
-	retries        int
-	mux            sync.Mutex
-	MsgSectionList msgSectionWithSigList
-}
-
-//Retries returns the number of retries. If 0 no retries are attempted
-func (v *pendingSignatureCacheValue) Retries() int {
-	v.mux.Lock()
-	defer func(v *pendingSignatureCacheValue) { v.mux.Unlock() }(v)
-	return v.retries
-}
-
-//DecRetries decreses the retry value by 1
-func (v *pendingSignatureCacheValue) DecRetries() {
-	v.mux.Lock()
-	if v.retries > 0 {
-		v.retries--
-	}
-}*/
-
-type queryAnswerList struct {
-	ConnInfo ConnInfo
-	Token    rainslib.Token
-}
-
-//msgSectionWithSigList is a thread safe list of msgSectionWithSig
-//To handle the case that we do not drop an incoming msgSection during the handling of the callback, we close the list after callback and return false
-//Then the calling method can handle the new msgSection directly.
-type msgSectionWithSigList struct {
-	mux                   sync.Mutex
-	closed                bool
-	MsgSectionWithSigList []rainslib.MessageSectionWithSig
-}
-
-//Add adds an message section with signature to the list (It is thread safe)
-//returns true if it was able to add the element to the list
-func (l *msgSectionWithSigList) Add(section rainslib.MessageSectionWithSig) bool {
-	l.mux.Lock()
-	defer func(l *msgSectionWithSigList) { l.mux.Unlock() }(l)
-	if !l.closed {
-		l.MsgSectionWithSigList = append(l.MsgSectionWithSigList, section)
-		return true
-	}
-	return false
-}
-
-//GetList returns the list and closes the data structure
-func (l *msgSectionWithSigList) GetListAndClose() []rainslib.MessageSectionWithSig {
-	l.mux.Lock()
-	defer func(l *msgSectionWithSigList) { l.mux.Unlock() }(l)
-	l.closed = true
-	return l.MsgSectionWithSigList
 }
 
 //TODO CFE what should the name of this interface be?
