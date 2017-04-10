@@ -74,7 +74,7 @@ func verify(msgSender msgSectionSender) {
 		}
 	case *rainslib.QuerySection:
 		if validQuery(section, msgSender.Sender) {
-			query(section)
+			query(section, msgSender.Sender)
 		}
 	default:
 		log.Warn("Not supported Msg section to verify", "msgSection", section)
@@ -104,7 +104,7 @@ func validMsgSignature(msgStub string, sig rainslib.Signature) bool {
 
 //validQuery validates the expiration time of the query
 func validQuery(section *rainslib.QuerySection, sender ConnInfo) bool {
-	if int64(section.Expires) < time.Now().Unix() {
+	if section.Expires < time.Now().Unix() {
 		log.Info("Query expired", "expirationTime", section.Expires)
 		return false
 	}
@@ -200,7 +200,10 @@ func verifySignatures(sectionSender sectionWithSigSender, wg *sync.WaitGroup) bo
 	cacheValue := pendingSignatureCacheValue{section: section, validUntil: getQueryValidity(section.Sigs())}
 	ok = pendingSignatures.Add(section.GetContext(), section.GetSubjectZone(), cacheValue)
 	if ok {
-		sendDelegationQuery(section.GetContext(), section.GetSubjectZone(), cacheValue.validUntil, sectionSender.Sender)
+		delegate := getDelegationAddress(section.GetContext(), section.GetSubjectZone())
+		token := rainslib.GenerateToken()
+		sendQuery(section.GetContext(), section.GetSubjectZone(), cacheValue.validUntil, rainslib.Delegation, token, delegate)
+		activeTokens[token] = true
 	}
 	log.Info("Section added to pending signature cache", "section", section)
 	return false
@@ -257,27 +260,6 @@ func getQueryValidity(sigs []rainslib.Signature) int64 {
 		validity = upperBound
 	}
 	return validity
-}
-
-//sendDelegationQuery sendes a delegation query back to the sender of the MsgSectionWithSig
-func sendDelegationQuery(context, zone string, expTime int64, sender ConnInfo) {
-	token := rainslib.GenerateToken()
-	querySection := rainslib.QuerySection{
-		Context: context,
-		Name:    zone,
-		Expires: int(expTime),
-		Token:   token,
-		Types:   rainslib.Delegation,
-	}
-	query := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Content: []rainslib.MessageSection{&querySection}}
-	msg, err := msgParser.ParseRainsMsg(query)
-	if err != nil {
-		log.Warn("Cannot parse a delegation Query", "query", query)
-	}
-	log.Info("Send delegation Query", "query", querySection)
-	activeTokens[token] = true
-	//TODO CFE is the sender correctly chosen?
-	sendTo(msg, sender)
 }
 
 //validSignature validates the signatures on a MessageSectionWithSig and strips all expired signatures away.

@@ -23,7 +23,6 @@ var framer scanner
 //InitSwitchboard initializes the switchboard
 func initSwitchboard() error {
 	var err error
-	serverConnInfo = getServerIPAddrandPort()
 	//init cache
 	connCache, err = createConnectionCache(int(Config.MaxConnections))
 	if err != nil {

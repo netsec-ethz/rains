@@ -63,6 +63,19 @@ func (t TotalInterval) End() string {
 	return ""
 }
 
+//StringInterval implements Interval for a single string value
+type StringInterval struct {
+	Name string
+}
+
+func (s StringInterval) Begin() string {
+	return s.Name
+}
+
+func (s StringInterval) End() string {
+	return s.Name
+}
+
 //AssertionSection contains information about the assertion
 type AssertionSection struct {
 	SubjectName string
@@ -249,11 +262,21 @@ type QuerySection struct {
 	Token   Token
 	Name    string
 	Context string
-	Types   ObjectType
-	Expires int
+	Type    ObjectType
+	Expires int64
 
 	//Optional
 	Options []QueryOption
+}
+
+//ContainsOption returns true if the query contains the given query option.
+func (q QuerySection) ContainsOption(option QueryOption) bool {
+	for _, opt := range q.Options {
+		if opt == option {
+			return true
+		}
+	}
+	return false
 }
 
 type QueryOption int

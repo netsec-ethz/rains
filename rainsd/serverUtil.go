@@ -26,6 +26,7 @@ func InitServer() error {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(h)
 	loadConfig()
+	serverConnInfo = ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}
 	if err := loadCert(); err != nil {
 		return err
 	}
@@ -69,11 +70,6 @@ func loadCert() error {
 		return errors.New("failed to parse root certificate")
 	}
 	return nil
-}
-
-//getServerIPAddrandPort fetches HostAddr and port number from config file on which this server is listening to
-func getServerIPAddrandPort() ConnInfo {
-	return ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}
 }
 
 //CreateNotificationMsg creates a notification messages
@@ -153,6 +149,32 @@ func VerifySignature(algoType rainslib.SignatureAlgorithmType, publicKey interfa
 		log.Warn("Signature algorithm type not supported", "type", algoType)
 	}
 	return false
+}
+
+func sendQuery(context, zone string, expTime int64, objType rainslib.ObjectType, token rainslib.Token, sender ConnInfo) {
+	querySection := rainslib.QuerySection{
+		Context: context,
+		Name:    zone,
+		Expires: expTime,
+		Token:   token,
+		Type:    objType,
+	}
+	query := rainslib.RainsMessage{Token: token, Content: []rainslib.MessageSection{&querySection}}
+	//TODO CFE add infrastructure signature to query message?
+	msg, err := msgParser.ParseRainsMsg(query)
+	if err != nil {
+		log.Warn("Cannot parse a delegation Query", "query", query)
+		return
+	}
+	log.Info("Query sent", "query", querySection)
+	sendTo(msg, sender)
+}
+
+//getDelegationAddress returns the address of a server to which this server delegates a query if it has no answer in the cache.
+func getDelegationAddress(context, zone string) ConnInfo {
+	//FIXME CFE not yet implemented
+	log.Warn("Not yet implemented CFE. return hard coded value")
+	return ConnInfo{Type: TCP, IPAddr: net.ParseIP("127.0.0.1"), Port: 5023}
 }
 
 //createConnectionCache returns a newly created connection cache

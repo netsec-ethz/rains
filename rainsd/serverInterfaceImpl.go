@@ -709,8 +709,8 @@ func handleNegElementCacheSize(c *negativeAssertionCacheImpl) {
 }
 
 //Get returns true and the shortest sections with the longest validity of a given context and zone containing the name if there exists one. Otherwise false is returned
-func (c *negativeAssertionCacheImpl) Get(context, zone string, assertion *rainslib.AssertionSection) (rainslib.MessageSectionWithSig, bool) {
-	sections, ok := c.GetAll(context, zone, assertion)
+func (c *negativeAssertionCacheImpl) Get(context, zone string, interval rainslib.Interval) (rainslib.MessageSectionWithSig, bool) {
+	sections, ok := c.GetAll(context, zone, interval)
 	if ok {
 		//FIXME CFE return shortest shard, how to find out how large a shard is, store number of assertions to it?
 		return sections[0], true
@@ -720,16 +720,16 @@ func (c *negativeAssertionCacheImpl) Get(context, zone string, assertion *rainsl
 
 //GetAll returns true and all sections of a given context and zone which intersect with the given Range if there is at least one. Otherwise false is returned
 //if beginRange and endRange are an empty string then the zone and all shards of that context and zone are returned
-func (c *negativeAssertionCacheImpl) GetAll(context, zone string, section rainslib.MessageSectionWithSig) ([]rainslib.MessageSectionWithSig, bool) {
+func (c *negativeAssertionCacheImpl) GetAll(context, zone string, interval rainslib.Interval) ([]rainslib.MessageSectionWithSig, bool) {
 	v, ok := c.cache.Get(context, zone)
 	if !ok {
 		return nil, false
 	}
 	if rq, ok := v.(rangeQueryDataStruct); ok {
 		sections := []rainslib.MessageSectionWithSig{}
-		if intervals, ok := rq.Get(section); ok && len(intervals) > 0 {
-			for _, interval := range intervals {
-				if val, ok := interval.(negativeAssertionCacheValue); ok && val.validUntil > time.Now().Unix() && val.validFrom < time.Now().Unix() {
+		if intervals, ok := rq.Get(interval); ok && len(intervals) > 0 {
+			for _, element := range intervals {
+				if val, ok := element.(negativeAssertionCacheValue); ok && val.validUntil > time.Now().Unix() && val.validFrom < time.Now().Unix() {
 					sections = append(sections, val.section)
 				}
 			}
@@ -1029,16 +1029,19 @@ func deleteAssertionFromRangeMap(c *AssertionCacheImpl, assertion *rainslib.Asse
 	return false
 }
 
-//Get returns true and a set of valid assertions matching the given key if there exists some. Otherwise false is returned
-func (c *AssertionCacheImpl) Get(context, zone, name string, objType rainslib.ObjectType) ([]*rainslib.AssertionSection, bool) {
+//Get returns true and a set of assertions matching the given key if there exists some. Otherwise false is returned
+//If expiredAllowed is false, then no expired assertions will be returned
+func (c *AssertionCacheImpl) Get(context, zone, name string, objType rainslib.ObjectType, expiredAllowed bool) ([]*rainslib.AssertionSection, bool) {
 	assertions := []*rainslib.AssertionSection{}
 	v, ok := c.assertionCache.Get(context, zone, name, objType.String())
 	if ok {
 		if set, ok := v.(setContainer); ok {
 			for _, val := range set.GetAll() {
 				if value, ok := val.(assertionCacheValue); ok {
-					if value.validFrom < time.Now().Unix() && value.validUntil > time.Now().Unix() {
-						assertions = append(assertions, value.section)
+					if value.validFrom < time.Now().Unix() {
+						if expiredAllowed || value.validUntil > time.Now().Unix() {
+							assertions = append(assertions, value.section)
+						}
 					}
 				} else {
 					log.Error(fmt.Sprintf("Cache element was not of type assertionCacheValue. Got:%T", val))
@@ -1060,7 +1063,7 @@ func (c *AssertionCacheImpl) GetInRange(context, zone string, interval rainslib.
 		assertionMetaInfos := sortedList.Get(interval)
 		for _, elem := range assertionMetaInfos {
 			if elem.validFrom < time.Now().Unix() && elem.validUntil > time.Now().Unix() {
-				if assertions, ok := c.Get(context, zone, elem.name, elem.objType); ok {
+				if assertions, ok := c.Get(context, zone, elem.name, elem.objType, false); ok {
 					return assertions, true
 				}
 			}

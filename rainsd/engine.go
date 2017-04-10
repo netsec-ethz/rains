@@ -3,6 +3,10 @@ package rainsd
 import (
 	"rains/rainslib"
 
+	"strings"
+
+	"time"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -137,20 +141,70 @@ func cacheZone(zone *rainslib.ZoneSection) bool {
 }
 
 //query directly answers the query if result is cached. Otherwise it issues a new query and puts this query to the pendingQueries Cache.
-func query(query *rainslib.QuerySection) {
+func query(query *rainslib.QuerySection, sender ConnInfo) {
 	log.Info("Start processing query", "query", query)
-	//if answer is in assertion cache, return assertion (depending on query option also return expired queries)
-	//if answer is in negAssertion cache return shard/zone
-	//if query option 4 return notification message 504
-	//else getDestination (depends on configuration) e.g. for Scion non core AS: core RainsServer, for core AS: redirect?
-	////if destination is myself then send notification message 504??
-	////if query option 6 then use same token else generate new token
-	////add to pending query cache
-	////create query and send it out via switchboard
+	zoneAndNames := getZoneAndName(query.Name)
+	for _, zAn := range zoneAndNames {
+		assertions, ok := assertionsCache.Get(query.Context, zAn.zone, zAn.name, query.Type, query.ContainsOption(rainslib.ExpiredAssertionsOk))
+		//TODO CFE add heuristic which assertion to return
+		if ok {
+			sendQueryAnswer(assertions[0], sender, query.Token)
+			return
+		}
+	}
+	//assertion cache does not contain an answer for this query. Look into negativeAssertion cache
+	for _, zAn := range zoneAndNames {
+		negAssertion, ok := negAssertionCache.Get(query.Context, zAn.zone, rainslib.StringInterval{Name: zAn.name})
+		if ok {
+			sendQueryAnswer(negAssertion, sender, query.Token)
+			return
+		}
+	}
+	//negativeAssertion cache does not contain an answer for this query.
+	if query.ContainsOption(rainslib.CachedAnswersOnly) {
+		sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
+		return
+	}
+	for _, zAn := range zoneAndNames {
+		delegate := getDelegationAddress(query.Context, zAn.zone)
+		if delegate.Equal(serverConnInfo) {
+			sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
+			return
+		}
+		//we have a valid delegation
+		token := query.Token
+		if !query.ContainsOption(rainslib.TokenTracing) {
+			token = rainslib.GenerateToken()
+		}
+		validUntil := time.Now().Add(Config.AssertionQueryValidity).Unix() //Upper bound for forwarded query expiration time
+		if query.Expires < validUntil {
+			validUntil = query.Expires
+		}
+		pendingQueries.Add(query.Context, zAn.zone, zAn.name, query.Type, pendingQuerySetValue{connInfo: sender, token: token, validUntil: validUntil})
+		sendQuery(query.Context, zAn.zone, validUntil, query.Type, token, delegate)
+	}
+}
+
+//getZoneAndName tries to split a fully qualified name into zone and name
+func getZoneAndName(name string) []zoneAndName {
+	//TODO CFE use also different heuristics
+	names := strings.Split(name, ".")
+	return []zoneAndName{zoneAndName{zone: strings.Join(names[1:], "."), name: names[0]}}
+}
+
+//sendQueryAnswer sends a section with Signature to back to the sender with the specified token
+func sendQueryAnswer(section rainslib.MessageSectionWithSig, sender ConnInfo, token rainslib.Token) {
+	//TODO CFE add signature on message?
+	msg := rainslib.RainsMessage{Content: []rainslib.MessageSection{section}, Token: token}
+	byteMsg, err := msgParser.ParseRainsMsg(msg)
+	if err != nil {
+		log.Error("Was not able to parse message", "message", msg, "error", err)
+		return
+	}
+	sendTo(byteMsg, sender)
 }
 
 //reapEngine deletes expired elements in the following caches: assertionCache, negAssertionCache, pendingQueries
-//It sends a 504 notification in case of an expired element in the pendingQueries cache
 func reapEngine() {
 	//TODO CFE implement once we have datastructure
 }

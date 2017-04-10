@@ -193,7 +193,7 @@ func revParseQuery(q *rainslib.QuerySection) string {
 	if len(q.Options) > 0 {
 		opts = opts[:len(opts)-1]
 	}
-	return fmt.Sprintf(":QU::VU:%d:CN:%s:SN:%s:OT:%d[%s]", q.Expires, q.Context, q.Name, q.Types, opts)
+	return fmt.Sprintf(":QU::VU:%d:CN:%s:SN:%s:OT:%d[%s]", q.Expires, q.Context, q.Name, q.Type, opts)
 }
 
 //revParseNotification parses a rains notification to its string representation with format:
@@ -532,7 +532,7 @@ func parseQuery(msg string, token rainslib.Token) (*rainslib.QuerySection, error
 		log.Warn("Query Msg Section malformed")
 		return &rainslib.QuerySection{}, errors.New("Query Msg Section malformed")
 	}
-	expires, err := strconv.Atoi(msg[vu+4 : cn])
+	expires, err := strconv.ParseInt(msg[vu+4:cn], 10, 64)
 	if err != nil {
 		log.Warn("Valid Until malformed")
 		return &rainslib.QuerySection{}, errors.New("Valid Until malformed")
@@ -556,7 +556,7 @@ func parseQuery(msg string, token rainslib.Token) (*rainslib.QuerySection, error
 		Expires: expires,
 		Context: msg[cn+4 : sn],
 		Name:    msg[sn+4 : ot],
-		Types:   rainslib.ObjectType(objType),
+		Type:    rainslib.ObjectType(objType),
 		Options: opts,
 	}, nil
 }

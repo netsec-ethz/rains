@@ -50,6 +50,7 @@ type rainsdConfig struct {
 	AssertionCacheSize         uint
 	NegativeAssertionCacheSize uint
 	PendingQueryCacheSize      uint
+	AssertionQueryValidity     time.Duration
 }
 
 //DefaultConfig is a rainsdConfig object containing default values
@@ -57,7 +58,7 @@ var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerP
 	CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key", MaxMsgByteLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerCount: 2,
 	NormalWorkerCount: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
 	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}, InfrastructureKeyCacheSize: 10,
-	ExternalKeyCacheSize: 5, DelegationQueryValidity: 5 * time.Second, NegativeAssertionCacheSize: 500}
+	ExternalKeyCacheSize: 5, DelegationQueryValidity: 5 * time.Second, NegativeAssertionCacheSize: 500, AssertionQueryValidity: 5 * time.Second}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int
@@ -86,6 +87,11 @@ func (c ConnInfo) String() string {
 //PortToString return the port number as a string
 func (c ConnInfo) PortToString() string {
 	return strconv.Itoa(int(c.Port))
+}
+
+//Equal returns true if both Connection Information have the same type and values
+func (c ConnInfo) Equal(conn ConnInfo) bool {
+	return c.Type == conn.Type && c.IPAddr.Equal(conn.IPAddr) && c.Port == conn.Port
 }
 
 //AddressPair contains address information about both peers of a connection
@@ -242,8 +248,9 @@ type assertionCache interface {
 	//Returns true if cache did not already contain an entry for the given context,zone, name and objType
 	//If the cache is full it removes an external assertionCacheValue according to some metric.
 	Add(context, zone, name string, objType rainslib.ObjectType, internal bool, value assertionCacheValue) bool
-	//Get returns true and a set of valid assertions matching the given key if there exists some. Otherwise false is returned
-	Get(context, zone, name string, objType rainslib.ObjectType) ([]*rainslib.AssertionSection, bool)
+	//Get returns true and a set of assertions matching the given key if there exists some. Otherwise false is returned
+	//If expiredAllowed is false, then no expired assertions will be returned
+	Get(context, zone, name string, objType rainslib.ObjectType, expiredAllowed bool) ([]*rainslib.AssertionSection, bool)
 	//GetInRange returns true and a set of valid assertions in the given interval matching the given context and zone if there are any. Otherwise false is returned
 	GetInRange(context, zone string, interval rainslib.Interval) ([]*rainslib.AssertionSection, bool)
 	//Len returns the number of elements in the cache.
@@ -272,10 +279,10 @@ type negativeAssertionCache interface {
 	//Returns true if value was added to the cache.
 	//If the cache is full it removes an external negativeAssertionCacheValue according to some metric.
 	Add(context, zone string, internal bool, value negativeAssertionCacheValue) bool
-	//Get returns true and the shortest valid shard/zone with the longest validity in range of the assertion if there exists one. Otherwise false is returned
-	Get(context, zone string, assertion *rainslib.AssertionSection) (rainslib.MessageSectionWithSig, bool)
-	//GetAll returns true and all valid sections of a given context and zone which intersect with the given Range if there is at least one. Otherwise false is returned
-	GetAll(context, zone string, section rainslib.MessageSectionWithSig) ([]rainslib.MessageSectionWithSig, bool)
+	//Get returns true and the shortest valid shard/zone with the longest validity in range of the interval if there exists one. Otherwise false is returned
+	Get(context, zone string, interval rainslib.Interval) (rainslib.MessageSectionWithSig, bool)
+	//GetAll returns true and all valid sections of a given context and zone which intersect with the given interval if there is at least one. Otherwise false is returned
+	GetAll(context, zone string, interval rainslib.Interval) ([]rainslib.MessageSectionWithSig, bool)
 	//Len returns the number of elements in the cache.
 	Len() int
 	//RemoveExpiredValues goes through the cache and removes all expired values. If for a given context and zone there is no value left it removes the entry from cache.
@@ -331,4 +338,10 @@ type rangeQueryDataStruct interface {
 	Delete(item rainslib.Interval) bool
 	//Get returns true all intervals which intersect with item if there are any. Otherwise false is returned
 	Get(item rainslib.Interval) ([]rainslib.Interval, bool)
+}
+
+//zoneAndName contains zone and name which together constitute a fully qualified name
+type zoneAndName struct {
+	zone string
+	name string
 }
