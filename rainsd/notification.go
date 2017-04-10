@@ -1,9 +1,9 @@
 package rainsd
 
 import (
-	"rains/rainslib"
-
 	log "github.com/inconshreveable/log15"
+
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 //notify handles incoming notification messages

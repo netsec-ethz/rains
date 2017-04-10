@@ -2,10 +2,11 @@ package rainsd
 
 import (
 	"fmt"
-	"rains/rainslib"
-	"rains/utils/parser"
 
 	log "github.com/inconshreveable/log15"
+
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/parser"
 )
 
 //incoming messages are buffered in one of these channels until they get processed by a worker go routine
