@@ -340,10 +340,10 @@ func (c *pendingSignatureCacheImpl) GetAllAndDelete(context, zone string) ([]rai
 		c.cache.Remove(context, zone)
 		for _, section := range secs {
 			if s, ok := section.(pendingSignatureCacheValue); ok {
-				if s.ValidUntil > time.Now().Unix() {
+				if s.validUntil > time.Now().Unix() {
 					sections = append(sections, s.section)
 				} else {
-					log.Info("section expired", "section", s.section, "validity", s.ValidUntil)
+					log.Info("section expired", "section", s.section, "validity", s.validUntil)
 				}
 			} else {
 				log.Error(fmt.Sprintf("Cache element was not of type pendingSignatureCacheValue. Got:%T", section))
@@ -374,7 +374,7 @@ func (c *pendingSignatureCacheImpl) RemoveExpiredSections() {
 				for _, val := range vals {
 					v, ok := val.(pendingSignatureCacheValue)
 					if ok {
-						if v.ValidUntil < time.Now().Unix() {
+						if v.validUntil < time.Now().Unix() {
 							ok := set.Delete(val)
 							if ok {
 								deleteCount++
@@ -465,7 +465,7 @@ func (c *pendingQueryCacheImpl) Add(context, zone, name string, objType rainslib
 			zone:       zone,
 			name:       name,
 			objType:    objType,
-			validUntil: value.ValidUntil,
+			validUntil: value.validUntil,
 		}
 		c.activeTokenLock.Unlock()
 		updatePendingQueryCount(c)
@@ -503,7 +503,9 @@ func updatePendingQueryCount(c *pendingQueryCacheImpl) {
 
 //handlePendingQueryCacheSize deletes all sender infos from the least recently used cache entry if it exceeds the cache size
 func handlePendingQueryCacheSize(c *pendingQueryCacheImpl) {
+	c.elemCountLock.RLock()
 	if c.elementCount > c.maxElements {
+		c.elemCountLock.RUnlock()
 		key, _ := c.callBackCache.GetLeastRecentlyUsedKey()
 		v, ok := c.callBackCache.Get(key[0], key[1])
 		if ok {
@@ -541,10 +543,10 @@ func (c *pendingQueryCacheImpl) GetAllAndDelete(token rainslib.Token) ([]pending
 		deleteCount = len(queriers)
 		for _, querier := range queriers {
 			if q, ok := querier.(pendingQuerySetValue); ok {
-				if q.ValidUntil > time.Now().Unix() {
+				if q.validUntil > time.Now().Unix() {
 					sendInfos = append(sendInfos, q)
 				} else {
-					log.Info("query expired.", "sender", q.ConnInfo, "token", q.Token)
+					log.Info("query expired.", "sender", q.connInfo, "token", q.token)
 				}
 			} else {
 				log.Error(fmt.Sprintf("Cache element was not of type pendingQuerySetValue. Got:%T", querier))
@@ -585,7 +587,7 @@ func (c *pendingQueryCacheImpl) RemoveExpiredValues() {
 				for _, val := range vals {
 					v, ok := val.(pendingQuerySetValue)
 					if ok {
-						if v.ValidUntil < time.Now().Unix() {
+						if v.validUntil < time.Now().Unix() {
 							ok := cval.set.Delete(val)
 							if ok {
 								deleteCount++
@@ -874,6 +876,13 @@ func (s *sortedAssertions) Delete(e elemAndValidity) bool {
 	return true
 }
 
+//Len returns the number of element in this sorted slice
+func (s *sortedAssertions) Len() int {
+	s.assertionsLock.RLock()
+	defer s.assertionsLock.RUnlock()
+	return len(s.assertions)
+}
+
 //Get returns all assertion meta data which are in the given interval
 func (s *sortedAssertions) Get(interval rainslib.Interval) []elemAndValidity {
 	s.assertionsLock.RLock()
@@ -964,24 +973,60 @@ func addAssertionToRangeMap(c *AssertionCacheImpl, context, zone, name string, o
 		validFrom: value.validFrom,
 	}
 	if val, ok := c.rangeMap[contextAndZone{Context: context, Zone: zone}]; ok {
+		c.rangeMapLock.Unlock()
 		val.Add(elem)
 	} else {
 		c.rangeMap[contextAndZone{Context: context, Zone: zone}] = &sortedAssertions{assertions: []elemAndValidity{elem}}
+		c.rangeMapLock.Unlock()
 	}
-	c.rangeMapLock.Unlock()
 }
 
-//updatePendingQueryCount increases the element count by one
+//updateAssertionCacheCount increases the element count by one
 func updateAssertionCacheCount(c *AssertionCacheImpl) {
 	c.elemCountLock.Lock()
 	c.elementCount++
 	c.elemCountLock.Unlock()
 }
 
-//handlePendingQueryCacheSize deletes all sender infos from the least recently used cache entry if it exceeds the cache size
+//handleAssertionCacheSize deletes all assertions from the least recently used cache entry if it exceeds the cache size
 func handleAssertionCacheSize(c *AssertionCacheImpl) {
-	//TODO CFE implement
-	log.Error("Not yet implemented CFE")
+	c.elemCountLock.RLock()
+	if c.elementCount > c.maxElements {
+		c.elemCountLock.RUnlock()
+		key, _ := c.assertionCache.GetLeastRecentlyUsedKey()
+		v, ok := c.assertionCache.Get(key[0], key[1])
+		if ok {
+			if set, ok := v.(setContainer); ok {
+				vals := set.GetAllAndDelete()
+				c.assertionCache.Remove(key[0], key[1])
+				for _, val := range vals {
+					val := val.(assertionCacheValue)
+					deleteAssertionFromRangeMap(c, val.section, val.validFrom, val.validUntil)
+				}
+			}
+		}
+	}
+}
+
+//deleteAssertionFromRangeMap deletes the given assertion from the rangeMap. Return true if it was able to delete the element
+func deleteAssertionFromRangeMap(c *AssertionCacheImpl, assertion *rainslib.AssertionSection, validFrom, validUntil int64) bool {
+	c.rangeMapLock.RLock()
+	e, ok := c.rangeMap[contextAndZone{Context: assertion.Context, Zone: assertion.SubjectZone}]
+	c.rangeMapLock.RUnlock()
+	if ok { //if not ok, element was already removed and we are done.
+		return e.Delete(elemAndValidity{
+			elemAndValidTo: elemAndValidTo{
+				context: assertion.Context,
+				zone:    assertion.SubjectZone,
+				name:    assertion.SubjectName,
+				//FIXME CFE when assertion can contain several types. Delete all of them from
+				objType:    assertion.Content[0].Type,
+				validUntil: validUntil,
+			},
+			validFrom: validFrom,
+		})
+	}
+	return false
 }
 
 //Get returns true and a set of valid assertions matching the given key if there exists some. Otherwise false is returned
@@ -1033,5 +1078,66 @@ func (c *AssertionCacheImpl) Len() int {
 
 //RemoveExpiredValues goes through the cache and removes all expired assertions. If for a given context and zone there is no assertion left it removes the entry from cache.
 func (c *AssertionCacheImpl) RemoveExpiredValues() {
-	//TODO CFE Implement
+	//Delete expired assertions, shards or zones
+	keys := c.assertionCache.Keys()
+	deleteCount := 0
+	for _, key := range keys {
+		v, ok := c.assertionCache.Get(key[0], key[1])
+		if ok { //check if element is still contained
+			set, ok := v.(setContainer)
+			if ok { //check that cache element is a setContainer
+				vals := set.GetAll()
+				//check validity of all container elements and remove expired once
+				allRemoved := true
+				for _, val := range vals {
+					v, ok := val.(assertionCacheValue)
+					if ok {
+						if v.validUntil < time.Now().Unix() {
+							ok := set.Delete(val)
+							if ok {
+								deleteCount++
+								ok := deleteAssertionFromRangeMap(c, v.section, v.validFrom, v.validUntil)
+								if !ok {
+									log.Error("Was not able to delete assertion from rangeMap")
+								}
+							}
+						} else {
+							allRemoved = false
+						}
+					} else {
+						log.Error(fmt.Sprintf("set element was not of type assertionCacheValue. Got:%T", val))
+					}
+				}
+				//remove entry from assertioncache if non left. If one was added in the meantime do not delete it.
+				if allRemoved {
+					vals := set.GetAllAndDelete()
+					if len(vals) == 0 {
+						c.assertionCache.Remove(key[0], key[1])
+					} else {
+						set := setDataStruct.New()
+						for _, val := range vals {
+							set.Add(val)
+						}
+						//FIXME CFE here another go routine could come in between. Add an update function to the cache.
+						//Right now we overwrite an internal set to an external. This is not the case if we update the value.
+						c.assertionCache.Remove(key[0], key[1])
+						c.assertionCache.Add(set, false, key[0], key[1])
+					}
+				}
+			} else {
+				log.Error(fmt.Sprintf("Cache element was not of type setContainer. Got:%T", v))
+			}
+		}
+	}
+	c.elemCountLock.Lock()
+	c.elementCount -= deleteCount
+	c.elemCountLock.Unlock()
+	//Remove mappings to empty lists in rangeMap
+	c.rangeMapLock.Lock()
+	for k, v := range c.rangeMap {
+		if v.Len() == 0 {
+			delete(c.rangeMap, k)
+		}
+	}
+	c.rangeMapLock.Unlock()
 }

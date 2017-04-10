@@ -217,3 +217,12 @@ func createNegativeAssertionCache(cacheSize int) (negativeAssertionCache, error)
 	return &negativeAssertionCacheImpl{cache: c, maxElements: cacheSize, elementCount: 0}, nil
 
 }
+
+func createAssertionCache(cacheSize int) (assertionCache, error) {
+	c, err := cache.New(cacheSize, "anyContext")
+	if err != nil {
+		return nil, err
+	}
+	return &AssertionCacheImpl{assertionCache: c, maxElements: cacheSize, elementCount: 0, rangeMap: make(map[contextAndZone]*sortedAssertions)}, nil
+
+}

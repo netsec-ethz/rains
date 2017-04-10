@@ -8,7 +8,7 @@ import (
 
 //assertionCache contains a set of valid assertions where some of them might be expired.
 //An entry is marked as extrenal if it might be evicted.
-var assertions assertionCache
+var assertionsCache assertionCache
 
 //negAssertionCache contains for each zone and context an interval tree to find all shards and zones containing a specific assertion
 //for a zone the range is infinit: range "",""
@@ -30,20 +30,17 @@ func initEngine() error {
 		return err
 	}
 
+	assertionsCache, err = createAssertionCache(int(Config.AssertionCacheSize))
+	if err != nil {
+		log.Error("Cannot create assertion Cache", "error", err)
+		return err
+	}
+
 	negAssertionCache, err = createNegativeAssertionCache(int(Config.NegativeAssertionCacheSize))
 	if err != nil {
 		log.Error("Cannot create negative assertion Cache", "error", err)
 		return err
 	}
-
-	/*//TODO CFE add size to server config
-	assertionCache, err = aCache.New(1d0d,defaultConfig "anyContext") //utils.assertioncache
-	err = assertionCache.New(100)
-	if err != nil {
-		log.Error("Cannot create assertionCache", "error", err)
-		return err
-	}
-	*/
 	return nil
 }
 

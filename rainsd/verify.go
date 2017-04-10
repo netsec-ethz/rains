@@ -197,10 +197,10 @@ func verifySignatures(sectionSender sectionWithSigSender, wg *sync.WaitGroup) bo
 	//If several keys arrive at the same time then multiple callbacks might be called simultaneously and this section will be processed multiple times.
 	//This event is expected to be rare.
 	//-> FIXME CFE this cannot happen now, as we only send one query because we cannot specify the signature algorithm
-	cacheValue := pendingSignatureCacheValue{section: section, ValidUntil: getQueryValidity(section.Sigs())}
+	cacheValue := pendingSignatureCacheValue{section: section, validUntil: getQueryValidity(section.Sigs())}
 	ok = pendingSignatures.Add(section.GetContext(), section.GetSubjectZone(), cacheValue)
 	if ok {
-		sendDelegationQuery(section.GetContext(), section.GetSubjectZone(), cacheValue.ValidUntil, sectionSender.Sender)
+		sendDelegationQuery(section.GetContext(), section.GetSubjectZone(), cacheValue.validUntil, sectionSender.Sender)
 	}
 	log.Info("Section added to pending signature cache", "section", section)
 	return false

@@ -57,7 +57,7 @@ var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerP
 	CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key", MaxMsgByteLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerCount: 2,
 	NormalWorkerCount: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
 	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}, InfrastructureKeyCacheSize: 10,
-	ExternalKeyCacheSize: 5, DelegationQueryValidity: 5 * time.Second}
+	ExternalKeyCacheSize: 5, DelegationQueryValidity: 5 * time.Second, NegativeAssertionCacheSize: 500}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int
@@ -182,7 +182,7 @@ type publicKeyList interface {
 //pendingSignatureCacheValue is the value received from the pendingQuery cache
 type pendingSignatureCacheValue struct {
 	section    rainslib.MessageSectionWithSig
-	ValidUntil int64
+	validUntil int64
 }
 
 //pendingSignatureCache stores all sections with a signature waiting for a public key to arrive so they can be verified
@@ -202,9 +202,9 @@ type pendingSignatureCache interface {
 
 //pendingSignatureCacheValue is the value received from the pendingQuery cache
 type pendingQuerySetValue struct {
-	ConnInfo   ConnInfo
-	Token      rainslib.Token //Token from the received query
-	ValidUntil int64
+	connInfo   ConnInfo
+	token      rainslib.Token //Token from the received query
+	validUntil int64
 }
 
 //pendingSignatureCacheValue is the value received from the pendingQuery cache
