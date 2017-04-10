@@ -3,13 +3,14 @@ package rainsd
 import (
 	"fmt"
 	"math/rand"
-	"rains/rainslib"
 	"strconv"
 	"sync"
 	"time"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
+
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 //zoneKeyCache contains a set of zone public keys

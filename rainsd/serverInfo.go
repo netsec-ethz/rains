@@ -3,10 +3,11 @@ package rainsd
 import (
 	"crypto/x509"
 	"net"
-	"rains/rainslib"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 var serverConnInfo ConnInfo

@@ -1,9 +1,9 @@
 package rainsd
 
 import (
-	"rains/rainslib"
-
 	log "github.com/inconshreveable/log15"
+
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 //assertionCache contains a set of valid assertions where some of them might be expired.

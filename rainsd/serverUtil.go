@@ -9,10 +9,11 @@ import (
 	"errors"
 	"io/ioutil"
 	"math/big"
-	"rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
+
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 const (

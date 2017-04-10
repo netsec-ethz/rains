@@ -1,6 +1,6 @@
 package main
 
-import "rains/rainsd"
+import "github.com/netsec-ethz/rains/rainsd"
 
 //This package initializes and starts the server
 
