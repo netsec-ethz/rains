@@ -839,7 +839,7 @@ func (l *sectionList) Delete(item rainslib.Interval) bool {
 	return false
 }
 
-//Get returns all intervals which intersect with item.
+//Get returns true and all intervals which intersect with item in lexicographic order if there are any. Otherwise false is returned
 func (l *sectionList) Get(item rainslib.Interval) ([]rainslib.Interval, bool) {
 	intervals := []rainslib.Interval{}
 	l.listLock.RLock()
