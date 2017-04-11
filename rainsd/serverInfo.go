@@ -347,7 +347,7 @@ type rangeQueryDataStruct interface {
 	Add(item rainslib.Interval) bool
 	//Delete deletes item from the data structure
 	Delete(item rainslib.Interval) bool
-	//Get returns true and all intervals in lexicographic sorted order which intersect with item if there are any. Otherwise false is returned
+	//Get returns true and all intervals which intersect with item if there are any. Otherwise false is returned
 	Get(item rainslib.Interval) ([]rainslib.Interval, bool)
 	//returns the number of elements in the data structure
 	Len() int

@@ -41,6 +41,8 @@ type MessageSectionWithSig interface {
 	GetContext() string
 	GetSubjectZone() string
 	CreateStub() MessageSectionWithSig
+	ValidFrom() int64
+	ValidUntil() int64
 	Interval
 }
 
@@ -128,6 +130,28 @@ func (a *AssertionSection) End() string {
 	return a.SubjectName
 }
 
+//ValidFrom returns the earliest validFrom date of all contained signatures
+func (a *AssertionSection) ValidFrom() int64 {
+	valid := a.Signatures[0].ValidSince
+	for _, sig := range a.Signatures[1:] {
+		if sig.ValidSince < valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
+//ValidUntil returns the latest validUntil date of all contained signatures
+func (a *AssertionSection) ValidUntil() int64 {
+	valid := a.Signatures[0].ValidUntil
+	for _, sig := range a.Signatures[1:] {
+		if sig.ValidSince > valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
 //EqualContextZoneName return true if the given assertion has the same context, zone, name.
 func (a *AssertionSection) EqualContextZoneName(assertion *AssertionSection) bool {
 	return a.Context == assertion.Context &&
@@ -193,6 +217,28 @@ func (s *ShardSection) Begin() string {
 //End returns the end of the interval of this shard.
 func (s *ShardSection) End() string {
 	return s.RangeTo
+}
+
+//ValidFrom returns the earliest validFrom date of all contained signatures
+func (s *ShardSection) ValidFrom() int64 {
+	valid := s.Signatures[0].ValidSince
+	for _, sig := range s.Signatures[1:] {
+		if sig.ValidSince < valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
+//ValidUntil returns the latest validUntil date of all contained signatures
+func (s *ShardSection) ValidUntil() int64 {
+	valid := s.Signatures[0].ValidUntil
+	for _, sig := range s.Signatures[1:] {
+		if sig.ValidSince > valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
 }
 
 //ZoneSection contains information about the zone
@@ -261,6 +307,28 @@ func (z *ZoneSection) Begin() string {
 //End returns the end of the interval of this zone.
 func (z *ZoneSection) End() string {
 	return ""
+}
+
+//ValidFrom returns the earliest validFrom date of all contained signatures
+func (z *ZoneSection) ValidFrom() int64 {
+	valid := z.Signatures[0].ValidSince
+	for _, sig := range z.Signatures[1:] {
+		if sig.ValidSince < valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
+//ValidUntil returns the latest validUntil date of all contained signatures
+func (z *ZoneSection) ValidUntil() int64 {
+	valid := z.Signatures[0].ValidUntil
+	for _, sig := range z.Signatures[1:] {
+		if sig.ValidSince > valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
 }
 
 //QuerySection contains information about the query

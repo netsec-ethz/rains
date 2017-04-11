@@ -253,6 +253,6 @@ func createAssertionCache(cacheSize int) (assertionCache, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &assertionCacheImpl{assertionCache: c, maxElements: cacheSize, elementCount: 0, rangeMap: make(map[contextAndZone]*sortedAssertions)}, nil
+	return &assertionCacheImpl{assertionCache: c, maxElements: cacheSize, elementCount: 0, rangeMap: make(map[contextAndZone]*sortedAssertionMetaData)}, nil
 
 }

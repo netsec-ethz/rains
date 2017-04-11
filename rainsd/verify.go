@@ -69,6 +69,9 @@ func verify(msgSender msgSectionSender) {
 		if !containedAssertionsAndShardsValid(sectionSender) {
 			return //already logged, that the section is invalid
 		}
+		if zone, ok := section.(*rainslib.ZoneSection); ok && !containedShardsAreConsistent(zone) {
+			return //already logged, that the zone is internally invalid
+		}
 		if verifySignatures(sectionSender, nil) {
 			assert(section.(rainslib.MessageSectionWithSig), false)
 		}

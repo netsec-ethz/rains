@@ -839,7 +839,7 @@ func (l *sectionList) Delete(item rainslib.Interval) bool {
 	return false
 }
 
-//Get returns true and all intervals which intersect with item in lexicographic order if there are any. Otherwise false is returned
+//Get returns true and all intervals which intersect with item if there are any. Otherwise false is returned
 func (l *sectionList) Get(item rainslib.Interval) ([]rainslib.Interval, bool) {
 	intervals := []rainslib.Interval{}
 	l.listLock.RLock()
@@ -865,14 +865,14 @@ type elemAndValidity struct {
 	validFrom int64
 }
 
-type sortedAssertions struct {
+type sortedAssertionMetaData struct {
 	assertions     []elemAndValidity
 	assertionsLock sync.RWMutex
 }
 
-//Add adds e to the sorted list at the right position.
+//Add adds e to the sorted list at the correct position.
 //It returns true if it added e and false if e is already contained
-func (s *sortedAssertions) Add(e elemAndValidity) bool {
+func (s *sortedAssertionMetaData) Add(e elemAndValidity) bool {
 	s.assertionsLock.Lock()
 	defer s.assertionsLock.Unlock()
 	i := sort.Search(len(s.assertions), func(i int) bool {
@@ -887,7 +887,7 @@ func (s *sortedAssertions) Add(e elemAndValidity) bool {
 
 //Delete removes e from the sorted list.
 //Returns true if element was successfully deleted from the list. If e not part of list returns false
-func (s *sortedAssertions) Delete(e elemAndValidity) bool {
+func (s *sortedAssertionMetaData) Delete(e elemAndValidity) bool {
 	s.assertionsLock.Lock()
 	defer s.assertionsLock.Unlock()
 	i := sort.Search(len(s.assertions), func(i int) bool {
@@ -901,14 +901,14 @@ func (s *sortedAssertions) Delete(e elemAndValidity) bool {
 }
 
 //Len returns the number of element in this sorted slice
-func (s *sortedAssertions) Len() int {
+func (s *sortedAssertionMetaData) Len() int {
 	s.assertionsLock.RLock()
 	defer s.assertionsLock.RUnlock()
 	return len(s.assertions)
 }
 
 //Get returns all assertion meta data which are in the given interval
-func (s *sortedAssertions) Get(interval rainslib.Interval) []elemAndValidity {
+func (s *sortedAssertionMetaData) Get(interval rainslib.Interval) []elemAndValidity {
 	s.assertionsLock.RLock()
 	defer s.assertionsLock.RUnlock()
 	elements := []elemAndValidity{}
@@ -945,7 +945,7 @@ type assertionCacheImpl struct {
 	elemCountLock sync.RWMutex
 
 	//rangeMap contains a map from context and zone to a sorted list according to the name of assertions which contains elemAndValidity.
-	rangeMap     map[contextAndZone]*sortedAssertions
+	rangeMap     map[contextAndZone]*sortedAssertionMetaData
 	rangeMapLock sync.RWMutex
 }
 
@@ -1000,7 +1000,7 @@ func addAssertionToRangeMap(c *assertionCacheImpl, context, zone, name string, o
 		c.rangeMapLock.Unlock()
 		val.Add(elem)
 	} else {
-		c.rangeMap[contextAndZone{Context: context, Zone: zone}] = &sortedAssertions{assertions: []elemAndValidity{elem}}
+		c.rangeMap[contextAndZone{Context: context, Zone: zone}] = &sortedAssertionMetaData{assertions: []elemAndValidity{elem}}
 		c.rangeMapLock.Unlock()
 	}
 }
