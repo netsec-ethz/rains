@@ -54,15 +54,15 @@ func assert(section rainslib.MessageSectionWithSig, isAuthoritative bool) {
 	case *rainslib.AssertionSection:
 		//TODO CFE according to draft consistency checks are only done when server has enough resources. How to measure that?
 		if isAssertionConsistent(section) {
-			assertAssertion(section)
+			assertAssertion(section, isAuthoritative)
 		}
 	case *rainslib.ShardSection:
 		if isShardConsistent(section) {
-			assertShard(section)
+			assertShard(section, isAuthoritative)
 		}
 	case *rainslib.ZoneSection:
 		if isZoneConsistent(section) {
-			assertZone(section)
+			assertZone(section, isAuthoritative)
 		}
 	default:
 		log.Warn("Unknown message section", "messageSection", section)
@@ -71,25 +71,54 @@ func assert(section rainslib.MessageSectionWithSig, isAuthoritative bool) {
 
 //assertAssertion adds an assertion to the assertion cache. Triggers any pending queries answered by it.
 //The assertion's signatures MUST have already been verified
-func assertAssertion(assertion *rainslib.AssertionSection) {
-	log.Info("Start processing Assertion", "assertion", assertion)
-	if cacheAssertion(assertion) {
-		//add assertion to assertionCache
+func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool) {
+	log.Info("Start processing Assertion", "assertion", a)
+	if cacheAssertion(a) {
+		validFrom, validUntil, ok := getAssertionValidity(a)
+		if !ok {
+			return //Valid from is too much in the future drop assertion
+		}
+		assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative,
+			assertionCacheValue{section: a, validFrom: validFrom, validUntil: validUntil})
 	}
+	//FIXME CFE multiple types per assertion is not handled
+	if a.Content[0].Type == rainslib.Delegation {
+		//Trigger elements from pendingSignatureCache
+		sections, ok := pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
+		if ok {
+			for _, sectionSender := range sections {
+				normalChannel <- msgSectionSender{Section: sectionSender.Section, Sender: sectionSender.Sender, Token: sectionSender.Token}
+			}
+		}
+	}
+}
 
-	//if the assertions' type is delegation then look it up in the pending signatures cache. get queue elements and delete entry, process queue elements. start go routine for
-	//each of them, use waitgroup to wait for all of them to finish
+//getAssertionValidity returns validFrom and validUntil for the given assertion upperbounded by the assertion cache maxValidityValue.
+//Returns false if validFrom is too much in the future
+func getAssertionValidity(a *rainslib.AssertionSection) (int64, int64, bool) {
+	validFrom := a.ValidFrom()
+	validUntil := a.ValidUntil()
+	if validFrom > time.Now().Add(Config.MaxCacheAssertionValidity).Unix() {
+		log.Warn("Assertion validity starts too much in the future. Drop Assertion.", "assertion", *a)
+		return 0, 0, false
+	}
+	if validUntil > time.Now().Add(Config.MaxCacheAssertionValidity).Unix() {
+		validUntil = time.Now().Add(Config.MaxCacheAssertionValidity).Unix()
+		log.Warn("Reduced the validity of the assertion in the cache. Validity exceeded upper bound", "assertion", *a)
+	}
+	return validFrom, validUntil, true
 }
 
 //cacheAssertion returns true if assertion should be cached
 func cacheAssertion(assertion *rainslib.AssertionSection) bool {
 	log.Info("Assertion will be cached", "assertion", assertion)
+	//TODO CFE implement when necessary
 	return true
 }
 
 //assertShard adds a shard to the negAssertion cache. Trigger any pending queries answered by it
 //The shard's signatures and all contained assertion signatures MUST have already been verified
-func assertShard(shard *rainslib.ShardSection) {
+func assertShard(shard *rainslib.ShardSection, isAuthoritative bool) {
 	log.Info("Start processing Shard", "shard", shard)
 	if cacheShard(shard) {
 		//add shard to negCache and assertions to assertionCache
@@ -107,7 +136,7 @@ func cacheShard(shard *rainslib.ShardSection) bool {
 
 //assertZone adds a zone to the negAssertion cache.
 //The zone's signatures and all contained shard and assertion signatures MUST have already been verified
-func assertZone(zone *rainslib.ZoneSection) {
+func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool) {
 	log.Info("Start processing zone", "zone", zone)
 	if cacheZone(zone) {
 		//add contained shards and zone to negCache and contained assertions to assertionCache

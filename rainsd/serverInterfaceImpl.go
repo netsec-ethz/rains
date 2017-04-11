@@ -327,8 +327,8 @@ func handleCacheSize(c *pendingSignatureCacheImpl) {
 //GetAllAndDelete returns true and all valid sections associated with the given context and zone if there are any. Otherwise false.
 //We simultaneously obtained all elements and close the set data structure. Then we remove the entry from the cache. If in the meantime an Add operation happened,
 //then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
-func (c *pendingSignatureCacheImpl) GetAllAndDelete(context, zone string) ([]rainslib.MessageSectionWithSig, bool) {
-	sections := []rainslib.MessageSectionWithSig{}
+func (c *pendingSignatureCacheImpl) GetAllAndDelete(context, zone string) ([]sectionWithSigSender, bool) {
+	sections := []sectionWithSigSender{}
 	deleteCount := 0
 	v, ok := c.cache.Get(context, zone)
 	if !ok {
@@ -341,9 +341,9 @@ func (c *pendingSignatureCacheImpl) GetAllAndDelete(context, zone string) ([]rai
 		for _, section := range secs {
 			if s, ok := section.(pendingSignatureCacheValue); ok {
 				if s.validUntil > time.Now().Unix() {
-					sections = append(sections, s.section)
+					sections = append(sections, s.sectionWSSender)
 				} else {
-					log.Info("section expired", "section", s.section, "validity", s.validUntil)
+					log.Info("section expired", "section", s.sectionWSSender, "validity", s.validUntil)
 				}
 			} else {
 				log.Error(fmt.Sprintf("Cache element was not of type pendingSignatureCacheValue. Got:%T", section))

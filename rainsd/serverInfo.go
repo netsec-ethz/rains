@@ -54,6 +54,7 @@ type rainsdConfig struct {
 	AssertionQueryValidity     time.Duration
 	ContextAuthority           []string
 	ZoneAuthority              []string
+	MaxCacheAssertionValidity  time.Duration
 }
 
 //DefaultConfig is a rainsdConfig object containing default values
@@ -61,7 +62,8 @@ var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerP
 	CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key", MaxMsgByteLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerCount: 2,
 	NormalWorkerCount: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
 	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}, InfrastructureKeyCacheSize: 10,
-	ExternalKeyCacheSize: 5, DelegationQueryValidity: 5 * time.Second, NegativeAssertionCacheSize: 500, AssertionQueryValidity: 5 * time.Second}
+	ExternalKeyCacheSize: 5, DelegationQueryValidity: 5 * time.Second, NegativeAssertionCacheSize: 500, AssertionQueryValidity: 5 * time.Second,
+	MaxCacheAssertionValidity: 365 * 24 * time.Hour}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int
@@ -190,8 +192,8 @@ type publicKeyList interface {
 
 //pendingSignatureCacheValue is the value received from the pendingQuery cache
 type pendingSignatureCacheValue struct {
-	section    rainslib.MessageSectionWithSig
-	validUntil int64
+	sectionWSSender sectionWithSigSender
+	validUntil      int64
 }
 
 //pendingSignatureCache stores all sections with a signature waiting for a public key to arrive so they can be verified
@@ -202,7 +204,7 @@ type pendingSignatureCache interface {
 	//GetAllAndDelete returns true and all valid sections associated with the given context and zone if there are any. Otherwise false.
 	//We simultaneously obtained all elements and close the set data structure. Then we remove the entry from the cache. If in the meantime an Add operation happened,
 	//then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
-	GetAllAndDelete(context, zone string) ([]rainslib.MessageSectionWithSig, bool)
+	GetAllAndDelete(context, zone string) ([]sectionWithSigSender, bool)
 	//RemoveExpiredSections goes through the cache and removes all expired sections. If for a given context and zone there is no section left it removes the entry from cache.
 	RemoveExpiredSections()
 	//Len returns the number of sections in the cache.

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/rand"
 	"rains/rainslib"
-	"sync"
 	"time"
 
 	"golang.org/x/crypto/ed25519"
@@ -72,7 +71,7 @@ func verify(msgSender msgSectionSender) {
 		if zone, ok := section.(*rainslib.ZoneSection); ok && !containedShardsAreConsistent(zone) {
 			return //already logged, that the zone is internally invalid
 		}
-		if verifySignatures(sectionSender, nil) {
+		if verifySignatures(sectionSender) {
 			assert(section.(rainslib.MessageSectionWithSig), false)
 		}
 	case *rainslib.QuerySection:
@@ -187,7 +186,7 @@ func containedSectionInRange(subjectName string, shard *rainslib.ShardSection, s
 //If the public key is missing it issues a query and puts the section in the pendingSignatures cache.
 //returns false if there is no signature left on the message or when some public keys are missing
 //TODO CFE verify whole signature chain (do not forget to check expiration)
-func verifySignatures(sectionSender sectionWithSigSender, wg *sync.WaitGroup) bool {
+func verifySignatures(sectionSender sectionWithSigSender) bool {
 	section := sectionSender.Section
 	neededKeys := neededKeys(section)
 	publicKeys, missingKeys, ok := publicKeysPresent(neededKeys)
@@ -200,7 +199,7 @@ func verifySignatures(sectionSender sectionWithSigSender, wg *sync.WaitGroup) bo
 	//If several keys arrive at the same time then multiple callbacks might be called simultaneously and this section will be processed multiple times.
 	//This event is expected to be rare.
 	//-> FIXME CFE this cannot happen now, as we only send one query because we cannot specify the signature algorithm
-	cacheValue := pendingSignatureCacheValue{section: section, validUntil: getQueryValidity(section.Sigs())}
+	cacheValue := pendingSignatureCacheValue{sectionWSSender: sectionSender, validUntil: getQueryValidity(section.Sigs())}
 	ok = pendingSignatures.Add(section.GetContext(), section.GetSubjectZone(), cacheValue)
 	if ok {
 		delegate := getDelegationAddress(section.GetContext(), section.GetSubjectZone())
