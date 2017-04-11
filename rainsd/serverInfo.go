@@ -10,6 +10,7 @@ import (
 )
 
 var serverConnInfo ConnInfo
+var authoritative map[contextAndZone]bool
 var roots *x509.CertPool
 var msgParser rainslib.RainsMsgParser
 
@@ -51,6 +52,8 @@ type rainsdConfig struct {
 	NegativeAssertionCacheSize uint
 	PendingQueryCacheSize      uint
 	AssertionQueryValidity     time.Duration
+	ContextAuthority           []string
+	ZoneAuthority              []string
 }
 
 //DefaultConfig is a rainsdConfig object containing default values
@@ -257,6 +260,8 @@ type assertionCache interface {
 	Len() int
 	//RemoveExpiredValues goes through the cache and removes all expired assertions. If for a given context and zone there is no assertion left it removes the entry from cache.
 	RemoveExpiredValues()
+	//Remove deletes the given assertion from the cache. Returns true if it was able to remove at least one
+	Remove(assertion *rainslib.AssertionSection) bool
 }
 
 //negativeAssertionCacheValue is the value stored in the negativeAssertionCache
@@ -280,6 +285,7 @@ type negativeAssertionCache interface {
 	//If the cache is full it removes an external negativeAssertionCacheValue according to some metric.
 	Add(context, zone string, internal bool, value negativeAssertionCacheValue) bool
 	//Get returns true and the shortest valid shard/zone with the longest validity in range of the interval if there exists one. Otherwise false is returned
+	//TODO Must check that assertion is not contained in the given shard or zone
 	Get(context, zone string, interval rainslib.Interval) (rainslib.MessageSectionWithSig, bool)
 	//GetAll returns true and all valid sections of a given context and zone which intersect with the given interval if there is at least one. Otherwise false is returned
 	GetAll(context, zone string, interval rainslib.Interval) ([]rainslib.MessageSectionWithSig, bool)
@@ -287,6 +293,8 @@ type negativeAssertionCache interface {
 	Len() int
 	//RemoveExpiredValues goes through the cache and removes all expired values. If for a given context and zone there is no value left it removes the entry from cache.
 	RemoveExpiredValues()
+	//Remove deletes the cache entry for context and zone. Returns true if it was able to delete the entry
+	Remove(context, zone string) bool
 }
 
 //contextAndZone stores a context and a zone
@@ -327,9 +335,12 @@ type setContainer interface {
 	//GetAllAndDelete returns all set elements and deletes the underlying datastructure.
 	//If the underlying datastructure is already deleted, the empty list is returned.
 	GetAllAndDelete() []interface{}
+
+	//Len returns the number of elements in the set.
+	Len() int
 }
 
-//rangeQueryDataStruct is a datastructure which contains intervals and allows for interval intersection queries.
+//rangeQueryDataStruct is a data structure which contains intervals and allows for interval intersection queries.
 //All operations must be concurrency safe.
 type rangeQueryDataStruct interface {
 	//Add inserts item into the data structure
@@ -338,6 +349,8 @@ type rangeQueryDataStruct interface {
 	Delete(item rainslib.Interval) bool
 	//Get returns true all intervals which intersect with item if there are any. Otherwise false is returned
 	Get(item rainslib.Interval) ([]rainslib.Interval, bool)
+	//returns the number of elements in the data structure
+	Len() int
 }
 
 //zoneAndName contains zone and name which together constitute a fully qualified name

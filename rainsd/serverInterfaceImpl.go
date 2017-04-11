@@ -635,7 +635,7 @@ func (c *pendingQueryCacheImpl) Len() int {
 }
 
 /*
- *negative assertion implementation
+ * negative assertion implementation
  * We have a hierarchical locking system. We first lock the cache to get a pointer to a data structure which can efficiently process range queries (e.g. interval tree).
  * Then we release the lock on the cache and for operations on the set data structure we use a separate lock.
  * We store the elementCount (number of sections in the negativeAssertionCacheImpl) separate, as each cache entry can have several sections in the data structure.
@@ -791,6 +791,23 @@ func (c *negativeAssertionCacheImpl) RemoveExpiredValues() {
 	c.elemCountLock.Unlock()
 }
 
+//Remove deletes the cache entry for context and zone. Returns true if it was able to delete the entry
+func (c *negativeAssertionCacheImpl) Remove(context, zone string) bool {
+	v, ok := c.cache.Get(context, zone)
+	c.cache.Remove(context, zone)
+	if ok { //check if element is still contained
+		rq, ok := v.(rangeQueryDataStruct)
+		if ok {
+			c.elemCountLock.Lock()
+			c.elementCount -= rq.Len()
+			c.elemCountLock.Unlock()
+		} else {
+			log.Error(fmt.Sprintf("Cache element was not of type rangeQueryDataStruct. Got:%T", v))
+		}
+	}
+	return true
+}
+
 type sectionList struct {
 	list     *list.List
 	listLock sync.RWMutex
@@ -834,6 +851,13 @@ func (l *sectionList) Get(item rainslib.Interval) ([]rainslib.Interval, bool) {
 		}
 	}
 	return intervals, len(intervals) > 0
+}
+
+//returns the number of elements in the data structure
+func (l *sectionList) Len() int {
+	l.listLock.RLock()
+	defer l.listLock.RUnlock()
+	return l.list.Len()
 }
 
 type elemAndValidity struct {
@@ -912,7 +936,7 @@ func (s *sortedAssertions) Get(interval rainslib.Interval) []elemAndValidity {
  * It can happen that some sections get dropped. This is the case when the cache is full or when we add a section to the set while another go routine deletes the pointer to that
  * set as it was empty before. The second case is expected to occur rarely.
  */
-type AssertionCacheImpl struct {
+type assertionCacheImpl struct {
 	//assertionCache stores to a given <context,zone,name,type> a set of assertions
 	assertionCache *cache.Cache
 	maxElements    int
@@ -928,7 +952,7 @@ type AssertionCacheImpl struct {
 //Add adds an assertion together with a validity to the cache.
 //Returns true if cache did not already contain an entry for the given context,zone, name and objType
 //If the cache is full it removes an external assertionCacheValue according to some metric.
-func (c *AssertionCacheImpl) Add(context, zone, name string, objType rainslib.ObjectType, internal bool, value assertionCacheValue) bool {
+func (c *assertionCacheImpl) Add(context, zone, name string, objType rainslib.ObjectType, internal bool, value assertionCacheValue) bool {
 	set := setDataStruct.New()
 	set.Add(value)
 	ok := c.assertionCache.Add(set, internal, context, zone, name, objType.String())
@@ -961,7 +985,7 @@ func (c *AssertionCacheImpl) Add(context, zone, name string, objType rainslib.Ob
 	return c.Add(context, zone, name, objType, internal, value)
 }
 
-func addAssertionToRangeMap(c *AssertionCacheImpl, context, zone, name string, objType rainslib.ObjectType, internal bool, value assertionCacheValue) {
+func addAssertionToRangeMap(c *assertionCacheImpl, context, zone, name string, objType rainslib.ObjectType, internal bool, value assertionCacheValue) {
 	c.rangeMapLock.Lock()
 	elem := elemAndValidity{
 		elemAndValidTo: elemAndValidTo{
@@ -982,14 +1006,14 @@ func addAssertionToRangeMap(c *AssertionCacheImpl, context, zone, name string, o
 }
 
 //updateAssertionCacheCount increases the element count by one
-func updateAssertionCacheCount(c *AssertionCacheImpl) {
+func updateAssertionCacheCount(c *assertionCacheImpl) {
 	c.elemCountLock.Lock()
 	c.elementCount++
 	c.elemCountLock.Unlock()
 }
 
 //handleAssertionCacheSize deletes all assertions from the least recently used cache entry if it exceeds the cache size
-func handleAssertionCacheSize(c *AssertionCacheImpl) {
+func handleAssertionCacheSize(c *assertionCacheImpl) {
 	c.elemCountLock.RLock()
 	if c.elementCount > c.maxElements {
 		c.elemCountLock.RUnlock()
@@ -1009,7 +1033,7 @@ func handleAssertionCacheSize(c *AssertionCacheImpl) {
 }
 
 //deleteAssertionFromRangeMap deletes the given assertion from the rangeMap. Return true if it was able to delete the element
-func deleteAssertionFromRangeMap(c *AssertionCacheImpl, assertion *rainslib.AssertionSection, validFrom, validUntil int64) bool {
+func deleteAssertionFromRangeMap(c *assertionCacheImpl, assertion *rainslib.AssertionSection, validFrom, validUntil int64) bool {
 	c.rangeMapLock.RLock()
 	e, ok := c.rangeMap[contextAndZone{Context: assertion.Context, Zone: assertion.SubjectZone}]
 	c.rangeMapLock.RUnlock()
@@ -1031,7 +1055,7 @@ func deleteAssertionFromRangeMap(c *AssertionCacheImpl, assertion *rainslib.Asse
 
 //Get returns true and a set of assertions matching the given key if there exists some. Otherwise false is returned
 //If expiredAllowed is false, then no expired assertions will be returned
-func (c *AssertionCacheImpl) Get(context, zone, name string, objType rainslib.ObjectType, expiredAllowed bool) ([]*rainslib.AssertionSection, bool) {
+func (c *assertionCacheImpl) Get(context, zone, name string, objType rainslib.ObjectType, expiredAllowed bool) ([]*rainslib.AssertionSection, bool) {
 	assertions := []*rainslib.AssertionSection{}
 	v, ok := c.assertionCache.Get(context, zone, name, objType.String())
 	if ok {
@@ -1055,7 +1079,7 @@ func (c *AssertionCacheImpl) Get(context, zone, name string, objType rainslib.Ob
 }
 
 //GetInRange returns true and a set of valid assertions in the given interval matching the given context and zone if there are any. Otherwise false is returned
-func (c *AssertionCacheImpl) GetInRange(context, zone string, interval rainslib.Interval) ([]*rainslib.AssertionSection, bool) {
+func (c *assertionCacheImpl) GetInRange(context, zone string, interval rainslib.Interval) ([]*rainslib.AssertionSection, bool) {
 	c.rangeMapLock.RLock()
 	sortedList, ok := c.rangeMap[contextAndZone{Context: context, Zone: zone}]
 	c.rangeMapLock.RUnlock()
@@ -1073,74 +1097,110 @@ func (c *AssertionCacheImpl) GetInRange(context, zone string, interval rainslib.
 }
 
 //Len returns the number of elements in the cache.
-func (c *AssertionCacheImpl) Len() int {
+func (c *assertionCacheImpl) Len() int {
 	c.elemCountLock.RLock()
 	defer c.elemCountLock.RUnlock()
 	return c.elementCount
 }
 
 //RemoveExpiredValues goes through the cache and removes all expired assertions. If for a given context and zone there is no assertion left it removes the entry from cache.
-func (c *AssertionCacheImpl) RemoveExpiredValues() {
+func (c *assertionCacheImpl) RemoveExpiredValues() {
 	//Delete expired assertions, shards or zones
 	keys := c.assertionCache.Keys()
-	deleteCount := 0
 	for _, key := range keys {
-		v, ok := c.assertionCache.Get(key[0], key[1])
-		if ok { //check if element is still contained
-			set, ok := v.(setContainer)
-			if ok { //check that cache element is a setContainer
-				vals := set.GetAll()
-				//check validity of all container elements and remove expired once
-				allRemoved := true
-				for _, val := range vals {
-					v, ok := val.(assertionCacheValue)
+		deleteAssertions(c, false, key[0], key[1])
+		updateAssertionCacheStructure(c, key[0], key[1])
+	}
+	updateAssertionCacheRangeMapping(c)
+}
+
+//deleteAssertions removes assertions from the cache and the rangeMap matching the given parameter. It does not update the cache structure.
+//if forceDelete is true then all matching assertions are deleted. Otherwise only expired once.
+//Returns the number of deleted elements
+func deleteAssertions(c *assertionCacheImpl, forceDelete bool, context string, keys ...string) int {
+	deleteCount := 0
+	set, ok := getAssertionSet(c, context, keys...)
+	if ok {
+		vals := set.GetAll()
+		//check validity of all container elements and remove expired once or all if forceDelete is set.
+		for _, val := range vals {
+			v, ok := val.(assertionCacheValue)
+			if ok {
+				if forceDelete || v.validUntil < time.Now().Unix() {
+					ok := set.Delete(val)
 					if ok {
-						if v.validUntil < time.Now().Unix() {
-							ok := set.Delete(val)
-							if ok {
-								deleteCount++
-								ok := deleteAssertionFromRangeMap(c, v.section, v.validFrom, v.validUntil)
-								if !ok {
-									log.Error("Was not able to delete assertion from rangeMap")
-								}
-							}
-						} else {
-							allRemoved = false
+						deleteCount++
+						ok := deleteAssertionFromRangeMap(c, v.section, v.validFrom, v.validUntil)
+						if !ok {
+							log.Error("Was not able to delete assertion from rangeMap")
 						}
-					} else {
-						log.Error(fmt.Sprintf("set element was not of type assertionCacheValue. Got:%T", val))
-					}
-				}
-				//remove entry from assertioncache if non left. If one was added in the meantime do not delete it.
-				if allRemoved {
-					vals := set.GetAllAndDelete()
-					if len(vals) == 0 {
-						c.assertionCache.Remove(key[0], key[1])
-					} else {
-						set := setDataStruct.New()
-						for _, val := range vals {
-							set.Add(val)
-						}
-						//FIXME CFE here another go routine could come in between. Add an update function to the cache.
-						//Right now we overwrite an internal set to an external. This is not the case if we update the value.
-						c.assertionCache.Remove(key[0], key[1])
-						c.assertionCache.Add(set, false, key[0], key[1])
 					}
 				}
 			} else {
-				log.Error(fmt.Sprintf("Cache element was not of type setContainer. Got:%T", v))
+				log.Error(fmt.Sprintf("set element was not of type assertionCacheValue. Got:%T", val))
 			}
 		}
 	}
 	c.elemCountLock.Lock()
 	c.elementCount -= deleteCount
 	c.elemCountLock.Unlock()
-	//Remove mappings to empty lists in rangeMap
+	return deleteCount
+}
+
+//getAssertionSet return true and the set of assertions stored in the cache for the given context and keys=(zone,name,type) if present. Otherwise false is returned
+func getAssertionSet(c *assertionCacheImpl, context string, keys ...string) (setContainer, bool) {
+	v, ok := c.assertionCache.Get(context, keys...)
+	if ok { //check if element is still contained
+		set, ok := v.(setContainer)
+		if ok {
+			return set, true
+		}
+		log.Error(fmt.Sprintf("Cache element was not of type setContainer. Got:%T", v))
+	}
+	log.Debug("There is no set in the cache for the given context and keys.", "context", context, "keys", keys)
+	return nil, false
+}
+
+//updateAssertionCacheStructure removes a cache entry if it points to a set without assertions.
+func updateAssertionCacheStructure(c *assertionCacheImpl, context, keys string) {
+	v, ok := c.assertionCache.Get(context, keys)
+	if ok { //check if element is still contained
+		set, ok := v.(setContainer)
+		if ok { //check that cache element is a setContainer
+			if set.Len() == 0 {
+				vals := set.GetAllAndDelete()
+				if len(vals) == 0 {
+					c.assertionCache.Remove(context, keys)
+				} else {
+					set := setDataStruct.New()
+					for _, val := range vals {
+						set.Add(val)
+					}
+					//FIXME CFE here another go routine could come in between. Add an update function to the cache.
+					//Right now we overwrite an internal set to an external. This is not the case if we update the value.
+					c.assertionCache.Remove(context, keys)
+					c.assertionCache.Add(set, false, context, keys)
+				}
+			}
+		} else {
+			log.Error(fmt.Sprintf("Cache element was not of type setContainer. Got:%T", v))
+		}
+	}
+}
+
+//updateAssertionCacheRangeMapping deletes all entries from the rangeMap which point to an empty slice
+func updateAssertionCacheRangeMapping(c *assertionCacheImpl) {
 	c.rangeMapLock.Lock()
+	defer c.rangeMapLock.Unlock()
 	for k, v := range c.rangeMap {
 		if v.Len() == 0 {
 			delete(c.rangeMap, k)
 		}
 	}
-	c.rangeMapLock.Unlock()
+}
+
+//Remove deletes the given assertion from the cache. Returns true if it was able to remove at least one assertion
+func (c *assertionCacheImpl) Remove(assertion *rainslib.AssertionSection) bool {
+	//CFE FIXME This does not work if we have several types per assertion
+	return deleteAssertions(c, true, assertion.Context, assertion.SubjectZone, assertion.SubjectName, assertion.Content[0].Type.String()) > 0
 }

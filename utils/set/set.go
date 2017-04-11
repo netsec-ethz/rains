@@ -70,3 +70,13 @@ func (set *Set) GetAllAndDelete() []interface{} {
 	set.isDeleted = true
 	return data
 }
+
+//Len returns the number of elements in the set.
+func (set *Set) Len() int {
+	set.mux.RLock()
+	defer set.mux.RUnlock()
+	if set.isDeleted {
+		return 0
+	}
+	return len(set.data)
+}

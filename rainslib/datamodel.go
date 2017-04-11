@@ -128,6 +128,13 @@ func (a *AssertionSection) End() string {
 	return a.SubjectName
 }
 
+//EqualContextZoneName return true if the given assertion has the same context, zone, name.
+func (a *AssertionSection) EqualContextZoneName(assertion *AssertionSection) bool {
+	return a.Context == assertion.Context &&
+		a.SubjectZone == assertion.SubjectZone &&
+		a.SubjectName == assertion.SubjectName
+}
+
 //ShardSection contains information about the shard
 type ShardSection struct {
 	Content     []*AssertionSection

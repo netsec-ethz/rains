@@ -27,6 +27,7 @@ func InitServer() error {
 	log.Root().SetHandler(h)
 	loadConfig()
 	serverConnInfo = ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}
+	loadAuthoritative()
 	if err := loadCert(); err != nil {
 		return err
 	}
@@ -54,6 +55,13 @@ func loadConfig() {
 	}
 	if err = json.Unmarshal(file, &Config); err != nil {
 		log.Warn("Could not unmarshal json format of config")
+	}
+}
+
+func loadAuthoritative() {
+	authoritative = make(map[contextAndZone]bool)
+	for i, context := range Config.ContextAuthority {
+		authoritative[contextAndZone{Context: context, Zone: Config.ZoneAuthority[i]}] = true
 	}
 }
 
@@ -245,6 +253,6 @@ func createAssertionCache(cacheSize int) (assertionCache, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &AssertionCacheImpl{assertionCache: c, maxElements: cacheSize, elementCount: 0, rangeMap: make(map[contextAndZone]*sortedAssertions)}, nil
+	return &assertionCacheImpl{assertionCache: c, maxElements: cacheSize, elementCount: 0, rangeMap: make(map[contextAndZone]*sortedAssertions)}, nil
 
 }

@@ -7,6 +7,8 @@ import (
 
 	"time"
 
+	"fmt"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -54,6 +56,7 @@ func initEngine() error {
 func assert(section rainslib.MessageSectionWithSig, isAuthoritative bool) {
 	switch section := section.(type) {
 	case *rainslib.AssertionSection:
+		//TODO CFE according to draft consistency checks are only done when server has enough resources. How to measure that?
 		if isAssertionConsistent(section) {
 			assertAssertion(section)
 		}
@@ -70,10 +73,67 @@ func assert(section rainslib.MessageSectionWithSig, isAuthoritative bool) {
 	}
 }
 
-//isAssertionConsistent checks if the incoming assertion is consistent with the elements in the cache. If not every element of this zone is dropped and it return false
+//isAssertionConsistent checks if the incoming assertion is consistent with the elements in the cache.
+//If not, every element of this zone and context is dropped and it returns false
 func isAssertionConsistent(assertion *rainslib.AssertionSection) bool {
-	//make sure that internal assertions are handled properly
+	negAssertions, _ := negAssertionCache.GetAll(assertion.Context, assertion.SubjectZone, assertion)
+	for _, negAssertion := range negAssertions {
+		switch negAssertion := negAssertion.(type) {
+		case *rainslib.ShardSection:
+			if !shardContainsAssertion(assertion, negAssertion) {
+				dropAllWithContextZone(assertion.Context, assertion.SubjectZone)
+				return false
+			}
+		case *rainslib.ZoneSection:
+			if !zoneContainsAssertion(assertion, negAssertion) {
+				dropAllWithContextZone(assertion.Context, assertion.SubjectZone)
+				return false
+			}
+		default:
+			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *ZoneSection. Got=%T", negAssertion))
+		}
+	}
 	return true
+}
+
+//shardContainsAssertion returns true if the given shard contains the given assertion
+func shardContainsAssertion(a *rainslib.AssertionSection, s *rainslib.ShardSection) bool {
+	for _, assertion := range s.Content {
+		if a.EqualContextZoneName(assertion) {
+			return true
+		}
+	}
+	log.Warn("Encountered valid assertion together with a valid shard that does not contain it.", "assertion", *a, "shard", *s)
+	return false
+}
+
+//zoneContainsAssertion returns true if the given zone contains the given assertion
+func zoneContainsAssertion(a *rainslib.AssertionSection, z *rainslib.ZoneSection) bool {
+	for _, v := range z.Content {
+		switch v := v.(type) {
+		case *rainslib.AssertionSection:
+			if a.EqualContextZoneName(v) {
+				return true
+			}
+		case *rainslib.ShardSection:
+			if shardContainsAssertion(a, v) {
+				return true
+			}
+		default:
+			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+		}
+		log.Warn("Encountered valid assertion together with a valid zone that does not contain it.", "assertion", *a, "zone", *z)
+	}
+	return false
+}
+
+//dropAllWithContextZone deletes all assertions, shards and zones in the cache with the given context and zone
+func dropAllWithContextZone(context, zone string) {
+	assertions, _ := assertionsCache.GetInRange(context, zone, rainslib.TotalInterval{})
+	for _, a := range assertions {
+		assertionsCache.Remove(a)
+	}
+	negAssertionCache.Remove(context, zone)
 }
 
 //assertAssertion adds an assertion to the assertion cache. Triggers any pending queries answered by it.
