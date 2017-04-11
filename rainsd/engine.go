@@ -49,20 +49,20 @@ func initEngine() error {
 //assert checks the consistency of the incoming section with sections in the cache.
 //it adds a section with valid signatures to the assertion/shard/zone cache. Triggers any pending queries answered by it.
 //The section's signatures MUST have already been verified
-func assert(section rainslib.MessageSectionWithSig, isAuthoritative bool) {
-	switch section := section.(type) {
+func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
+	switch section := sectionWSSender.Section.(type) {
 	case *rainslib.AssertionSection:
 		//TODO CFE according to draft consistency checks are only done when server has enough resources. How to measure that?
 		if isAssertionConsistent(section) {
-			assertAssertion(section, isAuthoritative)
+			assertAssertion(section, isAuthoritative, sectionWSSender.Token)
 		}
 	case *rainslib.ShardSection:
 		if isShardConsistent(section) {
-			assertShard(section, isAuthoritative)
+			assertShard(section, isAuthoritative, sectionWSSender.Token)
 		}
 	case *rainslib.ZoneSection:
 		if isZoneConsistent(section) {
-			assertZone(section, isAuthoritative)
+			assertZone(section, isAuthoritative, sectionWSSender.Token)
 		}
 	default:
 		log.Warn("Unknown message section", "messageSection", section)
@@ -71,7 +71,7 @@ func assert(section rainslib.MessageSectionWithSig, isAuthoritative bool) {
 
 //assertAssertion adds an assertion to the assertion cache. Triggers any pending queries answered by it.
 //The assertion's signatures MUST have already been verified
-func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool) {
+func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) {
 	log.Info("Start processing Assertion", "assertion", a)
 	if cacheAssertion(a) {
 		validFrom, validUntil, ok := getAssertionValidity(a)
@@ -88,6 +88,17 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool) {
 		if ok {
 			for _, sectionSender := range sections {
 				normalChannel <- msgSectionSender{Section: sectionSender.Section, Sender: sectionSender.Sender, Token: sectionSender.Token}
+			}
+		}
+	}
+	//handle pending queries
+	values, ok := pendingQueries.GetAllAndDelete(token)
+	if ok {
+		for _, v := range values {
+			if v.validUntil > time.Now().Unix() {
+				sendQueryAnswer(a, v.connInfo, v.token)
+			} else {
+				log.Info("Query expired in pendingQuery queue.", "expirationTime", v.validUntil)
 			}
 		}
 	}
@@ -118,7 +129,7 @@ func cacheAssertion(assertion *rainslib.AssertionSection) bool {
 
 //assertShard adds a shard to the negAssertion cache. Trigger any pending queries answered by it
 //The shard's signatures and all contained assertion signatures MUST have already been verified
-func assertShard(shard *rainslib.ShardSection, isAuthoritative bool) {
+func assertShard(shard *rainslib.ShardSection, isAuthoritative bool, token rainslib.Token) {
 	log.Info("Start processing Shard", "shard", shard)
 	if cacheShard(shard) {
 		//add shard to negCache and assertions to assertionCache
@@ -131,12 +142,13 @@ func assertShard(shard *rainslib.ShardSection, isAuthoritative bool) {
 
 func cacheShard(shard *rainslib.ShardSection) bool {
 	log.Info("Shard will be cached", "shard", shard)
+	//TODO CFE implement when necessary
 	return true
 }
 
 //assertZone adds a zone to the negAssertion cache.
 //The zone's signatures and all contained shard and assertion signatures MUST have already been verified
-func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool) {
+func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool, token rainslib.Token) {
 	log.Info("Start processing zone", "zone", zone)
 	if cacheZone(zone) {
 		//add contained shards and zone to negCache and contained assertions to assertionCache
@@ -149,6 +161,7 @@ func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool) {
 
 func cacheZone(zone *rainslib.ZoneSection) bool {
 	log.Info("Zone will be cached", "zone", zone)
+	//TODO CFE implement when necessary
 	return true
 }
 

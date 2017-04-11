@@ -72,7 +72,7 @@ func verify(msgSender msgSectionSender) {
 			return //already logged, that the zone is internally invalid
 		}
 		if verifySignatures(sectionSender) {
-			assert(section.(rainslib.MessageSectionWithSig), false)
+			assert(sectionSender, authoritative[contextAndZone{Context: sectionSender.Section.GetContext(), Zone: sectionSender.Section.GetSubjectZone()}])
 		}
 	case *rainslib.QuerySection:
 		if validQuery(section, msgSender.Sender) {
