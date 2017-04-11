@@ -61,7 +61,7 @@ func isShardConsistent(shard *rainslib.ShardSection) bool {
 					return false
 				}
 			default:
-				log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+				log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *ZoneSection. Got=%T", v))
 			}
 		}
 	}
@@ -95,7 +95,7 @@ func isZoneConsistent(zone *rainslib.ZoneSection) bool {
 					return false
 				}
 			default:
-				log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+				log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *ZoneSection. Got=%T", v))
 			}
 		}
 	}

@@ -1,6 +1,7 @@
 package rainsd
 
 import (
+	"fmt"
 	"rains/rainslib"
 	"strings"
 	"time"
@@ -54,33 +55,52 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 	case *rainslib.AssertionSection:
 		//TODO CFE according to draft consistency checks are only done when server has enough resources. How to measure that?
 		if isAssertionConsistent(section) {
-			assertAssertion(section, isAuthoritative, sectionWSSender.Token)
+			log.Info("Start processing Assertion", "assertion", section)
+			ok := assertAssertion(section, isAuthoritative, sectionWSSender.Token)
+			if ok {
+				handleAssertion(section, sectionWSSender.Token)
+			}
 		}
 	case *rainslib.ShardSection:
+		log.Info("Start processing Shard", "shard", section)
 		if isShardConsistent(section) {
-			assertShard(section, isAuthoritative, sectionWSSender.Token)
+			ok := assertShard(section, isAuthoritative, sectionWSSender.Token)
+			if ok {
+				handlePendingQueries(section, sectionWSSender.Token)
+			}
 		}
 	case *rainslib.ZoneSection:
+		log.Info("Start processing zone", "zone", section)
 		if isZoneConsistent(section) {
-			assertZone(section, isAuthoritative, sectionWSSender.Token)
+			ok := assertZone(section, isAuthoritative, sectionWSSender.Token)
+			if ok {
+				handlePendingQueries(section, sectionWSSender.Token)
+			}
 		}
 	default:
 		log.Warn("Unknown message section", "messageSection", section)
 	}
 }
 
-//assertAssertion adds an assertion to the assertion cache. Triggers any pending queries answered by it.
-//The assertion's signatures MUST have already been verified
-func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) {
-	log.Info("Start processing Assertion", "assertion", a)
-	if cacheAssertion(a) {
-		validFrom, validUntil, ok := getAssertionValidity(a)
-		if !ok {
-			return //Valid from is too much in the future drop assertion
+//assertAssertion adds an assertion to the assertion cache. The assertion's signatures MUST have already been verified.
+//Returns true if the assertion can be further processed.
+func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) bool {
+	validFrom, validUntil, ok := getAssertionValidity(a)
+	if ok {
+		if shouldAssertionBeCached(a) {
+			assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative,
+				assertionCacheValue{section: a, validFrom: validFrom, validUntil: validUntil})
 		}
-		assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative,
-			assertionCacheValue{section: a, validFrom: validFrom, validUntil: validUntil})
+	} else if validFrom < time.Now().Unix() {
+		pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
+		return false
 	}
+	return true
+
+}
+
+//handleAssertion triggers any pending queries answered by it.
+func handleAssertion(a *rainslib.AssertionSection, token rainslib.Token) {
 	//FIXME CFE multiple types per assertion is not handled
 	if a.Content[0].Type == rainslib.Delegation {
 		//Trigger elements from pendingSignatureCache
@@ -91,12 +111,16 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 			}
 		}
 	}
-	//handle pending queries
+	handlePendingQueries(a, token)
+}
+
+//handlePendingQueries triggers any pending queries and send the response to it.
+func handlePendingQueries(section rainslib.MessageSectionWithSig, token rainslib.Token) {
 	values, ok := pendingQueries.GetAllAndDelete(token)
 	if ok {
 		for _, v := range values {
 			if v.validUntil > time.Now().Unix() {
-				sendQueryAnswer(a, v.connInfo, v.token)
+				sendQueryAnswer(section, v.connInfo, v.token)
 			} else {
 				log.Info("Query expired in pendingQuery queue.", "expirationTime", v.validUntil)
 			}
@@ -120,46 +144,97 @@ func getAssertionValidity(a *rainslib.AssertionSection) (int64, int64, bool) {
 	return validFrom, validUntil, true
 }
 
-//cacheAssertion returns true if assertion should be cached
-func cacheAssertion(assertion *rainslib.AssertionSection) bool {
+//shouldAssertionBeCached returns true if assertion should be cached
+func shouldAssertionBeCached(assertion *rainslib.AssertionSection) bool {
 	log.Info("Assertion will be cached", "assertion", assertion)
 	//TODO CFE implement when necessary
 	return true
 }
 
-//assertShard adds a shard to the negAssertion cache. Trigger any pending queries answered by it
+//assertShard adds a shard to the negAssertion cache and all contained assertions to the asseriontsCache.
 //The shard's signatures and all contained assertion signatures MUST have already been verified
-func assertShard(shard *rainslib.ShardSection, isAuthoritative bool, token rainslib.Token) {
-	log.Info("Start processing Shard", "shard", shard)
-	if cacheShard(shard) {
-		//add shard to negCache and assertions to assertionCache
+//Returns true if the shard can be further processed.
+func assertShard(shard *rainslib.ShardSection, isAuthoritative bool, token rainslib.Token) bool {
+	validFrom, validUntil, ok := getShardValidity(shard)
+	if ok {
+		if shouldShardBeCached(shard) {
+			negAssertionCache.Add(shard.Context, shard.SubjectZone, isAuthoritative, negativeAssertionCacheValue{section: shard, validFrom: validFrom, validUntil: validUntil})
+		}
+		for _, a := range shard.Content {
+			assertAssertion(a, isAuthoritative, [16]byte{})
+		}
+	} else if validFrom < time.Now().Unix() {
+		pendingQueries.GetAllAndDelete(token) //shard cannot be used to answer queries, delete all waiting elements for this shard.
+		return false
 	}
-	//check if pending query cache contains sections which are in the range of the shard zone and return all of them and afterwards delete them
-	//Process them in separate go routines by checking if the token matches.
-	//If so, return the shard to all pending queries on the queue.
-	// use waitgroup to synchronize, but only wait at the end of this method.
+	return true
 }
 
-func cacheShard(shard *rainslib.ShardSection) bool {
+//getShardValidity returns validFrom and validUntil for the given shard upperbounded by the shard cache maxValidityValue.
+//Returns false if validFrom is too much in the future
+func getShardValidity(s *rainslib.ShardSection) (int64, int64, bool) {
+	validFrom := s.ValidFrom()
+	validUntil := s.ValidUntil()
+	if validFrom > time.Now().Add(Config.MaxCacheShardValidity).Unix() {
+		log.Warn("Shard validity starts too much in the future. Drop Shard.", "shard", *s)
+		return 0, 0, false
+	}
+	if validUntil > time.Now().Add(Config.MaxCacheShardValidity).Unix() {
+		validUntil = time.Now().Add(Config.MaxCacheShardValidity).Unix()
+		log.Warn("Reduced the validity of the shard in the cache. Validity exceeded upper bound", "shard", *s)
+	}
+	return validFrom, validUntil, true
+}
+
+func shouldShardBeCached(shard *rainslib.ShardSection) bool {
 	log.Info("Shard will be cached", "shard", shard)
 	//TODO CFE implement when necessary
 	return true
 }
 
-//assertZone adds a zone to the negAssertion cache.
+//assertZone adds a zone to the negAssertion cache. It also adds all contained shards to the negAssertion cache and all contained assertions to the assertionsCache.
 //The zone's signatures and all contained shard and assertion signatures MUST have already been verified
-func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool, token rainslib.Token) {
-	log.Info("Start processing zone", "zone", zone)
-	if cacheZone(zone) {
-		//add contained shards and zone to negCache and contained assertions to assertionCache
+//Returns true if the zone can be further processed.
+func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool, token rainslib.Token) bool {
+	validFrom, validUntil, ok := getZoneValidity(zone)
+	if ok {
+		if shouldZoneBeCached(zone) {
+			negAssertionCache.Add(zone.Context, zone.SubjectZone, isAuthoritative, negativeAssertionCacheValue{section: zone, validFrom: validFrom, validUntil: validUntil})
+		}
+		for _, v := range zone.Content {
+			switch v := v.(type) {
+			case *rainslib.AssertionSection:
+				assertAssertion(v, isAuthoritative, [16]byte{})
+			case *rainslib.ShardSection:
+				assertShard(v, isAuthoritative, [16]byte{})
+			default:
+				log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+			}
+		}
+	} else if validFrom < time.Now().Unix() {
+		pendingQueries.GetAllAndDelete(token) //zone cannot be used to answer queries, delete all waiting elements for this shard.
+		return false
 	}
-	//check if pending query cache contains sections which are in same context and zone, return all of them and afterwards delete them
-	//Process them in separate go routines by checking if the token matches.
-	//If so, return the shard to all pending queries on the queue.
-	//use waitgroup to synchronize, but only wait at the end of this method.
+	return true
 }
 
-func cacheZone(zone *rainslib.ZoneSection) bool {
+//getZoneValidity returns validFrom and validUntil for the given shard upperbounded by the zone cache maxValidityValue.
+//Returns false if validFrom is too much in the future
+func getZoneValidity(z *rainslib.ZoneSection) (int64, int64, bool) {
+	validFrom := z.ValidFrom()
+	validUntil := z.ValidUntil()
+	if validFrom > time.Now().Add(Config.MaxCacheZoneValidity).Unix() {
+		log.Warn("Zone validity starts too much in the future. Drop Zone.", "zone", *z)
+		return 0, 0, false
+	}
+	if validUntil > time.Now().Add(Config.MaxCacheZoneValidity).Unix() {
+		validUntil = time.Now().Add(Config.MaxCacheZoneValidity).Unix()
+		log.Warn("Reduced the validity of the zone in the cache. Validity exceeded upper bound", "zone", *z)
+	}
+	return validFrom, validUntil, true
+}
+
+func shouldZoneBeCached(zone *rainslib.ZoneSection) bool {
 	log.Info("Zone will be cached", "zone", zone)
 	//TODO CFE implement when necessary
 	return true
@@ -231,5 +306,7 @@ func sendQueryAnswer(section rainslib.MessageSectionWithSig, sender ConnInfo, to
 
 //reapEngine deletes expired elements in the following caches: assertionCache, negAssertionCache, pendingQueries
 func reapEngine() {
-	//TODO CFE implement once we have datastructure
+	assertionsCache.RemoveExpiredValues()
+	negAssertionCache.RemoveExpiredValues()
+	pendingQueries.RemoveExpiredValues()
 }

@@ -55,6 +55,8 @@ type rainsdConfig struct {
 	ContextAuthority           []string
 	ZoneAuthority              []string
 	MaxCacheAssertionValidity  time.Duration
+	MaxCacheShardValidity      time.Duration
+	MaxCacheZoneValidity       time.Duration
 }
 
 //DefaultConfig is a rainsdConfig object containing default values
@@ -63,7 +65,7 @@ var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerP
 	NormalWorkerCount: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
 	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}, InfrastructureKeyCacheSize: 10,
 	ExternalKeyCacheSize: 5, DelegationQueryValidity: 5 * time.Second, NegativeAssertionCacheSize: 500, AssertionQueryValidity: 5 * time.Second,
-	MaxCacheAssertionValidity: 365 * 24 * time.Hour}
+	MaxCacheAssertionValidity: 365 * 24 * time.Hour, MaxCacheShardValidity: 365 * 24 * time.Hour, MaxCacheZoneValidity: 365 * 24 * time.Hour}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int
