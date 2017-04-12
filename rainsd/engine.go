@@ -54,28 +54,37 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 	switch section := sectionWSSender.Section.(type) {
 	case *rainslib.AssertionSection:
 		//TODO CFE according to draft consistency checks are only done when server has enough resources. How to measure that?
+		log.Info("Start processing Assertion", "assertion", section)
 		if isAssertionConsistent(section) {
-			log.Info("Start processing Assertion", "assertion", section)
+			log.Debug("Assertion is consistent with cached elements.")
 			ok := assertAssertion(section, isAuthoritative, sectionWSSender.Token)
 			if ok {
 				handleAssertion(section, sectionWSSender.Token)
 			}
+		} else {
+			log.Debug("Assertion is inconsistent with cached elements.")
 		}
 	case *rainslib.ShardSection:
 		log.Info("Start processing Shard", "shard", section)
 		if isShardConsistent(section) {
+			log.Debug("Shard is consistent with cached elements.")
 			ok := assertShard(section, isAuthoritative, sectionWSSender.Token)
 			if ok {
 				handlePendingQueries(section, sectionWSSender.Token)
 			}
+		} else {
+			log.Debug("Shard is inconsistent with cached elements.")
 		}
 	case *rainslib.ZoneSection:
 		log.Info("Start processing zone", "zone", section)
 		if isZoneConsistent(section) {
+			log.Debug("Zone is consistent with cached elements.")
 			ok := assertZone(section, isAuthoritative, sectionWSSender.Token)
 			if ok {
 				handlePendingQueries(section, sectionWSSender.Token)
 			}
+		} else {
+			log.Debug("Zone is inconsistent with cached elements.")
 		}
 	default:
 		log.Warn("Unknown message section", "messageSection", section)

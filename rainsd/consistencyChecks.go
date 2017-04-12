@@ -109,6 +109,7 @@ func togetherValid(s1, s2 rainslib.MessageSectionWithSig) bool {
 
 //dropAllWithContextZone deletes all assertions, shards and zones in the cache with the given context and zone
 func dropAllWithContextZone(context, zone string) {
+	log.Warn("Inconsistency encountered. Drop all sections for given context and zone.", "context", context, "zone", zone)
 	assertions, _ := assertionsCache.GetInRange(context, zone, rainslib.TotalInterval{})
 	for _, a := range assertions {
 		assertionsCache.Remove(a)
@@ -364,7 +365,7 @@ func (s *sortedAssertions) Get(interval rainslib.Interval) ([]*rainslib.Assertio
 //Equal returns true if both list contain the same assertions where the EqualContextZoneName method on assertions is used to compare them.
 func (s *sortedAssertions) Equal(s2 *sortedAssertions) bool {
 	s.assertionsLock.RLock()
-	s2.assertionsLock.RLocker()
+	s2.assertionsLock.RLock()
 	defer s.assertionsLock.RUnlock()
 	defer s2.assertionsLock.RUnlock()
 	for i := 0; i < len(s.assertions); i++ {

@@ -1033,6 +1033,8 @@ func handleAssertionCacheSize(c *assertionCacheImpl) {
 				}
 			}
 		}
+	} else {
+		c.elemCountLock.RUnlock()
 	}
 }
 

@@ -6,9 +6,8 @@ import (
 	"rains/rainslib"
 	"time"
 
-	"golang.org/x/crypto/ed25519"
-
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 )
 
 //zoneKeyCache contains a set of zone public keys
@@ -66,7 +65,8 @@ func verify(msgSender msgSectionSender) {
 	case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection:
 		sectionSender := sectionWithSigSender{Section: section.(rainslib.MessageSectionWithSig), Sender: msgSender.Sender, Token: msgSender.Token}
 		if !containedAssertionsAndShardsValid(sectionSender) {
-			return //already logged, that the section is invalid
+			log.Warn("contained assertions and shards are invalid!")
+			return
 		}
 		if zone, ok := section.(*rainslib.ZoneSection); ok && !containedShardsAreConsistent(zone) {
 			return //already logged, that the zone is internally invalid
@@ -140,7 +140,7 @@ func containedAssertionsAndShardsValid(sectionSender sectionWithSigSender) bool 
 					return false
 				}
 				for _, assertion := range section.Content {
-					if !containedSectionValid(assertion, sectionSender) || containedSectionInRange(assertion.SubjectName, section, sectionSender) {
+					if !containedSectionValid(assertion, sectionSender) || !containedSectionInRange(assertion.SubjectName, section, sectionSender) {
 						return false
 					}
 				}
@@ -207,6 +207,8 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 		token := rainslib.GenerateToken()
 		sendQuery(section.GetContext(), section.GetSubjectZone(), cacheValue.validUntil, rainslib.Delegation, token, delegate)
 		activeTokens[token] = true
+	} else {
+		log.Info("already issued a delegation query for this context and zone.", "context", section.GetContext(), "zone", section.GetSubjectZone())
 	}
 	return false
 }
