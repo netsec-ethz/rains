@@ -33,7 +33,7 @@ func initVerify() error {
 	}
 	//FIXME CFE this signature is here for testing reasons, remove for production
 	pubKey, _, _ := ed25519.GenerateKey(rand.New(rand.NewSource(time.Now().UnixNano())))
-	zoneKeyCache.Add(keyCacheKey{context: ".", zone: ".ch", keyAlgo: rainslib.KeyAlgorithmType(0)},
+	zoneKeyCache.Add(keyCacheKey{context: ".", zone: ".ch", keyAlgo: rainslib.KeyAlgorithmType(rainslib.Ed25519)},
 		rainslib.PublicKey{Key: pubKey, Type: rainslib.KeyAlgorithmType(rainslib.Ed25519), ValidUntil: 1690086564},
 		false)
 
@@ -267,7 +267,7 @@ func getQueryValidity(sigs []rainslib.Signature) int64 {
 //validSignature validates the signatures on a MessageSectionWithSig and strips all expired signatures away.
 //Returns false If there are no signatures left or if at least one signature is invalid (due to incorrect signature)
 func validSignature(section rainslib.MessageSectionWithSig, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
-	switch section := section.(type) {
+	/*switch section := section.(type) {
 	case *rainslib.AssertionSection:
 		return validateSignatures(section, keys)
 	case *rainslib.ShardSection:
@@ -277,7 +277,9 @@ func validSignature(section rainslib.MessageSectionWithSig, keys map[rainslib.Ke
 	default:
 		log.Warn("Not supported Msg Section")
 	}
-	return false
+	return false*/
+	//FIXME CFE uncomment the part above. As long as we do not have signatures they always are valid.
+	return true
 }
 
 //validShardSignatures validates all signatures on the shard and contained in the shard's content

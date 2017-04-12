@@ -80,6 +80,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 	default:
 		log.Warn("Unknown message section", "messageSection", section)
 	}
+	log.Debug(fmt.Sprintf("Finished handling %T", sectionWSSender.Section), "section", sectionWSSender.Section)
 }
 
 //assertAssertion adds an assertion to the assertion cache. The assertion's signatures MUST have already been verified.
@@ -88,8 +89,8 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 	validFrom, validUntil, ok := getAssertionValidity(a)
 	if ok {
 		if shouldAssertionBeCached(a) {
-			assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative,
-				assertionCacheValue{section: a, validFrom: validFrom, validUntil: validUntil})
+			value := assertionCacheValue{section: a, validFrom: validFrom, validUntil: validUntil}
+			assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative, value)
 		}
 	} else if validFrom < time.Now().Unix() {
 		pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
@@ -249,6 +250,7 @@ func query(query *rainslib.QuerySection, sender ConnInfo) {
 		//TODO CFE add heuristic which assertion to return
 		if ok {
 			sendQueryAnswer(assertions[0], sender, query.Token)
+			log.Debug("Finished handling query by sending assertion from cache", "query", query)
 			return
 		}
 	}
@@ -257,18 +259,21 @@ func query(query *rainslib.QuerySection, sender ConnInfo) {
 		negAssertion, ok := negAssertionCache.Get(query.Context, zAn.zone, rainslib.StringInterval{Name: zAn.name})
 		if ok {
 			sendQueryAnswer(negAssertion, sender, query.Token)
+			log.Debug("Finished handling query by sending shard or zone from cache", "query", query)
 			return
 		}
 	}
 	//negativeAssertion cache does not contain an answer for this query.
 	if query.ContainsOption(rainslib.CachedAnswersOnly) {
 		sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
+		log.Debug("Finished handling query (unsuccessful) due to Cached Answers only query option", "query", query)
 		return
 	}
 	for _, zAn := range zoneAndNames {
 		delegate := getDelegationAddress(query.Context, zAn.zone)
 		if delegate.Equal(serverConnInfo) {
 			sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
+			log.Error("Stop processing query. I am authoritative and have no answer in cache")
 			return
 		}
 		//we have a valid delegation
@@ -281,6 +286,7 @@ func query(query *rainslib.QuerySection, sender ConnInfo) {
 			validUntil = query.Expires
 		}
 		pendingQueries.Add(query.Context, zAn.zone, zAn.name, query.Type, pendingQuerySetValue{connInfo: sender, token: token, validUntil: validUntil})
+		log.Debug("Added query into to pending query cache", "query", query)
 		sendQuery(query.Context, zAn.zone, validUntil, query.Type, token, delegate)
 	}
 }

@@ -255,7 +255,7 @@ func parseMessageBodies(msg string, token rainslib.Token) ([]rainslib.MessageSec
 }
 
 //parseSignedAssertion parses a signed assertion message section with format:
-//:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>:OT:<object type>:OD:<object data>[signature*]
+//:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 func parseSignedAssertion(msg string) (*rainslib.AssertionSection, error) {
 	log.Info("Parse Signed Assertion", "assertion", msg)
 	cn := strings.Index(msg, ":CN:")
@@ -326,18 +326,17 @@ func parseObjects(inputObjects string) ([]rainslib.Object, error) {
 	}
 	objs := strings.Split(inputObjects, ":OT:")[1:]
 	for _, obj := range objs {
-		od := strings.Index(obj, ":OD:")
-		if od == -1 {
+		od := strings.Split(obj, ":OD:")
+		if len(od) != 2 {
 			log.Warn("object malformed", "object", obj)
 			return []rainslib.Object{}, errors.New("object malformed")
 		}
-		objectType, err := strconv.Atoi(obj[:od])
+		objectType, err := strconv.Atoi(od[0])
 		if err != nil {
 			log.Warn("Object's objectType malformed")
 			return []rainslib.Object{}, errors.New("Object's objectType malformed")
 		}
-
-		object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: obj[od:]}
+		object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: od[1]}
 		objects = append(objects, object)
 	}
 	return objects, nil

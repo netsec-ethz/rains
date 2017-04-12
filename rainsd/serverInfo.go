@@ -276,7 +276,7 @@ type assertionCacheValue struct {
 }
 
 func (a assertionCacheValue) Hash() string {
-	return fmt.Sprintf("%s_%d_%d", a.Hash(), a.validFrom, a.validUntil)
+	return fmt.Sprintf("%s_%d_%d", a.section.Hash(), a.validFrom, a.validUntil)
 }
 
 //assertionCache is used to store and efficiently lookup assertions
