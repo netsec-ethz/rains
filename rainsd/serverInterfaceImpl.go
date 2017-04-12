@@ -279,6 +279,7 @@ type pendingSignatureCacheImpl struct {
 //Add adds a section together with a validity to the cache. Returns true if there is not yet a pending query for this context and zone
 //If the cache is full it removes all section stored with the least recently used <context, zone> tuple.
 func (c *pendingSignatureCacheImpl) Add(context, zone string, value pendingSignatureCacheValue) bool {
+	log.Debug("Add value to pending signature cache", "context", context, "zone", zone, "value", value)
 	set := setDataStruct.New()
 	set.Add(value)
 	ok := c.cache.Add(set, false, context, zone)
@@ -287,7 +288,7 @@ func (c *pendingSignatureCacheImpl) Add(context, zone string, value pendingSigna
 		handleCacheSize(c)
 		return true
 	}
-	//there is already a set in the cache, get it and add value.
+	log.Debug("There is already a set in the cache, get it and add value.")
 	v, ok := c.cache.Get(context, zone)
 	if ok {
 		val, ok := v.(setContainer)

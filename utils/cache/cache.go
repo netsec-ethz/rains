@@ -126,6 +126,7 @@ func (c *Cache) Add(value interface{}, internal bool, context string, keys ...st
 				c.lruList.MoveToFront(v)
 			}
 		}
+		c.mux.Unlock()
 		return false
 	}
 	//key does not already exist in cache

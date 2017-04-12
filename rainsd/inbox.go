@@ -54,6 +54,8 @@ func initInbox() error {
 
 	//TODO CFE for testing purposes (afterwards remove)
 	addToActiveTokenCache("456")
+	addToActiveTokenCache("457")
+	addToActiveTokenCache("458")
 	return nil
 }
 
@@ -153,10 +155,10 @@ func sendNotificationMsg(token rainslib.Token, sender ConnInfo, notificationType
 //addMsgSectionToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg section to the prio cache, otherwise to the normal cache.
 func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token, sender ConnInfo) {
 	if _, ok := activeTokens[tok]; ok {
-		log.Info("active Token encountered", "token", tok)
+		log.Debug("add section with signature to priority queue", "token", tok)
 		prioChannel <- msgSectionSender{Sender: sender, Section: msgSection, Token: tok}
 	} else {
-		log.Info("token not in active token cache", "token", tok)
+		log.Debug("add section with signature to normal queue", "token", tok)
 		normalChannel <- msgSectionSender{Sender: sender, Section: msgSection, Token: tok}
 	}
 }
@@ -164,6 +166,7 @@ func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token
 //addQueryToQueue checks that the token of the message and of the query section are the same and if so adds it to a queue
 func addQueryToQueue(section *rainslib.QuerySection, msg rainslib.RainsMessage, sender ConnInfo) {
 	if msg.Token == section.Token {
+		log.Debug("add query to normal queue")
 		normalChannel <- msgSectionSender{Sender: sender, Section: section, Token: msg.Token}
 	} else {
 		log.Warn("Token of message and query section do not match.", "msgToken", msg.Token, "querySectionToken", section.Token)
@@ -181,7 +184,7 @@ func addNotificationToQueue(msg *rainslib.NotificationSection, tok rainslib.Toke
 		// at least some request.
 		//As we have it now with a fixed pending query cache, if there are a lot of incoming request this queue fills up and until the answer arrived all elements were discarded
 		//and we cannot serve anyone!
-		log.Info("Token is active", "token", tok)
+		log.Info("Add notification to notification queue", "token", tok)
 		//We do not delete the token when we receive a capability hash not understood because the other server will still process the message.
 		//In all other cases the other server stops processing the message and we can safely delete the token.
 		if msg.Type != rainslib.CapHashNotKnown {
@@ -197,25 +200,25 @@ func addNotificationToQueue(msg *rainslib.NotificationSection, tok rainslib.Toke
 //the channel normalWorkers enforces a maximum number of go routines working on the prioChannel and normalChannel.
 func workBoth() {
 	for {
-		prioWorkers <- struct{}{}
+		normalWorkers <- struct{}{}
 		select {
 		case msg := <-prioChannel:
-			go handlePrio(msg)
+			go prioWorkerHandler(msg)
 			continue
 		default:
 			//do nothing
 		}
 		select {
 		case msg := <-normalChannel:
-			go handleNormal(msg)
+			go normalWorkerHandler(msg)
 		default:
-			<-prioWorkers
+			<-normalWorkers
 		}
 	}
 }
 
-//handleNormal handles sections on the normalChannel
-func handleNormal(msg msgSectionSender) {
+//normalWorkerHandler handles sections on the normalChannel
+func normalWorkerHandler(msg msgSectionSender) {
 	verify(msg)
 	<-normalWorkers
 }
@@ -227,12 +230,12 @@ func workPrio() {
 	for {
 		prioWorkers <- struct{}{}
 		msg := <-prioChannel
-		go handlePrio(msg)
+		go prioWorkerHandler(msg)
 	}
 }
 
-//handlePrio handles sections on the prioChannel
-func handlePrio(msg msgSectionSender) {
+//prioWorkerHandler handles sections on the prioChannel
+func prioWorkerHandler(msg msgSectionSender) {
 	verify(msg)
 	<-prioWorkers
 }

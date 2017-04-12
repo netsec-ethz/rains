@@ -201,13 +201,13 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 	//-> FIXME CFE this cannot happen now, as we only send one query because we cannot specify the signature algorithm
 	cacheValue := pendingSignatureCacheValue{sectionWSSender: sectionSender, validUntil: getQueryValidity(section.Sigs())}
 	ok = pendingSignatures.Add(section.GetContext(), section.GetSubjectZone(), cacheValue)
+	log.Info("Section added to the pending signature cache", "section", section)
 	if ok {
 		delegate := getDelegationAddress(section.GetContext(), section.GetSubjectZone())
 		token := rainslib.GenerateToken()
 		sendQuery(section.GetContext(), section.GetSubjectZone(), cacheValue.validUntil, rainslib.Delegation, token, delegate)
 		activeTokens[token] = true
 	}
-	log.Info("Section added to pending signature cache", "section", section)
 	return false
 }
 

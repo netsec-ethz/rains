@@ -181,7 +181,7 @@ func sendQuery(context, zone string, expTime int64, objType rainslib.ObjectType,
 //getDelegationAddress returns the address of a server to which this server delegates a query if it has no answer in the cache.
 func getDelegationAddress(context, zone string) ConnInfo {
 	//FIXME CFE not yet implemented
-	log.Warn("Not yet implemented CFE. return hard coded value")
+	log.Warn("Not yet implemented CFE. return hard coded delegation address")
 	return ConnInfo{Type: TCP, IPAddr: net.ParseIP("127.0.0.1"), Port: 5023}
 }
 
