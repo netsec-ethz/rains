@@ -16,7 +16,6 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
-//TODO CFE this uses MPL 2.0 licence, write it ourself (Brian has sample code)
 var connCache connectionCache
 var framer scanner
 

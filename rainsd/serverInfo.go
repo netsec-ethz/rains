@@ -46,6 +46,7 @@ type rainsdConfig struct {
 	InfrastructureKeyCacheSize uint
 	ExternalKeyCacheSize       uint
 	DelegationQueryValidity    time.Duration
+	ReapVerifyTimeout          time.Duration
 
 	//engine
 	AssertionCacheSize         uint
@@ -57,6 +58,7 @@ type rainsdConfig struct {
 	MaxCacheAssertionValidity  time.Duration
 	MaxCacheShardValidity      time.Duration
 	MaxCacheZoneValidity       time.Duration
+	ReapEngineTimeout          time.Duration
 }
 
 //DefaultConfig is a rainsdConfig object containing default values
@@ -65,7 +67,8 @@ var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerP
 	NormalWorkerCount: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
 	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}, InfrastructureKeyCacheSize: 10,
 	ExternalKeyCacheSize: 5, DelegationQueryValidity: 5 * time.Second, NegativeAssertionCacheSize: 500, AssertionQueryValidity: 5 * time.Second,
-	MaxCacheAssertionValidity: 365 * 24 * time.Hour, MaxCacheShardValidity: 365 * 24 * time.Hour, MaxCacheZoneValidity: 365 * 24 * time.Hour}
+	MaxCacheAssertionValidity: 365 * 24 * time.Hour, MaxCacheShardValidity: 365 * 24 * time.Hour, MaxCacheZoneValidity: 365 * 24 * time.Hour, ReapVerifyTimeout: 30 * time.Minute,
+	ReapEngineTimeout: 30 * time.Minute}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int
@@ -319,7 +322,7 @@ type negativeAssertionCache interface {
 	//If the cache is full it removes an external negativeAssertionCacheValue according to some metric.
 	Add(context, zone string, internal bool, value negativeAssertionCacheValue) bool
 	//Get returns true and the shortest valid shard/zone with the longest validity in range of the interval if there exists one. Otherwise false is returned
-	//TODO Must check that assertion is not contained in the given shard or zone
+	//Must check that assertion is not contained in the given shard or zone
 	Get(context, zone string, interval rainslib.Interval) (rainslib.MessageSectionWithSig, bool)
 	//GetAll returns true and all valid sections of a given context and zone which intersect with the given interval if there is at least one. Otherwise false is returned
 	GetAll(context, zone string, interval rainslib.Interval) ([]rainslib.MessageSectionWithSig, bool)

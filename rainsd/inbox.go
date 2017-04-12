@@ -44,6 +44,7 @@ func initInbox() error {
 		log.Error("Cannot create connCache", "error", err)
 		return err
 	}
+	capabilities.Add()
 
 	//init parser
 	msgParser = parser.RainsMsgParser{}
@@ -52,7 +53,7 @@ func initInbox() error {
 	go workNotification()
 	go workBoth()
 
-	//TODO CFE for testing purposes (afterwards remove)
+	//FIXME CFE for testing purposes (afterwards remove)
 	addToActiveTokenCache("456")
 	addToActiveTokenCache("457")
 	addToActiveTokenCache("458")
@@ -110,7 +111,7 @@ func deliver(message []byte, sender ConnInfo) {
 func processCapability(caps []rainslib.Capability, sender ConnInfo, token rainslib.Token) {
 	log.Debug("Process capabilities", "capabilities", caps)
 	if len(caps) > 0 {
-		//FIXME CFE determine when an incoming capability is represented as a hash
+		//TODO CFE determine when an incoming capability is represented as a hash
 		log.Error("test")
 		isHash := false
 		if isHash {

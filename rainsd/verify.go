@@ -53,6 +53,8 @@ func initVerify() error {
 		log.Error("Cannot create pending signature cache", "error", err)
 		return err
 	}
+
+	go reapVerify()
 	return nil
 }
 
@@ -342,11 +344,13 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainsli
 	return len(section.Sigs()) > 0
 }
 
-//reapVerify deletes expired keys from the key caches and expired sections from the pendingSignature cache
+//reapVerify deletes expired keys from the key caches and expired sections from the pendingSignature cache in intervals according to the config
 func reapVerify() {
-	//TODO CFE implement and create a worker that calls this function from time to time
-	zoneKeyCache.RemoveExpiredKeys()
-	infrastructureKeyCache.RemoveExpiredKeys()
-	externalKeyCache.RemoveExpiredKeys()
-	pendingSignatures.RemoveExpiredSections()
+	for {
+		zoneKeyCache.RemoveExpiredKeys()
+		infrastructureKeyCache.RemoveExpiredKeys()
+		externalKeyCache.RemoveExpiredKeys()
+		pendingSignatures.RemoveExpiredSections()
+		time.Sleep(Config.ReapVerifyTimeout)
+	}
 }

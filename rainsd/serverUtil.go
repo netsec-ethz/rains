@@ -180,7 +180,7 @@ func sendQuery(context, zone string, expTime int64, objType rainslib.ObjectType,
 
 //getDelegationAddress returns the address of a server to which this server delegates a query if it has no answer in the cache.
 func getDelegationAddress(context, zone string) ConnInfo {
-	//FIXME CFE not yet implemented
+	//TODO CFE not yet implemented
 	log.Warn("Not yet implemented CFE. return hard coded delegation address")
 	return ConnInfo{Type: TCP, IPAddr: net.ParseIP("127.0.0.1"), Port: 5023}
 }
@@ -204,7 +204,7 @@ func createCapabilityCache(hashToCapCacheSize, connectionToCapSize int) (capabil
 	if err != nil {
 		return nil, err
 	}
-	//FIXME CFE remove this after we can do it in the Add method of the cache
+	//FIXME move adding this values to verify.init() after cache was adopted
 	hc.Add([]Capability{TLSOverTCP}, false, "", "e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745")
 	hc.Add([]Capability{NoCapability}, false, "", "76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71")
 	cc, err := cache.New(connectionToCapSize, "noAnyContext")

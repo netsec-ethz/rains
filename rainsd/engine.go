@@ -10,22 +10,20 @@ import (
 )
 
 //assertionCache contains a set of valid assertions where some of them might be expired.
-//An entry is marked as extrenal if it might be evicted.
+//An entry is marked as extrenal if it might be evicted by a RLU caching strategy.
 var assertionsCache assertionCache
 
 //negAssertionCache contains for each zone and context an interval tree to find all shards and zones containing a specific assertion
 //for a zone the range is infinit: range "",""
 //for a shard the range is given as declared in the section.
-//An entry is marked as extrenal if it might be evicted.
+//An entry is marked as extrenal if it might be evicted by a RLU caching strategy.
 var negAssertionCache negativeAssertionCache
 
 //pendingQueries contains a mapping from all self issued pending queries to the set of message bodies waiting for it.
-//key: <context><subjectzone> value: <msgSection><deadline>
-//TODO make the value thread safe. We store a list of <msgSection><deadline> objects which can be added and deleted
 var pendingQueries pendingQueryCache
 
 func initEngine() error {
-	//init Cache
+	//init Caches
 	var err error
 	pendingQueries, err = createPendingQueryCache(int(Config.PendingQueryCacheSize))
 	if err != nil {
@@ -44,6 +42,9 @@ func initEngine() error {
 		log.Error("Cannot create negative assertion Cache", "error", err)
 		return err
 	}
+
+	go reapVerify()
+
 	return nil
 }
 
@@ -321,7 +322,10 @@ func sendQueryAnswer(section rainslib.MessageSectionWithSig, sender ConnInfo, to
 
 //reapEngine deletes expired elements in the following caches: assertionCache, negAssertionCache, pendingQueries
 func reapEngine() {
-	assertionsCache.RemoveExpiredValues()
-	negAssertionCache.RemoveExpiredValues()
-	pendingQueries.RemoveExpiredValues()
+	for {
+		assertionsCache.RemoveExpiredValues()
+		negAssertionCache.RemoveExpiredValues()
+		pendingQueries.RemoveExpiredValues()
+		time.Sleep(Config.ReapEngineTimeout)
+	}
 }
