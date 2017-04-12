@@ -48,8 +48,12 @@ func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, e
 	if err != nil {
 		return rainslib.RainsMessage{Token: token}, err
 	}
-	capabilities := msg[cap+5 : len(msg)]
-	return rainslib.RainsMessage{Token: token, Content: msgBodies, Signatures: signatures, Capabilities: []rainslib.Capability{rainslib.Capability(capabilities)}}, nil
+	capabilities := msg[cap+5:]
+	caps := []rainslib.Capability{}
+	if capabilities != "" {
+		log.Warn("TODO CFE capability parsing not yet implemented")
+	}
+	return rainslib.RainsMessage{Token: token, Content: msgBodies, Signatures: signatures, Capabilities: caps}, nil
 }
 
 //ParseRainsMsg parses a RainsMessage to a byte slice representation with format:
@@ -508,7 +512,7 @@ func parseSignatures(msg string) ([]rainslib.Signature, error) {
 		}
 		signature := rainslib.Signature{
 			Algorithm:  rainslib.SignatureAlgorithmType(algoType),
-			Data:       []byte(sig[sd+4 : len(sig)]),
+			Data:       []byte(sig[sd+4:]),
 			ValidSince: validSince,
 			ValidUntil: validUntil,
 			KeySpace:   rainslib.KeySpaceID(keySpace),
@@ -582,6 +586,6 @@ func parseNotification(msg string) (*rainslib.NotificationSection, error) {
 	return &rainslib.NotificationSection{
 		Token: rainslib.Token(token),
 		Type:  rainslib.NotificationType(ntype),
-		Data:  msg[nd+4 : len(msg)],
+		Data:  msg[nd+4:],
 	}, nil
 }

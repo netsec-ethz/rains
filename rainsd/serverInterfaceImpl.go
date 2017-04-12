@@ -972,6 +972,7 @@ func (c *assertionCacheImpl) Add(context, zone, name string, objType rainslib.Ob
 				addAssertionToRangeMap(c, context, zone, name, objType, internal, value)
 				updateAssertionCacheCount(c)
 				handleAssertionCacheSize(c)
+				log.Debug("Added assertion to cache.", "assertion", *value.section)
 				return true
 			}
 			log.Warn("Set was closed but cache entry was not yet deleted. This case must be rare!")

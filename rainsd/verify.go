@@ -61,7 +61,7 @@ func initVerify() error {
 //If no signature remain on an assertion, shard or zone then the corresponding msg section gets removed.
 //If at least one signatures cannot be verified with the public key, the whole section gets dropped
 func verify(msgSender msgSectionSender) {
-	log.Info("Verify Message Section", "msgSection", msgSender.Section)
+	log.Info(fmt.Sprintf("Verify %T", msgSender.Section), "msgSection", msgSender.Section)
 	switch section := msgSender.Section.(type) {
 	case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection:
 		sectionSender := sectionWithSigSender{Section: section.(rainslib.MessageSectionWithSig), Sender: msgSender.Sender, Token: msgSender.Token}

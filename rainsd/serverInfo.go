@@ -91,6 +91,11 @@ func (c ConnInfo) String() string {
 	}
 }
 
+//Hash returns a string containing all information uniquely identifying a ConnInfo.
+func (c ConnInfo) Hash() string {
+	return fmt.Sprintf("%v_%s", c.Type, c.String())
+}
+
 //PortToString return the port number as a string
 func (c ConnInfo) PortToString() string {
 	return strconv.Itoa(int(c.Port))
@@ -108,8 +113,13 @@ type AddressPair struct {
 }
 
 //String returns the string representation of both connection information separated with a underscore
-func (c AddressPair) String() string {
-	return fmt.Sprintf("%#v_%#v", c.local, c.remote)
+func (a AddressPair) String() string {
+	return fmt.Sprintf("%#v_%#v", a.local, a.remote)
+}
+
+//Hash returns a string containing all information uniquely identifying an AddressPair.
+func (a AddressPair) Hash() string {
+	return fmt.Sprintf("%s_%s", a.local.Hash(), a.remote.Hash())
 }
 
 //msgSectionSender contains the message section section and connection infos about the sender
@@ -126,6 +136,10 @@ type sectionWithSigSender struct {
 	Token   rainslib.Token
 }
 
+func (s *sectionWithSigSender) Hash() string {
+	return fmt.Sprintf("%s_%s_%v", s.Sender.Hash(), s.Section.Hash(), s.Token)
+}
+
 //Capability is a type which defines what a server or client is capable of
 type Capability string
 
@@ -133,12 +147,6 @@ const (
 	NoCapability Capability = ""
 	TLSOverTCP   Capability = "urn:x-rains:tlssrv"
 )
-
-type keyCacheKey struct {
-	context string
-	zone    string
-	keyAlgo rainslib.KeyAlgorithmType
-}
 
 //connectionCache stores all active connections
 type connectionCache interface {
@@ -165,6 +173,16 @@ type capabilityCache interface {
 	Get(connInfo ConnInfo) ([]rainslib.Capability, bool)
 	//GetFromHash returns true and the capabilities from which the hash was taken if present, otherwise false
 	GetFromHash(hash []byte) ([]rainslib.Capability, bool)
+}
+
+type keyCacheKey struct {
+	context string
+	zone    string
+	keyAlgo rainslib.KeyAlgorithmType
+}
+
+func (k keyCacheKey) Hash() string {
+	return fmt.Sprintf("%s_%s_%d", k.context, k.zone, k.keyAlgo)
 }
 
 //keyCache is the Interface which must be implemented by all caches for keys.
@@ -198,6 +216,10 @@ type pendingSignatureCacheValue struct {
 	validUntil      int64
 }
 
+func (p pendingSignatureCacheValue) Hash() string {
+	return fmt.Sprintf("%s_%d", p.sectionWSSender.Hash(), p.validUntil)
+}
+
 //pendingSignatureCache stores all sections with a signature waiting for a public key to arrive so they can be verified
 type pendingSignatureCache interface {
 	//Add adds a section together with a validity to the cache. Returns true if there is not yet a pending query for this context and zone
@@ -218,6 +240,10 @@ type pendingQuerySetValue struct {
 	connInfo   ConnInfo
 	token      rainslib.Token //Token from the received query
 	validUntil int64
+}
+
+func (p pendingQuerySetValue) Hash() string {
+	return fmt.Sprintf("%s_%v_%d", p.connInfo.Hash(), p.token, p.validUntil)
 }
 
 //pendingSignatureCacheValue is the value received from the pendingQuery cache
@@ -247,6 +273,10 @@ type assertionCacheValue struct {
 	section    *rainslib.AssertionSection
 	validFrom  int64
 	validUntil int64
+}
+
+func (a assertionCacheValue) Hash() string {
+	return fmt.Sprintf("%s_%d_%d", a.Hash(), a.validFrom, a.validUntil)
 }
 
 //assertionCache is used to store and efficiently lookup assertions
@@ -326,19 +356,19 @@ type scanner interface {
 type setContainer interface {
 	//Add appends item to the current set if not already contained.
 	//It returns false if it was not able to add the element because the underlying datastructure was deleted in the meantime
-	Add(item interface{}) bool
+	Add(item rainslib.Hashable) bool
 
 	//Delete removes item from the set.
 	//Returns true if it was able to delete the element.
-	Delete(item interface{}) bool
+	Delete(item rainslib.Hashable) bool
 
 	//GetAll returns all elements contained in the set.
 	//If the underlying datastructure is deleted, the empty list is returned
-	GetAll() []interface{}
+	GetAll() []rainslib.Hashable
 
 	//GetAllAndDelete returns all set elements and deletes the underlying datastructure.
 	//If the underlying datastructure is already deleted, the empty list is returned.
-	GetAllAndDelete() []interface{}
+	GetAllAndDelete() []rainslib.Hashable
 
 	//Len returns the number of elements in the set.
 	Len() int

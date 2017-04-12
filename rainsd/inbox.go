@@ -106,9 +106,10 @@ func deliver(message []byte, sender ConnInfo) {
 
 //processCapability processes capabilities and sends a notification back to the sender if the hash is not understood.
 func processCapability(caps []rainslib.Capability, sender ConnInfo, token rainslib.Token) {
-	log.Debug("Process capabilities")
+	log.Debug("Process capabilities", "capabilities", caps)
 	if len(caps) > 0 {
 		//FIXME CFE determine when an incoming capability is represented as a hash
+		log.Error("test")
 		isHash := false
 		if isHash {
 			if caps, ok := capabilities.GetFromHash([]byte(caps[0])); ok {
@@ -166,6 +167,7 @@ func addQueryToQueue(section *rainslib.QuerySection, msg rainslib.RainsMessage, 
 		normalChannel <- msgSectionSender{Sender: sender, Section: section, Token: msg.Token}
 	} else {
 		log.Warn("Token of message and query section do not match.", "msgToken", msg.Token, "querySectionToken", section.Token)
+		//Tokens do not match in query. We do not know which one is valid. Send BadMessage Notification back to both tokens
 		sendNotificationMsg(msg.Token, sender, rainslib.BadMessage)
 		sendNotificationMsg(section.Token, sender, rainslib.BadMessage)
 	}
@@ -174,7 +176,12 @@ func addQueryToQueue(section *rainslib.QuerySection, msg rainslib.RainsMessage, 
 //addNotificationToQueue adds a rains message containing one notification message section to the queue if the token is present in the activeToken cache
 func addNotificationToQueue(msg *rainslib.NotificationSection, tok rainslib.Token, sender ConnInfo) {
 	if _, ok := activeTokens[tok]; ok {
-		log.Info("active Token encountered", "token", tok)
+		//FIXME CFE right now we only have one cache for tokens (sent out message) where we only store the token when it is priority.
+		//We should have a maximum number of queries we sent out and wait for and after that drop every incoming request that wants access. So we can ensure that we handle
+		// at least some request.
+		//As we have it now with a fixed pending query cache, if there are a lot of incoming request this queue fills up and until the answer arrived all elements were discarded
+		//and we cannot serve anyone!
+		log.Info("Token is active", "token", tok)
 		//We do not delete the token when we receive a capability hash not understood because the other server will still process the message.
 		//In all other cases the other server stops processing the message and we can safely delete the token.
 		if msg.Type != rainslib.CapHashNotKnown {

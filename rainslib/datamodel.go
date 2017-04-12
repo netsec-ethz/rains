@@ -3,6 +3,8 @@ package rainslib
 import (
 	"strconv"
 
+	"fmt"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -43,6 +45,7 @@ type MessageSectionWithSig interface {
 	CreateStub() MessageSectionWithSig
 	ValidFrom() int64
 	ValidUntil() int64
+	Hash() string
 	Interval
 }
 
@@ -76,6 +79,12 @@ func (s StringInterval) Begin() string {
 
 func (s StringInterval) End() string {
 	return s.Name
+}
+
+//Hashable can be implemented by objects that are not natively hashable.
+type Hashable interface {
+	//Hash must return a string uniquely identifying the object
+	Hash() string
 }
 
 //AssertionSection contains information about the assertion
@@ -150,6 +159,11 @@ func (a *AssertionSection) ValidUntil() int64 {
 		}
 	}
 	return valid
+}
+
+//Hash returns a string containing all information uniquely identifying an assertion.
+func (a *AssertionSection) Hash() string {
+	return fmt.Sprintf("%s_%s_%s_%v_%v", a.Context, a.SubjectZone, a.SubjectName, a.Content, a.Signatures)
 }
 
 //EqualContextZoneName return true if the given assertion has the same context, zone, name.
@@ -241,6 +255,15 @@ func (s *ShardSection) ValidUntil() int64 {
 	return valid
 }
 
+//Hash returns a string containing all information uniquely identifying a shard.
+func (s *ShardSection) Hash() string {
+	aHashes := ""
+	for _, a := range s.Content {
+		aHashes += a.Hash()
+	}
+	return fmt.Sprintf("%s_%s_%s_%s_%s_%v", s.Context, s.SubjectZone, s.RangeFrom, s.RangeTo, aHashes, s.Signatures)
+}
+
 //ZoneSection contains information about the zone
 type ZoneSection struct {
 	Signatures  []Signature
@@ -329,6 +352,20 @@ func (z *ZoneSection) ValidUntil() int64 {
 		}
 	}
 	return valid
+}
+
+//Hash returns a string containing all information uniquely identifying a shard.
+func (z *ZoneSection) Hash() string {
+	contentHashes := ""
+	for _, v := range z.Content {
+		switch v := v.(type) {
+		case *AssertionSection, *ShardSection:
+			contentHashes += v.Hash()
+		default:
+			log.Warn(fmt.Sprintf("not supported zone section content, must be assertion or shard, got %T", v))
+		}
+	}
+	return fmt.Sprintf("%s_%s_%s_%v", z.Context, z.SubjectZone, contentHashes, z.Signatures)
 }
 
 //QuerySection contains information about the query
