@@ -44,7 +44,6 @@ func initInbox() error {
 		log.Error("Cannot create connCache", "error", err)
 		return err
 	}
-	capabilities.Add()
 
 	//init parser
 	msgParser = parser.RainsMsgParser{}

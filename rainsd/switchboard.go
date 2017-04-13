@@ -128,6 +128,7 @@ func handleConnection(conn net.Conn, client ConnInfo) {
 		deliver(scan.Data(), client)
 		conn.SetDeadline(time.Now().Add(Config.TCPTimeout))
 	}
+	//TODO CFE should we be able to remove this connection from the connCache?
 }
 
 //parseRemoteAddr translates an address obtained from net.Conn.RemoteAddr() to the internal representation ConnInfo
