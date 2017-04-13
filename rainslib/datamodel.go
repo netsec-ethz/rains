@@ -411,18 +411,18 @@ func (o ObjectType) String() string {
 }
 
 const (
-	Name        ObjectType = 1
-	IP6Addr     ObjectType = 2
-	IP4Addr     ObjectType = 3
-	Redirection ObjectType = 4
-	Delegation  ObjectType = 5
-	Nameset     ObjectType = 6
-	CertInfo    ObjectType = 7
-	ServiceInfo ObjectType = 8
-	Registrar   ObjectType = 9
-	Registrant  ObjectType = 10
-	InfraKey    ObjectType = 11
-	ExtraKey    ObjectType = 12
+	OTName        ObjectType = 1
+	OTIP6Addr     ObjectType = 2
+	OTIP4Addr     ObjectType = 3
+	OTRedirection ObjectType = 4
+	OTDelegation  ObjectType = 5
+	OTNameset     ObjectType = 6
+	OTCertInfo    ObjectType = 7
+	OTServiceInfo ObjectType = 8
+	OTRegistrar   ObjectType = 9
+	OTRegistrant  ObjectType = 10
+	OTInfraKey    ObjectType = 11
+	OTExtraKey    ObjectType = 12
 )
 
 //SubjectAddr TODO correct?
@@ -538,8 +538,34 @@ type PublicKey struct {
 //NamesetExpression  encodes a modified POSIX Extended Regular Expression format
 type NamesetExpression string
 
-//CertificateObject TODO define type
-type CertificateObject string
+//CertificateObject contains certificate information
+type CertificateObject struct {
+	Type     ProtocolType
+	Usage    CertificateUsage
+	HashAlgo HashAlgorithmType
+	Data     []byte
+}
+
+type ProtocolType int
+
+const (
+	PTUnspecified ProtocolType = 0
+	PTTLS         ProtocolType = 1
+)
+
+type CertificateUsage int
+
+const (
+	CUTrustAnchor CertificateUsage = 2
+	CUEndEntity   CertificateUsage = 3
+)
+
+//ServiceInfo contains information how to access a named service
+type ServiceInfo struct {
+	Name     string
+	Port     uint16
+	Priority uint
+}
 
 //Object is a container for different values determined by the given type.
 type Object struct {

@@ -113,7 +113,7 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 //handleAssertion triggers any pending queries answered by it.
 func handleAssertion(a *rainslib.AssertionSection, token rainslib.Token) {
 	//FIXME CFE multiple types per assertion is not handled
-	if a.Content[0].Type == rainslib.Delegation {
+	if a.Content[0].Type == rainslib.OTDelegation {
 		//Trigger elements from pendingSignatureCache
 		sections, ok := pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
 		if ok {

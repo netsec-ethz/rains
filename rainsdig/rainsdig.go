@@ -22,7 +22,7 @@ var port = flag.Uint("p", 5022, "port is the port number that dig will send its 
 var serverAddr = flag.String("s", "", `is the IP address of the name server to query. 
 		This can be an IPv4 address in dotted-decimal notation or an IPv6 address in colon-delimited notation.`)
 var context = flag.String("c", ".", "context specifies the context for which dig issues a query")
-var expires = flag.Int("exp", int(time.Now().Add(10*time.Second).Unix()), "expires sets the valid until value of the query")
+var expires = flag.Int64("exp", time.Now().Add(10*time.Second).Unix(), "expires sets the valid until value of the query")
 
 func main() {
 	flag.Parse()
