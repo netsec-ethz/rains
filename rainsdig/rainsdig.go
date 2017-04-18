@@ -67,7 +67,7 @@ func generateMsg() ([]byte, error) {
 	section := rainslib.QuerySection{
 		Context: *context,
 		Expires: *expires,
-		Types:   rainslib.ObjectType(*queryType),
+		Type:    rainslib.ObjectType(*queryType),
 		Token:   token,
 		Name:    *name,
 	}

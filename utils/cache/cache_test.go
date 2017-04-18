@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"container/list"
 	"fmt"
 	"strconv"
 	"sync"
@@ -371,29 +372,31 @@ func TestKeys(t *testing.T) {
 	if len(cache.Keys()) != 0 {
 		t.Error("cache not initialized with zero elements")
 	}
-	cache.cache["key1"] = nil
+	ele := &list.Element{Value: &entry{context: "ctx", key: "key1:key3"}}
+	cache.cache["key1"] = ele
 	if len(cache.Keys()) != 1 {
 		t.Errorf("Wrong key count")
 	}
-	if cache.Keys()[0].(string) != "key1" {
-		t.Errorf("Expected key: key1, got:%v", cache.Keys()[0])
+	if cache.Keys()[0][0] != "ctx" || cache.Keys()[0][1] != "key1:key3" {
+		t.Errorf("Expected key: [ctx,key1:key3], got:%v", cache.Keys()[0])
 	}
 	//cacheAnyContext should not affect getKeys() result!
-	cache.cacheAnyContext["key1"] = nil
-	cache.cacheAnyContext["newKey"] = nil
+	cache.cacheAnyContext["key1"] = ele
+	cache.cacheAnyContext["newKey"] = ele
 	if len(cache.Keys()) != 1 {
 		t.Errorf("Wrong key count")
 	}
-	if cache.Keys()[0].(string) != "key1" {
-		t.Errorf("Expected key: key1, got:%v", cache.Keys()[0])
+	if cache.Keys()[0][0] != "ctx" || cache.Keys()[0][1] != "key1:key3" {
+		t.Errorf("Expected key: [ctx,key1:key3], got:%v", cache.Keys()[0])
 	}
 	//add second key
-	cache.cache["key2"] = nil
+	ele = &list.Element{Value: &entry{context: "ctx", key: "key2:key3"}}
+	cache.cache["key2"] = ele
 	if len(cache.Keys()) != 2 {
 		t.Errorf("Wrong key count")
 	}
 	//adding same key should not change count.
-	cache.cache["key2"] = nil
+	cache.cache["key2"] = ele
 	if len(cache.Keys()) != 2 {
 		t.Errorf("Wrong key count")
 	}
@@ -422,6 +425,7 @@ func TestLen(t *testing.T) {
 	}
 }
 
+//TODO CFE test onEvicted function
 func TestRemove(t *testing.T) {
 	cache, _ := New(10, "anyContext")
 	ele := cache.lruList.PushBack(&entry{value: "value", internal: false})
@@ -492,6 +496,7 @@ func removeValue(i int, cache *Cache, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
+//TODO CFE test onEvicted function
 func TestRemoveWithStrategy(t *testing.T) {
 	cache, _ := New(10, "anyContext")
 	if cache.RemoveWithStrategy() {

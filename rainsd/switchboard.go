@@ -8,7 +8,6 @@ import (
 	"bufio"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -18,20 +17,14 @@ import (
 )
 
 //TODO CFE this uses MPL 2.0 licence, write it ourself (Brian has sample code)
-var connCache cache
+var connCache connectionCache
 var framer scanner
 
 //InitSwitchboard initializes the switchboard
 func initSwitchboard() error {
-	serverConnInfo = getIPAddrandPort()
+	var err error
 	//init cache
-	connCache = &LRUCache{}
-	err := connCache.NewWithEvict(
-		func(key interface{}, value interface{}) {
-			if value, ok := value.(net.Conn); ok {
-				value.Close()
-			}
-		}, int(Config.MaxConnections))
+	connCache, err = createConnectionCache(int(Config.MaxConnections))
 	if err != nil {
 		log.Error("Cannot create connCache", "error", err)
 		return err
@@ -44,7 +37,8 @@ func initSwitchboard() error {
 //sendTo sends the given message to the specified receiver.
 func sendTo(message []byte, receiver ConnInfo) {
 	sendLog := log.New("Connection info", receiver)
-	conn, ok := connCache.Get(create4Tuple(receiver, serverConnInfo))
+	addrPair := AddressPair{local: serverConnInfo, remote: receiver}
+	conn, ok := connCache.Get(addrPair)
 	if ok {
 		//connection is cached
 		if conn, ok := conn.(net.Conn); ok {
@@ -54,7 +48,7 @@ func sendTo(message []byte, receiver ConnInfo) {
 				return
 			}
 			conn.Write(frame)
-			connCache.Add(create4Tuple(receiver, serverConnInfo), conn)
+			connCache.Add(addrPair, conn)
 			sendLog.Info("Send successful (cached)")
 		} else {
 			sendLog.Error("Cannot cast cache entry to net.Conn")
@@ -72,7 +66,7 @@ func sendTo(message []byte, receiver ConnInfo) {
 			return
 		}
 		conn.Write(frame)
-		connCache.Add(create4Tuple(receiver, serverConnInfo), conn)
+		connCache.Add(addrPair, conn)
 		sendLog.Info("Send successful (new connection)")
 	}
 
@@ -83,28 +77,17 @@ func createConnection(receiver ConnInfo) (net.Conn, error) {
 	switch receiver.Type {
 	case TCP:
 		dialer := &net.Dialer{
-			KeepAlive: Config.KeepAlivePeriodMicros,
+			KeepAlive: Config.KeepAlivePeriod,
 		}
-		return tls.DialWithDialer(dialer, "tcp", receiver.IPAddrAndPort(), &tls.Config{RootCAs: roots})
+		return tls.DialWithDialer(dialer, "tcp", receiver.String(), &tls.Config{RootCAs: roots})
 	default:
 		return nil, errors.New("No matching type found for Connection info")
 	}
 }
 
-//create4Tuple returns a string containing the 4 tuple of the connection
-func create4Tuple(client ConnInfo, server ConnInfo) string {
-	switch client.Type {
-	case TCP:
-		return fmt.Sprintf("%s_%d_%s_%d", client.IPAddr, client.Port, server.IPAddr, server.Port)
-	default:
-		log.Warn("No matching type found for client ConnInfo", "connInfo", client)
-		return ""
-	}
-}
-
 //Listen listens for incoming TLS over TCP connections and calls handler
 func Listen() {
-	addrAndport := serverConnInfo.IPAddrAndPort()
+	addrAndport := serverConnInfo.String()
 	srvLogger := log.New("addr", addrAndport)
 
 	cert, err := tls.LoadX509KeyPair(Config.CertificateFile, Config.PrivateKeyFile)
@@ -125,7 +108,6 @@ func Listen() {
 	}
 	defer listener.Close()
 	defer srvLogger.Info("Shutdown listener")
-
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -133,7 +115,7 @@ func Listen() {
 			continue
 		}
 		connInfo := parseRemoteAddr(conn.RemoteAddr().String())
-		connCache.Add(create4Tuple(connInfo, serverConnInfo), conn)
+		connCache.Add(AddressPair{local: serverConnInfo, remote: connInfo}, conn)
 		go handleConnection(conn, connInfo)
 	}
 }
@@ -145,7 +127,7 @@ func handleConnection(conn net.Conn, client ConnInfo) {
 	for scan.Deframe() {
 		log.Info("Received a message", "client", client)
 		deliver(scan.Data(), client)
-		conn.SetDeadline(time.Now().Add(Config.TCPTimeoutMicros))
+		conn.SetDeadline(time.Now().Add(Config.TCPTimeout))
 	}
 }
 
@@ -154,9 +136,4 @@ func parseRemoteAddr(s string) ConnInfo {
 	addrAndPort := strings.Split(s, ":")
 	port, _ := strconv.Atoi(addrAndPort[1])
 	return ConnInfo{Type: TCP, IPAddr: net.ParseIP(addrAndPort[0]), Port: uint16(port)}
-}
-
-//getIPAddrandPort fetches HostAddr and port number from config file on which this server is listening to
-func getIPAddrandPort() ConnInfo {
-	return ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}
 }

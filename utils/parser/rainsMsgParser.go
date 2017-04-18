@@ -8,7 +8,7 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
-	"github.com/netsec-ethz/rains/rainslib"
+	"rains/rainslib"
 )
 
 //RainsMsgParser contains methods to convert rainsMessages as a byte slice to an internal representation and vice versa
@@ -49,8 +49,12 @@ func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, e
 	if err != nil {
 		return rainslib.RainsMessage{Token: token}, err
 	}
-	capabilities := msg[cap+5 : len(msg)]
-	return rainslib.RainsMessage{Token: token, Content: msgBodies, Signatures: signatures, Capabilities: capabilities}, nil
+	capabilities := msg[cap+5:]
+	caps := []rainslib.Capability{}
+	if capabilities != "" {
+		log.Warn("TODO CFE capability parsing not yet implemented")
+	}
+	return rainslib.RainsMessage{Token: token, Content: msgBodies, Signatures: signatures, Capabilities: caps}, nil
 }
 
 //ParseRainsMsg parses a RainsMessage to a byte slice representation with format:
@@ -194,7 +198,7 @@ func revParseQuery(q *rainslib.QuerySection) string {
 	if len(q.Options) > 0 {
 		opts = opts[:len(opts)-1]
 	}
-	return fmt.Sprintf(":QU::VU:%d:CN:%s:SN:%s:OT:%d[%s]", q.Expires, q.Context, q.Name, q.Types, opts)
+	return fmt.Sprintf(":QU::VU:%d:CN:%s:SN:%s:OT:%d[%s]", q.Expires, q.Context, q.Name, q.Type, opts)
 }
 
 //revParseNotification parses a rains notification to its string representation with format:
@@ -252,7 +256,7 @@ func parseMessageBodies(msg string, token rainslib.Token) ([]rainslib.MessageSec
 }
 
 //parseSignedAssertion parses a signed assertion message section with format:
-//:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>:OT:<object type>:OD:<object data>[signature*]
+//:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 func parseSignedAssertion(msg string) (*rainslib.AssertionSection, error) {
 	log.Info("Parse Signed Assertion", "assertion", msg)
 	cn := strings.Index(msg, ":CN:")
@@ -323,18 +327,17 @@ func parseObjects(inputObjects string) ([]rainslib.Object, error) {
 	}
 	objs := strings.Split(inputObjects, ":OT:")[1:]
 	for _, obj := range objs {
-		od := strings.Index(obj, ":OD:")
-		if od == -1 {
+		od := strings.Split(obj, ":OD:")
+		if len(od) != 2 {
 			log.Warn("object malformed", "object", obj)
 			return []rainslib.Object{}, errors.New("object malformed")
 		}
-		objectType, err := strconv.Atoi(obj[:od])
+		objectType, err := strconv.Atoi(od[0])
 		if err != nil {
 			log.Warn("Object's objectType malformed")
 			return []rainslib.Object{}, errors.New("Object's objectType malformed")
 		}
-
-		object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: obj[od:]}
+		object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: od[1]}
 		objects = append(objects, object)
 	}
 	return objects, nil
@@ -487,12 +490,12 @@ func parseSignatures(msg string) ([]rainslib.Signature, error) {
 			log.Warn("signature malformed")
 			return []rainslib.Signature{}, errors.New("signature malformed")
 		}
-		validSince, err := strconv.Atoi(sig[:vu])
+		validSince, err := strconv.ParseInt(sig[:vu], 10, 64)
 		if err != nil {
 			log.Warn("signature's validSince malformed")
 			return []rainslib.Signature{}, errors.New("signature's validSince malformed")
 		}
-		validUntil, err := strconv.Atoi(sig[vu+4 : ks])
+		validUntil, err := strconv.ParseInt(sig[vu+4:ks], 10, 64)
 		if err != nil {
 			log.Warn("signature's validUntil malformed")
 			return []rainslib.Signature{}, errors.New("signature's validUntil malformed")
@@ -509,7 +512,7 @@ func parseSignatures(msg string) ([]rainslib.Signature, error) {
 		}
 		signature := rainslib.Signature{
 			Algorithm:  rainslib.SignatureAlgorithmType(algoType),
-			Data:       []byte(sig[sd+4 : len(sig)]),
+			Data:       []byte(sig[sd+4:]),
 			ValidSince: validSince,
 			ValidUntil: validUntil,
 			KeySpace:   rainslib.KeySpaceID(keySpace),
@@ -533,7 +536,7 @@ func parseQuery(msg string, token rainslib.Token) (*rainslib.QuerySection, error
 		log.Warn("Query Msg Section malformed")
 		return &rainslib.QuerySection{}, errors.New("Query Msg Section malformed")
 	}
-	expires, err := strconv.Atoi(msg[vu+4 : cn])
+	expires, err := strconv.ParseInt(msg[vu+4:cn], 10, 64)
 	if err != nil {
 		log.Warn("Valid Until malformed")
 		return &rainslib.QuerySection{}, errors.New("Valid Until malformed")
@@ -557,7 +560,7 @@ func parseQuery(msg string, token rainslib.Token) (*rainslib.QuerySection, error
 		Expires: expires,
 		Context: msg[cn+4 : sn],
 		Name:    msg[sn+4 : ot],
-		Types:   rainslib.ObjectType(objType),
+		Type:    rainslib.ObjectType(objType),
 		Options: opts,
 	}, nil
 }
@@ -583,6 +586,6 @@ func parseNotification(msg string) (*rainslib.NotificationSection, error) {
 	return &rainslib.NotificationSection{
 		Token: rainslib.Token(token),
 		Type:  rainslib.NotificationType(ntype),
-		Data:  msg[nd+4 : len(msg)],
+		Data:  msg[nd+4:],
 	}, nil
 }

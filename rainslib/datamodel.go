@@ -1,6 +1,10 @@
 package rainslib
 
 import (
+	"strconv"
+
+	"fmt"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -11,8 +15,9 @@ type RainsMessage struct {
 	Content []MessageSection
 
 	//Optional
-	Signatures   []Signature
-	Capabilities string
+	Signatures []Signature
+	//FIXME CFE capabilities can also be represented as a hash, how should we model this?
+	Capabilities []Capability
 }
 
 //Token is a byte slice with maximal length 32
@@ -22,6 +27,14 @@ type Token [16]byte
 type MessageSection interface {
 }
 
+//Capability is a urn of a capability
+type Capability string
+
+const (
+	NoCapability Capability = ""
+	TLSOverTCP   Capability = "urn:x-rains:tlssrv"
+)
+
 //MessageSectionWithSig can be either an Assertion, Shard or Zone
 type MessageSectionWithSig interface {
 	Sigs() []Signature
@@ -30,6 +43,48 @@ type MessageSectionWithSig interface {
 	GetContext() string
 	GetSubjectZone() string
 	CreateStub() MessageSectionWithSig
+	ValidFrom() int64
+	ValidUntil() int64
+	Hash() string
+	Interval
+}
+
+//Interval defines an interval over strings
+type Interval interface {
+	//Begin of the interval
+	Begin() string
+	//End of the interval
+	End() string
+}
+
+//TotalInterval is an interval over the whole namespace
+type TotalInterval struct{}
+
+func (t TotalInterval) Begin() string {
+	return ""
+}
+
+func (t TotalInterval) End() string {
+	return ""
+}
+
+//StringInterval implements Interval for a single string value
+type StringInterval struct {
+	Name string
+}
+
+func (s StringInterval) Begin() string {
+	return s.Name
+}
+
+func (s StringInterval) End() string {
+	return s.Name
+}
+
+//Hashable can be implemented by objects that are not natively hashable.
+type Hashable interface {
+	//Hash must return a string uniquely identifying the object
+	Hash() string
 }
 
 //AssertionSection contains information about the assertion
@@ -72,6 +127,50 @@ func (a *AssertionSection) CreateStub() MessageSectionWithSig {
 	*stub = *a
 	stub.DeleteAllSigs()
 	return stub
+}
+
+//Begin returns the begining of the interval of this assertion.
+func (a *AssertionSection) Begin() string {
+	return a.SubjectName
+}
+
+//End returns the end of the interval of this assertion.
+func (a *AssertionSection) End() string {
+	return a.SubjectName
+}
+
+//ValidFrom returns the earliest validFrom date of all contained signatures
+func (a *AssertionSection) ValidFrom() int64 {
+	valid := a.Signatures[0].ValidSince
+	for _, sig := range a.Signatures[1:] {
+		if sig.ValidSince < valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
+//ValidUntil returns the latest validUntil date of all contained signatures
+func (a *AssertionSection) ValidUntil() int64 {
+	valid := a.Signatures[0].ValidUntil
+	for _, sig := range a.Signatures[1:] {
+		if sig.ValidSince > valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
+//Hash returns a string containing all information uniquely identifying an assertion.
+func (a *AssertionSection) Hash() string {
+	return fmt.Sprintf("%s_%s_%s_%v_%v", a.Context, a.SubjectZone, a.SubjectName, a.Content, a.Signatures)
+}
+
+//EqualContextZoneName return true if the given assertion has the same context, zone, name.
+func (a *AssertionSection) EqualContextZoneName(assertion *AssertionSection) bool {
+	return a.Context == assertion.Context &&
+		a.SubjectZone == assertion.SubjectZone &&
+		a.SubjectName == assertion.SubjectName
 }
 
 //ShardSection contains information about the shard
@@ -122,6 +221,47 @@ func (s *ShardSection) CreateStub() MessageSectionWithSig {
 	}
 	stub.DeleteAllSigs()
 	return stub
+}
+
+//Begin returns the begining of the interval of this shard.
+func (s *ShardSection) Begin() string {
+	return s.RangeFrom
+}
+
+//End returns the end of the interval of this shard.
+func (s *ShardSection) End() string {
+	return s.RangeTo
+}
+
+//ValidFrom returns the earliest validFrom date of all contained signatures
+func (s *ShardSection) ValidFrom() int64 {
+	valid := s.Signatures[0].ValidSince
+	for _, sig := range s.Signatures[1:] {
+		if sig.ValidSince < valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
+//ValidUntil returns the latest validUntil date of all contained signatures
+func (s *ShardSection) ValidUntil() int64 {
+	valid := s.Signatures[0].ValidUntil
+	for _, sig := range s.Signatures[1:] {
+		if sig.ValidSince > valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
+//Hash returns a string containing all information uniquely identifying a shard.
+func (s *ShardSection) Hash() string {
+	aHashes := ""
+	for _, a := range s.Content {
+		aHashes += a.Hash()
+	}
+	return fmt.Sprintf("%s_%s_%s_%s_%s_%v", s.Context, s.SubjectZone, s.RangeFrom, s.RangeTo, aHashes, s.Signatures)
 }
 
 //ZoneSection contains information about the zone
@@ -182,17 +322,73 @@ func (z *ZoneSection) CreateStub() MessageSectionWithSig {
 	return stub
 }
 
+//Begin returns the begining of the interval of this zone.
+func (z *ZoneSection) Begin() string {
+	return ""
+}
+
+//End returns the end of the interval of this zone.
+func (z *ZoneSection) End() string {
+	return ""
+}
+
+//ValidFrom returns the earliest validFrom date of all contained signatures
+func (z *ZoneSection) ValidFrom() int64 {
+	valid := z.Signatures[0].ValidSince
+	for _, sig := range z.Signatures[1:] {
+		if sig.ValidSince < valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
+//ValidUntil returns the latest validUntil date of all contained signatures
+func (z *ZoneSection) ValidUntil() int64 {
+	valid := z.Signatures[0].ValidUntil
+	for _, sig := range z.Signatures[1:] {
+		if sig.ValidSince > valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
+//Hash returns a string containing all information uniquely identifying a shard.
+func (z *ZoneSection) Hash() string {
+	contentHashes := ""
+	for _, v := range z.Content {
+		switch v := v.(type) {
+		case *AssertionSection, *ShardSection:
+			contentHashes += v.Hash()
+		default:
+			log.Warn(fmt.Sprintf("not supported zone section content, must be assertion or shard, got %T", v))
+		}
+	}
+	return fmt.Sprintf("%s_%s_%s_%v", z.Context, z.SubjectZone, contentHashes, z.Signatures)
+}
+
 //QuerySection contains information about the query
 type QuerySection struct {
 	//Mandatory
 	Token   Token
 	Name    string
 	Context string
-	Types   ObjectType
-	Expires int
+	Type    ObjectType
+	Expires int64 //time when this query expires represented as the number of seconds elapsed since January 1, 1970 UTC
 
 	//Optional
 	Options []QueryOption
+}
+
+//ContainsOption returns true if the query contains the given query option.
+func (q QuerySection) ContainsOption(option QueryOption) bool {
+	for _, opt := range q.Options {
+		if opt == option {
+			return true
+		}
+	}
+	return false
 }
 
 type QueryOption int
@@ -209,6 +405,10 @@ const (
 )
 
 type ObjectType int
+
+func (o ObjectType) String() string {
+	return strconv.Itoa(int(o))
+}
 
 const (
 	Name        ObjectType = 1
@@ -286,8 +486,8 @@ const (
 type Signature struct {
 	KeySpace   KeySpaceID
 	Algorithm  SignatureAlgorithmType
-	ValidSince int
-	ValidUntil int
+	ValidSince int64
+	ValidUntil int64
 	Data       []byte
 }
 
@@ -297,6 +497,14 @@ type KeySpaceID int
 const (
 	RainsKeySpace KeySpaceID = 0
 )
+
+//AlgorithmType specifies an identifier an algorithm
+//TODO CFE how do we want to distinguish SignatureAlgorithmType and HashAlgorithmType
+type KeyAlgorithmType int
+
+func (k KeyAlgorithmType) String() string {
+	return strconv.Itoa(int(k))
+}
 
 //SignatureAlgorithmType specifies a signature algorithm type
 type SignatureAlgorithmType int
@@ -321,9 +529,10 @@ const (
 //PublicKey contains information about a public key
 type PublicKey struct {
 	//TODO CFE remove type if not needed anywhere
-	Type       SignatureAlgorithmType
+	Type       KeyAlgorithmType
 	Key        interface{}
-	ValidUntil uint
+	ValidFrom  int64
+	ValidUntil int64
 }
 
 //NamesetExpression  encodes a modified POSIX Extended Regular Expression format

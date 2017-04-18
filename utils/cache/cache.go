@@ -4,6 +4,8 @@ import (
 	"container/list"
 	"fmt"
 	"sync"
+
+	log "github.com/inconshreveable/log15"
 )
 
 //TODO CFE Performance optimization: do not lock whole cache when updating but only lock part of the list
@@ -35,7 +37,7 @@ type entry struct {
 }
 
 //New creates a cache where the first parameter entry must contain the maximum size of the cache (>0).
-//The second Parameter specifies if cacheAnyContext is used. on input 'context' is it used and on 'noContext' not.
+//The second Parameter specifies if cacheAnyContext is used. on input 'anyContext' is it used and on 'noAnyContext' not.
 func New(params ...interface{}) (*Cache, error) {
 	maxSize, anyContext, err := checkParams(params...)
 	if err != nil {
@@ -91,7 +93,9 @@ func checkParams(params ...interface{}) (int, bool, error) {
 	return 0, false, fmt.Errorf("Invalid value on second parameter (hasAnyContext): param2=%v", params[1])
 }
 
-//Add adds a value to the cache. If the cache is full the least recently used non internal element will be replaced. Returns true if it added an element.
+//Add adds a value to the cache. If the element is already in the cache it updates the recentness of the element.
+//If the cache is full the least recently used non internal element will be replaced.
+//Returns true if it added an element.
 func (c *Cache) Add(value interface{}, internal bool, context string, keys ...string) bool {
 	if c.cache == nil {
 		c.hasAnyContext = true
@@ -122,6 +126,7 @@ func (c *Cache) Add(value interface{}, internal bool, context string, keys ...st
 				c.lruList.MoveToFront(v)
 			}
 		}
+		c.mux.Unlock()
 		return false
 	}
 	//key does not already exist in cache
@@ -166,7 +171,8 @@ func (c *Cache) Contains(context string, keys ...string) bool {
 	return contained
 }
 
-//Get returns the key's value from the cache. The boolean value is false if there exist no element with the given key in the cache
+//Get returns true and the value associated with the given context and keys if present. Otherwise false and nil.
+//If an entry exists its recentness gets updated.
 func (c *Cache) Get(context string, keys ...string) (interface{}, bool) {
 	key := parseKeys(keys)
 	c.mux.RLock()
@@ -181,16 +187,26 @@ func (c *Cache) Get(context string, keys ...string) (interface{}, bool) {
 	if !ok {
 		return nil, false
 	}
-	return v.Value.(*entry).value, true
+	if elem, ok := v.Value.(*entry); ok {
+		if elem.internal {
+			c.list.MoveToFront(v)
+		} else {
+			c.lruList.MoveToFront(v)
+		}
+		return elem.value, true
+	}
+	log.Error("Internal element is of wrong type!")
+	return nil, false
 }
 
-//Keys returns a slice of the keys in the cache
-func (c *Cache) Keys() []interface{} {
+//Keys returns a slice of the keys in the cache where the format of a key is [context, key1:...:keyn]
+func (c *Cache) Keys() [][]string {
 	c.mux.RLock()
 	defer c.mux.RUnlock()
-	keys := []interface{}{}
-	for key := range c.cache {
-		keys = append(keys, key)
+	keys := [][]string{}
+	for _, v := range c.cache {
+		e := v.Value.(*entry)
+		keys = append(keys, []string{e.context, e.key})
 	}
 	return keys
 }
@@ -243,4 +259,17 @@ func (c *Cache) RemoveWithStrategy() bool {
 		c.onEvicted(value.value, value.context+":"+value.key)
 	}
 	return true
+}
+
+//GetLeastRecentlyUsedKey returns true and the least recently used key if present else false
+//TODO CFE write unit test
+func (c *Cache) GetLeastRecentlyUsedKey() ([]string, bool) {
+	c.mux.RLock()
+	defer c.mux.RUnlock()
+	v := c.lruList.Back()
+	if v == nil {
+		return nil, false
+	}
+	val := v.Value.(*entry)
+	return []string{val.context, val.key}, true
 }

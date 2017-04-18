@@ -3,19 +3,18 @@ package rainsd
 import (
 	log "github.com/inconshreveable/log15"
 
-	"github.com/netsec-ethz/rains/rainslib"
+	"rains/rainslib"
 )
 
 //notify handles incoming notification messages
 func notify(msgSender msgSectionSender) {
-	notifLog := log.New("notificationMsgSection", msgSender.Msg)
-	switch msgSender.Msg.(*rainslib.NotificationSection).Type {
-	case rainslib.Heartbeat:
-		//Do nothing
+	notifLog := log.New("notificationMsgSection", msgSender.Section)
+	switch msgSender.Section.(*rainslib.NotificationSection).Type {
 	case rainslib.CapHashNotKnown:
 		notifLog.Info("Capability Hash was not understood")
-		//TODO CFE send a full capabilities list on the next message it sends to the peer
-		//store in a map key <dest> value <capabilities>. Before a message is parsed to CBOR format check if it must include capabilities.
+		//TODO CFE send a full capabilities list on the next message it sends to the peer (own capability are stored in config)
+		//Change value in connection cache to also hold a list of capabilities. Then in SendTo() it gets connInfo and a list of capabilities. If caps not empty send them along
+		//and set the value in the cache to conn, empty list
 	case rainslib.BadMessage:
 		notifLog.Error("Sent msg was malformed")
 	case rainslib.RcvInconsistentMsg:
