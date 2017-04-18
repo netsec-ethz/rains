@@ -3,7 +3,6 @@ package rainsd
 import (
 	"bufio"
 	"container/list"
-	"crypto/rand"
 	"fmt"
 	"net"
 	"rains/rainslib"
@@ -35,13 +34,6 @@ func (f *newLineFramer) Deframe() bool {
 
 func (f newLineFramer) Data() []byte {
 	return f.Scanner.Bytes()
-}
-
-//PRG pseudo random generator
-type PRG struct{}
-
-func (prg PRG) Read(p []byte) (n int, err error) {
-	return rand.Read(p)
 }
 
 /*

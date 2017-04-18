@@ -7,19 +7,23 @@ import (
 	"rains/rainslib"
 	rainsMsgParser "rains/utils/parser"
 
+	"time"
+
 	log "github.com/inconshreveable/log15"
 )
 
 //InitRainspub initializes rainspub
 func InitRainspub() {
+	//TODO CFE uncomment loadConfig() after we have valid information in the config file
 	//loadConfig()
-
+	loadKeyPair()
 	parser = zoneFileParserImpl{}
 	msgParser = rainsMsgParser.RainsMsgParser{}
 }
 
 //PublishInformation sends a signed zone to a rains servers according the the rainspub config
 func PublishInformation() {
+	//TODO make validSince a parameter. Right now we use current time: time.Now()
 	file, err := ioutil.ReadFile(config.zoneFilePath)
 	if err != nil {
 		log.Error("Was not able to read from zone file.", "path", config.zoneFilePath, "error", err)
@@ -30,8 +34,8 @@ func PublishInformation() {
 	if err != nil {
 		log.Error("Zone file malformed.", "error", err)
 	}
-	signAssertions(assertions)
-	shards := groupAssertionsToShards(context, subjectZone, assertions)
+	signedAssertions := signAssertions(assertions)
+	shards := groupAssertionsToShards(context, subjectZone, signedAssertions)
 	signedShards := signShards(shards)
 	zone := &rainslib.ZoneSection{
 		Context:     context,
@@ -39,6 +43,9 @@ func PublishInformation() {
 		Content:     signedShards,
 	}
 	signZone(zone)
+	if err != nil {
+		log.Warn("Was not able to sign zone.", "error", err)
+	}
 	msg, err := createRainsMessage(zone)
 	if err != nil {
 		log.Warn("Was not able to parse the zone to a rains message.", "error", err)
@@ -47,9 +54,33 @@ func PublishInformation() {
 }
 
 //signAssertions signs all assertions with the context/zone's private key.
-func signAssertions([]*rainslib.AssertionSection) {
+func signAssertions(assertions []*rainslib.AssertionSection) []*rainslib.AssertionSection {
 	//TODO CFE use airgapping
-	//TODO CFE implement
+	sections := []*rainslib.AssertionSection{}
+	for _, a := range assertions {
+		stub := a.CreateStub()
+		byteStub, err := msgParser.RevParseSignedMsgSection(stub)
+		if err == nil {
+			sigData := rainslib.SignData(rainslib.Ed25519, privateKey, []byte(byteStub))
+			//TODO CFE handle multiple types per assertion
+			validUntil := int64(0)
+			if a.Content[0].Type == rainslib.OTDelegation {
+				validUntil = time.Now().Add(config.delegationValidity).Unix()
+			} else {
+				validUntil = time.Now().Add(config.assertionValidity).Unix()
+			}
+			signature := rainslib.Signature{
+				Algorithm:  rainslib.Ed25519,
+				KeySpace:   rainslib.RainsKeySpace,
+				Data:       sigData,
+				ValidSince: time.Now().Unix(),
+				ValidUntil: validUntil}
+			a.Signatures = append(a.Signatures, signature)
+			//TODO we should use 2 valid signatures to avoid traffic bursts when a signature expires.
+			sections = append(sections, a)
+		}
+	}
+	return sections
 }
 
 //groupAssertionsToShards creates shards containing a fixed number of assertions according to the configuration (except the last one).
@@ -98,16 +129,48 @@ func groupAssertionsToShards(context, zone string, assertions []*rainslib.Assert
 }
 
 //signShards signs all shards with the context/zone's private key.
-func signShards([]*rainslib.ShardSection) []rainslib.MessageSectionWithSig {
+//Returns signed shards as MessageSectionWithSig
+func signShards(shards []*rainslib.ShardSection) []rainslib.MessageSectionWithSig {
 	//TODO CFE use airgapping
-	//TODO CFE implement
-	return nil
+	sections := []rainslib.MessageSectionWithSig{}
+	for _, s := range shards {
+		stub := s.CreateStub()
+		byteStub, err := msgParser.RevParseSignedMsgSection(stub)
+		if err == nil {
+			sigData := rainslib.SignData(rainslib.Ed25519, privateKey, []byte(byteStub))
+			signature := rainslib.Signature{
+				Algorithm:  rainslib.Ed25519,
+				KeySpace:   rainslib.RainsKeySpace,
+				Data:       sigData,
+				ValidSince: time.Now().Unix(),
+				ValidUntil: time.Now().Add(config.shardValidity).Unix()}
+			s.Signatures = append(s.Signatures, signature)
+			//TODO we should use 2 valid signatures to avoid traffic bursts when a signature expires.
+			sections = append(sections, s)
+		}
+	}
+	return sections
 }
 
 //signZone signs the zone with the context/zone's private key.
-func signZone(zone *rainslib.ZoneSection) {
+func signZone(zone *rainslib.ZoneSection) error {
 	//TODO CFE use airgapping
-	//TODO CFE implement
+	stub := zone.CreateStub()
+	byteStub, err := msgParser.RevParseSignedMsgSection(stub)
+	if err != nil {
+		return err
+	}
+	sigData := rainslib.SignData(rainslib.Ed25519, privateKey, []byte(byteStub))
+	signature := rainslib.Signature{
+		Algorithm:  rainslib.Ed25519,
+		KeySpace:   rainslib.RainsKeySpace,
+		Data:       sigData,
+		ValidSince: time.Now().Unix(),
+		ValidUntil: time.Now().Add(config.zoneValidity).Unix(),
+	}
+	zone.Signatures = append(zone.Signatures, signature)
+	//TODO we should use 2 valid signatures to avoid traffic bursts when a signature expires.
+	return nil
 }
 
 //sendMsg sends the given zone to rains servers specified in the configuration

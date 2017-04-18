@@ -336,7 +336,7 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainsli
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Warn("signature expired", "expTime", sig.ValidUntil)
 			section.DeleteSig(i)
-		} else if !VerifySignature(sig.Algorithm, keys[rainslib.KeyAlgorithmType(sig.Algorithm)].Key, []byte(bareStub), sig.Data) {
+		} else if !rainslib.VerifySignature(sig.Algorithm, keys[rainslib.KeyAlgorithmType(sig.Algorithm)].Key, []byte(bareStub), sig.Data) {
 			log.Warn("signatures do not match")
 			return false
 		}

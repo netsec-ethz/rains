@@ -29,6 +29,7 @@ var msgParser rainslib.RainsMsgParser
 //rainpubConfig lists configurations for publishing zone information
 type rainpubConfig struct {
 	assertionValidity     time.Duration
+	delegationValidity    time.Duration
 	shardValidity         time.Duration
 	zoneValidity          time.Duration
 	maxAssertionsPerShard uint
@@ -37,8 +38,8 @@ type rainpubConfig struct {
 }
 
 //DefaultConfig is a rainpubConfig object containing default values
-var defaultConfig = rainpubConfig{assertionValidity: 30 * 24 * time.Hour, shardValidity: 24 * time.Hour, zoneValidity: 24 * time.Hour, maxAssertionsPerShard: 5,
-	serverAddresses: []rainsd.ConnInfo{rainsd.ConnInfo{Type: rainsd.TCP, IPAddr: net.ParseIP("127.0.0.1"), Port: 5022}}}
+var defaultConfig = rainpubConfig{assertionValidity: 15 * 24 * time.Hour, shardValidity: 24 * time.Hour, zoneValidity: 24 * time.Hour, maxAssertionsPerShard: 5,
+	serverAddresses: []rainsd.ConnInfo{rainsd.ConnInfo{Type: rainsd.TCP, IPAddr: net.ParseIP("127.0.0.1"), Port: 5022}}, delegationValidity: 30 * 24 * time.Hour}
 
 type zoneFileParser interface {
 	//parseZoneFile takes as input a zoneFile and returns all contained assertions. A zoneFile has the following format:

@@ -1,6 +1,7 @@
 package rainslib
 
 import (
+	"crypto/rand"
 	"strconv"
 
 	"fmt"
@@ -152,6 +153,8 @@ func (a *AssertionSection) ValidFrom() int64 {
 
 //ValidUntil returns the latest validUntil date of all contained signatures
 func (a *AssertionSection) ValidUntil() int64 {
+	//FIXME CFE this is not correct. There might be a time interval between several signatures during which this assertion is not valid.
+	//Return the latest time which is reachable with all contained signatures without gaps in between
 	valid := a.Signatures[0].ValidUntil
 	for _, sig := range a.Signatures[1:] {
 		if sig.ValidSince > valid {
@@ -246,6 +249,8 @@ func (s *ShardSection) ValidFrom() int64 {
 
 //ValidUntil returns the latest validUntil date of all contained signatures
 func (s *ShardSection) ValidUntil() int64 {
+	//FIXME CFE this is not correct. There might be a time interval between several signatures during which this assertion is not valid.
+	//Return the latest time which is reachable with all contained signatures without gaps in between
 	valid := s.Signatures[0].ValidUntil
 	for _, sig := range s.Signatures[1:] {
 		if sig.ValidSince > valid {
@@ -345,6 +350,8 @@ func (z *ZoneSection) ValidFrom() int64 {
 
 //ValidUntil returns the latest validUntil date of all contained signatures
 func (z *ZoneSection) ValidUntil() int64 {
+	//FIXME CFE this is not correct. There might be a time interval between several signatures during which this assertion is not valid.
+	//Return the latest time which is reachable with all contained signatures without gaps in between
 	valid := z.Signatures[0].ValidUntil
 	for _, sig := range z.Signatures[1:] {
 		if sig.ValidSince > valid {
@@ -488,7 +495,7 @@ type Signature struct {
 	Algorithm  SignatureAlgorithmType
 	ValidSince int64
 	ValidUntil int64
-	Data       []byte
+	Data       interface{}
 }
 
 //KeySpaceID identifies a key space
@@ -601,4 +608,11 @@ type RainsMsgParser interface {
 
 	//RevParseSignedMsgSection parses an MessageSectionWithSig to a byte slice representation
 	RevParseSignedMsgSection(section MessageSectionWithSig) (string, error)
+}
+
+//PRG pseudo random generator
+type PRG struct{}
+
+func (prg PRG) Read(p []byte) (n int, err error) {
+	return rand.Read(p)
 }
