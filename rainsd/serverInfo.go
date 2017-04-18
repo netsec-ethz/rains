@@ -19,6 +19,9 @@ var Config = defaultConfig
 
 //rainsdConfig lists possible configurations of a rains server
 type rainsdConfig struct {
+	//general
+	RootZoneFilePath string
+
 	//switchboard
 	ServerIPAddr    net.IP
 	ServerPort      uint16
@@ -68,7 +71,7 @@ var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerP
 	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}, InfrastructureKeyCacheSize: 10,
 	ExternalKeyCacheSize: 5, DelegationQueryValidity: 5 * time.Second, NegativeAssertionCacheSize: 500, AssertionQueryValidity: 5 * time.Second,
 	MaxCacheAssertionValidity: 365 * 24 * time.Hour, MaxCacheShardValidity: 365 * 24 * time.Hour, MaxCacheZoneValidity: 365 * 24 * time.Hour, ReapVerifyTimeout: 30 * time.Minute,
-	ReapEngineTimeout: 30 * time.Minute}
+	ReapEngineTimeout: 30 * time.Minute, RootZoneFilePath: "config/rootZoneFile.txt"}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int

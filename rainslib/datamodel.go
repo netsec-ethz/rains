@@ -610,6 +610,16 @@ type RainsMsgParser interface {
 	RevParseSignedMsgSection(section MessageSectionWithSig) (string, error)
 }
 
+//ZoneFileParser is the interface for all parsers of zone files for RAINS
+type ZoneFileParser interface {
+	//ParseZoneFile takes as input a zoneFile and returns all contained assertions. A zoneFile has the following format:
+	//:Z: <context> <zone> [(:S:<Shard Content>|:A:<Assertion Content>)*]
+	//Shard Content: [(:A:<Assertion Content>)*]
+	//Assertion Content: <subject-name>[(:objectType:<object data>)*]
+	//It assumes that
+	ParseZoneFile(zoneFile []byte) ([]*AssertionSection, error)
+}
+
 //PRG pseudo random generator
 type PRG struct{}
 

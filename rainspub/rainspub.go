@@ -6,6 +6,7 @@ import (
 	"rains/rainsd"
 	"rains/rainslib"
 	rainsMsgParser "rains/utils/parser"
+	"rains/utils/zoneFileParser"
 
 	"time"
 
@@ -17,7 +18,7 @@ func InitRainspub() {
 	//TODO CFE uncomment loadConfig() after we have valid information in the config file
 	//loadConfig()
 	loadKeyPair()
-	parser = zoneFileParserImpl{}
+	parser = zoneFileParser.Parser{}
 	msgParser = rainsMsgParser.RainsMsgParser{}
 }
 
@@ -28,7 +29,7 @@ func PublishInformation() {
 	if err != nil {
 		log.Error("Was not able to read from zone file.", "path", config.zoneFilePath, "error", err)
 	}
-	assertions, err := parser.parseZoneFile(file)
+	assertions, err := parser.ParseZoneFile(file)
 	context := assertions[0].Context
 	subjectZone := assertions[1].SubjectZone
 	if err != nil {

@@ -23,6 +23,7 @@ func InitServer() error {
 	loadConfig()
 	serverConnInfo = ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}
 	loadAuthoritative()
+	loadRootZoneFile()
 	if err := loadCert(); err != nil {
 		return err
 	}
@@ -58,6 +59,13 @@ func loadAuthoritative() {
 	for i, context := range Config.ContextAuthority {
 		authoritative[contextAndZone{Context: context, Zone: Config.ZoneAuthority[i]}] = true
 	}
+}
+
+func loadRootZoneFile() {
+	/*file, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		log.Warn("Could not open config file...", "path", configPath, "error", err)
+	}*/
 }
 
 func loadCert() error {

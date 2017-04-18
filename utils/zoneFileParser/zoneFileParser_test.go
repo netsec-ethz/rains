@@ -1,4 +1,4 @@
-package rainspub
+package zoneFileParser
 
 import (
 	"testing"
@@ -22,8 +22,8 @@ func TestParseZoneFile(t *testing.T) {
 						]
 					]
 					`
-	parser := zoneFileParserImpl{}
-	assertions, err := parser.parseZoneFile([]byte(test_zone_1))
+	parser := Parser{}
+	assertions, err := parser.ParseZoneFile([]byte(test_zone_1))
 	if err != nil {
 		log.Warn(err.Error())
 
