@@ -375,7 +375,7 @@ type QuerySection struct {
 	Name    string
 	Context string
 	Type    ObjectType
-	Expires int64
+	Expires int64 //time when this query expires represented as the number of seconds elapsed since January 1, 1970 UTC
 
 	//Optional
 	Options []QueryOption

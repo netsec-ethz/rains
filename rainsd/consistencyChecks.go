@@ -147,6 +147,7 @@ func zoneContainsAssertion(a *rainslib.AssertionSection, z *rainslib.ZoneSection
 			}
 		default:
 			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+			return false
 		}
 		log.Warn("Encountered valid assertion together with a valid zone that does not contain it.", "assertion", *a, "zone", *z)
 	}

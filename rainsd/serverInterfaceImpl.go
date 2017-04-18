@@ -1138,7 +1138,7 @@ func deleteAssertions(c *assertionCacheImpl, forceDelete bool, context string, k
 						deleteCount++
 						ok := deleteAssertionFromRangeMap(c, v.section, v.validFrom, v.validUntil)
 						if !ok {
-							log.Error("Was not able to delete assertion from rangeMap")
+							log.Error("Was not able to delete assertion from rangeMap", "assertion", v.section)
 						}
 					}
 				}
