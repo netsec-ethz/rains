@@ -33,7 +33,7 @@ func initVerify() error {
 	//FIXME CFE this signature is here for testing reasons, remove for production
 	pubKey, _, _ := ed25519.GenerateKey(rand.New(rand.NewSource(time.Now().UnixNano())))
 	zoneKeyCache.Add(keyCacheKey{context: ".", zone: ".ch", keyAlgo: rainslib.KeyAlgorithmType(rainslib.Ed25519)},
-		rainslib.PublicKey{Key: pubKey, Type: rainslib.KeyAlgorithmType(rainslib.Ed25519), ValidUntil: 1690086564},
+		rainslib.PublicKey{Key: pubKey, Type: rainslib.SignatureAlgorithmType(rainslib.Ed25519), ValidUntil: 1690086564},
 		false)
 
 	infrastructureKeyCache, err = createKeyCache(int(Config.InfrastructureKeyCacheSize))

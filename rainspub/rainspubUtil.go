@@ -21,6 +21,12 @@ func loadConfig() {
 }
 
 func loadKeyPair() {
+	//TODO CFE store key pair somewhere, right now we always generate new ones.
+	var err error
+	publicKey, privateKey, err = generateKeyPair()
+	if err != nil {
+		log.Warn("Could not load private/public key pair")
+	}
 }
 
 func generateKeyPair() (ed25519.PublicKey, ed25519.PrivateKey, error) {

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 )
 
 const (
@@ -20,6 +21,8 @@ const (
 
 //Config contains configurations for publishing assertions
 var config = defaultConfig
+var privateKey ed25519.PrivateKey
+var publicKey ed25519.PublicKey
 var parser zoneFileParser
 var msgParser rainslib.RainsMsgParser
 
@@ -125,7 +128,11 @@ func parseAssertion(context, zone string, scanner *bufio.Scanner) (*rainslib.Ass
 			scanner.Scan()
 			objects = append(objects, rainslib.Object{Type: rainslib.OTRedirection, Value: scanner.Text()})
 		case ":deleg:":
-			//TODO CFE more complex contains public key
+			delegation, err := getPublicKey(scanner)
+			if err != nil {
+				return nil, err
+			}
+			objects = append(objects, rainslib.Object{Type: rainslib.OTDelegation, Value: delegation})
 		case ":nameset:":
 			scanner.Scan()
 			objects = append(objects, rainslib.Object{Type: rainslib.OTNameset, Value: scanner.Text()})
@@ -159,9 +166,14 @@ func parseAssertion(context, zone string, scanner *bufio.Scanner) (*rainslib.Ass
 			scanner.Scan()
 			objects = append(objects, rainslib.Object{Type: rainslib.OTRegistrant, Value: scanner.Text()})
 		case ":infra:":
-			//TODO CFE more complex contains public key
+			infrastructureKey, err := getPublicKey(scanner)
+			if err != nil {
+				return nil, err
+			}
+			objects = append(objects, rainslib.Object{Type: rainslib.OTDelegation, Value: infrastructureKey})
 		case ":extra:":
-			//TODO CFE more complex contains public key
+			//TODO CFE not yet implemented
+			return nil, errors.New("TODO CFE not yet implemented")
 		default:
 			return nil, errors.New("Encountered non existing object type")
 		}
@@ -230,5 +242,56 @@ func getCertHashType(certType string) (rainslib.HashAlgorithmType, error) {
 		return rainslib.Sha512, nil
 	default:
 		return rainslib.HashAlgorithmType(-1), errors.New("Encountered non existing certificate hash algorithm")
+	}
+}
+
+func getPublicKey(scanner *bufio.Scanner) (rainslib.PublicKey, error) {
+	scanner.Scan()
+	keyAlgoType, err := getKeyAlgoType(scanner.Text())
+	if err != nil {
+		return rainslib.PublicKey{}, err
+	}
+	scanner.Scan() //scans [
+	scanner.Scan()
+	publicKey := rainslib.PublicKey{Type: keyAlgoType}
+	switch keyAlgoType {
+	case rainslib.Ed25519:
+		if len(scanner.Text()) != 32 {
+			return rainslib.PublicKey{}, fmt.Errorf("public key size is wrong expected 32, got:%d", len(scanner.Text()))
+		}
+		key := rainslib.Ed25519PublicKey{}
+		copy(key[:], scanner.Text())
+		publicKey.Key = key
+	case rainslib.Ed448:
+		if len(scanner.Text()) != 57 {
+			return rainslib.PublicKey{}, fmt.Errorf("public key size is wrong expected 57, got:%d", len(scanner.Text()))
+		}
+		key := rainslib.Ed448PublicKey{}
+		copy(key[:], scanner.Text())
+		publicKey.Key = key
+	case rainslib.Ecdsa256:
+		log.Warn("Not yet implemented")
+		publicKey.Key = rainslib.Ecdsa256PublicKey{}
+	case rainslib.Ecdsa384:
+		log.Warn("Not yet implemented")
+		publicKey.Key = rainslib.Ecdsa384PublicKey{}
+	default:
+		return rainslib.PublicKey{}, fmt.Errorf("Encountered non existing signature algorithm type. Got:%T", keyAlgoType)
+	}
+	return publicKey, nil
+}
+
+func getKeyAlgoType(keyAlgoType string) (rainslib.SignatureAlgorithmType, error) {
+	switch keyAlgoType {
+	case "1":
+		return rainslib.Ed25519, nil
+	case "2":
+		return rainslib.Ed448, nil
+	case "3":
+		return rainslib.Ecdsa256, nil
+	case "4":
+		return rainslib.Ecdsa384, nil
+	default:
+		return rainslib.SignatureAlgorithmType(-1), fmt.Errorf("Encountered non existing signature algorithm type. Got:%s", keyAlgoType)
 	}
 }

@@ -43,7 +43,6 @@ func PublishInformation() {
 	if err != nil {
 		log.Warn("Was not able to parse the zone to a rains message.", "error", err)
 	}
-	//TODO CFE sign message?
 	sendMsg(msg)
 }
 
@@ -136,7 +135,6 @@ func sendMsg(msg []byte) {
 //createRainsMessage creates a rainsMessage containing the given zone and return the byte representation of this rainsMessage ready to send out.
 func createRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
 	msg := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Content: []rainslib.MessageSection{zone}} //no capabilities
-	//TODO CFE add signature to the message?
 	byteMsg, err := msgParser.ParseRainsMsg(msg)
 	if err != nil {
 		return []byte{}, err
