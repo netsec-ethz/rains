@@ -8,10 +8,11 @@ import (
 	"io"
 	"net"
 	"os"
-	"rains/rainslib"
-	"rains/utils/parser"
 	"strconv"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/parser"
 )
 
 //TODO add default values to description
