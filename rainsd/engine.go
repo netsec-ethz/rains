@@ -127,6 +127,7 @@ func handleAssertion(a *rainslib.AssertionSection, token rainslib.Token) {
 
 //handlePendingQueries triggers any pending queries and send the response to it.
 func handlePendingQueries(section rainslib.MessageSectionWithSig, token rainslib.Token) {
+	//FIXME CFE also allow pending Queries to GetAllAndDelete(zone, type, name,context) because we might get the answer back indirectly.
 	values, ok := pendingQueries.GetAllAndDelete(token)
 	if ok {
 		for _, v := range values {

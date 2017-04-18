@@ -3,16 +3,13 @@ package rainspub
 import (
 	"bufio"
 	"bytes"
+	"errors"
+	"fmt"
 	"net"
 	"rains/rainsd"
 	"rains/rainslib"
-	"time"
-
-	"errors"
-
 	"strconv"
-
-	"fmt"
+	"time"
 
 	log "github.com/inconshreveable/log15"
 )

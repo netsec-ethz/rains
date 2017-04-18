@@ -87,6 +87,7 @@ func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.Notif
 	return msgParser.ParseRainsMsg(msg)
 }
 
+//FIXME CFE move this code to rainslib. It is used also in rainspub
 //SignData returns a signature of the input data signed with the specified signing algorithm and the given private key.
 func SignData(algoType rainslib.SignatureAlgorithmType, privateKey interface{}, data []byte) interface{} {
 	switch algoType {
@@ -123,6 +124,7 @@ func signEcdsa(privateKey *ecdsa.PrivateKey, data, hash []byte) interface{} {
 	return []*big.Int{r, s}
 }
 
+//FIXME CFE move this code to rainslib. It is also used in the client
 //VerifySignature returns true if the provided signature with the public key matches the data.
 func VerifySignature(algoType rainslib.SignatureAlgorithmType, publicKey interface{}, data []byte, signature interface{}) bool {
 	switch algoType {

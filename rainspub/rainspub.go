@@ -43,6 +43,7 @@ func PublishInformation() {
 	if err != nil {
 		log.Warn("Was not able to parse the zone to a rains message.", "error", err)
 	}
+	//TODO CFE sign message?
 	sendMsg(msg)
 }
 
