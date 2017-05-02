@@ -1,68 +1,429 @@
 package rainslib
 
+import (
+	"strconv"
+
+	"fmt"
+
+	log "github.com/inconshreveable/log15"
+)
+
 //RainsMessage contains the data of a message
 type RainsMessage struct {
 	//Mandatory
-	Token   []byte
+	Token   Token
 	Content []MessageSection
 
 	//Optional
-	Signatures   []Signature
-	Capabilities string
+	Signatures []Signature
+	//FIXME CFE capabilities can also be represented as a hash, how should we model this?
+	Capabilities []Capability
 }
 
-//MessageSection can be either an Assertion, Shard, Zone, or Query.
-type MessageSection struct {
-	Type int
-	Body MessageBody //TODO create correct type
+//Token is a byte slice with maximal length 32
+type Token [16]byte
+
+//MessageSection can be either an Assertion, Shard, Zone, Query or Notification section
+type MessageSection interface {
 }
 
-//MessageBody can be either an Assertion, Shard, Zone, or Query body
-type MessageBody interface {
+//Capability is a urn of a capability
+type Capability string
+
+const (
+	NoCapability Capability = ""
+	TLSOverTCP   Capability = "urn:x-rains:tlssrv"
+)
+
+//MessageSectionWithSig can be either an Assertion, Shard or Zone
+type MessageSectionWithSig interface {
+	Sigs() []Signature
+	DeleteSig(int)
+	DeleteAllSigs()
+	GetContext() string
+	GetSubjectZone() string
+	CreateStub() MessageSectionWithSig
+	ValidFrom() int64
+	ValidUntil() int64
+	Hash() string
+	Interval
 }
 
-//AssertionBody contains information about the assertion
-type AssertionBody struct {
-	//Mandatory
-	Subject string
-	Content []Object
-	//Optional for contained assertions
+//Interval defines an interval over strings
+type Interval interface {
+	//Begin of the interval
+	Begin() string
+	//End of the interval
+	End() string
+}
+
+//TotalInterval is an interval over the whole namespace
+type TotalInterval struct{}
+
+func (t TotalInterval) Begin() string {
+	return ""
+}
+
+func (t TotalInterval) End() string {
+	return ""
+}
+
+//StringInterval implements Interval for a single string value
+type StringInterval struct {
+	Name string
+}
+
+func (s StringInterval) Begin() string {
+	return s.Name
+}
+
+func (s StringInterval) End() string {
+	return s.Name
+}
+
+//Hashable can be implemented by objects that are not natively hashable.
+type Hashable interface {
+	//Hash must return a string uniquely identifying the object
+	Hash() string
+}
+
+//AssertionSection contains information about the assertion
+type AssertionSection struct {
+	SubjectName string
+	Content     []Object
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
 }
 
-//ShardBody contains information about the shard
-type ShardBody struct {
-	//Mandatory
-	Content []AssertionBody
-	//Optional for contained shards
+//Sigs return the assertion's signatures
+func (a *AssertionSection) Sigs() []Signature {
+	return a.Signatures
+}
+
+//DeleteSig deletes ith signature
+func (a *AssertionSection) DeleteSig(i int) {
+	a.Signatures = append(a.Signatures[:i], a.Signatures[i+1:]...)
+}
+
+//DeleteAllSigs deletes all signatures
+func (a *AssertionSection) DeleteAllSigs() {
+	a.Signatures = []Signature{}
+}
+
+//GetContext returns the context of the assertion
+func (a *AssertionSection) GetContext() string {
+	return a.Context
+}
+
+//GetSubjectZone returns the zone of the assertion
+func (a *AssertionSection) GetSubjectZone() string {
+	return a.SubjectZone
+}
+
+//CreateStub creates a copy of the assertion without the signatures.
+func (a *AssertionSection) CreateStub() MessageSectionWithSig {
+	stub := &AssertionSection{}
+	*stub = *a
+	stub.DeleteAllSigs()
+	return stub
+}
+
+//Begin returns the begining of the interval of this assertion.
+func (a *AssertionSection) Begin() string {
+	return a.SubjectName
+}
+
+//End returns the end of the interval of this assertion.
+func (a *AssertionSection) End() string {
+	return a.SubjectName
+}
+
+//ValidFrom returns the earliest validFrom date of all contained signatures
+func (a *AssertionSection) ValidFrom() int64 {
+	valid := a.Signatures[0].ValidSince
+	for _, sig := range a.Signatures[1:] {
+		if sig.ValidSince < valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
+//ValidUntil returns the latest validUntil date of all contained signatures
+func (a *AssertionSection) ValidUntil() int64 {
+	valid := a.Signatures[0].ValidUntil
+	for _, sig := range a.Signatures[1:] {
+		if sig.ValidSince > valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
+//Hash returns a string containing all information uniquely identifying an assertion.
+func (a *AssertionSection) Hash() string {
+	return fmt.Sprintf("%s_%s_%s_%v_%v", a.Context, a.SubjectZone, a.SubjectName, a.Content, a.Signatures)
+}
+
+//EqualContextZoneName return true if the given assertion has the same context, zone, name.
+func (a *AssertionSection) EqualContextZoneName(assertion *AssertionSection) bool {
+	return a.Context == assertion.Context &&
+		a.SubjectZone == assertion.SubjectZone &&
+		a.SubjectName == assertion.SubjectName
+}
+
+//ShardSection contains information about the shard
+type ShardSection struct {
+	Content     []*AssertionSection
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
-	Range       []string
+	RangeFrom   string
+	RangeTo     string
 }
 
-//ZoneBody contains information about the zone
-type ZoneBody struct {
-	//Mandatory
+//Sigs return the shard's signatures
+func (s *ShardSection) Sigs() []Signature {
+	return s.Signatures
+}
+
+//DeleteSig deletes ith signature
+func (s *ShardSection) DeleteSig(i int) {
+	s.Signatures = append(s.Signatures[:i], s.Signatures[i+1:]...)
+}
+
+//DeleteAllSigs deletes all signatures
+func (s *ShardSection) DeleteAllSigs() {
+	s.Signatures = []Signature{}
+	for _, assertion := range s.Content {
+		assertion.DeleteAllSigs()
+	}
+}
+
+//GetContext returns the context of the shard
+func (s *ShardSection) GetContext() string {
+	return s.Context
+}
+
+//GetSubjectZone returns the zone of the shard
+func (s *ShardSection) GetSubjectZone() string {
+	return s.SubjectZone
+}
+
+//CreateStub creates a copy of the shard and its contained assertions without the signatures.
+func (s *ShardSection) CreateStub() MessageSectionWithSig {
+	stub := &ShardSection{}
+	*stub = *s
+	stub.Content = []*AssertionSection{}
+	for _, assertion := range s.Content {
+		stub.Content = append(stub.Content, assertion.CreateStub().(*AssertionSection))
+	}
+	stub.DeleteAllSigs()
+	return stub
+}
+
+//Begin returns the begining of the interval of this shard.
+func (s *ShardSection) Begin() string {
+	return s.RangeFrom
+}
+
+//End returns the end of the interval of this shard.
+func (s *ShardSection) End() string {
+	return s.RangeTo
+}
+
+//ValidFrom returns the earliest validFrom date of all contained signatures
+func (s *ShardSection) ValidFrom() int64 {
+	valid := s.Signatures[0].ValidSince
+	for _, sig := range s.Signatures[1:] {
+		if sig.ValidSince < valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
+//ValidUntil returns the latest validUntil date of all contained signatures
+func (s *ShardSection) ValidUntil() int64 {
+	valid := s.Signatures[0].ValidUntil
+	for _, sig := range s.Signatures[1:] {
+		if sig.ValidSince > valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
+//Hash returns a string containing all information uniquely identifying a shard.
+func (s *ShardSection) Hash() string {
+	aHashes := ""
+	for _, a := range s.Content {
+		aHashes += a.Hash()
+	}
+	return fmt.Sprintf("%s_%s_%s_%s_%s_%v", s.Context, s.SubjectZone, s.RangeFrom, s.RangeTo, aHashes, s.Signatures)
+}
+
+//ZoneSection contains information about the zone
+type ZoneSection struct {
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
-	Content     []MessageBody //TODO can be assert and/or shardbody but not zonebody, how do we want to handle that?
+	Content     []MessageSectionWithSig
 }
 
-//QueryBody contains information about the query
-type QueryBody struct {
+//Sigs return the zone's signatures
+func (z *ZoneSection) Sigs() []Signature {
+	return z.Signatures
+}
+
+//DeleteSig deletes ith signature
+func (z *ZoneSection) DeleteSig(i int) {
+	z.Signatures = append(z.Signatures[:i], z.Signatures[i+1:]...)
+}
+
+//DeleteAllSigs deletes all signatures
+func (z *ZoneSection) DeleteAllSigs() {
+	z.Signatures = []Signature{}
+	for _, section := range z.Content {
+		switch section := section.(type) {
+		case *AssertionSection, *ShardSection:
+			section.DeleteAllSigs()
+		default:
+			log.Warn("Unknown message section", "messageSection", section)
+		}
+	}
+}
+
+//GetContext returns the context of the zone
+func (z *ZoneSection) GetContext() string {
+	return z.Context
+}
+
+//GetSubjectZone returns the zone of the zone
+func (z *ZoneSection) GetSubjectZone() string {
+	return z.SubjectZone
+}
+
+//CreateStub creates a copy of the zone and the contained shards and assertions without the signatures.
+func (z *ZoneSection) CreateStub() MessageSectionWithSig {
+	stub := &ZoneSection{}
+	*stub = *z
+	stub.Content = []MessageSectionWithSig{}
+	for _, section := range z.Content {
+		switch section := section.(type) {
+		case *AssertionSection, *ShardSection:
+			stub.Content = append(stub.Content, section.CreateStub())
+		default:
+			log.Warn("Unknown message section", "messageSection", section)
+		}
+	}
+	stub.DeleteAllSigs()
+	return stub
+}
+
+//Begin returns the begining of the interval of this zone.
+func (z *ZoneSection) Begin() string {
+	return ""
+}
+
+//End returns the end of the interval of this zone.
+func (z *ZoneSection) End() string {
+	return ""
+}
+
+//ValidFrom returns the earliest validFrom date of all contained signatures
+func (z *ZoneSection) ValidFrom() int64 {
+	valid := z.Signatures[0].ValidSince
+	for _, sig := range z.Signatures[1:] {
+		if sig.ValidSince < valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
+//ValidUntil returns the latest validUntil date of all contained signatures
+func (z *ZoneSection) ValidUntil() int64 {
+	valid := z.Signatures[0].ValidUntil
+	for _, sig := range z.Signatures[1:] {
+		if sig.ValidSince > valid {
+			valid = sig.ValidSince
+		}
+	}
+	return valid
+}
+
+//Hash returns a string containing all information uniquely identifying a shard.
+func (z *ZoneSection) Hash() string {
+	contentHashes := ""
+	for _, v := range z.Content {
+		switch v := v.(type) {
+		case *AssertionSection, *ShardSection:
+			contentHashes += v.Hash()
+		default:
+			log.Warn(fmt.Sprintf("not supported zone section content, must be assertion or shard, got %T", v))
+		}
+	}
+	return fmt.Sprintf("%s_%s_%s_%v", z.Context, z.SubjectZone, contentHashes, z.Signatures)
+}
+
+//QuerySection contains information about the query
+type QuerySection struct {
 	//Mandatory
-	Token   []byte
+	Token   Token
 	Name    string
-	Context []string
-	Types   []int
+	Context string
+	Type    ObjectType
+	Expires int64 //time when this query expires represented as the number of seconds elapsed since January 1, 1970 UTC
+
 	//Optional
-	Expires int
-	Options []int
+	Options []QueryOption
 }
+
+//ContainsOption returns true if the query contains the given query option.
+func (q QuerySection) ContainsOption(option QueryOption) bool {
+	for _, opt := range q.Options {
+		if opt == option {
+			return true
+		}
+	}
+	return false
+}
+
+type QueryOption int
+
+const (
+	MinE2ELatency            QueryOption = 1
+	MinLastHopAnswerSize     QueryOption = 2
+	MinInfoLeakage           QueryOption = 3
+	CachedAnswersOnly        QueryOption = 4
+	ExpiredAssertionsOk      QueryOption = 5
+	TokenTracing             QueryOption = 6
+	NoVerificationDelegation QueryOption = 7
+	NoProactiveCaching       QueryOption = 8
+)
+
+type ObjectType int
+
+func (o ObjectType) String() string {
+	return strconv.Itoa(int(o))
+}
+
+const (
+	Name        ObjectType = 1
+	IP6Addr     ObjectType = 2
+	IP4Addr     ObjectType = 3
+	Redirection ObjectType = 4
+	Delegation  ObjectType = 5
+	Nameset     ObjectType = 6
+	CertInfo    ObjectType = 7
+	ServiceInfo ObjectType = 8
+	Registrar   ObjectType = 9
+	Registrant  ObjectType = 10
+	InfraKey    ObjectType = 11
+	ExtraKey    ObjectType = 12
+)
 
 //SubjectAddr TODO correct?
 type SubjectAddr struct {
@@ -71,52 +432,107 @@ type SubjectAddr struct {
 	Address       string
 }
 
-//AddressAssertionBody contains information about the address assertion
-type AddressAssertionBody struct {
-	//Mandatory
+//AddressAssertionSection contains information about the address assertion
+type AddressAssertionSection struct {
 	SubjectAddr
-	Content []Object
-	//Optional for contained address assertions
+	Content    []Object
 	Signatures []Signature
 	Context    string
 }
 
-//AddressZoneBody contains information about the address zone
-type AddressZoneBody struct {
-	//Mandatory
+//AddressZoneSection contains information about the address zone
+type AddressZoneSection struct {
 	SubjectAddr
 	Signatures []Signature
 	Context    string
-	Content    []AddressAssertionBody
+	Content    []AddressAssertionSection
 }
 
-//AddressQueryBody contains information about the address query
-type AddressQueryBody struct {
-	//Mandatory
+//AddressQuerySection contains information about the address query
+type AddressQuerySection struct {
 	SubjectAddr
 	Token   []byte
 	Context string
 	Types   []int
-	//Optional
 	Expires int
+	//Optional
 	Options []int
 }
 
-//NotificationBody contains information about the notification
-type NotificationBody struct {
+//NotificationSection contains information about the notification
+type NotificationSection struct {
 	//Mandatory
-	Token []byte
-	Type  int
+	Token Token
+	Type  NotificationType
 	//Optional
 	Data string
 }
 
-//Signature TODO What does it contain
+type NotificationType int
+
+const (
+	Heartbeat          NotificationType = 100
+	CapHashNotKnown    NotificationType = 399
+	BadMessage         NotificationType = 400
+	RcvInconsistentMsg NotificationType = 403
+	NoAssertionsExist  NotificationType = 404
+	MsgTooLarge        NotificationType = 413
+	UnspecServerErr    NotificationType = 500
+	ServerNotCapable   NotificationType = 501
+	NoAssertionAvail   NotificationType = 504
+)
+
+//Signature on a Rains message or section
 type Signature struct {
-	AlgorithmID int
-	ValidSince  int
-	ValidUntil  int
-	Data        []interface{}
+	KeySpace   KeySpaceID
+	Algorithm  SignatureAlgorithmType
+	ValidSince int64
+	ValidUntil int64
+	Data       []byte
+}
+
+//KeySpaceID identifies a key space
+type KeySpaceID int
+
+const (
+	RainsKeySpace KeySpaceID = 0
+)
+
+//AlgorithmType specifies an identifier an algorithm
+//TODO CFE how do we want to distinguish SignatureAlgorithmType and HashAlgorithmType
+type KeyAlgorithmType int
+
+func (k KeyAlgorithmType) String() string {
+	return strconv.Itoa(int(k))
+}
+
+//SignatureAlgorithmType specifies a signature algorithm type
+type SignatureAlgorithmType int
+
+const (
+	Ed25519  SignatureAlgorithmType = 1
+	Ed448    SignatureAlgorithmType = 2
+	Ecdsa256 SignatureAlgorithmType = 3
+	Ecdsa384 SignatureAlgorithmType = 4
+)
+
+//HashAlgorithmType specifies a hash algorithm type
+type HashAlgorithmType int
+
+const (
+	NoHashAlgo HashAlgorithmType = 0
+	Sha256     HashAlgorithmType = 1
+	Sha384     HashAlgorithmType = 2
+	Sha512     HashAlgorithmType = 3
+)
+
+//PublicKey contains information about a public key
+type PublicKey struct {
+	//TODO CFE remove type if not needed anywhere
+	Type       KeyAlgorithmType
+	Key        interface{}
+	ValidFrom  int64
+	ValidUntil int64
 }
 
 //NamesetExpression  encodes a modified POSIX Extended Regular Expression format
@@ -127,19 +543,22 @@ type CertificateObject string
 
 //Object is a container for different values determined by the given type.
 type Object struct {
-	Type  int
+	Type  ObjectType
 	Value interface{}
 }
 
-/*
-FOR TESTING PURPOSE ONLY
-*/
+//RainsMsgParser translates between byte slices and RainsMessage.
+//It must always hold that: rainsMsg = ParseByteSlice(ParseRainsMsg(rainsMsg)) && byteMsg = ParseRainsMsg(ParseByteSlice(byteMsg))
+type RainsMsgParser interface {
+	//ParseByteSlice parses the byte slice to a RainsMessage.
+	ParseByteSlice(msg []byte) (RainsMessage, error)
 
-//UShortAssertion is an unsigned short assertion
-type UShortAssertion string
+	//ParseRainsMsg parses a RainsMessage to a byte slice representation.
+	ParseRainsMsg(msg RainsMessage) ([]byte, error)
 
-//ShortAssertion is an signed short assertion
-type ShortAssertion string
+	//Token extracts the token from the byte slice
+	Token(msg []byte) (Token, error)
 
-//ShortQuery is a short query
-type ShortQuery string
+	//RevParseSignedMsgSection parses an MessageSectionWithSig to a byte slice representation
+	RevParseSignedMsgSection(section MessageSectionWithSig) (string, error)
+}

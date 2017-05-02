@@ -31,3 +31,6 @@ __pycache__
 #Key, cert
 *.crt
 *.key
+
+#server main() function binary
+/server/server
