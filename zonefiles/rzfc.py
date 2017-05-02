@@ -4,15 +4,13 @@
 # Turns RAINS zonefiles into CBOR, and vice versa
 # Prototype/testing. Under current development.
 
-# NOTE: this implements zonefile declarations in zone-context order, the
-# design document (which is normative) uses context-zone order. Change this
-# code. NOTE NOTE: in progress.
+# FIXME: EXTRAKEY not yet supported. Change this code.
 
-# NOTE: EXTRAKEY not yet supported. Change this code.
+# FIXME: Keyspace identifiers not yet supported. Change this code.
 
-# NOTE: Keyspace identifiers not yet supported. Change this code.
+# FIXME: address-to-name assertions are not yet supported as in the draft
 
-# NOTE: need to support reverse assertions as in draft
+# FIXME: SCION addressing is not yet supported
 
 import re
 import cbor
@@ -60,7 +58,8 @@ ALGORITHMS = { "ed25519"  : 1,
                "ECDSA256" : 3,
                "ECDSA384" : 4}
 
-KEYSPACES = { "rains"     : 0 }
+KEYSPACES = { "rains"     : 0,
+              "arpki"     : 23 }
 
 INDENT_LEN = 4 # let the religious wars begin
 
@@ -464,7 +463,7 @@ def shard_iterator(m):
     complete by filling in context and zone.
 
     """
-
+    # FIXME
     pass
 
 def assertion_iterator(m):
@@ -474,7 +473,7 @@ def assertion_iterator(m):
     assertions will be made complete by filling in context and zone.
 
     """
-
+    # FIXME
     pass
 
 
@@ -485,6 +484,7 @@ def shardify(z, count=None, size=None):
     returning the modified structure.
 
     """
+    # FIXME
     pass
 
 def sign(m, cipher, private_key, validity_start, validity_end):
@@ -494,6 +494,7 @@ def sign(m, cipher, private_key, validity_start, validity_end):
     message.
 
     """
+    # FIXME
     pass
 
 def decompile(m):
@@ -517,6 +518,7 @@ def shardify(z, count=None, size=None):
     returning the modified structure.
 
     """
+    # FIXME
     pass
 
 test_zone_1 = """
