@@ -1,5 +1,9 @@
 import argparse
 import sys
+import os.path
+
+import nacl.signing
+import nacl.encoding
 
 from ipaddress import IPv4Address, IPv6Address, IPv4Network, IPv6Network
 
@@ -32,6 +36,8 @@ def parse_args():
                         help="Wordlist to take entity names from")
     parser.add_argument("--out", type=str, default="-",
                         help="file to write to (default stdout)")
+    parser.add_argument("--keydir", type=str,
+                        help="if present, write binary secret keys to keydir as zone.sk")
 
     
     return parser.parse_args()
@@ -57,8 +63,22 @@ def generate_endhost(fp, name, v4_net, v6_net, args):
     fp.write("    ]\n")
 
 def generate_delegation(fp, name, args):
+    # make a secret key
+    sk = nacl.signing.SigningKey.generate()
+
+    # dump it to disk
+    if args.keydir:
+        zone = args.zone.strip(".")
+        if len(zone) > 0:
+            skname = ".".join([name, zone]) + ".sk"
+        else:
+            skname = name + ".sk"
+        with open(os.path.join(args.keydir, skname), mode="wb") as keyfile:
+            keyfile.write(bytes(sk))
+    
+    # and output the associated public key
     fp.write("    :A: %s [\n" % (name))
-    fp.write("        :deleg: ed22519 keymaterial-goes-here\n")
+    fp.write("        :deleg: ed25519 %s\n" % (bytes(sk.verify_key).hex()))
     fp.write("    ]\n")
 
 def generate_zone(fp, words, args):
