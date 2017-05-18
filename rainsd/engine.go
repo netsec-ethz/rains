@@ -265,7 +265,8 @@ func query(query *rainslib.QuerySection, sender ConnInfo) {
 			return
 		}
 	}
-	//assertion cache does not contain an answer for this query. Look into negativeAssertion cache
+	log.Debug("No entry found in assertion cache matching the query")
+
 	for _, zAn := range zoneAndNames {
 		negAssertion, ok := negAssertionCache.Get(query.Context, zAn.zone, rainslib.StringInterval{Name: zAn.name})
 		if ok {
@@ -274,10 +275,12 @@ func query(query *rainslib.QuerySection, sender ConnInfo) {
 			return
 		}
 	}
-	//negativeAssertion cache does not contain an answer for this query.
+	log.Debug("No entry found in negAssertion cache matching the query")
+
 	if query.ContainsOption(rainslib.CachedAnswersOnly) {
+		log.Debug("Send a notification message back to the sender due to query option: 'Cached Answers only'")
 		sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
-		log.Debug("Finished handling query (unsuccessful) due to Cached Answers only query option", "query", query)
+		log.Debug("Finished handling query (unsuccessful) ", "query", query)
 		return
 	}
 	for _, zAn := range zoneAndNames {
@@ -306,7 +309,9 @@ func query(query *rainslib.QuerySection, sender ConnInfo) {
 func getZoneAndName(name string) []zoneAndName {
 	//TODO CFE use also different heuristics
 	names := strings.Split(name, ".")
-	return []zoneAndName{zoneAndName{zone: strings.Join(names[1:], "."), name: names[0]}}
+	zoneAndNames := []zoneAndName{zoneAndName{zone: "." + strings.Join(names[1:], "."), name: names[0]}}
+	log.Debug("Split into zone and name", "zone", zoneAndNames[0].zone, "name", zoneAndNames[0].name)
+	return zoneAndNames
 }
 
 //sendQueryAnswer sends a section with Signature to back to the sender with the specified token

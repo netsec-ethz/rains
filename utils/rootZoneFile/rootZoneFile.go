@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"rains/rainslib"
 	"rains/utils/parser"
 	"time"
@@ -18,7 +19,7 @@ func CreateRootZoneFile() error {
 	}
 	assertion := &rainslib.AssertionSection{
 		Context:     ".",
-		SubjectZone: ".",
+		SubjectZone: "ethz.ch",
 		SubjectName: "@",
 		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}},
 	}
@@ -26,15 +27,17 @@ func CreateRootZoneFile() error {
 	if err != nil {
 		return err
 	}
-	rootZoneFile := fmt.Sprintf(":Z: . . [ :A: @ [ :deleg: 1 %v ] ]", publicKey)
+	rootZoneFile := fmt.Sprintf(":Z: . . [ :A: @ [ :deleg: 1 %s ] ]", publicKey)
 	//Store private key
-	//FIXME CFE why does the following command not create a new file???
-	err = ioutil.WriteFile("/tmp/privateKey", []byte(privateKey), 0644)
+	if _, err := os.Stat("tmp"); os.IsNotExist(err) {
+		os.Mkdir("tmp", 0775)
+	}
+	err = ioutil.WriteFile("tmp/privateKey.txt", []byte(privateKey), 0644)
 	if err != nil {
 		return err
 	}
 	//Store root zone file
-	err = ioutil.WriteFile("/tmp/rootZoneFile", []byte(rootZoneFile), 0644)
+	err = ioutil.WriteFile("tmp/rootZoneFile.txt", []byte(rootZoneFile), 0644)
 	if err != nil {
 		return err
 	}

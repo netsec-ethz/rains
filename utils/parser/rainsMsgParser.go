@@ -15,7 +15,7 @@ type RainsMsgParser struct{}
 
 //ParseByteSlice parses the byte slice to a RainsMessage according to the following format:
 //It is ASSUMED that signature data does not contain the '[' char.
-//RainsMessage format: <token>[MessageSection:::::...:::::MessageSection][signatures*]:cap:<capabilities
+//RainsMessage format: <token>[MessageSection:::::...:::::MessageSection][signatures*]:cap:<capabilities>
 //Signed Assertion: :SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>[(:OT:<object type>:OD:<object data>)*][signature*]
 //Contained Assertion: :CA::SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 //Signed Shard: :SS::CN:<context-name>:ZN:<zone-name>:RB:<range-begin>:RE:<range-end>[Contained Assertion*][signature*]
@@ -26,7 +26,7 @@ type RainsMsgParser struct{}
 //signature: :VF:<valid-from>:VU:<valid-until>:KS:<key-space>:KA:<key-algorithm>:SD:<signature-data>
 func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, error) {
 	msg := string(message)
-	log.Info("Parse Rains Message", "message", msg)
+	log.Debug("Parse Rains Message", "message", msg)
 	msgSectionBegin := strings.Index(msg, "[")
 	msgSectionEnd := strings.LastIndex(msg, "[") - 1
 	sigBegin := strings.LastIndex(msg, "[")
@@ -57,7 +57,7 @@ func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, e
 }
 
 //ParseRainsMsg parses a RainsMessage to a byte slice representation with format:
-//<token>[MessageSection:::::...:::::MessageSection][signatures*]:cap:<capabilities
+//<token>[MessageSection:::::...:::::MessageSection][signatures*]:cap:<capabilities>
 func (p RainsMsgParser) ParseRainsMsg(m rainslib.RainsMessage) ([]byte, error) {
 	msg := string(m.Token[:]) + "["
 	for _, section := range m.Content {
@@ -77,7 +77,14 @@ func (p RainsMsgParser) ParseRainsMsg(m rainslib.RainsMessage) ([]byte, error) {
 			return []byte{}, errors.New("Unknown message section type")
 		}
 	}
-	return []byte(fmt.Sprintf("%s][%s]:cap:%s", msg, revParseSignature(m.Signatures), m.Capabilities)), nil
+	caps := ""
+	if len(m.Capabilities) > 0 {
+		caps = string(m.Capabilities[0])
+		for _, capa := range m.Capabilities[1:] {
+			caps += ":::" + string(capa)
+		}
+	}
+	return []byte(fmt.Sprintf("%s][%s]:cap:%s", msg, revParseSignature(m.Signatures), caps)), nil
 }
 
 //Token returns the Token from the message represented as a byte slice with format:
@@ -178,11 +185,11 @@ func revParseSignedZone(z *rainslib.ZoneSection) string {
 }
 
 //revParseSignature parses a rains signature to its string representation with format:
-//signature: :VF:<valid-from>:VU:<valid-until>:KA:<key-algorithm>:SD:<signature-data>
+//signature: :VF:<valid-from>:VU:<valid-until>:KS:<key-space>:KA:<key-algorithm>:SD:<signature-data>
 func revParseSignature(sigs []rainslib.Signature) string {
 	signatures := ""
 	for _, sig := range sigs {
-		signatures += fmt.Sprintf(":VF:%d:VU:%d:KA:%v:SD:%s", sig.ValidSince, sig.ValidUntil, sig.Algorithm, sig.Data)
+		signatures += fmt.Sprintf(":VF:%d:VU:%d:KS:%d:KA:%v:SD:%s", sig.ValidSince, sig.ValidUntil, sig.KeySpace, sig.Algorithm, sig.Data)
 	}
 	return signatures
 }
@@ -208,7 +215,7 @@ func revParseNotification(n *rainslib.NotificationSection) string {
 
 //parseMessageBodies parses message section bodies according to their type (assertion, query, notification)
 func parseMessageBodies(msg string, token rainslib.Token) ([]rainslib.MessageSection, error) {
-	log.Info("Parse Message Bodies", "msgBodies", msg)
+	log.Debug("Parse Message Bodies", "msgBodies", msg)
 	parsedMsgBodies := []rainslib.MessageSection{}
 	if len(msg) == 0 {
 		return parsedMsgBodies, nil
@@ -257,7 +264,7 @@ func parseMessageBodies(msg string, token rainslib.Token) ([]rainslib.MessageSec
 //parseSignedAssertion parses a signed assertion message section with format:
 //:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 func parseSignedAssertion(msg string) (*rainslib.AssertionSection, error) {
-	log.Info("Parse Signed Assertion", "assertion", msg)
+	log.Debug("Parse Signed Assertion", "assertion", msg)
 	cn := strings.Index(msg, ":CN:")
 	zn := strings.Index(msg, ":ZN:")
 	sn := strings.Index(msg, ":SN:")
@@ -284,7 +291,7 @@ func parseSignedAssertion(msg string) (*rainslib.AssertionSection, error) {
 //parseContainedAssertion parses a contained assertion message section with format:
 //:CA::SN:<subject-name>:OT:<object type>:OD:<object data>[signature*]
 func parseContainedAssertion(msg, context, subjectZone string) (*rainslib.AssertionSection, error) {
-	log.Info("Parse Contained Assertion", "assertion", msg)
+	log.Debug("Parse Contained Assertion", "assertion", msg)
 	sn := strings.Index(msg, ":SN:")
 	objBegin := strings.Index(msg, "[")
 	objEnd := strings.Index(msg, "]")
@@ -319,7 +326,7 @@ func parseContainedAssertion(msg, context, subjectZone string) (*rainslib.Assert
 //parseObjects parses objects with format:
 //(:OT:<object type>:OD:<object data>)*
 func parseObjects(inputObjects string) ([]rainslib.Object, error) {
-	log.Info("Parse Objects", "objects", inputObjects)
+	log.Debug("Parse Objects", "objects", inputObjects)
 	objects := []rainslib.Object{}
 	if len(inputObjects) == 0 {
 		return objects, nil
@@ -345,7 +352,7 @@ func parseObjects(inputObjects string) ([]rainslib.Object, error) {
 //parseSignedShard parses a signed shard message section with format:
 //:SS::CN:<context-name>:ZN:<zone-name>:RB:<range-begin>:RE:<range-end>[ContainedAssertion*][signature*]
 func parseSignedShard(msg string) (*rainslib.ShardSection, error) {
-	log.Info("Parse Signed Shard", "Shard", msg)
+	log.Debug("Parse Signed Shard", "Shard", msg)
 	cn := strings.Index(msg, ":CN:")
 	zn := strings.Index(msg, ":ZN:")
 	rb := strings.Index(msg, ":RB:")
@@ -387,7 +394,7 @@ func parseSignedShard(msg string) (*rainslib.ShardSection, error) {
 //parseContainedShard parses a contained shard message section with format:
 //:CS::RB:<range-begin>:RE:<range-end>[ContainedAssertion*][signature*]
 func parseContainedShard(msg, context, subjectZone string) (*rainslib.ShardSection, error) {
-	log.Info("Parse Contained Shard", "shard", msg)
+	log.Debug("Parse Contained Shard", "shard", msg)
 	rb := strings.Index(msg, ":RB:")
 	re := strings.Index(msg, ":RE:")
 	assertBegin := strings.Index(msg, "[")
@@ -425,7 +432,7 @@ func parseContainedShard(msg, context, subjectZone string) (*rainslib.ShardSecti
 //parseSignedZone parses a signed zone message section with format:
 //:SZ::CN:<context-name>:ZN:<zone-name>[(Contained Shard|Contained Assertion):::...:::(Contained Shard|Contained Assertion)][signature*]
 func parseSignedZone(msg string) (*rainslib.ZoneSection, error) {
-	log.Info("Parse Signed Zone", "zone", msg)
+	log.Debug("Parse Signed Zone", "zone", msg)
 	cn := strings.Index(msg, ":CN:")
 	zn := strings.Index(msg, ":ZN:")
 	sectionBegin := strings.Index(msg, "[")
@@ -474,7 +481,7 @@ func parseSignedZone(msg string) (*rainslib.ZoneSection, error) {
 //parseSignatures parses signatures where each signature has the format:
 //:VF:<valid-from>:VU:<valid-until>:KS:<key-space>:KA:<key-algorithm>:SD:<signature-data>
 func parseSignatures(msg string) ([]rainslib.Signature, error) {
-	log.Info("Parse Signature", "sig", msg)
+	log.Debug("Parse Signature", "sig", msg)
 	signatures := []rainslib.Signature{}
 	if len(msg) == 0 {
 		return signatures, nil
@@ -524,7 +531,7 @@ func parseSignatures(msg string) ([]rainslib.Signature, error) {
 //parseQuery parses a query message section section
 //:QU::VU:<valid-until>:CN:<context-name>:SN:<subject-name>:OT:<objtype>[<option1>:...:<option_n>]
 func parseQuery(msg string, token rainslib.Token) (*rainslib.QuerySection, error) {
-	log.Info("Parse Query", "query", msg)
+	log.Debug("Parse Query", "query", msg)
 	vu := strings.Index(msg, ":VU:")
 	cn := strings.Index(msg, ":CN:")
 	sn := strings.Index(msg, ":SN:")
@@ -567,7 +574,7 @@ func parseQuery(msg string, token rainslib.Token) (*rainslib.QuerySection, error
 //parseNotification parses a notification message section section of the following format:
 //:NO::TN:<token this notification refers to>:NT:<type>:ND:<data>
 func parseNotification(msg string) (*rainslib.NotificationSection, error) {
-	log.Info("Parse Notification", "notification", msg)
+	log.Debug("Parse Notification", "notification", msg)
 	tn := strings.Index(msg, ":TN:")
 	nt := strings.Index(msg, ":NT:")
 	nd := strings.Index(msg, ":ND:")

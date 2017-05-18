@@ -5,13 +5,15 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"rains/rainslib"
+	"rains/utils/msgFramer"
 	"rains/utils/parser"
 	"strconv"
 	"time"
+
+	log "github.com/inconshreveable/log15"
 )
 
 //TODO add default values to description
@@ -23,6 +25,9 @@ var serverAddr = flag.String("s", "", `is the IP address of the name server to q
 		This can be an IPv4 address in dotted-decimal notation or an IPv6 address in colon-delimited notation.`)
 var context = flag.String("c", ".", "context specifies the context for which dig issues a query")
 var expires = flag.Int64("exp", time.Now().Add(10*time.Second).Unix(), "expires sets the valid until value of the query")
+
+//TODO CFE enable to set multiple query options
+var queryOption = flag.Int("qopt", 0, "queryOption specifies performance/privacy tradeoffs")
 
 func main() {
 	flag.Parse()
@@ -48,12 +53,13 @@ func main() {
 		default:
 			fmt.Println("input parameters malformed")
 		}
-		msg, err := generateMsg()
+		token := rainslib.GenerateToken()
+		msg, err := generateMsg(token)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		err = sendQuery(msg, *serverAddr, *port)
+		err = sendQuery(msg, token, *serverAddr, *port)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -61,14 +67,16 @@ func main() {
 	}
 }
 
-func generateMsg() ([]byte, error) {
-	token := rainslib.GenerateToken()
+func generateMsg(token rainslib.Token) ([]byte, error) {
 	section := rainslib.QuerySection{
 		Context: *context,
 		Expires: *expires,
 		Type:    rainslib.ObjectType(*queryType),
 		Token:   token,
 		Name:    *name,
+	}
+	if *queryOption > 0 && *queryOption < 6 {
+		section.Options = []rainslib.QueryOption{rainslib.QueryOption(*queryOption)}
 	}
 	msg := rainslib.RainsMessage{
 		Token:   token,
@@ -82,7 +90,7 @@ func generateMsg() ([]byte, error) {
 	return message, nil
 }
 
-func sendQuery(query []byte, ipAddress string, port uint) error {
+func sendQuery(query []byte, token rainslib.Token, ipAddress string, port uint) error {
 	conf := &tls.Config{
 		//TODO CFE add this to cmd line options
 		InsecureSkipVerify: true,
@@ -91,22 +99,51 @@ func sendQuery(query []byte, ipAddress string, port uint) error {
 	if ipAddr == nil {
 		return errors.New("malformed IP address")
 	}
+	//TODO CFE reuse ConnInfo from rainsd -> add it to rainslib
 	conn, err := tls.Dial("tcp", fmt.Sprintf("%v:%d", ipAddr, port), conf)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 
-	done := make(chan struct{})
-	go func() {
-		//TODO CFE format answer and stop after received one
-		io.Copy(os.Stdout, conn)
-		done <- struct{}{}
-	}()
+	done := make(chan rainslib.RainsMessage)
+	parser := &parser.RainsMsgParser{}
+	go func(conn net.Conn, parser rainslib.RainsMsgParser, token rainslib.Token) {
+		framer := msgFramer.NewLineFramer{}
+		framer.InitStream(conn)
+		for framer.Deframe() {
+			msg, err := parser.ParseByteSlice(framer.Data())
+			if err != nil {
+				log.Warn("Was not able to parse deframed message", "message", msg)
+				continue
+			}
+			if msg.Token == token {
+				done <- msg
+				return
+			}
+			log.Debug("Token of sent query does not match the token of the received message", "queryToken", token, "recvToken", msg.Token)
+		}
+		done <- rainslib.RainsMessage{}
+	}(conn, parser, token)
 	_, err = conn.Write(append(query, []byte("\n")...))
 	if err != nil {
 		return err
 	}
-	<-done // wait for answer
+	result := <-done // wait for answer
+	for _, section := range result.Content {
+		switch section := section.(type) {
+		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection:
+			output, err := parser.RevParseSignedMsgSection(section.(rainslib.MessageSectionWithSig))
+			if err != nil {
+				log.Warn("Could not reverse parse section with signature", "error", err)
+			}
+			fmt.Println(output)
+		case *rainslib.NotificationSection:
+			//TODO implement a pretty printer
+			fmt.Printf(":NO::TN:%v:NT:%d:ND:%s\n", section.Token, section.Type, section.Data)
+		default:
+			log.Warn("Unexpected section type", "Type", fmt.Sprintf("%T", section))
+		}
+	}
 	return nil
 }

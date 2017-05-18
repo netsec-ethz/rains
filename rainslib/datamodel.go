@@ -6,6 +6,8 @@ import (
 
 	"fmt"
 
+	"io"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -625,4 +627,22 @@ type PRG struct{}
 
 func (prg PRG) Read(p []byte) (n int, err error) {
 	return rand.Read(p)
+}
+
+//MsgFramer is used to frame rains messages before transmission and deframe on the receiving end.
+type MsgFramer interface {
+	//Frame takes a message and adds a frame to it
+	Frame(msg []byte) ([]byte, error)
+
+	//InitStream defines the stream from which Deframe() and Data() are extracting the information from
+	InitStream(stream io.Reader)
+
+	//Deframe extracts the next frame from the stream defined in InitStream().
+	//It blocks until it encounters the delimiter.
+	//It returns false when the stream was not initialized or is already closed.
+	//The data is available through Data
+	Deframe() bool
+
+	//Data contains the frame read from the stream by Deframe
+	Data() []byte
 }

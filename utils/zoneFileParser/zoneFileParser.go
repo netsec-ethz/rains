@@ -11,7 +11,7 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
-//Parser has a method to parse zone files
+//Parser can be used to parse RAINS zone files
 type Parser struct {
 }
 

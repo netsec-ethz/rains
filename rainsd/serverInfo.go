@@ -343,21 +343,6 @@ type contextAndZone struct {
 	Zone    string
 }
 
-//TODO CFE what should the name of this interface be?
-type scanner interface {
-	//Frame takes a message and adds a frame to it
-	Frame(msg []byte) ([]byte, error)
-
-	//Deframe extracts the next frame from a stream.
-	//It blocks until it encounters the delimiter.
-	//It returns false when the stream is closed.
-	//The data is available through Data
-	Deframe() bool
-
-	//Data contains the frame read from the stream by Deframe
-	Data() []byte
-}
-
 //setContainer is an interface for a set data structure where all operations are concurrency safe
 type setContainer interface {
 	//Add appends item to the current set if not already contained.

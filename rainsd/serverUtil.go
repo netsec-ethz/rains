@@ -85,8 +85,8 @@ func loadCert() error {
 
 //CreateNotificationMsg creates a notification messages
 func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.NotificationType, data string) ([]byte, error) {
-	content := []rainslib.MessageSection{&rainslib.NotificationSection{Type: rainslib.MsgTooLarge, Token: token, Data: data}}
-	msg := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Content: content}
+	content := []rainslib.MessageSection{&rainslib.NotificationSection{Type: rainslib.MsgTooLarge, Token: rainslib.GenerateToken(), Data: data}}
+	msg := rainslib.RainsMessage{Token: token, Content: content}
 	return msgParser.ParseRainsMsg(msg)
 }
 

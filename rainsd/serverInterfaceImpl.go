@@ -1,7 +1,6 @@
 package rainsd
 
 import (
-	"bufio"
 	"container/list"
 	"fmt"
 	"net"
@@ -14,27 +13,6 @@ import (
 
 	log "github.com/inconshreveable/log15"
 )
-
-type newLineFramer struct {
-	Scanner   *bufio.Scanner
-	firstCall bool
-}
-
-func (f newLineFramer) Frame(msg []byte) ([]byte, error) {
-	return append(msg, "\n"...), nil
-}
-
-func (f *newLineFramer) Deframe() bool {
-	if f.firstCall {
-		f.Scanner.Split(bufio.ScanLines)
-		f.firstCall = false
-	}
-	return f.Scanner.Scan()
-}
-
-func (f newLineFramer) Data() []byte {
-	return f.Scanner.Bytes()
-}
 
 /*
  *	Connection cache implementation

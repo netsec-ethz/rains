@@ -99,7 +99,7 @@ func deliver(message []byte, sender ConnInfo) {
 		case *rainslib.QuerySection:
 			addQueryToQueue(m, msg, sender)
 		case *rainslib.NotificationSection:
-			addNotificationToQueue(m, m.Token, sender)
+			addNotificationToQueue(m, msg.Token, sender)
 		default:
 			log.Warn(fmt.Sprintf("unsupported message section type %T", m))
 		}
@@ -190,7 +190,7 @@ func addNotificationToQueue(msg *rainslib.NotificationSection, tok rainslib.Toke
 		if msg.Type != rainslib.CapHashNotKnown {
 			delete(activeTokens, tok)
 		}
-		notificationChannel <- msgSectionSender{Sender: sender, Section: msg, Token: tok}
+		notificationChannel <- msgSectionSender{Sender: sender, Section: msg, Token: msg.Token}
 	} else {
 		log.Warn("Token not in active token cache, drop message", "token", tok)
 	}
