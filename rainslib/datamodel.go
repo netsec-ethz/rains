@@ -618,7 +618,6 @@ type ZoneFileParser interface {
 	//:Z: <context> <zone> [(:S:<Shard Content>|:A:<Assertion Content>)*]
 	//Shard Content: [(:A:<Assertion Content>)*]
 	//Assertion Content: <subject-name>[(:objectType:<object data>)*]
-	//It assumes that
 	ParseZoneFile(zoneFile []byte) ([]*AssertionSection, error)
 }
 
