@@ -8,6 +8,7 @@ import (
 	"net"
 	"rains/rainslib"
 	"rains/utils/cache"
+	"rains/utils/parser"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -23,7 +24,6 @@ func InitServer() error {
 	loadConfig()
 	serverConnInfo = ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}
 	loadAuthoritative()
-	loadRootZoneFile()
 	if err := loadCert(); err != nil {
 		return err
 	}
@@ -39,7 +39,6 @@ func InitServer() error {
 	if err := initEngine(); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -61,16 +60,35 @@ func loadAuthoritative() {
 	}
 }
 
-func loadRootZoneFile() {
-	/*file, err := ioutil.ReadFile(configPath)
+//loadRootZonePublicKey stores the root zone public key from disk into the zoneKeyCache.
+func loadRootZonePublicKey() error {
+	rootZoneFile, err := ioutil.ReadFile(Config.RootZonePublicKeyPath)
 	if err != nil {
-		log.Warn("Could not open config file...", "path", configPath, "error", err)
-	}*/
+		log.Error("Could not load root zone public key", "path", Config.RootZonePublicKeyPath, "error", err)
+		return err
+	}
+	msgParser := parser.RainsMsgParser{}
+	a, err := msgParser.ParseSignedAssertion(rootZoneFile)
+	if err != nil {
+		log.Error("Could not parse root zone file")
+		return err
+	}
+	for _, c := range a.Content {
+		if c.Type == rainslib.OTDelegation {
+			publicKey := rainslib.PublicKey{Key: c.Value, Type: a.Signatures[0].Algorithm, ValidUntil: a.ValidUntil()}
+			keyMap := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
+			keyMap[rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)] = publicKey
+			if validateSignatures(a, keyMap) {
+				zoneKeyCache.Add(keyCacheKey{context: a.Context, zone: a.SubjectZone, keyAlgo: rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)}, publicKey, true)
+			}
+		}
+	}
+	return nil
 }
 
 func loadCert() error {
 	roots = x509.NewCertPool()
-	file, err := ioutil.ReadFile(Config.CertificateFile)
+	file, err := ioutil.ReadFile(Config.TLSCertificateFile)
 	if err != nil {
 		log.Error("error", err)
 		return err

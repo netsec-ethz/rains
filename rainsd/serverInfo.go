@@ -20,16 +20,16 @@ var Config = defaultConfig
 //rainsdConfig lists possible configurations of a rains server
 type rainsdConfig struct {
 	//general
-	RootZoneFilePath string
+	RootZonePublicKeyPath string
 
 	//switchboard
-	ServerIPAddr    net.IP
-	ServerPort      uint16
-	MaxConnections  uint
-	KeepAlivePeriod time.Duration
-	TCPTimeout      time.Duration
-	CertificateFile string
-	PrivateKeyFile  string
+	ServerIPAddr       net.IP
+	ServerPort         uint16
+	MaxConnections     uint
+	KeepAlivePeriod    time.Duration
+	TCPTimeout         time.Duration
+	TLSCertificateFile string
+	TLSPrivateKeyFile  string
 
 	//inbox
 	MaxMsgByteLength        uint
@@ -66,12 +66,12 @@ type rainsdConfig struct {
 
 //DefaultConfig is a rainsdConfig object containing default values
 var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriod: time.Minute, TCPTimeout: 5 * time.Minute,
-	CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key", MaxMsgByteLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerCount: 2,
+	TLSCertificateFile: "config/server.crt", TLSPrivateKeyFile: "config/server.key", MaxMsgByteLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerCount: 2,
 	NormalWorkerCount: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
 	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}, InfrastructureKeyCacheSize: 10,
 	ExternalKeyCacheSize: 5, DelegationQueryValidity: 5 * time.Second, NegativeAssertionCacheSize: 500, AssertionQueryValidity: 5 * time.Second,
 	MaxCacheAssertionValidity: 365 * 24 * time.Hour, MaxCacheShardValidity: 365 * 24 * time.Hour, MaxCacheZoneValidity: 365 * 24 * time.Hour, ReapVerifyTimeout: 30 * time.Minute,
-	ReapEngineTimeout: 30 * time.Minute, RootZoneFilePath: "config/rootZoneFile.txt"}
+	ReapEngineTimeout: 30 * time.Minute, RootZonePublicKeyPath: "keys/rootZonePublic.Key"}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int

@@ -2,12 +2,12 @@ package rainsd
 
 import (
 	"fmt"
-	"math/rand"
 	"rains/rainslib"
 	"time"
 
+	"strings"
+
 	log "github.com/inconshreveable/log15"
-	"golang.org/x/crypto/ed25519"
 )
 
 //zoneKeyCache contains a set of zone public keys
@@ -30,11 +30,9 @@ func initVerify() error {
 		log.Error("Cannot create zone key Cache", "error", err)
 		return err
 	}
-	//FIXME CFE this signature is here for testing reasons, remove for production
-	pubKey, _, _ := ed25519.GenerateKey(rand.New(rand.NewSource(time.Now().UnixNano())))
-	zoneKeyCache.Add(keyCacheKey{context: ".", zone: ".ch", keyAlgo: rainslib.KeyAlgorithmType(rainslib.Ed25519)},
-		rainslib.PublicKey{Key: pubKey, Type: rainslib.SignatureAlgorithmType(rainslib.Ed25519), ValidUntil: 1690086564},
-		false)
+	if err := loadRootZonePublicKey(); err != nil {
+		return err
+	}
 
 	infrastructureKeyCache, err = createKeyCache(int(Config.InfrastructureKeyCacheSize))
 	if err != nil {
@@ -220,12 +218,24 @@ func neededKeys(section rainslib.MessageSectionWithSig) map[keyCacheKey]bool {
 	neededKeys := make(map[keyCacheKey]bool)
 	for _, sig := range section.Sigs() {
 		if sig.KeySpace != rainslib.RainsKeySpace {
-			log.Info("external keyspace", "keySpaceID", sig.KeySpace)
+			log.Debug("external keyspace", "keySpaceID", sig.KeySpace)
 			continue
+		}
+		//If the assertion is of type delegation then we need the key of the parent zone, else the key of the current zone.
+		zone := section.GetSubjectZone()
+		if section, ok := section.(*rainslib.AssertionSection); ok {
+			//TODO handle the case where an assertion contains both a delegation and a different assertion. -> must add at least 2 keys to verify signature
+			if section.Content[0].Type == rainslib.OTDelegation {
+				if strings.Contains(zone, ".") {
+					zone = zone[strings.Index(zone, ".")+1:]
+				} else {
+					zone = "." //root zone
+				}
+			}
 		}
 		mapKey := keyCacheKey{
 			context: section.GetContext(),
-			zone:    section.GetSubjectZone(),
+			zone:    zone,
 			keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm),
 		}
 		neededKeys[mapKey] = true

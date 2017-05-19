@@ -120,6 +120,12 @@ func (p RainsMsgParser) RevParseSignedMsgSection(section rainslib.MessageSection
 	}
 }
 
+//ParseSignedAssertion parses a byte slice representation of an assertion to the internal representation of an assertion.
+//:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
+func (p RainsMsgParser) ParseSignedAssertion(assertion []byte) (*rainslib.AssertionSection, error) {
+	return parseSignedAssertion(string(assertion))
+}
+
 //RevParseSignedAssertion parses a signed assertion to its string representation with format:
 //:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 func revParseSignedAssertion(a *rainslib.AssertionSection) string {

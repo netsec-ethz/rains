@@ -41,6 +41,7 @@ const (
 //MessageSectionWithSig can be either an Assertion, Shard or Zone
 type MessageSectionWithSig interface {
 	Sigs() []Signature
+	AddSig(sig Signature)
 	DeleteSig(int)
 	DeleteAllSigs()
 	GetContext() string
@@ -102,6 +103,11 @@ type AssertionSection struct {
 //Sigs return the assertion's signatures
 func (a *AssertionSection) Sigs() []Signature {
 	return a.Signatures
+}
+
+//AddSig adds the given signature
+func (a *AssertionSection) AddSig(sig Signature) {
+	a.Signatures = append(a.Signatures, sig)
 }
 
 //DeleteSig deletes ith signature
@@ -193,6 +199,11 @@ func (s *ShardSection) Sigs() []Signature {
 	return s.Signatures
 }
 
+//AddSig adds the given signature
+func (s *ShardSection) AddSig(sig Signature) {
+	s.Signatures = append(s.Signatures, sig)
+}
+
 //DeleteSig deletes ith signature
 func (s *ShardSection) DeleteSig(i int) {
 	s.Signatures = append(s.Signatures[:i], s.Signatures[i+1:]...)
@@ -282,6 +293,11 @@ type ZoneSection struct {
 //Sigs return the zone's signatures
 func (z *ZoneSection) Sigs() []Signature {
 	return z.Signatures
+}
+
+//AddSig adds the given signature
+func (z *ZoneSection) AddSig(sig Signature) {
+	z.Signatures = append(z.Signatures, sig)
 }
 
 //DeleteSig deletes ith signature
@@ -605,11 +621,15 @@ type RainsMsgParser interface {
 	//ParseRainsMsg parses a RainsMessage to a byte slice representation.
 	ParseRainsMsg(msg RainsMessage) ([]byte, error)
 
-	//Token extracts the token from the byte slice
+	//Token extracts the token from the byte slice of a RainsMessage
 	Token(msg []byte) (Token, error)
 
 	//RevParseSignedMsgSection parses an MessageSectionWithSig to a byte slice representation
 	RevParseSignedMsgSection(section MessageSectionWithSig) (string, error)
+
+	//ParseSignedAssertion parses a byte slice representation of an assertion to the internal representation of an assertion.
+	//TODO CFE extend this method to also allow parsing shards and zones if necessary
+	ParseSignedAssertion(assertion []byte) (*AssertionSection, error)
 }
 
 //ZoneFileParser is the interface for all parsers of zone files for RAINS

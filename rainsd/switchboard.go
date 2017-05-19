@@ -90,10 +90,10 @@ func Listen() {
 	addrAndport := serverConnInfo.String()
 	srvLogger := log.New("addr", addrAndport)
 
-	cert, err := tls.LoadX509KeyPair(Config.CertificateFile, Config.PrivateKeyFile)
+	cert, err := tls.LoadX509KeyPair(Config.TLSCertificateFile, Config.TLSPrivateKeyFile)
 	if err != nil {
-		srvLogger.Warn("Path to CertificateFile or privateKeyFile might be invalid. Default values are used", "CertPath", Config.CertificateFile, "KeyPath", Config.PrivateKeyFile)
-		cert, err = tls.LoadX509KeyPair(defaultConfig.CertificateFile, defaultConfig.PrivateKeyFile)
+		srvLogger.Warn("Path to CertificateFile or privateKeyFile might be invalid. Default values are used", "CertPath", Config.TLSCertificateFile, "KeyPath", Config.TLSPrivateKeyFile)
+		cert, err = tls.LoadX509KeyPair(defaultConfig.TLSCertificateFile, defaultConfig.TLSPrivateKeyFile)
 		if err != nil {
 			srvLogger.Error("Cannot load certificate", "error", err)
 			return
