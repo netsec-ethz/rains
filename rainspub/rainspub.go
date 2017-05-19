@@ -15,9 +15,8 @@ import (
 
 //InitRainspub initializes rainspub
 func InitRainspub() {
-	//TODO CFE uncomment loadConfig() after we have valid information in the config file
-	//loadConfig()
-	loadKeyPair()
+	loadConfig()
+	loadPrivateKey()
 	parser = zoneFileParser.Parser{}
 	msgParser = rainsMsgParser.RainsMsgParser{}
 }
@@ -47,7 +46,7 @@ func PublishInformation() {
 }
 
 func loadAssertions() ([]*rainslib.AssertionSection, error) {
-	file, err := ioutil.ReadFile(config.zoneFilePath)
+	file, err := ioutil.ReadFile(config.ZoneFilePath)
 	if err != nil {
 		return []*rainslib.AssertionSection{}, err
 	}
@@ -63,7 +62,7 @@ func groupAssertionsToShards(assertions []*rainslib.AssertionSection) *rainslib.
 	context := assertions[0].Context
 	zone := assertions[0].SubjectZone
 	shards := []rainslib.MessageSectionWithSig{}
-	if len(assertions) <= int(config.maxAssertionsPerShard) {
+	if len(assertions) <= int(config.MaxAssertionsPerShard) {
 		shards = []rainslib.MessageSectionWithSig{&rainslib.ShardSection{
 			Context:     context,
 			SubjectZone: zone,
@@ -76,23 +75,23 @@ func groupAssertionsToShards(assertions []*rainslib.AssertionSection) *rainslib.
 			Context:     context,
 			SubjectZone: zone,
 			RangeFrom:   "",
-			RangeTo:     assertions[config.maxAssertionsPerShard].SubjectName,
-			Content:     assertions[:config.maxAssertionsPerShard],
+			RangeTo:     assertions[config.MaxAssertionsPerShard].SubjectName,
+			Content:     assertions[:config.MaxAssertionsPerShard],
 		}
 		shards = append(shards, firstShard)
-		previousRangeEnd := assertions[config.maxAssertionsPerShard-1].SubjectName
-		assertions = assertions[config.maxAssertionsPerShard:]
-		for len(assertions) > int(config.maxAssertionsPerShard) {
+		previousRangeEnd := assertions[config.MaxAssertionsPerShard-1].SubjectName
+		assertions = assertions[config.MaxAssertionsPerShard:]
+		for len(assertions) > int(config.MaxAssertionsPerShard) {
 			shard := &rainslib.ShardSection{
 				Context:     context,
 				SubjectZone: zone,
 				RangeFrom:   previousRangeEnd,
-				RangeTo:     assertions[config.maxAssertionsPerShard].SubjectName,
-				Content:     assertions[:config.maxAssertionsPerShard],
+				RangeTo:     assertions[config.MaxAssertionsPerShard].SubjectName,
+				Content:     assertions[:config.MaxAssertionsPerShard],
 			}
 			shards = append(shards, shard)
-			previousRangeEnd = assertions[config.maxAssertionsPerShard-1].SubjectName
-			assertions = assertions[config.maxAssertionsPerShard:]
+			previousRangeEnd = assertions[config.MaxAssertionsPerShard-1].SubjectName
+			assertions = assertions[config.MaxAssertionsPerShard:]
 		}
 		lastShard := &rainslib.ShardSection{
 			Context:     context,
@@ -126,7 +125,7 @@ func signZone(zone *rainslib.ZoneSection) error {
 		Data:      sigData,
 		//TODO What time should we choose for valid since?
 		ValidSince: time.Now().Unix(),
-		ValidUntil: time.Now().Add(config.zoneValidity).Unix(),
+		ValidUntil: time.Now().Add(config.ZoneValidity).Unix(),
 	}
 	zone.Signatures = append(zone.Signatures, signature)
 
@@ -159,7 +158,7 @@ func signShard(s *rainslib.ShardSection) error {
 		Data:      sigData,
 		//TODO What time should we choose for valid since?
 		ValidSince: time.Now().Unix(),
-		ValidUntil: time.Now().Add(config.shardValidity).Unix()}
+		ValidUntil: time.Now().Add(config.ShardValidity).Unix()}
 	s.Signatures = append(s.Signatures, signature)
 	err = signAssertions(s.Content)
 	return err
@@ -178,9 +177,9 @@ func signAssertions(assertions []*rainslib.AssertionSection) error {
 		//TODO CFE handle multiple types per assertion
 		validUntil := int64(0)
 		if a.Content[0].Type == rainslib.OTDelegation {
-			validUntil = time.Now().Add(config.delegationValidity).Unix()
+			validUntil = time.Now().Add(config.DelegationValidity).Unix()
 		} else {
-			validUntil = time.Now().Add(config.assertionValidity).Unix()
+			validUntil = time.Now().Add(config.AssertionValidity).Unix()
 		}
 		signature := rainslib.Signature{
 			Algorithm: rainslib.Ed25519,
@@ -200,7 +199,7 @@ func sendMsg(msg []byte) {
 	conf := &tls.Config{
 		InsecureSkipVerify: true,
 	}
-	for _, server := range config.serverAddresses {
+	for _, server := range config.ServerAddresses {
 		switch server.Type {
 		case rainsd.TCP:
 			conn, err := tls.Dial("tcp", server.String(), conf)

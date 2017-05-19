@@ -82,7 +82,8 @@ const (
 
 //ConnInfo contains address information about one actor of a connection of the declared type
 type ConnInfo struct {
-	Type   ProtocolType
+	Type ProtocolType
+	//FIXME CFE replace ipAddr and port with net.TCPAddr
 	IPAddr net.IP
 	Port   uint16
 }
