@@ -32,3 +32,4 @@ _testmain.go
 
 #server main() function binary
 /server/server
+/server/keys/

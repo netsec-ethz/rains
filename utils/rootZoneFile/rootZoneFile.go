@@ -32,7 +32,7 @@ func CreateRootZoneFile() error {
 	if _, err := os.Stat("tmp"); os.IsNotExist(err) {
 		os.Mkdir("tmp", 0775)
 	}
-	err = ioutil.WriteFile("tmp/privateKey.txt", []byte(privateKey), 0644)
+	err = ioutil.WriteFile("tmp/private.Key", []byte(privateKey), 0644)
 	if err != nil {
 		return err
 	}
