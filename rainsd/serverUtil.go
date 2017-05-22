@@ -8,7 +8,6 @@ import (
 	"net"
 	"rains/rainslib"
 	"rains/utils/cache"
-	"rains/utils/parser"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -62,28 +61,33 @@ func loadAuthoritative() {
 
 //loadRootZonePublicKey stores the root zone public key from disk into the zoneKeyCache.
 func loadRootZonePublicKey() error {
-	rootZoneFile, err := ioutil.ReadFile(Config.RootZonePublicKeyPath)
+	/*rootZoneFile, err := ioutil.ReadFile(Config.RootZonePublicKeyPath)
 	if err != nil {
 		log.Error("Could not load root zone public key", "path", Config.RootZonePublicKeyPath, "error", err)
 		return err
 	}
 	msgParser := parser.RainsMsgParser{}
-	a, err := msgParser.ParseSignedAssertion(rootZoneFile)
+	//a, err := msgParser.ParseSignedAssertion(rootZoneFile)
 	if err != nil {
 		log.Error("Could not parse root zone file")
 		return err
-	}
-	for _, c := range a.Content {
-		if c.Type == rainslib.OTDelegation {
-			publicKey := rainslib.PublicKey{Key: c.Value, Type: a.Signatures[0].Algorithm, ValidUntil: a.ValidUntil()}
-			keyMap := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
-			keyMap[rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)] = publicKey
-			if validateSignatures(a, keyMap) {
-				zoneKeyCache.Add(keyCacheKey{context: a.Context, zone: a.SubjectZone, keyAlgo: rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)}, publicKey, true)
+	}*/
+	a := &rainslib.AssertionSection{}
+	err := rainslib.Load(Config.RootZonePublicKeyPath, a)
+	if err == nil {
+		for _, c := range a.Content {
+			if c.Type == rainslib.OTDelegation {
+				publicKey := rainslib.PublicKey{Key: c.Value, Type: a.Signatures[0].Algorithm, ValidUntil: a.ValidUntil()}
+				keyMap := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
+				keyMap[rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)] = publicKey
+				if validateSignatures(a, keyMap) {
+					log.Info("Added root public key to zone key cache.", "RootPublicKey", publicKey)
+					zoneKeyCache.Add(keyCacheKey{context: a.Context, zone: a.SubjectZone, keyAlgo: rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)}, publicKey, true)
+				}
 			}
 		}
 	}
-	return nil
+	return err
 }
 
 func loadCert() error {

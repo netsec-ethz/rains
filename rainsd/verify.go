@@ -226,7 +226,8 @@ func neededKeys(section rainslib.MessageSectionWithSig) map[keyCacheKey]bool {
 		if section, ok := section.(*rainslib.AssertionSection); ok {
 			//TODO handle the case where an assertion contains both a delegation and a different assertion. -> must add at least 2 keys to verify signature
 			if section.Content[0].Type == rainslib.OTDelegation {
-				if strings.Contains(zone, ".") {
+				//in the case of self signed root or top level domain public key it must be verified with the root public key
+				if strings.Index(zone, ".") != 0 {
 					zone = zone[strings.Index(zone, ".")+1:]
 				} else {
 					zone = "." //root zone

@@ -1,4 +1,4 @@
-package rootZoneFile
+package keyCreation
 
 import (
 	"io/ioutil"
@@ -12,19 +12,25 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-func CreateRootZoneFile() error {
+//CreateDelegationAssertion generates a new public/private key pair for the given context and zone. It stores the private key and a delegation assertion to a file.
+//In case of root public key the assertion is self signed (zone=.)
+func CreateDelegationAssertion(context, zone string) error {
+	//FIXME CFE change source of randomness
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.New(rand.NewSource(time.Now().UnixNano())))
 	if err != nil {
 		return err
 	}
+	log.Debug("Generated root public Key", "publicKey", publicKey)
 	assertion := &rainslib.AssertionSection{
-		Context:     ".",
-		SubjectZone: ".",
+		Context:     context,
+		SubjectZone: zone,
 		SubjectName: "@",
 		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}},
 	}
 	msgParser := parser.RainsMsgParser{}
-	err = addSignature(assertion, privateKey, msgParser)
+	if zone == "." {
+		err = addSignature(assertion, privateKey, msgParser)
+	}
 	if err != nil {
 		return err
 	}
@@ -37,17 +43,15 @@ func CreateRootZoneFile() error {
 		return err
 	}
 	//Store root zone file
-	//FIXME CFE is there a better format than .txt?
-	a, err := msgParser.RevParseSignedMsgSection(assertion)
-	if err != nil {
-		log.Error("Could not change the assertion to its string representation")
-		return err
+	if zone == "." {
+		err = rainslib.Save("tmp/selfSignedRootDelegationAssertion.gob", assertion)
+	} else {
+		err = rainslib.Save("tmp/delegationAssertion.gob", assertion)
 	}
-	err = ioutil.WriteFile("tmp/rootZoneFile.txt", []byte(a), 0644)
 	if err != nil {
-		return err
+		log.Error("Was not able to encode the assertion", "assertion", assertion)
 	}
-	return nil
+	return err
 }
 
 func addSignature(a rainslib.MessageSectionWithSig, key ed25519.PrivateKey, msgParser parser.RainsMsgParser) error {

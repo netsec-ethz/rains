@@ -5,11 +5,17 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
+	"encoding/gob"
 	"math/big"
+	"os"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
 )
+
+func init() {
+	gob.Register(ed25519.PublicKey{})
+}
 
 //GenerateToken generates a new unique Token
 func GenerateToken() Token {
@@ -91,4 +97,26 @@ func VerifySignature(algoType SignatureAlgorithmType, publicKey interface{}, dat
 		log.Warn("Signature algorithm type not supported", "type", algoType)
 	}
 	return false
+}
+
+//Save stores the object to the file located at the specified path gob encoded.
+func Save(path string, object interface{}) error {
+	file, err := os.Create(path)
+	defer file.Close()
+	if err == nil {
+		encoder := gob.NewEncoder(file)
+		encoder.Encode(object)
+	}
+	return err
+}
+
+//Load fetches the gob encoded object from the file located at path
+func Load(path string, object interface{}) error {
+	file, err := os.Open(path)
+	defer file.Close()
+	if err == nil {
+		decoder := gob.NewDecoder(file)
+		err = decoder.Decode(object)
+	}
+	return err
 }

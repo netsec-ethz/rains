@@ -275,7 +275,7 @@ func parseSignedAssertion(msg string) (*rainslib.AssertionSection, error) {
 	zn := strings.Index(msg, ":ZN:")
 	sn := strings.Index(msg, ":SN:")
 	objBegin := strings.Index(msg, "[")
-	objEnd := strings.Index(msg, "]")
+	objEnd := strings.LastIndex(msg, "[") - 2
 	sigBegin := strings.LastIndex(msg, "[")
 	sigEnd := strings.LastIndex(msg, "]")
 	if cn == -1 || zn == -1 || sn == -1 || objBegin == -1 || objEnd == -1 || sigBegin == -1 || sigEnd == -1 {
@@ -349,7 +349,17 @@ func parseObjects(inputObjects string) ([]rainslib.Object, error) {
 			log.Warn("Object's objectType malformed")
 			return []rainslib.Object{}, errors.New("Object's objectType malformed")
 		}
-		object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: od[1]}
+		/*reader := strings.NewReader(od[1])
+		scanner := bufio.NewScanner(reader)
+		scanner.Split(bufio.ScanWords)
+		pkey := []string{}
+		for scanner.Scan() {
+			pkey = append(pkey, scanner.Text())
+		}
+		pkey2 := []byte{}
+		log.Error("", "pkey", od[1])
+		log.Error("", "pkey", []byte(od[1]))*/
+		object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: []byte(od[1])}
 		objects = append(objects, object)
 	}
 	return objects, nil
