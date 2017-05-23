@@ -35,4 +35,4 @@ type rainpubConfig struct {
 //DefaultConfig is a rainpubConfig object containing default values
 var defaultConfig = rainpubConfig{AssertionValidity: 15 * 24 * time.Hour, ShardValidity: 24 * time.Hour, ZoneValidity: 24 * time.Hour, MaxAssertionsPerShard: 5,
 	ServerAddresses: []rainsd.ConnInfo{rainsd.ConnInfo{Type: rainsd.TCP, IPAddr: net.ParseIP("127.0.0.1"), Port: 5022}}, DelegationValidity: 30 * 24 * time.Hour,
-	ZoneFilePath: "zoneFiles/zf_ethz.ch.txt", ZonePrivateKeyPath: "keys/zonePrivate.key", ZonePublicKeyPath: "keys/zonePublic.key"}
+	ZoneFilePath: "zoneFiles/chZoneFile.txt", ZonePrivateKeyPath: "keys/zonePrivate.key", ZonePublicKeyPath: "keys/zonePublic.key"}

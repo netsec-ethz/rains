@@ -3,6 +3,7 @@ package main
 import (
 	"rains/rainsd"
 	"rains/rainspub"
+	"time"
 )
 
 //This package initializes and starts the server
@@ -13,10 +14,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	/*err = rootZoneFile.CreateRootZoneFile()
-	if err != nil {
-		panic(err)
-	}*/
-	//TODO CFE write a Go routine that periodically publishes the assertions from the zonefile to the rainsd server.
+	//TODO CFE add hardcoded duration to config
+	go publishZoneFile(24 * time.Hour)
 	rainsd.Listen()
+}
+
+func publishZoneFile(interval time.Duration) {
+	for true {
+		rainspub.PublishInformation()
+		time.Sleep(interval)
+	}
 }

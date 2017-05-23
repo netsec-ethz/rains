@@ -8,6 +8,8 @@ import (
 	"rains/utils/parser"
 	"time"
 
+	"encoding/hex"
+
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
 )
@@ -29,17 +31,11 @@ func CreateDelegationAssertion(context, zone string) error {
 	}
 	msgParser := parser.RainsMsgParser{}
 	if zone == "." {
-		err = addSignature(assertion, privateKey, msgParser)
+		if err := addSignature(assertion, privateKey, msgParser); err != nil {
+			return err
+		}
 	}
-	if err != nil {
-		return err
-	}
-	//Store private key
-	if _, err := os.Stat("tmp"); os.IsNotExist(err) {
-		os.Mkdir("tmp", 0775)
-	}
-	err = ioutil.WriteFile("tmp/private.Key", []byte(privateKey), 0644)
-	if err != nil {
+	if err := storeKeyPair(publicKey, privateKey); err != nil {
 		return err
 	}
 	//Store root zone file
@@ -54,6 +50,7 @@ func CreateDelegationAssertion(context, zone string) error {
 	return err
 }
 
+//addSignature signs the section with the public key and adds the resulting signature to the section
 func addSignature(a rainslib.MessageSectionWithSig, key ed25519.PrivateKey, msgParser parser.RainsMsgParser) error {
 	data, err := msgParser.RevParseSignedMsgSection(a)
 	if err != nil {
@@ -70,4 +67,43 @@ func addSignature(a rainslib.MessageSectionWithSig, key ed25519.PrivateKey, msgP
 	}
 	a.AddSig(signature)
 	return nil
+}
+
+//storeKeyPair stores the public and private key to separate files (hex encoded)
+func storeKeyPair(publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey) error {
+	if _, err := os.Stat("tmp"); os.IsNotExist(err) {
+		os.Mkdir("tmp", 0775)
+	}
+	privateKeyEnc := make([]byte, hex.EncodedLen(len(privateKey)))
+	hex.Encode(privateKeyEnc, privateKey)
+	err := ioutil.WriteFile("tmp/private.key", privateKeyEnc, 0644)
+	if err != nil {
+		return err
+	}
+	publicKeyEnc := make([]byte, hex.EncodedLen(len(publicKey)))
+	hex.Encode(publicKeyEnc, publicKey)
+	err = ioutil.WriteFile("tmp/public.key", publicKeyEnc, 0644)
+	return err
+}
+
+//SignDelegation signs the delegation stored at delegationPath with the private key stored at privateKeyPath
+func SignDelegation(delegationPath, privateKeyPath string) error {
+	privateKey, err := ioutil.ReadFile(privateKeyPath)
+	if err != nil {
+		return err
+	}
+	delegation := &rainslib.AssertionSection{}
+	err = rainslib.Load(delegationPath, delegation)
+	if err != nil {
+		return err
+	}
+	err = addSignature(delegation, privateKey, parser.RainsMsgParser{})
+	if err != nil {
+		return err
+	}
+	err = rainslib.Save(delegationPath, delegation)
+	if err != nil {
+		log.Error("Was not able to encode and store the delegation", "delegation", delegation)
+	}
+	return err
 }

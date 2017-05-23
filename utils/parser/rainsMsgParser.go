@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"encoding/hex"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -31,13 +33,13 @@ func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, e
 	msgSectionEnd := strings.LastIndex(msg, "[") - 1
 	sigBegin := strings.LastIndex(msg, "[")
 	sigEnd := strings.LastIndex(msg, "]")
-	cap := strings.Index(msg, ":cap:")
+	capability := strings.Index(msg, ":cap:")
 	token, err := p.Token(message)
 	if err != nil {
 		return rainslib.RainsMessage{}, err
 	}
-	if msgSectionEnd == -2 || sigBegin == -1 || sigEnd == -1 || cap == -1 {
-		log.Warn("Rains Message malformed")
+	if msgSectionEnd == -2 || sigBegin == -1 || sigEnd == -1 || capability == -1 {
+		log.Warn("Rains Message malformed", "msgSectionEnd", msgSectionEnd, "sigBegin", sigBegin, "sigEnd", sigEnd, "capability", capability)
 		return rainslib.RainsMessage{Token: token}, errors.New("Rains Message malformed")
 	}
 	msgBodies, err := parseMessageBodies(msg[msgSectionBegin+1:msgSectionEnd], token)
@@ -48,7 +50,7 @@ func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, e
 	if err != nil {
 		return rainslib.RainsMessage{Token: token}, err
 	}
-	capabilities := msg[cap+5:]
+	capabilities := msg[capability+5:]
 	caps := []rainslib.Capability{}
 	if capabilities != "" {
 		log.Warn("TODO CFE capability parsing not yet implemented")
@@ -96,13 +98,13 @@ func (p RainsMsgParser) Token(message []byte) (rainslib.Token, error) {
 		log.Warn("Rains Message malformed, cannot extract token")
 		return rainslib.Token{}, errors.New("Rains Message malformed, cannot extract token")
 	}
-	if msgSectionBegin > 16 {
-		log.Error("Token is larger than 16 byte", "tokenSize", msgSectionBegin)
-		return rainslib.Token{}, errors.New("Token is larger than 16 byte")
+	if hex.DecodedLen(len(message[:msgSectionBegin])) == 16 {
+		token := [16]byte{}
+		hex.Decode(token[:], message[:msgSectionBegin])
+		return rainslib.Token(token), nil
 	}
-	token := [16]byte{}
-	copy(token[:msgSectionBegin], message[:msgSectionBegin])
-	return rainslib.Token(token), nil
+	log.Error("Token is larger than 16 byte", "tokenSize", msgSectionBegin)
+	return rainslib.Token{}, errors.New("Token is larger than 16 byte")
 }
 
 //RevParseSignedMsgSection parses an MessageSectionWithSig to a byte slice representation
@@ -145,7 +147,13 @@ func revParseContainedAssertion(a *rainslib.AssertionSection) string {
 func revParseObjects(content []rainslib.Object) string {
 	objs := ""
 	for _, obj := range content {
-		objs += fmt.Sprintf(":OT:%v:OD:%v", obj.Type, obj.Value)
+		switch value := obj.Value.(type) {
+		//FIXME CFE make sure that all delegation, cert, infra and external type are correctly encoded.
+		case rainslib.Ed25519PublicKey:
+			objs += hex.EncodeToString(value[:])
+		default:
+			objs += fmt.Sprintf(":OT:%v:OD:%v", obj.Type, obj.Value)
+		}
 	}
 	return objs
 }
@@ -195,7 +203,15 @@ func revParseSignedZone(z *rainslib.ZoneSection) string {
 func revParseSignature(sigs []rainslib.Signature) string {
 	signatures := ""
 	for _, sig := range sigs {
-		signatures += fmt.Sprintf(":VF:%d:VU:%d:KS:%d:KA:%v:SD:%s", sig.ValidSince, sig.ValidUntil, sig.KeySpace, sig.Algorithm, sig.Data)
+		//FIXME CFE support all signature data types for encoding
+		sigDataEnc := sig.Data
+		switch sigData := sig.Data.(type) {
+		case []byte:
+			sigDataEnc = hex.EncodeToString(sigData)
+		default:
+			log.Warn("Signature data type not yet supported")
+		}
+		signatures += fmt.Sprintf(":VF:%d:VU:%d:KS:%d:KA:%v:SD:%s", sig.ValidSince, sig.ValidUntil, sig.KeySpace, sig.Algorithm, sigDataEnc)
 	}
 	return signatures
 }
@@ -216,7 +232,8 @@ func revParseQuery(q *rainslib.QuerySection) string {
 //revParseNotification parses a rains notification to its string representation with format:
 //:NO::TN:<token this notification refers to>:NT:<type>:ND:<data>
 func revParseNotification(n *rainslib.NotificationSection) string {
-	return fmt.Sprintf(":NO::TN:%s:NT:%v:ND:%s", n.Token, n.Type, n.Data)
+
+	return fmt.Sprintf(":NO::TN:%s:NT:%v:ND:%s", hex.EncodeToString(n.Token[:]), n.Type, n.Data)
 }
 
 //parseMessageBodies parses message section bodies according to their type (assertion, query, notification)
@@ -349,17 +366,12 @@ func parseObjects(inputObjects string) ([]rainslib.Object, error) {
 			log.Warn("Object's objectType malformed")
 			return []rainslib.Object{}, errors.New("Object's objectType malformed")
 		}
-		/*reader := strings.NewReader(od[1])
-		scanner := bufio.NewScanner(reader)
-		scanner.Split(bufio.ScanWords)
-		pkey := []string{}
-		for scanner.Scan() {
-			pkey = append(pkey, scanner.Text())
+		objValue, err := hex.DecodeString(od[1])
+		if err != nil {
+			return []rainslib.Object{}, errors.New("Object's objectValue malformed, could not decode")
 		}
-		pkey2 := []byte{}
-		log.Error("", "pkey", od[1])
-		log.Error("", "pkey", []byte(od[1]))*/
-		object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: []byte(od[1])}
+		//FIXME CFE depending on the type of the object, cast it to the right type.
+		object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: objValue}
 		objects = append(objects, object)
 	}
 	return objects, nil
@@ -532,9 +544,14 @@ func parseSignatures(msg string) ([]rainslib.Signature, error) {
 			log.Warn("signature's algoID malformed")
 			return []rainslib.Signature{}, errors.New("signature's cipher malformed")
 		}
+		sigData, err := hex.DecodeString(sig[sd+4:])
+		if err != nil {
+			return signatures, nil
+		}
+		//FIXME CFE use the correct type to store sigData into signature.Data.
 		signature := rainslib.Signature{
 			Algorithm:  rainslib.SignatureAlgorithmType(algoType),
-			Data:       []byte(sig[sd+4:]),
+			Data:       sigData,
 			ValidSince: validSince,
 			ValidUntil: validUntil,
 			KeySpace:   rainslib.KeySpaceID(keySpace),
@@ -604,7 +621,11 @@ func parseNotification(msg string) (*rainslib.NotificationSection, error) {
 		return &rainslib.NotificationSection{}, errors.New("notification type malformed")
 	}
 	token := [16]byte{}
-	copy(token[:nt-tn-4], msg[tn+4:nt])
+	tokenEnc, err := hex.DecodeString(msg[tn+4 : nt])
+	if err != nil {
+		return &rainslib.NotificationSection{}, errors.New("notification token malformed")
+	}
+	copy(token[:], tokenEnc)
 	return &rainslib.NotificationSection{
 		Token: rainslib.Token(token),
 		Type:  rainslib.NotificationType(ntype),

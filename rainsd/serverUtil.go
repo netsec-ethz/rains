@@ -61,17 +61,6 @@ func loadAuthoritative() {
 
 //loadRootZonePublicKey stores the root zone public key from disk into the zoneKeyCache.
 func loadRootZonePublicKey() error {
-	/*rootZoneFile, err := ioutil.ReadFile(Config.RootZonePublicKeyPath)
-	if err != nil {
-		log.Error("Could not load root zone public key", "path", Config.RootZonePublicKeyPath, "error", err)
-		return err
-	}
-	msgParser := parser.RainsMsgParser{}
-	//a, err := msgParser.ParseSignedAssertion(rootZoneFile)
-	if err != nil {
-		log.Error("Could not parse root zone file")
-		return err
-	}*/
 	a := &rainslib.AssertionSection{}
 	err := rainslib.Load(Config.RootZonePublicKeyPath, a)
 	if err == nil {

@@ -26,7 +26,7 @@ func PublishInformation() {
 	//TODO make validSince a parameter. Right now we use current time: time.Now()
 	assertions, err := loadAssertions()
 	if err != nil {
-		log.Error("Was not able to load and parse zone file", "error", err)
+		return
 	}
 	//TODO add additional sharding parameters to config/allow for different sharding strategies
 	zone := groupAssertionsToShards(assertions)
@@ -48,10 +48,12 @@ func PublishInformation() {
 func loadAssertions() ([]*rainslib.AssertionSection, error) {
 	file, err := ioutil.ReadFile(config.ZoneFilePath)
 	if err != nil {
+		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
 		return []*rainslib.AssertionSection{}, err
 	}
 	assertions, err := parser.ParseZoneFile(file)
 	if err != nil {
+		log.Error("Was not able to parse zone file.", "error", err)
 		return []*rainslib.AssertionSection{}, err
 	}
 	return assertions, nil
@@ -222,5 +224,6 @@ func createRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
+	log.Info("", "created byte message", string(byteMsg))
 	return byteMsg, nil
 }

@@ -8,6 +8,8 @@ import (
 	"rains/rainslib"
 	"strconv"
 
+	"encoding/hex"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -58,7 +60,7 @@ func parseShard(context, zone string, scanner *bufio.Scanner) ([]*rainslib.Asser
 	scanner.Scan()
 	for scanner.Text() != "]" {
 		if scanner.Text() != ":A:" {
-			return nil, fmt.Errorf("zone file malformated. Expected Assertion inside shard but got=%s", scanner.Text())
+			return nil, fmt.Errorf("zone file malformed. Expected Assertion inside shard but got=%s", scanner.Text())
 		}
 		a, err := parseAssertion(context, zone, scanner)
 		if err != nil {
@@ -139,11 +141,13 @@ func parseAssertion(context, zone string, scanner *bufio.Scanner) (*rainslib.Ass
 			//TODO CFE not yet implemented
 			return nil, errors.New("TODO CFE not yet implemented")
 		default:
-			return nil, errors.New("Encountered non existing object type")
+			return nil, fmt.Errorf("Encountered non existing object type: %s", scanner.Text())
 		}
 		scanner.Scan() //scan next object type
 	}
-	return &rainslib.AssertionSection{Context: context, SubjectZone: zone, SubjectName: name, Content: objects}, nil
+	a := &rainslib.AssertionSection{Context: context, SubjectZone: zone, SubjectName: name, Content: objects}
+	log.Debug("parsed Assertion", "assertion", *a)
+	return a, nil
 }
 
 func getCertObject(scanner *bufio.Scanner) (rainslib.CertificateObject, error) {
@@ -215,24 +219,13 @@ func getPublicKey(scanner *bufio.Scanner) (rainslib.PublicKey, error) {
 	if err != nil {
 		return rainslib.PublicKey{}, err
 	}
-	scanner.Scan() //scans [
 	scanner.Scan()
 	publicKey := rainslib.PublicKey{Type: keyAlgoType}
 	switch keyAlgoType {
 	case rainslib.Ed25519:
-		if len(scanner.Text()) != 32 {
-			return rainslib.PublicKey{}, fmt.Errorf("public key size is wrong expected 32, got:%d", len(scanner.Text()))
-		}
-		key := rainslib.Ed25519PublicKey{}
-		copy(key[:], scanner.Text())
-		publicKey.Key = key
+		return decodePublicKey(scanner, publicKey)
 	case rainslib.Ed448:
-		if len(scanner.Text()) != 57 {
-			return rainslib.PublicKey{}, fmt.Errorf("public key size is wrong expected 57, got:%d", len(scanner.Text()))
-		}
-		key := rainslib.Ed448PublicKey{}
-		copy(key[:], scanner.Text())
-		publicKey.Key = key
+		return decodePublicKey(scanner, publicKey)
 	case rainslib.Ecdsa256:
 		log.Warn("Not yet implemented")
 		publicKey.Key = rainslib.Ecdsa256PublicKey{}
@@ -243,6 +236,26 @@ func getPublicKey(scanner *bufio.Scanner) (rainslib.PublicKey, error) {
 		return rainslib.PublicKey{}, fmt.Errorf("Encountered non existing signature algorithm type. Got:%T", keyAlgoType)
 	}
 	return publicKey, nil
+}
+
+func decodePublicKey(scanner *bufio.Scanner, publicKey rainslib.PublicKey) (rainslib.PublicKey, error) {
+	pKey, err := hex.DecodeString(scanner.Text())
+	if err != nil {
+		return publicKey, err
+	}
+	if len(pKey) == 32 {
+		key := rainslib.Ed25519PublicKey{}
+		copy(key[:], pKey)
+		publicKey.Key = key
+		return publicKey, nil
+	}
+	if len(pKey) == 57 {
+		key := rainslib.Ed448PublicKey{}
+		copy(key[:], pKey)
+		publicKey.Key = key
+		return publicKey, nil
+	}
+	return publicKey, fmt.Errorf("public key length is not 32 or 57. Got:%d", len(pKey))
 }
 
 func getKeyAlgoType(keyAlgoType string) (rainslib.SignatureAlgorithmType, error) {
