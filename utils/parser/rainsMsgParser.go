@@ -61,7 +61,8 @@ func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, e
 //ParseRainsMsg parses a RainsMessage to a byte slice representation with format:
 //<token>[MessageSection:::::...:::::MessageSection][signatures*]:cap:<capabilities>
 func (p RainsMsgParser) ParseRainsMsg(m rainslib.RainsMessage) ([]byte, error) {
-	msg := string(m.Token[:]) + "["
+
+	msg := hex.EncodeToString(m.Token[:]) + "["
 	for _, section := range m.Content {
 		switch section := section.(type) {
 		case *rainslib.AssertionSection:
@@ -149,8 +150,16 @@ func revParseObjects(content []rainslib.Object) string {
 	for _, obj := range content {
 		switch value := obj.Value.(type) {
 		//FIXME CFE make sure that all delegation, cert, infra and external type are correctly encoded.
-		case rainslib.Ed25519PublicKey:
-			objs += hex.EncodeToString(value[:])
+		case rainslib.PublicKey:
+			switch key := value.Key.(type) {
+			case rainslib.Ed25519PublicKey:
+				objs += fmt.Sprintf(":OT:%v:OD:2:KD:%v", obj.Type, hex.EncodeToString(key[:]))
+			case rainslib.Ed448PublicKey:
+				objs += fmt.Sprintf(":OT:%v:OD:1:KD:%v", obj.Type, hex.EncodeToString(key[:]))
+			default:
+				log.Warn("not yet implemented public key type", "type", fmt.Sprintf("%T", key), "obj", obj)
+				objs += fmt.Sprintf(":OT:%v:OD:%v", obj.Type, obj.Value)
+			}
 		default:
 			objs += fmt.Sprintf(":OT:%v:OD:%v", obj.Type, obj.Value)
 		}
@@ -366,13 +375,29 @@ func parseObjects(inputObjects string) ([]rainslib.Object, error) {
 			log.Warn("Object's objectType malformed")
 			return []rainslib.Object{}, errors.New("Object's objectType malformed")
 		}
-		objValue, err := hex.DecodeString(od[1])
-		if err != nil {
-			return []rainslib.Object{}, errors.New("Object's objectValue malformed, could not decode")
+		if objectType == int(rainslib.OTDelegation) {
+			pkData := strings.Split(od[1], ":KD:")
+			switch pkData[0] {
+			case "0":
+				objValue, err := hex.DecodeString(pkData[1])
+				if err != nil {
+					log.Warn("Object's value malformed. Could not be decoded", "bytestring", od[1])
+					return []rainslib.Object{}, errors.New("Object's objectValue malformed, could not decode")
+				}
+				//TODO CFE transform object Value to a rainslib.publickey{key: rainslib.ed2559publicKEy(objValue), type: pkData[0]????}
+				object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: }
+				objects = append(objects, object)
+			case "1":
+			default:
+				log.Warn("TODO CFE not yet implemented")
+				continue
+			}
+
+		} else {
+			object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: od[1]}
+			objects = append(objects, object)
 		}
-		//FIXME CFE depending on the type of the object, cast it to the right type.
-		object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: objValue}
-		objects = append(objects, object)
+
 	}
 	return objects, nil
 }

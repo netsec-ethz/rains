@@ -309,7 +309,7 @@ func query(query *rainslib.QuerySection, sender ConnInfo) {
 func getZoneAndName(name string) []zoneAndName {
 	//TODO CFE use also different heuristics
 	names := strings.Split(name, ".")
-	zoneAndNames := []zoneAndName{zoneAndName{zone: "." + strings.Join(names[1:], "."), name: names[0]}}
+	zoneAndNames := []zoneAndName{zoneAndName{zone: strings.Join(names[1:], "."), name: names[0]}}
 	log.Debug("Split into zone and name", "zone", zoneAndNames[0].zone, "name", zoneAndNames[0].name)
 	return zoneAndNames
 }
