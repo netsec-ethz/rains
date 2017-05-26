@@ -15,7 +15,7 @@ const (
 
 //Config contains configurations for publishing assertions
 var config = defaultConfig
-var privateKey ed25519.PrivateKey
+var zonePrivateKey ed25519.PrivateKey
 var parser rainslib.ZoneFileParser
 var msgParser rainslib.RainsMsgParser
 

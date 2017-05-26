@@ -10,6 +10,8 @@ import (
 	"rains/utils/zoneFileParser"
 	"time"
 
+	"golang.org/x/crypto/ed25519"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -23,6 +25,11 @@ func InitRainspub() {
 
 //PublishInformation sends a signed zone to a rains servers according the the rainspub config
 func PublishInformation() {
+	//FIXME CFE remove after we have a running basic environment.
+	//Delegation to the current zone must be handled before assertions to be able to verify them.
+	sendDelegations()
+	time.Sleep(time.Second)
+
 	//TODO make validSince a parameter. Right now we use current time: time.Now()
 	assertions, err := loadAssertions()
 	if err != nil {
@@ -32,7 +39,7 @@ func PublishInformation() {
 	zone := groupAssertionsToShards(assertions)
 
 	//TODO implement signing with airgapping
-	signZone(zone)
+	signZone(zone, zonePrivateKey)
 	if err != nil {
 		log.Warn("Was not able to sign zone.", "error", err)
 	}
@@ -113,8 +120,9 @@ func groupAssertionsToShards(assertions []*rainslib.AssertionSection) *rainslib.
 }
 
 //signZone signs the zone and all contained shards with the context/zone's private key.
-//TODO we should use 2 valid signatures to avoid traffic bursts when a signature expires.
-func signZone(zone *rainslib.ZoneSection) error {
+//TODO CFE we should use 2 valid signatures to avoid traffic bursts when a signature expires.
+//TODO CFE also support different signature methods
+func signZone(zone *rainslib.ZoneSection, privateKey ed25519.PrivateKey) error {
 	stub := zone.CreateStub()
 	byteStub, err := msgParser.RevParseSignedMsgSection(stub)
 	if err != nil {
@@ -134,7 +142,7 @@ func signZone(zone *rainslib.ZoneSection) error {
 	for _, sec := range zone.Content {
 		switch sec := sec.(type) {
 		case *rainslib.ShardSection:
-			err := signShard(sec)
+			err := signShard(sec, privateKey)
 			if err != nil {
 				return err
 			}
@@ -147,7 +155,7 @@ func signZone(zone *rainslib.ZoneSection) error {
 
 //signShard signs the shard and all contained assertions with the context/zone's private key.
 //TODO we should use 2 valid signatures to avoid traffic bursts when a signature expires.
-func signShard(s *rainslib.ShardSection) error {
+func signShard(s *rainslib.ShardSection, privateKey ed25519.PrivateKey) error {
 	stub := s.CreateStub()
 	byteStub, err := msgParser.RevParseSignedMsgSection(stub)
 	if err != nil {
@@ -162,13 +170,13 @@ func signShard(s *rainslib.ShardSection) error {
 		ValidSince: time.Now().Unix(),
 		ValidUntil: time.Now().Add(config.ShardValidity).Unix()}
 	s.Signatures = append(s.Signatures, signature)
-	err = signAssertions(s.Content)
+	err = signAssertions(s.Content, privateKey)
 	return err
 }
 
 //signAssertions signs all assertions with the context/zone's private key.
 //TODO we should use 2 valid signatures to avoid traffic bursts when a signature expires.
-func signAssertions(assertions []*rainslib.AssertionSection) error {
+func signAssertions(assertions []*rainslib.AssertionSection, privateKey ed25519.PrivateKey) error {
 	for _, a := range assertions {
 		stub := a.CreateStub()
 		byteStub, err := msgParser.RevParseSignedMsgSection(stub)
@@ -226,4 +234,38 @@ func createRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
 	}
 	log.Info("", "created byte message", string(byteMsg))
 	return byteMsg, nil
+}
+
+//sendDelegations sends the delegations to this zone such that the receiving rains server can verify the signatures on this zone's assertions.
+func sendDelegations() {
+	//load delegations
+	file, err := ioutil.ReadFile("zoneFiles/chZoneDelegation.txt")
+	if err != nil {
+		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
+		return
+	}
+
+	//handle delegations
+	assertions, err := parser.ParseZoneFile(file)
+	if err != nil {
+		log.Error("Was not able to parse zone file.", "error", err)
+		return
+	}
+	zone := groupAssertionsToShards(assertions)
+
+	rootPrivateKey, err := ioutil.ReadFile("keys/rootPrivate.Key")
+	if err != nil {
+		log.Error("Could not read zone private key file", "error", err)
+	}
+	signZone(zone, rootPrivateKey)
+	if err != nil {
+		log.Warn("Was not able to sign zone.", "error", err)
+	}
+
+	//send signed zone with delegations to rains server
+	msg, err := createRainsMessage(zone)
+	if err != nil {
+		log.Warn("Was not able to parse the zone to a rains message.", "error", err)
+	}
+	sendMsg(msg)
 }

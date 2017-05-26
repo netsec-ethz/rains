@@ -20,6 +20,8 @@ func main() {
 }
 
 func publishZoneFile(interval time.Duration) {
+	//FIXME CFE what is a better solution for this? use a channel to signal when the server is finished starting up?
+	time.Sleep(time.Second)
 	for true {
 		rainspub.PublishInformation()
 		time.Sleep(interval)

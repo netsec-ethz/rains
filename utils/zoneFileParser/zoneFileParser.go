@@ -260,13 +260,13 @@ func decodePublicKey(scanner *bufio.Scanner, publicKey rainslib.PublicKey) (rain
 
 func getKeyAlgoType(keyAlgoType string) (rainslib.SignatureAlgorithmType, error) {
 	switch keyAlgoType {
-	case "1":
+	case "ed25519":
 		return rainslib.Ed25519, nil
-	case "2":
+	case "ed448":
 		return rainslib.Ed448, nil
-	case "3":
+	case "ecdsa256":
 		return rainslib.Ecdsa256, nil
-	case "4":
+	case "ecdsa384":
 		return rainslib.Ecdsa384, nil
 	default:
 		return rainslib.SignatureAlgorithmType(-1), fmt.Errorf("Encountered non existing signature algorithm type. Got:%s", keyAlgoType)

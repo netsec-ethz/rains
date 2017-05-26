@@ -70,8 +70,8 @@ func loadRootZonePublicKey() error {
 				keyMap := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
 				keyMap[rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)] = publicKey
 				if validateSignatures(a, keyMap) {
-					log.Info("Added root public key to zone key cache.", "RootPublicKey", publicKey)
-					zoneKeyCache.Add(keyCacheKey{context: a.Context, zone: a.SubjectZone, keyAlgo: rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)}, publicKey, true)
+					log.Info("Added root public key to zone key cache.", "context", a.Context, "zone", a.SubjectZone, "RootPublicKey", publicKey)
+					zoneKeyCache.Add(keyCacheKey{context: a.Context, zone: a.SubjectZone, keyAlgo: rainslib.KeyAlgorithmType(publicKey.Type)}, publicKey, true)
 				}
 			}
 		}

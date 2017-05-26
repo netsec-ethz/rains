@@ -153,7 +153,7 @@ func (l *pubKeyList) Get() (rainslib.PublicKey, bool) {
 	defer l.mux.RUnlock()
 	for e := l.keys.Front(); e != nil; e = e.Next() {
 		key := e.Value.(rainslib.PublicKey)
-		if key.ValidFrom < time.Now().Unix() && key.ValidUntil > time.Now().Unix() {
+		if key.ValidFrom <= time.Now().Unix() && key.ValidUntil > time.Now().Unix() {
 			l.keys.MoveToFront(e)
 			return key, true
 		}
@@ -798,6 +798,10 @@ func (s *sortedAssertionMetaData) Add(e elemAndValidity) bool {
 	i := sort.Search(len(s.assertions), func(i int) bool {
 		return s.assertions[i].name >= e.name
 	})
+	if i == len(s.assertions) {
+		s.assertions = append(s.assertions, e)
+		return true
+	}
 	if s.assertions[i] == e {
 		return false
 	}

@@ -114,7 +114,7 @@ func sendQuery(query []byte, token rainslib.Token, ipAddress string, port uint) 
 		for framer.Deframe() {
 			msg, err := parser.ParseByteSlice(framer.Data())
 			if err != nil {
-				log.Warn("Was not able to parse deframed message", "message", msg)
+				log.Warn("Was not able to parse deframed message", "message", msg, "error", err)
 				continue
 			}
 			if msg.Token == token {

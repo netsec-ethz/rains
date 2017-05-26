@@ -5,8 +5,6 @@ import (
 	"rains/rainslib"
 	"time"
 
-	"strings"
-
 	log "github.com/inconshreveable/log15"
 )
 
@@ -216,32 +214,73 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 //neededKeys returns the set of public key identifiers necessary to verify all rains signatures on the section
 func neededKeys(section rainslib.MessageSectionWithSig) map[keyCacheKey]bool {
 	neededKeys := make(map[keyCacheKey]bool)
+	switch section := section.(type) {
+	case *rainslib.AssertionSection:
+		extractNeededKeys(section, true, neededKeys)
+	case *rainslib.ShardSection:
+		extractNeededKeys(section, false, neededKeys)
+		for _, a := range section.Content {
+			extractNeededKeys(a, true, neededKeys)
+		}
+	case *rainslib.ZoneSection:
+		extractNeededKeys(section, false, neededKeys)
+		for _, sec := range section.Content {
+			switch sec.(type) {
+			case *rainslib.AssertionSection:
+				extractNeededKeys(sec, true, neededKeys)
+			case *rainslib.ShardSection:
+				extractNeededKeys(sec, false, neededKeys)
+			default:
+				log.Warn("Not supported message section inside zone")
+			}
+		}
+	default:
+		log.Warn("Not supported message section with sig")
+	}
+	return neededKeys
+}
+
+func extractNeededKeys(section rainslib.MessageSectionWithSig, isAssertion bool, keys map[keyCacheKey]bool) {
 	for _, sig := range section.Sigs() {
 		if sig.KeySpace != rainslib.RainsKeySpace {
 			log.Debug("external keyspace", "keySpaceID", sig.KeySpace)
 			continue
 		}
-		//If the assertion is of type delegation then we need the key of the parent zone, else the key of the current zone.
-		zone := section.GetSubjectZone()
-		if section, ok := section.(*rainslib.AssertionSection); ok {
-			//TODO handle the case where an assertion contains both a delegation and a different assertion. -> must add at least 2 keys to verify signature
-			if section.Content[0].Type == rainslib.OTDelegation {
-				//in the case of self signed root or top level domain public key it must be verified with the root public key
-				if strings.Index(zone, ".") != 0 {
-					zone = zone[strings.Index(zone, ".")+1:]
-				} else {
-					zone = "." //root zone
+		if isAssertion {
+			containsDelegation, allElementsDelegations := analyseAssertionContent(section.(*rainslib.AssertionSection))
+			if containsDelegation {
+				key := keyCacheKey{
+					context: section.GetContext(),
+					zone:    section.(*rainslib.AssertionSection).SubjectName,
+					keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm),
 				}
+				keys[key] = true
+			}
+			if allElementsDelegations {
+				continue
 			}
 		}
-		mapKey := keyCacheKey{
+		key := keyCacheKey{
 			context: section.GetContext(),
-			zone:    zone,
+			zone:    section.GetSubjectZone(),
 			keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm),
 		}
-		neededKeys[mapKey] = true
+		keys[key] = true
 	}
-	return neededKeys
+}
+
+//analyseAssertionContent returns as a first value true if the assertion contains a delegation assertion and as a second value true if all elements are delegations.
+func analyseAssertionContent(a *rainslib.AssertionSection) (bool, bool) {
+	containsDelegation := false
+	allElementsDelegations := true
+	for _, o := range a.Content {
+		if o.Type == rainslib.OTDelegation {
+			containsDelegation = true
+		} else {
+			allElementsDelegations = false
+		}
+	}
+	return containsDelegation, allElementsDelegations
 }
 
 //publicKeysPresent returns true if all public keys are in the cache together with a map of keys and missingKeys

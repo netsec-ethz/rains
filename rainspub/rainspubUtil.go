@@ -27,14 +27,14 @@ func loadPrivateKey() {
 	if _, err := os.Stat(config.ZonePrivateKeyPath); os.IsNotExist(err) {
 		//FIXME CFE use a better source of randomness for the key generation
 		var publicKey ed25519.PublicKey
-		publicKey, privateKey, err = ed25519.GenerateKey(rand.New(rand.NewSource(time.Now().UnixNano())))
+		publicKey, zonePrivateKey, err = ed25519.GenerateKey(rand.New(rand.NewSource(time.Now().UnixNano())))
 		if err != nil {
 			log.Error("Could not generate the zones private key", "error", err)
 			return
 		}
-		storeKeyPair(publicKey, privateKey)
+		storeKeyPair(publicKey, zonePrivateKey)
 	} else {
-		privateKey, err = ioutil.ReadFile(config.ZonePrivateKeyPath)
+		zonePrivateKey, err = ioutil.ReadFile(config.ZonePrivateKeyPath)
 		if err != nil {
 			log.Error("Could not read zone private key file", "error", err)
 		}

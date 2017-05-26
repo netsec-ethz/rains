@@ -8,6 +8,8 @@ import (
 
 	"io"
 
+	"encoding/hex"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -25,6 +27,10 @@ type RainsMessage struct {
 
 //Token is a byte slice with maximal length 32
 type Token [16]byte
+
+func (t Token) String() string {
+	return hex.EncodeToString(t[:])
+}
 
 //MessageSection can be either an Assertion, Shard, Zone, Query or Notification section
 type MessageSection interface {

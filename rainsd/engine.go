@@ -94,6 +94,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 }
 
 //assertAssertion adds an assertion to the assertion cache. The assertion's signatures MUST have already been verified.
+//TODO CFE only the first element of the assertion is processed
 //Returns true if the assertion can be further processed.
 func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) bool {
 	validFrom, validUntil, ok := getAssertionValidity(a)
@@ -101,6 +102,22 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 		if shouldAssertionBeCached(a) {
 			value := assertionCacheValue{section: a, validFrom: validFrom, validUntil: validUntil}
 			assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative, value)
+			if a.Content[0].Type == rainslib.OTDelegation {
+				for _, sig := range a.Signatures {
+					if sig.KeySpace == rainslib.RainsKeySpace {
+						cacheKey := keyCacheKey{context: a.Context, zone: a.SubjectName, keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm)}
+						publicKey := a.Content[0].Value.(rainslib.PublicKey)
+						publicKey.ValidFrom = validFrom
+						publicKey.ValidUntil = validUntil
+						log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)
+						ok := zoneKeyCache.Add(cacheKey, publicKey, isAuthoritative)
+						if !ok {
+							log.Warn("Was not able to add entry to zone key cache", "cacheKey", cacheKey, "publicKey", publicKey)
+						}
+					}
+
+				}
+			}
 		}
 	} else if validFrom < time.Now().Unix() {
 		pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.

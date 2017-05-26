@@ -55,6 +55,7 @@ func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, e
 	if capabilities != "" {
 		log.Warn("TODO CFE capability parsing not yet implemented")
 	}
+	log.Debug("Successfully finished parsing rains message")
 	return rainslib.RainsMessage{Token: token, Content: msgBodies, Signatures: signatures, Capabilities: caps}, nil
 }
 
@@ -139,7 +140,7 @@ func revParseSignedAssertion(a *rainslib.AssertionSection) string {
 //revParseContainedAssertion parses a contained assertion to its string representation with format:
 //:SA::SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 func revParseContainedAssertion(a *rainslib.AssertionSection) string {
-	assertion := fmt.Sprintf(":CA::SN:%s:[%s]][", a.SubjectName, revParseObjects(a.Content))
+	assertion := fmt.Sprintf(":CA::SN:%s[%s]][", a.SubjectName, revParseObjects(a.Content))
 	return assertion + revParseSignature(a.Signatures) + "]"
 }
 
@@ -153,9 +154,9 @@ func revParseObjects(content []rainslib.Object) string {
 		case rainslib.PublicKey:
 			switch key := value.Key.(type) {
 			case rainslib.Ed25519PublicKey:
-				objs += fmt.Sprintf(":OT:%v:OD:2:KD:%v", obj.Type, hex.EncodeToString(key[:]))
+				objs += fmt.Sprintf(":OT:%v:OD:%d:KD:%v", obj.Type, rainslib.Ed25519, hex.EncodeToString(key[:]))
 			case rainslib.Ed448PublicKey:
-				objs += fmt.Sprintf(":OT:%v:OD:1:KD:%v", obj.Type, hex.EncodeToString(key[:]))
+				objs += fmt.Sprintf(":OT:%v:OD:%d:KD:%v", obj.Type, rainslib.Ed448, hex.EncodeToString(key[:]))
 			default:
 				log.Warn("not yet implemented public key type", "type", fmt.Sprintf("%T", key), "obj", obj)
 				objs += fmt.Sprintf(":OT:%v:OD:%v", obj.Type, obj.Value)
@@ -317,6 +318,7 @@ func parseSignedAssertion(msg string) (*rainslib.AssertionSection, error) {
 		return &rainslib.AssertionSection{}, err
 	}
 	assertionSection := rainslib.AssertionSection{Context: msg[cn+4 : zn], SubjectZone: msg[zn+4 : sn], SubjectName: msg[sn+4 : objBegin], Content: objects, Signatures: signatures}
+	log.Debug("Successfully finished parsing signed assertion")
 	return &assertionSection, nil
 }
 
@@ -326,9 +328,9 @@ func parseContainedAssertion(msg, context, subjectZone string) (*rainslib.Assert
 	log.Debug("Parse Contained Assertion", "assertion", msg)
 	sn := strings.Index(msg, ":SN:")
 	objBegin := strings.Index(msg, "[")
-	objEnd := strings.Index(msg, "]")
-	sigBegin := strings.Index(msg, "[")
-	sigEnd := strings.Index(msg, "]")
+	objEnd := strings.LastIndex(msg, "[") - 2
+	sigBegin := strings.LastIndex(msg, "[")
+	sigEnd := strings.LastIndex(msg, "]")
 	if sn == -1 || objBegin == -1 || objEnd == -1 || sigBegin == -1 || sigEnd == -1 {
 		log.Warn("Assertion Msg Section malformed")
 		return &rainslib.AssertionSection{}, errors.New("Assertion Msg Section malformed")
@@ -352,6 +354,7 @@ func parseContainedAssertion(msg, context, subjectZone string) (*rainslib.Assert
 		Content:     objects,
 		Signatures:  signatures,
 	}
+	log.Debug("Successfully finished parsing contained assertion")
 	return &assertionSection, nil
 }
 
@@ -377,17 +380,24 @@ func parseObjects(inputObjects string) ([]rainslib.Object, error) {
 		}
 		if objectType == int(rainslib.OTDelegation) {
 			pkData := strings.Split(od[1], ":KD:")
-			switch pkData[0] {
-			case "0":
-				objValue, err := hex.DecodeString(pkData[1])
-				if err != nil {
-					log.Warn("Object's value malformed. Could not be decoded", "bytestring", od[1])
+			pkType, err := strconv.Atoi(pkData[0])
+			if err != nil {
+				log.Warn("Was not able to parse the public key type", "type", pkData[0])
+			}
+			switch rainslib.SignatureAlgorithmType(pkType) {
+			case rainslib.Ed25519:
+				keyData, err := hex.DecodeString(pkData[1])
+				if err != nil || len(keyData) != 32 {
+					log.Warn("Object's value malformed.", "bytestring", od[1])
 					return []rainslib.Object{}, errors.New("Object's objectValue malformed, could not decode")
 				}
-				//TODO CFE transform object Value to a rainslib.publickey{key: rainslib.ed2559publicKEy(objValue), type: pkData[0]????}
-				object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: }
+				pkey := rainslib.Ed25519PublicKey{}
+				copy(pkey[:], keyData)
+				publicKey := rainslib.PublicKey{Key: pkey, Type: rainslib.Ed25519}
+				object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: publicKey}
 				objects = append(objects, object)
-			case "1":
+			case rainslib.Ed448:
+				log.Warn("TODO CFE not yet implemented")
 			default:
 				log.Warn("TODO CFE not yet implemented")
 				continue
@@ -399,6 +409,7 @@ func parseObjects(inputObjects string) ([]rainslib.Object, error) {
 		}
 
 	}
+	log.Debug("Successfully finished parsing objects")
 	return objects, nil
 }
 
@@ -441,6 +452,7 @@ func parseSignedShard(msg string) (*rainslib.ShardSection, error) {
 		Content:     assertionBodies,
 		Signatures:  signatures,
 	}
+	log.Debug("Successfully finished parsing signed shard")
 	return &shardSection, nil
 }
 
@@ -479,6 +491,7 @@ func parseContainedShard(msg, context, subjectZone string) (*rainslib.ShardSecti
 		Content:     assertionBodies,
 		Signatures:  signatures,
 	}
+	log.Debug("Successfully finished parsing contained shard")
 	return &shardSection, nil
 }
 
@@ -528,6 +541,7 @@ func parseSignedZone(msg string) (*rainslib.ZoneSection, error) {
 		Content:     bodies,
 		Signatures:  signatures,
 	}
+	log.Debug("Successfully finished parsing signed zone")
 	return &zoneSection, nil
 }
 
