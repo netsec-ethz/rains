@@ -10,22 +10,20 @@ import (
 )
 
 //assertionCache contains a set of valid assertions where some of them might be expired.
-//An entry is marked as extrenal if it might be evicted.
+//An entry is marked as extrenal if it might be evicted by a RLU caching strategy.
 var assertionsCache assertionCache
 
 //negAssertionCache contains for each zone and context an interval tree to find all shards and zones containing a specific assertion
 //for a zone the range is infinit: range "",""
 //for a shard the range is given as declared in the section.
-//An entry is marked as extrenal if it might be evicted.
+//An entry is marked as extrenal if it might be evicted by a RLU caching strategy.
 var negAssertionCache negativeAssertionCache
 
 //pendingQueries contains a mapping from all self issued pending queries to the set of message bodies waiting for it.
-//key: <context><subjectzone> value: <msgSection><deadline>
-//TODO make the value thread safe. We store a list of <msgSection><deadline> objects which can be added and deleted
 var pendingQueries pendingQueryCache
 
 func initEngine() error {
-	//init Cache
+	//init Caches
 	var err error
 	pendingQueries, err = createPendingQueryCache(int(Config.PendingQueryCacheSize))
 	if err != nil {
@@ -44,6 +42,9 @@ func initEngine() error {
 		log.Error("Cannot create negative assertion Cache", "error", err)
 		return err
 	}
+
+	go reapVerify()
+
 	return nil
 }
 
@@ -93,6 +94,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 }
 
 //assertAssertion adds an assertion to the assertion cache. The assertion's signatures MUST have already been verified.
+//TODO CFE only the first element of the assertion is processed
 //Returns true if the assertion can be further processed.
 func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) bool {
 	validFrom, validUntil, ok := getAssertionValidity(a)
@@ -100,6 +102,22 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 		if shouldAssertionBeCached(a) {
 			value := assertionCacheValue{section: a, validFrom: validFrom, validUntil: validUntil}
 			assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative, value)
+			if a.Content[0].Type == rainslib.OTDelegation {
+				for _, sig := range a.Signatures {
+					if sig.KeySpace == rainslib.RainsKeySpace {
+						cacheKey := keyCacheKey{context: a.Context, zone: a.SubjectName, keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm)}
+						publicKey := a.Content[0].Value.(rainslib.PublicKey)
+						publicKey.ValidFrom = validFrom
+						publicKey.ValidUntil = validUntil
+						log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)
+						ok := zoneKeyCache.Add(cacheKey, publicKey, isAuthoritative)
+						if !ok {
+							log.Warn("Was not able to add entry to zone key cache", "cacheKey", cacheKey, "publicKey", publicKey)
+						}
+					}
+
+				}
+			}
 		}
 	} else if validFrom < time.Now().Unix() {
 		pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
@@ -112,7 +130,7 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 //handleAssertion triggers any pending queries answered by it.
 func handleAssertion(a *rainslib.AssertionSection, token rainslib.Token) {
 	//FIXME CFE multiple types per assertion is not handled
-	if a.Content[0].Type == rainslib.Delegation {
+	if a.Content[0].Type == rainslib.OTDelegation {
 		//Trigger elements from pendingSignatureCache
 		sections, ok := pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
 		if ok {
@@ -126,6 +144,7 @@ func handleAssertion(a *rainslib.AssertionSection, token rainslib.Token) {
 
 //handlePendingQueries triggers any pending queries and send the response to it.
 func handlePendingQueries(section rainslib.MessageSectionWithSig, token rainslib.Token) {
+	//FIXME CFE also allow pending Queries to GetAllAndDelete(zone, type, name,context) because we might get the answer back indirectly.
 	values, ok := pendingQueries.GetAllAndDelete(token)
 	if ok {
 		for _, v := range values {
@@ -263,7 +282,8 @@ func query(query *rainslib.QuerySection, sender ConnInfo) {
 			return
 		}
 	}
-	//assertion cache does not contain an answer for this query. Look into negativeAssertion cache
+	log.Debug("No entry found in assertion cache matching the query")
+
 	for _, zAn := range zoneAndNames {
 		negAssertion, ok := negAssertionCache.Get(query.Context, zAn.zone, rainslib.StringInterval{Name: zAn.name})
 		if ok {
@@ -272,10 +292,12 @@ func query(query *rainslib.QuerySection, sender ConnInfo) {
 			return
 		}
 	}
-	//negativeAssertion cache does not contain an answer for this query.
+	log.Debug("No entry found in negAssertion cache matching the query")
+
 	if query.ContainsOption(rainslib.CachedAnswersOnly) {
+		log.Debug("Send a notification message back to the sender due to query option: 'Cached Answers only'")
 		sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
-		log.Debug("Finished handling query (unsuccessful) due to Cached Answers only query option", "query", query)
+		log.Debug("Finished handling query (unsuccessful) ", "query", query)
 		return
 	}
 	for _, zAn := range zoneAndNames {
@@ -304,7 +326,9 @@ func query(query *rainslib.QuerySection, sender ConnInfo) {
 func getZoneAndName(name string) []zoneAndName {
 	//TODO CFE use also different heuristics
 	names := strings.Split(name, ".")
-	return []zoneAndName{zoneAndName{zone: strings.Join(names[1:], "."), name: names[0]}}
+	zoneAndNames := []zoneAndName{zoneAndName{zone: strings.Join(names[1:], "."), name: names[0]}}
+	log.Debug("Split into zone and name", "zone", zoneAndNames[0].zone, "name", zoneAndNames[0].name)
+	return zoneAndNames
 }
 
 //sendQueryAnswer sends a section with Signature to back to the sender with the specified token
@@ -321,7 +345,10 @@ func sendQueryAnswer(section rainslib.MessageSectionWithSig, sender ConnInfo, to
 
 //reapEngine deletes expired elements in the following caches: assertionCache, negAssertionCache, pendingQueries
 func reapEngine() {
-	assertionsCache.RemoveExpiredValues()
-	negAssertionCache.RemoveExpiredValues()
-	pendingQueries.RemoveExpiredValues()
+	for {
+		assertionsCache.RemoveExpiredValues()
+		negAssertionCache.RemoveExpiredValues()
+		pendingQueries.RemoveExpiredValues()
+		time.Sleep(Config.ReapEngineTimeout)
+	}
 }

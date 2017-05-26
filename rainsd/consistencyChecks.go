@@ -17,6 +17,7 @@ func isAssertionConsistent(assertion *rainslib.AssertionSection) bool {
 		switch negAssertion := negAssertion.(type) {
 		case *rainslib.ShardSection:
 			if togetherValid(assertion, negAssertion) && !shardContainsAssertion(assertion, negAssertion) {
+				log.Warn("Inconsistency encountered between assertion and shard. Drop all sections for given context and zone.", "assertion", assertion, "shard", negAssertion)
 				dropAllWithContextZone(assertion.Context, assertion.SubjectZone)
 				return false
 			}
@@ -109,7 +110,6 @@ func togetherValid(s1, s2 rainslib.MessageSectionWithSig) bool {
 
 //dropAllWithContextZone deletes all assertions, shards and zones in the cache with the given context and zone
 func dropAllWithContextZone(context, zone string) {
-	log.Warn("Inconsistency encountered. Drop all sections for given context and zone.", "context", context, "zone", zone)
 	assertions, _ := assertionsCache.GetInRange(context, zone, rainslib.TotalInterval{})
 	for _, a := range assertions {
 		assertionsCache.Remove(a)

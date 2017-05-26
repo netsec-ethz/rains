@@ -9,7 +9,7 @@ func TestGetIPAddrandPort(t *testing.T) {
 		input rainsdConfig
 		want  ConnInfo
 	}{
-		{rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerPort: 1022, MaxConnections: 1000, CertificateFile: "server.crt", PrivateKeyFile: "server.key"},
+		{rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerPort: 1022, MaxConnections: 1000, TLSCertificateFile: "server.crt", TLSPrivateKeyFile: "server.key"},
 			ConnInfo{Type: 1, IPAddr: net.ParseIP("127.0.0.1"), Port: 1022}},
 	}
 	for _, test := range tests {

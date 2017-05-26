@@ -1,9 +1,7 @@
 package rainsd
 
 import (
-	"bufio"
 	"container/list"
-	"crypto/rand"
 	"fmt"
 	"net"
 	"rains/rainslib"
@@ -15,89 +13,6 @@ import (
 
 	log "github.com/inconshreveable/log15"
 )
-
-type newLineFramer struct {
-	Scanner   *bufio.Scanner
-	firstCall bool
-}
-
-func (f newLineFramer) Frame(msg []byte) ([]byte, error) {
-	return append(msg, "\n"...), nil
-}
-
-func (f *newLineFramer) Deframe() bool {
-	if f.firstCall {
-		f.Scanner.Split(bufio.ScanLines)
-		f.firstCall = false
-	}
-	return f.Scanner.Scan()
-}
-
-func (f newLineFramer) Data() []byte {
-	return f.Scanner.Bytes()
-}
-
-//PRG pseudo random generator
-type PRG struct{}
-
-func (prg PRG) Read(p []byte) (n int, err error) {
-	return rand.Read(p)
-}
-
-/*//TODO CFE replace this with an own implementation
-//LRUCache is a concurrency safe cache with a least recently used eviction strategy
-type LRUCache struct {
-	Cache *lru.Cache
-}
-
-//New creates a lru cache with the given parameters
-func (c *LRUCache) New(params ...interface{}) error {
-	var err error
-	c.Cache, err = lru.New(params[0].(int))
-	return err
-}
-
-//NewWithEvict creates a lru cache with the given parameters and an eviction callback function
-func (c *LRUCache) NewWithEvict(onEvicted func(key interface{}, value interface{}), params ...interface{}) error {
-	var err error
-	c.Cache, err = lru.NewWithEvict(params[0].(int), onEvicted)
-	return err
-}
-
-//Add adds a value to the cache. If the cache is full the least recently used element will be replaced. Returns true if an eviction occurred.
-func (c *LRUCache) Add(key, value interface{}) bool {
-	return c.Cache.Add(key, value)
-}
-
-//Contains checks if a key is in the cache, without updating the recentness or deleting it for being stale.
-func (c *LRUCache) Contains(key interface{}) bool {
-	return c.Cache.Contains(key)
-}
-
-//Get returns the key's value from the cache. The boolean value is false if there exist no element with the given key in the cache
-func (c *LRUCache) Get(key interface{}) (interface{}, bool) {
-	return c.Cache.Get(key)
-}
-
-//Keys returns a slice of the keys in the cache sorted from oldest to newest
-func (c *LRUCache) Keys() []interface{} {
-	return c.Cache.Keys()
-}
-
-//Len returns the number of elements in the cache.
-func (c *LRUCache) Len() int {
-	return c.Cache.Len()
-}
-
-//Remove deletes the given key value pair from the cache
-func (c *LRUCache) Remove(key interface{}) {
-	c.Cache.Remove(key)
-}
-
-//RemoveWithStrategy deletes the least recently used key value pair from the cache
-func (c *LRUCache) RemoveWithStrategy() {
-	c.Cache.RemoveOldest()
-}*/
 
 /*
  *	Connection cache implementation
@@ -238,7 +153,7 @@ func (l *pubKeyList) Get() (rainslib.PublicKey, bool) {
 	defer l.mux.RUnlock()
 	for e := l.keys.Front(); e != nil; e = e.Next() {
 		key := e.Value.(rainslib.PublicKey)
-		if key.ValidFrom < time.Now().Unix() && key.ValidUntil > time.Now().Unix() {
+		if key.ValidFrom <= time.Now().Unix() && key.ValidUntil > time.Now().Unix() {
 			l.keys.MoveToFront(e)
 			return key, true
 		}
@@ -659,7 +574,7 @@ type negativeAssertionCacheImpl struct {
 //If the cache is full it removes an external negativeAssertionCacheValue according to some metric.
 func (c *negativeAssertionCacheImpl) Add(context, zone string, internal bool, value negativeAssertionCacheValue) bool {
 	//TODO add an getOrAdd method to the cache (locking must then be changed.)
-	//FIXME CFE replace sectionList with interval tree
+	//TODO CFE replace sectionList with interval tree
 	l := &sectionList{list: list.New()}
 	l.Add(value)
 	ok := c.cache.Add(l, internal, context, zone)
@@ -715,7 +630,9 @@ func handleNegElementCacheSize(c *negativeAssertionCacheImpl) {
 func (c *negativeAssertionCacheImpl) Get(context, zone string, interval rainslib.Interval) (rainslib.MessageSectionWithSig, bool) {
 	sections, ok := c.GetAll(context, zone, interval)
 	if ok {
-		//FIXME CFE return shortest shard, how to find out how large a shard is, store number of assertions to it?
+		//TODO CFE return shortest shard, how to find out how large a shard is, store number of assertions to it?
+		//TODO CFE check in shortest shard: if interval.Begin() == interval.End() -> if assertion is contained and if so return assertion.
+		//(could have been evicted from assertionsCache)
 		return sections[0], true
 	}
 	return nil, false
@@ -881,6 +798,10 @@ func (s *sortedAssertionMetaData) Add(e elemAndValidity) bool {
 	i := sort.Search(len(s.assertions), func(i int) bool {
 		return s.assertions[i].name >= e.name
 	})
+	if i == len(s.assertions) {
+		s.assertions = append(s.assertions, e)
+		return true
+	}
 	if s.assertions[i] == e {
 		return false
 	}

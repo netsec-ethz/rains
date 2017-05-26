@@ -20,14 +20,17 @@ var Config = defaultConfig
 
 //rainsdConfig lists possible configurations of a rains server
 type rainsdConfig struct {
+	//general
+	RootZonePublicKeyPath string
+
 	//switchboard
-	ServerIPAddr    net.IP
-	ServerPort      uint16
-	MaxConnections  uint
-	KeepAlivePeriod time.Duration
-	TCPTimeout      time.Duration
-	CertificateFile string
-	PrivateKeyFile  string
+	ServerIPAddr       net.IP
+	ServerPort         uint16
+	MaxConnections     uint
+	KeepAlivePeriod    time.Duration
+	TCPTimeout         time.Duration
+	TLSCertificateFile string
+	TLSPrivateKeyFile  string
 
 	//inbox
 	MaxMsgByteLength        uint
@@ -47,6 +50,7 @@ type rainsdConfig struct {
 	InfrastructureKeyCacheSize uint
 	ExternalKeyCacheSize       uint
 	DelegationQueryValidity    time.Duration
+	ReapVerifyTimeout          time.Duration
 
 	//engine
 	AssertionCacheSize         uint
@@ -58,15 +62,17 @@ type rainsdConfig struct {
 	MaxCacheAssertionValidity  time.Duration
 	MaxCacheShardValidity      time.Duration
 	MaxCacheZoneValidity       time.Duration
+	ReapEngineTimeout          time.Duration
 }
 
 //DefaultConfig is a rainsdConfig object containing default values
 var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriod: time.Minute, TCPTimeout: 5 * time.Minute,
-	CertificateFile: "config/server.crt", PrivateKeyFile: "config/server.key", MaxMsgByteLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerCount: 2,
+	TLSCertificateFile: "config/server.crt", TLSPrivateKeyFile: "config/server.key", MaxMsgByteLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerCount: 2,
 	NormalWorkerCount: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
 	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}, InfrastructureKeyCacheSize: 10,
 	ExternalKeyCacheSize: 5, DelegationQueryValidity: 5 * time.Second, NegativeAssertionCacheSize: 500, AssertionQueryValidity: 5 * time.Second,
-	MaxCacheAssertionValidity: 365 * 24 * time.Hour, MaxCacheShardValidity: 365 * 24 * time.Hour, MaxCacheZoneValidity: 365 * 24 * time.Hour}
+	MaxCacheAssertionValidity: 365 * 24 * time.Hour, MaxCacheShardValidity: 365 * 24 * time.Hour, MaxCacheZoneValidity: 365 * 24 * time.Hour, ReapVerifyTimeout: 30 * time.Minute,
+	ReapEngineTimeout: 30 * time.Minute, RootZonePublicKeyPath: "keys/selfSignedRootDelegationAssertion.gob"}
 
 //ProtocolType enumerates protocol types
 type ProtocolType int
@@ -77,7 +83,8 @@ const (
 
 //ConnInfo contains address information about one actor of a connection of the declared type
 type ConnInfo struct {
-	Type   ProtocolType
+	Type ProtocolType
+	//FIXME CFE replace ipAddr and port with net.TCPAddr
 	IPAddr net.IP
 	Port   uint16
 }
@@ -320,7 +327,7 @@ type negativeAssertionCache interface {
 	//If the cache is full it removes an external negativeAssertionCacheValue according to some metric.
 	Add(context, zone string, internal bool, value negativeAssertionCacheValue) bool
 	//Get returns true and the shortest valid shard/zone with the longest validity in range of the interval if there exists one. Otherwise false is returned
-	//TODO Must check that assertion is not contained in the given shard or zone
+	//Must check that assertion is not contained in the given shard or zone
 	Get(context, zone string, interval rainslib.Interval) (rainslib.MessageSectionWithSig, bool)
 	//GetAll returns true and all valid sections of a given context and zone which intersect with the given interval if there is at least one. Otherwise false is returned
 	GetAll(context, zone string, interval rainslib.Interval) ([]rainslib.MessageSectionWithSig, bool)
@@ -336,21 +343,6 @@ type negativeAssertionCache interface {
 type contextAndZone struct {
 	Context string
 	Zone    string
-}
-
-//TODO CFE what should the name of this interface be?
-type scanner interface {
-	//Frame takes a message and adds a frame to it
-	Frame(msg []byte) ([]byte, error)
-
-	//Deframe extracts the next frame from a stream.
-	//It blocks until it encounters the delimiter.
-	//It returns false when the stream is closed.
-	//The data is available through Data
-	Deframe() bool
-
-	//Data contains the frame read from the stream by Deframe
-	Data() []byte
 }
 
 //setContainer is an interface for a set data structure where all operations are concurrency safe

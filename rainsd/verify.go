@@ -2,12 +2,10 @@ package rainsd
 
 import (
 	"fmt"
-	"math/rand"
 	"rains/rainslib"
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	"golang.org/x/crypto/ed25519"
 )
 
 //zoneKeyCache contains a set of zone public keys
@@ -30,11 +28,9 @@ func initVerify() error {
 		log.Error("Cannot create zone key Cache", "error", err)
 		return err
 	}
-	//FIXME CFE this signature is here for testing reasons, remove for production
-	pubKey, _, _ := ed25519.GenerateKey(rand.New(rand.NewSource(time.Now().UnixNano())))
-	zoneKeyCache.Add(keyCacheKey{context: ".", zone: ".ch", keyAlgo: rainslib.KeyAlgorithmType(rainslib.Ed25519)},
-		rainslib.PublicKey{Key: pubKey, Type: rainslib.KeyAlgorithmType(rainslib.Ed25519), ValidUntil: 1690086564},
-		false)
+	if err := loadRootZonePublicKey(); err != nil {
+		return err
+	}
 
 	infrastructureKeyCache, err = createKeyCache(int(Config.InfrastructureKeyCacheSize))
 	if err != nil {
@@ -53,6 +49,8 @@ func initVerify() error {
 		log.Error("Cannot create pending signature cache", "error", err)
 		return err
 	}
+
+	go reapVerify()
 	return nil
 }
 
@@ -205,7 +203,7 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 	if ok {
 		delegate := getDelegationAddress(section.GetContext(), section.GetSubjectZone())
 		token := rainslib.GenerateToken()
-		sendQuery(section.GetContext(), section.GetSubjectZone(), cacheValue.validUntil, rainslib.Delegation, token, delegate)
+		sendQuery(section.GetContext(), section.GetSubjectZone(), cacheValue.validUntil, rainslib.OTDelegation, token, delegate)
 		activeTokens[token] = true
 	} else {
 		log.Info("already issued a delegation query for this context and zone.", "context", section.GetContext(), "zone", section.GetSubjectZone())
@@ -216,19 +214,73 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 //neededKeys returns the set of public key identifiers necessary to verify all rains signatures on the section
 func neededKeys(section rainslib.MessageSectionWithSig) map[keyCacheKey]bool {
 	neededKeys := make(map[keyCacheKey]bool)
+	switch section := section.(type) {
+	case *rainslib.AssertionSection:
+		extractNeededKeys(section, true, neededKeys)
+	case *rainslib.ShardSection:
+		extractNeededKeys(section, false, neededKeys)
+		for _, a := range section.Content {
+			extractNeededKeys(a, true, neededKeys)
+		}
+	case *rainslib.ZoneSection:
+		extractNeededKeys(section, false, neededKeys)
+		for _, sec := range section.Content {
+			switch sec.(type) {
+			case *rainslib.AssertionSection:
+				extractNeededKeys(sec, true, neededKeys)
+			case *rainslib.ShardSection:
+				extractNeededKeys(sec, false, neededKeys)
+			default:
+				log.Warn("Not supported message section inside zone")
+			}
+		}
+	default:
+		log.Warn("Not supported message section with sig")
+	}
+	return neededKeys
+}
+
+func extractNeededKeys(section rainslib.MessageSectionWithSig, isAssertion bool, keys map[keyCacheKey]bool) {
 	for _, sig := range section.Sigs() {
 		if sig.KeySpace != rainslib.RainsKeySpace {
-			log.Info("external keyspace", "keySpaceID", sig.KeySpace)
+			log.Debug("external keyspace", "keySpaceID", sig.KeySpace)
 			continue
 		}
-		mapKey := keyCacheKey{
+		if isAssertion {
+			containsDelegation, allElementsDelegations := analyseAssertionContent(section.(*rainslib.AssertionSection))
+			if containsDelegation {
+				key := keyCacheKey{
+					context: section.GetContext(),
+					zone:    section.(*rainslib.AssertionSection).SubjectName,
+					keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm),
+				}
+				keys[key] = true
+			}
+			if allElementsDelegations {
+				continue
+			}
+		}
+		key := keyCacheKey{
 			context: section.GetContext(),
 			zone:    section.GetSubjectZone(),
 			keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm),
 		}
-		neededKeys[mapKey] = true
+		keys[key] = true
 	}
-	return neededKeys
+}
+
+//analyseAssertionContent returns as a first value true if the assertion contains a delegation assertion and as a second value true if all elements are delegations.
+func analyseAssertionContent(a *rainslib.AssertionSection) (bool, bool) {
+	containsDelegation := false
+	allElementsDelegations := true
+	for _, o := range a.Content {
+		if o.Type == rainslib.OTDelegation {
+			containsDelegation = true
+		} else {
+			allElementsDelegations = false
+		}
+	}
+	return containsDelegation, allElementsDelegations
 }
 
 //publicKeysPresent returns true if all public keys are in the cache together with a map of keys and missingKeys
@@ -334,7 +386,7 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainsli
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Warn("signature expired", "expTime", sig.ValidUntil)
 			section.DeleteSig(i)
-		} else if !VerifySignature(sig.Algorithm, keys[rainslib.KeyAlgorithmType(sig.Algorithm)].Key, []byte(bareStub), sig.Data) {
+		} else if !rainslib.VerifySignature(sig.Algorithm, keys[rainslib.KeyAlgorithmType(sig.Algorithm)].Key, []byte(bareStub), sig.Data) {
 			log.Warn("signatures do not match")
 			return false
 		}
@@ -342,11 +394,13 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainsli
 	return len(section.Sigs()) > 0
 }
 
-//reapVerify deletes expired keys from the key caches and expired sections from the pendingSignature cache
+//reapVerify deletes expired keys from the key caches and expired sections from the pendingSignature cache in intervals according to the config
 func reapVerify() {
-	//TODO CFE implement and create a worker that calls this function from time to time
-	zoneKeyCache.RemoveExpiredKeys()
-	infrastructureKeyCache.RemoveExpiredKeys()
-	externalKeyCache.RemoveExpiredKeys()
-	pendingSignatures.RemoveExpiredSections()
+	for {
+		zoneKeyCache.RemoveExpiredKeys()
+		infrastructureKeyCache.RemoveExpiredKeys()
+		externalKeyCache.RemoveExpiredKeys()
+		pendingSignatures.RemoveExpiredSections()
+		time.Sleep(Config.ReapVerifyTimeout)
+	}
 }

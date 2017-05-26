@@ -1,20 +1,15 @@
 package rainsd
 
 import (
-	"crypto/ecdsa"
-	"crypto/sha256"
-	"crypto/sha512"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"math/big"
 	"net"
 	"rains/rainslib"
 	"rains/utils/cache"
 
 	log "github.com/inconshreveable/log15"
-	"golang.org/x/crypto/ed25519"
 )
 
 const (
@@ -43,7 +38,6 @@ func InitServer() error {
 	if err := initEngine(); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -65,9 +59,29 @@ func loadAuthoritative() {
 	}
 }
 
+//loadRootZonePublicKey stores the root zone public key from disk into the zoneKeyCache.
+func loadRootZonePublicKey() error {
+	a := &rainslib.AssertionSection{}
+	err := rainslib.Load(Config.RootZonePublicKeyPath, a)
+	if err == nil {
+		for _, c := range a.Content {
+			if c.Type == rainslib.OTDelegation {
+				publicKey := rainslib.PublicKey{Key: c.Value, Type: a.Signatures[0].Algorithm, ValidUntil: a.ValidUntil()}
+				keyMap := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
+				keyMap[rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)] = publicKey
+				if validateSignatures(a, keyMap) {
+					log.Info("Added root public key to zone key cache.", "context", a.Context, "zone", a.SubjectZone, "RootPublicKey", publicKey)
+					zoneKeyCache.Add(keyCacheKey{context: a.Context, zone: a.SubjectZone, keyAlgo: rainslib.KeyAlgorithmType(publicKey.Type)}, publicKey, true)
+				}
+			}
+		}
+	}
+	return err
+}
+
 func loadCert() error {
 	roots = x509.NewCertPool()
-	file, err := ioutil.ReadFile(Config.CertificateFile)
+	file, err := ioutil.ReadFile(Config.TLSCertificateFile)
 	if err != nil {
 		log.Error("error", err)
 		return err
@@ -82,81 +96,9 @@ func loadCert() error {
 
 //CreateNotificationMsg creates a notification messages
 func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.NotificationType, data string) ([]byte, error) {
-	content := []rainslib.MessageSection{&rainslib.NotificationSection{Type: rainslib.MsgTooLarge, Token: token, Data: data}}
-	msg := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Content: content}
+	content := []rainslib.MessageSection{&rainslib.NotificationSection{Type: rainslib.MsgTooLarge, Token: rainslib.GenerateToken(), Data: data}}
+	msg := rainslib.RainsMessage{Token: token, Content: content}
 	return msgParser.ParseRainsMsg(msg)
-}
-
-//SignData returns a signature of the input data signed with the specified signing algorithm and the given private key.
-func SignData(algoType rainslib.SignatureAlgorithmType, privateKey interface{}, data []byte) interface{} {
-	switch algoType {
-	case rainslib.Ed25519:
-		if pkey, ok := privateKey.(ed25519.PrivateKey); ok {
-			return ed25519.Sign(pkey, data)
-		}
-		log.Warn("Could not cast key to ed25519.PrivateKey", "privateKey", privateKey)
-	case rainslib.Ed448:
-		log.Warn("Ed448 not yet Supported!")
-	case rainslib.Ecdsa256:
-		if pkey, ok := privateKey.(*ecdsa.PrivateKey); ok {
-			hash := sha256.Sum256(data)
-			return signEcdsa(pkey, data, hash[:])
-		}
-		log.Warn("Could not cast key to ecdsa.PrivateKey", "privateKey", privateKey)
-	case rainslib.Ecdsa384:
-		if pkey, ok := privateKey.(*ecdsa.PrivateKey); ok {
-			hash := sha512.Sum384(data)
-			return signEcdsa(pkey, data, hash[:])
-		}
-		log.Warn("Could not cast key to ecdsa.PrivateKey", "privateKey", privateKey)
-	default:
-		log.Warn("Signature algorithm type not supported", "type", algoType)
-	}
-	return nil
-}
-
-func signEcdsa(privateKey *ecdsa.PrivateKey, data, hash []byte) interface{} {
-	r, s, err := ecdsa.Sign(PRG{}, privateKey, hash)
-	if err != nil {
-		log.Warn("Could not sign data with Ecdsa256", "error", err)
-	}
-	return []*big.Int{r, s}
-}
-
-//VerifySignature returns true if the provided signature with the public key matches the data.
-func VerifySignature(algoType rainslib.SignatureAlgorithmType, publicKey interface{}, data []byte, signature interface{}) bool {
-	switch algoType {
-	case rainslib.Ed25519:
-		if pkey, ok := publicKey.(ed25519.PublicKey); ok {
-			return ed25519.Verify(pkey, data, signature.([]byte))
-		}
-		log.Warn("Could not cast key to ed25519.PublicKey", "publicKey", publicKey)
-	case rainslib.Ed448:
-		log.Warn("Ed448 not yet Supported!")
-	case rainslib.Ecdsa256:
-		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
-			if sig, ok := signature.([]*big.Int); ok && len(sig) == 2 {
-				hash := sha256.Sum256(data)
-				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])
-			}
-			log.Warn("Could not cast signature ", "signature", signature)
-			return false
-		}
-		log.Warn("Could not cast key to ecdsa.PublicKey", "publicKey", publicKey)
-	case rainslib.Ecdsa384:
-		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
-			if sig, ok := signature.([]*big.Int); ok && len(sig) == 2 {
-				hash := sha512.Sum384(data)
-				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])
-			}
-			log.Warn("Could not cast signature ", "signature", signature)
-			return false
-		}
-		log.Warn("Could not cast key to ecdsa.PublicKey", "publicKey", publicKey)
-	default:
-		log.Warn("Signature algorithm type not supported", "type", algoType)
-	}
-	return false
 }
 
 func sendQuery(context, zone string, expTime int64, objType rainslib.ObjectType, token rainslib.Token, sender ConnInfo) {
@@ -180,7 +122,7 @@ func sendQuery(context, zone string, expTime int64, objType rainslib.ObjectType,
 
 //getDelegationAddress returns the address of a server to which this server delegates a query if it has no answer in the cache.
 func getDelegationAddress(context, zone string) ConnInfo {
-	//FIXME CFE not yet implemented
+	//TODO CFE not yet implemented
 	log.Warn("Not yet implemented CFE. return hard coded delegation address")
 	return ConnInfo{Type: TCP, IPAddr: net.ParseIP("127.0.0.1"), Port: 5023}
 }
@@ -204,7 +146,7 @@ func createCapabilityCache(hashToCapCacheSize, connectionToCapSize int) (capabil
 	if err != nil {
 		return nil, err
 	}
-	//FIXME CFE remove this after we can do it in the Add method of the cache
+	//FIXME move adding this values to verify.init() after cache was adopted
 	hc.Add([]Capability{TLSOverTCP}, false, "", "e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745")
 	hc.Add([]Capability{NoCapability}, false, "", "76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71")
 	cc, err := cache.New(connectionToCapSize, "noAnyContext")

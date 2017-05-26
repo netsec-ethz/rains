@@ -1,0 +1,53 @@
+package rainspub
+
+import (
+	"encoding/json"
+	"io/ioutil"
+	"math/rand"
+	"os"
+	"time"
+
+	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
+)
+
+func loadConfig() {
+	file, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		log.Warn("Could not open config file...", "path", configPath, "error", err)
+	}
+	if err = json.Unmarshal(file, &config); err != nil {
+		log.Warn("Could not unmarshal json format of config")
+	}
+	//TODO when ConnInfo contains net.TCPAddr we can use Json.unmarshal to read in tcp addr of the host. now we have to define it manually because it cannot parse an IP addr
+}
+
+//TODO CFE remove when we have air gapping
+func loadPrivateKey() {
+	if _, err := os.Stat(config.ZonePrivateKeyPath); os.IsNotExist(err) {
+		//FIXME CFE use a better source of randomness for the key generation
+		var publicKey ed25519.PublicKey
+		publicKey, zonePrivateKey, err = ed25519.GenerateKey(rand.New(rand.NewSource(time.Now().UnixNano())))
+		if err != nil {
+			log.Error("Could not generate the zones private key", "error", err)
+			return
+		}
+		storeKeyPair(publicKey, zonePrivateKey)
+	} else {
+		zonePrivateKey, err = ioutil.ReadFile(config.ZonePrivateKeyPath)
+		if err != nil {
+			log.Error("Could not read zone private key file", "error", err)
+		}
+	}
+}
+
+func storeKeyPair(publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey) {
+	err := ioutil.WriteFile(config.ZonePrivateKeyPath, privateKey, 0644)
+	if err != nil {
+		log.Error("Could not store the zones private key", "path", config.ZonePrivateKeyPath, "error", err)
+	}
+	err = ioutil.WriteFile(config.ZonePublicKeyPath, publicKey, 0644)
+	if err != nil {
+		log.Error("Could not store the zones public key", "path", config.ZonePublicKeyPath, "error", err)
+	}
+}
