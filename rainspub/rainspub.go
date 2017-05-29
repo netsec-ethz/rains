@@ -129,6 +129,16 @@ func signZone(zone *rainslib.ZoneSection, privateKey ed25519.PrivateKey) error {
 		return err
 	}
 	sigData := rainslib.SignData(rainslib.Ed25519, privateKey, []byte(byteStub))
+
+	/*
+	 *TODO CFE remove after we have correct testing. For debugging purposes, check that the params to verify a signature are the same here and in the server
+	 */
+	/*pkey := loadPublicKey()
+	if ok := rainslib.VerifySignature(rainslib.Ed25519, pkey, []byte(byteStub), sigData); !ok {
+		log.Error("Bad THIS SHOULD NEVER HAPPEN")
+	}
+	log.Debug("", "byteStub", []byte(byteStub), "pubKey", pkey, "sigData", sigData)*/
+
 	signature := rainslib.Signature{
 		Algorithm: rainslib.Ed25519,
 		KeySpace:  rainslib.RainsKeySpace,

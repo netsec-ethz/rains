@@ -51,3 +51,12 @@ func storeKeyPair(publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey) {
 		log.Error("Could not store the zones public key", "path", config.ZonePublicKeyPath, "error", err)
 	}
 }
+
+//TODO CFE remove when have proper testing. Used to debug
+/*func loadPublicKey() ed25519.PublicKey {
+	publicKey, err := ioutil.ReadFile(config.ZonePublicKeyPath)
+	if err != nil {
+		log.Error("Could not read zone private key file", "error", err)
+	}
+	return publicKey
+}*/

@@ -321,7 +321,7 @@ func getQueryValidity(sigs []rainslib.Signature) int64 {
 //validSignature validates the signatures on a MessageSectionWithSig and strips all expired signatures away.
 //Returns false If there are no signatures left or if at least one signature is invalid (due to incorrect signature)
 func validSignature(section rainslib.MessageSectionWithSig, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
-	/*switch section := section.(type) {
+	switch section := section.(type) {
 	case *rainslib.AssertionSection:
 		return validateSignatures(section, keys)
 	case *rainslib.ShardSection:
@@ -331,9 +331,7 @@ func validSignature(section rainslib.MessageSectionWithSig, keys map[rainslib.Ke
 	default:
 		log.Warn("Not supported Msg Section")
 	}
-	return false*/
-	//FIXME CFE uncomment the part above. As long as we do not have signatures they always are valid.
-	return true
+	return false
 }
 
 //validShardSignatures validates all signatures on the shard and contained in the shard's content

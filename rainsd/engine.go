@@ -7,6 +7,7 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 )
 
 //assertionCache contains a set of valid assertions where some of them might be expired.
@@ -107,6 +108,9 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 					if sig.KeySpace == rainslib.RainsKeySpace {
 						cacheKey := keyCacheKey{context: a.Context, zone: a.SubjectName, keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm)}
 						publicKey := a.Content[0].Value.(rainslib.PublicKey)
+						//FIXME CFE this is just a hack to make it work with ed25519 until we know if we want to remove the type rainslib.Ed25519PublicKey
+						array := publicKey.Key.(rainslib.Ed25519PublicKey)
+						publicKey.Key = ed25519.PublicKey(array[:])
 						publicKey.ValidFrom = validFrom
 						publicKey.ValidUntil = validUntil
 						log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)
