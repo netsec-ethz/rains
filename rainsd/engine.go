@@ -107,8 +107,8 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 					if sig.KeySpace == rainslib.RainsKeySpace {
 						cacheKey := keyCacheKey{context: a.Context, zone: a.SubjectName, keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm)}
 						publicKey := a.Content[0].Value.(rainslib.PublicKey)
-						publicKey.ValidFrom = validFrom
-						publicKey.ValidUntil = validUntil
+						publicKey.ValidFrom = sig.ValidSince
+						publicKey.ValidUntil = sig.ValidUntil
 						log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)
 						ok := zoneKeyCache.Add(cacheKey, publicKey, isAuthoritative)
 						if !ok {

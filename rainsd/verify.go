@@ -183,7 +183,6 @@ func containedSectionInRange(subjectName string, shard *rainslib.ShardSection, s
 //verifySignatures verifies all signatures and strips off expired signatures.
 //If the public key is missing it issues a query and puts the section in the pendingSignatures cache.
 //returns false if there is no signature left on the message or when some public keys are missing
-//TODO CFE verify whole signature chain (do not forget to check expiration)
 func verifySignatures(sectionSender sectionWithSigSender) bool {
 	section := sectionSender.Section
 	neededKeys := neededKeys(section)
