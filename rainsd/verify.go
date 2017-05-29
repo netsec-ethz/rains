@@ -103,7 +103,7 @@ func validMsgSignature(msgStub string, sig rainslib.Signature) bool {
 }
 
 //validQuery validates the expiration time of the query
-func validQuery(section *rainslib.QuerySection, sender ConnInfo) bool {
+func validQuery(section *rainslib.QuerySection, sender rainslib.ConnInfo) bool {
 	if section.Expires < time.Now().Unix() {
 		log.Info("Query expired", "expirationTime", section.Expires)
 		return false

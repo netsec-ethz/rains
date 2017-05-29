@@ -12,6 +12,7 @@ import (
 )
 
 func loadConfig() {
+	loadDefaultSeverAddrIntoConfig()
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Warn("Could not open config file...", "path", configPath, "error", err)
@@ -19,7 +20,6 @@ func loadConfig() {
 	if err = json.Unmarshal(file, &config); err != nil {
 		log.Warn("Could not unmarshal json format of config")
 	}
-	//TODO when ConnInfo contains net.TCPAddr we can use Json.unmarshal to read in tcp addr of the host. now we have to define it manually because it cannot parse an IP addr
 }
 
 //TODO CFE remove when we have air gapping

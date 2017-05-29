@@ -21,7 +21,7 @@ func InitServer() error {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(h)
 	loadConfig()
-	serverConnInfo = ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}
+	serverConnInfo = rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: *Config.ServerTCPAddr}
 	loadAuthoritative()
 	if err := loadCert(); err != nil {
 		return err
@@ -43,6 +43,7 @@ func InitServer() error {
 
 //LoadConfig loads and stores server configuration
 func loadConfig() {
+	Config.ServerTCPAddr = loadDefaultSeverAddrIntoConfig()
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Warn("Could not open config file...", "path", configPath, "error", err)
@@ -101,7 +102,7 @@ func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.Notif
 	return msgParser.ParseRainsMsg(msg)
 }
 
-func sendQuery(context, zone string, expTime int64, objType rainslib.ObjectType, token rainslib.Token, sender ConnInfo) {
+func sendQuery(context, zone string, expTime int64, objType rainslib.ObjectType, token rainslib.Token, sender rainslib.ConnInfo) {
 	querySection := rainslib.QuerySection{
 		Context: context,
 		Name:    zone,
@@ -121,10 +122,12 @@ func sendQuery(context, zone string, expTime int64, objType rainslib.ObjectType,
 }
 
 //getDelegationAddress returns the address of a server to which this server delegates a query if it has no answer in the cache.
-func getDelegationAddress(context, zone string) ConnInfo {
+func getDelegationAddress(context, zone string) rainslib.ConnInfo {
 	//TODO CFE not yet implemented
 	log.Warn("Not yet implemented CFE. return hard coded delegation address")
-	return ConnInfo{Type: TCP, IPAddr: net.ParseIP("127.0.0.1"), Port: 5023}
+	tcpAddr := loadDefaultSeverAddrIntoConfig()
+	tcpAddr.Port = tcpAddr.Port + 1
+	return rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: *tcpAddr}
 }
 
 //createConnectionCache returns a newly created connection cache
