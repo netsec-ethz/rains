@@ -11,14 +11,23 @@ struct RainsMessage  {
 	capabilities    @3 :List(Text);
 }
 
-interface MessageSection  {
+struct MessageSection  {
+    union {
+        assertion           @0 :AssertionSection;     
+        shard               @1 :ShardSection; 
+        zone                @2 :ZoneSection;      
+        query               @3 :QuerySection;      
+        notification        @4 :NotificationSection;
+        addressQuery        @5 :AddressQuerySection;
+        addressAssertion    @6 :AddressAssertionSection;
+    }         
 }
 
 const noCapability :Text = "";
 const tLSOverTCP :Text = "urn:x-rains:tlssrv";
 
 
-interface MessageSectionWithSig extends(MessageSection, Interval) {
+interface MessageSectionWithSig extends(Interval) {
     #MessageSectionWithSig can be either an Assertion, Shard or Zone
 	sigs            @0 () -> (sig :Signature);
 	addSig          @1 (sig :Signature);
@@ -229,7 +238,10 @@ struct ServiceInfo  {
 struct Obj  {
     #Object is a container for different values determined by the given type.
 	type  @0    :ObjectType;
-	value @1    :Data;
+	value   :union {
+        ip4 @1 :Text;
+        ip6 @2 :Text;
+    }
 }
 
 
