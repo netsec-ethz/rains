@@ -20,6 +20,8 @@ var externalKeyCache keyCache
 //pendingSignatures contains all sections that are waiting for a delegation query to arrive such that their signatures can be verified.
 var pendingSignatures pendingSignatureCache
 
+//initVerify initialized the module which is responsible for checking the validity of the signatures and the structure of the sections.
+//It spawns a goroutine which periodically goes through the cache and removes outdated entries, see reapVerify()
 func initVerify() error {
 	//init cache
 	var err error
