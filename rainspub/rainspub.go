@@ -10,9 +10,8 @@ import (
 	"rains/utils/zoneFileParser"
 	"time"
 
-	"golang.org/x/crypto/ed25519"
-
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 )
 
 //InitRainspub initializes rainspub
