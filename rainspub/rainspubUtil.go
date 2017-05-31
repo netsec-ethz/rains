@@ -3,9 +3,7 @@ package rainspub
 import (
 	"encoding/json"
 	"io/ioutil"
-	"math/rand"
 	"os"
-	"time"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
@@ -27,7 +25,7 @@ func loadPrivateKey() {
 	if _, err := os.Stat(config.ZonePrivateKeyPath); os.IsNotExist(err) {
 		//FIXME CFE use a better source of randomness for the key generation
 		var publicKey ed25519.PublicKey
-		publicKey, zonePrivateKey, err = ed25519.GenerateKey(rand.New(rand.NewSource(time.Now().UnixNano())))
+		publicKey, zonePrivateKey, err = ed25519.GenerateKey(nil)
 		if err != nil {
 			log.Error("Could not generate the zones private key", "error", err)
 			return

@@ -1,12 +1,11 @@
 package parser
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
-
-	"encoding/hex"
 
 	log "github.com/inconshreveable/log15"
 
@@ -52,12 +51,12 @@ func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, e
 		return rainslib.RainsMessage{Token: token}, err
 	}
 	capabilities := msg[capability+5:]
-	caps := []rainslib.Capability{}
+	parsedCapabilities := []rainslib.Capability{}
 	if capabilities != "" {
 		log.Warn("TODO CFE capability parsing not yet implemented")
 	}
 	log.Debug("Successfully finished parsing rains message")
-	return rainslib.RainsMessage{Token: token, Content: msgBodies, Signatures: signatures, Capabilities: caps}, nil
+	return rainslib.RainsMessage{Token: token, Content: msgBodies, Signatures: signatures, Capabilities: parsedCapabilities}, nil
 }
 
 //ParseRainsMsg parses a RainsMessage to a byte slice representation with format:
@@ -383,13 +382,13 @@ func parseObjects(inputObjects string) ([]rainslib.Object, error) {
 			pkData := strings.Split(od[1], ":KD:")
 			pkType, err := strconv.Atoi(pkData[0])
 			if err != nil {
-				log.Warn("Was not able to parse the public key type", "type", pkData[0])
+				log.Warn("Was not able to parse the public key type", "type", pkData[0], "error", err)
 			}
 			switch rainslib.SignatureAlgorithmType(pkType) {
 			case rainslib.Ed25519:
 				keyData, err := hex.DecodeString(pkData[1])
 				if err != nil || len(keyData) != 32 {
-					log.Warn("Object's value malformed.", "bytestring", od[1])
+					log.Warn("Object's value malformed.", "bytestring", od[1], "error", err)
 					return []rainslib.Object{}, errors.New("Object's objectValue malformed, could not decode")
 				}
 				pkey := rainslib.Ed25519PublicKey{}
@@ -586,7 +585,7 @@ func parseSignatures(msg string) ([]rainslib.Signature, error) {
 		}
 		sigData, err := hex.DecodeString(sig[sd+4:])
 		if err != nil {
-			return signatures, nil
+			return nil, err
 		}
 		//FIXME CFE use the correct type to store sigData into signature.Data.
 		signature := rainslib.Signature{
