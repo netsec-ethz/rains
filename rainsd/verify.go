@@ -5,6 +5,8 @@ import (
 	"rains/rainslib"
 	"time"
 
+	"math"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -385,12 +387,46 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainsli
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Warn("signature expired", "expTime", sig.ValidUntil)
 			section.DeleteSig(i)
-		} else if !rainslib.VerifySignature(sig.Algorithm, keys[rainslib.KeyAlgorithmType(sig.Algorithm)].Key, []byte(bareStub), sig.Data) {
+		} else if pkey := keys[rainslib.KeyAlgorithmType(sig.Algorithm)]; !rainslib.VerifySignature(sig.Algorithm, pkey.Key, []byte(bareStub), sig.Data) {
 			log.Warn("signatures do not match")
 			return false
+		} else {
+			updateSectionValidity(section, pkey.ValidFrom, pkey.ValidUntil, sig.ValidSince, sig.ValidUntil)
 		}
 	}
+	if section.ValidFrom() == math.MaxInt64 && section.ValidUntil() == 0 {
+		log.Warn("No signature is valid until the MaxValidity date in the future.")
+		return false
+	}
 	return len(section.Sigs()) > 0
+}
+
+func updateSectionValidity(section rainslib.MessageSectionWithSig, pkeyValidFrom, pkeyValidUntil, sigValidSince, sigValidUntil int64) {
+	var maxValidity time.Duration
+	switch section.(type) {
+	case *rainslib.AssertionSection:
+		maxValidity = Config.MaxCacheAssertionValidity
+	case *rainslib.ShardSection:
+		maxValidity = Config.MaxCacheShardValidity
+	case *rainslib.ZoneSection:
+		maxValidity = Config.MaxCacheZoneValidity
+	default:
+		log.Warn("Not supported section")
+	}
+	if pkeyValidFrom < sigValidSince {
+		if pkeyValidUntil < sigValidUntil {
+			section.UpdateValidity(sigValidSince, pkeyValidUntil, maxValidity)
+		} else {
+			section.UpdateValidity(sigValidSince, sigValidUntil, maxValidity)
+		}
+
+	} else {
+		if pkey.ValidUntil < sig.ValidUntil {
+			section.UpdateValidity(pkeyValidFrom, pkeyValidUntil, maxValidity)
+		} else {
+			section.UpdateValidity(pkeyValidFrom, sigValidUntil, maxValidity)
+		}
+	}
 }
 
 //reapVerify deletes expired keys from the key caches and expired sections from the pendingSignature cache in intervals according to the config
