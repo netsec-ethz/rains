@@ -138,7 +138,7 @@ func revParseSignedAssertion(a *rainslib.AssertionSection) string {
 }
 
 //revParseContainedAssertion parses a contained assertion to its string representation with format:
-//:SA::SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
+//:CA::SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 func revParseContainedAssertion(a *rainslib.AssertionSection) string {
 	assertion := fmt.Sprintf(":CA::SN:%s[%s]][", a.SubjectName, revParseObjects(a.Content))
 	return assertion + revParseSignature(a.Signatures) + "]"
@@ -179,7 +179,7 @@ func revParseSignedShard(s *rainslib.ShardSection) string {
 }
 
 //revParseContainedShard parses a signed shard to its string representation with format:
-//:SS::RB:<range-begin>:RE:<range-end>[Contained Assertion*][signature*]
+//:CS::RB:<range-begin>:RE:<range-end>[Contained Assertion*][signature*]
 func revParseContainedShard(s *rainslib.ShardSection) string {
 	shard := fmt.Sprintf(":CS::RB:%s:RE:%s[", s.RangeFrom, s.RangeTo)
 	for _, assertion := range s.Content {
