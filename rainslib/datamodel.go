@@ -12,6 +12,8 @@ import (
 
 	"net"
 
+	"strings"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -46,8 +48,22 @@ const (
 	TLSOverTCP   Capability = "urn:x-rains:tlssrv"
 )
 
-//MessageSectionWithSig can be either an Assertion, Shard or Zone
+//MessageSectionWithSig can be either an Assertion, Shard, Zone, AddressAssertion, AddressZone
 type MessageSectionWithSig interface {
+	Sigs() []Signature
+	AddSig(sig Signature)
+	DeleteSig(int)
+	DeleteAllSigs()
+	GetContext() string
+	GetSubjectZone() string
+	CreateStub() MessageSectionWithSig
+	ValidFrom() int64
+	ValidUntil() int64
+	Hash() string
+}
+
+//MessageSectionWithSigForward can be either an Assertion, Shard or Zone
+type MessageSectionWithSigForward interface {
 	Sigs() []Signature
 	AddSig(sig Signature)
 	DeleteSig(int)
@@ -471,6 +487,71 @@ type AddressAssertionSection struct {
 	Content     []Object
 	Signatures  []Signature
 	Context     string
+	validFrom   int64
+	validUntil  int64
+}
+
+//Sigs return the assertion's signatures
+func (a *AddressAssertionSection) Sigs() []Signature {
+	return a.Signatures
+}
+
+//AddSig adds the given signature
+func (a *AddressAssertionSection) AddSig(sig Signature) {
+	a.Signatures = append(a.Signatures, sig)
+}
+
+//DeleteSig deletes ith signature
+func (a *AddressAssertionSection) DeleteSig(i int) {
+	a.Signatures = append(a.Signatures[:i], a.Signatures[i+1:]...)
+}
+
+//DeleteAllSigs deletes all signatures
+func (a *AddressAssertionSection) DeleteAllSigs() {
+	a.Signatures = []Signature{}
+}
+
+//GetContext returns the context of the assertion
+func (a *AddressAssertionSection) GetContext() string {
+	return a.Context
+}
+
+//GetSubjectZone returns the zone of the shard
+func (a *AddressAssertionSection) GetSubjectZone() string {
+	if a.Context == "." {
+		//FIXME CFE how to find out authority when delegated???
+		return "."
+	}
+	return strings.Split(a.Context, "cx-")[1]
+}
+
+//CreateStub creates a copy of the assertion without the signatures.
+func (a *AddressAssertionSection) CreateStub() MessageSectionWithSig {
+	stub := &AddressAssertionSection{}
+	*stub = *a
+	stub.DeleteAllSigs()
+	return stub
+}
+
+//ValidFrom returns the earliest validFrom date of all contained signatures
+func (a *AddressAssertionSection) ValidFrom() int64 {
+	return a.validFrom
+}
+
+//ValidUntil returns the latest validUntil date of all contained signatures
+func (a *AddressAssertionSection) ValidUntil() int64 {
+	return a.validUntil
+}
+
+//Hash returns a string containing all information uniquely identifying an assertion.
+func (a *AddressAssertionSection) Hash() string {
+	return fmt.Sprintf("%s_%d_%d_%s_%v_%v",
+		a.Context,
+		a.SubjectAddr.AddressFamily,
+		a.SubjectAddr.PrefixLength,
+		a.SubjectAddr.Address.String(),
+		a.Content,
+		a.Signatures)
 }
 
 //AddressZoneSection contains information about the address zone
@@ -479,6 +560,82 @@ type AddressZoneSection struct {
 	Content     []*AddressAssertionSection
 	Signatures  []Signature
 	Context     string
+	validFrom   int64
+	validUntil  int64
+}
+
+//Sigs return the zone's signatures
+func (z *AddressZoneSection) Sigs() []Signature {
+	return z.Signatures
+}
+
+//AddSig adds the given signature
+func (z *AddressZoneSection) AddSig(sig Signature) {
+	z.Signatures = append(z.Signatures, sig)
+}
+
+//DeleteSig deletes ith signature
+func (z *AddressZoneSection) DeleteSig(i int) {
+	z.Signatures = append(z.Signatures[:i], z.Signatures[i+1:]...)
+}
+
+//DeleteAllSigs deletes all signatures
+func (z *AddressZoneSection) DeleteAllSigs() {
+	z.Signatures = []Signature{}
+	for _, assertion := range z.Content {
+		assertion.DeleteAllSigs()
+	}
+}
+
+//GetContext returns the context of the zone
+func (z *AddressZoneSection) GetContext() string {
+	return z.Context
+}
+
+//GetSubjectZone returns the zone of the shard
+func (z *AddressZoneSection) GetSubjectZone() string {
+	if z.Context == "." {
+		//FIXME CFE how to find out authority when delegated???
+		return "."
+	}
+	return strings.Split(z.Context, "cx-")[1]
+}
+
+//CreateStub creates a copy of the zone and the contained shards and assertions without the signatures.
+func (z *AddressZoneSection) CreateStub() MessageSectionWithSig {
+	stub := &AddressZoneSection{}
+	*stub = *z
+	stub.Content = []*AddressAssertionSection{}
+	for _, assertion := range z.Content {
+		stub.Content = append(stub.Content, assertion.CreateStub().(*AddressAssertionSection))
+	}
+	stub.DeleteAllSigs()
+	return stub
+}
+
+//ValidFrom returns the earliest validFrom date of all contained signatures
+func (z *AddressZoneSection) ValidFrom() int64 {
+	return z.validFrom
+}
+
+//ValidUntil returns the latest validUntil date of all contained signatures
+func (z *AddressZoneSection) ValidUntil() int64 {
+	return z.validUntil
+}
+
+//Hash returns a string containing all information uniquely identifying a shard.
+func (z *AddressZoneSection) Hash() string {
+	contentHashes := ""
+	for _, a := range z.Content {
+		contentHashes += a.Hash()
+	}
+	return fmt.Sprintf("%s_%d_%d_%s_%s_%v",
+		z.Context,
+		z.SubjectAddr.AddressFamily,
+		z.SubjectAddr.PrefixLength,
+		z.SubjectAddr.Address.String(),
+		contentHashes,
+		z.Signatures)
 }
 
 //AddressQuerySection contains information about the address query
@@ -487,7 +644,7 @@ type AddressQuerySection struct {
 	Token       Token
 	Context     string
 	Types       []int
-	Expires     int
+	Expires     int64
 	//Optional
 	Options []int
 }

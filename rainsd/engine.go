@@ -275,7 +275,13 @@ func shouldZoneBeCached(zone *rainslib.ZoneSection) bool {
 	return true
 }
 
-//query directly answers the query if result is cached. Otherwise it issues a new query and puts this query to the pendingQueries Cache.
+//addressQuery directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
+//TODO CFE implement
+func addressQuery(query *rainslib.AddressQuerySection, sender ConnInfo) {
+
+}
+
+//query directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
 func query(query *rainslib.QuerySection, sender ConnInfo) {
 	log.Info("Start processing query", "query", query)
 	zoneAndNames := getZoneAndName(query.Name)

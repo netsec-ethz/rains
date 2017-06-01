@@ -308,7 +308,7 @@ type assertionCache interface {
 
 //negativeAssertionCacheValue is the value stored in the negativeAssertionCache
 type negativeAssertionCacheValue struct {
-	section    rainslib.MessageSectionWithSig
+	section    rainslib.MessageSectionWithSigForward
 	validFrom  int64
 	validUntil int64
 }

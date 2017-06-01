@@ -292,6 +292,49 @@ func containedShardsAreConsistent(z *rainslib.ZoneSection) bool {
 	return true
 }
 
+func containedAssertionsValidPrefixLength(z *rainslib.AddressZoneSection) bool {
+	if validPrefixLength(z.SubjectAddr) {
+		log.Warn("PrefixLength of zone is too large", "prefixLength", z.SubjectAddr.PrefixLength)
+		return false
+	}
+	for _, a := range z.Content {
+		if validPrefixLength(a.SubjectAddr) {
+			log.Warn("PrefixLength of contained assertion is too large", "prefixLength", a.SubjectAddr.PrefixLength)
+			return false
+		}
+	}
+	return true
+}
+
+func validPrefixLength(subjectAddr rainslib.SubjectAddr) bool {
+	switch subjectAddr.AddressFamily {
+	case rainslib.OTIP4Addr:
+		return subjectAddr.PrefixLength <= 32
+	case rainslib.OTIP6Addr:
+		return subjectAddr.PrefixLength <= 128
+	default:
+		log.Warn("Not valid ObjectType in subjectAddr", "got", subjectAddr.AddressFamily)
+	}
+	return false
+}
+
+func containedAssertionsWithinNetwork(z *rainslib.AddressZoneSection) bool {
+	zprefix := z.SubjectAddr.PrefixLength
+	for _, a := range z.Content {
+		aprefix := a.SubjectAddr.PrefixLength
+		if aprefix < zprefix {
+			log.Warn("Assertion is less specific than zone", "assertion prefix", aprefix, "zone prefix", zprefix)
+			return false
+		}
+		if a.SubjectAddr.Address.String()[:zprefix] != z.SubjectAddr.Address.String()[:zprefix] {
+			log.Warn("Assertion and zone does not have the same prefix", "assertion addr prefix", a.SubjectAddr.Address.String()[:zprefix],
+				"zone addr prefix", z.SubjectAddr.Address.String()[:zprefix])
+			return false
+		}
+	}
+	return true
+}
+
 //addAssertionsinRangeToList adds all assertions from s which are in the range of interval to the returned sortedAssertions list
 func addAssertionsinRangeToList(s *rainslib.ShardSection, interval rainslib.Interval, list *sortedAssertions) {
 	for _, a := range s.Content {
