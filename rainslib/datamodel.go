@@ -10,6 +10,8 @@ import (
 
 	"encoding/hex"
 
+	"net"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -458,34 +460,34 @@ const (
 
 //SubjectAddr TODO correct?
 type SubjectAddr struct {
-	AddressFamily string
+	AddressFamily ObjectType
 	PrefixLength  uint
-	Address       string
+	Address       net.IPAddr
 }
 
 //AddressAssertionSection contains information about the address assertion
 type AddressAssertionSection struct {
-	SubjectAddr
-	Content    []Object
-	Signatures []Signature
-	Context    string
+	SubjectAddr SubjectAddr
+	Content     []Object
+	Signatures  []Signature
+	Context     string
 }
 
 //AddressZoneSection contains information about the address zone
 type AddressZoneSection struct {
-	SubjectAddr
-	Signatures []Signature
-	Context    string
-	Content    []AddressAssertionSection
+	SubjectAddr SubjectAddr
+	Content     []*AddressAssertionSection
+	Signatures  []Signature
+	Context     string
 }
 
 //AddressQuerySection contains information about the address query
 type AddressQuerySection struct {
-	SubjectAddr
-	Token   []byte
-	Context string
-	Types   []int
-	Expires int
+	SubjectAddr SubjectAddr
+	Token       Token
+	Context     string
+	Types       []int
+	Expires     int
 	//Optional
 	Options []int
 }
@@ -631,8 +633,14 @@ type RainsMsgParser interface {
 	//Token extracts the token from the byte slice of a RainsMessage
 	Token(msg []byte) (Token, error)
 
-	//RevParseSignedMsgSection parses an MessageSectionWithSig to a byte slice representation
+	//RevParseSignedMsgSection parses an MessageSectionWithSig to a string representation
 	RevParseSignedMsgSection(section MessageSectionWithSig) (string, error)
+
+	//RevParseAddressAssertion parses a address assertion to its string representation
+	RevParseAddressAssertion(a *AddressAssertionSection) string
+
+	//RevParseAddressZone parses a address zone to its string representation
+	RevParseAddressZone(z *AddressZoneSection) string
 
 	//ParseSignedAssertion parses a byte slice representation of an assertion to the internal representation of an assertion.
 	//TODO CFE extend this method to also allow parsing shards and zones if necessary

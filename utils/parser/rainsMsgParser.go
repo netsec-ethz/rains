@@ -134,14 +134,14 @@ func (p RainsMsgParser) ParseSignedAssertion(assertion []byte) (*rainslib.Assert
 //:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 func revParseSignedAssertion(a *rainslib.AssertionSection) string {
 	assertion := fmt.Sprintf(":SA::CN:%s:ZN:%s:SN:%s[%s]][", a.Context, a.SubjectZone, a.SubjectName, revParseObjects(a.Content))
-	return assertion + revParseSignature(a.Signatures) + "]"
+	return fmt.Sprintf("%s][%s]", assertion, revParseSignature(a.Signatures))
 }
 
 //revParseContainedAssertion parses a contained assertion to its string representation with format:
 //:CA::SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 func revParseContainedAssertion(a *rainslib.AssertionSection) string {
 	assertion := fmt.Sprintf(":CA::SN:%s[%s]][", a.SubjectName, revParseObjects(a.Content))
-	return assertion + revParseSignature(a.Signatures) + "]"
+	return fmt.Sprintf("%s][%s]", assertion, revParseSignature(a.Signatures))
 }
 
 //revParseObjects parses objects to their string representation with format:
@@ -188,7 +188,7 @@ func revParseContainedShard(s *rainslib.ShardSection) string {
 	return fmt.Sprintf("%s][%s]", shard, revParseSignature(s.Signatures))
 }
 
-//RevParseSignedShard parses a signed shard to its string representation with format:
+//RevParseSignedShard parses a signed zone to its string representation with format:
 //:SZ::CN:<context-name>:ZN:<zone-name>[(Contained Shard|Contained Assertion):::...:::(Contained Shard|Contained Assertion)][signature*]
 func revParseSignedZone(z *rainslib.ZoneSection) string {
 	zone := fmt.Sprintf(":SZ::CN:%s:ZN:%s[", z.Context, z.SubjectZone)
@@ -237,6 +237,32 @@ func revParseQuery(q *rainslib.QuerySection) string {
 		opts = opts[:len(opts)-1]
 	}
 	return fmt.Sprintf(":QU::VU:%d:CN:%s:SN:%s:OT:%d[%s]", q.Expires, q.Context, q.Name, q.Type, opts)
+}
+
+//RevParseAddressAssertion parses a address assertion to its string representation with format:
+//:AA::CN:<context-name>:AF:<address-family>:PL:<prefix-length>:IP:<IP-Address>[(Object)*][]
+func (p RainsMsgParser) RevParseAddressAssertion(a *rainslib.AddressAssertionSection) string {
+	assertion := fmt.Sprintf(":AA::CN:%s:AF:%d:PL:%d:IP:%s[%s]][",
+		a.Context,
+		a.SubjectAddr.AddressFamily,
+		a.SubjectAddr.PrefixLength,
+		a.SubjectAddr.Address.String(),
+		revParseObjects(a.Content))
+	return fmt.Sprintf("%s][]", assertion)
+}
+
+//RevParseAddressZone parses a address zone to its string representation with format:
+//:AZ::CN:<context-name>:AF:<address-family>:PL:<prefix-length>:IP:<IP-Address>[(Address Assertion)*][]
+func (p RainsMsgParser) RevParseAddressZone(z *rainslib.AddressZoneSection) string {
+	zone := fmt.Sprintf(":AZ::CN:%s:AF:%d:PL:%d:IP:%s[",
+		z.Context,
+		z.SubjectAddr.AddressFamily,
+		z.SubjectAddr.PrefixLength,
+		z.SubjectAddr.Address.String())
+	for _, assertion := range z.Content {
+		zone += p.RevParseAddressAssertion(assertion)
+	}
+	return fmt.Sprintf("%s][]", zone)
 }
 
 //revParseNotification parses a rains notification to its string representation with format:
