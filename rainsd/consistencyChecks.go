@@ -103,6 +103,20 @@ func isZoneConsistent(zone *rainslib.ZoneSection) bool {
 	return true
 }
 
+//isAddressAssertionConsistent checks if the incoming address assertion is consistent with the elements in the cache.
+//If not, every element of this zone and context is dropped and it returns false
+func isAddressAssertionConsistent(assertion *rainslib.AddressAssertionSection) bool {
+	//TODO CFE implement
+	return false
+}
+
+//isZoneConsistent checks if the incoming address zone is consistent with the elements in the cache.
+//If not every element of this zone is dropped and it return false
+func isAddressZoneConsistent(zone *rainslib.AddressZoneSection) bool {
+	//TODO CFE implement
+	return false
+}
+
 //togetherValid returns true if both sections are at some point both valid
 func togetherValid(s1, s2 rainslib.MessageSectionWithSig) bool {
 	return s1.ValidUntil() >= s2.ValidFrom() && s1.ValidFrom() <= s2.ValidUntil()
@@ -292,6 +306,35 @@ func containedShardsAreConsistent(z *rainslib.ZoneSection) bool {
 	return true
 }
 
+func containedAssertionsValidObjectType(z *rainslib.AddressZoneSection) bool {
+	for _, a := range z.Content {
+		for _, o := range a.Content {
+			if validObjectType(a.SubjectAddr, o.Type) {
+				log.Warn("Not Allowed object type of contained address assertion.", "objectType", o.Type)
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func validObjectType(subjectAddr rainslib.SubjectAddr, objectType rainslib.ObjectType) bool {
+	if subjectAddr.AddressFamily == rainslib.OTIP4Addr {
+		if subjectAddr.PrefixLength == 32 {
+			return objectType == rainslib.OTName
+		}
+		return objectType == rainslib.OTDelegation || objectType == rainslib.OTRedirection || objectType == rainslib.OTRegistrant
+	}
+	if subjectAddr.AddressFamily == rainslib.OTIP6Addr {
+		if subjectAddr.PrefixLength == 128 {
+			return objectType == rainslib.OTName
+		}
+		return objectType == rainslib.OTDelegation || objectType == rainslib.OTRedirection || objectType == rainslib.OTRegistrant
+	}
+	log.Warn("subjAddr AddressFamily is of wrong type", "address familiy", subjectAddr.AddressFamily)
+	return false
+}
+
 func containedAssertionsValidPrefixLength(z *rainslib.AddressZoneSection) bool {
 	if validPrefixLength(z.SubjectAddr) {
 		log.Warn("PrefixLength of zone is too large", "prefixLength", z.SubjectAddr.PrefixLength)
@@ -299,7 +342,7 @@ func containedAssertionsValidPrefixLength(z *rainslib.AddressZoneSection) bool {
 	}
 	for _, a := range z.Content {
 		if validPrefixLength(a.SubjectAddr) {
-			log.Warn("PrefixLength of contained assertion is too large", "prefixLength", a.SubjectAddr.PrefixLength)
+			log.Warn("PrefixLength of contained address assertion is too large", "prefixLength", a.SubjectAddr.PrefixLength)
 			return false
 		}
 	}

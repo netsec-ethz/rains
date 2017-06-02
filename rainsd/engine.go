@@ -90,6 +90,28 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 		} else {
 			log.Debug("Zone is inconsistent with cached elements.")
 		}
+	case *rainslib.AddressAssertionSection:
+		log.Info("Start processing address assertion", "assertion", section)
+		if isAddressAssertionConsistent(section) {
+			log.Debug("Address Assertion is consistent with cached elements.")
+			ok := assertAddressAssertion(section, isAuthoritative, sectionWSSender.Token)
+			if ok {
+				handleAddressAssertion(section, sectionWSSender.Token)
+			}
+		} else {
+			log.Debug("Address Assertion is inconsistent with cached elements.")
+		}
+	case *rainslib.AddressZoneSection:
+		log.Info("Start processing address zone", "zone", section)
+		if isAddressZoneConsistent(section) {
+			log.Debug("Address zone is consistent with cached elements.")
+			ok := assertAddressZone(section, isAuthoritative, sectionWSSender.Token)
+			if ok {
+				handlePendingQueries(section, sectionWSSender.Token)
+			}
+		} else {
+			log.Debug("Address zone is inconsistent with cached elements.")
+		}
 	default:
 		log.Warn("Unknown message section", "messageSection", section)
 	}
@@ -275,10 +297,30 @@ func shouldZoneBeCached(zone *rainslib.ZoneSection) bool {
 	return true
 }
 
-//addressQuery directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
-//TODO CFE implement
-func addressQuery(query *rainslib.AddressQuerySection, sender ConnInfo) {
+//assertAddressAssertion adds an assertion to the address assertion cache. The assertion's signatures MUST have already been verified.
+//FIXME CFE only the first element of the assertion is processed
+//Returns true if the address assertion can be further processed.
+func assertAddressAssertion(a *rainslib.AddressAssertionSection, isAuthoritative bool, token rainslib.Token) bool {
+	log.Warn("TODO CFE implement")
+	return false
+}
 
+//handleAddressAssertion triggers any pending queries answered by it.
+func handleAddressAssertion(a *rainslib.AddressAssertionSection, token rainslib.Token) {
+	log.Warn("TODO CFE implement")
+}
+
+//assertAdressZone adds a zone to the address negAssertion cache. It also adds all contained assertions to the address assertions cache.
+//The zone's signatures and all contained assertion signatures MUST have already been verified
+//Returns true if the zone can be further processed.
+func assertAddressZone(zone *rainslib.AddressZoneSection, isAuthoritative bool, token rainslib.Token) bool {
+	log.Warn("TODO CFE implement")
+	return false
+}
+
+//addressQuery directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
+func addressQuery(query *rainslib.AddressQuerySection, sender ConnInfo) {
+	log.Warn("TODO CFE implement")
 }
 
 //query directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.

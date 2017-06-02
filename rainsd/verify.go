@@ -87,12 +87,22 @@ func verify(msgSender msgSectionSender) {
 			log.Warn("Context of address section is malformed.", "got", sectionSender.Section.GetContext())
 			return
 		}
-		if assertion, ok := section.(*rainslib.AddressZoneSection); ok && !validPrefixLength(assertion.SubjectAddr) {
-			log.Warn("PrefixLength of address assertion is too large", "prefixLength", assertion.SubjectAddr.PrefixLength)
-			return
-		}
-		if zone, ok := section.(*rainslib.AddressZoneSection); ok && !containedAssertionsValidPrefixLength(zone) && !containedAssertionsWithinNetwork(zone) {
-			return //already logged, that the zone is internally invalid
+		switch section := section.(type) {
+		case *rainslib.AddressAssertionSection:
+			if !validPrefixLength(section.SubjectAddr) {
+				log.Warn("PrefixLength of address assertion is too large", "prefixLength", section.SubjectAddr.PrefixLength)
+				return
+			}
+			for _, o := range section.Content {
+				if !validObjectType(section.SubjectAddr, o.Type) {
+					log.Warn("Not Allowed object type of address assertion.", "objectType", o.Type)
+					return
+				}
+			}
+		case *rainslib.AddressZoneSection:
+			if !containedAssertionsValidObjectType(section) || !containedAssertionsValidPrefixLength(section) || !containedAssertionsWithinNetwork(section) {
+				return //already logged, that the zone is internally invalid
+			}
 		}
 		if verifySignatures(sectionSender) {
 			assert(sectionSender, authoritative[contextAndZone{Context: sectionSender.Section.GetContext(), Zone: sectionSender.Section.GetSubjectZone()}])
