@@ -5,10 +5,11 @@
 package rainsd
 
 import (
-	"bufio"
 	"crypto/tls"
 	"errors"
 	"net"
+	"rains/rainslib"
+	"rains/utils/msgFramer"
 	"strconv"
 	"strings"
 	"time"
@@ -16,9 +17,8 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
-//TODO CFE this uses MPL 2.0 licence, write it ourself (Brian has sample code)
 var connCache connectionCache
-var framer scanner
+var framer rainslib.MsgFramer
 
 //InitSwitchboard initializes the switchboard
 func initSwitchboard() error {
@@ -30,7 +30,7 @@ func initSwitchboard() error {
 		return err
 	}
 	//init framer
-	framer = &newLineFramer{}
+	framer = &msgFramer.NewLineFramer{}
 	return nil
 }
 
@@ -49,7 +49,7 @@ func sendTo(message []byte, receiver ConnInfo) {
 			}
 			conn.Write(frame)
 			connCache.Add(addrPair, conn)
-			sendLog.Info("Send successful (cached)")
+			sendLog.Debug("Send successful to a cached connection")
 		} else {
 			sendLog.Error("Cannot cast cache entry to net.Conn")
 		}
@@ -67,7 +67,7 @@ func sendTo(message []byte, receiver ConnInfo) {
 		}
 		conn.Write(frame)
 		connCache.Add(addrPair, conn)
-		sendLog.Info("Send successful (new connection)")
+		sendLog.Debug("Send successful (new connection)")
 	}
 
 }
@@ -90,10 +90,11 @@ func Listen() {
 	addrAndport := serverConnInfo.String()
 	srvLogger := log.New("addr", addrAndport)
 
-	cert, err := tls.LoadX509KeyPair(Config.CertificateFile, Config.PrivateKeyFile)
+	cert, err := tls.LoadX509KeyPair(Config.TLSCertificateFile, Config.TLSPrivateKeyFile)
 	if err != nil {
-		srvLogger.Warn("Path to CertificateFile or privateKeyFile might be invalid. Default values are used", "CertPath", Config.CertificateFile, "KeyPath", Config.PrivateKeyFile)
-		cert, err = tls.LoadX509KeyPair(defaultConfig.CertificateFile, defaultConfig.PrivateKeyFile)
+		srvLogger.Warn("Path to CertificateFile or privateKeyFile might be invalid. Default values are used", "CertPath", Config.TLSCertificateFile,
+			"KeyPath", Config.TLSPrivateKeyFile, "error", err)
+		cert, err = tls.LoadX509KeyPair(defaultConfig.TLSCertificateFile, defaultConfig.TLSPrivateKeyFile)
 		if err != nil {
 			srvLogger.Error("Cannot load certificate", "error", err)
 			return
@@ -123,12 +124,14 @@ func Listen() {
 //handleConnection passes all incoming messages to the inbox which processes them.
 func handleConnection(conn net.Conn, client ConnInfo) {
 	//TODO CFE replace newLineFramer when we have a CBOR framer!
-	scan := newLineFramer{Scanner: bufio.NewScanner(bufio.NewReader(conn)), firstCall: true}
-	for scan.Deframe() {
+	framer := msgFramer.NewLineFramer{}
+	framer.InitStream(conn)
+	for framer.Deframe() {
 		log.Info("Received a message", "client", client)
-		deliver(scan.Data(), client)
+		deliver(framer.Data(), client)
 		conn.SetDeadline(time.Now().Add(Config.TCPTimeout))
 	}
+	//TODO CFE should we be able to remove this connection from the connCache?
 }
 
 //parseRemoteAddr translates an address obtained from net.Conn.RemoteAddr() to the internal representation ConnInfo

@@ -1,9 +1,14 @@
 package rainslib
 
 import (
+	"crypto/rand"
 	"strconv"
 
 	"fmt"
+
+	"io"
+
+	"encoding/hex"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -23,6 +28,10 @@ type RainsMessage struct {
 //Token is a byte slice with maximal length 32
 type Token [16]byte
 
+func (t Token) String() string {
+	return hex.EncodeToString(t[:])
+}
+
 //MessageSection can be either an Assertion, Shard, Zone, Query or Notification section
 type MessageSection interface {
 }
@@ -38,6 +47,7 @@ const (
 //MessageSectionWithSig can be either an Assertion, Shard or Zone
 type MessageSectionWithSig interface {
 	Sigs() []Signature
+	AddSig(sig Signature)
 	DeleteSig(int)
 	DeleteAllSigs()
 	GetContext() string
@@ -101,6 +111,11 @@ func (a *AssertionSection) Sigs() []Signature {
 	return a.Signatures
 }
 
+//AddSig adds the given signature
+func (a *AssertionSection) AddSig(sig Signature) {
+	a.Signatures = append(a.Signatures, sig)
+}
+
 //DeleteSig deletes ith signature
 func (a *AssertionSection) DeleteSig(i int) {
 	a.Signatures = append(a.Signatures[:i], a.Signatures[i+1:]...)
@@ -152,6 +167,8 @@ func (a *AssertionSection) ValidFrom() int64 {
 
 //ValidUntil returns the latest validUntil date of all contained signatures
 func (a *AssertionSection) ValidUntil() int64 {
+	//FIXME CFE this is not correct. There might be a time interval between several signatures during which this assertion is not valid.
+	//Return the latest time which is reachable with all contained signatures without gaps in between
 	valid := a.Signatures[0].ValidUntil
 	for _, sig := range a.Signatures[1:] {
 		if sig.ValidSince > valid {
@@ -186,6 +203,11 @@ type ShardSection struct {
 //Sigs return the shard's signatures
 func (s *ShardSection) Sigs() []Signature {
 	return s.Signatures
+}
+
+//AddSig adds the given signature
+func (s *ShardSection) AddSig(sig Signature) {
+	s.Signatures = append(s.Signatures, sig)
 }
 
 //DeleteSig deletes ith signature
@@ -246,6 +268,8 @@ func (s *ShardSection) ValidFrom() int64 {
 
 //ValidUntil returns the latest validUntil date of all contained signatures
 func (s *ShardSection) ValidUntil() int64 {
+	//FIXME CFE this is not correct. There might be a time interval between several signatures during which this assertion is not valid.
+	//Return the latest time which is reachable with all contained signatures without gaps in between
 	valid := s.Signatures[0].ValidUntil
 	for _, sig := range s.Signatures[1:] {
 		if sig.ValidSince > valid {
@@ -275,6 +299,11 @@ type ZoneSection struct {
 //Sigs return the zone's signatures
 func (z *ZoneSection) Sigs() []Signature {
 	return z.Signatures
+}
+
+//AddSig adds the given signature
+func (z *ZoneSection) AddSig(sig Signature) {
+	z.Signatures = append(z.Signatures, sig)
 }
 
 //DeleteSig deletes ith signature
@@ -345,6 +374,8 @@ func (z *ZoneSection) ValidFrom() int64 {
 
 //ValidUntil returns the latest validUntil date of all contained signatures
 func (z *ZoneSection) ValidUntil() int64 {
+	//FIXME CFE this is not correct. There might be a time interval between several signatures during which this assertion is not valid.
+	//Return the latest time which is reachable with all contained signatures without gaps in between
 	valid := z.Signatures[0].ValidUntil
 	for _, sig := range z.Signatures[1:] {
 		if sig.ValidSince > valid {
@@ -411,18 +442,18 @@ func (o ObjectType) String() string {
 }
 
 const (
-	Name        ObjectType = 1
-	IP6Addr     ObjectType = 2
-	IP4Addr     ObjectType = 3
-	Redirection ObjectType = 4
-	Delegation  ObjectType = 5
-	Nameset     ObjectType = 6
-	CertInfo    ObjectType = 7
-	ServiceInfo ObjectType = 8
-	Registrar   ObjectType = 9
-	Registrant  ObjectType = 10
-	InfraKey    ObjectType = 11
-	ExtraKey    ObjectType = 12
+	OTName        ObjectType = 1
+	OTIP6Addr     ObjectType = 2
+	OTIP4Addr     ObjectType = 3
+	OTRedirection ObjectType = 4
+	OTDelegation  ObjectType = 5
+	OTNameset     ObjectType = 6
+	OTCertInfo    ObjectType = 7
+	OTServiceInfo ObjectType = 8
+	OTRegistrar   ObjectType = 9
+	OTRegistrant  ObjectType = 10
+	OTInfraKey    ObjectType = 11
+	OTExtraKey    ObjectType = 12
 )
 
 //SubjectAddr TODO correct?
@@ -488,7 +519,7 @@ type Signature struct {
 	Algorithm  SignatureAlgorithmType
 	ValidSince int64
 	ValidUntil int64
-	Data       []byte
+	Data       interface{}
 }
 
 //KeySpaceID identifies a key space
@@ -516,6 +547,21 @@ const (
 	Ecdsa384 SignatureAlgorithmType = 4
 )
 
+//FIXME CFE are these types necessary???
+//Ed25519PublicKey is a 32-byte bit string
+type Ed25519PublicKey [32]byte
+
+//Ed448PublicKey is a 57-byte bit string
+type Ed448PublicKey [57]byte
+
+type Ecdsa256PublicKey struct {
+	//TODO to implement
+}
+
+type Ecdsa384PublicKey struct {
+	//TODO to implement
+}
+
 //HashAlgorithmType specifies a hash algorithm type
 type HashAlgorithmType int
 
@@ -529,7 +575,7 @@ const (
 //PublicKey contains information about a public key
 type PublicKey struct {
 	//TODO CFE remove type if not needed anywhere
-	Type       KeyAlgorithmType
+	Type       SignatureAlgorithmType
 	Key        interface{}
 	ValidFrom  int64
 	ValidUntil int64
@@ -538,8 +584,34 @@ type PublicKey struct {
 //NamesetExpression  encodes a modified POSIX Extended Regular Expression format
 type NamesetExpression string
 
-//CertificateObject TODO define type
-type CertificateObject string
+//CertificateObject contains certificate information
+type CertificateObject struct {
+	Type     ProtocolType
+	Usage    CertificateUsage
+	HashAlgo HashAlgorithmType
+	Data     []byte
+}
+
+type ProtocolType int
+
+const (
+	PTUnspecified ProtocolType = 0
+	PTTLS         ProtocolType = 1
+)
+
+type CertificateUsage int
+
+const (
+	CUTrustAnchor CertificateUsage = 2
+	CUEndEntity   CertificateUsage = 3
+)
+
+//ServiceInfo contains information how to access a named service
+type ServiceInfo struct {
+	Name     string
+	Port     uint16
+	Priority uint
+}
 
 //Object is a container for different values determined by the given type.
 type Object struct {
@@ -556,9 +628,47 @@ type RainsMsgParser interface {
 	//ParseRainsMsg parses a RainsMessage to a byte slice representation.
 	ParseRainsMsg(msg RainsMessage) ([]byte, error)
 
-	//Token extracts the token from the byte slice
+	//Token extracts the token from the byte slice of a RainsMessage
 	Token(msg []byte) (Token, error)
 
 	//RevParseSignedMsgSection parses an MessageSectionWithSig to a byte slice representation
 	RevParseSignedMsgSection(section MessageSectionWithSig) (string, error)
+
+	//ParseSignedAssertion parses a byte slice representation of an assertion to the internal representation of an assertion.
+	//TODO CFE extend this method to also allow parsing shards and zones if necessary
+	ParseSignedAssertion(assertion []byte) (*AssertionSection, error)
+}
+
+//ZoneFileParser is the interface for all parsers of zone files for RAINS
+type ZoneFileParser interface {
+	//ParseZoneFile takes as input a zoneFile and returns all contained assertions. A zoneFile has the following format:
+	//:Z: <context> <zone> [(:S:<Shard Content>|:A:<Assertion Content>)*]
+	//Shard Content: [(:A:<Assertion Content>)*]
+	//Assertion Content: <subject-name>[(:objectType:<object data>)*]
+	ParseZoneFile(zoneFile []byte) ([]*AssertionSection, error)
+}
+
+//PRG pseudo random generator
+type PRG struct{}
+
+func (prg PRG) Read(p []byte) (n int, err error) {
+	return rand.Read(p)
+}
+
+//MsgFramer is used to frame rains messages before transmission and deframe on the receiving end.
+type MsgFramer interface {
+	//Frame takes a message and adds a frame to it
+	Frame(msg []byte) ([]byte, error)
+
+	//InitStream defines the stream from which Deframe() and Data() are extracting the information from
+	InitStream(stream io.Reader)
+
+	//Deframe extracts the next frame from the stream defined in InitStream().
+	//It blocks until it encounters the delimiter.
+	//It returns false when the stream was not initialized or is already closed.
+	//The data is available through Data
+	Deframe() bool
+
+	//Data contains the frame read from the stream by Deframe
+	Data() []byte
 }

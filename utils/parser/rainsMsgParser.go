@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
@@ -16,7 +17,7 @@ type RainsMsgParser struct{}
 
 //ParseByteSlice parses the byte slice to a RainsMessage according to the following format:
 //It is ASSUMED that signature data does not contain the '[' char.
-//RainsMessage format: <token>[MessageSection:::::...:::::MessageSection][signatures*]:cap:<capabilities
+//RainsMessage format: <token>[MessageSection:::::...:::::MessageSection][signatures*]:cap:<capabilities>
 //Signed Assertion: :SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>[(:OT:<object type>:OD:<object data>)*][signature*]
 //Contained Assertion: :CA::SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 //Signed Shard: :SS::CN:<context-name>:ZN:<zone-name>:RB:<range-begin>:RE:<range-end>[Contained Assertion*][signature*]
@@ -27,18 +28,18 @@ type RainsMsgParser struct{}
 //signature: :VF:<valid-from>:VU:<valid-until>:KS:<key-space>:KA:<key-algorithm>:SD:<signature-data>
 func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, error) {
 	msg := string(message)
-	log.Info("Parse Rains Message", "message", msg)
+	log.Debug("Parse Rains Message", "message", msg)
 	msgSectionBegin := strings.Index(msg, "[")
 	msgSectionEnd := strings.LastIndex(msg, "[") - 1
 	sigBegin := strings.LastIndex(msg, "[")
 	sigEnd := strings.LastIndex(msg, "]")
-	cap := strings.Index(msg, ":cap:")
+	capability := strings.Index(msg, ":cap:")
 	token, err := p.Token(message)
 	if err != nil {
 		return rainslib.RainsMessage{}, err
 	}
-	if msgSectionEnd == -2 || sigBegin == -1 || sigEnd == -1 || cap == -1 {
-		log.Warn("Rains Message malformed")
+	if msgSectionEnd == -2 || sigBegin == -1 || sigEnd == -1 || capability == -1 {
+		log.Warn("Rains Message malformed", "msgSectionEnd", msgSectionEnd, "sigBegin", sigBegin, "sigEnd", sigEnd, "capability", capability)
 		return rainslib.RainsMessage{Token: token}, errors.New("Rains Message malformed")
 	}
 	msgBodies, err := parseMessageBodies(msg[msgSectionBegin+1:msgSectionEnd], token)
@@ -49,18 +50,20 @@ func (p RainsMsgParser) ParseByteSlice(message []byte) (rainslib.RainsMessage, e
 	if err != nil {
 		return rainslib.RainsMessage{Token: token}, err
 	}
-	capabilities := msg[cap+5:]
-	caps := []rainslib.Capability{}
+	capabilities := msg[capability+5:]
+	parsedCapabilities := []rainslib.Capability{}
 	if capabilities != "" {
 		log.Warn("TODO CFE capability parsing not yet implemented")
 	}
-	return rainslib.RainsMessage{Token: token, Content: msgBodies, Signatures: signatures, Capabilities: caps}, nil
+	log.Debug("Successfully finished parsing rains message")
+	return rainslib.RainsMessage{Token: token, Content: msgBodies, Signatures: signatures, Capabilities: parsedCapabilities}, nil
 }
 
 //ParseRainsMsg parses a RainsMessage to a byte slice representation with format:
-//<token>[MessageSection:::::...:::::MessageSection][signatures*]:cap:<capabilities
+//<token>[MessageSection:::::...:::::MessageSection][signatures*]:cap:<capabilities>
 func (p RainsMsgParser) ParseRainsMsg(m rainslib.RainsMessage) ([]byte, error) {
-	msg := string(m.Token[:]) + "["
+
+	msg := hex.EncodeToString(m.Token[:]) + "["
 	for _, section := range m.Content {
 		switch section := section.(type) {
 		case *rainslib.AssertionSection:
@@ -78,7 +81,14 @@ func (p RainsMsgParser) ParseRainsMsg(m rainslib.RainsMessage) ([]byte, error) {
 			return []byte{}, errors.New("Unknown message section type")
 		}
 	}
-	return []byte(fmt.Sprintf("%s][%s]:cap:%s", msg, revParseSignature(m.Signatures), m.Capabilities)), nil
+	caps := ""
+	if len(m.Capabilities) > 0 {
+		caps = string(m.Capabilities[0])
+		for _, capa := range m.Capabilities[1:] {
+			caps += ":::" + string(capa)
+		}
+	}
+	return []byte(fmt.Sprintf("%s][%s]:cap:%s", msg, revParseSignature(m.Signatures), caps)), nil
 }
 
 //Token returns the Token from the message represented as a byte slice with format:
@@ -90,13 +100,13 @@ func (p RainsMsgParser) Token(message []byte) (rainslib.Token, error) {
 		log.Warn("Rains Message malformed, cannot extract token")
 		return rainslib.Token{}, errors.New("Rains Message malformed, cannot extract token")
 	}
-	if msgSectionBegin > 16 {
-		log.Error("Token is larger than 16 byte", "tokenSize", msgSectionBegin)
-		return rainslib.Token{}, errors.New("Token is larger than 16 byte")
+	if hex.DecodedLen(len(message[:msgSectionBegin])) == 16 {
+		token := [16]byte{}
+		hex.Decode(token[:], message[:msgSectionBegin])
+		return rainslib.Token(token), nil
 	}
-	token := [16]byte{}
-	copy(token[:msgSectionBegin], message[:msgSectionBegin])
-	return rainslib.Token(token), nil
+	log.Error("Token is larger than 16 byte", "tokenSize", msgSectionBegin)
+	return rainslib.Token{}, errors.New("Token is larger than 16 byte")
 }
 
 //RevParseSignedMsgSection parses an MessageSectionWithSig to a byte slice representation
@@ -114,6 +124,12 @@ func (p RainsMsgParser) RevParseSignedMsgSection(section rainslib.MessageSection
 	}
 }
 
+//ParseSignedAssertion parses a byte slice representation of an assertion to the internal representation of an assertion.
+//:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
+func (p RainsMsgParser) ParseSignedAssertion(assertion []byte) (*rainslib.AssertionSection, error) {
+	return parseSignedAssertion(string(assertion))
+}
+
 //RevParseSignedAssertion parses a signed assertion to its string representation with format:
 //:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 func revParseSignedAssertion(a *rainslib.AssertionSection) string {
@@ -122,9 +138,9 @@ func revParseSignedAssertion(a *rainslib.AssertionSection) string {
 }
 
 //revParseContainedAssertion parses a contained assertion to its string representation with format:
-//:SA::SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
+//:CA::SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 func revParseContainedAssertion(a *rainslib.AssertionSection) string {
-	assertion := fmt.Sprintf(":CA::SN:%s:[%s]][", a.SubjectName, revParseObjects(a.Content))
+	assertion := fmt.Sprintf(":CA::SN:%s[%s]][", a.SubjectName, revParseObjects(a.Content))
 	return assertion + revParseSignature(a.Signatures) + "]"
 }
 
@@ -133,7 +149,21 @@ func revParseContainedAssertion(a *rainslib.AssertionSection) string {
 func revParseObjects(content []rainslib.Object) string {
 	objs := ""
 	for _, obj := range content {
-		objs += fmt.Sprintf(":OT:%v:OD:%v", obj.Type, obj.Value)
+		switch value := obj.Value.(type) {
+		//FIXME CFE make sure that all delegation, cert, infra and external type are correctly encoded.
+		case rainslib.PublicKey:
+			switch key := value.Key.(type) {
+			case rainslib.Ed25519PublicKey:
+				objs += fmt.Sprintf(":OT:%v:OD:%d:KD:%v", obj.Type, rainslib.Ed25519, hex.EncodeToString(key[:]))
+			case rainslib.Ed448PublicKey:
+				objs += fmt.Sprintf(":OT:%v:OD:%d:KD:%v", obj.Type, rainslib.Ed448, hex.EncodeToString(key[:]))
+			default:
+				log.Warn("not yet implemented public key type", "type", fmt.Sprintf("%T", key), "obj", obj)
+				objs += fmt.Sprintf(":OT:%v:OD:%v", obj.Type, obj.Value)
+			}
+		default:
+			objs += fmt.Sprintf(":OT:%v:OD:%v", obj.Type, obj.Value)
+		}
 	}
 	return objs
 }
@@ -149,7 +179,7 @@ func revParseSignedShard(s *rainslib.ShardSection) string {
 }
 
 //revParseContainedShard parses a signed shard to its string representation with format:
-//:SS::RB:<range-begin>:RE:<range-end>[Contained Assertion*][signature*]
+//:CS::RB:<range-begin>:RE:<range-end>[Contained Assertion*][signature*]
 func revParseContainedShard(s *rainslib.ShardSection) string {
 	shard := fmt.Sprintf(":CS::RB:%s:RE:%s[", s.RangeFrom, s.RangeTo)
 	for _, assertion := range s.Content {
@@ -179,11 +209,19 @@ func revParseSignedZone(z *rainslib.ZoneSection) string {
 }
 
 //revParseSignature parses a rains signature to its string representation with format:
-//signature: :VF:<valid-from>:VU:<valid-until>:KA:<key-algorithm>:SD:<signature-data>
+//signature: :VF:<valid-from>:VU:<valid-until>:KS:<key-space>:KA:<key-algorithm>:SD:<signature-data>
 func revParseSignature(sigs []rainslib.Signature) string {
 	signatures := ""
 	for _, sig := range sigs {
-		signatures += fmt.Sprintf(":VF:%d:VU:%d:KA:%v:SD:%s", sig.ValidSince, sig.ValidUntil, sig.Algorithm, sig.Data)
+		//FIXME CFE support all signature data types for encoding
+		sigDataEnc := sig.Data
+		switch sigData := sig.Data.(type) {
+		case []byte:
+			sigDataEnc = hex.EncodeToString(sigData)
+		default:
+			log.Warn("Signature data type not yet supported")
+		}
+		signatures += fmt.Sprintf(":VF:%d:VU:%d:KS:%d:KA:%v:SD:%s", sig.ValidSince, sig.ValidUntil, sig.KeySpace, sig.Algorithm, sigDataEnc)
 	}
 	return signatures
 }
@@ -204,12 +242,13 @@ func revParseQuery(q *rainslib.QuerySection) string {
 //revParseNotification parses a rains notification to its string representation with format:
 //:NO::TN:<token this notification refers to>:NT:<type>:ND:<data>
 func revParseNotification(n *rainslib.NotificationSection) string {
-	return fmt.Sprintf(":NO::TN:%s:NT:%v:ND:%s", n.Token, n.Type, n.Data)
+
+	return fmt.Sprintf(":NO::TN:%s:NT:%v:ND:%s", hex.EncodeToString(n.Token[:]), n.Type, n.Data)
 }
 
 //parseMessageBodies parses message section bodies according to their type (assertion, query, notification)
 func parseMessageBodies(msg string, token rainslib.Token) ([]rainslib.MessageSection, error) {
-	log.Info("Parse Message Bodies", "msgBodies", msg)
+	log.Debug("Parse Message Bodies", "msgBodies", msg)
 	parsedMsgBodies := []rainslib.MessageSection{}
 	if len(msg) == 0 {
 		return parsedMsgBodies, nil
@@ -258,12 +297,12 @@ func parseMessageBodies(msg string, token rainslib.Token) ([]rainslib.MessageSec
 //parseSignedAssertion parses a signed assertion message section with format:
 //:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>[:OT:<object type>:OD:<object data>][signature*]
 func parseSignedAssertion(msg string) (*rainslib.AssertionSection, error) {
-	log.Info("Parse Signed Assertion", "assertion", msg)
+	log.Debug("Parse Signed Assertion", "assertion", msg)
 	cn := strings.Index(msg, ":CN:")
 	zn := strings.Index(msg, ":ZN:")
 	sn := strings.Index(msg, ":SN:")
 	objBegin := strings.Index(msg, "[")
-	objEnd := strings.Index(msg, "]")
+	objEnd := strings.LastIndex(msg, "[") - 2
 	sigBegin := strings.LastIndex(msg, "[")
 	sigEnd := strings.LastIndex(msg, "]")
 	if cn == -1 || zn == -1 || sn == -1 || objBegin == -1 || objEnd == -1 || sigBegin == -1 || sigEnd == -1 {
@@ -279,18 +318,19 @@ func parseSignedAssertion(msg string) (*rainslib.AssertionSection, error) {
 		return &rainslib.AssertionSection{}, err
 	}
 	assertionSection := rainslib.AssertionSection{Context: msg[cn+4 : zn], SubjectZone: msg[zn+4 : sn], SubjectName: msg[sn+4 : objBegin], Content: objects, Signatures: signatures}
+	log.Debug("Successfully finished parsing signed assertion")
 	return &assertionSection, nil
 }
 
 //parseContainedAssertion parses a contained assertion message section with format:
 //:CA::SN:<subject-name>:OT:<object type>:OD:<object data>[signature*]
 func parseContainedAssertion(msg, context, subjectZone string) (*rainslib.AssertionSection, error) {
-	log.Info("Parse Contained Assertion", "assertion", msg)
+	log.Debug("Parse Contained Assertion", "assertion", msg)
 	sn := strings.Index(msg, ":SN:")
 	objBegin := strings.Index(msg, "[")
-	objEnd := strings.Index(msg, "]")
-	sigBegin := strings.Index(msg, "[")
-	sigEnd := strings.Index(msg, "]")
+	objEnd := strings.LastIndex(msg, "[") - 2
+	sigBegin := strings.LastIndex(msg, "[")
+	sigEnd := strings.LastIndex(msg, "]")
 	if sn == -1 || objBegin == -1 || objEnd == -1 || sigBegin == -1 || sigEnd == -1 {
 		log.Warn("Assertion Msg Section malformed")
 		return &rainslib.AssertionSection{}, errors.New("Assertion Msg Section malformed")
@@ -314,13 +354,14 @@ func parseContainedAssertion(msg, context, subjectZone string) (*rainslib.Assert
 		Content:     objects,
 		Signatures:  signatures,
 	}
+	log.Debug("Successfully finished parsing contained assertion")
 	return &assertionSection, nil
 }
 
 //parseObjects parses objects with format:
 //(:OT:<object type>:OD:<object data>)*
 func parseObjects(inputObjects string) ([]rainslib.Object, error) {
-	log.Info("Parse Objects", "objects", inputObjects)
+	log.Debug("Parse Objects", "objects", inputObjects)
 	objects := []rainslib.Object{}
 	if len(inputObjects) == 0 {
 		return objects, nil
@@ -337,16 +378,45 @@ func parseObjects(inputObjects string) ([]rainslib.Object, error) {
 			log.Warn("Object's objectType malformed")
 			return []rainslib.Object{}, errors.New("Object's objectType malformed")
 		}
-		object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: od[1]}
-		objects = append(objects, object)
+		if objectType == int(rainslib.OTDelegation) {
+			pkData := strings.Split(od[1], ":KD:")
+			pkType, err := strconv.Atoi(pkData[0])
+			if err != nil {
+				log.Warn("Was not able to parse the public key type", "type", pkData[0], "error", err)
+			}
+			switch rainslib.SignatureAlgorithmType(pkType) {
+			case rainslib.Ed25519:
+				keyData, err := hex.DecodeString(pkData[1])
+				if err != nil || len(keyData) != 32 {
+					log.Warn("Object's value malformed.", "bytestring", od[1], "error", err)
+					return []rainslib.Object{}, errors.New("Object's objectValue malformed, could not decode")
+				}
+				pkey := rainslib.Ed25519PublicKey{}
+				copy(pkey[:], keyData)
+				publicKey := rainslib.PublicKey{Key: pkey, Type: rainslib.Ed25519}
+				object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: publicKey}
+				objects = append(objects, object)
+			case rainslib.Ed448:
+				log.Warn("TODO CFE not yet implemented")
+			default:
+				log.Warn("TODO CFE not yet implemented")
+				continue
+			}
+
+		} else {
+			object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: od[1]}
+			objects = append(objects, object)
+		}
+
 	}
+	log.Debug("Successfully finished parsing objects")
 	return objects, nil
 }
 
 //parseSignedShard parses a signed shard message section with format:
 //:SS::CN:<context-name>:ZN:<zone-name>:RB:<range-begin>:RE:<range-end>[ContainedAssertion*][signature*]
 func parseSignedShard(msg string) (*rainslib.ShardSection, error) {
-	log.Info("Parse Signed Shard", "Shard", msg)
+	log.Debug("Parse Signed Shard", "Shard", msg)
 	cn := strings.Index(msg, ":CN:")
 	zn := strings.Index(msg, ":ZN:")
 	rb := strings.Index(msg, ":RB:")
@@ -382,13 +452,14 @@ func parseSignedShard(msg string) (*rainslib.ShardSection, error) {
 		Content:     assertionBodies,
 		Signatures:  signatures,
 	}
+	log.Debug("Successfully finished parsing signed shard")
 	return &shardSection, nil
 }
 
 //parseContainedShard parses a contained shard message section with format:
 //:CS::RB:<range-begin>:RE:<range-end>[ContainedAssertion*][signature*]
 func parseContainedShard(msg, context, subjectZone string) (*rainslib.ShardSection, error) {
-	log.Info("Parse Contained Shard", "shard", msg)
+	log.Debug("Parse Contained Shard", "shard", msg)
 	rb := strings.Index(msg, ":RB:")
 	re := strings.Index(msg, ":RE:")
 	assertBegin := strings.Index(msg, "[")
@@ -420,13 +491,14 @@ func parseContainedShard(msg, context, subjectZone string) (*rainslib.ShardSecti
 		Content:     assertionBodies,
 		Signatures:  signatures,
 	}
+	log.Debug("Successfully finished parsing contained shard")
 	return &shardSection, nil
 }
 
 //parseSignedZone parses a signed zone message section with format:
 //:SZ::CN:<context-name>:ZN:<zone-name>[(Contained Shard|Contained Assertion):::...:::(Contained Shard|Contained Assertion)][signature*]
 func parseSignedZone(msg string) (*rainslib.ZoneSection, error) {
-	log.Info("Parse Signed Zone", "zone", msg)
+	log.Debug("Parse Signed Zone", "zone", msg)
 	cn := strings.Index(msg, ":CN:")
 	zn := strings.Index(msg, ":ZN:")
 	sectionBegin := strings.Index(msg, "[")
@@ -469,13 +541,14 @@ func parseSignedZone(msg string) (*rainslib.ZoneSection, error) {
 		Content:     bodies,
 		Signatures:  signatures,
 	}
+	log.Debug("Successfully finished parsing signed zone")
 	return &zoneSection, nil
 }
 
 //parseSignatures parses signatures where each signature has the format:
 //:VF:<valid-from>:VU:<valid-until>:KS:<key-space>:KA:<key-algorithm>:SD:<signature-data>
 func parseSignatures(msg string) ([]rainslib.Signature, error) {
-	log.Info("Parse Signature", "sig", msg)
+	log.Debug("Parse Signature", "sig", msg)
 	signatures := []rainslib.Signature{}
 	if len(msg) == 0 {
 		return signatures, nil
@@ -510,9 +583,14 @@ func parseSignatures(msg string) ([]rainslib.Signature, error) {
 			log.Warn("signature's algoID malformed")
 			return []rainslib.Signature{}, errors.New("signature's cipher malformed")
 		}
+		sigData, err := hex.DecodeString(sig[sd+4:])
+		if err != nil {
+			return nil, err
+		}
+		//FIXME CFE use the correct type to store sigData into signature.Data.
 		signature := rainslib.Signature{
 			Algorithm:  rainslib.SignatureAlgorithmType(algoType),
-			Data:       []byte(sig[sd+4:]),
+			Data:       sigData,
 			ValidSince: validSince,
 			ValidUntil: validUntil,
 			KeySpace:   rainslib.KeySpaceID(keySpace),
@@ -525,7 +603,7 @@ func parseSignatures(msg string) ([]rainslib.Signature, error) {
 //parseQuery parses a query message section section
 //:QU::VU:<valid-until>:CN:<context-name>:SN:<subject-name>:OT:<objtype>[<option1>:...:<option_n>]
 func parseQuery(msg string, token rainslib.Token) (*rainslib.QuerySection, error) {
-	log.Info("Parse Query", "query", msg)
+	log.Debug("Parse Query", "query", msg)
 	vu := strings.Index(msg, ":VU:")
 	cn := strings.Index(msg, ":CN:")
 	sn := strings.Index(msg, ":SN:")
@@ -568,7 +646,7 @@ func parseQuery(msg string, token rainslib.Token) (*rainslib.QuerySection, error
 //parseNotification parses a notification message section section of the following format:
 //:NO::TN:<token this notification refers to>:NT:<type>:ND:<data>
 func parseNotification(msg string) (*rainslib.NotificationSection, error) {
-	log.Info("Parse Notification", "notification", msg)
+	log.Debug("Parse Notification", "notification", msg)
 	tn := strings.Index(msg, ":TN:")
 	nt := strings.Index(msg, ":NT:")
 	nd := strings.Index(msg, ":ND:")
@@ -582,7 +660,11 @@ func parseNotification(msg string) (*rainslib.NotificationSection, error) {
 		return &rainslib.NotificationSection{}, errors.New("notification type malformed")
 	}
 	token := [16]byte{}
-	copy(token[:nt-tn-4], msg[tn+4:nt])
+	tokenEnc, err := hex.DecodeString(msg[tn+4 : nt])
+	if err != nil {
+		return &rainslib.NotificationSection{}, errors.New("notification token malformed")
+	}
+	copy(token[:], tokenEnc)
 	return &rainslib.NotificationSection{
 		Token: rainslib.Token(token),
 		Type:  rainslib.NotificationType(ntype),
