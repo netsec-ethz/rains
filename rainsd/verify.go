@@ -359,12 +359,14 @@ func getQueryValidity(sigs []rainslib.Signature) int64 {
 //Returns false If there are no signatures left or if at least one signature is invalid (due to incorrect signature)
 func validSignature(section rainslib.MessageSectionWithSig, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
 	switch section := section.(type) {
-	case *rainslib.AssertionSection:
+	case *rainslib.AssertionSection, *rainslib.AddressAssertionSection:
 		return validateSignatures(section, keys)
 	case *rainslib.ShardSection:
 		return validShardSignatures(section, keys)
 	case *rainslib.ZoneSection:
 		return validZoneSignatures(section, keys)
+	case *rainslib.AddressZoneSection:
+		return validAddressZoneSignatures(section, keys)
 	default:
 		log.Warn("Not supported Msg Section")
 	}
@@ -403,6 +405,20 @@ func validZoneSignatures(section *rainslib.ZoneSection, keys map[rainslib.KeyAlg
 			}
 		default:
 			log.Warn("Unknown message section", "messageSection", section)
+		}
+	}
+	return true
+}
+
+//validAddressZoneSignatures validates all signatures on the address zone and all contained address assertions
+//It returns false if there is a signatures that does not verify
+func validAddressZoneSignatures(section *rainslib.AddressZoneSection, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
+	if !validateSignatures(section, keys) {
+		return false
+	}
+	for _, assertion := range section.Content {
+		if !validateSignatures(assertion, keys) {
+			return false
 		}
 	}
 	return true

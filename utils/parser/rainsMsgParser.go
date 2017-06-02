@@ -118,6 +118,10 @@ func (p RainsMsgParser) RevParseSignedMsgSection(section rainslib.MessageSection
 		return revParseSignedShard(section), nil
 	case *rainslib.ZoneSection:
 		return revParseSignedZone(section), nil
+	case *rainslib.AddressAssertionSection:
+		return revParseAddressAssertion(section), nil
+	case *rainslib.AddressZoneSection:
+		return revParseAddressZone(section), nil
 	default:
 		log.Warn("Unknown message section section type", "type", section)
 		return "", errors.New("Unknown message section section type")
@@ -239,9 +243,9 @@ func revParseQuery(q *rainslib.QuerySection) string {
 	return fmt.Sprintf(":QU::VU:%d:CN:%s:SN:%s:OT:%d[%s]", q.Expires, q.Context, q.Name, q.Type, opts)
 }
 
-//RevParseAddressAssertion parses a address assertion to its string representation with format:
+//revParseAddressAssertion parses a address assertion to its string representation with format:
 //:AA::CN:<context-name>:AF:<address-family>:PL:<prefix-length>:IP:<IP-Address>[(Object)*][]
-func (p RainsMsgParser) RevParseAddressAssertion(a *rainslib.AddressAssertionSection) string {
+func revParseAddressAssertion(a *rainslib.AddressAssertionSection) string {
 	assertion := fmt.Sprintf(":AA::CN:%s:AF:%d:PL:%d:IP:%s[%s]][",
 		a.Context,
 		a.SubjectAddr.AddressFamily,
@@ -251,16 +255,16 @@ func (p RainsMsgParser) RevParseAddressAssertion(a *rainslib.AddressAssertionSec
 	return fmt.Sprintf("%s][]", assertion)
 }
 
-//RevParseAddressZone parses a address zone to its string representation with format:
+//revParseAddressZone parses a address zone to its string representation with format:
 //:AZ::CN:<context-name>:AF:<address-family>:PL:<prefix-length>:IP:<IP-Address>[(Address Assertion)*][]
-func (p RainsMsgParser) RevParseAddressZone(z *rainslib.AddressZoneSection) string {
+func revParseAddressZone(z *rainslib.AddressZoneSection) string {
 	zone := fmt.Sprintf(":AZ::CN:%s:AF:%d:PL:%d:IP:%s[",
 		z.Context,
 		z.SubjectAddr.AddressFamily,
 		z.SubjectAddr.PrefixLength,
 		z.SubjectAddr.Address.String())
 	for _, assertion := range z.Content {
-		zone += p.RevParseAddressAssertion(assertion)
+		zone += revParseAddressAssertion(assertion)
 	}
 	return fmt.Sprintf("%s][]", zone)
 }

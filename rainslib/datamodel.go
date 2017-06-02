@@ -793,12 +793,6 @@ type RainsMsgParser interface {
 	//RevParseSignedMsgSection parses an MessageSectionWithSig to a string representation
 	RevParseSignedMsgSection(section MessageSectionWithSig) (string, error)
 
-	//RevParseAddressAssertion parses a address assertion to its string representation
-	RevParseAddressAssertion(a *AddressAssertionSection) string
-
-	//RevParseAddressZone parses a address zone to its string representation
-	RevParseAddressZone(z *AddressZoneSection) string
-
 	//ParseSignedAssertion parses a byte slice representation of an assertion to the internal representation of an assertion.
 	//TODO CFE extend this method to also allow parsing shards and zones if necessary
 	ParseSignedAssertion(assertion []byte) (*AssertionSection, error)
