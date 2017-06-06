@@ -20,10 +20,10 @@ type Parser struct {
 var lineNrLogger log.Logger
 
 //ParseZoneFile returns all assertions contained in the given zonefile
-func (p Parser) ParseZoneFile(zoneFile []byte) ([]*rainslib.AssertionSection, error) {
+func (p Parser) ParseZoneFile(zoneFile []byte, filePath string) ([]*rainslib.AssertionSection, error) {
 	assertions := []*rainslib.AssertionSection{}
 	scanner := NewWordScanner(zoneFile)
-	lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
+	lineNrLogger = log.New("file", filePath, "lineNr", log.Lazy{scanner.LineNumber})
 	scanner.Scan()
 	if scanner.Text() != ":Z:" {
 		lineNrLogger.Error("zoneFile malformed.", "expected", ":Z:", "got", scanner.Text())

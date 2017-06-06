@@ -21,21 +21,22 @@ var msgParser rainslib.RainsMsgParser
 
 //rainpubConfig lists configurations for publishing zone information
 type rainpubConfig struct {
-	AssertionValidity     time.Duration
-	DelegationValidity    time.Duration
-	ShardValidity         time.Duration
-	ZoneValidity          time.Duration
-	MaxAssertionsPerShard uint
-	ServerAddresses       []rainslib.ConnInfo
-	ZoneFilePath          string
-	ZonePrivateKeyPath    string
-	ZonePublicKeyPath     string
+	AssertionValidity      time.Duration
+	DelegationValidity     time.Duration
+	ShardValidity          time.Duration
+	ZoneValidity           time.Duration
+	MaxAssertionsPerShard  uint
+	ServerAddresses        []rainslib.ConnInfo
+	ZoneFilePath           string
+	ZoneFileDelegationPath string
+	ZonePrivateKeyPath     string
+	ZonePublicKeyPath      string
 }
 
 //DefaultConfig is a rainpubConfig object containing default values
 var defaultConfig = rainpubConfig{AssertionValidity: 15 * 24 * time.Hour, ShardValidity: 24 * time.Hour, ZoneValidity: 24 * time.Hour, MaxAssertionsPerShard: 5,
 	DelegationValidity: 30 * 24 * time.Hour, ZoneFilePath: "zoneFiles/chZoneFile.txt", ZonePrivateKeyPath: "keys/zonePrivate.key",
-	ZonePublicKeyPath: "keys/zonePublic.key"}
+	ZonePublicKeyPath: "keys/zonePublic.key", ZoneFileDelegationPath: "zoneFiles/chZoneDelegation.txt"}
 
 func loadDefaultSeverAddrIntoConfig() {
 	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:5022")
