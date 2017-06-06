@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
-	"rains/rainsd"
 	"rains/rainslib"
 	rainsMsgParser "rains/utils/parser"
 	"rains/utils/zoneFileParser"
@@ -220,7 +219,7 @@ func sendMsg(msg []byte) {
 	}
 	for _, server := range config.ServerAddresses {
 		switch server.Type {
-		case rainsd.TCP:
+		case rainslib.TCP:
 			conn, err := tls.Dial("tcp", server.String(), conf)
 			if err != nil {
 				log.Error("Was not able to establish a connection.", "server", server, "error", err)
