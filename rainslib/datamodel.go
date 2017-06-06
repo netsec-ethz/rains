@@ -685,11 +685,9 @@ type RainsMsgParser interface {
 
 //ZoneFileParser is the interface for all parsers of zone files for RAINS
 type ZoneFileParser interface {
-	//ParseZoneFile takes as input a zoneFile and returns all contained assertions. A zoneFile has the following format:
-	//:Z: <context> <zone> [(:S:<Shard Content>|:A:<Assertion Content>)*]
-	//Shard Content: [(:A:<Assertion Content>)*]
-	//Assertion Content: <subject-name>[(:objectType:<object data>)*]
-	ParseZoneFile(zoneFile []byte) ([]*AssertionSection, error)
+	//ParseZoneFile takes as input the content of a zoneFile and the name from which the data was loaded.
+	//It returns all contained assertions or an error in case of failure
+	ParseZoneFile(zoneFile []byte, filePath string) ([]*AssertionSection, error)
 }
 
 //PRG pseudo random generator

@@ -56,7 +56,7 @@ func loadAssertions() ([]*rainslib.AssertionSection, error) {
 		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
 		return []*rainslib.AssertionSection{}, err
 	}
-	assertions, err := parser.ParseZoneFile(file)
+	assertions, err := parser.ParseZoneFile(file, config.ZoneFilePath)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)
 		return []*rainslib.AssertionSection{}, err
@@ -247,14 +247,14 @@ func createRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
 //sendDelegations sends the delegations to this zone such that the receiving rains server can verify the signatures on this zone's assertions.
 func sendDelegations() {
 	//load delegations
-	file, err := ioutil.ReadFile("zoneFiles/chZoneDelegation.txt")
+	file, err := ioutil.ReadFile(config.ZoneFileDelegationPath)
 	if err != nil {
-		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
+		log.Error("Was not able to read zone file", "path", config.ZoneFileDelegationPath)
 		return
 	}
 
 	//handle delegations
-	assertions, err := parser.ParseZoneFile(file)
+	assertions, err := parser.ParseZoneFile(file, config.ZoneFileDelegationPath)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)
 		return
