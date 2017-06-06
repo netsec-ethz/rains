@@ -22,6 +22,8 @@ var externalKeyCache keyCache
 //pendingSignatures contains all sections that are waiting for a delegation query to arrive such that their signatures can be verified.
 var pendingSignatures pendingSignatureCache
 
+//initVerify initialized the module which is responsible for checking the validity of the signatures and the structure of the sections.
+//It spawns a goroutine which periodically goes through the cache and removes outdated entries, see reapVerify()
 func initVerify() error {
 	//init cache
 	var err error
@@ -105,7 +107,7 @@ func validMsgSignature(msgStub string, sig rainslib.Signature) bool {
 }
 
 //validQuery validates the expiration time of the query
-func validQuery(section *rainslib.QuerySection, sender ConnInfo) bool {
+func validQuery(section *rainslib.QuerySection, sender rainslib.ConnInfo) bool {
 	if section.Expires < time.Now().Unix() {
 		log.Info("Query expired", "expirationTime", section.Expires)
 		return false
@@ -322,7 +324,7 @@ func getQueryValidity(sigs []rainslib.Signature) int64 {
 //validSignature validates the signatures on a MessageSectionWithSig and strips all expired signatures away.
 //Returns false If there are no signatures left or if at least one signature is invalid (due to incorrect signature)
 func validSignature(section rainslib.MessageSectionWithSig, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
-	/*switch section := section.(type) {
+	switch section := section.(type) {
 	case *rainslib.AssertionSection:
 		return validateSignatures(section, keys)
 	case *rainslib.ShardSection:
@@ -332,9 +334,7 @@ func validSignature(section rainslib.MessageSectionWithSig, keys map[rainslib.Ke
 	default:
 		log.Warn("Not supported Msg Section")
 	}
-	return false*/
-	//FIXME CFE uncomment the part above. As long as we do not have signatures they always are valid.
-	return true
+	return false
 }
 
 //validShardSignatures validates all signatures on the shard and contained in the shard's content
@@ -421,7 +421,7 @@ func updateSectionValidity(section rainslib.MessageSectionWithSig, pkeyValidFrom
 		}
 
 	} else {
-		if pkey.ValidUntil < sig.ValidUntil {
+		if pkeyValidUntil < sigValidUntil {
 			section.UpdateValidity(pkeyValidFrom, pkeyValidUntil, maxValidity)
 		} else {
 			section.UpdateValidity(pkeyValidFrom, sigValidUntil, maxValidity)

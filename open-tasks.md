@@ -22,6 +22,7 @@
 	- Pretty print the output of rainsDig (add more functionality)
 	- implement capability handling sent with a message
 	- Heuristics how to groupe assertions into shards
+	- According to draft consistency checks are only done when server has enough resources. Find Heuristics when this is the case.
 
 - Small Tasks
 	- load config from file instead of using hardcoded default

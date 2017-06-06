@@ -4,15 +4,13 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
-	"rains/rainsd"
 	"rains/rainslib"
 	rainsMsgParser "rains/utils/parser"
 	"rains/utils/zoneFileParser"
 	"time"
 
-	"golang.org/x/crypto/ed25519"
-
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 )
 
 //InitRainspub initializes rainspub
@@ -58,7 +56,7 @@ func loadAssertions() ([]*rainslib.AssertionSection, error) {
 		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
 		return []*rainslib.AssertionSection{}, err
 	}
-	assertions, err := parser.ParseZoneFile(file)
+	assertions, err := parser.ParseZoneFile(file, config.ZoneFilePath)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)
 		return []*rainslib.AssertionSection{}, err
@@ -129,6 +127,16 @@ func signZone(zone *rainslib.ZoneSection, privateKey ed25519.PrivateKey) error {
 		return err
 	}
 	sigData := rainslib.SignData(rainslib.Ed25519, privateKey, []byte(byteStub))
+
+	/*
+	 *TODO CFE remove after we have correct testing. For debugging purposes, check that the params to verify a signature are the same here and in the server
+	 */
+	/*pkey := loadPublicKey()
+	if ok := rainslib.VerifySignature(rainslib.Ed25519, pkey, []byte(byteStub), sigData); !ok {
+		log.Error("Bad THIS SHOULD NEVER HAPPEN")
+	}
+	log.Debug("", "byteStub", []byte(byteStub), "pubKey", pkey, "sigData", sigData)*/
+
 	signature := rainslib.Signature{
 		Algorithm: rainslib.Ed25519,
 		KeySpace:  rainslib.RainsKeySpace,
@@ -211,7 +219,7 @@ func sendMsg(msg []byte) {
 	}
 	for _, server := range config.ServerAddresses {
 		switch server.Type {
-		case rainsd.TCP:
+		case rainslib.TCP:
 			conn, err := tls.Dial("tcp", server.String(), conf)
 			if err != nil {
 				log.Error("Was not able to establish a connection.", "server", server, "error", err)
@@ -239,14 +247,14 @@ func createRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
 //sendDelegations sends the delegations to this zone such that the receiving rains server can verify the signatures on this zone's assertions.
 func sendDelegations() {
 	//load delegations
-	file, err := ioutil.ReadFile("zoneFiles/chZoneDelegation.txt")
+	file, err := ioutil.ReadFile(config.ZoneFileDelegationPath)
 	if err != nil {
-		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
+		log.Error("Was not able to read zone file", "path", config.ZoneFileDelegationPath)
 		return
 	}
 
 	//handle delegations
-	assertions, err := parser.ParseZoneFile(file)
+	assertions, err := parser.ParseZoneFile(file, config.ZoneFileDelegationPath)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)
 		return

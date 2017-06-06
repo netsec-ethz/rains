@@ -1,14 +1,12 @@
 package keyCreation
 
 import (
+	"encoding/hex"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"rains/rainslib"
 	"rains/utils/parser"
 	"time"
-
-	"encoding/hex"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
@@ -18,7 +16,7 @@ import (
 //In case of root public key the assertion is self signed (zone=.)
 func CreateDelegationAssertion(context, zone string) error {
 	//FIXME CFE change source of randomness
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.New(rand.NewSource(time.Now().UnixNano())))
+	publicKey, privateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return err
 	}
@@ -76,13 +74,13 @@ func storeKeyPair(publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey) er
 	}
 	privateKeyEnc := make([]byte, hex.EncodedLen(len(privateKey)))
 	hex.Encode(privateKeyEnc, privateKey)
-	err := ioutil.WriteFile("tmp/private.key", privateKeyEnc, 0644)
+	err := ioutil.WriteFile("tmp/private.key", privateKeyEnc, 0600)
 	if err != nil {
 		return err
 	}
 	publicKeyEnc := make([]byte, hex.EncodedLen(len(publicKey)))
 	hex.Encode(publicKeyEnc, publicKey)
-	err = ioutil.WriteFile("tmp/public.key", publicKeyEnc, 0644)
+	err = ioutil.WriteFile("tmp/public.key", publicKeyEnc, 0600)
 	return err
 }
 
@@ -103,7 +101,7 @@ func SignDelegation(delegationPath, privateKeyPath string) error {
 	}
 	err = rainslib.Save(delegationPath, delegation)
 	if err != nil {
-		log.Error("Was not able to encode and store the delegation", "delegation", delegation)
+		log.Error("Was not able to encode and store the delegation", "delegation", delegation, "error", err)
 	}
 	return err
 }

@@ -10,18 +10,20 @@ import (
 )
 
 //assertionCache contains a set of valid assertions where some of them might be expired.
-//An entry is marked as extrenal if it might be evicted by a RLU caching strategy.
+//An entry is marked as extrenal if it might be evicted by a LRU caching strategy.
 var assertionsCache assertionCache
 
 //negAssertionCache contains for each zone and context an interval tree to find all shards and zones containing a specific assertion
 //for a zone the range is infinit: range "",""
 //for a shard the range is given as declared in the section.
-//An entry is marked as extrenal if it might be evicted by a RLU caching strategy.
+//An entry is marked as extrenal if it might be evicted by a LRU caching strategy.
 var negAssertionCache negativeAssertionCache
 
 //pendingQueries contains a mapping from all self issued pending queries to the set of message bodies waiting for it.
 var pendingQueries pendingQueryCache
 
+//initEngine initialized the engine, which processes valid sections and queries.
+//It spawns a goroutine which periodically goes through the cache and removes outdated entries, see reapEngine()
 func initEngine() error {
 	//init Caches
 	var err error
@@ -43,7 +45,7 @@ func initEngine() error {
 		return err
 	}
 
-	go reapVerify()
+	go reapEngine()
 
 	return nil
 }
@@ -226,7 +228,7 @@ func shouldZoneBeCached(zone *rainslib.ZoneSection) bool {
 }
 
 //query directly answers the query if result is cached. Otherwise it issues a new query and puts this query to the pendingQueries Cache.
-func query(query *rainslib.QuerySection, sender ConnInfo) {
+func query(query *rainslib.QuerySection, sender rainslib.ConnInfo) {
 	log.Info("Start processing query", "query", query)
 	zoneAndNames := getZoneAndName(query.Name)
 	for _, zAn := range zoneAndNames {
@@ -288,7 +290,7 @@ func getZoneAndName(name string) []zoneAndName {
 }
 
 //sendQueryAnswer sends a section with Signature to back to the sender with the specified token
-func sendQueryAnswer(section rainslib.MessageSectionWithSig, sender ConnInfo, token rainslib.Token) {
+func sendQueryAnswer(section rainslib.MessageSectionWithSig, sender rainslib.ConnInfo, token rainslib.Token) {
 	//TODO CFE add signature on message?
 	msg := rainslib.RainsMessage{Content: []rainslib.MessageSection{section}, Token: token}
 	byteMsg, err := msgParser.ParseRainsMsg(msg)
