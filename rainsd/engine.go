@@ -7,21 +7,24 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 )
 
 //assertionCache contains a set of valid assertions where some of them might be expired.
-//An entry is marked as extrenal if it might be evicted by a RLU caching strategy.
+//An entry is marked as extrenal if it might be evicted by a LRU caching strategy.
 var assertionsCache assertionCache
 
 //negAssertionCache contains for each zone and context an interval tree to find all shards and zones containing a specific assertion
 //for a zone the range is infinit: range "",""
 //for a shard the range is given as declared in the section.
-//An entry is marked as extrenal if it might be evicted by a RLU caching strategy.
+//An entry is marked as extrenal if it might be evicted by a LRU caching strategy.
 var negAssertionCache negativeAssertionCache
 
 //pendingQueries contains a mapping from all self issued pending queries to the set of message bodies waiting for it.
 var pendingQueries pendingQueryCache
 
+//initEngine initialized the engine, which processes valid sections and queries.
+//It spawns a goroutine which periodically goes through the cache and removes outdated entries, see reapEngine()
 func initEngine() error {
 	//init Caches
 	var err error
@@ -43,7 +46,7 @@ func initEngine() error {
 		return err
 	}
 
-	go reapVerify()
+	go reapEngine()
 
 	return nil
 }
@@ -107,6 +110,9 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 					if sig.KeySpace == rainslib.RainsKeySpace {
 						cacheKey := keyCacheKey{context: a.Context, zone: a.SubjectName, keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm)}
 						publicKey := a.Content[0].Value.(rainslib.PublicKey)
+						//FIXME CFE this is just a hack to make it work with ed25519 until we know if we want to remove the type rainslib.Ed25519PublicKey
+						array := publicKey.Key.(rainslib.Ed25519PublicKey)
+						publicKey.Key = ed25519.PublicKey(array[:])
 						publicKey.ValidFrom = validFrom
 						publicKey.ValidUntil = validUntil
 						log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)

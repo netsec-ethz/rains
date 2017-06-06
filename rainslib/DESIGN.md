@@ -129,3 +129,15 @@ A short query has the form:
 
 Note that unlike RAINS queries, short queries can only have a single context
 and object-type. This simplification may carry over into the protocol.
+
+## signing format
+An Assertion, Shard or Zone is first parsed to a string format as described below. Next, this string is converted to a byte slice which is then signed.  
+Every part of an assertion, shard or zone that is in byte format (e.g. a token, key, etc.) is first hex encoded with go's hex library.
+The signing format currently defined and used is for: (the expression ()* means that the content in parentheses can occur several times where the parentheses and the star are not part of the string representation. Similarly for `<>`, the word between pointy brackets describes the value which should be there instead)  
+
+- Assertion: `:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>[(Object)*][]`
+- Contained Assertion: `:CA::SN:<subject-name>[(Object)*][]`
+- Object: `:OT:<object type>:OD:<object data>` or in case of a delegation type object `:OT:<object type>:OD:<Signature Algorithm Identifier>:KD:<Key data>`
+- Shard: `:SS::CN:<context-name>:ZN:<zone-name>:RB:<range-begin>:RE:<range-end>[(Contained Assertion)*][]`
+- Contained Shard: `:CS::RB:<range-begin>:RE:<range-end>[(Contained Assertion)*][]`
+- Zone: `:SZ::CN:<context-name>:ZN:<zone-name>[((Contained Shard|Contained Assertion):::)*][]` The last element is not followed by `:::`

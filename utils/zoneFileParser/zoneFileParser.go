@@ -3,12 +3,11 @@ package zoneFileParser
 import (
 	"bufio"
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"rains/rainslib"
 	"strconv"
-
-	"encoding/hex"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -30,7 +29,10 @@ func (p Parser) ParseZoneFile(zoneFile []byte) ([]*rainslib.AssertionSection, er
 	context := scanner.Text()
 	scanner.Scan()
 	zone := scanner.Text()
-	scanner.Scan() //scan [
+	scanner.Scan()
+	if scanner.Text() != "[" {
+		log.Warn("zonFile malformed. Expected '['")
+	}
 	scanner.Scan()
 	for scanner.Text() != "]" {
 		switch scanner.Text() {
@@ -49,14 +51,17 @@ func (p Parser) ParseZoneFile(zoneFile []byte) ([]*rainslib.AssertionSection, er
 		default:
 			return nil, fmt.Errorf("Expected a shard or assertion inside the zone but got=%s", scanner.Text())
 		}
-		scanner.Scan()
+		scanner.Scan() //reads in the next section's type or exit the loop in case of ']'
 	}
 	return assertions, nil
 }
 
 func parseShard(context, zone string, scanner *bufio.Scanner) ([]*rainslib.AssertionSection, error) {
 	assertions := []*rainslib.AssertionSection{}
-	scanner.Scan() //scans [
+	scanner.Scan()
+	if scanner.Text() != "[" {
+		log.Warn("zonFile malformed. Expected '['")
+	}
 	scanner.Scan()
 	for scanner.Text() != "]" {
 		if scanner.Text() != ":A:" {
@@ -76,7 +81,10 @@ func parseShard(context, zone string, scanner *bufio.Scanner) ([]*rainslib.Asser
 func parseAssertion(context, zone string, scanner *bufio.Scanner) (*rainslib.AssertionSection, error) {
 	scanner.Scan()
 	name := scanner.Text()
-	scanner.Scan() //scans [
+	scanner.Scan()
+	if scanner.Text() != "[" {
+		log.Warn("zonFile malformed. Expected '['")
+	}
 	scanner.Scan()
 	objects := []rainslib.Object{}
 	for scanner.Text() != "]" {

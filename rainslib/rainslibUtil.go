@@ -67,6 +67,7 @@ func signEcdsa(privateKey *ecdsa.PrivateKey, data, hash []byte) interface{} {
 func VerifySignature(algoType SignatureAlgorithmType, publicKey interface{}, data []byte, signature interface{}) bool {
 	switch algoType {
 	case Ed25519:
+		//log.Debug("", "byteStub", data, "publicKey", publicKey, "sigData", signature)
 		if pkey, ok := publicKey.(ed25519.PublicKey); ok {
 			return ed25519.Verify(pkey, data, signature.([]byte))
 		}

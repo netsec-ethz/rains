@@ -548,6 +548,7 @@ const (
 	Ecdsa384 SignatureAlgorithmType = 4
 )
 
+//FIXME CFE are these types necessary???
 //Ed25519PublicKey is a 32-byte bit string
 type Ed25519PublicKey [32]byte
 
