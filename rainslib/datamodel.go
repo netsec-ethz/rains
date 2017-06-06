@@ -640,7 +640,7 @@ func (c ConnInfo) String() string {
 	case TCP:
 		return c.TCPAddr.String()
 	default:
-		log.Warn("Not supported network address ")
+		log.Warn("Unsupported network address", "typeCode", c.Type)
 		return ""
 	}
 }
