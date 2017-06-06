@@ -2,10 +2,10 @@ package rainspub
 
 import (
 	"net"
-	"rains/rainsd"
 	"rains/rainslib"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -26,7 +26,7 @@ type rainpubConfig struct {
 	ShardValidity         time.Duration
 	ZoneValidity          time.Duration
 	MaxAssertionsPerShard uint
-	ServerAddresses       []rainsd.ConnInfo
+	ServerAddresses       []rainslib.ConnInfo
 	ZoneFilePath          string
 	ZonePrivateKeyPath    string
 	ZonePublicKeyPath     string
@@ -34,5 +34,13 @@ type rainpubConfig struct {
 
 //DefaultConfig is a rainpubConfig object containing default values
 var defaultConfig = rainpubConfig{AssertionValidity: 15 * 24 * time.Hour, ShardValidity: 24 * time.Hour, ZoneValidity: 24 * time.Hour, MaxAssertionsPerShard: 5,
-	ServerAddresses: []rainsd.ConnInfo{rainsd.ConnInfo{Type: rainsd.TCP, IPAddr: net.ParseIP("127.0.0.1"), Port: 5022}}, DelegationValidity: 30 * 24 * time.Hour,
-	ZoneFilePath: "zoneFiles/chZoneFile.txt", ZonePrivateKeyPath: "keys/zonePrivate.key", ZonePublicKeyPath: "keys/zonePublic.key"}
+	DelegationValidity: 30 * 24 * time.Hour, ZoneFilePath: "zoneFiles/chZoneFile.txt", ZonePrivateKeyPath: "keys/zonePrivate.key",
+	ZonePublicKeyPath: "keys/zonePublic.key"}
+
+func loadDefaultSeverAddrIntoConfig() {
+	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:5022")
+	if err != nil {
+		log.Warn("Was not able to resolve default tcp addr of server")
+	}
+	config.ServerAddresses = []rainslib.ConnInfo{rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: *addr}}
+}

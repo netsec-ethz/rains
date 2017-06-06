@@ -47,13 +47,13 @@ type capabilityCacheImpl struct {
 	hashToCap     *cache.Cache
 }
 
-func (c *capabilityCacheImpl) Add(connInfo ConnInfo, capabilities []rainslib.Capability) bool {
+func (c *capabilityCacheImpl) Add(connInfo rainslib.ConnInfo, capabilities []rainslib.Capability) bool {
 	//FIXME CFE take a SHA-256 hash of the CBOR byte stream derived from normalizing such an array by sorting it in lexicographically increasing order,
 	//then serializing it and add it to the cache
 	return c.connInfoToCap.Add(capabilities, false, "", connInfo.String())
 }
 
-func (c *capabilityCacheImpl) Get(connInfo ConnInfo) ([]rainslib.Capability, bool) {
+func (c *capabilityCacheImpl) Get(connInfo rainslib.ConnInfo) ([]rainslib.Capability, bool) {
 	if v, ok := c.connInfoToCap.Get("", connInfo.String()); ok {
 		if val, ok := v.([]rainslib.Capability); ok {
 			return val, true

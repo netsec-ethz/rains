@@ -276,7 +276,7 @@ func shouldZoneBeCached(zone *rainslib.ZoneSection) bool {
 }
 
 //query directly answers the query if result is cached. Otherwise it issues a new query and puts this query to the pendingQueries Cache.
-func query(query *rainslib.QuerySection, sender ConnInfo) {
+func query(query *rainslib.QuerySection, sender rainslib.ConnInfo) {
 	log.Info("Start processing query", "query", query)
 	zoneAndNames := getZoneAndName(query.Name)
 	for _, zAn := range zoneAndNames {
@@ -338,7 +338,7 @@ func getZoneAndName(name string) []zoneAndName {
 }
 
 //sendQueryAnswer sends a section with Signature to back to the sender with the specified token
-func sendQueryAnswer(section rainslib.MessageSectionWithSig, sender ConnInfo, token rainslib.Token) {
+func sendQueryAnswer(section rainslib.MessageSectionWithSig, sender rainslib.ConnInfo, token rainslib.Token) {
 	//TODO CFE add signature on message?
 	msg := rainslib.RainsMessage{Content: []rainslib.MessageSection{section}, Token: token}
 	byteMsg, err := msgParser.ParseRainsMsg(msg)

@@ -10,8 +10,6 @@ import (
 	"net"
 	"rains/rainslib"
 	"rains/utils/msgFramer"
-	"strconv"
-	"strings"
 	"time"
 
 	log "github.com/inconshreveable/log15"
@@ -35,7 +33,7 @@ func initSwitchboard() error {
 }
 
 //sendTo sends the given message to the specified receiver.
-func sendTo(message []byte, receiver ConnInfo) {
+func sendTo(message []byte, receiver rainslib.ConnInfo) {
 	sendLog := log.New("Connection info", receiver)
 	addrPair := AddressPair{local: serverConnInfo, remote: receiver}
 	conn, ok := connCache.Get(addrPair)
@@ -73,9 +71,9 @@ func sendTo(message []byte, receiver ConnInfo) {
 }
 
 //createConnection establishes a connection based on the type and data of the ConnInfo
-func createConnection(receiver ConnInfo) (net.Conn, error) {
+func createConnection(receiver rainslib.ConnInfo) (net.Conn, error) {
 	switch receiver.Type {
-	case TCP:
+	case rainslib.TCP:
 		dialer := &net.Dialer{
 			KeepAlive: Config.KeepAlivePeriod,
 		}
@@ -102,6 +100,7 @@ func Listen() {
 	}
 
 	srvLogger.Info("Start listener")
+	//FIXME make it work also for non tcp addresses
 	listener, err := tls.Listen("tcp", addrAndport, &tls.Config{Certificates: []tls.Certificate{cert}})
 	if err != nil {
 		srvLogger.Error("Listener error on startup", "error", err)
@@ -115,14 +114,14 @@ func Listen() {
 			srvLogger.Error("error", err)
 			continue
 		}
-		connInfo := parseRemoteAddr(conn.RemoteAddr().String())
+		connInfo := parseRemoteAddr(conn.RemoteAddr().Network(), conn.RemoteAddr().String())
 		connCache.Add(AddressPair{local: serverConnInfo, remote: connInfo}, conn)
 		go handleConnection(conn, connInfo)
 	}
 }
 
 //handleConnection passes all incoming messages to the inbox which processes them.
-func handleConnection(conn net.Conn, client ConnInfo) {
+func handleConnection(conn net.Conn, client rainslib.ConnInfo) {
 	//TODO CFE replace newLineFramer when we have a CBOR framer!
 	framer := msgFramer.NewLineFramer{}
 	framer.InitStream(conn)
@@ -135,8 +134,17 @@ func handleConnection(conn net.Conn, client ConnInfo) {
 }
 
 //parseRemoteAddr translates an address obtained from net.Conn.RemoteAddr() to the internal representation ConnInfo
-func parseRemoteAddr(s string) ConnInfo {
-	addrAndPort := strings.Split(s, ":")
-	port, _ := strconv.Atoi(addrAndPort[1])
-	return ConnInfo{Type: TCP, IPAddr: net.ParseIP(addrAndPort[0]), Port: uint16(port)}
+func parseRemoteAddr(netAddrType, s string) rainslib.ConnInfo {
+	switch netAddrType {
+	case "tcp", "tcp4", "tcp6":
+		tcpAddr, err := net.ResolveTCPAddr(netAddrType, s)
+		if err != nil {
+			log.Warn("tcp address malfomred")
+		}
+		return rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: *tcpAddr}
+	default:
+		log.Warn("Not yet supported network protocol")
+
+	}
+	return rainslib.ConnInfo{}
 }
