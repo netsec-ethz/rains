@@ -90,7 +90,7 @@ struct AddressQuerySection  {
 	subjectAddr @0 :SubjectAddr;
 	token       @1 :Data;
 	context     @2 :Text;
-	types       @3 :List(Int32);
+	types       @3 :Int32;
 	expires     @4 :Int64;
 	options     @5 :List(Int32);
 }
@@ -106,38 +106,17 @@ struct NotificationSection  {
 
 struct Signature  {
     #Signature on a Rains message or section
-	keySpace   @0 :KeySpaceID;
-	algorithm  @1 :SignatureAlgorithmType;
+	keySpace   @0 :Int32;
+	algorithm  @1 :Int32;
 	validSince @2 :Int64;
 	validUntil @3 :Int64;
 	data       @4 :Data;
 }
 
-enum KeySpaceID {
-#KeySpaceID identifies a key space
-	rainsKeySpace @0;
-}
-
-enum SignatureAlgorithmType {
-#SignatureAlgorithmType specifies a signature algorithm type
-	ed25519  @0;
-	ed448    @1;
-	ecdsa256 @2;
-	ecdsa384 @3;
-}
-
-enum HashAlgorithmType {
-#HashAlgorithmType specifies a hash algorithm type
-	noHashAlgo @0;
-	sha256     @1;
-	sha384     @2;
-	sha512     @3;
-}
-
 struct PublicKey  {
     #PublicKey contains information about a public key
-	keySpace   @0 :KeySpaceID;
-	type  	     @1 :SignatureAlgorithmType; #can this also be a HashAlgorithmType?
+	keySpace   @0 :Int32;
+	type  	     @1 :Int32;
 	key        @2 :Data;
 	validSince  @3 :Int64;
 	validUntil @4 :Int64;
@@ -145,20 +124,10 @@ struct PublicKey  {
 
 struct CertificateObject  {
     #CertificateObject contains certificate information
-	type     @0 :ProtocolType;
-	usage    @1 :CertificateUsage;
-	hashAlgo @2 :HashAlgorithmType;
+	type     @0 :Int32;
+	usage    @1 :Int32;
+	hashAlgo @2 :Int32;
 	data     @3 :Data;
-}
-
-enum ProtocolType {
-	pTUnspecified @0;
-	pTTLS         @1;
-}
-
-enum CertificateUsage {
-	cUTrustAnchor @0;
-	cUEndEntity   @1;
 }
 
 struct ServiceInfo  {

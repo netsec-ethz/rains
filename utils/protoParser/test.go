@@ -441,7 +441,7 @@ func encodeAddressQuery(q *rainslib.AddressQuerySection, seg *capnp.Segment) (pr
 	query.SetToken(tok[:])
 	query.SetContext(q.Context)
 	query.SetExpires(q.Expires)
-	query.SetType(int32(q.Type))
+	query.SetTypes(int32(q.Types))
 
 	qoList, err := capnp.NewInt32List(seg, int32(len(q.Options)))
 	if err != nil {
@@ -466,27 +466,11 @@ func encodeSignatures(signatures []rainslib.Signature, list *proto.Signature_Lis
 		if err != nil {
 			return err
 		}
-		switch signature.KeySpace {
-		case rainslib.RainsKeySpace:
-			sig.SetKeySpace(proto.KeySpaceID_rainsKeySpace)
-		default:
-			log.Warn("Unsupported key space type", "type", fmt.Sprintf("%T", signature.KeySpace))
-			return errors.New("Unsupported key space type")
-		}
 
-		switch signature.Algorithm {
-		case rainslib.Ed25519:
-			sig.SetAlgorithm(proto.SignatureAlgorithmType_ed25519)
-		case rainslib.Ed448:
-			sig.SetAlgorithm(proto.SignatureAlgorithmType_ed448)
-		case rainslib.Ecdsa256:
-			sig.SetAlgorithm(proto.SignatureAlgorithmType_ecdsa256)
-		case rainslib.Ecdsa384:
-			sig.SetAlgorithm(proto.SignatureAlgorithmType_ecdsa384)
-		default:
-			log.Warn("Unsupported signature algorithm type", "type", fmt.Sprintf("%T", signature.Algorithm))
-			return errors.New("Unsupported signature algorithm type")
-		}
+		sig.SetKeySpace(int32(signature.KeySpace))
+		sig.SetAlgorithm(int32(signature.Algorithm))
+		sig.SetValidSince(signature.ValidSince)
+		sig.SetValidUntil(signature.ValidUntil)
 
 		switch data := signature.Data.(type) {
 		case []byte:
@@ -494,10 +478,7 @@ func encodeSignatures(signatures []rainslib.Signature, list *proto.Signature_Lis
 		default:
 			log.Warn("Unsupported signature data type", "type", fmt.Sprintf("%T", signature.Algorithm))
 			return errors.New("Unsupported signature data type")
-
 		}
-		sig.SetValidSince(signature.ValidSince)
-		sig.SetValidUntil(signature.ValidUntil)
 
 		list.Set(i, sig)
 	}
@@ -549,37 +530,9 @@ func encodeObjects(objects []rainslib.Object, list *proto.Obj_List, seg *capnp.S
 					return err
 				}
 				c.SetData(cert.Data)
-				switch cert.Type {
-				case rainslib.PTUnspecified:
-					c.SetType(proto.ProtocolType_pTUnspecified)
-				case rainslib.PTTLS:
-					c.SetType(proto.ProtocolType_pTTLS)
-				default:
-					log.Warn("Unsupported protocol type", "type", fmt.Sprintf("%T", cert.Type))
-					return errors.New("Unsupported protocol type")
-				}
-				switch cert.HashAlgo {
-				case rainslib.NoHashAlgo:
-					c.SetHashAlgo(proto.HashAlgorithmType_noHashAlgo)
-				case rainslib.Sha256:
-					c.SetHashAlgo(proto.HashAlgorithmType_sha256)
-				case rainslib.Sha384:
-					c.SetHashAlgo(proto.HashAlgorithmType_sha384)
-				case rainslib.Sha512:
-					c.SetHashAlgo(proto.HashAlgorithmType_sha512)
-				default:
-					log.Warn("Unsupported hash algo type", "type", fmt.Sprintf("%T", cert.HashAlgo))
-					return errors.New("Unsupported hash algo type")
-				}
-				switch cert.Usage {
-				case rainslib.CUTrustAnchor:
-					c.SetUsage(proto.CertificateUsage_cUTrustAnchor)
-				case rainslib.CUEndEntity:
-					c.SetUsage(proto.CertificateUsage_cUEndEntity)
-				default:
-					log.Warn("Unsupported cert usage type", "type", fmt.Sprintf("%T", cert.Usage))
-					return errors.New("Unsupported cert usage type")
-				}
+				c.SetType(int32(cert.Type))
+				c.SetHashAlgo(int32(cert.HashAlgo))
+				c.SetUsage(int32(cert.Usage))
 				obj.Value().SetCert(c)
 				continue
 			}
@@ -631,27 +584,17 @@ func encodePublicKey(publicKey rainslib.PublicKey, seg *capnp.Segment) (proto.Pu
 	}
 	pubKey.SetValidSince(publicKey.ValidSince)
 	pubKey.SetValidUntil(publicKey.ValidUntil)
-
-	switch publicKey.KeySpace {
-	case rainslib.RainsKeySpace:
-		pubKey.SetKeySpace(proto.KeySpaceID_rainsKeySpace)
-	default:
-		log.Warn("Unsupported key space type", "type", fmt.Sprintf("%T", publicKey.KeySpace))
-		return proto.PublicKey{}, errors.New("Unsupported key space type")
-	}
+	pubKey.SetKeySpace(int32(publicKey.KeySpace))
+	pubKey.SetType(int32(publicKey.Type))
 
 	switch publicKey.Type {
 	case rainslib.Ed25519:
-		pubKey.SetType(proto.SignatureAlgorithmType_ed25519)
 		pubKey.SetKey(publicKey.Key.([]byte))
 	case rainslib.Ed448:
-		pubKey.SetType(proto.SignatureAlgorithmType_ed448)
 		log.Warn("Not yet supported")
 	case rainslib.Ecdsa256:
-		pubKey.SetType(proto.SignatureAlgorithmType_ecdsa256)
 		log.Warn("Not yet supported")
 	case rainslib.Ecdsa384:
-		pubKey.SetType(proto.SignatureAlgorithmType_ecdsa384)
 		log.Warn("Not yet supported")
 	default:
 		log.Warn("Unsupported signature algorithm type", "type", fmt.Sprintf("%T", publicKey.Type))
