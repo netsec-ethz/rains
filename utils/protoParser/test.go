@@ -123,10 +123,10 @@ func EncodeMessage(m rainslib.RainsMessage) (*capnp.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	/*contentList, err := m.NewContent(int32(len(message.Content)))
+	contentList, err := message.NewContent(int32(len(m.Content)))
 	if err != nil {
 		return nil, err
-	}*/
+	}
 	capabilitiesList, err := message.NewCapabilities(int32(len(m.Capabilities)))
 	if err != nil {
 		return nil, err
@@ -149,25 +149,25 @@ func EncodeMessage(m rainslib.RainsMessage) (*capnp.Message, error) {
 		return nil, err
 	}
 
-	/*var ms proto.MessageSection
+	var ms proto.MessageSection
 	for i, section := range m.Content {
 		switch section := section.(type) {
 		case *rainslib.AssertionSection:
-			ms, err = encodeAssertion(section)
+			ms, err = encodeAssertion(section, seg)
 		case *rainslib.ShardSection:
-			ms, err = encodeShard(section)
+			ms, err = encodeShard(section, seg)
 		case *rainslib.ZoneSection:
-			ms, err = encodeZone(section)
+			ms, err = encodeZone(section, seg)
 		case *rainslib.QuerySection:
-			ms, err = encodeQuery(section)
+			ms, err = encodeQuery(section, seg)
 		case *rainslib.NotificationSection:
-			ms, err = encodeNotification(section)
+			ms, err = encodeNotification(section, seg)
 		case *rainslib.AddressAssertionSection:
-			ms, err = encodeAddressAssertion(section)
+			ms, err = encodeAddressAssertion(section, seg)
 		case *rainslib.AddressZoneSection:
-			ms, err = encodeAddressZone(section)
+			ms, err = encodeAddressZone(section, seg)
 		case *rainslib.AddressQuerySection:
-			ms, err = encodeAddressQuery(section)
+			ms, err = encodeAddressQuery(section, seg)
 		default:
 			log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", section))
 			return nil, errors.New("Unsupported section type")
@@ -176,7 +176,7 @@ func EncodeMessage(m rainslib.RainsMessage) (*capnp.Message, error) {
 			return nil, err
 		}
 		contentList.Set(i, ms)
-	}*/
+	}
 
 	return msg, nil
 }
@@ -199,7 +199,12 @@ func encodeAssertion(a *rainslib.AssertionSection, seg *capnp.Segment) (proto.Me
 		return proto.MessageSection{}, err
 	}
 	encodeSignatures(a.Signatures, &sigList, seg)
-	//TODO encode Object
+
+	contentList, err := assertion.NewContent(int32(len(a.Content)))
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	encodeObjects(a.Content, &contentList, seg)
 
 	return msgSection, nil
 }
@@ -341,15 +346,118 @@ func encodeNotification(n *rainslib.NotificationSection, seg *capnp.Segment) (pr
 }
 
 func encodeAddressAssertion(a *rainslib.AddressAssertionSection, seg *capnp.Segment) (proto.MessageSection, error) {
-	return proto.MessageSection{}, nil
+	msgSection, err := proto.NewMessageSection(seg)
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	assertion, err := msgSection.NewAddressAssertion()
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+
+	assertion.SetContext(a.Context)
+
+	sigList, err := assertion.NewSignatures(int32(len(a.Signatures)))
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	err = encodeSignatures(a.Signatures, &sigList, seg)
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+
+	contentList, err := assertion.NewContent(int32(len(a.Content)))
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	encodeObjects(a.Content, &contentList, seg)
+
+	sa, err := encodeSubjectAddress(a.SubjectAddr, seg)
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	assertion.SetSubjectAddr(sa)
+
+	return msgSection, nil
 }
 
 func encodeAddressZone(z *rainslib.AddressZoneSection, seg *capnp.Segment) (proto.MessageSection, error) {
-	return proto.MessageSection{}, nil
+	msgSection, err := proto.NewMessageSection(seg)
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	zone, err := msgSection.NewAddressZone()
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+
+	zone.SetContext(z.Context)
+
+	sigList, err := zone.NewSignatures(int32(len(z.Signatures)))
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	err = encodeSignatures(z.Signatures, &sigList, seg)
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+
+	sa, err := encodeSubjectAddress(z.SubjectAddr, seg)
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	zone.SetSubjectAddr(sa)
+
+	contentList, err := zone.NewContent(int32(len(z.Content)))
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	for i, assertion := range z.Content {
+		ms, err := encodeAddressAssertion(assertion, seg)
+		if err != nil {
+			return proto.MessageSection{}, err
+		}
+		a, err := ms.AddressAssertion()
+		if err != nil {
+			return proto.MessageSection{}, err
+		}
+		contentList.Set(i, a)
+	}
+
+	return msgSection, nil
 }
 
 func encodeAddressQuery(q *rainslib.AddressQuerySection, seg *capnp.Segment) (proto.MessageSection, error) {
-	return proto.MessageSection{}, nil
+	msgSection, err := proto.NewMessageSection(seg)
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	query, err := msgSection.NewAddressQuery()
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+
+	tok := [16]byte(q.Token)
+	query.SetToken(tok[:])
+	query.SetContext(q.Context)
+	query.SetExpires(q.Expires)
+	query.SetType(int32(q.Type))
+
+	qoList, err := capnp.NewInt32List(seg, int32(len(q.Options)))
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	for i, opt := range q.Options {
+		qoList.Set(i, int32(opt))
+	}
+	query.SetOptions(qoList)
+
+	sa, err := encodeSubjectAddress(q.SubjectAddr, seg)
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	query.SetSubjectAddr(sa)
+	return msgSection, nil
 }
 
 func encodeSignatures(signatures []rainslib.Signature, list *proto.Signature_List, seg *capnp.Segment) error {
@@ -551,4 +659,15 @@ func encodePublicKey(publicKey rainslib.PublicKey, seg *capnp.Segment) (proto.Pu
 	}
 
 	return pubKey, nil
+}
+
+func encodeSubjectAddress(subjectAddress rainslib.SubjectAddr, seg *capnp.Segment) (proto.SubjectAddr, error) {
+	sa, err := proto.NewSubjectAddr(seg)
+	if err != nil {
+		return proto.SubjectAddr{}, err
+	}
+	sa.SetAddress(subjectAddress.Address)
+	sa.SetAddressFamily(subjectAddress.AddressFamily)
+	sa.SetPrefixLength(uint32(subjectAddress.PrefixLength))
+	return sa, nil
 }

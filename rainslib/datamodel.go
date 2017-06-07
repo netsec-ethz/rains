@@ -513,16 +513,16 @@ type AddressZoneSection struct {
 	SubjectAddr
 	Signatures []Signature
 	Context    string
-	Content    []AddressAssertionSection
+	Content    []*AddressAssertionSection
 }
 
 //AddressQuerySection contains information about the address query
 type AddressQuerySection struct {
 	SubjectAddr
-	Token   []byte
+	Token   [16]byte
 	Context string
-	Types   []int
-	Expires int
+	Types   ObjectType
+	Expires int64
 	//Optional
 	Options []int
 }
