@@ -20,38 +20,35 @@ struct MessageSection  {
         notification        @4 :NotificationSection;
         addressQuery        @5 :AddressQuerySection;
         addressAssertion    @6 :AddressAssertionSection;
+		addressZone			@7 :AddressZoneSection;
     }         
 }
 
-const noCapability :Text = "";
-const tLSOverTCP :Text = "urn:x-rains:tlssrv";
-
-
-interface MessageSectionWithSig extends(Interval) {
+#interface MessageSectionWithSig extends(Interval) {
     #MessageSectionWithSig can be either an Assertion, Shard or Zone
-	sigs            @0 () -> (sig :Signature);
-	addSig          @1 (sig :Signature);
-	deleteSig       @2 (int :Int32);
-	deleteAllSigs   @3 ();
+#	sigs            @0 () -> (sig :Signature);
+#	addSig          @1 (sig :Signature);
+#	deleteSig       @2 (int :Int32);
+#	deleteAllSigs   @3 ();
    #TODO CFE what is the syntax of a method without arguments
-	getContext      @4 () -> (context :Text);
-	getSubjectZone  @5 () -> (zone :Text);
-	createStub      @6 () -> (section :MessageSectionWithSig);
-	validFrom       @7 () -> (validFrom :Int64);
-	validUntil      @8 () -> (validUntil :Int64);
-	hash            @9 () -> (hash :Text);
-}
+#	getContext      @4 () -> (context :Text);
+#	getSubjectZone  @5 () -> (zone :Text);
+#	createStub      @6 () -> (section :MessageSectionWithSig);
+#	validFrom       @7 () -> (validFrom :Int64);
+#	validUntil      @8 () -> (validUntil :Int64);
+#	hash            @9 () -> (hash :Text);
+#}
 
-interface Interval  {
+#interface Interval  {
     #Interval defines an interval over strings
-	begin @0 () -> (begin :Text);
-    end     @1 () -> (end :Text);
-}
+#	begin @0 () -> (begin :Text);
+#    end     @1 () -> (end :Text);
+#}
 
-interface Hashable  {
+#interface Hashable  {
     #Hashable can be implemented by objects that are not natively hashable.
-	hash @0 () -> (hash :Text);
-}
+#	hash @0 () -> (hash :Text);
+#}
 
 struct AssertionSection  {
     #AssertionSection contains information about the assertion
@@ -61,7 +58,6 @@ struct AssertionSection  {
 	subjectZone @3 :Text;
 	context     @4 :Text;
 }
-
 
 struct ShardSection  {
     #ShardSection contains information about the shard
@@ -79,7 +75,7 @@ struct ZoneSection  {
 	signatures  @0  :List(Signature);
 	subjectZone @1  :Text;
 	context     @2  :Text;
-	content     @3  :List(MessageSectionWithSig);
+	content     @3  :List(MessageSection);
 }
 
 struct QuerySection  {
@@ -204,10 +200,11 @@ enum HashAlgorithmType {
 
 struct PublicKey  {
     #PublicKey contains information about a public key
-	type       @0 :SignatureAlgorithmType;
-	key        @1 :Data;
-	validFrom  @2 :Int64;
-	validUntil @3 :Int64;
+	keySpace   @0 :KeySpaceID;
+	type       @1 :SignatureAlgorithmType; #can this also be a HashAlgorithmType?
+	key        @2 :Data;
+	validFrom  @3 :Int64;
+	validUntil @4 :Int64;
 }
 
 struct CertificateObject  {
@@ -239,8 +236,18 @@ struct Obj  {
     #Object is a container for different values determined by the given type.
 	type  @0    :ObjectType;
 	value   :union {
-        ip4 @1 :Text;
-        ip6 @2 :Text;
+		name 	@1 	:List(Text);
+        ip6 	@2 	:Text;
+        ip4 	@3 	:Text;
+		redir 	@4 	:Text;
+		deleg 	@5	:PublicKey;
+		nameset @6  :Text;
+		cert 	@7 	:CertificateObject;
+		service @8 	:ServiceInfo;
+		regr 	@9 	:Text;
+		regt 	@10 :Text;
+		infra 	@11 :PublicKey;
+		extra	@12 :PublicKey;
     }
 }
 

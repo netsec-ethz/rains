@@ -3,18 +3,10 @@
 package proto
 
 import (
-	context "golang.org/x/net/context"
 	strconv "strconv"
 	capnp "zombiezen.com/go/capnproto2"
 	text "zombiezen.com/go/capnproto2/encoding/text"
 	schemas "zombiezen.com/go/capnproto2/schemas"
-	server "zombiezen.com/go/capnproto2/server"
-)
-
-// Constants defined in rainsMsg.capnp.
-const (
-	NoCapability = ""
-	TLSOverTCP   = "urn:x-rains:tlssrv"
 )
 
 type RainsMessage struct{ capnp.Struct }
@@ -163,10 +155,11 @@ const (
 	MessageSection_Which_notification     MessageSection_Which = 4
 	MessageSection_Which_addressQuery     MessageSection_Which = 5
 	MessageSection_Which_addressAssertion MessageSection_Which = 6
+	MessageSection_Which_addressZone      MessageSection_Which = 7
 )
 
 func (w MessageSection_Which) String() string {
-	const s = "assertionshardzonequerynotificationaddressQueryaddressAssertion"
+	const s = "assertionshardzonequerynotificationaddressQueryaddressAssertionaddressZone"
 	switch w {
 	case MessageSection_Which_assertion:
 		return s[0:9]
@@ -182,6 +175,8 @@ func (w MessageSection_Which) String() string {
 		return s[35:47]
 	case MessageSection_Which_addressAssertion:
 		return s[47:63]
+	case MessageSection_Which_addressZone:
+		return s[63:74]
 
 	}
 	return "MessageSection_Which(" + strconv.FormatUint(uint64(w), 10) + ")"
@@ -423,6 +418,36 @@ func (s MessageSection) NewAddressAssertion() (AddressAssertionSection, error) {
 	return ss, err
 }
 
+func (s MessageSection) AddressZone() (AddressZoneSection, error) {
+	p, err := s.Struct.Ptr(0)
+	return AddressZoneSection{Struct: p.Struct()}, err
+}
+
+func (s MessageSection) HasAddressZone() bool {
+	if s.Struct.Uint16(0) != 7 {
+		return false
+	}
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s MessageSection) SetAddressZone(v AddressZoneSection) error {
+	s.Struct.SetUint16(0, 7)
+	return s.Struct.SetPtr(0, v.Struct.ToPtr())
+}
+
+// NewAddressZone sets the addressZone field to a newly
+// allocated AddressZoneSection struct, preferring placement in s's segment.
+func (s MessageSection) NewAddressZone() (AddressZoneSection, error) {
+	s.Struct.SetUint16(0, 7)
+	ss, err := NewAddressZoneSection(s.Struct.Segment())
+	if err != nil {
+		return AddressZoneSection{}, err
+	}
+	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
+	return ss, err
+}
+
 // MessageSection_List is a list of MessageSection.
 type MessageSection_List struct{ capnp.List }
 
@@ -472,2230 +497,8 @@ func (p MessageSection_Promise) AddressAssertion() AddressAssertionSection_Promi
 	return AddressAssertionSection_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
 }
 
-type MessageSectionWithSig struct{ Client capnp.Client }
-
-// MessageSectionWithSig_TypeID is the unique identifier for the type MessageSectionWithSig.
-const MessageSectionWithSig_TypeID = 0x9f30b9a1389539e7
-
-func (c MessageSectionWithSig) Sigs(ctx context.Context, params func(MessageSectionWithSig_sigs_Params) error, opts ...capnp.CallOption) MessageSectionWithSig_sigs_Results_Promise {
-	if c.Client == nil {
-		return MessageSectionWithSig_sigs_Results_Promise{Pipeline: capnp.NewPipeline(capnp.ErrorAnswer(capnp.ErrNullClient))}
-	}
-	call := &capnp.Call{
-		Ctx: ctx,
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      0,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "sigs",
-		},
-		Options: capnp.NewCallOptions(opts),
-	}
-	if params != nil {
-		call.ParamsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
-		call.ParamsFunc = func(s capnp.Struct) error { return params(MessageSectionWithSig_sigs_Params{Struct: s}) }
-	}
-	return MessageSectionWithSig_sigs_Results_Promise{Pipeline: capnp.NewPipeline(c.Client.Call(call))}
-}
-func (c MessageSectionWithSig) AddSig(ctx context.Context, params func(MessageSectionWithSig_addSig_Params) error, opts ...capnp.CallOption) MessageSectionWithSig_addSig_Results_Promise {
-	if c.Client == nil {
-		return MessageSectionWithSig_addSig_Results_Promise{Pipeline: capnp.NewPipeline(capnp.ErrorAnswer(capnp.ErrNullClient))}
-	}
-	call := &capnp.Call{
-		Ctx: ctx,
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      1,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "addSig",
-		},
-		Options: capnp.NewCallOptions(opts),
-	}
-	if params != nil {
-		call.ParamsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 1}
-		call.ParamsFunc = func(s capnp.Struct) error { return params(MessageSectionWithSig_addSig_Params{Struct: s}) }
-	}
-	return MessageSectionWithSig_addSig_Results_Promise{Pipeline: capnp.NewPipeline(c.Client.Call(call))}
-}
-func (c MessageSectionWithSig) DeleteSig(ctx context.Context, params func(MessageSectionWithSig_deleteSig_Params) error, opts ...capnp.CallOption) MessageSectionWithSig_deleteSig_Results_Promise {
-	if c.Client == nil {
-		return MessageSectionWithSig_deleteSig_Results_Promise{Pipeline: capnp.NewPipeline(capnp.ErrorAnswer(capnp.ErrNullClient))}
-	}
-	call := &capnp.Call{
-		Ctx: ctx,
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      2,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "deleteSig",
-		},
-		Options: capnp.NewCallOptions(opts),
-	}
-	if params != nil {
-		call.ParamsSize = capnp.ObjectSize{DataSize: 8, PointerCount: 0}
-		call.ParamsFunc = func(s capnp.Struct) error { return params(MessageSectionWithSig_deleteSig_Params{Struct: s}) }
-	}
-	return MessageSectionWithSig_deleteSig_Results_Promise{Pipeline: capnp.NewPipeline(c.Client.Call(call))}
-}
-func (c MessageSectionWithSig) DeleteAllSigs(ctx context.Context, params func(MessageSectionWithSig_deleteAllSigs_Params) error, opts ...capnp.CallOption) MessageSectionWithSig_deleteAllSigs_Results_Promise {
-	if c.Client == nil {
-		return MessageSectionWithSig_deleteAllSigs_Results_Promise{Pipeline: capnp.NewPipeline(capnp.ErrorAnswer(capnp.ErrNullClient))}
-	}
-	call := &capnp.Call{
-		Ctx: ctx,
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      3,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "deleteAllSigs",
-		},
-		Options: capnp.NewCallOptions(opts),
-	}
-	if params != nil {
-		call.ParamsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
-		call.ParamsFunc = func(s capnp.Struct) error { return params(MessageSectionWithSig_deleteAllSigs_Params{Struct: s}) }
-	}
-	return MessageSectionWithSig_deleteAllSigs_Results_Promise{Pipeline: capnp.NewPipeline(c.Client.Call(call))}
-}
-func (c MessageSectionWithSig) GetContext(ctx context.Context, params func(MessageSectionWithSig_getContext_Params) error, opts ...capnp.CallOption) MessageSectionWithSig_getContext_Results_Promise {
-	if c.Client == nil {
-		return MessageSectionWithSig_getContext_Results_Promise{Pipeline: capnp.NewPipeline(capnp.ErrorAnswer(capnp.ErrNullClient))}
-	}
-	call := &capnp.Call{
-		Ctx: ctx,
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      4,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "getContext",
-		},
-		Options: capnp.NewCallOptions(opts),
-	}
-	if params != nil {
-		call.ParamsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
-		call.ParamsFunc = func(s capnp.Struct) error { return params(MessageSectionWithSig_getContext_Params{Struct: s}) }
-	}
-	return MessageSectionWithSig_getContext_Results_Promise{Pipeline: capnp.NewPipeline(c.Client.Call(call))}
-}
-func (c MessageSectionWithSig) GetSubjectZone(ctx context.Context, params func(MessageSectionWithSig_getSubjectZone_Params) error, opts ...capnp.CallOption) MessageSectionWithSig_getSubjectZone_Results_Promise {
-	if c.Client == nil {
-		return MessageSectionWithSig_getSubjectZone_Results_Promise{Pipeline: capnp.NewPipeline(capnp.ErrorAnswer(capnp.ErrNullClient))}
-	}
-	call := &capnp.Call{
-		Ctx: ctx,
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      5,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "getSubjectZone",
-		},
-		Options: capnp.NewCallOptions(opts),
-	}
-	if params != nil {
-		call.ParamsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
-		call.ParamsFunc = func(s capnp.Struct) error { return params(MessageSectionWithSig_getSubjectZone_Params{Struct: s}) }
-	}
-	return MessageSectionWithSig_getSubjectZone_Results_Promise{Pipeline: capnp.NewPipeline(c.Client.Call(call))}
-}
-func (c MessageSectionWithSig) CreateStub(ctx context.Context, params func(MessageSectionWithSig_createStub_Params) error, opts ...capnp.CallOption) MessageSectionWithSig_createStub_Results_Promise {
-	if c.Client == nil {
-		return MessageSectionWithSig_createStub_Results_Promise{Pipeline: capnp.NewPipeline(capnp.ErrorAnswer(capnp.ErrNullClient))}
-	}
-	call := &capnp.Call{
-		Ctx: ctx,
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      6,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "createStub",
-		},
-		Options: capnp.NewCallOptions(opts),
-	}
-	if params != nil {
-		call.ParamsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
-		call.ParamsFunc = func(s capnp.Struct) error { return params(MessageSectionWithSig_createStub_Params{Struct: s}) }
-	}
-	return MessageSectionWithSig_createStub_Results_Promise{Pipeline: capnp.NewPipeline(c.Client.Call(call))}
-}
-func (c MessageSectionWithSig) ValidFrom(ctx context.Context, params func(MessageSectionWithSig_validFrom_Params) error, opts ...capnp.CallOption) MessageSectionWithSig_validFrom_Results_Promise {
-	if c.Client == nil {
-		return MessageSectionWithSig_validFrom_Results_Promise{Pipeline: capnp.NewPipeline(capnp.ErrorAnswer(capnp.ErrNullClient))}
-	}
-	call := &capnp.Call{
-		Ctx: ctx,
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      7,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "validFrom",
-		},
-		Options: capnp.NewCallOptions(opts),
-	}
-	if params != nil {
-		call.ParamsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
-		call.ParamsFunc = func(s capnp.Struct) error { return params(MessageSectionWithSig_validFrom_Params{Struct: s}) }
-	}
-	return MessageSectionWithSig_validFrom_Results_Promise{Pipeline: capnp.NewPipeline(c.Client.Call(call))}
-}
-func (c MessageSectionWithSig) ValidUntil(ctx context.Context, params func(MessageSectionWithSig_validUntil_Params) error, opts ...capnp.CallOption) MessageSectionWithSig_validUntil_Results_Promise {
-	if c.Client == nil {
-		return MessageSectionWithSig_validUntil_Results_Promise{Pipeline: capnp.NewPipeline(capnp.ErrorAnswer(capnp.ErrNullClient))}
-	}
-	call := &capnp.Call{
-		Ctx: ctx,
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      8,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "validUntil",
-		},
-		Options: capnp.NewCallOptions(opts),
-	}
-	if params != nil {
-		call.ParamsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
-		call.ParamsFunc = func(s capnp.Struct) error { return params(MessageSectionWithSig_validUntil_Params{Struct: s}) }
-	}
-	return MessageSectionWithSig_validUntil_Results_Promise{Pipeline: capnp.NewPipeline(c.Client.Call(call))}
-}
-func (c MessageSectionWithSig) Hash(ctx context.Context, params func(MessageSectionWithSig_hash_Params) error, opts ...capnp.CallOption) MessageSectionWithSig_hash_Results_Promise {
-	if c.Client == nil {
-		return MessageSectionWithSig_hash_Results_Promise{Pipeline: capnp.NewPipeline(capnp.ErrorAnswer(capnp.ErrNullClient))}
-	}
-	call := &capnp.Call{
-		Ctx: ctx,
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      9,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "hash",
-		},
-		Options: capnp.NewCallOptions(opts),
-	}
-	if params != nil {
-		call.ParamsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
-		call.ParamsFunc = func(s capnp.Struct) error { return params(MessageSectionWithSig_hash_Params{Struct: s}) }
-	}
-	return MessageSectionWithSig_hash_Results_Promise{Pipeline: capnp.NewPipeline(c.Client.Call(call))}
-}
-func (c MessageSectionWithSig) Begin(ctx context.Context, params func(Interval_begin_Params) error, opts ...capnp.CallOption) Interval_begin_Results_Promise {
-	if c.Client == nil {
-		return Interval_begin_Results_Promise{Pipeline: capnp.NewPipeline(capnp.ErrorAnswer(capnp.ErrNullClient))}
-	}
-	call := &capnp.Call{
-		Ctx: ctx,
-		Method: capnp.Method{
-			InterfaceID:   0xb288e1a44d8ed064,
-			MethodID:      0,
-			InterfaceName: "proto/rainsMsg.capnp:Interval",
-			MethodName:    "begin",
-		},
-		Options: capnp.NewCallOptions(opts),
-	}
-	if params != nil {
-		call.ParamsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
-		call.ParamsFunc = func(s capnp.Struct) error { return params(Interval_begin_Params{Struct: s}) }
-	}
-	return Interval_begin_Results_Promise{Pipeline: capnp.NewPipeline(c.Client.Call(call))}
-}
-func (c MessageSectionWithSig) End(ctx context.Context, params func(Interval_end_Params) error, opts ...capnp.CallOption) Interval_end_Results_Promise {
-	if c.Client == nil {
-		return Interval_end_Results_Promise{Pipeline: capnp.NewPipeline(capnp.ErrorAnswer(capnp.ErrNullClient))}
-	}
-	call := &capnp.Call{
-		Ctx: ctx,
-		Method: capnp.Method{
-			InterfaceID:   0xb288e1a44d8ed064,
-			MethodID:      1,
-			InterfaceName: "proto/rainsMsg.capnp:Interval",
-			MethodName:    "end",
-		},
-		Options: capnp.NewCallOptions(opts),
-	}
-	if params != nil {
-		call.ParamsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
-		call.ParamsFunc = func(s capnp.Struct) error { return params(Interval_end_Params{Struct: s}) }
-	}
-	return Interval_end_Results_Promise{Pipeline: capnp.NewPipeline(c.Client.Call(call))}
-}
-
-type MessageSectionWithSig_Server interface {
-	Sigs(MessageSectionWithSig_sigs) error
-
-	AddSig(MessageSectionWithSig_addSig) error
-
-	DeleteSig(MessageSectionWithSig_deleteSig) error
-
-	DeleteAllSigs(MessageSectionWithSig_deleteAllSigs) error
-
-	GetContext(MessageSectionWithSig_getContext) error
-
-	GetSubjectZone(MessageSectionWithSig_getSubjectZone) error
-
-	CreateStub(MessageSectionWithSig_createStub) error
-
-	ValidFrom(MessageSectionWithSig_validFrom) error
-
-	ValidUntil(MessageSectionWithSig_validUntil) error
-
-	Hash(MessageSectionWithSig_hash) error
-
-	Begin(Interval_begin) error
-
-	End(Interval_end) error
-}
-
-func MessageSectionWithSig_ServerToClient(s MessageSectionWithSig_Server) MessageSectionWithSig {
-	c, _ := s.(server.Closer)
-	return MessageSectionWithSig{Client: server.New(MessageSectionWithSig_Methods(nil, s), c)}
-}
-
-func MessageSectionWithSig_Methods(methods []server.Method, s MessageSectionWithSig_Server) []server.Method {
-	if cap(methods) == 0 {
-		methods = make([]server.Method, 0, 12)
-	}
-
-	methods = append(methods, server.Method{
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      0,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "sigs",
-		},
-		Impl: func(c context.Context, opts capnp.CallOptions, p, r capnp.Struct) error {
-			call := MessageSectionWithSig_sigs{c, opts, MessageSectionWithSig_sigs_Params{Struct: p}, MessageSectionWithSig_sigs_Results{Struct: r}}
-			return s.Sigs(call)
-		},
-		ResultsSize: capnp.ObjectSize{DataSize: 0, PointerCount: 1},
-	})
-
-	methods = append(methods, server.Method{
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      1,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "addSig",
-		},
-		Impl: func(c context.Context, opts capnp.CallOptions, p, r capnp.Struct) error {
-			call := MessageSectionWithSig_addSig{c, opts, MessageSectionWithSig_addSig_Params{Struct: p}, MessageSectionWithSig_addSig_Results{Struct: r}}
-			return s.AddSig(call)
-		},
-		ResultsSize: capnp.ObjectSize{DataSize: 0, PointerCount: 0},
-	})
-
-	methods = append(methods, server.Method{
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      2,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "deleteSig",
-		},
-		Impl: func(c context.Context, opts capnp.CallOptions, p, r capnp.Struct) error {
-			call := MessageSectionWithSig_deleteSig{c, opts, MessageSectionWithSig_deleteSig_Params{Struct: p}, MessageSectionWithSig_deleteSig_Results{Struct: r}}
-			return s.DeleteSig(call)
-		},
-		ResultsSize: capnp.ObjectSize{DataSize: 0, PointerCount: 0},
-	})
-
-	methods = append(methods, server.Method{
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      3,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "deleteAllSigs",
-		},
-		Impl: func(c context.Context, opts capnp.CallOptions, p, r capnp.Struct) error {
-			call := MessageSectionWithSig_deleteAllSigs{c, opts, MessageSectionWithSig_deleteAllSigs_Params{Struct: p}, MessageSectionWithSig_deleteAllSigs_Results{Struct: r}}
-			return s.DeleteAllSigs(call)
-		},
-		ResultsSize: capnp.ObjectSize{DataSize: 0, PointerCount: 0},
-	})
-
-	methods = append(methods, server.Method{
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      4,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "getContext",
-		},
-		Impl: func(c context.Context, opts capnp.CallOptions, p, r capnp.Struct) error {
-			call := MessageSectionWithSig_getContext{c, opts, MessageSectionWithSig_getContext_Params{Struct: p}, MessageSectionWithSig_getContext_Results{Struct: r}}
-			return s.GetContext(call)
-		},
-		ResultsSize: capnp.ObjectSize{DataSize: 0, PointerCount: 1},
-	})
-
-	methods = append(methods, server.Method{
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      5,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "getSubjectZone",
-		},
-		Impl: func(c context.Context, opts capnp.CallOptions, p, r capnp.Struct) error {
-			call := MessageSectionWithSig_getSubjectZone{c, opts, MessageSectionWithSig_getSubjectZone_Params{Struct: p}, MessageSectionWithSig_getSubjectZone_Results{Struct: r}}
-			return s.GetSubjectZone(call)
-		},
-		ResultsSize: capnp.ObjectSize{DataSize: 0, PointerCount: 1},
-	})
-
-	methods = append(methods, server.Method{
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      6,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "createStub",
-		},
-		Impl: func(c context.Context, opts capnp.CallOptions, p, r capnp.Struct) error {
-			call := MessageSectionWithSig_createStub{c, opts, MessageSectionWithSig_createStub_Params{Struct: p}, MessageSectionWithSig_createStub_Results{Struct: r}}
-			return s.CreateStub(call)
-		},
-		ResultsSize: capnp.ObjectSize{DataSize: 0, PointerCount: 1},
-	})
-
-	methods = append(methods, server.Method{
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      7,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "validFrom",
-		},
-		Impl: func(c context.Context, opts capnp.CallOptions, p, r capnp.Struct) error {
-			call := MessageSectionWithSig_validFrom{c, opts, MessageSectionWithSig_validFrom_Params{Struct: p}, MessageSectionWithSig_validFrom_Results{Struct: r}}
-			return s.ValidFrom(call)
-		},
-		ResultsSize: capnp.ObjectSize{DataSize: 8, PointerCount: 0},
-	})
-
-	methods = append(methods, server.Method{
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      8,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "validUntil",
-		},
-		Impl: func(c context.Context, opts capnp.CallOptions, p, r capnp.Struct) error {
-			call := MessageSectionWithSig_validUntil{c, opts, MessageSectionWithSig_validUntil_Params{Struct: p}, MessageSectionWithSig_validUntil_Results{Struct: r}}
-			return s.ValidUntil(call)
-		},
-		ResultsSize: capnp.ObjectSize{DataSize: 8, PointerCount: 0},
-	})
-
-	methods = append(methods, server.Method{
-		Method: capnp.Method{
-			InterfaceID:   0x9f30b9a1389539e7,
-			MethodID:      9,
-			InterfaceName: "proto/rainsMsg.capnp:MessageSectionWithSig",
-			MethodName:    "hash",
-		},
-		Impl: func(c context.Context, opts capnp.CallOptions, p, r capnp.Struct) error {
-			call := MessageSectionWithSig_hash{c, opts, MessageSectionWithSig_hash_Params{Struct: p}, MessageSectionWithSig_hash_Results{Struct: r}}
-			return s.Hash(call)
-		},
-		ResultsSize: capnp.ObjectSize{DataSize: 0, PointerCount: 1},
-	})
-
-	methods = append(methods, server.Method{
-		Method: capnp.Method{
-			InterfaceID:   0xb288e1a44d8ed064,
-			MethodID:      0,
-			InterfaceName: "proto/rainsMsg.capnp:Interval",
-			MethodName:    "begin",
-		},
-		Impl: func(c context.Context, opts capnp.CallOptions, p, r capnp.Struct) error {
-			call := Interval_begin{c, opts, Interval_begin_Params{Struct: p}, Interval_begin_Results{Struct: r}}
-			return s.Begin(call)
-		},
-		ResultsSize: capnp.ObjectSize{DataSize: 0, PointerCount: 1},
-	})
-
-	methods = append(methods, server.Method{
-		Method: capnp.Method{
-			InterfaceID:   0xb288e1a44d8ed064,
-			MethodID:      1,
-			InterfaceName: "proto/rainsMsg.capnp:Interval",
-			MethodName:    "end",
-		},
-		Impl: func(c context.Context, opts capnp.CallOptions, p, r capnp.Struct) error {
-			call := Interval_end{c, opts, Interval_end_Params{Struct: p}, Interval_end_Results{Struct: r}}
-			return s.End(call)
-		},
-		ResultsSize: capnp.ObjectSize{DataSize: 0, PointerCount: 1},
-	})
-
-	return methods
-}
-
-// MessageSectionWithSig_sigs holds the arguments for a server call to MessageSectionWithSig.sigs.
-type MessageSectionWithSig_sigs struct {
-	Ctx     context.Context
-	Options capnp.CallOptions
-	Params  MessageSectionWithSig_sigs_Params
-	Results MessageSectionWithSig_sigs_Results
-}
-
-// MessageSectionWithSig_addSig holds the arguments for a server call to MessageSectionWithSig.addSig.
-type MessageSectionWithSig_addSig struct {
-	Ctx     context.Context
-	Options capnp.CallOptions
-	Params  MessageSectionWithSig_addSig_Params
-	Results MessageSectionWithSig_addSig_Results
-}
-
-// MessageSectionWithSig_deleteSig holds the arguments for a server call to MessageSectionWithSig.deleteSig.
-type MessageSectionWithSig_deleteSig struct {
-	Ctx     context.Context
-	Options capnp.CallOptions
-	Params  MessageSectionWithSig_deleteSig_Params
-	Results MessageSectionWithSig_deleteSig_Results
-}
-
-// MessageSectionWithSig_deleteAllSigs holds the arguments for a server call to MessageSectionWithSig.deleteAllSigs.
-type MessageSectionWithSig_deleteAllSigs struct {
-	Ctx     context.Context
-	Options capnp.CallOptions
-	Params  MessageSectionWithSig_deleteAllSigs_Params
-	Results MessageSectionWithSig_deleteAllSigs_Results
-}
-
-// MessageSectionWithSig_getContext holds the arguments for a server call to MessageSectionWithSig.getContext.
-type MessageSectionWithSig_getContext struct {
-	Ctx     context.Context
-	Options capnp.CallOptions
-	Params  MessageSectionWithSig_getContext_Params
-	Results MessageSectionWithSig_getContext_Results
-}
-
-// MessageSectionWithSig_getSubjectZone holds the arguments for a server call to MessageSectionWithSig.getSubjectZone.
-type MessageSectionWithSig_getSubjectZone struct {
-	Ctx     context.Context
-	Options capnp.CallOptions
-	Params  MessageSectionWithSig_getSubjectZone_Params
-	Results MessageSectionWithSig_getSubjectZone_Results
-}
-
-// MessageSectionWithSig_createStub holds the arguments for a server call to MessageSectionWithSig.createStub.
-type MessageSectionWithSig_createStub struct {
-	Ctx     context.Context
-	Options capnp.CallOptions
-	Params  MessageSectionWithSig_createStub_Params
-	Results MessageSectionWithSig_createStub_Results
-}
-
-// MessageSectionWithSig_validFrom holds the arguments for a server call to MessageSectionWithSig.validFrom.
-type MessageSectionWithSig_validFrom struct {
-	Ctx     context.Context
-	Options capnp.CallOptions
-	Params  MessageSectionWithSig_validFrom_Params
-	Results MessageSectionWithSig_validFrom_Results
-}
-
-// MessageSectionWithSig_validUntil holds the arguments for a server call to MessageSectionWithSig.validUntil.
-type MessageSectionWithSig_validUntil struct {
-	Ctx     context.Context
-	Options capnp.CallOptions
-	Params  MessageSectionWithSig_validUntil_Params
-	Results MessageSectionWithSig_validUntil_Results
-}
-
-// MessageSectionWithSig_hash holds the arguments for a server call to MessageSectionWithSig.hash.
-type MessageSectionWithSig_hash struct {
-	Ctx     context.Context
-	Options capnp.CallOptions
-	Params  MessageSectionWithSig_hash_Params
-	Results MessageSectionWithSig_hash_Results
-}
-
-type MessageSectionWithSig_sigs_Params struct{ capnp.Struct }
-
-// MessageSectionWithSig_sigs_Params_TypeID is the unique identifier for the type MessageSectionWithSig_sigs_Params.
-const MessageSectionWithSig_sigs_Params_TypeID = 0xa5dedc367594e97a
-
-func NewMessageSectionWithSig_sigs_Params(s *capnp.Segment) (MessageSectionWithSig_sigs_Params, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_sigs_Params{st}, err
-}
-
-func NewRootMessageSectionWithSig_sigs_Params(s *capnp.Segment) (MessageSectionWithSig_sigs_Params, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_sigs_Params{st}, err
-}
-
-func ReadRootMessageSectionWithSig_sigs_Params(msg *capnp.Message) (MessageSectionWithSig_sigs_Params, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_sigs_Params{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_sigs_Params) String() string {
-	str, _ := text.Marshal(0xa5dedc367594e97a, s.Struct)
-	return str
-}
-
-// MessageSectionWithSig_sigs_Params_List is a list of MessageSectionWithSig_sigs_Params.
-type MessageSectionWithSig_sigs_Params_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_sigs_Params creates a new list of MessageSectionWithSig_sigs_Params.
-func NewMessageSectionWithSig_sigs_Params_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_sigs_Params_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return MessageSectionWithSig_sigs_Params_List{l}, err
-}
-
-func (s MessageSectionWithSig_sigs_Params_List) At(i int) MessageSectionWithSig_sigs_Params {
-	return MessageSectionWithSig_sigs_Params{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_sigs_Params_List) Set(i int, v MessageSectionWithSig_sigs_Params) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_sigs_Params_Promise is a wrapper for a MessageSectionWithSig_sigs_Params promised by a client call.
-type MessageSectionWithSig_sigs_Params_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_sigs_Params_Promise) Struct() (MessageSectionWithSig_sigs_Params, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_sigs_Params{s}, err
-}
-
-type MessageSectionWithSig_sigs_Results struct{ capnp.Struct }
-
-// MessageSectionWithSig_sigs_Results_TypeID is the unique identifier for the type MessageSectionWithSig_sigs_Results.
-const MessageSectionWithSig_sigs_Results_TypeID = 0xbd3d681e8600457f
-
-func NewMessageSectionWithSig_sigs_Results(s *capnp.Segment) (MessageSectionWithSig_sigs_Results, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return MessageSectionWithSig_sigs_Results{st}, err
-}
-
-func NewRootMessageSectionWithSig_sigs_Results(s *capnp.Segment) (MessageSectionWithSig_sigs_Results, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return MessageSectionWithSig_sigs_Results{st}, err
-}
-
-func ReadRootMessageSectionWithSig_sigs_Results(msg *capnp.Message) (MessageSectionWithSig_sigs_Results, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_sigs_Results{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_sigs_Results) String() string {
-	str, _ := text.Marshal(0xbd3d681e8600457f, s.Struct)
-	return str
-}
-
-func (s MessageSectionWithSig_sigs_Results) Sig() (Signature, error) {
-	p, err := s.Struct.Ptr(0)
-	return Signature{Struct: p.Struct()}, err
-}
-
-func (s MessageSectionWithSig_sigs_Results) HasSig() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s MessageSectionWithSig_sigs_Results) SetSig(v Signature) error {
-	return s.Struct.SetPtr(0, v.Struct.ToPtr())
-}
-
-// NewSig sets the sig field to a newly
-// allocated Signature struct, preferring placement in s's segment.
-func (s MessageSectionWithSig_sigs_Results) NewSig() (Signature, error) {
-	ss, err := NewSignature(s.Struct.Segment())
-	if err != nil {
-		return Signature{}, err
-	}
-	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
-	return ss, err
-}
-
-// MessageSectionWithSig_sigs_Results_List is a list of MessageSectionWithSig_sigs_Results.
-type MessageSectionWithSig_sigs_Results_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_sigs_Results creates a new list of MessageSectionWithSig_sigs_Results.
-func NewMessageSectionWithSig_sigs_Results_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_sigs_Results_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return MessageSectionWithSig_sigs_Results_List{l}, err
-}
-
-func (s MessageSectionWithSig_sigs_Results_List) At(i int) MessageSectionWithSig_sigs_Results {
-	return MessageSectionWithSig_sigs_Results{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_sigs_Results_List) Set(i int, v MessageSectionWithSig_sigs_Results) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_sigs_Results_Promise is a wrapper for a MessageSectionWithSig_sigs_Results promised by a client call.
-type MessageSectionWithSig_sigs_Results_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_sigs_Results_Promise) Struct() (MessageSectionWithSig_sigs_Results, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_sigs_Results{s}, err
-}
-
-func (p MessageSectionWithSig_sigs_Results_Promise) Sig() Signature_Promise {
-	return Signature_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
-}
-
-type MessageSectionWithSig_addSig_Params struct{ capnp.Struct }
-
-// MessageSectionWithSig_addSig_Params_TypeID is the unique identifier for the type MessageSectionWithSig_addSig_Params.
-const MessageSectionWithSig_addSig_Params_TypeID = 0xd4ee6164b4bdc4eb
-
-func NewMessageSectionWithSig_addSig_Params(s *capnp.Segment) (MessageSectionWithSig_addSig_Params, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return MessageSectionWithSig_addSig_Params{st}, err
-}
-
-func NewRootMessageSectionWithSig_addSig_Params(s *capnp.Segment) (MessageSectionWithSig_addSig_Params, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return MessageSectionWithSig_addSig_Params{st}, err
-}
-
-func ReadRootMessageSectionWithSig_addSig_Params(msg *capnp.Message) (MessageSectionWithSig_addSig_Params, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_addSig_Params{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_addSig_Params) String() string {
-	str, _ := text.Marshal(0xd4ee6164b4bdc4eb, s.Struct)
-	return str
-}
-
-func (s MessageSectionWithSig_addSig_Params) Sig() (Signature, error) {
-	p, err := s.Struct.Ptr(0)
-	return Signature{Struct: p.Struct()}, err
-}
-
-func (s MessageSectionWithSig_addSig_Params) HasSig() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s MessageSectionWithSig_addSig_Params) SetSig(v Signature) error {
-	return s.Struct.SetPtr(0, v.Struct.ToPtr())
-}
-
-// NewSig sets the sig field to a newly
-// allocated Signature struct, preferring placement in s's segment.
-func (s MessageSectionWithSig_addSig_Params) NewSig() (Signature, error) {
-	ss, err := NewSignature(s.Struct.Segment())
-	if err != nil {
-		return Signature{}, err
-	}
-	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
-	return ss, err
-}
-
-// MessageSectionWithSig_addSig_Params_List is a list of MessageSectionWithSig_addSig_Params.
-type MessageSectionWithSig_addSig_Params_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_addSig_Params creates a new list of MessageSectionWithSig_addSig_Params.
-func NewMessageSectionWithSig_addSig_Params_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_addSig_Params_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return MessageSectionWithSig_addSig_Params_List{l}, err
-}
-
-func (s MessageSectionWithSig_addSig_Params_List) At(i int) MessageSectionWithSig_addSig_Params {
-	return MessageSectionWithSig_addSig_Params{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_addSig_Params_List) Set(i int, v MessageSectionWithSig_addSig_Params) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_addSig_Params_Promise is a wrapper for a MessageSectionWithSig_addSig_Params promised by a client call.
-type MessageSectionWithSig_addSig_Params_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_addSig_Params_Promise) Struct() (MessageSectionWithSig_addSig_Params, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_addSig_Params{s}, err
-}
-
-func (p MessageSectionWithSig_addSig_Params_Promise) Sig() Signature_Promise {
-	return Signature_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
-}
-
-type MessageSectionWithSig_addSig_Results struct{ capnp.Struct }
-
-// MessageSectionWithSig_addSig_Results_TypeID is the unique identifier for the type MessageSectionWithSig_addSig_Results.
-const MessageSectionWithSig_addSig_Results_TypeID = 0xbb86a24042c66855
-
-func NewMessageSectionWithSig_addSig_Results(s *capnp.Segment) (MessageSectionWithSig_addSig_Results, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_addSig_Results{st}, err
-}
-
-func NewRootMessageSectionWithSig_addSig_Results(s *capnp.Segment) (MessageSectionWithSig_addSig_Results, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_addSig_Results{st}, err
-}
-
-func ReadRootMessageSectionWithSig_addSig_Results(msg *capnp.Message) (MessageSectionWithSig_addSig_Results, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_addSig_Results{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_addSig_Results) String() string {
-	str, _ := text.Marshal(0xbb86a24042c66855, s.Struct)
-	return str
-}
-
-// MessageSectionWithSig_addSig_Results_List is a list of MessageSectionWithSig_addSig_Results.
-type MessageSectionWithSig_addSig_Results_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_addSig_Results creates a new list of MessageSectionWithSig_addSig_Results.
-func NewMessageSectionWithSig_addSig_Results_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_addSig_Results_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return MessageSectionWithSig_addSig_Results_List{l}, err
-}
-
-func (s MessageSectionWithSig_addSig_Results_List) At(i int) MessageSectionWithSig_addSig_Results {
-	return MessageSectionWithSig_addSig_Results{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_addSig_Results_List) Set(i int, v MessageSectionWithSig_addSig_Results) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_addSig_Results_Promise is a wrapper for a MessageSectionWithSig_addSig_Results promised by a client call.
-type MessageSectionWithSig_addSig_Results_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_addSig_Results_Promise) Struct() (MessageSectionWithSig_addSig_Results, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_addSig_Results{s}, err
-}
-
-type MessageSectionWithSig_deleteSig_Params struct{ capnp.Struct }
-
-// MessageSectionWithSig_deleteSig_Params_TypeID is the unique identifier for the type MessageSectionWithSig_deleteSig_Params.
-const MessageSectionWithSig_deleteSig_Params_TypeID = 0xb950ba19ca79c37f
-
-func NewMessageSectionWithSig_deleteSig_Params(s *capnp.Segment) (MessageSectionWithSig_deleteSig_Params, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 0})
-	return MessageSectionWithSig_deleteSig_Params{st}, err
-}
-
-func NewRootMessageSectionWithSig_deleteSig_Params(s *capnp.Segment) (MessageSectionWithSig_deleteSig_Params, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 0})
-	return MessageSectionWithSig_deleteSig_Params{st}, err
-}
-
-func ReadRootMessageSectionWithSig_deleteSig_Params(msg *capnp.Message) (MessageSectionWithSig_deleteSig_Params, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_deleteSig_Params{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_deleteSig_Params) String() string {
-	str, _ := text.Marshal(0xb950ba19ca79c37f, s.Struct)
-	return str
-}
-
-func (s MessageSectionWithSig_deleteSig_Params) Int() int32 {
-	return int32(s.Struct.Uint32(0))
-}
-
-func (s MessageSectionWithSig_deleteSig_Params) SetInt(v int32) {
-	s.Struct.SetUint32(0, uint32(v))
-}
-
-// MessageSectionWithSig_deleteSig_Params_List is a list of MessageSectionWithSig_deleteSig_Params.
-type MessageSectionWithSig_deleteSig_Params_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_deleteSig_Params creates a new list of MessageSectionWithSig_deleteSig_Params.
-func NewMessageSectionWithSig_deleteSig_Params_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_deleteSig_Params_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 0}, sz)
-	return MessageSectionWithSig_deleteSig_Params_List{l}, err
-}
-
-func (s MessageSectionWithSig_deleteSig_Params_List) At(i int) MessageSectionWithSig_deleteSig_Params {
-	return MessageSectionWithSig_deleteSig_Params{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_deleteSig_Params_List) Set(i int, v MessageSectionWithSig_deleteSig_Params) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_deleteSig_Params_Promise is a wrapper for a MessageSectionWithSig_deleteSig_Params promised by a client call.
-type MessageSectionWithSig_deleteSig_Params_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_deleteSig_Params_Promise) Struct() (MessageSectionWithSig_deleteSig_Params, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_deleteSig_Params{s}, err
-}
-
-type MessageSectionWithSig_deleteSig_Results struct{ capnp.Struct }
-
-// MessageSectionWithSig_deleteSig_Results_TypeID is the unique identifier for the type MessageSectionWithSig_deleteSig_Results.
-const MessageSectionWithSig_deleteSig_Results_TypeID = 0x9439232ee1625745
-
-func NewMessageSectionWithSig_deleteSig_Results(s *capnp.Segment) (MessageSectionWithSig_deleteSig_Results, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_deleteSig_Results{st}, err
-}
-
-func NewRootMessageSectionWithSig_deleteSig_Results(s *capnp.Segment) (MessageSectionWithSig_deleteSig_Results, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_deleteSig_Results{st}, err
-}
-
-func ReadRootMessageSectionWithSig_deleteSig_Results(msg *capnp.Message) (MessageSectionWithSig_deleteSig_Results, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_deleteSig_Results{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_deleteSig_Results) String() string {
-	str, _ := text.Marshal(0x9439232ee1625745, s.Struct)
-	return str
-}
-
-// MessageSectionWithSig_deleteSig_Results_List is a list of MessageSectionWithSig_deleteSig_Results.
-type MessageSectionWithSig_deleteSig_Results_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_deleteSig_Results creates a new list of MessageSectionWithSig_deleteSig_Results.
-func NewMessageSectionWithSig_deleteSig_Results_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_deleteSig_Results_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return MessageSectionWithSig_deleteSig_Results_List{l}, err
-}
-
-func (s MessageSectionWithSig_deleteSig_Results_List) At(i int) MessageSectionWithSig_deleteSig_Results {
-	return MessageSectionWithSig_deleteSig_Results{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_deleteSig_Results_List) Set(i int, v MessageSectionWithSig_deleteSig_Results) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_deleteSig_Results_Promise is a wrapper for a MessageSectionWithSig_deleteSig_Results promised by a client call.
-type MessageSectionWithSig_deleteSig_Results_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_deleteSig_Results_Promise) Struct() (MessageSectionWithSig_deleteSig_Results, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_deleteSig_Results{s}, err
-}
-
-type MessageSectionWithSig_deleteAllSigs_Params struct{ capnp.Struct }
-
-// MessageSectionWithSig_deleteAllSigs_Params_TypeID is the unique identifier for the type MessageSectionWithSig_deleteAllSigs_Params.
-const MessageSectionWithSig_deleteAllSigs_Params_TypeID = 0xc698b99f896737c7
-
-func NewMessageSectionWithSig_deleteAllSigs_Params(s *capnp.Segment) (MessageSectionWithSig_deleteAllSigs_Params, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_deleteAllSigs_Params{st}, err
-}
-
-func NewRootMessageSectionWithSig_deleteAllSigs_Params(s *capnp.Segment) (MessageSectionWithSig_deleteAllSigs_Params, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_deleteAllSigs_Params{st}, err
-}
-
-func ReadRootMessageSectionWithSig_deleteAllSigs_Params(msg *capnp.Message) (MessageSectionWithSig_deleteAllSigs_Params, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_deleteAllSigs_Params{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_deleteAllSigs_Params) String() string {
-	str, _ := text.Marshal(0xc698b99f896737c7, s.Struct)
-	return str
-}
-
-// MessageSectionWithSig_deleteAllSigs_Params_List is a list of MessageSectionWithSig_deleteAllSigs_Params.
-type MessageSectionWithSig_deleteAllSigs_Params_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_deleteAllSigs_Params creates a new list of MessageSectionWithSig_deleteAllSigs_Params.
-func NewMessageSectionWithSig_deleteAllSigs_Params_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_deleteAllSigs_Params_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return MessageSectionWithSig_deleteAllSigs_Params_List{l}, err
-}
-
-func (s MessageSectionWithSig_deleteAllSigs_Params_List) At(i int) MessageSectionWithSig_deleteAllSigs_Params {
-	return MessageSectionWithSig_deleteAllSigs_Params{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_deleteAllSigs_Params_List) Set(i int, v MessageSectionWithSig_deleteAllSigs_Params) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_deleteAllSigs_Params_Promise is a wrapper for a MessageSectionWithSig_deleteAllSigs_Params promised by a client call.
-type MessageSectionWithSig_deleteAllSigs_Params_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_deleteAllSigs_Params_Promise) Struct() (MessageSectionWithSig_deleteAllSigs_Params, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_deleteAllSigs_Params{s}, err
-}
-
-type MessageSectionWithSig_deleteAllSigs_Results struct{ capnp.Struct }
-
-// MessageSectionWithSig_deleteAllSigs_Results_TypeID is the unique identifier for the type MessageSectionWithSig_deleteAllSigs_Results.
-const MessageSectionWithSig_deleteAllSigs_Results_TypeID = 0xf6bdb0430ec96918
-
-func NewMessageSectionWithSig_deleteAllSigs_Results(s *capnp.Segment) (MessageSectionWithSig_deleteAllSigs_Results, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_deleteAllSigs_Results{st}, err
-}
-
-func NewRootMessageSectionWithSig_deleteAllSigs_Results(s *capnp.Segment) (MessageSectionWithSig_deleteAllSigs_Results, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_deleteAllSigs_Results{st}, err
-}
-
-func ReadRootMessageSectionWithSig_deleteAllSigs_Results(msg *capnp.Message) (MessageSectionWithSig_deleteAllSigs_Results, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_deleteAllSigs_Results{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_deleteAllSigs_Results) String() string {
-	str, _ := text.Marshal(0xf6bdb0430ec96918, s.Struct)
-	return str
-}
-
-// MessageSectionWithSig_deleteAllSigs_Results_List is a list of MessageSectionWithSig_deleteAllSigs_Results.
-type MessageSectionWithSig_deleteAllSigs_Results_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_deleteAllSigs_Results creates a new list of MessageSectionWithSig_deleteAllSigs_Results.
-func NewMessageSectionWithSig_deleteAllSigs_Results_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_deleteAllSigs_Results_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return MessageSectionWithSig_deleteAllSigs_Results_List{l}, err
-}
-
-func (s MessageSectionWithSig_deleteAllSigs_Results_List) At(i int) MessageSectionWithSig_deleteAllSigs_Results {
-	return MessageSectionWithSig_deleteAllSigs_Results{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_deleteAllSigs_Results_List) Set(i int, v MessageSectionWithSig_deleteAllSigs_Results) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_deleteAllSigs_Results_Promise is a wrapper for a MessageSectionWithSig_deleteAllSigs_Results promised by a client call.
-type MessageSectionWithSig_deleteAllSigs_Results_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_deleteAllSigs_Results_Promise) Struct() (MessageSectionWithSig_deleteAllSigs_Results, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_deleteAllSigs_Results{s}, err
-}
-
-type MessageSectionWithSig_getContext_Params struct{ capnp.Struct }
-
-// MessageSectionWithSig_getContext_Params_TypeID is the unique identifier for the type MessageSectionWithSig_getContext_Params.
-const MessageSectionWithSig_getContext_Params_TypeID = 0xdef6357752ebba29
-
-func NewMessageSectionWithSig_getContext_Params(s *capnp.Segment) (MessageSectionWithSig_getContext_Params, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_getContext_Params{st}, err
-}
-
-func NewRootMessageSectionWithSig_getContext_Params(s *capnp.Segment) (MessageSectionWithSig_getContext_Params, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_getContext_Params{st}, err
-}
-
-func ReadRootMessageSectionWithSig_getContext_Params(msg *capnp.Message) (MessageSectionWithSig_getContext_Params, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_getContext_Params{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_getContext_Params) String() string {
-	str, _ := text.Marshal(0xdef6357752ebba29, s.Struct)
-	return str
-}
-
-// MessageSectionWithSig_getContext_Params_List is a list of MessageSectionWithSig_getContext_Params.
-type MessageSectionWithSig_getContext_Params_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_getContext_Params creates a new list of MessageSectionWithSig_getContext_Params.
-func NewMessageSectionWithSig_getContext_Params_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_getContext_Params_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return MessageSectionWithSig_getContext_Params_List{l}, err
-}
-
-func (s MessageSectionWithSig_getContext_Params_List) At(i int) MessageSectionWithSig_getContext_Params {
-	return MessageSectionWithSig_getContext_Params{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_getContext_Params_List) Set(i int, v MessageSectionWithSig_getContext_Params) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_getContext_Params_Promise is a wrapper for a MessageSectionWithSig_getContext_Params promised by a client call.
-type MessageSectionWithSig_getContext_Params_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_getContext_Params_Promise) Struct() (MessageSectionWithSig_getContext_Params, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_getContext_Params{s}, err
-}
-
-type MessageSectionWithSig_getContext_Results struct{ capnp.Struct }
-
-// MessageSectionWithSig_getContext_Results_TypeID is the unique identifier for the type MessageSectionWithSig_getContext_Results.
-const MessageSectionWithSig_getContext_Results_TypeID = 0xfe7e3774c0f9bf1f
-
-func NewMessageSectionWithSig_getContext_Results(s *capnp.Segment) (MessageSectionWithSig_getContext_Results, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return MessageSectionWithSig_getContext_Results{st}, err
-}
-
-func NewRootMessageSectionWithSig_getContext_Results(s *capnp.Segment) (MessageSectionWithSig_getContext_Results, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return MessageSectionWithSig_getContext_Results{st}, err
-}
-
-func ReadRootMessageSectionWithSig_getContext_Results(msg *capnp.Message) (MessageSectionWithSig_getContext_Results, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_getContext_Results{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_getContext_Results) String() string {
-	str, _ := text.Marshal(0xfe7e3774c0f9bf1f, s.Struct)
-	return str
-}
-
-func (s MessageSectionWithSig_getContext_Results) Context() (string, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.Text(), err
-}
-
-func (s MessageSectionWithSig_getContext_Results) HasContext() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s MessageSectionWithSig_getContext_Results) ContextBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.TextBytes(), err
-}
-
-func (s MessageSectionWithSig_getContext_Results) SetContext(v string) error {
-	return s.Struct.SetText(0, v)
-}
-
-// MessageSectionWithSig_getContext_Results_List is a list of MessageSectionWithSig_getContext_Results.
-type MessageSectionWithSig_getContext_Results_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_getContext_Results creates a new list of MessageSectionWithSig_getContext_Results.
-func NewMessageSectionWithSig_getContext_Results_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_getContext_Results_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return MessageSectionWithSig_getContext_Results_List{l}, err
-}
-
-func (s MessageSectionWithSig_getContext_Results_List) At(i int) MessageSectionWithSig_getContext_Results {
-	return MessageSectionWithSig_getContext_Results{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_getContext_Results_List) Set(i int, v MessageSectionWithSig_getContext_Results) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_getContext_Results_Promise is a wrapper for a MessageSectionWithSig_getContext_Results promised by a client call.
-type MessageSectionWithSig_getContext_Results_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_getContext_Results_Promise) Struct() (MessageSectionWithSig_getContext_Results, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_getContext_Results{s}, err
-}
-
-type MessageSectionWithSig_getSubjectZone_Params struct{ capnp.Struct }
-
-// MessageSectionWithSig_getSubjectZone_Params_TypeID is the unique identifier for the type MessageSectionWithSig_getSubjectZone_Params.
-const MessageSectionWithSig_getSubjectZone_Params_TypeID = 0xd48a054099ff07a6
-
-func NewMessageSectionWithSig_getSubjectZone_Params(s *capnp.Segment) (MessageSectionWithSig_getSubjectZone_Params, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_getSubjectZone_Params{st}, err
-}
-
-func NewRootMessageSectionWithSig_getSubjectZone_Params(s *capnp.Segment) (MessageSectionWithSig_getSubjectZone_Params, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_getSubjectZone_Params{st}, err
-}
-
-func ReadRootMessageSectionWithSig_getSubjectZone_Params(msg *capnp.Message) (MessageSectionWithSig_getSubjectZone_Params, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_getSubjectZone_Params{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_getSubjectZone_Params) String() string {
-	str, _ := text.Marshal(0xd48a054099ff07a6, s.Struct)
-	return str
-}
-
-// MessageSectionWithSig_getSubjectZone_Params_List is a list of MessageSectionWithSig_getSubjectZone_Params.
-type MessageSectionWithSig_getSubjectZone_Params_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_getSubjectZone_Params creates a new list of MessageSectionWithSig_getSubjectZone_Params.
-func NewMessageSectionWithSig_getSubjectZone_Params_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_getSubjectZone_Params_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return MessageSectionWithSig_getSubjectZone_Params_List{l}, err
-}
-
-func (s MessageSectionWithSig_getSubjectZone_Params_List) At(i int) MessageSectionWithSig_getSubjectZone_Params {
-	return MessageSectionWithSig_getSubjectZone_Params{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_getSubjectZone_Params_List) Set(i int, v MessageSectionWithSig_getSubjectZone_Params) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_getSubjectZone_Params_Promise is a wrapper for a MessageSectionWithSig_getSubjectZone_Params promised by a client call.
-type MessageSectionWithSig_getSubjectZone_Params_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_getSubjectZone_Params_Promise) Struct() (MessageSectionWithSig_getSubjectZone_Params, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_getSubjectZone_Params{s}, err
-}
-
-type MessageSectionWithSig_getSubjectZone_Results struct{ capnp.Struct }
-
-// MessageSectionWithSig_getSubjectZone_Results_TypeID is the unique identifier for the type MessageSectionWithSig_getSubjectZone_Results.
-const MessageSectionWithSig_getSubjectZone_Results_TypeID = 0xc660dbd95ff47272
-
-func NewMessageSectionWithSig_getSubjectZone_Results(s *capnp.Segment) (MessageSectionWithSig_getSubjectZone_Results, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return MessageSectionWithSig_getSubjectZone_Results{st}, err
-}
-
-func NewRootMessageSectionWithSig_getSubjectZone_Results(s *capnp.Segment) (MessageSectionWithSig_getSubjectZone_Results, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return MessageSectionWithSig_getSubjectZone_Results{st}, err
-}
-
-func ReadRootMessageSectionWithSig_getSubjectZone_Results(msg *capnp.Message) (MessageSectionWithSig_getSubjectZone_Results, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_getSubjectZone_Results{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_getSubjectZone_Results) String() string {
-	str, _ := text.Marshal(0xc660dbd95ff47272, s.Struct)
-	return str
-}
-
-func (s MessageSectionWithSig_getSubjectZone_Results) Zone() (string, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.Text(), err
-}
-
-func (s MessageSectionWithSig_getSubjectZone_Results) HasZone() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s MessageSectionWithSig_getSubjectZone_Results) ZoneBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.TextBytes(), err
-}
-
-func (s MessageSectionWithSig_getSubjectZone_Results) SetZone(v string) error {
-	return s.Struct.SetText(0, v)
-}
-
-// MessageSectionWithSig_getSubjectZone_Results_List is a list of MessageSectionWithSig_getSubjectZone_Results.
-type MessageSectionWithSig_getSubjectZone_Results_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_getSubjectZone_Results creates a new list of MessageSectionWithSig_getSubjectZone_Results.
-func NewMessageSectionWithSig_getSubjectZone_Results_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_getSubjectZone_Results_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return MessageSectionWithSig_getSubjectZone_Results_List{l}, err
-}
-
-func (s MessageSectionWithSig_getSubjectZone_Results_List) At(i int) MessageSectionWithSig_getSubjectZone_Results {
-	return MessageSectionWithSig_getSubjectZone_Results{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_getSubjectZone_Results_List) Set(i int, v MessageSectionWithSig_getSubjectZone_Results) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_getSubjectZone_Results_Promise is a wrapper for a MessageSectionWithSig_getSubjectZone_Results promised by a client call.
-type MessageSectionWithSig_getSubjectZone_Results_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_getSubjectZone_Results_Promise) Struct() (MessageSectionWithSig_getSubjectZone_Results, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_getSubjectZone_Results{s}, err
-}
-
-type MessageSectionWithSig_createStub_Params struct{ capnp.Struct }
-
-// MessageSectionWithSig_createStub_Params_TypeID is the unique identifier for the type MessageSectionWithSig_createStub_Params.
-const MessageSectionWithSig_createStub_Params_TypeID = 0xa23710e0ed103b12
-
-func NewMessageSectionWithSig_createStub_Params(s *capnp.Segment) (MessageSectionWithSig_createStub_Params, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_createStub_Params{st}, err
-}
-
-func NewRootMessageSectionWithSig_createStub_Params(s *capnp.Segment) (MessageSectionWithSig_createStub_Params, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_createStub_Params{st}, err
-}
-
-func ReadRootMessageSectionWithSig_createStub_Params(msg *capnp.Message) (MessageSectionWithSig_createStub_Params, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_createStub_Params{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_createStub_Params) String() string {
-	str, _ := text.Marshal(0xa23710e0ed103b12, s.Struct)
-	return str
-}
-
-// MessageSectionWithSig_createStub_Params_List is a list of MessageSectionWithSig_createStub_Params.
-type MessageSectionWithSig_createStub_Params_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_createStub_Params creates a new list of MessageSectionWithSig_createStub_Params.
-func NewMessageSectionWithSig_createStub_Params_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_createStub_Params_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return MessageSectionWithSig_createStub_Params_List{l}, err
-}
-
-func (s MessageSectionWithSig_createStub_Params_List) At(i int) MessageSectionWithSig_createStub_Params {
-	return MessageSectionWithSig_createStub_Params{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_createStub_Params_List) Set(i int, v MessageSectionWithSig_createStub_Params) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_createStub_Params_Promise is a wrapper for a MessageSectionWithSig_createStub_Params promised by a client call.
-type MessageSectionWithSig_createStub_Params_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_createStub_Params_Promise) Struct() (MessageSectionWithSig_createStub_Params, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_createStub_Params{s}, err
-}
-
-type MessageSectionWithSig_createStub_Results struct{ capnp.Struct }
-
-// MessageSectionWithSig_createStub_Results_TypeID is the unique identifier for the type MessageSectionWithSig_createStub_Results.
-const MessageSectionWithSig_createStub_Results_TypeID = 0x9cbf543afc5b2ef8
-
-func NewMessageSectionWithSig_createStub_Results(s *capnp.Segment) (MessageSectionWithSig_createStub_Results, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return MessageSectionWithSig_createStub_Results{st}, err
-}
-
-func NewRootMessageSectionWithSig_createStub_Results(s *capnp.Segment) (MessageSectionWithSig_createStub_Results, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return MessageSectionWithSig_createStub_Results{st}, err
-}
-
-func ReadRootMessageSectionWithSig_createStub_Results(msg *capnp.Message) (MessageSectionWithSig_createStub_Results, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_createStub_Results{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_createStub_Results) String() string {
-	str, _ := text.Marshal(0x9cbf543afc5b2ef8, s.Struct)
-	return str
-}
-
-func (s MessageSectionWithSig_createStub_Results) Section() MessageSectionWithSig {
-	p, _ := s.Struct.Ptr(0)
-	return MessageSectionWithSig{Client: p.Interface().Client()}
-}
-
-func (s MessageSectionWithSig_createStub_Results) HasSection() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s MessageSectionWithSig_createStub_Results) SetSection(v MessageSectionWithSig) error {
-	if v.Client == nil {
-		return s.Struct.SetPtr(0, capnp.Ptr{})
-	}
-	seg := s.Segment()
-	in := capnp.NewInterface(seg, seg.Message().AddCap(v.Client))
-	return s.Struct.SetPtr(0, in.ToPtr())
-}
-
-// MessageSectionWithSig_createStub_Results_List is a list of MessageSectionWithSig_createStub_Results.
-type MessageSectionWithSig_createStub_Results_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_createStub_Results creates a new list of MessageSectionWithSig_createStub_Results.
-func NewMessageSectionWithSig_createStub_Results_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_createStub_Results_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return MessageSectionWithSig_createStub_Results_List{l}, err
-}
-
-func (s MessageSectionWithSig_createStub_Results_List) At(i int) MessageSectionWithSig_createStub_Results {
-	return MessageSectionWithSig_createStub_Results{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_createStub_Results_List) Set(i int, v MessageSectionWithSig_createStub_Results) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_createStub_Results_Promise is a wrapper for a MessageSectionWithSig_createStub_Results promised by a client call.
-type MessageSectionWithSig_createStub_Results_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_createStub_Results_Promise) Struct() (MessageSectionWithSig_createStub_Results, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_createStub_Results{s}, err
-}
-
-func (p MessageSectionWithSig_createStub_Results_Promise) Section() MessageSectionWithSig {
-	return MessageSectionWithSig{Client: p.Pipeline.GetPipeline(0).Client()}
-}
-
-type MessageSectionWithSig_validFrom_Params struct{ capnp.Struct }
-
-// MessageSectionWithSig_validFrom_Params_TypeID is the unique identifier for the type MessageSectionWithSig_validFrom_Params.
-const MessageSectionWithSig_validFrom_Params_TypeID = 0x85070a6faf2dcb4d
-
-func NewMessageSectionWithSig_validFrom_Params(s *capnp.Segment) (MessageSectionWithSig_validFrom_Params, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_validFrom_Params{st}, err
-}
-
-func NewRootMessageSectionWithSig_validFrom_Params(s *capnp.Segment) (MessageSectionWithSig_validFrom_Params, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_validFrom_Params{st}, err
-}
-
-func ReadRootMessageSectionWithSig_validFrom_Params(msg *capnp.Message) (MessageSectionWithSig_validFrom_Params, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_validFrom_Params{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_validFrom_Params) String() string {
-	str, _ := text.Marshal(0x85070a6faf2dcb4d, s.Struct)
-	return str
-}
-
-// MessageSectionWithSig_validFrom_Params_List is a list of MessageSectionWithSig_validFrom_Params.
-type MessageSectionWithSig_validFrom_Params_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_validFrom_Params creates a new list of MessageSectionWithSig_validFrom_Params.
-func NewMessageSectionWithSig_validFrom_Params_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_validFrom_Params_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return MessageSectionWithSig_validFrom_Params_List{l}, err
-}
-
-func (s MessageSectionWithSig_validFrom_Params_List) At(i int) MessageSectionWithSig_validFrom_Params {
-	return MessageSectionWithSig_validFrom_Params{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_validFrom_Params_List) Set(i int, v MessageSectionWithSig_validFrom_Params) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_validFrom_Params_Promise is a wrapper for a MessageSectionWithSig_validFrom_Params promised by a client call.
-type MessageSectionWithSig_validFrom_Params_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_validFrom_Params_Promise) Struct() (MessageSectionWithSig_validFrom_Params, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_validFrom_Params{s}, err
-}
-
-type MessageSectionWithSig_validFrom_Results struct{ capnp.Struct }
-
-// MessageSectionWithSig_validFrom_Results_TypeID is the unique identifier for the type MessageSectionWithSig_validFrom_Results.
-const MessageSectionWithSig_validFrom_Results_TypeID = 0xddcec9b635b388d9
-
-func NewMessageSectionWithSig_validFrom_Results(s *capnp.Segment) (MessageSectionWithSig_validFrom_Results, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 0})
-	return MessageSectionWithSig_validFrom_Results{st}, err
-}
-
-func NewRootMessageSectionWithSig_validFrom_Results(s *capnp.Segment) (MessageSectionWithSig_validFrom_Results, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 0})
-	return MessageSectionWithSig_validFrom_Results{st}, err
-}
-
-func ReadRootMessageSectionWithSig_validFrom_Results(msg *capnp.Message) (MessageSectionWithSig_validFrom_Results, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_validFrom_Results{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_validFrom_Results) String() string {
-	str, _ := text.Marshal(0xddcec9b635b388d9, s.Struct)
-	return str
-}
-
-func (s MessageSectionWithSig_validFrom_Results) ValidFrom() int64 {
-	return int64(s.Struct.Uint64(0))
-}
-
-func (s MessageSectionWithSig_validFrom_Results) SetValidFrom(v int64) {
-	s.Struct.SetUint64(0, uint64(v))
-}
-
-// MessageSectionWithSig_validFrom_Results_List is a list of MessageSectionWithSig_validFrom_Results.
-type MessageSectionWithSig_validFrom_Results_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_validFrom_Results creates a new list of MessageSectionWithSig_validFrom_Results.
-func NewMessageSectionWithSig_validFrom_Results_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_validFrom_Results_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 0}, sz)
-	return MessageSectionWithSig_validFrom_Results_List{l}, err
-}
-
-func (s MessageSectionWithSig_validFrom_Results_List) At(i int) MessageSectionWithSig_validFrom_Results {
-	return MessageSectionWithSig_validFrom_Results{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_validFrom_Results_List) Set(i int, v MessageSectionWithSig_validFrom_Results) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_validFrom_Results_Promise is a wrapper for a MessageSectionWithSig_validFrom_Results promised by a client call.
-type MessageSectionWithSig_validFrom_Results_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_validFrom_Results_Promise) Struct() (MessageSectionWithSig_validFrom_Results, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_validFrom_Results{s}, err
-}
-
-type MessageSectionWithSig_validUntil_Params struct{ capnp.Struct }
-
-// MessageSectionWithSig_validUntil_Params_TypeID is the unique identifier for the type MessageSectionWithSig_validUntil_Params.
-const MessageSectionWithSig_validUntil_Params_TypeID = 0xf53b9c54e2e0158b
-
-func NewMessageSectionWithSig_validUntil_Params(s *capnp.Segment) (MessageSectionWithSig_validUntil_Params, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_validUntil_Params{st}, err
-}
-
-func NewRootMessageSectionWithSig_validUntil_Params(s *capnp.Segment) (MessageSectionWithSig_validUntil_Params, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_validUntil_Params{st}, err
-}
-
-func ReadRootMessageSectionWithSig_validUntil_Params(msg *capnp.Message) (MessageSectionWithSig_validUntil_Params, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_validUntil_Params{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_validUntil_Params) String() string {
-	str, _ := text.Marshal(0xf53b9c54e2e0158b, s.Struct)
-	return str
-}
-
-// MessageSectionWithSig_validUntil_Params_List is a list of MessageSectionWithSig_validUntil_Params.
-type MessageSectionWithSig_validUntil_Params_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_validUntil_Params creates a new list of MessageSectionWithSig_validUntil_Params.
-func NewMessageSectionWithSig_validUntil_Params_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_validUntil_Params_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return MessageSectionWithSig_validUntil_Params_List{l}, err
-}
-
-func (s MessageSectionWithSig_validUntil_Params_List) At(i int) MessageSectionWithSig_validUntil_Params {
-	return MessageSectionWithSig_validUntil_Params{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_validUntil_Params_List) Set(i int, v MessageSectionWithSig_validUntil_Params) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_validUntil_Params_Promise is a wrapper for a MessageSectionWithSig_validUntil_Params promised by a client call.
-type MessageSectionWithSig_validUntil_Params_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_validUntil_Params_Promise) Struct() (MessageSectionWithSig_validUntil_Params, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_validUntil_Params{s}, err
-}
-
-type MessageSectionWithSig_validUntil_Results struct{ capnp.Struct }
-
-// MessageSectionWithSig_validUntil_Results_TypeID is the unique identifier for the type MessageSectionWithSig_validUntil_Results.
-const MessageSectionWithSig_validUntil_Results_TypeID = 0x838419d256dc1071
-
-func NewMessageSectionWithSig_validUntil_Results(s *capnp.Segment) (MessageSectionWithSig_validUntil_Results, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 0})
-	return MessageSectionWithSig_validUntil_Results{st}, err
-}
-
-func NewRootMessageSectionWithSig_validUntil_Results(s *capnp.Segment) (MessageSectionWithSig_validUntil_Results, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 0})
-	return MessageSectionWithSig_validUntil_Results{st}, err
-}
-
-func ReadRootMessageSectionWithSig_validUntil_Results(msg *capnp.Message) (MessageSectionWithSig_validUntil_Results, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_validUntil_Results{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_validUntil_Results) String() string {
-	str, _ := text.Marshal(0x838419d256dc1071, s.Struct)
-	return str
-}
-
-func (s MessageSectionWithSig_validUntil_Results) ValidUntil() int64 {
-	return int64(s.Struct.Uint64(0))
-}
-
-func (s MessageSectionWithSig_validUntil_Results) SetValidUntil(v int64) {
-	s.Struct.SetUint64(0, uint64(v))
-}
-
-// MessageSectionWithSig_validUntil_Results_List is a list of MessageSectionWithSig_validUntil_Results.
-type MessageSectionWithSig_validUntil_Results_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_validUntil_Results creates a new list of MessageSectionWithSig_validUntil_Results.
-func NewMessageSectionWithSig_validUntil_Results_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_validUntil_Results_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 0}, sz)
-	return MessageSectionWithSig_validUntil_Results_List{l}, err
-}
-
-func (s MessageSectionWithSig_validUntil_Results_List) At(i int) MessageSectionWithSig_validUntil_Results {
-	return MessageSectionWithSig_validUntil_Results{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_validUntil_Results_List) Set(i int, v MessageSectionWithSig_validUntil_Results) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_validUntil_Results_Promise is a wrapper for a MessageSectionWithSig_validUntil_Results promised by a client call.
-type MessageSectionWithSig_validUntil_Results_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_validUntil_Results_Promise) Struct() (MessageSectionWithSig_validUntil_Results, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_validUntil_Results{s}, err
-}
-
-type MessageSectionWithSig_hash_Params struct{ capnp.Struct }
-
-// MessageSectionWithSig_hash_Params_TypeID is the unique identifier for the type MessageSectionWithSig_hash_Params.
-const MessageSectionWithSig_hash_Params_TypeID = 0x98ebe8ee44b55fad
-
-func NewMessageSectionWithSig_hash_Params(s *capnp.Segment) (MessageSectionWithSig_hash_Params, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_hash_Params{st}, err
-}
-
-func NewRootMessageSectionWithSig_hash_Params(s *capnp.Segment) (MessageSectionWithSig_hash_Params, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return MessageSectionWithSig_hash_Params{st}, err
-}
-
-func ReadRootMessageSectionWithSig_hash_Params(msg *capnp.Message) (MessageSectionWithSig_hash_Params, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_hash_Params{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_hash_Params) String() string {
-	str, _ := text.Marshal(0x98ebe8ee44b55fad, s.Struct)
-	return str
-}
-
-// MessageSectionWithSig_hash_Params_List is a list of MessageSectionWithSig_hash_Params.
-type MessageSectionWithSig_hash_Params_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_hash_Params creates a new list of MessageSectionWithSig_hash_Params.
-func NewMessageSectionWithSig_hash_Params_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_hash_Params_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return MessageSectionWithSig_hash_Params_List{l}, err
-}
-
-func (s MessageSectionWithSig_hash_Params_List) At(i int) MessageSectionWithSig_hash_Params {
-	return MessageSectionWithSig_hash_Params{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_hash_Params_List) Set(i int, v MessageSectionWithSig_hash_Params) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_hash_Params_Promise is a wrapper for a MessageSectionWithSig_hash_Params promised by a client call.
-type MessageSectionWithSig_hash_Params_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_hash_Params_Promise) Struct() (MessageSectionWithSig_hash_Params, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_hash_Params{s}, err
-}
-
-type MessageSectionWithSig_hash_Results struct{ capnp.Struct }
-
-// MessageSectionWithSig_hash_Results_TypeID is the unique identifier for the type MessageSectionWithSig_hash_Results.
-const MessageSectionWithSig_hash_Results_TypeID = 0x897430f9f1af94c2
-
-func NewMessageSectionWithSig_hash_Results(s *capnp.Segment) (MessageSectionWithSig_hash_Results, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return MessageSectionWithSig_hash_Results{st}, err
-}
-
-func NewRootMessageSectionWithSig_hash_Results(s *capnp.Segment) (MessageSectionWithSig_hash_Results, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return MessageSectionWithSig_hash_Results{st}, err
-}
-
-func ReadRootMessageSectionWithSig_hash_Results(msg *capnp.Message) (MessageSectionWithSig_hash_Results, error) {
-	root, err := msg.RootPtr()
-	return MessageSectionWithSig_hash_Results{root.Struct()}, err
-}
-
-func (s MessageSectionWithSig_hash_Results) String() string {
-	str, _ := text.Marshal(0x897430f9f1af94c2, s.Struct)
-	return str
-}
-
-func (s MessageSectionWithSig_hash_Results) Hash() (string, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.Text(), err
-}
-
-func (s MessageSectionWithSig_hash_Results) HasHash() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s MessageSectionWithSig_hash_Results) HashBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.TextBytes(), err
-}
-
-func (s MessageSectionWithSig_hash_Results) SetHash(v string) error {
-	return s.Struct.SetText(0, v)
-}
-
-// MessageSectionWithSig_hash_Results_List is a list of MessageSectionWithSig_hash_Results.
-type MessageSectionWithSig_hash_Results_List struct{ capnp.List }
-
-// NewMessageSectionWithSig_hash_Results creates a new list of MessageSectionWithSig_hash_Results.
-func NewMessageSectionWithSig_hash_Results_List(s *capnp.Segment, sz int32) (MessageSectionWithSig_hash_Results_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return MessageSectionWithSig_hash_Results_List{l}, err
-}
-
-func (s MessageSectionWithSig_hash_Results_List) At(i int) MessageSectionWithSig_hash_Results {
-	return MessageSectionWithSig_hash_Results{s.List.Struct(i)}
-}
-
-func (s MessageSectionWithSig_hash_Results_List) Set(i int, v MessageSectionWithSig_hash_Results) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// MessageSectionWithSig_hash_Results_Promise is a wrapper for a MessageSectionWithSig_hash_Results promised by a client call.
-type MessageSectionWithSig_hash_Results_Promise struct{ *capnp.Pipeline }
-
-func (p MessageSectionWithSig_hash_Results_Promise) Struct() (MessageSectionWithSig_hash_Results, error) {
-	s, err := p.Pipeline.Struct()
-	return MessageSectionWithSig_hash_Results{s}, err
-}
-
-type Interval struct{ Client capnp.Client }
-
-// Interval_TypeID is the unique identifier for the type Interval.
-const Interval_TypeID = 0xb288e1a44d8ed064
-
-func (c Interval) Begin(ctx context.Context, params func(Interval_begin_Params) error, opts ...capnp.CallOption) Interval_begin_Results_Promise {
-	if c.Client == nil {
-		return Interval_begin_Results_Promise{Pipeline: capnp.NewPipeline(capnp.ErrorAnswer(capnp.ErrNullClient))}
-	}
-	call := &capnp.Call{
-		Ctx: ctx,
-		Method: capnp.Method{
-			InterfaceID:   0xb288e1a44d8ed064,
-			MethodID:      0,
-			InterfaceName: "proto/rainsMsg.capnp:Interval",
-			MethodName:    "begin",
-		},
-		Options: capnp.NewCallOptions(opts),
-	}
-	if params != nil {
-		call.ParamsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
-		call.ParamsFunc = func(s capnp.Struct) error { return params(Interval_begin_Params{Struct: s}) }
-	}
-	return Interval_begin_Results_Promise{Pipeline: capnp.NewPipeline(c.Client.Call(call))}
-}
-func (c Interval) End(ctx context.Context, params func(Interval_end_Params) error, opts ...capnp.CallOption) Interval_end_Results_Promise {
-	if c.Client == nil {
-		return Interval_end_Results_Promise{Pipeline: capnp.NewPipeline(capnp.ErrorAnswer(capnp.ErrNullClient))}
-	}
-	call := &capnp.Call{
-		Ctx: ctx,
-		Method: capnp.Method{
-			InterfaceID:   0xb288e1a44d8ed064,
-			MethodID:      1,
-			InterfaceName: "proto/rainsMsg.capnp:Interval",
-			MethodName:    "end",
-		},
-		Options: capnp.NewCallOptions(opts),
-	}
-	if params != nil {
-		call.ParamsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
-		call.ParamsFunc = func(s capnp.Struct) error { return params(Interval_end_Params{Struct: s}) }
-	}
-	return Interval_end_Results_Promise{Pipeline: capnp.NewPipeline(c.Client.Call(call))}
-}
-
-type Interval_Server interface {
-	Begin(Interval_begin) error
-
-	End(Interval_end) error
-}
-
-func Interval_ServerToClient(s Interval_Server) Interval {
-	c, _ := s.(server.Closer)
-	return Interval{Client: server.New(Interval_Methods(nil, s), c)}
-}
-
-func Interval_Methods(methods []server.Method, s Interval_Server) []server.Method {
-	if cap(methods) == 0 {
-		methods = make([]server.Method, 0, 2)
-	}
-
-	methods = append(methods, server.Method{
-		Method: capnp.Method{
-			InterfaceID:   0xb288e1a44d8ed064,
-			MethodID:      0,
-			InterfaceName: "proto/rainsMsg.capnp:Interval",
-			MethodName:    "begin",
-		},
-		Impl: func(c context.Context, opts capnp.CallOptions, p, r capnp.Struct) error {
-			call := Interval_begin{c, opts, Interval_begin_Params{Struct: p}, Interval_begin_Results{Struct: r}}
-			return s.Begin(call)
-		},
-		ResultsSize: capnp.ObjectSize{DataSize: 0, PointerCount: 1},
-	})
-
-	methods = append(methods, server.Method{
-		Method: capnp.Method{
-			InterfaceID:   0xb288e1a44d8ed064,
-			MethodID:      1,
-			InterfaceName: "proto/rainsMsg.capnp:Interval",
-			MethodName:    "end",
-		},
-		Impl: func(c context.Context, opts capnp.CallOptions, p, r capnp.Struct) error {
-			call := Interval_end{c, opts, Interval_end_Params{Struct: p}, Interval_end_Results{Struct: r}}
-			return s.End(call)
-		},
-		ResultsSize: capnp.ObjectSize{DataSize: 0, PointerCount: 1},
-	})
-
-	return methods
-}
-
-// Interval_begin holds the arguments for a server call to Interval.begin.
-type Interval_begin struct {
-	Ctx     context.Context
-	Options capnp.CallOptions
-	Params  Interval_begin_Params
-	Results Interval_begin_Results
-}
-
-// Interval_end holds the arguments for a server call to Interval.end.
-type Interval_end struct {
-	Ctx     context.Context
-	Options capnp.CallOptions
-	Params  Interval_end_Params
-	Results Interval_end_Results
-}
-
-type Interval_begin_Params struct{ capnp.Struct }
-
-// Interval_begin_Params_TypeID is the unique identifier for the type Interval_begin_Params.
-const Interval_begin_Params_TypeID = 0xa00b05371373e6d6
-
-func NewInterval_begin_Params(s *capnp.Segment) (Interval_begin_Params, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return Interval_begin_Params{st}, err
-}
-
-func NewRootInterval_begin_Params(s *capnp.Segment) (Interval_begin_Params, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return Interval_begin_Params{st}, err
-}
-
-func ReadRootInterval_begin_Params(msg *capnp.Message) (Interval_begin_Params, error) {
-	root, err := msg.RootPtr()
-	return Interval_begin_Params{root.Struct()}, err
-}
-
-func (s Interval_begin_Params) String() string {
-	str, _ := text.Marshal(0xa00b05371373e6d6, s.Struct)
-	return str
-}
-
-// Interval_begin_Params_List is a list of Interval_begin_Params.
-type Interval_begin_Params_List struct{ capnp.List }
-
-// NewInterval_begin_Params creates a new list of Interval_begin_Params.
-func NewInterval_begin_Params_List(s *capnp.Segment, sz int32) (Interval_begin_Params_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return Interval_begin_Params_List{l}, err
-}
-
-func (s Interval_begin_Params_List) At(i int) Interval_begin_Params {
-	return Interval_begin_Params{s.List.Struct(i)}
-}
-
-func (s Interval_begin_Params_List) Set(i int, v Interval_begin_Params) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// Interval_begin_Params_Promise is a wrapper for a Interval_begin_Params promised by a client call.
-type Interval_begin_Params_Promise struct{ *capnp.Pipeline }
-
-func (p Interval_begin_Params_Promise) Struct() (Interval_begin_Params, error) {
-	s, err := p.Pipeline.Struct()
-	return Interval_begin_Params{s}, err
-}
-
-type Interval_begin_Results struct{ capnp.Struct }
-
-// Interval_begin_Results_TypeID is the unique identifier for the type Interval_begin_Results.
-const Interval_begin_Results_TypeID = 0x9ccb60a0785e0ebe
-
-func NewInterval_begin_Results(s *capnp.Segment) (Interval_begin_Results, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return Interval_begin_Results{st}, err
-}
-
-func NewRootInterval_begin_Results(s *capnp.Segment) (Interval_begin_Results, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return Interval_begin_Results{st}, err
-}
-
-func ReadRootInterval_begin_Results(msg *capnp.Message) (Interval_begin_Results, error) {
-	root, err := msg.RootPtr()
-	return Interval_begin_Results{root.Struct()}, err
-}
-
-func (s Interval_begin_Results) String() string {
-	str, _ := text.Marshal(0x9ccb60a0785e0ebe, s.Struct)
-	return str
-}
-
-func (s Interval_begin_Results) Begin() (string, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.Text(), err
-}
-
-func (s Interval_begin_Results) HasBegin() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s Interval_begin_Results) BeginBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.TextBytes(), err
-}
-
-func (s Interval_begin_Results) SetBegin(v string) error {
-	return s.Struct.SetText(0, v)
-}
-
-// Interval_begin_Results_List is a list of Interval_begin_Results.
-type Interval_begin_Results_List struct{ capnp.List }
-
-// NewInterval_begin_Results creates a new list of Interval_begin_Results.
-func NewInterval_begin_Results_List(s *capnp.Segment, sz int32) (Interval_begin_Results_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return Interval_begin_Results_List{l}, err
-}
-
-func (s Interval_begin_Results_List) At(i int) Interval_begin_Results {
-	return Interval_begin_Results{s.List.Struct(i)}
-}
-
-func (s Interval_begin_Results_List) Set(i int, v Interval_begin_Results) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// Interval_begin_Results_Promise is a wrapper for a Interval_begin_Results promised by a client call.
-type Interval_begin_Results_Promise struct{ *capnp.Pipeline }
-
-func (p Interval_begin_Results_Promise) Struct() (Interval_begin_Results, error) {
-	s, err := p.Pipeline.Struct()
-	return Interval_begin_Results{s}, err
-}
-
-type Interval_end_Params struct{ capnp.Struct }
-
-// Interval_end_Params_TypeID is the unique identifier for the type Interval_end_Params.
-const Interval_end_Params_TypeID = 0xe37f36219a0e109a
-
-func NewInterval_end_Params(s *capnp.Segment) (Interval_end_Params, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return Interval_end_Params{st}, err
-}
-
-func NewRootInterval_end_Params(s *capnp.Segment) (Interval_end_Params, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return Interval_end_Params{st}, err
-}
-
-func ReadRootInterval_end_Params(msg *capnp.Message) (Interval_end_Params, error) {
-	root, err := msg.RootPtr()
-	return Interval_end_Params{root.Struct()}, err
-}
-
-func (s Interval_end_Params) String() string {
-	str, _ := text.Marshal(0xe37f36219a0e109a, s.Struct)
-	return str
-}
-
-// Interval_end_Params_List is a list of Interval_end_Params.
-type Interval_end_Params_List struct{ capnp.List }
-
-// NewInterval_end_Params creates a new list of Interval_end_Params.
-func NewInterval_end_Params_List(s *capnp.Segment, sz int32) (Interval_end_Params_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return Interval_end_Params_List{l}, err
-}
-
-func (s Interval_end_Params_List) At(i int) Interval_end_Params {
-	return Interval_end_Params{s.List.Struct(i)}
-}
-
-func (s Interval_end_Params_List) Set(i int, v Interval_end_Params) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// Interval_end_Params_Promise is a wrapper for a Interval_end_Params promised by a client call.
-type Interval_end_Params_Promise struct{ *capnp.Pipeline }
-
-func (p Interval_end_Params_Promise) Struct() (Interval_end_Params, error) {
-	s, err := p.Pipeline.Struct()
-	return Interval_end_Params{s}, err
-}
-
-type Interval_end_Results struct{ capnp.Struct }
-
-// Interval_end_Results_TypeID is the unique identifier for the type Interval_end_Results.
-const Interval_end_Results_TypeID = 0xe0b5130f36b01c23
-
-func NewInterval_end_Results(s *capnp.Segment) (Interval_end_Results, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return Interval_end_Results{st}, err
-}
-
-func NewRootInterval_end_Results(s *capnp.Segment) (Interval_end_Results, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return Interval_end_Results{st}, err
-}
-
-func ReadRootInterval_end_Results(msg *capnp.Message) (Interval_end_Results, error) {
-	root, err := msg.RootPtr()
-	return Interval_end_Results{root.Struct()}, err
-}
-
-func (s Interval_end_Results) String() string {
-	str, _ := text.Marshal(0xe0b5130f36b01c23, s.Struct)
-	return str
-}
-
-func (s Interval_end_Results) End() (string, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.Text(), err
-}
-
-func (s Interval_end_Results) HasEnd() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s Interval_end_Results) EndBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.TextBytes(), err
-}
-
-func (s Interval_end_Results) SetEnd(v string) error {
-	return s.Struct.SetText(0, v)
-}
-
-// Interval_end_Results_List is a list of Interval_end_Results.
-type Interval_end_Results_List struct{ capnp.List }
-
-// NewInterval_end_Results creates a new list of Interval_end_Results.
-func NewInterval_end_Results_List(s *capnp.Segment, sz int32) (Interval_end_Results_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return Interval_end_Results_List{l}, err
-}
-
-func (s Interval_end_Results_List) At(i int) Interval_end_Results {
-	return Interval_end_Results{s.List.Struct(i)}
-}
-
-func (s Interval_end_Results_List) Set(i int, v Interval_end_Results) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// Interval_end_Results_Promise is a wrapper for a Interval_end_Results promised by a client call.
-type Interval_end_Results_Promise struct{ *capnp.Pipeline }
-
-func (p Interval_end_Results_Promise) Struct() (Interval_end_Results, error) {
-	s, err := p.Pipeline.Struct()
-	return Interval_end_Results{s}, err
-}
-
-type Hashable struct{ Client capnp.Client }
-
-// Hashable_TypeID is the unique identifier for the type Hashable.
-const Hashable_TypeID = 0xa26fe791fa514c3f
-
-func (c Hashable) Hash(ctx context.Context, params func(Hashable_hash_Params) error, opts ...capnp.CallOption) Hashable_hash_Results_Promise {
-	if c.Client == nil {
-		return Hashable_hash_Results_Promise{Pipeline: capnp.NewPipeline(capnp.ErrorAnswer(capnp.ErrNullClient))}
-	}
-	call := &capnp.Call{
-		Ctx: ctx,
-		Method: capnp.Method{
-			InterfaceID:   0xa26fe791fa514c3f,
-			MethodID:      0,
-			InterfaceName: "proto/rainsMsg.capnp:Hashable",
-			MethodName:    "hash",
-		},
-		Options: capnp.NewCallOptions(opts),
-	}
-	if params != nil {
-		call.ParamsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
-		call.ParamsFunc = func(s capnp.Struct) error { return params(Hashable_hash_Params{Struct: s}) }
-	}
-	return Hashable_hash_Results_Promise{Pipeline: capnp.NewPipeline(c.Client.Call(call))}
-}
-
-type Hashable_Server interface {
-	Hash(Hashable_hash) error
-}
-
-func Hashable_ServerToClient(s Hashable_Server) Hashable {
-	c, _ := s.(server.Closer)
-	return Hashable{Client: server.New(Hashable_Methods(nil, s), c)}
-}
-
-func Hashable_Methods(methods []server.Method, s Hashable_Server) []server.Method {
-	if cap(methods) == 0 {
-		methods = make([]server.Method, 0, 1)
-	}
-
-	methods = append(methods, server.Method{
-		Method: capnp.Method{
-			InterfaceID:   0xa26fe791fa514c3f,
-			MethodID:      0,
-			InterfaceName: "proto/rainsMsg.capnp:Hashable",
-			MethodName:    "hash",
-		},
-		Impl: func(c context.Context, opts capnp.CallOptions, p, r capnp.Struct) error {
-			call := Hashable_hash{c, opts, Hashable_hash_Params{Struct: p}, Hashable_hash_Results{Struct: r}}
-			return s.Hash(call)
-		},
-		ResultsSize: capnp.ObjectSize{DataSize: 0, PointerCount: 1},
-	})
-
-	return methods
-}
-
-// Hashable_hash holds the arguments for a server call to Hashable.hash.
-type Hashable_hash struct {
-	Ctx     context.Context
-	Options capnp.CallOptions
-	Params  Hashable_hash_Params
-	Results Hashable_hash_Results
-}
-
-type Hashable_hash_Params struct{ capnp.Struct }
-
-// Hashable_hash_Params_TypeID is the unique identifier for the type Hashable_hash_Params.
-const Hashable_hash_Params_TypeID = 0x920d76878fcb1040
-
-func NewHashable_hash_Params(s *capnp.Segment) (Hashable_hash_Params, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return Hashable_hash_Params{st}, err
-}
-
-func NewRootHashable_hash_Params(s *capnp.Segment) (Hashable_hash_Params, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0})
-	return Hashable_hash_Params{st}, err
-}
-
-func ReadRootHashable_hash_Params(msg *capnp.Message) (Hashable_hash_Params, error) {
-	root, err := msg.RootPtr()
-	return Hashable_hash_Params{root.Struct()}, err
-}
-
-func (s Hashable_hash_Params) String() string {
-	str, _ := text.Marshal(0x920d76878fcb1040, s.Struct)
-	return str
-}
-
-// Hashable_hash_Params_List is a list of Hashable_hash_Params.
-type Hashable_hash_Params_List struct{ capnp.List }
-
-// NewHashable_hash_Params creates a new list of Hashable_hash_Params.
-func NewHashable_hash_Params_List(s *capnp.Segment, sz int32) (Hashable_hash_Params_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return Hashable_hash_Params_List{l}, err
-}
-
-func (s Hashable_hash_Params_List) At(i int) Hashable_hash_Params {
-	return Hashable_hash_Params{s.List.Struct(i)}
-}
-
-func (s Hashable_hash_Params_List) Set(i int, v Hashable_hash_Params) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// Hashable_hash_Params_Promise is a wrapper for a Hashable_hash_Params promised by a client call.
-type Hashable_hash_Params_Promise struct{ *capnp.Pipeline }
-
-func (p Hashable_hash_Params_Promise) Struct() (Hashable_hash_Params, error) {
-	s, err := p.Pipeline.Struct()
-	return Hashable_hash_Params{s}, err
-}
-
-type Hashable_hash_Results struct{ capnp.Struct }
-
-// Hashable_hash_Results_TypeID is the unique identifier for the type Hashable_hash_Results.
-const Hashable_hash_Results_TypeID = 0x89bef2e379450ee3
-
-func NewHashable_hash_Results(s *capnp.Segment) (Hashable_hash_Results, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return Hashable_hash_Results{st}, err
-}
-
-func NewRootHashable_hash_Results(s *capnp.Segment) (Hashable_hash_Results, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1})
-	return Hashable_hash_Results{st}, err
-}
-
-func ReadRootHashable_hash_Results(msg *capnp.Message) (Hashable_hash_Results, error) {
-	root, err := msg.RootPtr()
-	return Hashable_hash_Results{root.Struct()}, err
-}
-
-func (s Hashable_hash_Results) String() string {
-	str, _ := text.Marshal(0x89bef2e379450ee3, s.Struct)
-	return str
-}
-
-func (s Hashable_hash_Results) Hash() (string, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.Text(), err
-}
-
-func (s Hashable_hash_Results) HasHash() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s Hashable_hash_Results) HashBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.TextBytes(), err
-}
-
-func (s Hashable_hash_Results) SetHash(v string) error {
-	return s.Struct.SetText(0, v)
-}
-
-// Hashable_hash_Results_List is a list of Hashable_hash_Results.
-type Hashable_hash_Results_List struct{ capnp.List }
-
-// NewHashable_hash_Results creates a new list of Hashable_hash_Results.
-func NewHashable_hash_Results_List(s *capnp.Segment, sz int32) (Hashable_hash_Results_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return Hashable_hash_Results_List{l}, err
-}
-
-func (s Hashable_hash_Results_List) At(i int) Hashable_hash_Results {
-	return Hashable_hash_Results{s.List.Struct(i)}
-}
-
-func (s Hashable_hash_Results_List) Set(i int, v Hashable_hash_Results) error {
-	return s.List.SetStruct(i, v.Struct)
-}
-
-// Hashable_hash_Results_Promise is a wrapper for a Hashable_hash_Results promised by a client call.
-type Hashable_hash_Results_Promise struct{ *capnp.Pipeline }
-
-func (p Hashable_hash_Results_Promise) Struct() (Hashable_hash_Results, error) {
-	s, err := p.Pipeline.Struct()
-	return Hashable_hash_Results{s}, err
+func (p MessageSection_Promise) AddressZone() AddressZoneSection_Promise {
+	return AddressZoneSection_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
 }
 
 type AssertionSection struct{ capnp.Struct }
@@ -3113,9 +916,9 @@ func (s ZoneSection) SetContext(v string) error {
 	return s.Struct.SetText(2, v)
 }
 
-func (s ZoneSection) Content() (capnp.PointerList, error) {
+func (s ZoneSection) Content() (MessageSection_List, error) {
 	p, err := s.Struct.Ptr(3)
-	return capnp.PointerList{List: p.List()}, err
+	return MessageSection_List{List: p.List()}, err
 }
 
 func (s ZoneSection) HasContent() bool {
@@ -3123,16 +926,16 @@ func (s ZoneSection) HasContent() bool {
 	return p.IsValid() || err != nil
 }
 
-func (s ZoneSection) SetContent(v capnp.PointerList) error {
+func (s ZoneSection) SetContent(v MessageSection_List) error {
 	return s.Struct.SetPtr(3, v.List.ToPtr())
 }
 
 // NewContent sets the content field to a newly
-// allocated capnp.PointerList, preferring placement in s's segment.
-func (s ZoneSection) NewContent(n int32) (capnp.PointerList, error) {
-	l, err := capnp.NewPointerList(s.Struct.Segment(), n)
+// allocated MessageSection_List, preferring placement in s's segment.
+func (s ZoneSection) NewContent(n int32) (MessageSection_List, error) {
+	l, err := NewMessageSection_List(s.Struct.Segment(), n)
 	if err != nil {
-		return capnp.PointerList{}, err
+		return MessageSection_List{}, err
 	}
 	err = s.Struct.SetPtr(3, l.List.ToPtr())
 	return l, err
@@ -4524,12 +2327,20 @@ func (s PublicKey) String() string {
 	return str
 }
 
+func (s PublicKey) KeySpace() KeySpaceID {
+	return KeySpaceID(s.Struct.Uint16(0))
+}
+
+func (s PublicKey) SetKeySpace(v KeySpaceID) {
+	s.Struct.SetUint16(0, uint16(v))
+}
+
 func (s PublicKey) Type() SignatureAlgorithmType {
-	return SignatureAlgorithmType(s.Struct.Uint16(0))
+	return SignatureAlgorithmType(s.Struct.Uint16(2))
 }
 
 func (s PublicKey) SetType(v SignatureAlgorithmType) {
-	s.Struct.SetUint16(0, uint16(v))
+	s.Struct.SetUint16(2, uint16(v))
 }
 
 func (s PublicKey) Key() ([]byte, error) {
@@ -4867,17 +2678,47 @@ type Obj_value Obj
 type Obj_value_Which uint16
 
 const (
-	Obj_value_Which_ip4 Obj_value_Which = 0
-	Obj_value_Which_ip6 Obj_value_Which = 1
+	Obj_value_Which_name    Obj_value_Which = 0
+	Obj_value_Which_ip6     Obj_value_Which = 1
+	Obj_value_Which_ip4     Obj_value_Which = 2
+	Obj_value_Which_redir   Obj_value_Which = 3
+	Obj_value_Which_deleg   Obj_value_Which = 4
+	Obj_value_Which_nameset Obj_value_Which = 5
+	Obj_value_Which_cert    Obj_value_Which = 6
+	Obj_value_Which_service Obj_value_Which = 7
+	Obj_value_Which_regr    Obj_value_Which = 8
+	Obj_value_Which_regt    Obj_value_Which = 9
+	Obj_value_Which_infra   Obj_value_Which = 10
+	Obj_value_Which_extra   Obj_value_Which = 11
 )
 
 func (w Obj_value_Which) String() string {
-	const s = "ip4ip6"
+	const s = "nameip6ip4redirdelegnamesetcertserviceregrregtinfraextra"
 	switch w {
-	case Obj_value_Which_ip4:
-		return s[0:3]
+	case Obj_value_Which_name:
+		return s[0:4]
 	case Obj_value_Which_ip6:
-		return s[3:6]
+		return s[4:7]
+	case Obj_value_Which_ip4:
+		return s[7:10]
+	case Obj_value_Which_redir:
+		return s[10:15]
+	case Obj_value_Which_deleg:
+		return s[15:20]
+	case Obj_value_Which_nameset:
+		return s[20:27]
+	case Obj_value_Which_cert:
+		return s[27:31]
+	case Obj_value_Which_service:
+		return s[31:38]
+	case Obj_value_Which_regr:
+		return s[38:42]
+	case Obj_value_Which_regt:
+		return s[42:46]
+	case Obj_value_Which_infra:
+		return s[46:51]
+	case Obj_value_Which_extra:
+		return s[51:56]
 
 	}
 	return "Obj_value_Which(" + strconv.FormatUint(uint64(w), 10) + ")"
@@ -4919,12 +2760,12 @@ func (s Obj) Value() Obj_value { return Obj_value(s) }
 func (s Obj_value) Which() Obj_value_Which {
 	return Obj_value_Which(s.Struct.Uint16(2))
 }
-func (s Obj_value) Ip4() (string, error) {
+func (s Obj_value) Name() (capnp.TextList, error) {
 	p, err := s.Struct.Ptr(0)
-	return p.Text(), err
+	return capnp.TextList{List: p.List()}, err
 }
 
-func (s Obj_value) HasIp4() bool {
+func (s Obj_value) HasName() bool {
 	if s.Struct.Uint16(2) != 0 {
 		return false
 	}
@@ -4932,14 +2773,21 @@ func (s Obj_value) HasIp4() bool {
 	return p.IsValid() || err != nil
 }
 
-func (s Obj_value) Ip4Bytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.TextBytes(), err
+func (s Obj_value) SetName(v capnp.TextList) error {
+	s.Struct.SetUint16(2, 0)
+	return s.Struct.SetPtr(0, v.List.ToPtr())
 }
 
-func (s Obj_value) SetIp4(v string) error {
+// NewName sets the name field to a newly
+// allocated capnp.TextList, preferring placement in s's segment.
+func (s Obj_value) NewName(n int32) (capnp.TextList, error) {
 	s.Struct.SetUint16(2, 0)
-	return s.Struct.SetText(0, v)
+	l, err := capnp.NewTextList(s.Struct.Segment(), n)
+	if err != nil {
+		return capnp.TextList{}, err
+	}
+	err = s.Struct.SetPtr(0, l.List.ToPtr())
+	return l, err
 }
 
 func (s Obj_value) Ip6() (string, error) {
@@ -4963,6 +2811,271 @@ func (s Obj_value) Ip6Bytes() ([]byte, error) {
 func (s Obj_value) SetIp6(v string) error {
 	s.Struct.SetUint16(2, 1)
 	return s.Struct.SetText(0, v)
+}
+
+func (s Obj_value) Ip4() (string, error) {
+	p, err := s.Struct.Ptr(0)
+	return p.Text(), err
+}
+
+func (s Obj_value) HasIp4() bool {
+	if s.Struct.Uint16(2) != 2 {
+		return false
+	}
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s Obj_value) Ip4Bytes() ([]byte, error) {
+	p, err := s.Struct.Ptr(0)
+	return p.TextBytes(), err
+}
+
+func (s Obj_value) SetIp4(v string) error {
+	s.Struct.SetUint16(2, 2)
+	return s.Struct.SetText(0, v)
+}
+
+func (s Obj_value) Redir() (string, error) {
+	p, err := s.Struct.Ptr(0)
+	return p.Text(), err
+}
+
+func (s Obj_value) HasRedir() bool {
+	if s.Struct.Uint16(2) != 3 {
+		return false
+	}
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s Obj_value) RedirBytes() ([]byte, error) {
+	p, err := s.Struct.Ptr(0)
+	return p.TextBytes(), err
+}
+
+func (s Obj_value) SetRedir(v string) error {
+	s.Struct.SetUint16(2, 3)
+	return s.Struct.SetText(0, v)
+}
+
+func (s Obj_value) Deleg() (PublicKey, error) {
+	p, err := s.Struct.Ptr(0)
+	return PublicKey{Struct: p.Struct()}, err
+}
+
+func (s Obj_value) HasDeleg() bool {
+	if s.Struct.Uint16(2) != 4 {
+		return false
+	}
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s Obj_value) SetDeleg(v PublicKey) error {
+	s.Struct.SetUint16(2, 4)
+	return s.Struct.SetPtr(0, v.Struct.ToPtr())
+}
+
+// NewDeleg sets the deleg field to a newly
+// allocated PublicKey struct, preferring placement in s's segment.
+func (s Obj_value) NewDeleg() (PublicKey, error) {
+	s.Struct.SetUint16(2, 4)
+	ss, err := NewPublicKey(s.Struct.Segment())
+	if err != nil {
+		return PublicKey{}, err
+	}
+	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
+	return ss, err
+}
+
+func (s Obj_value) Nameset() (string, error) {
+	p, err := s.Struct.Ptr(0)
+	return p.Text(), err
+}
+
+func (s Obj_value) HasNameset() bool {
+	if s.Struct.Uint16(2) != 5 {
+		return false
+	}
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s Obj_value) NamesetBytes() ([]byte, error) {
+	p, err := s.Struct.Ptr(0)
+	return p.TextBytes(), err
+}
+
+func (s Obj_value) SetNameset(v string) error {
+	s.Struct.SetUint16(2, 5)
+	return s.Struct.SetText(0, v)
+}
+
+func (s Obj_value) Cert() (CertificateObject, error) {
+	p, err := s.Struct.Ptr(0)
+	return CertificateObject{Struct: p.Struct()}, err
+}
+
+func (s Obj_value) HasCert() bool {
+	if s.Struct.Uint16(2) != 6 {
+		return false
+	}
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s Obj_value) SetCert(v CertificateObject) error {
+	s.Struct.SetUint16(2, 6)
+	return s.Struct.SetPtr(0, v.Struct.ToPtr())
+}
+
+// NewCert sets the cert field to a newly
+// allocated CertificateObject struct, preferring placement in s's segment.
+func (s Obj_value) NewCert() (CertificateObject, error) {
+	s.Struct.SetUint16(2, 6)
+	ss, err := NewCertificateObject(s.Struct.Segment())
+	if err != nil {
+		return CertificateObject{}, err
+	}
+	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
+	return ss, err
+}
+
+func (s Obj_value) Service() (ServiceInfo, error) {
+	p, err := s.Struct.Ptr(0)
+	return ServiceInfo{Struct: p.Struct()}, err
+}
+
+func (s Obj_value) HasService() bool {
+	if s.Struct.Uint16(2) != 7 {
+		return false
+	}
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s Obj_value) SetService(v ServiceInfo) error {
+	s.Struct.SetUint16(2, 7)
+	return s.Struct.SetPtr(0, v.Struct.ToPtr())
+}
+
+// NewService sets the service field to a newly
+// allocated ServiceInfo struct, preferring placement in s's segment.
+func (s Obj_value) NewService() (ServiceInfo, error) {
+	s.Struct.SetUint16(2, 7)
+	ss, err := NewServiceInfo(s.Struct.Segment())
+	if err != nil {
+		return ServiceInfo{}, err
+	}
+	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
+	return ss, err
+}
+
+func (s Obj_value) Regr() (string, error) {
+	p, err := s.Struct.Ptr(0)
+	return p.Text(), err
+}
+
+func (s Obj_value) HasRegr() bool {
+	if s.Struct.Uint16(2) != 8 {
+		return false
+	}
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s Obj_value) RegrBytes() ([]byte, error) {
+	p, err := s.Struct.Ptr(0)
+	return p.TextBytes(), err
+}
+
+func (s Obj_value) SetRegr(v string) error {
+	s.Struct.SetUint16(2, 8)
+	return s.Struct.SetText(0, v)
+}
+
+func (s Obj_value) Regt() (string, error) {
+	p, err := s.Struct.Ptr(0)
+	return p.Text(), err
+}
+
+func (s Obj_value) HasRegt() bool {
+	if s.Struct.Uint16(2) != 9 {
+		return false
+	}
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s Obj_value) RegtBytes() ([]byte, error) {
+	p, err := s.Struct.Ptr(0)
+	return p.TextBytes(), err
+}
+
+func (s Obj_value) SetRegt(v string) error {
+	s.Struct.SetUint16(2, 9)
+	return s.Struct.SetText(0, v)
+}
+
+func (s Obj_value) Infra() (PublicKey, error) {
+	p, err := s.Struct.Ptr(0)
+	return PublicKey{Struct: p.Struct()}, err
+}
+
+func (s Obj_value) HasInfra() bool {
+	if s.Struct.Uint16(2) != 10 {
+		return false
+	}
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s Obj_value) SetInfra(v PublicKey) error {
+	s.Struct.SetUint16(2, 10)
+	return s.Struct.SetPtr(0, v.Struct.ToPtr())
+}
+
+// NewInfra sets the infra field to a newly
+// allocated PublicKey struct, preferring placement in s's segment.
+func (s Obj_value) NewInfra() (PublicKey, error) {
+	s.Struct.SetUint16(2, 10)
+	ss, err := NewPublicKey(s.Struct.Segment())
+	if err != nil {
+		return PublicKey{}, err
+	}
+	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
+	return ss, err
+}
+
+func (s Obj_value) Extra() (PublicKey, error) {
+	p, err := s.Struct.Ptr(0)
+	return PublicKey{Struct: p.Struct()}, err
+}
+
+func (s Obj_value) HasExtra() bool {
+	if s.Struct.Uint16(2) != 11 {
+		return false
+	}
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s Obj_value) SetExtra(v PublicKey) error {
+	s.Struct.SetUint16(2, 11)
+	return s.Struct.SetPtr(0, v.Struct.ToPtr())
+}
+
+// NewExtra sets the extra field to a newly
+// allocated PublicKey struct, preferring placement in s's segment.
+func (s Obj_value) NewExtra() (PublicKey, error) {
+	s.Struct.SetUint16(2, 11)
+	ss, err := NewPublicKey(s.Struct.Segment())
+	if err != nil {
+		return PublicKey{}, err
+	}
+	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
+	return ss, err
 }
 
 // Obj_List is a list of Obj.
@@ -4996,313 +3109,235 @@ func (p Obj_value_Promise) Struct() (Obj_value, error) {
 	return Obj_value{s}, err
 }
 
-const schema_fb2d77234707241e = "x\xda\xacz{t\x14u\x96\xff\xbdU\xdd\x14\xe6\xd5" +
-	"]\xa9\xf4\x91D\xa4A\xe1\xfc\x849\xa8\x84\x87\x1a\xcf" +
-	"\x9c$`F\x03DRIg\x1c\xf2\x1bW+\xdd_" +
-	":\x85\x9d\xeaPU\x814G7\xe2\xfa \xae\x8e\x8f" +
-	"\x919\xc2\xe0\x19\xf0\xa8\xab\xae\x1c\x9d\x19\x9d\x15\x95\xf1" +
-	"\xb1\xa2\xe2c}\x1c\xcf\xec\xb0\x8a\x8a\x8c\xeb\xe0cF" +
-	"8\xc3\x9c\x05uj\xcf\xfdVUwuw\"\x84\xd9" +
-	"\xfc\x93\xea\xea\xfb}\xdc{?\xf7\xde\xcf\xfd~\xfb\xdc" +
-	"/*Z\x84y\xe1\x7f\xa9\x03P\xbf\x0aOr\x92\x97" +
-	"l\xde\xd8vq\xc7u \xc7\x04g\xdaL\xe9\xe23" +
-	"\xd7\xcd\xfd\x1a\x00\xe7_P\xd1\x87JG\x85\x04\xa0\xb4" +
-	"W\xa4\x01\x9d5\xd1\xf7\x7f\xf8N\xfd\xf5\xff\x04\xea\xf7" +
-	"\x10\x01B\x12\xc0\xfc\xa1\x8a\xc3\x08\xa8\x8cV4\x03:" +
-	"\x97\x1c\xee|\xe6\xb9\xc5m\xd7\x83\x1aC,\xcc\x15\x16" +
-	"HrG\xc5RT\x9e\xe7\xd3\xed\xaax\x14\xd0\xe9x" +
-	"m\xee\xa3\xd9\x0a\xe9\x06\x90\xbf\xe7\xcf\xd6S\xf91B" +
-	"\xc8\xd92\xafz\xfe\xb6+o\xbf\xb1lK\xed\x95\xb5" +
-	"\xa8\xac\xac\xa49z*\xcf\x03t^\xb8\xeb\xd1CG" +
-	"\xcf\xb5G\xdd9\xc2H\x93\\^\xf9\x02mi\xa0\x92" +
-	"\xb6t\xa0\xa6-w\xe0\xf0oGA\x9e\x96\x17\xb8\xb5" +
-	"\xb2\x97\x046s\x01\xf1\x8bY\xeb\xaey\"{K\xd9" +
-	"Z;+\x05Tv\xf3\xb5\x9e\xaf\x8c\x03:\x91\xc7\xef" +
-	"i\xfb\xf5\x1f\x8e\xddB\xda\x89\x01\xedhNeg\xe5" +
-	"\xb1\xbc\xf0\xa7\x80NK\xf4\xb5\xdbnZ[}\xa7\xbb" +
-	".W\xee\x9e\xaa.R\xae\xed\xb2\xbe\xfdg\x9fy\xc1" +
-	"]\x01\xb5G\xab>\xa3ov\\\xf1\xc4E\x7f\xfa\xe3" +
-	"\xe7w\x07\xbe\xb9\xa6\xea)\xfa\xe6\x7f\xce\xfe\xff\xdf4" +
-	"%\x9e\xdd\x1aTs\xa0\x8a[~C\x15i\xf1\xdb\x9a" +
-	"\x7f\x18\xdev\xe5k[\x83jn\xaf\xea#\x81\x1d\\" +
-	"\xe0\xd3\x0b6\x9d\xbf}\xe7\xb9\xbf\x009&\x16\xa9\xf9" +
-	"FU/*\xfb\xabh\xc0\xbe\xaa\x9b\x04e\xb4\xe6T" +
-	"\x00\xe7w\xffm)\xe7\x85+\xb7\x05\xb6\x9f\xab\xe9\xa5" +
-	"\xad\xd4^\x18\xfd\xf2\xa3\xe8y\xf7\x066\xc9j\xf8\xf6" +
-	"\x9b\x97\xab\xc7\xee\xf84{o\xe9\x12\xca\xca\x9a\xc3\x0a" +
-	"\xab!\xdbh5\x17+\xa3\xf4\xe4\xac?x\xd7\xd0\xa2" +
-	"\xf7?\xb8?0\xcd\x9a\x1a\xaek\xc3\xb5+b/\x1c" +
-	"\xde\xf4p)\x88\xc2$\xa3\xd5,Ee\xa8\xc6\x15\xbf" +
-	"\x0c\x01\x9dP\xe5\x15O\xafp\xf6\xfck\x99\xff\xf6G" +
-	"*P9\x14\xa1e\xbf\x8c\xbc\x0c\xe8\xfc\xe4\xe5\xdc'" +
-	"\xe7\x0c\xbd\xb7\xa3Lr4\xda\x88\xca\xe6(In\x8a" +
-	"\x12\xaaRo\xfd\xa4\xe3\xbe\xfd\x1b\x7fU\xa6\xc9\xf6\xe8" +
-	"ae\x07\x17|(z\x93r\x94\x9e\x9c\x07^\xaf\x9b" +
-	"}\xe5\x93\x07~\x03r,\xb8]\xae\xd2\xfe\xe8bT" +
-	"\x0e\xf1\x01_F\x09\x16#\xff\x9e{\xb5\xfe\xa9\xce\x9d" +
-	"\xc1\x10:(\x7fL~\xfaV&?\xf5\xf4\xbf\xb4\xb8" +
-	"\xe5\xde\x1b\x9f\x0e\xd8\xe5\xf4\xdaw\xc8.scon" +
-	"\xfc\xaf\xf5\xb1]c\xad#\xd7\xd6\xa22\xa3\x96\xd69" +
-	"\xbd\xf6S\xc0\xafG\xdan\x9c\xd6\xff\xfd]\x01\xb8\xcc" +
-	"VxT\\\xa0\xd0*\x7f\x9e\xfc\xbb\x9f\xb6~\xf1\x9f" +
-	"\xcf\x95\xcc5\x89\x04W*\xb5\xa8\xe8\x0aw\xac\xc2M" +
-	"l\x9a\x7f\xb9b\xef{W\xbe\x14D\xdf\xbe\xbaZ\x01" +
-	"P9RG\xd3\xbd|^z\xf4\x17;\xef~)\xb0" +
-	"\xe9XL\x10 \xe4l\xef\x88m\xdd\xf4\xc6\xde\xd7\xca" +
-	"l~J\xac\x11\x95\xfa\x18\xed8\x16\xfb\x10\xd0\xf9p" +
-	"H\x1dX|\xcb\xa2\xd7\xc9\xedB\xa9~\xbbb\xb5\xa8" +
-	"\xbcA\xd2\xf3\xf7\xc4\xf8\x9e\x9e9\xeb\xa63\xd8\x9b\xda" +
-	"\x9bc\x06\xe3\xacS\x8f)\xf3N%\xe9\xb9\xa7\xc6I" +
-	"\xfa\xb6\x9dG\x96\xb5\x9ey\xe0\xcd\xb1l\xd71\xa5\x02" +
-	"\x95\xcb\xa7\xd0\xb8\x95S\xc8G\x0fH\xce\xe6\x96\xf0\xcd" +
-	"\xef\x06\xf3R}\x05i\xf3\xf9\x8b\xbb\x1eOi\x7fz" +
-	"7h\x88\x8e\xfaW\xc9\xaeZ=\x19\xe2P\xe8G\xef" +
-	"T\xfd\xdbW\xef\x8d\xb5\xce\x86\xfa\xd5\xa8l\xaa\xa7u" +
-	"\xee\xa8\xa7u\xf6n\xfc\xf5\xc2\xdf\xec\xf9\x8f}A," +
-	"\xdc\xda\xf0\x19\xcd\xb6\xbd\x81f\x9b\xfd\xd4\xe7]\xeb\x16" +
-	"\xfe\xf5\x83\xc0Fv7\xf0P;s\xeac\x8b\"\xca" +
-	"\x13\x1f\x05\xc3}gC\x17\x0d\xdd\xcd\x876<\xf2\xc0" +
-	"\xcf~\xff\xf3;\xf6\x83\x1c\x0b\x15\xd9\xfd\x93\x86ZT" +
-	"\x8e4H\x00\xdd_5\x88\xd8\xfdM\x83\x80\x00\xce\x96" +
-	"h\xcd\x96\x19\x8bF\x0e\x04\xe2\xfdP\xc3RZj\xdb" +
-	"\xf7\x1f\xfc\xe2\xc2Go\xfb\xc3\x989}_C\x05*" +
-	"_\xd2l\xca\xc1\x06\xca\xe9\x15O'.\xff\xe9\xaf>" +
-	"\xf8\x04\xd4zD\xe7\xe1\xd4\xe8\xcc\xe1w\xce\xf9\x1cz" +
-	"PB\x01Q\x19=\xed\x18\xa0r\xebi\xeb\x00\x9d\x9f" +
-	"\xeb\xd2\x86Wc\x8f}V:1W\xe6\xe0i\x15\xa8" +
-	"\x1c=\x8d&>r\x1aM\x9c\x9fj\x0ci\xe5\x8e\xa9" +
-	"\xaf*\xf7L\xa5\xa7\xcdSi\xea\xa5\xcf\xcei_\xb6" +
-	"u\xe7\x17%n\xe0\x19d\xef\xd4FT\x0e\x92\xf0\xfc" +
-	"O\xa6rp|\xb0\xa2}\xfe\xdeIg\xfe\xb9\x0c\xa3" +
-	"3\xa65\xa12o\x1a\xcd;w\x1a\x15\xc0\xf7\xf7\xad" +
-	"~@\xfa\xd9W\x7f)\xd9D\x1bJ\x1c$\xd3\xce@" +
-	"\x85M\xe3ij\xdam4\xf3?\xc7>\xfa8\xb1\xf5" +
-	"\xc2#\x01\x07~\x1b\xe7\x0e\x9c\xa2\xef\xa9Y\xf2\xd8\xae" +
-	"\xbf\x06\xbe9\x14\xe7\x18\xbb\xf3\xc0\xf6\xb9O\x7fx\xf3" +
-	"\xd7e\x9e;\x18\x17P9\x12\xe7\x9e\x8b\x93\xe7\xe2\xdc" +
-	"s\xb3\xac\x8d\xe6\x02\xf5\xce\xaf\xc74\xe3\xd1x\x13*" +
-	"\xa7L'\x0d\xc2\xd3\x09s\x0fN\x99\xfc\xe4\x8c\xec\x8a" +
-	"o\xcbt\xdd7]@\xe5\xe0tn\x96\xe9\xff\x8f6" +
-	"\x1f\x7f\xf6\xe8s\xf6y\xff\xf8\xb7 \xd8\x9f\x98\xc1k" +
-	"\xce\x9e\x19\xcd0\xd7\x194\xb3v\xf6\x1cS\x0b\xe9\x86" +
-	"\xd5a\xa5\xcfNj\x83\xc6`S\xb7\x9e64{\xc8" +
-	"d\xad\x99t\xd6\xd4\xed\xfe\x81\x84\x94\x1bd\x9d\x88j" +
-	"\x14\x05\x00y\xf6b\x00DyF#\x00\x0ar\xfdR" +
-	"\x00\x14\xe5\xd8R\x80\x11\x96j\\\xb8p\xde\x05q\x96" +
-	"Z\xb0\xe0|\x87%S\x96\xd6\xb8p\x11\x00\xb8\xcf\xf3" +
-	"\xcf_@\xcf\xfe\xb2\x93\x8a\x96\xed`\x96\xa5\xa5Y7" +
-	"K\xdaz\xd6\xb8L\xb7\xfb\xbb\xf5\xf4\xd9k\xb5\x8c\x9e" +
-	"\xea1l=3\xb3\x8b\xc5\xad\xa1\x8cm\xa9!1\x04" +
-	"\x10B\x00\xb9\xba\x17@\xad\x12Q\x9d\"\xa0\xe3\x8b\x82" +
-	"\xa8g0\x0c\x02\x86\x01\xc7Q\xf1\xd2\xac\xad\xaf\xd2\x93" +
-	"\x1a\xad\xe4-\x08@\x0aV\xe5\xa7nk\x04P[D" +
-	"T\x97\x0b\x88XG\xf1-\xb7\xcf\x01P/\x12Q\xed" +
-	"\x14P\x16\xb0\x8e[\xa3\x83^^\"\xa2\x9a\x100n" +
-	"g\xafb\x06V\x83\x80\xd5\x80\x11;7\xc80RH" +
-	"\xa1\x80\x18\x01\x8c\xa44[\xc3*\x10\xb0*\xb0\xc1\x13" +
-	"6\xc6\x0f\xcc\xec\xc0\xccN\xcd\x94\xb4\x01+?Z," +
-	"\x1a\xddIo\x93\xd9L\"7\x88\xdco\x93\xf9Ne" +
-	"\x93\xfb\xad\xba\x91|\x90\xe81\xacA\x96\x84\xb8\xbeJ" +
-	"g\xa9\xf8`\"\xb1\xbc{B\x9b\xe9\xd7\xac\xfe\x99]" +
-	"\x8c\xbb\x04\x82>!{L\x16Q\xad\x130BBe" +
-	"\xaa\x16\xfb\xe2\x12\xcd\xea\xd7\xfa2,0\xa1X\xec\xe4" +
-	"\xe3NX\xac\xfd2\x96\xeb\x1e\xd4\x92\xac\xfd\"\xee\xd2" +
-	"\x10\xd7=l\x028\xa6\xa6\x1b\xd62\x96\x838\x17\xc8" +
-	"\x8f\x17\x8a\xad7\xd4\xd7\x9c\xd1\x93\xcbX\x8eC>\xbf" +
-	"\x0f\x8d\xf6\xf1c\x11\xd5\xfe\x02\"\xd8\x19\x00\xea\x95\"" +
-	"\xaa\x99\x00\"\xf4.\x00\xb5_D\xd5\x16P\x16\x85:" +
-	"\x14\x01\xe45\x04\xd5A\x11\xd5\xab\x85<0\xf2\xc4\xdd" +
-	"\x05\x86t\x15\xcb\xf9\xd8q|_\x03\x0e\xe4\xc1<\x01" +
-	"\x84\x17[\xb5S3\xb5\x01\xb4&\xe4\xdf\x14\xcb0\x9b" +
-	"u\xebi\xf2I\x84\xbc\x9c\x1f\x1e>Qx4\xf3\x85" +
-	"'\xb6n\xd2d\x9a\xcd\xba\xed\xa1\xbe1#~q\x01" +
-	"\x0c#\x96;\x12\xe5\x029&\x80\x8fk\x94v\xc3f" +
-	"\xe6Z-sv\x1fK\xeb\x06\xc7\x9aT2}ca" +
-	"\xfa8\x97:\x0ez\xc7\xd0A\xd4\xd3\x04\x9c\xb3\xc4p" +
-	"\x80%\xe3H\x1bpB\xa7\xcc\xc39 (\xb3PB" +
-	"\xcc\xd3\x11\xf4I\xa3R\x8fM (\xd5Tm\xf3T" +
-	"\x13\xfd\x86CA\xec\x02A>*\xa1\x98gl\xe8\x17" +
-	"\"\xf9K\x13\x04\xf9\x13\x09Cy\xda\x81~\x05\x90\xf7" +
-	"\xf6\x82 \xbf-a8\xcf\x8d\xd0\xe7\x84\xf2\xee\xf5 " +
-	"\xc8\xbb$\x9c\x94\xef\x0c\xd0\xefV\xe4_\xd2\xb8\x87$" +
-	"\x94\xf2\xbd\x1e\xfa\xa4G\xbe\x87\xf6\xb2I\xc2\xc9\xf9*" +
-	"\x89~\x7f)\x8f\xd2\xb8\x0d\x12\x9e\x92o\x89\xd0o\xf4" +
-	"\xe4\xa19 \xc8\xba\x14\xb1\xf4\xb4\xd5\x82\xcdZ*\xd5" +
-	"\xad\xa7[\xd0\xf1\x01\x07X\xf8\xd4\x9a\x81x\xa6\x9b\x0b" +
-	":if/\xc9\x1a6\x03q\xd8v?v\x0f\xf5\xad" +
-	"f\xd0\x9c\xb4{\xb3\x06kA\xc7\x87\x0e\x88C}-" +
-	"E!\xd4R\x1c<-n\"i\xa1\xec\x10h\x16\x02" +
-	"\xb5\xe9;\x81C\xa8\x16O\x1e\xd6\x9dZ\xa4(*\x84" +
-	"\xd2\xc8\x8d\xf3\xd0\xe5\xc9\x8b\x83\xc8oE\xd1\xef\x85e" +
-	"\x99l\x18\x96<-:\x11'\x14\x9bd\xf9\xb2\xd8," +
-	"\xd6\xb85\x952\x99e\xa9C\xcc\xcc\x15U\xc8)\xf9" +
-	"X\xd9\xdc\x07\xa0\xde-\xa2z\x9f\x80\xb2\x9f\x10\xb7S" +
-	"\x00m\x15Q}\x90\x12\xa2\xe0&\xc4\xfb)h\xb7\x89" +
-	"\xa8>B\x09Qt\x13\xe2C$y\x9f\x88\xeas\x02" +
-	"b\xa8\x0eC\x00\xf2.\x12|RD\xf5E\x01\xe5p" +
-	"\xa8\x0e\xc3\x00\xf2\xf3\xf4\xf2\x19\x11\xd5\xdf\x0b\xe8X\xe4" +
-	"\xf2\xa4\xdd\x0aR*eb\xb4@n\x011\x0a%\x05" +
-	"x$Ix\x19\xb6\xfd\x18\x8eS\xde\xb5\xb0\x06\xb0S" +
-	"D\x0c\x81@\x8f#lxP7\x99\xe5'\xd4\x91\xec" +
-	" i\x9b\x17\x8b\x14\x1aT@z9N\xd9\xe1\xa6Z" +
-	"1X\xb0\xd4t\xae\xfbJ\xb7\xe8\xf6<\xcc\xc9R\xcf" +
-	"zN\x96\xd4;\x010$\xab\xf7\x02`XVW\x03" +
-	"\xe0$\xb9\xe3U\x00\x94du\x0b\x803\xa0\x1bm\x8d" +
-	"m\xcb5\x88\xdb\xccH\xe6\xe8\xf3r\xcd\xb2/\xc1\xec" +
-	"`\xaba\xadcf\xa4[_\xcf\xe8u\xbb\xb1*\xbb" +
-	"\x1c\x9a\x99v\x95\x96fNRK\xf6\xb3T\xab\x81$" +
-	"c\xad02\x98s\\\xfdR\xadhY\xcc\xa4\xedI" +
-	"\xd6\x8a\xab\x1cn\xa8\x84\xa9A$\xa9\x1bi\xc7\xc8\xfe" +
-	"\x90\x99\xfa*]pI\xd1E,\xc3\xd2\x9a\xab\x8bc" +
-	"d;\xcd\xac\x96\xb4Q_\xcb\x96h\xc9~]4\xd2" +
-	"\xe3\x18a\x09\xad\xc0\x99\x15\x8b\xf7\x10\xf2\xca\xd9G\x1f" +
-	"\x80\x93\xecI\x98C\x96\xdd\x0aq#\xd9\x9f5\x9dd" +
-	"O\x9b\x91j3l\x90t;7N\\\xb4\x1bv\x9c" +
-	"\x07!\x9f\x92\xc7\x85\x7f\xc6\x81\xfe\xe1\x89<\xaf\x11\x04" +
-	"y\x16\xa5V\xbf\x1fB\xbf\xd3\x92\xeb\xcf\x00A\xae\x96" +
-	"\xdc\xb4\xde\x82\x123R\xc5\xa13f\x04Pj\xf1\x03" +
-	"\xa0\x84\x0f\xf4\x05j\xbf\x8f\x7f\xbd\xd7\xab\xfd\xd7\x07\xf0" +
-	"\xbf\x81\x10|\xb5\x88\xea\xc6\x00\xfeo\xa0\x97\xd7\x8a\xa8" +
-	"n=>\xac\x1d\xcb\xe3\xe4 \x16\xf0\x1b-\xb4\xd0." +
-	"0K\xe1\xee~6\xec\xc2\x80|w[\x82\xe4\x89\xf1" +
-	"\x01\x8f|\x06\xcb\xe6\x19\x85\xb2)\xe9\x86\xcdc+4" +
-	"\xc1\x05\xdcB\xe0QJ\x1c\x8f\xdbv\x11\x87s'p" +
-	"\xb9m\xc0!\x8d\x05\x82\x96w\x08[\xecy\xe9\xea\x80" +
-	"Cr\xe4\xa5a\x11\xd5\xbb\x02\x0e\xb9c5\x80z\xbb" +
-	"\x9b\xa5\xc6\xca#AC\xe6\xfbH\xcf\x90'\xe4\x1f'" +
-	"\xa9\x0dj}zF\x87\x88\xad\x17\xe4\xaa\xdc<4!" +
-	"[\xf1\x0c>\x16\xf9\x0e:\xc2\xd2\xd3%\x9b\x88\x8e\x9b" +
-	"\xbd\xba\xfb53\xe5.\x82FI\x9e'\x0b\xde%\xa2" +
-	"\xfaX\xc0\xac;\xc8\x82\x8f\x88\xa8\xbe\x120\xebn\x8a" +
-	"\x88\x17ET\xdf\x0a\x98\xf5\x0d\x1a\xfe\x8a\x88\xea\xbb\x02" +
-	"\xca!/\xd1\xbfM\x14\xf9-\x11\xd5\xf7)\xd1\x87\xdd" +
-	"D\xbf\x97$\xdf\x15Q\xfdH\x18\xc3\xe4\xf9#\x81\x09" +
-	"\x99\xdc\x0b\xac^\x90\xb2\x06+\x0e\x8cB\xa08\xa6f" +
-	"\xa4\x99G\xb6}\x19\xfe.\x91-\xe3\x7f\xd2\x09\xb8\xc7" +
-	"\xe7&.3\xc9Cz\xbc\xa6f}`o\xf9u*" +
-	"O8&[3\x9c\"\xb9,\xdf\x02\x7f\x82\xf1:\xde" +
-	"\xb8\x91\xf0\xda\xf9\x99\xdck\xac\x8b'f\xed:^\xa1" +
-	".\xef\xe5\x15j\xe5\x16^\xa1V\xde\xc9+\xd4\xca>" +
-	"^\xa1z\xaes+\xd4\xcd\x008\x99\xffs\xfa\x99f" +
-	"\xda}L\x03\xb4\x09\xde\xd4v\\*d\xedeFv" +
-	"\x9d\x01}Z\x8a\xef[L3\xc7L\xaem7\x92Y" +
-	"\x03-\xdd\"\xc7v\x88\x16U\x9dV^\x94\x90\x0an" +
-	"\xdb\xb0n\xa1\xed\x0cX\xe9D6\xbb\\\x03\xc9L3" +
-	"g\x88w\xa9\xddL4\xd72\xb3\xcd4\xc1b\xf4t" +
-	"i\xd6^B\xc1\x94a\xbc>\x15fi]\xab\xe9\x99" +
-	"\x00\x8f\x1b\xa3F\x8f\x83\xf2F\x0f\xe5\xdb\x02(\xbfg" +
-	"N\x80\xe2\xf8(\xdf\xbe\xb8@q\xd0\x03\xf9\xfds\x02" +
-	"\x0c'\x84.\xc8\x1fZ\xec1\x1c\x0a\x9c\xb0\xe8\x82|" +
-	"\x07\xbd|\xd0\xa58%\xc7\x05\x8660.D\xfd\x96" +
-	"1\x7f\xfc\xe3\xb6\x8c'O^\x84\xd23\x9ff\xf7\xd0" +
-	"\x87\xacR\x97\xb7\xca5K\x03\x95\xcb\xb7\xca\x0d\x14\xbc" +
-	"\xd7\x8b\xa8\xde\x1ehzo\xa5\x84p\x8b\x88\xea\xdd\x81" +
-	"\xa6wSo\xc1\xa8>\xc7\x0b\xda\xd4\xb9\xca\xeb\xd5\x01" +
-	"\x00#\x85\x9b\x1cW9G\xf3\x0e\xa0(,\xcb\xbae" +
-	"\x97\xd0w\xeb\x06\x88I\xf6\x9d-\xb2{\xe0\xe27\xd6" +
-	"c##X\xe6K\xeb|o\xa0\x82\xf86\xc8\xf5y" +
-	"\x15d\x82u\xfe\xff.i\x95f\xc8\xe2&\xb8\xe6\xef" +
-	"\xcbX^*\x81\x93)\xe0\xfe\xd8\x93+Kc\x92\xb0" +
-	"V\x9f\xbav\xb3d\x84\xfe\x9f\x08\x13#\xbb\xa7DT" +
-	"\xaf\x0dx\xe8\x9a^\xcfCw\x07<\xb4i\xb1W\xf8" +
-	"O\x80\x89\x95\xd7\xa5\xfc\xb9\xf6D\xeaRY\x05:\xb9" +
-	"c@\xffd&h\xea\xae\xd2#\xd1\x92C\xa4\x89\xac" +
-	"\xe4\xb7\xdc\xc3vY\xd3:N\x83\xcc\x8c\xd4\x98\xe5." +
-	"\x08\x00f\xa4\x8es\x84gd\x97xT\xc9\xc6\\'" +
-	"\xa2'\x0e2V\x1c\xbfG\xa7-\x94\xe1\xb7\x84\xedx" +
-	"NN\xa5\xcc\xb2s_\xb3p\xc6\xebC\xa9\x83\x98\xe1" +
-	"r\x11\xd5\x1f\x05\x12^\x0f\xa1\xa6SD\xf5\xc7\x02:" +
-	"\x9a\x8b\xd3\x1f@\\\x1b\xd03\xb9\x80zl\x95>\xbc" +
-	"\x9cA\xc4H\xdb\xfd8\x19\x04\x9c\x0c8\xe2\x89\x97Y" +
-	"\xa18)\xaf\xe8[\xddL\xce\x1eb\xead1T\xe5" +
-	"8\xeenf\x93-g\x8a\xa8\x9e+`5\xfe\xcdq" +
-	"\xb73\x97\xde\x9e%\xa2\xba\x80(\xf8\xe0\x02\x7fnI" +
-	"\x1f\\t\x1ckw3s\xad\x9ed\xd4I\x96Yc" +
-	"\xce\x89\x9e\x82/-\x98\xa8\xa8\x90E\x06\xb3\xa6\x8d\x12" +
-	"\x08(\xf1\x0d\xe8\x94\xd1s\x94\xef=c\x8c\xaf\xbc\xbb" +
-	"\x99\xc9\xf9\xcd\xcc\x9eSP\x9c\xfe\x0awU\xf2\xdcF" +
-	"\x10\xc6)\x91qn\xc1qT\x0f$\x96x\xd2O," +
-	"\x81\xf2\xd77V\xf9\x0b$\xf4|b\xd9\xdc\xebU\xb5" +
-	"\xc7\x03\x89\xe5\x974\xfc1\x11\xd5g\x02\xd4w'\x0d" +
-	"\x7f\xdc=\xf7\xf0\xb3\xcd\xa5 \x95\xd5\xfe\xbf;\xc7\x9c" +
-	" \xf7\x1d\xdb0D\xe4\xbc\xfb\x9f\xe6\xfe\x81D\xf1\xfd" +
-	"O/'\x8c\xb3\x9a8a<\xbd\xc9\xbd\xffi\xe2L" +
-	"\xcc\x1d\x07b:\xdbl\xf5k\x8d\x0b\x17\xd1\xbf\xf9\xe7" +
-	"/\xa0\x7f\x0b\xe75\x8e\xb3Z \xfbH\x9e\x13\xa6r" +
-	"\xc4s/<\xd1U\xb0\x98\x0bxz\xbb\xab\xb1pV" +
-	"T-|\xeb\x85\xc1\xf3s\xbc\xc3\xa2W\x04\xac\x16\xbf" +
-	"q\\G\xec&\xd9\xe7DT_\x17\xb0:\xf4\xb5\xe3" +
-	"zb\xcf\xeaBgR\x1d>\xe6\xb8\x04\xed\xed\xd5\x85" +
-	"\xd6\xa4z\xd2Q\xa7\x0e'Qor3\x80\xfa\xbe\x88" +
-	"\xea\x1f)\xda=\xd4\x00\x1a%\x8dI\x140nQ+" +
-	"\x85\xd1\xc2\x15\xbd\xfb\xdee\xf9\xd1\xc2M\xb6'\xbe\x86" +
-	"8)F\x0b\xd7\xe7^A4<\xc6\x0e\xbc\xe0a\xb4" +
-	"\xf0\xdb\x1cO\xc0K\"*D\xbc\x19\xf2\xbf\xbb(\x16" +
-	"(\x1c\xfc\x00\x94\x9c\x01DO\xa6\xf2\xb8\xb7q\xa5\xf5" +
-	"@\x9ap\xbb\xe2\xb7\xaf\xe3%i{y\xf7\x8a\xb5\xcc" +
-	"L,\xe9\x84\xa2\x12\xb0\xc5\x192\x8d\xa6\xe1\xb9\xa6\x86" +
-	"\xbaa5\xd9\x19\xcb\x12\xcd\xb5\xc7?\x90j^\xc1\xc3" +
-	"a\xfcK\x9d\xc2\x99Ac\xf0V\xc7\x8bp}i\xe1" +
-	"V\xc7\xa7\xfdkhtFDu\xb8p\xa9\x93\xff\xe9" +
-	"\x93\x97~\x86\xc8\x10\x18)\xfcx\xc5\xa3\xaf\xfd^\x84" +
-	"\xb9\xd47\x7f\x85\x1d\xbc#\xfcn\xca\xea\xaaC\xa1\xc9" +
-	"\xf3\xe4\xb9|\x97\xa3M<67t\xf1\xd8\xbc\xa6\x8b" +
-	"\xc7f\xce\xe4\xcd\xdc\xd0j\xde\xcc\xad\xe9\xe2\xcd\xdc@" +
-	"/o\xe6t\x937s\x8c:\xbcSd\x8dD*\xdc" +
-	"&\xb0R^\xd9\x0b\xd0\x9cM\\\xaa\x0d0'\x9bh" +
-	"\xef\\\xd4\x9aJ\x01\x9a\xfcyA\xfe\xb9\x8b\xa5t\x93" +
-	"\x81\x9b?\x9dl\xc2=;ta\xeb\xb8\xa3-F\xfd" +
-	"a6A\xdeh7@\\\x95u\xb2\x09\xb7\xec@\x9c" +
-	"\x17\x1e>OZ\xb7l\x90L\xcd,|\x8a\x98\x9aA" +
-	"#\xdb\x8dU\xa6\xb6\x0cD\x96s\xb2\x89\xb6a\xdb\xff" +
-	"p\x92l\xe6x7K%I\xf2\x7f\x03\x00\x00\xff\xff" +
-	"u\xf3\xf3\""
+func (p Obj_value_Promise) Deleg() PublicKey_Promise {
+	return PublicKey_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
+}
+
+func (p Obj_value_Promise) Cert() CertificateObject_Promise {
+	return CertificateObject_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
+}
+
+func (p Obj_value_Promise) Service() ServiceInfo_Promise {
+	return ServiceInfo_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
+}
+
+func (p Obj_value_Promise) Infra() PublicKey_Promise {
+	return PublicKey_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
+}
+
+func (p Obj_value_Promise) Extra() PublicKey_Promise {
+	return PublicKey_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
+}
+
+const schema_fb2d77234707241e = "x\xda\xacY\x7fl\x1c\xd5\xf1\x9f\xd9\xbd\xcb\xd9\x8e\xfd" +
+	"\xbd[\xaf\x1dB$\xbe\x07!\xe8\xfbM\xa4@rN" +
+	"RH\x8b\xcc\x19\x0c\xb1c\xc7^\xdf\xb9\x8d\xad\xa0f" +
+	"}\xf7r\xb7\xc9y\xf7\xb2\xbbN|\x11Q\x12\x14\xda" +
+	"\x80B\xf9\x99\x8a\xd0 %\x15\xd0@\x89\x80\x96\xb6 " +
+	"\x82\x0a\x15\x15?\x0a\x0aE\xb4%\x85@+\x12\xb5\xb4" +
+	"A\xfc\x10i!\x94n5o\xf7n\xd7w\xe7\x10\xda" +
+	"\xfeu\xbbo\xe6\xbd\x9d\x99\xf7\x99\xcf\xcc{\xb7\xa8\xa5" +
+	"\xe1\x0aaq\xd8i\x04P\xec\xf0\x0c'\xb3b\xef\xae" +
+	"\xeek\xfa\xaf\x07\xa9]p\xfew^\xe4\x9a\x0b7/" +
+	"\xfc\x0c\x00;N\x84\xc6P\xfe4\x14\x01\x90O\x85r" +
+	"\x80\xce\x8a\x8f\x06\x0f?\xdd\xd5\xbd\x13\x94vD_5" +
+	",D\x00:.\x08\xf7\xa2\xbc4L\xda\x8b\xc3\x0f\x03" +
+	":w/n\xe9\xd8\xbf\xf6\xd6o\xd5\xac\xfbB\xb8\x15" +
+	"\xe5\xa3\\\xf37\xe1\xaf\x00:\xe2\xc9\x8b6o\xfd\x89" +
+	"\xb1\xbbF\xf3XX@\xf9]\xaey\"\x1c\x07t\xa2" +
+	"\x8f\xdd\xd3\xfd\xe3\xe3\xa7w\x93\x05b\xc0\x02$\x95c" +
+	"\xe1\xd3\xaer\xc7\x89p\x1c\x01\x9d9\xdb\x07\xda\x7f\xf1" +
+	"\xd1\x9e\x07\xab\xed\xe5:\x18\xe9E\xb9=B\x8fR\xe4" +
+	"\x1b\xa4\x1e\x9a\xf9\xcd'\x07\x9c\x17~Xc\xc6\x8e\x86" +
+	"&\x94ok\xa0o\xdc\xdc\xf0\x1c\xa0\xf3\x9d\xe7J'" +
+	".\x99x\xe3P\x8d\xe6\xfc\xc6\x04\xca\x975\x92\xe6\xd2" +
+	"Fr\xed\xfe\x97\xda\xe6\xaf}\xfc\x9d\x9f\x82\xd4\x1e\xb4" +
+	"\x80\x82\xda\x91l\xecBY\xe1\xca\xfd\x8d\x7f\x02t\x16" +
+	"\xb6\x1f\xd9\xf5\xfb-\xedO\xd5S\xeeijEy\xa4" +
+	"\x89\x94\x87\x9bH\xf9\xfd\x86\xdf\xde\x91<\xf9\xbb\xa7\xab" +
+	"\x94g\x90\xb2:\xb3\x15\xe5\x8d3\xe9q|&\xf7\xed" +
+	"@\x7f\xfb\xbe=/\x1f\xfdU\xed&7'P>\xd5" +
+	"L\xeb~\xd8\xfc6\xa0\xf3\xf6\x842\xde\xb5{\xd9K" +
+	"\x144\xa1\xda\x8a\xbd-\xad(?\xd0B\x8f\xf7\xb5\xf0" +
+	"\x85\x0f\xff\xff\xb7\xe7\xb2#\xea\x91\xba;\x82\xd1\xd3r" +
+	"K\x94\xb4\x1b\xa3|Gny\xe2\xd4\xca\xe4\x85\xef\x1c" +
+	"\xa9\xe7\xe1\xfcX\x13\xca\x97\xc5x\xecb\xe4\xe1\x87\xa1" +
+	"\xd5\xaf6\xff\xec\x837\xea)/\x96\xd6\xa3\xdc-\x91" +
+	"rR\"\xe5\xfd\x97\x1f<\xf9\xd5\x87o9^\x17\x9b" +
+	"\x97\xb76\xa1\xdc\xdfJ\xda=\xad\x84\xcd\xa6'\xd3\xd7" +
+	"\xde\xf1\xa3\xb7N\x80r.\xa2\xf3`\xf6\xc6y\x93\xaf" +
+	"^\xf2W\x18\xc6\x086#\xca\xef\xb6\x9e\x06\xecx\xaf" +
+	"\xf5\x07\x02\xa0\xf3=-\xb2\xe3\xc5\xf6G\xfeR\xbd2" +
+	"y\xd8\xf1h{\x13\xca\xcf\xb4\xd3\xcaO\xb5\xd3\xca\x95" +
+	"\xb5\xeah\xcb#\xb3^\x94\xd9,zRgm\x06t" +
+	"z\x7f\xbe\xa0g\xe5\xbe'NVy\xc8\xf1y`V" +
+	"\x02\xe5GI\xb9\xe3\xd0,\x1e\xbc\xb7\x06z:\x8e\xce" +
+	"\xb8\xf0\xfd\x9a=|\xf7\x9c\xe5(\x7fz\x0eO\xd4s" +
+	"(Q\xdf<\xb6\xfe\xfe\xc8w?\xf8\xb8\xca\x88n\x8c" +
+	"4\x00t\x9c7{.\xca\x0bg\xf3\x98\xcf~\x8eV" +
+	"\xbe\xc8\xdae.Qn\xff\xac\xae\x8b\xe19\xcbQn" +
+	"\x9fC\xabKs(\xd4\x07g7<~\x811\xf0y" +
+	"\xad\x1ds\x04\x94O\x91f\xc7\x87s\xfe\x0fa\xa1S" +
+	"4\x0d\xdb\xb8\xc4TC\x9an\xf5[\xb9\x8b3jQ" +
+	"/.Oi9]\xb5'L\x96,\xe4\x0cS\xb3\xf3" +
+	"\xe3\xe9H\xa9\xc8\x06\x11\x95\x18\x0a\x00\xd2\xfc.\x00D" +
+	"\xe9\x82\x04\x00\x0a\xd2\xb9\xbd\x00(J\xed\xbd\x00\xdbX" +
+	"6\xb1t\xe9\xe2\xcb\xe2,\xbbd\xc9\xa5\x0e\xcbd-" +
+	"5\xb1t\x19\x00\xb8\xcf\x1d\x97.\xa1\xe7\xfa\x9f]e" +
+	"\xd8\xda:-\xa3\xda\x9a\xa1\xa7X\x86~\x00\xe8\xa3\xcd" +
+	"b\x08 \x84\x00Rw\x02@\xb9BD\xa5O@\xc4" +
+	"6\xa4\xb1\x9e\x05\x00\xcaU\"*\x83\x02J\x02\xb6q" +
+	"\x0b\xfbip\x85\x88JZ\xc0\xb8ml`:\xb6\x80" +
+	"\x80-\x80Q\xbbTd\x18\xf53\x0e\x10\xa3\x80\xd1\xac" +
+	"j\xab\xd8\x0c\x026\x03V\x0c\x14\xa7\x188H\xa3\x19" +
+	"\xa3\x90.\x15\x91G\xa3\x81\x7fK2y4Z\x12\xe4" +
+	"YzX\xb7\x8a,\x03qm\x9d\xc6\xb2\xf1b:\xdd" +
+	"\x97\x9af\xb9\x95\xac\x94*\xaa\x19\xd6s\x15\xf72\xc4" +
+	"\x17\x0b\x9b\x00\x8e\xa9j\xba\xb5\x92\x95 \xce\x15*\xf3" +
+	"\x85\xa9\xe6L\x8cu\x16\xb4\xccJV\xa2\xe9m\x95 " +
+	"m\xed\x05P\xae\x13Q\xd9%\xa0T\x8e\xd2\x0d\x14\x90" +
+	"\xed\"*\xbb\x05D\xc1\x0d\xd2\x8ds\x01\x94\x9d\"*" +
+	"\xb7\x0a(\x89\xd8\x86\"\x80t\xf3\x10\x80\xb2[D\xe5" +
+	".\x01\xa5\x90\xd0\x86!\x00i\xcf(\x80r\xa7\x88\xca" +
+	"~\x01\x9d\x0d\x9e\xdd\x00\x80Q\xbf8xq\xf4\xc2[" +
+	"\xa9Z\xeepd\x03+\x95w\xc0\xd9\xa4\x16\xb4\xec\xd5" +
+	"\xa6\x018\x8ea\x100\\\x1e\x1b\xd6m\x10\xb5Be" +
+	"\xb0>N\x92\xd9\xac\xc9,K\x99`fi\x0aNf" +
+	"WB\xb0w\x0c@\xb9KD\xe5\xde@\x08\x0e\x10x" +
+	"\xf6\x89\xa8\x1c$\xa0x1\xb8\xaf\x0b@\xd9/\xa2\xf2" +
+	"\x10\xc5@tc\xf0\x00i\xde+\xa2\xf2\xb4\x80\x18r" +
+	"C\xf0\x14)>.\xa2\xf2\xac\x80R8\xd4\x86a\x00" +
+	"\xe9\x19\x1a<,\xa2\xf2\xba\x80\x8e51\xb6\x9ee\xec" +
+	"$D\xb2Y\x13c>\xe5\x01b\x0c\xaa`\xb8-c" +
+	"\xe86\x9b\xb4\xcb\x90\x8bS\xdc,\xfc\x1f\xc0A\x111" +
+	"\x04\x02=nc\x93E\xcddV9 \xdb\x8c\"y" +
+	"[Q\x8b\xfa5\x11\x90\x06\xa7A\x1a\x0f\xd5@\xd1\x8f" +
+	"\xd4\xf9\xdc\xf7\x11\x17\xb8\xc3\x0f\xf24\x1e\xde\xc2\xd3X" +
+	"\xb9\x1d\x00C\x92\xf2}\x00\x0cK\xcaz\x00\x9c!\xf5" +
+	"\xbf\x08\x80\x11I\xb9\x1b\xc0\x19\xd7\xf4\xeeDw\x9f\x0a" +
+	"q\x9b\xe9\x99\x12\xbd\xf7\xa9\x96\xbd\x02\x8dbR\xb76" +
+	"33\x9a\xd2\xb60\x1a\xee\xd1\xd7\x19}\xd0\xc9\xd4\x0d" +
+	"j\x8e9\x195\x93g\xd9\xa4\x8e\xa4c\x0d\xe8\x05," +
+	"9\xae\x7f\xd9$Z\x163\xc9\xbc\x885\xb0\xc1\xe1\x81" +
+	"J\x9b*D3\x9a\x9est\xe3\xeb\xcc\xd4\xd6i\x82" +
+	"K\x0dW\xb1\x02\xcb\xa9\xae/\x8en\x0c\x9a\x86\x9a\xb1" +
+	"Q\xdb\xc4\xaeT3yM\xd4s\xd3\x04\xe1J\xfa\x02" +
+	"\xe7\x17\x16\x1f\xb6\xd4\\\x9d\x0c\x1e\x03p2\xc3is" +
+	"\xc2\xb2\x93\x10\xd73y\xc3t2\xc3\xddz\xb6[\xb7" +
+	"!\xa2\xd9\xa53#r\xd4\xd0Y\x19\x90\x9c,+x" +
+	"T\x09\x8fkET\x0a\x01<j\x94Ty\x11\x95\x9d" +
+	"\x01<\xee\xe8\x0a$o\x19\x8f7ty\xc9\xbb\xef\x8b" +
+	"a\xe6X\x1e{\x83\xe8\xe3)\xe6\xf7\x01.P\xaa\xe1" +
+	"\xe7\xbe\xeb\xb6?\xa1R\xdd\xcf\x88\xac!b\xaa~f" +
+	"Yj\xce\xa5\xc4\x80\xcf\x94DkDT\xf2\x01\x9fY" +
+	"\x97\x17\x88\xeb\x02>\x97(\x10\x93\"*w\x06|\xbe" +
+	"m=\x80r\xab\x9b\x98\xf5R'hk\xa5\x9ez\xb6" +
+	"\x9eU\x08\x9c\x8cZT\xc7\xb4\x82\x06Q[\xf3\xf5\x9a" +
+	"\xdd\xd4\x9b\xc6\xdfT^5\xb3\xee\x1e\xa3^\xc59]" +
+	"\x1eG>\x12\xf0\xf7\x10\xb9\xf6\x90\x88\xca\xf3\x01\x7f\x7f" +
+	"IhxVD\xe5\x95\x80\xbf/\xd3\xf4\xe7ET^" +
+	"#\xde\xf5H\xe7\xd7D\xc6\xaf\x88\xa8\xbcI\xa4\x13v" +
+	"I\xe7(i\xbe&\xa2\xf2\x07\xa1N,*=\xcb\x97" +
+	"\x8a\x85\x07\xaaQ\x88\x18:\x9b\x0a\x0a\x1f$\x8e\xa9\xea" +
+	"9\xe6\x11wY\x87\x8f\xa5\x8d/(\x9d\x81\xda\x1e\xd7" +
+	"\xd3^31\x8fG\x83\x0d\xf1\xe4S\xaf\xe7,t\xed" +
+	"(g\xa1\x91\xbb9\x0b\x8d\xdc\xceYhd\x8c\xb3\xd0" +
+	"\xf0\xf5.\x0b\xdd\x04\x80\x0d\xfc\xc7\xc93\xd5\xb4\xc7\x98" +
+	"\x0ah\xd3~\xaeP\xad\xfc*\xc1\xb0W\xea\xc6f\x1d" +
+	"\xc6\xd4,\x87\xa6\x98c\x8e\x99\xd9\xd4\xa3g\x0c\x1d-" +
+	"\xcd\xa2\x80\xf5\x8b\x161K\x92\x13\x0f\x12\xa9vOj" +
+	"\x16\xda\xce\xb8\x95K\x1bF\x9f\x0a\x113\xc7\x9c\x09^" +
+	"\xcdSL471\xb3\xdb4\xc1b\xf4\xb4\xca\xb0\xaf" +
+	"$\xf4\x14\x18\xe7 \x7f\x95\xe4&U+\x04:\x9c:" +
+	"<<\x0dz\x12~\x85\xad\xa0\xe7\x9e\x05\x812VF" +
+	"\xcf\x81.\xbf\x8c\xa1\x07\x9e\xfb\x16\x04\xaaX\x08]\xf0" +
+	"<\xd0\xe5U1\x02dXt\xc1s\x88\x06\x0f\xbae" +
+	"\xac\xaa1\xd2\xd5\xf1i\xb7\xbe\\\xd6+\xbd\xa5[\xd6" +
+	"\xff\xfd\x02%Tw\x9c\x9dn\xcby6\xad\xccP\xa0" +
+	"m)7|7\x8f\x06\xda\x16Qp\xc3\x12l[\xca" +
+	"u<\x18\xd33\xb72\x8e\xea\xb5\xbf\x04\xf7\x9a\x8e\xc6" +
+	"\xedXR\x9a\x0eb\x86\x9d\xb1\x8dq[\xcbr\xf3S" +
+	"\x1f\x19\xc1\xd2Q];F\x03\x94Y\x8eAi\xcc\xa3" +
+	"\xcc/Y;\xfe{d\xf0\xc5,|\xc6Z\x99,W" +
+	"\xfc\x14\xcbD\xe9\xf7l\x0a&\xb9\x92\x15Q\xd9\x1ep" +
+	"z\xeb\xa8\xe7\xf4]\x01\xa7\xf7ty\xc5\xe3,\x0af" +
+	"\xad#\x953\xe2\x97\xa1\xd0\x1a\xb2\x9c\xa6\x80x\xc6d" +
+	"\xb3f\xcd\xe1\xc6\xf4\x0f2e\x97\xfb\xa9\x0a\xf6\x89\xa8" +
+	"\xac\x0e`}\x98\xbc\x1b\x14QY#\xa0\xa3\xba\xf1\xbc" +
+	"\x1a\xe2\xea\xb8V(\x05>\xcf\xd6i\x93}\x0c\xa2z" +
+	"\xce\xcec\x03\x08\xd8\x00\xb8\xcdS\xaf\xb1rj>\x0e" +
+	"\x8c\xad\xef\xbcx\x93Z\x98`\xca\"1\xd4\xec8\xdc" +
+	"\x1a9\x89\x0b\x00R_C\x11S\xabQ\xc0\x16\xfc\xa7" +
+	"\xc3-\x92\x87q.@j\x90\x04kH |\xee\xf0" +
+	"\x8d\x90G\xb8 M\x82\xb5$\x10\xff\xe1\xf04\x94\xaf" +
+	"\xc5\x04@j5\x09\xb2$\x08}\xe6p\x82\x92U." +
+	"XC\x82<\x09\xc2\xa7\x9d6\x9c\x01 3\xec\x02H" +
+	"\xad%A\x81\x043>u\xda\xf8\xa9]\xe3VeI" +
+	"P$A\xe4\x13\xa7\x0d\x1b\x00\xe4q>#O\x02\x9b" +
+	"\x04\x0d\x7fw\xda\xb0\x11@\xde\xc8g\x14H0I\x82" +
+	"\xc6\xbf9m\xd8\x04 OpA\x91\x04\xd7\x91\xa0\xe9" +
+	"\x94\xd3\x863\x01\xe4\x12\xb7\xca&\xc1v\x12\xcc\xfc\xd8" +
+	"i\xc3f\x00y+\x17L\x92`'\x0a\x1e\x89Nm" +
+	"%\"ZqY9\xde\x11\xad\xb8\xa4\xd2\xf2\x9b,\xab" +
+	"\x99\x95\xb7,\xf5\xb5\x18\xf3\xef\xd0<x\xd2\x8a\x16\xf3" +
+	"\x998C\xa5&\xe6\xdf\x09xjT\x98\xb4\x0c\xc3\x98" +
+	"\x7f!\xe2J\xa2&\xcbU\xbeB/\xfe\x99C\xd3\xd7" +
+	"\x99j\xed'\xe3l\xd2\xae7>\x1d\xa4\xdd/S\xb7" +
+	"_\x03\xe9\x05g{^\xef\xf5q>\xa5\x10E\x8b\x86" +
+	"ic\x04\x04\x8cp\x034b\xe4\x12\xf1\xb5\x87\xe8\xe9" +
+	"\x11\xec\x1a\xd3P1f>}x\x9e\x88\xca\"2\x06" +
+	"\x03\xb7L\xd2\xc2\x04\x08\xd3\x94\xb88O\x83i\\\x0f" +
+	"\xb0X<Sf\xb1@\xf9\x1a\xabW\xbe\x02\x84\\a" +
+	"\xb1\xbd\xa3^Uz,\xc0b\x8f\xd2\xf4GDT\x0e" +
+	"\x07Z\xc2'h\xfac\xee\xd9\xb4Lm\xab RS" +
+	"\xbb\xffcB;\xcb\x9e\xb0~`\xa8\x11\xf3n\x8f:" +
+	"\xf3\xe3\xe9\xa9\xb7G\xa3\xbc\xe1\xbbh9o\xf8\xce[" +
+	"\xee\xde\x1e-\xe7\x9d\x94;\x0f\xc4\x9c\xd1i\xe5\xd5\xc4" +
+	"\xd2e\xf4\xd3q\xe9\x12\xfaY\xba81\xcd\xd7\xdc\x03" +
+	"\x08/\xa0\x11o\x13\xce\xe7\xb4\xc5w!\xd8D\xbb\x94" +
+	"E\xa3G\x13~\x17\xed\xf2\x15\xd9v\x8c0\xf2\xba\x88" +
+	"\xca\xf12Y\xd1F\xfc\x91t\xdf\x14Q\xf9s\x99\xa9" +
+	"h'N\x107\x1f\x17Q\xf9\xa0LS\xd4`\xbdG" +
+	"\xa3'ET>)s\xd4\x0c\x00\xe9\xd4M\x00\xca'" +
+	"\"\xa6B\x15\x86\xe2\x17\xb08\x060D\xe4\xd1\x8c\xc4" +
+	"\xe5\x1e\x9c\x00\xf5\xaaN\x9e\xb2\xd2\xa2\xb3\x07\xc6\xfc\x9b" +
+	"e/\xbf\xb7\xd0\xf6\xc4\xfc\xbb[O}#5\x9b\x18" +
+	"\xf3/\x8c\xbd$\xd6\xbdV\x1cx\xd9\xc5\x98\xff\xb7\x81" +
+	"\xa7\xe0\x95\x08\x05\xa2\xde\x0a\x95{\xfa\xa9\x0a\xfe\xa9\x1d" +
+	"\xa0\xea\xc0\x18\xd0\xf2\xe0\x13\xf3\xaf\xda\xcfH&\x81S" +
+	"z\xe7\x00\xc7_Uc\xb0\xa0\xde\xa92\x11\xe8\x16\xca" +
+	")\xa5\xf5z\xc7k\xdb\xef\x937\xd2\xec\x82\x88\xca\xa4" +
+	"Pii+\xff\x83x\xf9>AP\xc2\xa8\xff'\x82" +
+	"\xd7\xef\xe5=H\xbb\xbdb\xe5\xb27x}x\xe6\x1e" +
+	"\xcfu\x87r\x81\x13\xd3\"\xf7\x0en9O\x86\x1dC" +
+	"<\x19\xb6\x0e\xf1d(\x99\xfc\xf43\xb1\x9e\x9f~6" +
+	"\x0e\xf1\xd3\xcf\xf8(?\xfdh&?\xfd0:\x125" +
+	"J*\xa94\xb9\xa7\xa6\x99\xd2\xc8(@\xa7\x91^\xa5" +
+	"\x8e3\xc7H\xf7\x0c.Kf\xb3\x80&\x7f^Ry" +
+	"\x1e\xa2\xb2\xc3\xc0%,\xc7H\xbb\x17*.\x1c\x1cw" +
+	"\xb6\xc5\xe8@e\xa4i7zt\x10\xd7\x19\x8e\x91v" +
+	"y\x1e\xe2\x9c\xe9\xf9:9\xcd\xb2!b\xaa\xa6\xff\x16" +
+	"5U\x9df\xf6PiY\x09\"+9F\xba\x9b\xea" +
+	"\x09\x7f\xf9W\x00\x00\x00\xff\xff\xe2\x83\xc9\x0c"
 
 func init() {
 	schemas.Register(schema_fb2d77234707241e,
 		0x824d474588994863,
-		0x838419d256dc1071,
 		0x844542c0bc50f248,
-		0x85070a6faf2dcb4d,
 		0x869060a0330d319a,
-		0x897430f9f1af94c2,
-		0x89bef2e379450ee3,
 		0x8c6fb57d7725ec03,
 		0x8cfae4b3459db40f,
-		0x920d76878fcb1040,
-		0x9439232ee1625745,
-		0x98ebe8ee44b55fad,
-		0x9cbf543afc5b2ef8,
-		0x9ccb60a0785e0ebe,
-		0x9f30b9a1389539e7,
-		0xa00b05371373e6d6,
-		0xa23710e0ed103b12,
-		0xa26fe791fa514c3f,
-		0xa5dedc367594e97a,
 		0xaa95f2c2154f801a,
 		0xabc9ff4fbb5f0b04,
 		0xaddb752fe579c78e,
-		0xb288e1a44d8ed064,
 		0xb6e3b8602914cca6,
-		0xb950ba19ca79c37f,
-		0xbb86a24042c66855,
 		0xbd157ada88cf152d,
-		0xbd3d681e8600457f,
 		0xc0d7ec4193d608ef,
-		0xc660dbd95ff47272,
-		0xc698b99f896737c7,
 		0xcbd9cd959c154da1,
 		0xcc368c426d5175df,
 		0xcf61cf65228728bc,
 		0xcfe323414bf5b98f,
-		0xd48a054099ff07a6,
-		0xd4ee6164b4bdc4eb,
 		0xdbf0b70cd25804f1,
-		0xddcec9b635b388d9,
-		0xdef6357752ebba29,
-		0xe0b5130f36b01c23,
-		0xe1919bd896a6ac1a,
-		0xe37f36219a0e109a,
 		0xe48faf3beca83da0,
 		0xe5deb2935d54bb0a,
 		0xeab015ca8107699b,
@@ -5310,10 +3345,6 @@ func init() {
 		0xecb99c4b492abf4a,
 		0xef2306d933494fde,
 		0xf4f09607a66adddc,
-		0xf53b9c54e2e0158b,
-		0xf6bdb0430ec96918,
-		0xfb8adfbb2da1e392,
 		0xfb92513472887325,
-		0xfd4f6f21b80818a8,
-		0xfe7e3774c0f9bf1f)
+		0xfd4f6f21b80818a8)
 }

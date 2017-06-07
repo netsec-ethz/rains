@@ -4,12 +4,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"rains/rainslib"
 	"strconv"
 	"strings"
 
 	log "github.com/inconshreveable/log15"
-
-	"rains/rainslib"
 )
 
 //RainsMsgParser contains methods to convert rainsMessages as a byte slice to an internal representation and vice versa
