@@ -4,15 +4,13 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
-	"rains/rainsd"
 	"rains/rainslib"
 	rainsMsgParser "rains/utils/parser"
 	"rains/utils/zoneFileParser"
 	"time"
 
-	"golang.org/x/crypto/ed25519"
-
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 )
 
 //InitRainspub initializes rainspub
@@ -58,7 +56,7 @@ func loadAssertions() ([]*rainslib.AssertionSection, error) {
 		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
 		return []*rainslib.AssertionSection{}, err
 	}
-	assertions, err := parser.ParseZoneFile(file)
+	assertions, err := parser.ParseZoneFile(file, config.ZoneFilePath)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)
 		return []*rainslib.AssertionSection{}, err
@@ -221,7 +219,7 @@ func sendMsg(msg []byte) {
 	}
 	for _, server := range config.ServerAddresses {
 		switch server.Type {
-		case rainsd.TCP:
+		case rainslib.TCP:
 			conn, err := tls.Dial("tcp", server.String(), conf)
 			if err != nil {
 				log.Error("Was not able to establish a connection.", "server", server, "error", err)
@@ -249,14 +247,14 @@ func createRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
 //sendDelegations sends the delegations to this zone such that the receiving rains server can verify the signatures on this zone's assertions.
 func sendDelegations() {
 	//load delegations
-	file, err := ioutil.ReadFile("zoneFiles/chZoneDelegation.txt")
+	file, err := ioutil.ReadFile(config.ZoneFileDelegationPath)
 	if err != nil {
-		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
+		log.Error("Was not able to read zone file", "path", config.ZoneFileDelegationPath)
 		return
 	}
 
 	//handle delegations
-	assertions, err := parser.ParseZoneFile(file)
+	assertions, err := parser.ParseZoneFile(file, config.ZoneFileDelegationPath)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)
 		return

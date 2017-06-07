@@ -3,12 +3,12 @@ package zoneFileParser
 import (
 	"bufio"
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"rains/rainslib"
 	"strconv"
-
-	"encoding/hex"
+	"strings"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -17,20 +17,27 @@ import (
 type Parser struct {
 }
 
+var lineNrLogger log.Logger
+
 //ParseZoneFile returns all assertions contained in the given zonefile
-func (p Parser) ParseZoneFile(zoneFile []byte) ([]*rainslib.AssertionSection, error) {
+func (p Parser) ParseZoneFile(zoneFile []byte, filePath string) ([]*rainslib.AssertionSection, error) {
 	assertions := []*rainslib.AssertionSection{}
-	scanner := bufio.NewScanner(bytes.NewReader(zoneFile))
-	scanner.Split(bufio.ScanWords)
+	scanner := NewWordScanner(zoneFile)
+	lineNrLogger = log.New("file", filePath, "lineNr", log.Lazy{scanner.LineNumber})
 	scanner.Scan()
 	if scanner.Text() != ":Z:" {
-		log.Warn("zoneFile malformed. It does not start with :Z:")
+		lineNrLogger.Error("zoneFile malformed.", "expected", ":Z:", "got", scanner.Text())
+		return []*rainslib.AssertionSection{}, errors.New("ZoneFile malformed")
 	}
 	scanner.Scan()
 	context := scanner.Text()
 	scanner.Scan()
 	zone := scanner.Text()
-	scanner.Scan() //scan [
+	scanner.Scan()
+	if scanner.Text() != "[" {
+		lineNrLogger.Error("zonFile malformed.", "expected", "[", "got", scanner.Text())
+		return []*rainslib.AssertionSection{}, errors.New("ZoneFile malformed")
+	}
 	scanner.Scan()
 	for scanner.Text() != "]" {
 		switch scanner.Text() {
@@ -47,20 +54,26 @@ func (p Parser) ParseZoneFile(zoneFile []byte) ([]*rainslib.AssertionSection, er
 			}
 			assertions = append(assertions, asserts...)
 		default:
-			return nil, fmt.Errorf("Expected a shard or assertion inside the zone but got=%s", scanner.Text())
+			lineNrLogger.Error("zonFile malformed.", "expected", ":A: or :S:", "got", scanner.Text())
+			return nil, errors.New("ZoneFile malformed")
 		}
-		scanner.Scan()
+		scanner.Scan() //reads in the next section's type or exit the loop in case of ']'
 	}
 	return assertions, nil
 }
 
-func parseShard(context, zone string, scanner *bufio.Scanner) ([]*rainslib.AssertionSection, error) {
+func parseShard(context, zone string, scanner *WordScanner) ([]*rainslib.AssertionSection, error) {
 	assertions := []*rainslib.AssertionSection{}
-	scanner.Scan() //scans [
+	scanner.Scan()
+	if scanner.Text() != "[" {
+		lineNrLogger.Error("zonFile malformed.", "expected", "[", "got", scanner.Text())
+		return []*rainslib.AssertionSection{}, errors.New("ZoneFile malformed")
+	}
 	scanner.Scan()
 	for scanner.Text() != "]" {
 		if scanner.Text() != ":A:" {
-			return nil, fmt.Errorf("zone file malformed. Expected Assertion inside shard but got=%s", scanner.Text())
+			lineNrLogger.Error("zonFile malformed.", "expected", ":A:", "got", scanner.Text())
+			return nil, errors.New("ZoneFile malformed")
 		}
 		a, err := parseAssertion(context, zone, scanner)
 		if err != nil {
@@ -73,10 +86,14 @@ func parseShard(context, zone string, scanner *bufio.Scanner) ([]*rainslib.Asser
 }
 
 //parseAssertion parses the assertions content and returns an assertion section
-func parseAssertion(context, zone string, scanner *bufio.Scanner) (*rainslib.AssertionSection, error) {
+func parseAssertion(context, zone string, scanner *WordScanner) (*rainslib.AssertionSection, error) {
 	scanner.Scan()
 	name := scanner.Text()
-	scanner.Scan() //scans [
+	scanner.Scan()
+	if scanner.Text() != "[" {
+		lineNrLogger.Error("zonFile malformed.", "expected", "[", "got", scanner.Text())
+		return &rainslib.AssertionSection{}, errors.New("ZoneFile malformed")
+	}
 	scanner.Scan()
 	objects := []rainslib.Object{}
 	for scanner.Text() != "]" {
@@ -115,12 +132,14 @@ func parseAssertion(context, zone string, scanner *bufio.Scanner) (*rainslib.Ass
 			scanner.Scan()
 			portNr, err := strconv.Atoi(scanner.Text())
 			if err != nil {
+				lineNrLogger.Error("zonFile malformed.", "expected", "a number", "got", scanner.Text())
 				return nil, err
 			}
 			srvInfo.Port = uint16(portNr)
 			scanner.Scan()
 			prio, err := strconv.Atoi(scanner.Text())
 			if err != nil {
+				lineNrLogger.Error("zonFile malformed.", "expected", "a number", "got", scanner.Text())
 				return nil, err
 			}
 			srvInfo.Priority = uint(prio)
@@ -141,7 +160,8 @@ func parseAssertion(context, zone string, scanner *bufio.Scanner) (*rainslib.Ass
 			//TODO CFE not yet implemented
 			return nil, errors.New("TODO CFE not yet implemented")
 		default:
-			return nil, fmt.Errorf("Encountered non existing object type: %s", scanner.Text())
+			lineNrLogger.Error("zonFile malformed.", "expected", ":<objectType>: (e.g. :ip4:)", "got", scanner.Text())
+			return nil, errors.New("ZoneFile malformed")
 		}
 		scanner.Scan() //scan next object type
 	}
@@ -150,7 +170,7 @@ func parseAssertion(context, zone string, scanner *bufio.Scanner) (*rainslib.Ass
 	return a, nil
 }
 
-func getCertObject(scanner *bufio.Scanner) (rainslib.CertificateObject, error) {
+func getCertObject(scanner *WordScanner) (rainslib.CertificateObject, error) {
 	scanner.Scan()
 	certType, err := getCertPT(scanner.Text())
 	if err != nil {
@@ -171,7 +191,7 @@ func getCertObject(scanner *bufio.Scanner) (rainslib.CertificateObject, error) {
 		Type:     certType,
 		Usage:    usage,
 		HashAlgo: hashAlgo,
-		Data:     scanner.Bytes(),
+		Data:     []byte(scanner.Text()),
 	}
 	return cert, nil
 }
@@ -183,23 +203,25 @@ func getCertPT(certType string) (rainslib.ProtocolType, error) {
 	case "1":
 		return rainslib.PTTLS, nil
 	default:
-		return rainslib.ProtocolType(-1), errors.New("Encountered non existing certificate protocol type")
+		lineNrLogger.Error("zonFile malformed.", "expected", "certificate protocol type identifier", "got", certType)
+		return rainslib.ProtocolType(-1), errors.New("encountered non existing certificate protocol type id")
 	}
 }
 
-func getCertUsage(certType string) (rainslib.CertificateUsage, error) {
-	switch certType {
+func getCertUsage(usageType string) (rainslib.CertificateUsage, error) {
+	switch usageType {
 	case "2":
 		return rainslib.CUTrustAnchor, nil
 	case "3":
 		return rainslib.CUEndEntity, nil
 	default:
-		return rainslib.CertificateUsage(-1), errors.New("Encountered non existing certificate usage")
+		lineNrLogger.Error("zonFile malformed.", "expected", "certificate usage identifier", "got", usageType)
+		return rainslib.CertificateUsage(-1), errors.New("encountered non existing certificate usage")
 	}
 }
 
-func getCertHashType(certType string) (rainslib.HashAlgorithmType, error) {
-	switch certType {
+func getCertHashType(hashType string) (rainslib.HashAlgorithmType, error) {
+	switch hashType {
 	case "0":
 		return rainslib.NoHashAlgo, nil
 	case "1":
@@ -209,11 +231,12 @@ func getCertHashType(certType string) (rainslib.HashAlgorithmType, error) {
 	case "3":
 		return rainslib.Sha512, nil
 	default:
-		return rainslib.HashAlgorithmType(-1), errors.New("Encountered non existing certificate hash algorithm")
+		lineNrLogger.Error("zonFile malformed.", "expected", "certificate hash algo identifier", "got", hashType)
+		return rainslib.HashAlgorithmType(-1), errors.New("encountered non existing certificate hash algorithm")
 	}
 }
 
-func getPublicKey(scanner *bufio.Scanner) (rainslib.PublicKey, error) {
+func getPublicKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	scanner.Scan()
 	keyAlgoType, err := getKeyAlgoType(scanner.Text())
 	if err != nil {
@@ -233,12 +256,13 @@ func getPublicKey(scanner *bufio.Scanner) (rainslib.PublicKey, error) {
 		log.Warn("Not yet implemented")
 		publicKey.Key = rainslib.Ecdsa384PublicKey{}
 	default:
-		return rainslib.PublicKey{}, fmt.Errorf("Encountered non existing signature algorithm type. Got:%T", keyAlgoType)
+		lineNrLogger.Error("zonFile malformed.", "expected", "key algorithm type identifier", "got", keyAlgoType)
+		return rainslib.PublicKey{}, errors.New("encountered non existing signature algorithm type")
 	}
 	return publicKey, nil
 }
 
-func decodePublicKey(scanner *bufio.Scanner, publicKey rainslib.PublicKey) (rainslib.PublicKey, error) {
+func decodePublicKey(scanner *WordScanner, publicKey rainslib.PublicKey) (rainslib.PublicKey, error) {
 	pKey, err := hex.DecodeString(scanner.Text())
 	if err != nil {
 		return publicKey, err
@@ -255,7 +279,7 @@ func decodePublicKey(scanner *bufio.Scanner, publicKey rainslib.PublicKey) (rain
 		publicKey.Key = key
 		return publicKey, nil
 	}
-	return publicKey, fmt.Errorf("public key length is not 32 or 57. Got:%d", len(pKey))
+	return publicKey, fmt.Errorf("public key length is not 32 or 57. got:%d", len(pKey))
 }
 
 func getKeyAlgoType(keyAlgoType string) (rainslib.SignatureAlgorithmType, error) {
@@ -269,6 +293,51 @@ func getKeyAlgoType(keyAlgoType string) (rainslib.SignatureAlgorithmType, error)
 	case "ecdsa384":
 		return rainslib.Ecdsa384, nil
 	default:
-		return rainslib.SignatureAlgorithmType(-1), fmt.Errorf("Encountered non existing signature algorithm type. Got:%s", keyAlgoType)
+		lineNrLogger.Error("zonFile malformed.", "expected", "signature algorithm type identifier", "got", keyAlgoType)
+		return rainslib.SignatureAlgorithmType(-1), errors.New("encountered non existing signature algorithm type")
 	}
+}
+
+//NewWordScanner returns a WordScanner
+func NewWordScanner(data []byte) *WordScanner {
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	scanner.Split(bufio.ScanWords)
+	return &WordScanner{data: data, scanner: scanner, wordsRead: 0}
+}
+
+//WordScanner uses bufio.Scanner to scan words of the input. Additionally it keeps track of the line (of the input) on which the scanner currently is
+type WordScanner struct {
+	data      []byte
+	scanner   *bufio.Scanner
+	wordsRead int
+}
+
+//Scan moves the pointer to the next token of the scan
+func (ws *WordScanner) Scan() bool {
+	ws.wordsRead++
+	return ws.scanner.Scan()
+}
+
+//Text returns the value of the current Token as a string
+func (ws *WordScanner) Text() string {
+	return ws.scanner.Text()
+}
+
+//LineNumber returns the linenumber of the input data where the token pointer of the scanner currently is.
+func (ws *WordScanner) LineNumber() int {
+	lineScanner := bufio.NewScanner(bytes.NewReader(ws.data))
+	i := 0
+	lineNr := 1
+	for lineScanner.Scan() && i < ws.wordsRead {
+		scanner := bufio.NewScanner(strings.NewReader(lineScanner.Text()))
+		scanner.Split(bufio.ScanWords)
+		for scanner.Scan() {
+			i++
+			if i == ws.wordsRead {
+				return lineNr
+			}
+		}
+		lineNr++
+	}
+	return lineNr
 }

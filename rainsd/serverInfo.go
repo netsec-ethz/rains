@@ -4,13 +4,14 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
-	"strconv"
 	"time"
 
 	"rains/rainslib"
+
+	log "github.com/inconshreveable/log15"
 )
 
-var serverConnInfo ConnInfo
+var serverConnInfo rainslib.ConnInfo
 var authoritative map[contextAndZone]bool
 var roots *x509.CertPool
 var msgParser rainslib.RainsMsgParser
@@ -24,8 +25,8 @@ type rainsdConfig struct {
 	RootZonePublicKeyPath string
 
 	//switchboard
-	ServerIPAddr       net.IP
-	ServerPort         uint16
+	ServerAddrType     rainslib.NetworkAddrType
+	ServerTCPAddr      *net.TCPAddr
 	MaxConnections     uint
 	KeepAlivePeriod    time.Duration
 	TCPTimeout         time.Duration
@@ -66,7 +67,7 @@ type rainsdConfig struct {
 }
 
 //DefaultConfig is a rainsdConfig object containing default values
-var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerPort: 5022, MaxConnections: 1000, KeepAlivePeriod: time.Minute, TCPTimeout: 5 * time.Minute,
+var defaultConfig = rainsdConfig{ServerAddrType: rainslib.TCP, MaxConnections: 1000, KeepAlivePeriod: time.Minute, TCPTimeout: 5 * time.Minute,
 	TLSCertificateFile: "config/server.crt", TLSPrivateKeyFile: "config/server.key", MaxMsgByteLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerCount: 2,
 	NormalWorkerCount: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
 	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}, InfrastructureKeyCacheSize: 10,
@@ -74,50 +75,18 @@ var defaultConfig = rainsdConfig{ServerIPAddr: net.ParseIP("127.0.0.1"), ServerP
 	MaxCacheAssertionValidity: 365 * 24 * time.Hour, MaxCacheShardValidity: 365 * 24 * time.Hour, MaxCacheZoneValidity: 365 * 24 * time.Hour, ReapVerifyTimeout: 30 * time.Minute,
 	ReapEngineTimeout: 30 * time.Minute, RootZonePublicKeyPath: "keys/selfSignedRootDelegationAssertion.gob"}
 
-//ProtocolType enumerates protocol types
-type ProtocolType int
-
-const (
-	TCP ProtocolType = iota
-)
-
-//ConnInfo contains address information about one actor of a connection of the declared type
-type ConnInfo struct {
-	Type ProtocolType
-	//FIXME CFE replace ipAddr and port with net.TCPAddr
-	IPAddr net.IP
-	Port   uint16
-}
-
-//String returns the string representation of the connection information according to its type
-func (c ConnInfo) String() string {
-	switch c.Type {
-	case TCP:
-		return c.IPAddr.String() + ":" + c.PortToString()
-	default:
-		return ""
+func loadDefaultSeverAddrIntoConfig() *net.TCPAddr {
+	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:5022")
+	if err != nil {
+		log.Warn("Was not able to resolve default tcp addr of server")
 	}
-}
-
-//Hash returns a string containing all information uniquely identifying a ConnInfo.
-func (c ConnInfo) Hash() string {
-	return fmt.Sprintf("%v_%s", c.Type, c.String())
-}
-
-//PortToString return the port number as a string
-func (c ConnInfo) PortToString() string {
-	return strconv.Itoa(int(c.Port))
-}
-
-//Equal returns true if both Connection Information have the same type and values
-func (c ConnInfo) Equal(conn ConnInfo) bool {
-	return c.Type == conn.Type && c.IPAddr.Equal(conn.IPAddr) && c.Port == conn.Port
+	return addr
 }
 
 //AddressPair contains address information about both peers of a connection
 type AddressPair struct {
-	local  ConnInfo
-	remote ConnInfo
+	local  rainslib.ConnInfo
+	remote rainslib.ConnInfo
 }
 
 //String returns the string representation of both connection information separated with a underscore
@@ -132,14 +101,14 @@ func (a AddressPair) Hash() string {
 
 //msgSectionSender contains the message section section and connection infos about the sender
 type msgSectionSender struct {
-	Sender  ConnInfo
+	Sender  rainslib.ConnInfo
 	Section rainslib.MessageSection
 	Token   rainslib.Token
 }
 
 //sectionWithSigSender contains a section with a signature and connection infos about the sender
 type sectionWithSigSender struct {
-	Sender  ConnInfo
+	Sender  rainslib.ConnInfo
 	Section rainslib.MessageSectionWithSig
 	Token   rainslib.Token
 }
@@ -173,12 +142,12 @@ type connectionCache interface {
 //capabilityCache contains known capabilities
 type capabilityCache interface {
 	//Add adds the capabilities to the cash and creates or updates a mapping between the capabilities and the hash thereof.
-	//Returns true if the given connInfo was not yet in the cache and false if it updated the capabilities and the recentness of the entry for connInfo.
+	//Returns true if the given rainslib.ConnInfo was not yet in the cache and false if it updated the capabilities and the recentness of the entry for rainslib.ConnInfo.
 	//If the cache is full it removes a capability according to some metric
-	Add(connInfo ConnInfo, capabilities []rainslib.Capability) bool
-	//Get returns all capabilities associated with the given connInfo and updates the recentness of the entry.
-	//It returns false if there exists no entry for connInfo
-	Get(connInfo ConnInfo) ([]rainslib.Capability, bool)
+	Add(ConnInfo rainslib.ConnInfo, capabilities []rainslib.Capability) bool
+	//Get returns all capabilities associated with the given rainslib.ConnInfo and updates the recentness of the entry.
+	//It returns false if there exists no entry for rainslib.ConnInfo
+	Get(ConnInfo rainslib.ConnInfo) ([]rainslib.Capability, bool)
 	//GetFromHash returns true and the capabilities from which the hash was taken if present, otherwise false
 	GetFromHash(hash []byte) ([]rainslib.Capability, bool)
 }
@@ -245,7 +214,7 @@ type pendingSignatureCache interface {
 
 //pendingSignatureCacheValue is the value received from the pendingQuery cache
 type pendingQuerySetValue struct {
-	connInfo   ConnInfo
+	connInfo   rainslib.ConnInfo
 	token      rainslib.Token //Token from the received query
 	validUntil int64
 }
@@ -279,12 +248,12 @@ type pendingQueryCache interface {
 //assertionCacheValue is the value stored in the assertionCacheValue
 type assertionCacheValue struct {
 	section    *rainslib.AssertionSection
-	validFrom  int64
+	validSince int64
 	validUntil int64
 }
 
 func (a assertionCacheValue) Hash() string {
-	return fmt.Sprintf("%s_%d_%d", a.section.Hash(), a.validFrom, a.validUntil)
+	return fmt.Sprintf("%s_%d_%d", a.section.Hash(), a.validSince, a.validUntil)
 }
 
 //assertionCache is used to store and efficiently lookup assertions
@@ -309,7 +278,7 @@ type assertionCache interface {
 //negativeAssertionCacheValue is the value stored in the negativeAssertionCache
 type negativeAssertionCacheValue struct {
 	section    rainslib.MessageSectionWithSig
-	validFrom  int64
+	validSince int64
 	validUntil int64
 }
 
