@@ -99,7 +99,7 @@ func main() {
 	fmt.Println(inputCaps.At(1))
 	inputSigs, _ := rootRainsMsg.Signatures()
 	fmt.Println(inputSigs.At(0))
-	/*inputSecList, _ := rootRainsMsg.Content()
+	inputSecList, _ := rootRainsMsg.Content()
 	inputSection := inputSecList.At(0)
 	switch inputSection.Which() {
 	case proto.MessageSection_Which_assertion:
@@ -109,7 +109,7 @@ func main() {
 		fmt.Println(inputAssertion.SubjectZone())
 		list, _ := inputAssertion.Content()
 		fmt.Println(list.At(0))
-	}*/
+	}
 }
 
 //EncodeMessage uses capnproto to encode and frame the message. The message is then ready to be sent over the wire.
@@ -613,4 +613,48 @@ func encodeSubjectAddress(subjectAddress rainslib.SubjectAddr, seg *capnp.Segmen
 	sa.SetAddressFamily(subjectAddress.AddressFamily)
 	sa.SetPrefixLength(uint32(subjectAddress.PrefixLength))
 	return sa, nil
+}
+
+//DecodeMessage uses capnproto to decode and deframe the message.
+func DecodeMessage(m *capnp.Message) (rainslib.RainsMessage, error) {
+	message := rainslib.RainsMessage{}
+	msg, err := proto.ReadRootRainsMessage(m)
+	if err != nil {
+		panic(err)
+	}
+
+	tok, err := msg.Token()
+	if err != nil {
+		log.Warn("Could not decode token", "error", err)
+		return rainslib.RainsMessage{}, err
+	}
+	message.Token.Update(tok)
+	capabilities, err := msg.Capabilities()
+	if err != nil {
+		log.Warn("Could not decode capabilities", "error", err)
+		return rainslib.RainsMessage{}, err
+	}
+	for i := 0; i < capabilities.Len(); i++ {
+		c, err := capabilities.At(i)
+		if err != nil {
+			log.Warn("Could not decode capability at", "position", i, "error", err)
+			return rainslib.RainsMessage{}, err
+		}
+		message.Capabilities = append(message.Capabilities, rainslib.Capability(c))
+	}
+	sigList, err := msg.Signatures()
+	if err != nil {
+		log.Warn("Could not decode signature list", "error", err)
+		return rainslib.RainsMessage{}, err
+	}
+	for i := 0; i < sigList.Len(); i++ {
+		sig := sigList.At(i)
+		//TODO parse signature
+		if err != nil {
+			log.Warn("Could not decode capability at", "position", i, "error", err)
+			return rainslib.RainsMessage{}, err
+		}
+		message.Capabilities = append(message.Capabilities, rainslib.Capability(c))
+	}
+
 }
