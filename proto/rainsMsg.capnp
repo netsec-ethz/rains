@@ -24,32 +24,6 @@ struct MessageSection  {
     }         
 }
 
-#interface MessageSectionWithSig extends(Interval) {
-    #MessageSectionWithSig can be either an Assertion, Shard or Zone
-#	sigs            @0 () -> (sig :Signature);
-#	addSig          @1 (sig :Signature);
-#	deleteSig       @2 (int :Int32);
-#	deleteAllSigs   @3 ();
-   #TODO CFE what is the syntax of a method without arguments
-#	getContext      @4 () -> (context :Text);
-#	getSubjectZone  @5 () -> (zone :Text);
-#	createStub      @6 () -> (section :MessageSectionWithSig);
-#	validFrom       @7 () -> (validFrom :Int64);
-#	validUntil      @8 () -> (validUntil :Int64);
-#	hash            @9 () -> (hash :Text);
-#}
-
-#interface Interval  {
-    #Interval defines an interval over strings
-#	begin @0 () -> (begin :Text);
-#    end     @1 () -> (end :Text);
-#}
-
-#interface Hashable  {
-    #Hashable can be implemented by objects that are not natively hashable.
-#	hash @0 () -> (hash :Text);
-#}
-
 struct AssertionSection  {
     #AssertionSection contains information about the assertion
 	subjectName @0 :Text;
@@ -203,7 +177,7 @@ struct PublicKey  {
 	keySpace   @0 :KeySpaceID;
 	type       @1 :SignatureAlgorithmType; #can this also be a HashAlgorithmType?
 	key        @2 :Data;
-	validFrom  @3 :Int64;
+	validSince  @3 :Int64;
 	validUntil @4 :Int64;
 }
 

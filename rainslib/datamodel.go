@@ -611,11 +611,18 @@ const (
 
 //PublicKey contains information about a public key
 type PublicKey struct {
-	//TODO CFE remove type if not needed anywhere
 	Type       SignatureAlgorithmType
+	KeySpace   KeySpaceID
 	Key        interface{}
 	ValidSince int64
 	ValidUntil int64
+}
+
+//NameObject contains a name associated with a name as an alias. Types specifies for which object types the alias is valid
+type NameObject struct {
+	Name string
+	//Types for which the Name is valid
+	Types []ObjectType
 }
 
 //NamesetExpression  encodes a modified POSIX Extended Regular Expression format

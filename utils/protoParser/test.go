@@ -8,6 +8,8 @@ import (
 
 	"errors"
 
+	"strconv"
+
 	log "github.com/inconshreveable/log15"
 	capnp "zombiezen.com/go/capnproto2"
 )
@@ -354,4 +356,172 @@ func encodeSignatures(signatures []rainslib.Signature, list *proto.Signature_Lis
 		list.Set(i, sig)
 	}
 	return nil
+}
+
+func encodeObjects(objects []rainslib.Object, list *proto.Obj_List, seg *capnp.Segment) error {
+	for i, object := range objects {
+		obj, err := proto.NewObj(seg)
+		if err != nil {
+			return err
+		}
+		switch object.Type {
+		case rainslib.OTName:
+			obj.SetType(proto.ObjectType_oTName)
+			if nameObject, ok := object.Value.(rainslib.NameObject); ok {
+				nameList, err := capnp.NewTextList(seg, int32(len(nameObject.Types)+1))
+				if err != nil {
+					return err
+				}
+				nameList.Set(0, nameObject.Name)
+				for j, t := range nameObject.Types {
+					nameList.Set(j+1, strconv.Itoa(int(t)))
+				}
+				obj.Value().SetName(nameList)
+				continue
+			}
+			log.Warn("Type assertion failed. Expected ObjectName", "object", object.Value)
+			return errors.New("Type assertion failed")
+
+		case rainslib.OTIP6Addr:
+			obj.SetType(proto.ObjectType_oTIP6Addr)
+			obj.Value().SetIp6(object.Value.(string))
+		case rainslib.OTIP4Addr:
+			obj.SetType(proto.ObjectType_oTIP4Addr)
+			obj.Value().SetIp4(object.Value.(string))
+		case rainslib.OTRedirection:
+			obj.SetType(proto.ObjectType_oTRedirection)
+			obj.Value().SetRedir(object.Value.(string))
+		case rainslib.OTDelegation:
+			obj.SetType(proto.ObjectType_oTDelegation)
+			publicKey, err := encodePublicKey(object.Value.(rainslib.PublicKey), seg)
+			if err != nil {
+				return err
+			}
+			obj.Value().SetDeleg(publicKey)
+		case rainslib.OTNameset:
+			obj.SetType(proto.ObjectType_oTNameset)
+			obj.Value().SetNameset(string(object.Value.(rainslib.NamesetExpression)))
+		case rainslib.OTCertInfo:
+			obj.SetType(proto.ObjectType_oTCertInfo)
+			if cert, ok := object.Value.(rainslib.CertificateObject); ok {
+				c, err := proto.NewCertificateObject(seg)
+				if err != nil {
+					return err
+				}
+				c.SetData(cert.Data)
+				switch cert.Type {
+				case rainslib.PTUnspecified:
+					c.SetType(proto.ProtocolType_pTUnspecified)
+				case rainslib.PTTLS:
+					c.SetType(proto.ProtocolType_pTTLS)
+				default:
+					log.Warn("Unsupported protocol type", "type", fmt.Sprintf("%T", cert.Type))
+					return errors.New("Unsupported protocol type")
+				}
+				switch cert.HashAlgo {
+				case rainslib.NoHashAlgo:
+					c.SetHashAlgo(proto.HashAlgorithmType_noHashAlgo)
+				case rainslib.Sha256:
+					c.SetHashAlgo(proto.HashAlgorithmType_sha256)
+				case rainslib.Sha384:
+					c.SetHashAlgo(proto.HashAlgorithmType_sha384)
+				case rainslib.Sha512:
+					c.SetHashAlgo(proto.HashAlgorithmType_sha512)
+				default:
+					log.Warn("Unsupported hash algo type", "type", fmt.Sprintf("%T", cert.HashAlgo))
+					return errors.New("Unsupported hash algo type")
+				}
+				switch cert.Usage {
+				case rainslib.CUTrustAnchor:
+					c.SetUsage(proto.CertificateUsage_cUTrustAnchor)
+				case rainslib.CUEndEntity:
+					c.SetUsage(proto.CertificateUsage_cUEndEntity)
+				default:
+					log.Warn("Unsupported cert usage type", "type", fmt.Sprintf("%T", cert.Usage))
+					return errors.New("Unsupported cert usage type")
+				}
+				obj.Value().SetCert(c)
+				continue
+			}
+			log.Warn("Type assertion failed. Expected CertificateObject", "object", object.Value)
+			return errors.New("Type assertion failed")
+		case rainslib.OTServiceInfo:
+			obj.SetType(proto.ObjectType_oTServiceInfo)
+			if servInfo, ok := object.Value.(rainslib.ServiceInfo); ok {
+				si, err := proto.NewServiceInfo(seg)
+				if err != nil {
+					return err
+				}
+				si.SetName(servInfo.Name)
+				si.SetPort(servInfo.Port)
+				si.SetPriority(uint32(servInfo.Priority))
+				obj.Value().SetService(si)
+				continue
+			}
+			log.Warn("Type assertion failed. Expected ServiceInfo", "object", object.Value)
+			return errors.New("Type assertion failed")
+		case rainslib.OTRegistrar:
+			obj.SetType(proto.ObjectType_oTRegistrar)
+			obj.Value().SetRegr(object.Value.(string))
+		case rainslib.OTRegistrant:
+			obj.SetType(proto.ObjectType_oTRegistrant)
+			obj.Value().SetRegt(object.Value.(string))
+		case rainslib.OTInfraKey:
+			obj.SetType(proto.ObjectType_oTInfraKey)
+			publicKey, err := encodePublicKey(object.Value.(rainslib.PublicKey), seg)
+			if err != nil {
+				return err
+			}
+			obj.Value().SetInfra(publicKey)
+		case rainslib.OTExtraKey:
+			obj.SetType(proto.ObjectType_oTExtraKey)
+			publicKey, err := encodePublicKey(object.Value.(rainslib.PublicKey), seg)
+			if err != nil {
+				return err
+			}
+			obj.Value().SetExtra(publicKey)
+		default:
+			log.Warn("Unsupported object type", "type", fmt.Sprintf("%T", object.Type))
+			return errors.New("Unsupported object type")
+		}
+		list.Set(i, obj)
+	}
+	return nil
+}
+
+func encodePublicKey(publicKey rainslib.PublicKey, seg *capnp.Segment) (proto.PublicKey, error) {
+	pubKey, err := proto.NewPublicKey(seg)
+	if err != nil {
+		return proto.PublicKey{}, err
+	}
+	pubKey.SetValidSince(publicKey.ValidSince)
+	pubKey.SetValidUntil(publicKey.ValidUntil)
+
+	switch publicKey.KeySpace {
+	case rainslib.RainsKeySpace:
+		pubKey.SetKeySpace(proto.KeySpaceID_rainsKeySpace)
+	default:
+		log.Warn("Unsupported key space type", "type", fmt.Sprintf("%T", publicKey.KeySpace))
+		return proto.PublicKey{}, errors.New("Unsupported key space type")
+	}
+
+	switch publicKey.Type {
+	case rainslib.Ed25519:
+		pubKey.SetType(proto.SignatureAlgorithmType_ed25519)
+		pubKey.SetKey(publicKey.Key.([]byte))
+	case rainslib.Ed448:
+		pubKey.SetType(proto.SignatureAlgorithmType_ed448)
+		log.Warn("Not yet supported")
+	case rainslib.Ecdsa256:
+		pubKey.SetType(proto.SignatureAlgorithmType_ecdsa256)
+		log.Warn("Not yet supported")
+	case rainslib.Ecdsa384:
+		pubKey.SetType(proto.SignatureAlgorithmType_ecdsa384)
+		log.Warn("Not yet supported")
+	default:
+		log.Warn("Unsupported signature algorithm type", "type", fmt.Sprintf("%T", publicKey.Type))
+		return proto.PublicKey{}, errors.New("Unsupported signature algorithm type")
+	}
+
+	return pubKey, nil
 }
