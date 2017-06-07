@@ -1039,12 +1039,12 @@ func (s QuerySection) SetContext(v string) error {
 	return s.Struct.SetText(2, v)
 }
 
-func (s QuerySection) Type() ObjectType {
-	return ObjectType(s.Struct.Uint16(0))
+func (s QuerySection) Type() int32 {
+	return int32(s.Struct.Uint32(0))
 }
 
-func (s QuerySection) SetType(v ObjectType) {
-	s.Struct.SetUint16(0, uint16(v))
+func (s QuerySection) SetType(v int32) {
+	s.Struct.SetUint32(0, uint32(v))
 }
 
 func (s QuerySection) Expires() int64 {
@@ -1055,9 +1055,9 @@ func (s QuerySection) SetExpires(v int64) {
 	s.Struct.SetUint64(8, uint64(v))
 }
 
-func (s QuerySection) Options() (QueryOption_List, error) {
+func (s QuerySection) Options() (capnp.Int32List, error) {
 	p, err := s.Struct.Ptr(3)
-	return QueryOption_List{List: p.List()}, err
+	return capnp.Int32List{List: p.List()}, err
 }
 
 func (s QuerySection) HasOptions() bool {
@@ -1065,16 +1065,16 @@ func (s QuerySection) HasOptions() bool {
 	return p.IsValid() || err != nil
 }
 
-func (s QuerySection) SetOptions(v QueryOption_List) error {
+func (s QuerySection) SetOptions(v capnp.Int32List) error {
 	return s.Struct.SetPtr(3, v.List.ToPtr())
 }
 
 // NewOptions sets the options field to a newly
-// allocated QueryOption_List, preferring placement in s's segment.
-func (s QuerySection) NewOptions(n int32) (QueryOption_List, error) {
-	l, err := NewQueryOption_List(s.Struct.Segment(), n)
+// allocated capnp.Int32List, preferring placement in s's segment.
+func (s QuerySection) NewOptions(n int32) (capnp.Int32List, error) {
+	l, err := capnp.NewInt32List(s.Struct.Segment(), n)
 	if err != nil {
-		return QueryOption_List{}, err
+		return capnp.Int32List{}, err
 	}
 	err = s.Struct.SetPtr(3, l.List.ToPtr())
 	return l, err
@@ -1099,196 +1099,6 @@ type QuerySection_Promise struct{ *capnp.Pipeline }
 func (p QuerySection_Promise) Struct() (QuerySection, error) {
 	s, err := p.Pipeline.Struct()
 	return QuerySection{s}, err
-}
-
-type QueryOption uint16
-
-// QueryOption_TypeID is the unique identifier for the type QueryOption.
-const QueryOption_TypeID = 0xabc9ff4fbb5f0b04
-
-// Values of QueryOption.
-const (
-	QueryOption_minE2ELatency            QueryOption = 0
-	QueryOption_minLastHopAnswerSize     QueryOption = 1
-	QueryOption_minInfoLeakage           QueryOption = 2
-	QueryOption_cachedAnswersOnly        QueryOption = 3
-	QueryOption_expiredAssertionsOk      QueryOption = 4
-	QueryOption_tokenTracing             QueryOption = 5
-	QueryOption_noVerificationDelegation QueryOption = 6
-	QueryOption_noProactiveCaching       QueryOption = 7
-)
-
-// String returns the enum's constant name.
-func (c QueryOption) String() string {
-	switch c {
-	case QueryOption_minE2ELatency:
-		return "minE2ELatency"
-	case QueryOption_minLastHopAnswerSize:
-		return "minLastHopAnswerSize"
-	case QueryOption_minInfoLeakage:
-		return "minInfoLeakage"
-	case QueryOption_cachedAnswersOnly:
-		return "cachedAnswersOnly"
-	case QueryOption_expiredAssertionsOk:
-		return "expiredAssertionsOk"
-	case QueryOption_tokenTracing:
-		return "tokenTracing"
-	case QueryOption_noVerificationDelegation:
-		return "noVerificationDelegation"
-	case QueryOption_noProactiveCaching:
-		return "noProactiveCaching"
-
-	default:
-		return ""
-	}
-}
-
-// QueryOptionFromString returns the enum value with a name,
-// or the zero value if there's no such value.
-func QueryOptionFromString(c string) QueryOption {
-	switch c {
-	case "minE2ELatency":
-		return QueryOption_minE2ELatency
-	case "minLastHopAnswerSize":
-		return QueryOption_minLastHopAnswerSize
-	case "minInfoLeakage":
-		return QueryOption_minInfoLeakage
-	case "cachedAnswersOnly":
-		return QueryOption_cachedAnswersOnly
-	case "expiredAssertionsOk":
-		return QueryOption_expiredAssertionsOk
-	case "tokenTracing":
-		return QueryOption_tokenTracing
-	case "noVerificationDelegation":
-		return QueryOption_noVerificationDelegation
-	case "noProactiveCaching":
-		return QueryOption_noProactiveCaching
-
-	default:
-		return 0
-	}
-}
-
-type QueryOption_List struct{ capnp.List }
-
-func NewQueryOption_List(s *capnp.Segment, sz int32) (QueryOption_List, error) {
-	l, err := capnp.NewUInt16List(s, sz)
-	return QueryOption_List{l.List}, err
-}
-
-func (l QueryOption_List) At(i int) QueryOption {
-	ul := capnp.UInt16List{List: l.List}
-	return QueryOption(ul.At(i))
-}
-
-func (l QueryOption_List) Set(i int, v QueryOption) {
-	ul := capnp.UInt16List{List: l.List}
-	ul.Set(i, uint16(v))
-}
-
-type ObjectType uint16
-
-// ObjectType_TypeID is the unique identifier for the type ObjectType.
-const ObjectType_TypeID = 0xfd4f6f21b80818a8
-
-// Values of ObjectType.
-const (
-	ObjectType_oTName        ObjectType = 0
-	ObjectType_oTIP6Addr     ObjectType = 1
-	ObjectType_oTIP4Addr     ObjectType = 2
-	ObjectType_oTRedirection ObjectType = 3
-	ObjectType_oTDelegation  ObjectType = 4
-	ObjectType_oTNameset     ObjectType = 5
-	ObjectType_oTCertInfo    ObjectType = 6
-	ObjectType_oTServiceInfo ObjectType = 7
-	ObjectType_oTRegistrar   ObjectType = 8
-	ObjectType_oTRegistrant  ObjectType = 9
-	ObjectType_oTInfraKey    ObjectType = 10
-	ObjectType_oTExtraKey    ObjectType = 11
-)
-
-// String returns the enum's constant name.
-func (c ObjectType) String() string {
-	switch c {
-	case ObjectType_oTName:
-		return "oTName"
-	case ObjectType_oTIP6Addr:
-		return "oTIP6Addr"
-	case ObjectType_oTIP4Addr:
-		return "oTIP4Addr"
-	case ObjectType_oTRedirection:
-		return "oTRedirection"
-	case ObjectType_oTDelegation:
-		return "oTDelegation"
-	case ObjectType_oTNameset:
-		return "oTNameset"
-	case ObjectType_oTCertInfo:
-		return "oTCertInfo"
-	case ObjectType_oTServiceInfo:
-		return "oTServiceInfo"
-	case ObjectType_oTRegistrar:
-		return "oTRegistrar"
-	case ObjectType_oTRegistrant:
-		return "oTRegistrant"
-	case ObjectType_oTInfraKey:
-		return "oTInfraKey"
-	case ObjectType_oTExtraKey:
-		return "oTExtraKey"
-
-	default:
-		return ""
-	}
-}
-
-// ObjectTypeFromString returns the enum value with a name,
-// or the zero value if there's no such value.
-func ObjectTypeFromString(c string) ObjectType {
-	switch c {
-	case "oTName":
-		return ObjectType_oTName
-	case "oTIP6Addr":
-		return ObjectType_oTIP6Addr
-	case "oTIP4Addr":
-		return ObjectType_oTIP4Addr
-	case "oTRedirection":
-		return ObjectType_oTRedirection
-	case "oTDelegation":
-		return ObjectType_oTDelegation
-	case "oTNameset":
-		return ObjectType_oTNameset
-	case "oTCertInfo":
-		return ObjectType_oTCertInfo
-	case "oTServiceInfo":
-		return ObjectType_oTServiceInfo
-	case "oTRegistrar":
-		return ObjectType_oTRegistrar
-	case "oTRegistrant":
-		return ObjectType_oTRegistrant
-	case "oTInfraKey":
-		return ObjectType_oTInfraKey
-	case "oTExtraKey":
-		return ObjectType_oTExtraKey
-
-	default:
-		return 0
-	}
-}
-
-type ObjectType_List struct{ capnp.List }
-
-func NewObjectType_List(s *capnp.Segment, sz int32) (ObjectType_List, error) {
-	l, err := capnp.NewUInt16List(s, sz)
-	return ObjectType_List{l.List}, err
-}
-
-func (l ObjectType_List) At(i int) ObjectType {
-	ul := capnp.UInt16List{List: l.List}
-	return ObjectType(ul.At(i))
-}
-
-func (l ObjectType_List) Set(i int, v ObjectType) {
-	ul := capnp.UInt16List{List: l.List}
-	ul.Set(i, uint16(v))
 }
 
 type SubjectAddr struct{ capnp.Struct }
@@ -1795,9 +1605,9 @@ func (s AddressQuerySection) SetExpires(v int64) {
 	s.Struct.SetUint64(0, uint64(v))
 }
 
-func (s AddressQuerySection) Options() (QueryOption_List, error) {
+func (s AddressQuerySection) Options() (capnp.Int32List, error) {
 	p, err := s.Struct.Ptr(4)
-	return QueryOption_List{List: p.List()}, err
+	return capnp.Int32List{List: p.List()}, err
 }
 
 func (s AddressQuerySection) HasOptions() bool {
@@ -1805,16 +1615,16 @@ func (s AddressQuerySection) HasOptions() bool {
 	return p.IsValid() || err != nil
 }
 
-func (s AddressQuerySection) SetOptions(v QueryOption_List) error {
+func (s AddressQuerySection) SetOptions(v capnp.Int32List) error {
 	return s.Struct.SetPtr(4, v.List.ToPtr())
 }
 
 // NewOptions sets the options field to a newly
-// allocated QueryOption_List, preferring placement in s's segment.
-func (s AddressQuerySection) NewOptions(n int32) (QueryOption_List, error) {
-	l, err := NewQueryOption_List(s.Struct.Segment(), n)
+// allocated capnp.Int32List, preferring placement in s's segment.
+func (s AddressQuerySection) NewOptions(n int32) (capnp.Int32List, error) {
+	l, err := capnp.NewInt32List(s.Struct.Segment(), n)
 	if err != nil {
-		return QueryOption_List{}, err
+		return capnp.Int32List{}, err
 	}
 	err = s.Struct.SetPtr(4, l.List.ToPtr())
 	return l, err
@@ -1888,12 +1698,12 @@ func (s NotificationSection) SetToken(v []byte) error {
 	return s.Struct.SetData(0, v)
 }
 
-func (s NotificationSection) Type() NotificationType {
-	return NotificationType(s.Struct.Uint16(0))
+func (s NotificationSection) Type() int32 {
+	return int32(s.Struct.Uint32(0))
 }
 
-func (s NotificationSection) SetType(v NotificationType) {
-	s.Struct.SetUint16(0, uint16(v))
+func (s NotificationSection) SetType(v int32) {
+	s.Struct.SetUint32(0, uint32(v))
 }
 
 func (s NotificationSection) Data() (string, error) {
@@ -1938,96 +1748,6 @@ type NotificationSection_Promise struct{ *capnp.Pipeline }
 func (p NotificationSection_Promise) Struct() (NotificationSection, error) {
 	s, err := p.Pipeline.Struct()
 	return NotificationSection{s}, err
-}
-
-type NotificationType uint16
-
-// NotificationType_TypeID is the unique identifier for the type NotificationType.
-const NotificationType_TypeID = 0xcbd9cd959c154da1
-
-// Values of NotificationType.
-const (
-	NotificationType_heartbeat          NotificationType = 0
-	NotificationType_capHashNotKnown    NotificationType = 1
-	NotificationType_badMessage         NotificationType = 2
-	NotificationType_rcvInconsistentMsg NotificationType = 3
-	NotificationType_noAssertionsExist  NotificationType = 4
-	NotificationType_msgTooLarge        NotificationType = 5
-	NotificationType_unspecServerErr    NotificationType = 6
-	NotificationType_serverNotCapable   NotificationType = 7
-	NotificationType_noAssertionAvail   NotificationType = 8
-)
-
-// String returns the enum's constant name.
-func (c NotificationType) String() string {
-	switch c {
-	case NotificationType_heartbeat:
-		return "heartbeat"
-	case NotificationType_capHashNotKnown:
-		return "capHashNotKnown"
-	case NotificationType_badMessage:
-		return "badMessage"
-	case NotificationType_rcvInconsistentMsg:
-		return "rcvInconsistentMsg"
-	case NotificationType_noAssertionsExist:
-		return "noAssertionsExist"
-	case NotificationType_msgTooLarge:
-		return "msgTooLarge"
-	case NotificationType_unspecServerErr:
-		return "unspecServerErr"
-	case NotificationType_serverNotCapable:
-		return "serverNotCapable"
-	case NotificationType_noAssertionAvail:
-		return "noAssertionAvail"
-
-	default:
-		return ""
-	}
-}
-
-// NotificationTypeFromString returns the enum value with a name,
-// or the zero value if there's no such value.
-func NotificationTypeFromString(c string) NotificationType {
-	switch c {
-	case "heartbeat":
-		return NotificationType_heartbeat
-	case "capHashNotKnown":
-		return NotificationType_capHashNotKnown
-	case "badMessage":
-		return NotificationType_badMessage
-	case "rcvInconsistentMsg":
-		return NotificationType_rcvInconsistentMsg
-	case "noAssertionsExist":
-		return NotificationType_noAssertionsExist
-	case "msgTooLarge":
-		return NotificationType_msgTooLarge
-	case "unspecServerErr":
-		return NotificationType_unspecServerErr
-	case "serverNotCapable":
-		return NotificationType_serverNotCapable
-	case "noAssertionAvail":
-		return NotificationType_noAssertionAvail
-
-	default:
-		return 0
-	}
-}
-
-type NotificationType_List struct{ capnp.List }
-
-func NewNotificationType_List(s *capnp.Segment, sz int32) (NotificationType_List, error) {
-	l, err := capnp.NewUInt16List(s, sz)
-	return NotificationType_List{l.List}, err
-}
-
-func (l NotificationType_List) At(i int) NotificationType {
-	ul := capnp.UInt16List{List: l.List}
-	return NotificationType(ul.At(i))
-}
-
-func (l NotificationType_List) Set(i int, v NotificationType) {
-	ul := capnp.UInt16List{List: l.List}
-	ul.Set(i, uint16(v))
 }
 
 type Signature struct{ capnp.Struct }
@@ -2747,18 +2467,18 @@ func (s Obj) String() string {
 	return str
 }
 
-func (s Obj) Type() ObjectType {
-	return ObjectType(s.Struct.Uint16(0))
+func (s Obj) Type() int32 {
+	return int32(s.Struct.Uint32(0))
 }
 
-func (s Obj) SetType(v ObjectType) {
-	s.Struct.SetUint16(0, uint16(v))
+func (s Obj) SetType(v int32) {
+	s.Struct.SetUint32(0, uint32(v))
 }
 
 func (s Obj) Value() Obj_value { return Obj_value(s) }
 
 func (s Obj_value) Which() Obj_value_Which {
-	return Obj_value_Which(s.Struct.Uint16(2))
+	return Obj_value_Which(s.Struct.Uint16(4))
 }
 func (s Obj_value) Name() (capnp.TextList, error) {
 	p, err := s.Struct.Ptr(0)
@@ -2766,7 +2486,7 @@ func (s Obj_value) Name() (capnp.TextList, error) {
 }
 
 func (s Obj_value) HasName() bool {
-	if s.Struct.Uint16(2) != 0 {
+	if s.Struct.Uint16(4) != 0 {
 		return false
 	}
 	p, err := s.Struct.Ptr(0)
@@ -2774,14 +2494,14 @@ func (s Obj_value) HasName() bool {
 }
 
 func (s Obj_value) SetName(v capnp.TextList) error {
-	s.Struct.SetUint16(2, 0)
+	s.Struct.SetUint16(4, 0)
 	return s.Struct.SetPtr(0, v.List.ToPtr())
 }
 
 // NewName sets the name field to a newly
 // allocated capnp.TextList, preferring placement in s's segment.
 func (s Obj_value) NewName(n int32) (capnp.TextList, error) {
-	s.Struct.SetUint16(2, 0)
+	s.Struct.SetUint16(4, 0)
 	l, err := capnp.NewTextList(s.Struct.Segment(), n)
 	if err != nil {
 		return capnp.TextList{}, err
@@ -2796,7 +2516,7 @@ func (s Obj_value) Ip6() (string, error) {
 }
 
 func (s Obj_value) HasIp6() bool {
-	if s.Struct.Uint16(2) != 1 {
+	if s.Struct.Uint16(4) != 1 {
 		return false
 	}
 	p, err := s.Struct.Ptr(0)
@@ -2809,7 +2529,7 @@ func (s Obj_value) Ip6Bytes() ([]byte, error) {
 }
 
 func (s Obj_value) SetIp6(v string) error {
-	s.Struct.SetUint16(2, 1)
+	s.Struct.SetUint16(4, 1)
 	return s.Struct.SetText(0, v)
 }
 
@@ -2819,7 +2539,7 @@ func (s Obj_value) Ip4() (string, error) {
 }
 
 func (s Obj_value) HasIp4() bool {
-	if s.Struct.Uint16(2) != 2 {
+	if s.Struct.Uint16(4) != 2 {
 		return false
 	}
 	p, err := s.Struct.Ptr(0)
@@ -2832,7 +2552,7 @@ func (s Obj_value) Ip4Bytes() ([]byte, error) {
 }
 
 func (s Obj_value) SetIp4(v string) error {
-	s.Struct.SetUint16(2, 2)
+	s.Struct.SetUint16(4, 2)
 	return s.Struct.SetText(0, v)
 }
 
@@ -2842,7 +2562,7 @@ func (s Obj_value) Redir() (string, error) {
 }
 
 func (s Obj_value) HasRedir() bool {
-	if s.Struct.Uint16(2) != 3 {
+	if s.Struct.Uint16(4) != 3 {
 		return false
 	}
 	p, err := s.Struct.Ptr(0)
@@ -2855,7 +2575,7 @@ func (s Obj_value) RedirBytes() ([]byte, error) {
 }
 
 func (s Obj_value) SetRedir(v string) error {
-	s.Struct.SetUint16(2, 3)
+	s.Struct.SetUint16(4, 3)
 	return s.Struct.SetText(0, v)
 }
 
@@ -2865,7 +2585,7 @@ func (s Obj_value) Deleg() (PublicKey, error) {
 }
 
 func (s Obj_value) HasDeleg() bool {
-	if s.Struct.Uint16(2) != 4 {
+	if s.Struct.Uint16(4) != 4 {
 		return false
 	}
 	p, err := s.Struct.Ptr(0)
@@ -2873,14 +2593,14 @@ func (s Obj_value) HasDeleg() bool {
 }
 
 func (s Obj_value) SetDeleg(v PublicKey) error {
-	s.Struct.SetUint16(2, 4)
+	s.Struct.SetUint16(4, 4)
 	return s.Struct.SetPtr(0, v.Struct.ToPtr())
 }
 
 // NewDeleg sets the deleg field to a newly
 // allocated PublicKey struct, preferring placement in s's segment.
 func (s Obj_value) NewDeleg() (PublicKey, error) {
-	s.Struct.SetUint16(2, 4)
+	s.Struct.SetUint16(4, 4)
 	ss, err := NewPublicKey(s.Struct.Segment())
 	if err != nil {
 		return PublicKey{}, err
@@ -2895,7 +2615,7 @@ func (s Obj_value) Nameset() (string, error) {
 }
 
 func (s Obj_value) HasNameset() bool {
-	if s.Struct.Uint16(2) != 5 {
+	if s.Struct.Uint16(4) != 5 {
 		return false
 	}
 	p, err := s.Struct.Ptr(0)
@@ -2908,7 +2628,7 @@ func (s Obj_value) NamesetBytes() ([]byte, error) {
 }
 
 func (s Obj_value) SetNameset(v string) error {
-	s.Struct.SetUint16(2, 5)
+	s.Struct.SetUint16(4, 5)
 	return s.Struct.SetText(0, v)
 }
 
@@ -2918,7 +2638,7 @@ func (s Obj_value) Cert() (CertificateObject, error) {
 }
 
 func (s Obj_value) HasCert() bool {
-	if s.Struct.Uint16(2) != 6 {
+	if s.Struct.Uint16(4) != 6 {
 		return false
 	}
 	p, err := s.Struct.Ptr(0)
@@ -2926,14 +2646,14 @@ func (s Obj_value) HasCert() bool {
 }
 
 func (s Obj_value) SetCert(v CertificateObject) error {
-	s.Struct.SetUint16(2, 6)
+	s.Struct.SetUint16(4, 6)
 	return s.Struct.SetPtr(0, v.Struct.ToPtr())
 }
 
 // NewCert sets the cert field to a newly
 // allocated CertificateObject struct, preferring placement in s's segment.
 func (s Obj_value) NewCert() (CertificateObject, error) {
-	s.Struct.SetUint16(2, 6)
+	s.Struct.SetUint16(4, 6)
 	ss, err := NewCertificateObject(s.Struct.Segment())
 	if err != nil {
 		return CertificateObject{}, err
@@ -2948,7 +2668,7 @@ func (s Obj_value) Service() (ServiceInfo, error) {
 }
 
 func (s Obj_value) HasService() bool {
-	if s.Struct.Uint16(2) != 7 {
+	if s.Struct.Uint16(4) != 7 {
 		return false
 	}
 	p, err := s.Struct.Ptr(0)
@@ -2956,14 +2676,14 @@ func (s Obj_value) HasService() bool {
 }
 
 func (s Obj_value) SetService(v ServiceInfo) error {
-	s.Struct.SetUint16(2, 7)
+	s.Struct.SetUint16(4, 7)
 	return s.Struct.SetPtr(0, v.Struct.ToPtr())
 }
 
 // NewService sets the service field to a newly
 // allocated ServiceInfo struct, preferring placement in s's segment.
 func (s Obj_value) NewService() (ServiceInfo, error) {
-	s.Struct.SetUint16(2, 7)
+	s.Struct.SetUint16(4, 7)
 	ss, err := NewServiceInfo(s.Struct.Segment())
 	if err != nil {
 		return ServiceInfo{}, err
@@ -2978,7 +2698,7 @@ func (s Obj_value) Regr() (string, error) {
 }
 
 func (s Obj_value) HasRegr() bool {
-	if s.Struct.Uint16(2) != 8 {
+	if s.Struct.Uint16(4) != 8 {
 		return false
 	}
 	p, err := s.Struct.Ptr(0)
@@ -2991,7 +2711,7 @@ func (s Obj_value) RegrBytes() ([]byte, error) {
 }
 
 func (s Obj_value) SetRegr(v string) error {
-	s.Struct.SetUint16(2, 8)
+	s.Struct.SetUint16(4, 8)
 	return s.Struct.SetText(0, v)
 }
 
@@ -3001,7 +2721,7 @@ func (s Obj_value) Regt() (string, error) {
 }
 
 func (s Obj_value) HasRegt() bool {
-	if s.Struct.Uint16(2) != 9 {
+	if s.Struct.Uint16(4) != 9 {
 		return false
 	}
 	p, err := s.Struct.Ptr(0)
@@ -3014,7 +2734,7 @@ func (s Obj_value) RegtBytes() ([]byte, error) {
 }
 
 func (s Obj_value) SetRegt(v string) error {
-	s.Struct.SetUint16(2, 9)
+	s.Struct.SetUint16(4, 9)
 	return s.Struct.SetText(0, v)
 }
 
@@ -3024,7 +2744,7 @@ func (s Obj_value) Infra() (PublicKey, error) {
 }
 
 func (s Obj_value) HasInfra() bool {
-	if s.Struct.Uint16(2) != 10 {
+	if s.Struct.Uint16(4) != 10 {
 		return false
 	}
 	p, err := s.Struct.Ptr(0)
@@ -3032,14 +2752,14 @@ func (s Obj_value) HasInfra() bool {
 }
 
 func (s Obj_value) SetInfra(v PublicKey) error {
-	s.Struct.SetUint16(2, 10)
+	s.Struct.SetUint16(4, 10)
 	return s.Struct.SetPtr(0, v.Struct.ToPtr())
 }
 
 // NewInfra sets the infra field to a newly
 // allocated PublicKey struct, preferring placement in s's segment.
 func (s Obj_value) NewInfra() (PublicKey, error) {
-	s.Struct.SetUint16(2, 10)
+	s.Struct.SetUint16(4, 10)
 	ss, err := NewPublicKey(s.Struct.Segment())
 	if err != nil {
 		return PublicKey{}, err
@@ -3054,7 +2774,7 @@ func (s Obj_value) Extra() (PublicKey, error) {
 }
 
 func (s Obj_value) HasExtra() bool {
-	if s.Struct.Uint16(2) != 11 {
+	if s.Struct.Uint16(4) != 11 {
 		return false
 	}
 	p, err := s.Struct.Ptr(0)
@@ -3062,14 +2782,14 @@ func (s Obj_value) HasExtra() bool {
 }
 
 func (s Obj_value) SetExtra(v PublicKey) error {
-	s.Struct.SetUint16(2, 11)
+	s.Struct.SetUint16(4, 11)
 	return s.Struct.SetPtr(0, v.Struct.ToPtr())
 }
 
 // NewExtra sets the extra field to a newly
 // allocated PublicKey struct, preferring placement in s's segment.
 func (s Obj_value) NewExtra() (PublicKey, error) {
-	s.Struct.SetUint16(2, 11)
+	s.Struct.SetUint16(4, 11)
 	ss, err := NewPublicKey(s.Struct.Segment())
 	if err != nil {
 		return PublicKey{}, err
@@ -3129,196 +2849,162 @@ func (p Obj_value_Promise) Extra() PublicKey_Promise {
 	return PublicKey_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
 }
 
-const schema_fb2d77234707241e = "x\xda\xacY\x7fl\x1c\xd5\xf1\x9f\xd9\xbd\xcb\xd9\x8e\xfd" +
-	"\xbd[\xaf\x1dB$\xbe\x07!\xe8\xfbM\xa4@rN" +
-	"RH\x8b\xcc\x19\x0c\xb1c\xc7^\xdf\xb9\x8d\xad\xa0f" +
-	"}\xf7r\xb7\xc9y\xf7\xb2\xbbN|\x11Q\x12\x14\xda" +
-	"\x80B\xf9\x99\x8a\xd0 %\x15\xd0@\x89\x80\x96\xb6 " +
-	"\x82\x0a\x15\x15?\x0a\x0aE\xb4%\x85@+\x12\xb5\xb4" +
-	"A\xfc\x10i!\x94n5o\xf7n\xd7w\xe7\x10\xda" +
-	"\xfeu\xbbo\xe6\xbd\x9d\x99\xf7\x99\xcf\xcc{\xb7\xa8\xa5" +
-	"\xe1\x0aaq\xd8i\x04P\xec\xf0\x0c'\xb3b\xef\xae" +
-	"\xeek\xfa\xaf\x07\xa9]p\xfew^\xe4\x9a\x0b7/" +
-	"\xfc\x0c\x00;N\x84\xc6P\xfe4\x14\x01\x90O\x85r" +
-	"\x80\xce\x8a\x8f\x06\x0f?\xdd\xd5\xbd\x13\x94vD_5" +
-	",D\x00:.\x08\xf7\xa2\xbc4L\xda\x8b\xc3\x0f\x03" +
-	":w/n\xe9\xd8\xbf\xf6\xd6o\xd5\xac\xfbB\xb8\x15" +
-	"\xe5\xa3\\\xf37\xe1\xaf\x00:\xe2\xc9\x8b6o\xfd\x89" +
-	"\xb1\xbbF\xf3XX@\xf9]\xaey\"\x1c\x07t\xa2" +
-	"\x8f\xdd\xd3\xfd\xe3\xe3\xa7w\x93\x05b\xc0\x02$\x95c" +
-	"\xe1\xd3\xaer\xc7\x89p\x1c\x01\x9d9\xdb\x07\xda\x7f\xf1" +
-	"\xd1\x9e\x07\xab\xed\xe5:\x18\xe9E\xb9=B\x8fR\xe4" +
-	"\x1b\xa4\x1e\x9a\xf9\xcd'\x07\x9c\x17~Xc\xc6\x8e\x86" +
-	"&\x94ok\xa0o\xdc\xdc\xf0\x1c\xa0\xf3\x9d\xe7J'" +
-	".\x99x\xe3P\x8d\xe6\xfc\xc6\x04\xca\x975\x92\xe6\xd2" +
-	"Fr\xed\xfe\x97\xda\xe6\xaf}\xfc\x9d\x9f\x82\xd4\x1e\xb4" +
-	"\x80\x82\xda\x91l\xecBY\xe1\xca\xfd\x8d\x7f\x02t\x16" +
-	"\xb6\x1f\xd9\xf5\xfb-\xedO\xd5S\xeeijEy\xa4" +
-	"\x89\x94\x87\x9bH\xf9\xfd\x86\xdf\xde\x91<\xf9\xbb\xa7\xab" +
-	"\x94g\x90\xb2:\xb3\x15\xe5\x8d3\xe9q|&\xf7\xed" +
-	"@\x7f\xfb\xbe=/\x1f\xfdU\xed&7'P>\xd5" +
-	"L\xeb~\xd8\xfc6\xa0\xf3\xf6\x842\xde\xb5{\xd9K" +
-	"\x144\xa1\xda\x8a\xbd-\xad(?\xd0B\x8f\xf7\xb5\xf0" +
-	"\x85\x0f\xff\xff\xb7\xe7\xb2#\xea\x91\xba;\x82\xd1\xd3r" +
-	"K\x94\xb4\x1b\xa3|Gny\xe2\xd4\xca\xe4\x85\xef\x1c" +
-	"\xa9\xe7\xe1\xfcX\x13\xca\x97\xc5x\xecb\xe4\xe1\x87\xa1" +
-	"\xd5\xaf6\xff\xec\x837\xea)/\x96\xd6\xa3\xdc-\x91" +
-	"rR\"\xe5\xfd\x97\x1f<\xf9\xd5\x87o9^\x17\x9b" +
-	"\x97\xb76\xa1\xdc\xdfJ\xda=\xad\x84\xcd\xa6'\xd3\xd7" +
-	"\xde\xf1\xa3\xb7N\x80r.\xa2\xf3`\xf6\xc6y\x93\xaf" +
-	"^\xf2W\x18\xc6\x086#\xca\xef\xb6\x9e\x06\xecx\xaf" +
-	"\xf5\x07\x02\xa0\xf3=-\xb2\xe3\xc5\xf6G\xfeR\xbd2" +
-	"y\xd8\xf1h{\x13\xca\xcf\xb4\xd3\xcaO\xb5\xd3\xca\x95" +
-	"\xb5\xeah\xcb#\xb3^\x94\xd9,zRgm\x06t" +
-	"z\x7f\xbe\xa0g\xe5\xbe'NVy\xc8\xf1y`V" +
-	"\x02\xe5GI\xb9\xe3\xd0,\x1e\xbc\xb7\x06z:\x8e\xce" +
-	"\xb8\xf0\xfd\x9a=|\xf7\x9c\xe5(\x7fz\x0eO\xd4s" +
-	"(Q\xdf<\xb6\xfe\xfe\xc8w?\xf8\xb8\xca\x88n\x8c" +
-	"4\x00t\x9c7{.\xca\x0bg\xf3\x98\xcf~\x8eV" +
-	"\xbe\xc8\xdae.Qn\xff\xac\xae\x8b\xe19\xcbQn" +
-	"\x9fC\xabKs(\xd4\x07g7<~\x811\xf0y" +
-	"\xad\x1ds\x04\x94O\x91f\xc7\x87s\xfe\x0fa\xa1S" +
-	"4\x0d\xdb\xb8\xc4TC\x9an\xf5[\xb9\x8b3jQ" +
-	"/.Oi9]\xb5'L\x96,\xe4\x0cS\xb3\xf3" +
-	"\xe3\xe9H\xa9\xc8\x06\x11\x95\x18\x0a\x00\xd2\xfc.\x00D" +
-	"\xe9\x82\x04\x00\x0a\xd2\xb9\xbd\x00(J\xed\xbd\x00\xdbX" +
-	"6\xb1t\xe9\xe2\xcb\xe2,\xbbd\xc9\xa5\x0e\xcbd-" +
-	"5\xb1t\x19\x00\xb8\xcf\x1d\x97.\xa1\xe7\xfa\x9f]e" +
-	"\xd8\xda:-\xa3\xda\x9a\xa1\xa7X\x86~\x00\xe8\xa3\xcd" +
-	"b\x08 \x84\x00Rw\x02@\xb9BD\xa5O@\xc4" +
-	"6\xa4\xb1\x9e\x05\x00\xcaU\"*\x83\x02J\x02\xb6q" +
-	"\x0b\xfbip\x85\x88JZ\xc0\xb8ml`:\xb6\x80" +
-	"\x80-\x80Q\xbbTd\x18\xf53\x0e\x10\xa3\x80\xd1\xac" +
-	"j\xab\xd8\x0c\x026\x03V\x0c\x14\xa7\x188H\xa3\x19" +
-	"\xa3\x90.\x15\x91G\xa3\x81\x7fK2y4Z\x12\xe4" +
-	"YzX\xb7\x8a,\x03qm\x9d\xc6\xb2\xf1b:\xdd" +
-	"\x97\x9af\xb9\x95\xac\x94*\xaa\x19\xd6s\x15\xf72\xc4" +
-	"\x17\x0b\x9b\x00\x8e\xa9j\xba\xb5\x92\x95 \xce\x15*\xf3" +
-	"\x85\xa9\xe6L\x8cu\x16\xb4\xccJV\xa2\xe9m\x95 " +
-	"m\xed\x05P\xae\x13Q\xd9%\xa0T\x8e\xd2\x0d\x14\x90" +
-	"\xed\"*\xbb\x05D\xc1\x0d\xd2\x8ds\x01\x94\x9d\"*" +
-	"\xb7\x0a(\x89\xd8\x86\"\x80t\xf3(\x80\xb2[D\xe5" +
-	".\x01\xa5\x90\xd0\x86!\x00i\x0f\x0d\xde)\xa2\xb2_" +
-	"@g\x83g7\x00`\xd4/\x0e^\x1c\xbd\xf0V\xaa" +
-	"\x96;\x1c\xd9\xc0J\xe5\x1dp6\xa9\x05-\x9b\xd2t" +
-	"\x103\x0c\xc3 `\xb8<8\xac\xdb j\x85\xca`" +
-	"}\xa0$\xb3Y\x93Y\x962\xc1\xcc\xd2\x14\xa0\xcc\xae" +
-	"\xc4`\xef\x18\x80r\x97\x88\xca\xbd\x81\x18\x1c \xf4\xec" +
-	"\x13Q9HH\xf1\x82p_\x17\x80\xb2_D\xe5!" +
-	"\x0a\x82\xe8\x06\xe1\x01\xd2\xbcWD\xe5i\x011\xe4\xc6" +
-	"\xe0)R|\\D\xe5Y\x01\xa5p\xa8\x0d\xc3\x00\xd2" +
-	"34xXD\xe5u\x01\x1dkbl=\xcb\xd8I" +
-	"\x88d\xb3&\xc6|\xce\x03\xc4\x18T\xe1p[\xc6\xd0" +
-	"m6i\x971\x17\xa7\xc0Y\xf8?\x80\x83\"b\x08" +
-	"\x04z\xdc\xc6&\x8b\x9a\xc9\xacr@\xb6\x19E\xf2\xb6" +
-	"\xa2\x16\xf5\x8b\" \x0dN\x035\x1e\xaa\x81\xa2\x1f\xa9" +
-	"\xf3\xb9\xef#.r\x87\x1f\xe4y<\xbc\x85\xe7\xb1r" +
-	";\x00\x86$\xe5\xfb\x00\x18\x96\x94\xf5\x008C\xea\x7f" +
-	"\x11\x00#\x92r7\x803\xae\xe9\xdd\x89\xee>\x15\xe2" +
-	"6\xd33%z\xefS-{\x05\x1a\xc5\xa4nmf" +
-	"f4\xa5ma4\xdc\xa3\xaf3\xfa\xa0\x93\xa9\x1b\xd4" +
-	"\x1cs2j&\xcf\xb2I\x1dI\xc7\x1a\xd0\x0bXr" +
-	"\\\xff\xb2I\xb4,f\x92y\x11k`\x83\xc3\x03\x95" +
-	"6U\x88f4=\xe7\xe8\xc6\xd7\x99\xa9\xad\xd3\x04\x97" +
-	"\x1b\xaeb\x05\x96S]_\x1c\xdd\x184\x0d5c\xa3" +
-	"\xb6\x89]\xa9f\xf2\x9a\xa8\xe7\xa6\x09\xc2\x95\xf4\x05N" +
-	"0,>l\xa9\xb9:)<\x06\xe0d\x86\xd3\xe6\x84" +
-	"e'!\xaeg\xf2\x86\xe9d\x86\xbb\xf5l\xb7nC" +
-	"D\xb3KgF\xe4\xa8\xa1\xb32 9[V\xf0\xa8" +
-	"\x12\x1e\xd7\x8a\xa8\x14\x02x\xd4(\xab\xf2\"*;\x03" +
-	"x\xdc\xd1\x15\xc8\xde2\x1eo\xe8\xf2\xb2w\xdf\x17\xc3" +
-	"\xcc\xb1<\xfa\x06\xd1\xc7S\xcco\x04\\\xa0T\xc3\xcf" +
-	"}\xd7m\x7fB\xa5\xbc\x9f\x11YCDU\xfd\xcc\xb2" +
-	"\xd4\x9c\xcb\x89\x01\x9f)\x89\xd6\x88\xa8\xe4\x03>\xb3." +
-	"/\x10\xd7\x05|.Q &ET\xee\x0c\xf8|\xdb" +
-	"z\x00\xe5V71\xeb\xa5N\xd0\xd6JA\xf5l=" +
-	"\xab\x108\x19\xb5\xa8\x8ei\x05\x0d\xa2\xb6\xe6\xeb5\xbb" +
-	"\xa97\x8d\xbf\xa9\xbcjf\xdd=F\xbd\x8as\xba<" +
-	"\x92|$\xe0\xef!r\xed!\x11\x95\xe7\x03\xfe\xfe\x92" +
-	"\xd0\xf0\xac\x88\xca+\x01\x7f_\xa6\xe9\xcf\x8b\xa8\xbcF" +
-	"\xc4\xeb\x91\xce\xaf\x87\x00\x94WDT\xde$\xd2\x09\xbb" +
-	"\xa4s\x944_\x13Q\xf9\x83P'\x16\x95\xa6\xe5K" +
-	"\xc5\xc2\x03\xd5(D\x0c\x9dM\x05\x85\x0f\x12\xc7T\xf5" +
-	"\x1c\xbb\xda4\x00\xc7+:|,m|A\xed\x0c\x14" +
-	"\xf7\xb8\x9e\xf6\xba\x89y<\x1al\x88'\x9fz=g" +
-	"\xa1kG9\x0b\x8d\xdc\xcdYh\xe4v\xceB#c" +
-	"\x9c\x85\x86\xafwY\xe8&\x00l\xe0?N\x9e\xa9\xa6" +
-	"=\xc6T@\x9b\xf6s\x85j\xe5W\x09\x86\xbdR7" +
-	"6\xeb0\xa6f94\xc5\x1cs\xcc\xcc\xa6\x1e=c" +
-	"\xe8hi\x16\x05\xac_\xb4\x88Y\x92\x9cx\x90H\xb5" +
-	"{R\xb3\xd0v\xc6\xad\\\xda0\xfaT\x88\x989\xe6" +
-	"L\xf0r\x9eb\xa2\xb9\x89\x99\xdd\xa6\x09\x16\xa3\xa7U" +
-	"\x86}%\xa1\xa7\xc08\x07\xf9\xab$7\xa9Z!\xd0" +
-	"\xe2\xd4\xe1\xe1i\xd0\x93\xf0Kl\x05=\xf7,\x08\x94" +
-	"\xb12z\x0et\xf9e\x0c=\xf0\xdc\xb7 P\xc5B" +
-	"\xe8\x82\xe7\x81.\xaf\x8a\x11 \xc3\xa2\x0b\x9eC4x" +
-	"\xd0-cU\x9d\x91\xae\x8eO\xbb\xf5\xe5\xba^i." +
-	"\xdd\xba\xfe\xef\x17(\xa1\xba\xe5\xect{\xce\xb3\xe9e" +
-	"\x86\x02}K\xb9\xe3\x9b\xd2\xb7\x88\x82\x1b\x96`\xdfR" +
-	"\xae\xe3\xc1\x98\x9e\xb9\x97qT\xaf\xff%\xb8\xd7\xb44" +
-	"g\xdf\xc6\xb8\xbde\xb9\xfb\xa9\x8f\x8c`\xe9\xa8\xae\x1d" +
-	"\xa3\x01\xca,\xc7\xa04\xe6Q\xe6\x97\xac\x1d\xff=2" +
-	"\xf8b\x16>c\xadL\x96+~\x8ae\xa2\xf4{6" +
-	"\x05\x93\\\xc9\x8a\xa8l\x0f8\xbdu\xd4s\xfa\xae\x80" +
-	"\xd3{\xba\xbc\xe2q\x16\x05\xb3\xd6\x91\xca!\xf1\xcbP" +
-	"h\x0dYNS@<c\xb2Y\xb3\xe6tc\xfa'" +
-	"\x99\xb2\xcb\xfdT\x05\xfbDTV\x07\xb0>L\xde\x0d" +
-	"\x8a\xa8\xac\x11\xd0Q\xddx^\x0dqu\\+\x94\x02" +
-	"\x9fg\xeb\xb4\xc9>\x06Q=g\xe7\xb1\x01\x04l\x00" +
-	"\xdc\xe6\xa9\xd7X95\x1f\x07\xc6\xd6w^\xbcI-" +
-	"L0e\x91\x18jv\x1cn\x8d\x9c\xc4\x05\x00\xa9\xaf" +
-	"\xa1\x88\xa9\xd5(`\x0b\xfe\xd3\xe1\x16\xc9\xc38\x17 " +
-	"5H\x825$\x10>w\xf8F\xc8#\\\x90&\xc1" +
-	"Z\x12\x88\xffpx\x1a\xca\xd7b\x02 \xb5\x9a\x04Y" +
-	"\x12\x84>s8A\xc9*\x17\xac!A\x9e\x04\xe1\xd3" +
-	"N\x1b\xce\x00\x90\x19v\x01\xa4\xd6\x92\xa0@\x82\x19\x9f" +
-	":m\xfc\xd8\xaeq\xab\xb2$(\x92 \xf2\x89\xd3\x86" +
-	"\x0d\x00\xf28\x9f\x91'\x81M\x82\x86\xbf;m\xd8\x08" +
-	" o\xe43\x0a$\x98$A\xe3\xdf\x9c6l\x02\x90" +
-	"'\xb8\xa0H\x82\xebH\xd0t\xcai\xc3\x99\x00r\x89" +
-	"[e\x93`;\x09f~\xec\xb4a3\x80\xbc\x95\x0b" +
-	"&I\xb0\x13\x05\x8fD\xa7\xb6\x12\x11\xad\xb8\xac\x1c\xef" +
-	"\x88V\\Ri\xf9M\x96\xd5\xcc\xca[\x96\xfaZ\x8c" +
-	"\xf9\x97h\x1e<iE\x8b\xf9L\x9c\xa1R\x13\xf3/" +
-	"\x05<5*LZ\x86a\xcc\xbf\x11q%Q\x93\xe5" +
-	"*_\xa1\x17\xff\xcc\xa1\xe9\xebL\xb5\xf6\x93q6i" +
-	"\xd7\x1b\x9f\x0e\xd2\xee\x97\xa9\xdb\xaf\x81\xf4\x82\xb3=\xb0" +
-	"\xf7\xfa8\x9fR\x88\xa2E\xc3\xb41\x02\x02F\xb8\x01" +
-	"\x1a1r\x89\xf8\xdaC\xf4\xf4\x08v\x8di\xa8\x183" +
-	"\x9f><ODe\x11\x19\x83\x81k&ia\x02\x84" +
-	"iJ\\\x9c\xa7\xc14\xae\x07X,\x9e)\xb3X\xa0" +
-	"|\x8d\xd5+_\x01B\xae\xb0\xd8\xdeQ\xaf*=\x16" +
-	"`\xb1Gi\xfa#\"*\x87\x03-\xe1\x134\xfd1" +
-	"\xf7lZ\xa6\xb6U\x10\xa9\xa9\xdd\xff1\xa1\x9deO" +
-	"X?0\xd4\x88y\xd7G\x9d\xf9\xf1\xf4\xd4\xeb\xa3Q" +
-	"\xde\xf0]\xb4\x9c7|\xe7-w\xaf\x8f\x96\xf3N\xca" +
-	"\x9d\x07b\xce\xe8\xb4\xf2jb\xe92\xfa\xe9\xb8t\x09" +
-	"\xfd,]\x9c\x98\xe6k\xee\x01\x84\x17\xd0\x88\xb7\x09\xe7" +
-	"s\xda\xe2\xbb\x10l\xa2]\xca\xa2\xd1\xa3\x09\xbf\x8bv" +
-	"\xf9\x8al;F\x18y]D\xe5x\x99\xach#\xfe" +
-	"H\xbao\x8a\xa8\xfc\xb9\xccT\xb4\x13'\x88\x9b\x8f\x8b" +
-	"\xa8|P\xa6)j\xb0\xde\xa3\xd1\x93\"*\x9f\x949" +
-	"j\x06\x80t\xea&\x00\xe5\x13\x11S\xa1\x0aC\xf1\x1b" +
-	"X\x1c\x03\x18\"\xf2hF\xe2r\x0fN\x80zU'" +
-	"OYi\xd1\xd9\x03c\xfe\xd5\xb2\x97\xdf[h{b" +
-	"\xfe\xe5\xad\xa7\xbe\x91\x9aM\x8c\xf97\xc6^\x12\xeb^" +
-	"+\x0e\xbc\xecb\xcc\xff\xdf\xc0S\xf0J\x84\x02Qo" +
-	"\x85\xcaE\xfdT\x05\xff\xd4\x0ePu`\x0chy\xf0" +
-	"\x89\xf9w\xedg$\x93\xc0)\xbds\x80\xe3\xaf\xaa1" +
-	"XP\xefT\x99\x08t\x0b\xe5\x94\xd2z\xbd\xe3\xb5\xed" +
-	"\xf7\xc9\x1bivADeR\xa8\xb4\xb4\x95?B\xbc" +
-	"|\x9f (a\xd4\xff\x17\xc1\xeb\xf7\xf2\x1e\xa4\xdd^" +
-	"\xb1r\xdb\x1b\xbc?<s\x8f\xe7\xbaC\xb9\xc0\x89i" +
-	"\x91{\x09\xb7\x9c'\xc3\x8e!\x9e\x0c[\x87x2\x94" +
-	"L~\xfa\x99X\xcfO?\x1b\x87\xf8\xe9g|\x94\x9f" +
-	"~4\x93\x9f~\x18\x1d\x89\x1a%\x95T\x9a\xdcS\xd3" +
-	"Lid\x14\xa0\xd3H\xafR\xc7\x99c\xa4{\x06\x97" +
-	"%\xb3Y@\x93?/\xa9<\x0fQ\xd9a\xe0\x12\x96" +
-	"c\xa4\xdd\x0b\x15\x17\x0e\x8e;\xdbbt\xa02\xd2\xb4" +
-	"\x1b=:\x88\xeb\x0c\xc7H\xbb<\x0fq\xce\xf4|\x9d" +
-	"\x9cf\xd9\x101U\xd3\x7f\x8b\x9a\xaaN3{\xa8\xb4" +
-	"\xac\x04\x91\x95\x1c#\xddM\xf5\x84\xbf\xfc+\x00\x00\xff" +
-	"\xff\xc7{\xc9t"
+const schema_fb2d77234707241e = "x\xda\xacX\x7fl\x13\xe7\xf9\x7f\x9e{\xed\xd8\x09\x09" +
+	"\xb69'\xa2_\xa9_\x8f_\xd2\x88\x94\x02v\xc2X" +
+	"\xb6.\x8d\xd7\xb4$\x90\x92\x17'\x1aD q\xb1\x8f" +
+	"\xf8\xc09\x9b\xf3\x05\xe2\x0a\x04L\xb0\xd1\x89\xaet-" +
+	"\x13l Q\xa9\xedhUT\xba\xb1\xadhT\xa3S" +
+	"\xabvU+JUme\x85nUA\x9d6\xa6\xb2" +
+	"\xaa\xac\x0c\xd6\xdd\xf4\xdc\x9d}\xe7\x1f\x81\xa0\xed/\x9f" +
+	"\xdf\xe7\xb9\xf7\x9e\xe7\xf3~\xde\xcf\xf3\xbc\xef\xc2o\xf8" +
+	"\xee\x11\x16y?\xf7\x03\xf0\xb4\xb7\xceH.=\xb8\xa7" +
+	"\xe7\xfe\xfeoC\xa8Y0\xfe\x7f\xae\xef\xfe9[\xda" +
+	"n\x00`L\xf2\x8c\xa08\xee\xf1\x01\x88\x9b<\xa3\x80" +
+	"\xc6\xd2O\x07N\x9d\x8e\xf7\xec\x02\xde\x8c\xe8\xb8z\x05" +
+	"\x1f@\xec\xb0\xa7\x0f\xc5\x17L\xefc\x9e\xe7\x01\x8d\x1f" +
+	"-j\x8a\x1dY\xb7\xef;U\xf3\xf6xg\xa08\xe4" +
+	"%O\xee\xfd\x0a\xa0\xc1.\xcf\xdb\xb2\xed\xe7\xd9\xbdU" +
+	"\x9e\xab\xbd\x02\x8a\xb2\xe9)y#\x80F\xe0\xc4\xe1\x9e" +
+	"\x9f]\xbc\xbe\x97\"`\xae\x08\x90\\V{\xaf[\xce" +
+	"1\xc9\x1bA@\xe3\xffv\xach\xfe\xcd\xa7\xfb\x9f\xad" +
+	"\x8c\xd7\xf4\xd9V\xd7\x87\xe2\xa3u\xf4\xf8p\xdd\xb7\xc8" +
+	"\xfd\xfb\xaf\x15.-\x18\x7f\xffXU\x18_\xf8\xa2(" +
+	"6\xf9\xe9\x1b\xf5~\x0a\xf8\xe97\xc3\xf3\xd7\xbd\xf8\xd1" +
+	"/ \xd4\xec\x9e\x97\x92\x8f5\xfb\xe3(\xce3\x9dg" +
+	"\xf9?\x064\xda\x9a\xcf\xec\xf9\xc3\x83\xcd/\xd5r\xbe" +
+	"\xb3~\x06\x8am\xf5\xe4<\xbf\x9e\x9c?\xf1\xff\xee\xb1" +
+	"\xee\xcb\xbf?]\xe1l\x86\xd9\xd10\x03\xc5\x9e\x06z" +
+	"\xecn0#\xfe\xe38\x1f\x8b\xef]\xfc&%(T" +
+	"\xce}r\xda\x0c\x14\x7f;\x8d\x1e_\x9df\xba\x9f\xfa" +
+	"\xf2wg\xcbg\xa435\xd1\x9b\xd5t]lk\"" +
+	"\xef\xf9M&z\x8f\x9c\xbc\xba\xac{\xceGgj\xc5" +
+	"\xdd;\xbd\x01\xc5\xd5\xd3\xe9\xbd\xa1\xe9\x14\xf7\xdf=\xab" +
+	"\xdei\xfc\xe5\x95\xf7k9\xf3\xc0\x06\x14\xe5\x80\xb9\x8a" +
+	"\x01r>r\xf7\xd1\xcb_{\xfe\x91\x8b5y\xb46" +
+	"\xd8\x80\xe2X\x90\xbc\x95 \xf1\xa8\xe1W\x83k\x1f\xfb" +
+	"\xe9\x07\x97\x80\xdf\x81h<\x9bzh\xee\xc4;\x0b\xfe" +
+	"\x0aC\xe8\xc3F\x14\xc4\xfa\xd0u\xc0XS\xe8'\x02" +
+	"\xa0\xf1c\xc5\xb7\xf3\x8d\xe6\xe3\x7f\xa9\x9c\x992\x8c\x9d" +
+	"\x15\x1bP\xfcP\xa4\x99/\x884si\xae\x1a\xdeb" +
+	"!\xfc\x86\xb8;LO;\xc3[\x00\x8d\xbe_\xb7\xf6" +
+	".;t\xf2rE\x86&\x97^\x0eGQ<K\xce" +
+	"\xb1\xb7\xc2&x\x1f\xac\xe8\x8d\x9d\xab\x9b\xf3I\x15\x97" +
+	"\xea[:Q\xbc\xa3\x85\xe6mn\xa1Mu\xfe\xc2\x86" +
+	"\xa7}?\xbc\xf2YE\x10=\xe8\xf3\x03\xc4\xeen\x99" +
+	"\x8db\x7f\x8b\x89y\xcbk4\xf3\xbc\xfc\x1e\xad\x9d\xff" +
+	"\xe0F\xcd\x14\xe7\xcd\xecD\xb1c&\xcd\xbeh\xe6\xc7" +
+	"\xd0f\xe4\xb4\xac\x9e]\xa0I\x1eE\xcd\xf7\xe7G\xef" +
+	"JJ95\xd7\x99PFUI\x1f\xd7\xe4\xee\xcch" +
+	"VS\xf4\xf4\xd8\xa0\xaf\x90\x93\x07\x10y\x10\x05\x80\xd0" +
+	"\xfc8\x00bhV\x14\x00\x85\xd0\x1d}\x00\xc8B\xcd" +
+	"}\x00\xdb\xe5T\xb4\xa3c\xd1W#r\xaa\xbd}\x89" +
+	"!'Sy)\xda\xb1\x18\x00\xac\xe7\xd8\x92vz\xae" +
+	"\xfd\xd9\x07\xb2\xba\xb2^IJ\xba\x92U\x13r\x92~" +
+	"\x00\xe8\xa3\x8d\xcc\x03\xe0A\x80PO\x14\x80\xdf\xc3\x90" +
+	"/\x17\x101\x8c4\xd6\xdb\x0a\xc0\xefe\xc8\x07\x04\x0c" +
+	"\x09\x186#\xec\xa7\xc1\xa5\x0c\xf9\xa0\x80\x11=\xbbQ" +
+	"V\xb1\x09\x04l\x02\x0c\xe8\x85\x9c\x8c\x1e\x10\xd0\x03\x18" +
+	"HI\xba\x84\x8d `#`),V\x16\xd6\x00\x8d" +
+	"&\xb3\x99\xc1B\x0eM\x0c\xfc\xe6\x17B\x9a\x89AS" +
+	"\x94\xf2\x19\x1cR\xf399\x09\x11e\xbd\"\xa7\"\xb9" +
+	"\xc1\xc1\xe5\x89I\xa6[&\x17\x129))\xf7\xdek" +
+	"\xe6\xe61'\xf3j\x00\x86&)j~\x99\\\x80\x88" +
+	"\xe9Pz_(\x0fg|\xa4+\xa3$\x97\xc9\x05z" +
+	"=\\\x82f[\x1f\x00\xdf\xca\x90\xef\x110T\xc4f" +
+	"7\xc1\xb0\x83!\xdf+ \x0a\x164\x0f\xcd\x06\xe0\xbb" +
+	"\x18\xf2}\x02\x86\x18\x86\x91\x01\x84\x1e\x1e\x06\xe0{\x19" +
+	"\xf2\x03\x02\x86<B\x18=\x00\xa1\xfd4\xf88C~" +
+	"D@c\xa3\x1d7\x00`\xc0\xd1d@\x0c\x14A\x0d" +
+	"8\xc5\xc2\x1a\xf6m\x94\x0bE\xdc\x8d\xcdRFI%" +
+	"\x14\x15XRF/\x08\xe8-\x0e\x0e\xa9:0%S" +
+	"\x1a\xacM\x8f\xeeTJ\x93\xf3y>.k\x852z" +
+	"\xcc,app\x04\x80\x1f`\xc8\x9fta\xf0\x04q" +
+	"\xe6\x10C~\x94\xf8a\x83\xf0T\x1c\x80\x1fa\xc8\x9f" +
+	"#\x10\x98\x05\xc23\xe4\xf9$C~Z@\xf4X\x18" +
+	"\xbcD\x8e/2\xe4\xaf\x08\x18\xf2z\xc2\xe8\x05\x08\xbd" +
+	"L\x83\xa7\x18\xf2\xf7\x044\xf2\xe3#\x1b\xe4\xa4\xde\x0d" +
+	"\xbeTJ\xc3\xa0#_\x80\x18\x84\x0a\xf6mOfU" +
+	"]\x9e\xd0\x8b\x9c\x8b\x10py\x9c\x0e8\xc0\xd0d\xe5" +
+	"t\xc0\xed\xf2DN\xd1\xe4|\x11\x90\xed\xd9\x1ce[" +
+	"\xe96\x09\xc1\xbe)k\xf6>\x92#Cyi\xb4\x06" +
+	"gG\x00\x8c\xe4\xd0\xa06\x9e\xd7\xbb!\xa2&\xd3Y" +
+	"\xcdH\x0e\xf5\xa8\xa9\x1eU\x07\x9f\xa2\x17n\xbe\x04\xc3" +
+	"YU.\xae\x80)\x0a\xa5\x05\x90h\x01\xd61\xe4\x19" +
+	"\xd7\x02(D\xa34C\xbe\xcb\xb5\x00;\xe3.\xba\x16" +
+	"\x17`w\xdc\xa6\xeb\xa1[\xe3j\xe4m\x95\x02\xe6\x00" +
+	"\x18t\x8a\x18\xa0\x09e\x05\xde\xd6\x7fUw^(\x95" +
+	"&\xeb\x85I@]I{\xb3_\xce\xe7\xa5QK\x04" +
+	"\\9\x13k\xd60\xe4iW\xcer\xdc\x06b\xab+" +
+	"\xe7\x02\x011\xc1\x90?\xee\xca\xf9\xd1\x0d\x00|\x9f\xc5" +
+	"\xc4Z\\q\xc7Z*\x06v\xacS\x82\xc0HJ9" +
+	"iD\xc9(\x10\xd0\x15\xc7\xaf\xf1\xa6$J\xa4%-" +
+	"e\xad1\xaa\x15\x9b,n\xab\xc2qW\xbe\xc7(\xb5" +
+	"\xe7\x18\xf2\xd7]\xf9\xbeJlx\x85!\x7f\xdb\x95\xef" +
+	"[\xf4\xfa\xeb\x0c\xf9\xbb\xa44\xf6.;\xbb\x12\x80\xbf" +
+	"\xcd\x90\x9f\xa7]\xe6\xb5v\xd99\xf2|\x97!\xff\x93" +
+	"P\x03\x8bR\xc1\xbd-,lR\x0d\x83/\xab\xca\xe5" +
+	"\xa4pHbh\x92:*\xdf\xa7e\x01\xc7J>\xe6" +
+	"\xd8`\xf6\x16\xc5\xc2\xa5NU\xb8E\x1d5-\xe1v" +
+	"\xb8\xd5\xa5XE\xdc\x9e\x88;\x8a\x856lO\xb5\xba" +
+	"\x04\xcb\x83\x16l\xcf\xc4m\xc1\xa2\xa5\xf02\x0b\xb6c" +
+	"4x\xd4R\xac\x8a\xd2\xa7Jc\x93&]V\x17o" +
+	"W\x81\x84\xca\xfe\xa1\xcbj \xa6R\xa2V\xba\xcaQ" +
+	"\xb1|\x97\x95#&X\x10\xb8\xcbQQ\x9e\xdd\xf8\xdd" +
+	"\xbcD\x19\x92\xdd\xcc\xd0\xa2VU\xaa\xa9W'\xabe" +
+	"(\x16\xb5\xda,p\x0bd\xa5B\x0e\xbb\x84\xa1\x88A" +
+	"a\xc4\x16\x86\xdbT\xc8\xff\x1d\xe5o\xad57\xad\x08" +
+	"\xdd\xf9<U\x1d\xb3o\x0b\xd0\xefT\xca\x02\xa5\x92b" +
+	"\xc8w\xb8\x92\xde6l'}\xc0\x95\xf4\xfe\xb8-\x91" +
+	"S(\x0b\xd5\x89\x94\xda\xf8\xdb\x11\x8a*I\x98D&" +
+	"\xed`R)\xad\xaaU\xd5\x9c\xb6\xb4\x98r?i\xfd" +
+	"r\x86|\x95\x8b\xebC\x94\xdd\x00C\xbeF@C\xb2" +
+	"\xf0\xbc\x0f\"\xd2\x98\x92)\xb8>/\xafW&\x96\xcb" +
+	"\x10PG\xf54\xfaA@?\xe0v\xdb\xbd*\xca\xf2" +
+	"\xfd\xb8bdC\xd7]\x9b\xa5\xcc\xb8\xcc\x172O\xa3" +
+	"a\x98\xd1\x88\xdd\xd8\x0a\x90\xf8:2L\xacB\x01\x9b" +
+	"\xf0\xdf\x86\x19\x918\x84\xb3\x01\x12\x03dXC\x06\xe1" +
+	"\x0b\xc3\\\x08q\xb5i\x18$\xc3:2\xb0\x7f\x19\xe6" +
+	"6\x14\xd7b\x14 \xb1\x8a\x0c)2xn\x18\xa6\x18" +
+	"\x89\x92iXC\x864\x19\xbc\xd7\x8d0\xd6\x01\x882" +
+	"\xc6\x01\x12\xeb\xc8\x90!C\xdd?\x8d\xb0y\xb0R\xcc" +
+	"\xa8Rd\xc8\x91\xc1w\xcd\x08\xa3\x1f@\x1c3\xdfH" +
+	"\x93A'\x83\xffs#\x8c\xf5\x00\xe2&\xf3\x8d\x0c\x19" +
+	"&\xc8P\xff\x0f#\x8c\x0d\x00\xe2\xb8i\xc8\x91a+" +
+	"\x19\x1a\xae\x1aa\x9cF\x8773*\x9d\x0c;\xc80" +
+	"\xed3#\x8c\x8d\x00\xe26\xd30A\x86](\xd8\x82" +
+	"Y^0}Jnq\x11o\x9f\x92k/ur\x9a" +
+	"\x9cR\xb4\xd2\xbf\x94\x9c\x91G1\xe8\\I\xd8\xf4\xa4" +
+	"\x19\xf3\xb2\xa3\xbaIY\xd31\xe8\x1c\xdbl\xb7\xbc\xac" +
+	"mV\x922\x06\x9d3\xabe\x09h\xf2h\xe9+\xf4" +
+	"\xc7i%\x15u\xbd&U\x7f2\"O\xe8\xb5\xc6'" +
+	"\xa3\xb4\xf5\xe5^u}\xb6\x8a\xd2\xadS=}\xf59" +
+	"</+:\x81\\V\xd3\xd1\x07\x02\xfa\xcc\x00\x14R" +
+	"\xe4\x02\xe9\xb5\xcd\xe8\xc9\x19l\x05\xe3/\x053\x9f>" +
+	"<\x97!_H\xc1\xa0\xeb\" \xd4\x16\x05\xa1\xac\x9c" +
+	"EL\xf2O\x92\xb0K\xbb\"\xc9\xa2v\xb9\x8a\xd6H" +
+	"\xad\xa2\xe5\x92\xe1\x92v\x1d\x1c\xb6k\xd1\x09\x97v\xbd" +
+	"@\xaf\x1fg\xc8O\xb9\xda\x9d\x93\xf4\xfa\x09\xeb\xa0Q" +
+	"\x14\xb4\x07\xc0WU\x9d\xffk\x19\x9bb\xbfS\x1b\x98" +
+	"\xa5R>m\xdf\x00t\xa5\xc7\x06\xcbo\x00\x86\xcd\x93" +
+	"\xc4\xbcN\xf3\x06\xe0\xceN\xeb\x06\xa0\x13\xc0P\xb3\xd6" +
+	"{\xc0F\xb3]\xf94\x1d\xff\xe9'\xb6\xa4\x9d~:" +
+	"\x16E'\xf9\x9a\xd5\\\x9be\xd3g/\xc2\x97L\xb1" +
+	"2W\xc1\xdd ZBE\xa3\xe7\xa2N\x87h\xa9\x14" +
+	"\xc5v\x81\x98\xf1\x1eC~\xb1(Q\xb4\x10\x1f\x92\xef" +
+	"y\x86\xfc\xcfE}\xa2\x95\xb8D\x8a|\x91!\xbfR" +
+	"\x14'j\xa1\xfeF\xa3\x97\x19\xf2kEe\xaa\x03\x08" +
+	"]\xfd\x1e\x00\xbf\xc60\xe1)\xe9\x12\x09\x16\xe2\x08\xc0" +
+	"J\x92\x8cF$\x05\xb7\xe9\x04\xa8Vt\xa9\xb4\x17\xf3" +
+	"\xd4Wc\xd0\xb9\xc8\xb3w\xf5\x83\xb4<A\xe7R\xcd" +
+	"v\xdfD\xed$\x06\x9d\x9b<{\xeb\xaa\xf6U\x09\x98" +
+	"\xc5\x16\x83\xce\xdd\xab\xed`\x17\x06\x0e\x01{\x86\xd2e" +
+	"g\xb9C7\x16\xd9\x0fPq\x18ry\xd9\xf4\x09:" +
+	"7\x9b7\x95\x10\xd7\x09\xb4k\x85\xc9\xbf\x8av\xa0\xb5" +
+	"\xd6\x89)\xea\xea\x11\x8a[J\xe9\xb3\x8f\x8e\xba\xd3\x09" +
+	"o\xa2\xb73\x0c\xf9\x84P\xbaw(]&[\xdd\\" +
+	"d\x9c\xa8\x84\x01\xe7\xce\xd6\xee\xf2\xd26\xa5\xad\x0e\xb1" +
+	"t\x0bg_b\xb8;\xbb\xff\x04\x00\x00\xff\xff/!" +
+	"\x89\xc9"
 
 func init() {
 	schemas.Register(schema_fb2d77234707241e,
@@ -3328,12 +3014,10 @@ func init() {
 		0x8c6fb57d7725ec03,
 		0x8cfae4b3459db40f,
 		0xaa95f2c2154f801a,
-		0xabc9ff4fbb5f0b04,
 		0xaddb752fe579c78e,
 		0xb6e3b8602914cca6,
 		0xbd157ada88cf152d,
 		0xc0d7ec4193d608ef,
-		0xcbd9cd959c154da1,
 		0xcc368c426d5175df,
 		0xcf61cf65228728bc,
 		0xcfe323414bf5b98f,
@@ -3345,6 +3029,5 @@ func init() {
 		0xecb99c4b492abf4a,
 		0xef2306d933494fde,
 		0xf4f09607a66adddc,
-		0xfb92513472887325,
-		0xfd4f6f21b80818a8)
+		0xfb92513472887325)
 }

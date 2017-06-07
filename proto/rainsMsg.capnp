@@ -57,35 +57,9 @@ struct QuerySection  {
 	token   @0      :Data;
 	name    @1      :Text;
 	context @2      :Text;
-	type    @3      :ObjectType;
+	type    @3      :Int32;
 	expires @4      :Int64; #time when this query expires represented as the number of seconds elapsed since January 1, 1970 UTC
-	options @5      :List(QueryOption);
-}
-
-enum QueryOption {
-	minE2ELatency            @0;
-	minLastHopAnswerSize     @1;
-	minInfoLeakage           @2;
-	cachedAnswersOnly        @3;
-	expiredAssertionsOk      @4;
-	tokenTracing             @5;
-	noVerificationDelegation @6;
-	noProactiveCaching       @7;
-}
-
-enum ObjectType {
-	oTName        @0;
-	oTIP6Addr     @1;
-	oTIP4Addr     @2;
-	oTRedirection @3;
-	oTDelegation  @4;
-	oTNameset     @5;
-	oTCertInfo    @6;
-	oTServiceInfo @7;
-	oTRegistrar   @8;
-	oTRegistrant  @9;
-	oTInfraKey    @10;
-	oTExtraKey    @11;
+	options @5      :List(Int32);
 }
 
 struct SubjectAddr  {
@@ -118,27 +92,15 @@ struct AddressQuerySection  {
 	context     @2 :Text;
 	types       @3 :List(Int32);
 	expires     @4 :Int64;
-	options     @5 :List(QueryOption);
+	options     @5 :List(Int32);
 }
 
 
 struct NotificationSection  {
     #NotificationSection contains information about the notification
 	token @0    :Data;
-	type  @1    :NotificationType;
+	type  @1    :Int32;
 	data  @2    :Text;
-}
-
-enum NotificationType {
-	heartbeat          @0;
-	capHashNotKnown    @1;
-	badMessage         @2;
-	rcvInconsistentMsg @3;
-	noAssertionsExist  @4;
-	msgTooLarge        @5;
-	unspecServerErr    @6;
-	serverNotCapable   @7;
-	noAssertionAvail   @8;
 }
 
 
@@ -175,7 +137,7 @@ enum HashAlgorithmType {
 struct PublicKey  {
     #PublicKey contains information about a public key
 	keySpace   @0 :KeySpaceID;
-	type       @1 :SignatureAlgorithmType; #can this also be a HashAlgorithmType?
+	type  	     @1 :SignatureAlgorithmType; #can this also be a HashAlgorithmType?
 	key        @2 :Data;
 	validSince  @3 :Int64;
 	validUntil @4 :Int64;
@@ -208,7 +170,7 @@ struct ServiceInfo  {
 
 struct Obj  {
     #Object is a container for different values determined by the given type.
-	type  @0    :ObjectType;
+	type  @0    :Int32;
 	value   :union {
 		name 	@1 	:List(Text);
         ip6 	@2 	:Text;

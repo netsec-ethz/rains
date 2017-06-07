@@ -113,13 +113,13 @@ func main() {
 }
 
 //EncodeMessage uses capnproto to encode and frame the message. The message is then ready to be sent over the wire.
-func EncodeMessage(message rainslib.RainsMessage) (*capnp.Message, error) {
+func EncodeMessage(m rainslib.RainsMessage) (*capnp.Message, error) {
 	//Setup structure
 	msg, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
 	if err != nil {
 		return nil, err
 	}
-	m, err := proto.NewRootRainsMessage(seg)
+	message, err := proto.NewRootRainsMessage(seg)
 	if err != nil {
 		return nil, err
 	}
@@ -127,30 +127,30 @@ func EncodeMessage(message rainslib.RainsMessage) (*capnp.Message, error) {
 	if err != nil {
 		return nil, err
 	}*/
-	capabilitiesList, err := m.NewCapabilities(int32(len(message.Capabilities)))
+	capabilitiesList, err := message.NewCapabilities(int32(len(m.Capabilities)))
 	if err != nil {
 		return nil, err
 	}
-	signatureList, err := m.NewSignatures(int32(len(message.Signatures)))
+	signatureList, err := message.NewSignatures(int32(len(m.Signatures)))
 	if err != nil {
 		return nil, err
 	}
 
 	//Add Content
-	tok := [16]byte(message.Token)
-	m.SetToken(tok[:])
+	tok := [16]byte(m.Token)
+	message.SetToken(tok[:])
 
-	for i, c := range message.Capabilities {
+	for i, c := range m.Capabilities {
 		capabilitiesList.Set(i, string(c))
 	}
 
-	err = encodeSignatures(message.Signatures, &signatureList, seg)
+	err = encodeSignatures(m.Signatures, &signatureList, seg)
 	if err != nil {
 		return nil, err
 	}
 
 	/*var ms proto.MessageSection
-	for i, section := range message.Content {
+	for i, section := range m.Content {
 		switch section := section.(type) {
 		case *rainslib.AssertionSection:
 			ms, err = encodeAssertion(section)
@@ -295,11 +295,49 @@ func encodeZone(z *rainslib.ZoneSection, seg *capnp.Segment) (proto.MessageSecti
 }
 
 func encodeQuery(q *rainslib.QuerySection, seg *capnp.Segment) (proto.MessageSection, error) {
-	return proto.MessageSection{}, nil
+	msgSection, err := proto.NewMessageSection(seg)
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	query, err := msgSection.NewQuery()
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+
+	tok := [16]byte(q.Token)
+	query.SetToken(tok[:])
+	query.SetName(q.Name)
+	query.SetContext(q.Context)
+	query.SetExpires(q.Expires)
+	query.SetType(int32(q.Type))
+
+	qoList, err := capnp.NewInt32List(seg, int32(len(q.Options)))
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	for i, opt := range q.Options {
+		qoList.Set(i, int32(opt))
+	}
+	query.SetOptions(qoList)
+	return msgSection, nil
 }
 
 func encodeNotification(n *rainslib.NotificationSection, seg *capnp.Segment) (proto.MessageSection, error) {
-	return proto.MessageSection{}, nil
+	msgSection, err := proto.NewMessageSection(seg)
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	notification, err := msgSection.NewNotification()
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+
+	tok := [16]byte(n.Token)
+	notification.SetToken(tok[:])
+	notification.SetType(int32(n.Type))
+	notification.SetData(n.Data)
+
+	return msgSection, nil
 }
 
 func encodeAddressAssertion(a *rainslib.AddressAssertionSection, seg *capnp.Segment) (proto.MessageSection, error) {
@@ -364,9 +402,9 @@ func encodeObjects(objects []rainslib.Object, list *proto.Obj_List, seg *capnp.S
 		if err != nil {
 			return err
 		}
+		obj.SetType(int32(object.Type))
 		switch object.Type {
 		case rainslib.OTName:
-			obj.SetType(proto.ObjectType_oTName)
 			if nameObject, ok := object.Value.(rainslib.NameObject); ok {
 				nameList, err := capnp.NewTextList(seg, int32(len(nameObject.Types)+1))
 				if err != nil {
@@ -383,26 +421,20 @@ func encodeObjects(objects []rainslib.Object, list *proto.Obj_List, seg *capnp.S
 			return errors.New("Type assertion failed")
 
 		case rainslib.OTIP6Addr:
-			obj.SetType(proto.ObjectType_oTIP6Addr)
 			obj.Value().SetIp6(object.Value.(string))
 		case rainslib.OTIP4Addr:
-			obj.SetType(proto.ObjectType_oTIP4Addr)
 			obj.Value().SetIp4(object.Value.(string))
 		case rainslib.OTRedirection:
-			obj.SetType(proto.ObjectType_oTRedirection)
 			obj.Value().SetRedir(object.Value.(string))
 		case rainslib.OTDelegation:
-			obj.SetType(proto.ObjectType_oTDelegation)
 			publicKey, err := encodePublicKey(object.Value.(rainslib.PublicKey), seg)
 			if err != nil {
 				return err
 			}
 			obj.Value().SetDeleg(publicKey)
 		case rainslib.OTNameset:
-			obj.SetType(proto.ObjectType_oTNameset)
 			obj.Value().SetNameset(string(object.Value.(rainslib.NamesetExpression)))
 		case rainslib.OTCertInfo:
-			obj.SetType(proto.ObjectType_oTCertInfo)
 			if cert, ok := object.Value.(rainslib.CertificateObject); ok {
 				c, err := proto.NewCertificateObject(seg)
 				if err != nil {
@@ -446,7 +478,6 @@ func encodeObjects(objects []rainslib.Object, list *proto.Obj_List, seg *capnp.S
 			log.Warn("Type assertion failed. Expected CertificateObject", "object", object.Value)
 			return errors.New("Type assertion failed")
 		case rainslib.OTServiceInfo:
-			obj.SetType(proto.ObjectType_oTServiceInfo)
 			if servInfo, ok := object.Value.(rainslib.ServiceInfo); ok {
 				si, err := proto.NewServiceInfo(seg)
 				if err != nil {
@@ -461,20 +492,16 @@ func encodeObjects(objects []rainslib.Object, list *proto.Obj_List, seg *capnp.S
 			log.Warn("Type assertion failed. Expected ServiceInfo", "object", object.Value)
 			return errors.New("Type assertion failed")
 		case rainslib.OTRegistrar:
-			obj.SetType(proto.ObjectType_oTRegistrar)
 			obj.Value().SetRegr(object.Value.(string))
 		case rainslib.OTRegistrant:
-			obj.SetType(proto.ObjectType_oTRegistrant)
 			obj.Value().SetRegt(object.Value.(string))
 		case rainslib.OTInfraKey:
-			obj.SetType(proto.ObjectType_oTInfraKey)
 			publicKey, err := encodePublicKey(object.Value.(rainslib.PublicKey), seg)
 			if err != nil {
 				return err
 			}
 			obj.Value().SetInfra(publicKey)
 		case rainslib.OTExtraKey:
-			obj.SetType(proto.ObjectType_oTExtraKey)
 			publicKey, err := encodePublicKey(object.Value.(rainslib.PublicKey), seg)
 			if err != nil {
 				return err
