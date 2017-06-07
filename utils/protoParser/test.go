@@ -14,13 +14,16 @@ import (
 
 func main() {
 	o := rainslib.Object{Type: rainslib.OTIP4Addr, Value: "127.0.0.1"}
-	a := rainslib.AssertionSection{Content: []rainslib.Object{o}, Context: ".", SubjectName: "ethz", SubjectZone: "ch"}
-	m := rainslib.RainsMessage{Content: []rainslib.MessageSection{a}, Token: rainslib.GenerateToken()}
+	a := &rainslib.AssertionSection{Content: []rainslib.Object{o}, Context: ".", SubjectName: "ethz", SubjectZone: "ch"}
+	sig := rainslib.Signature{KeySpace: rainslib.RainsKeySpace, Algorithm: rainslib.Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("Test")}
+	m := rainslib.RainsMessage{Content: []rainslib.MessageSection{a}, Token: rainslib.GenerateToken(),
+		Capabilities: []rainslib.Capability{rainslib.Capability("Test"), rainslib.Capability("Yes!")},
+		Signatures:   []rainslib.Signature{sig}}
 
 	//
 	//Encode RAINS Message
 	//
-	msg, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
+	/*msg, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
 	if err != nil {
 		panic(err)
 	}
@@ -49,7 +52,11 @@ func main() {
 	section.SetAssertion(assertion)
 	sectionList, err := proto.NewMessageSection_List(seg, int32(len(m.Content)))
 	sectionList.Set(0, section)
-	message.SetContent(sectionList)
+	message.SetContent(sectionList)*/
+	msg, err := EncodeMessage(m)
+	if err != nil {
+		log.Warn("BUG", "error", err)
+	}
 
 	//
 	// Write the message to file.
@@ -86,7 +93,11 @@ func main() {
 
 	inputToken, _ := rootRainsMsg.Token()
 	fmt.Println(inputToken)
-	inputSecList, _ := rootRainsMsg.Content()
+	inputCaps, _ := rootRainsMsg.Capabilities()
+	fmt.Println(inputCaps.At(1))
+	inputSigs, _ := rootRainsMsg.Signatures()
+	fmt.Println(inputSigs.At(0))
+	/*inputSecList, _ := rootRainsMsg.Content()
 	inputSection := inputSecList.At(0)
 	switch inputSection.Which() {
 	case proto.MessageSection_Which_assertion:
@@ -96,7 +107,7 @@ func main() {
 		fmt.Println(inputAssertion.SubjectZone())
 		list, _ := inputAssertion.Content()
 		fmt.Println(list.At(0))
-	}
+	}*/
 }
 
 //EncodeMessage uses capnproto to encode and frame the message. The message is then ready to be sent over the wire.
@@ -110,10 +121,10 @@ func EncodeMessage(message rainslib.RainsMessage) (*capnp.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	contentList, err := m.NewContent(int32(len(message.Content)))
+	/*contentList, err := m.NewContent(int32(len(message.Content)))
 	if err != nil {
 		return nil, err
-	}
+	}*/
 	capabilitiesList, err := m.NewCapabilities(int32(len(message.Capabilities)))
 	if err != nil {
 		return nil, err
@@ -127,7 +138,16 @@ func EncodeMessage(message rainslib.RainsMessage) (*capnp.Message, error) {
 	tok := [16]byte(message.Token)
 	m.SetToken(tok[:])
 
-	var ms proto.MessageSection
+	for i, c := range message.Capabilities {
+		capabilitiesList.Set(i, string(c))
+	}
+
+	err = encodeSignatures(message.Signatures, &signatureList, seg)
+	if err != nil {
+		return nil, err
+	}
+
+	/*var ms proto.MessageSection
 	for i, section := range message.Content {
 		switch section := section.(type) {
 		case *rainslib.AssertionSection:
@@ -154,53 +174,145 @@ func EncodeMessage(message rainslib.RainsMessage) (*capnp.Message, error) {
 			return nil, err
 		}
 		contentList.Set(i, ms)
-	}
-
-	for i, c := range message.Capabilities {
-		capabilitiesList.Set(i, string(c))
-	}
-
-	err = encodeSignature(message.Signatures, &signatureList, seg)
-	if err != nil {
-		return nil, err
-	}
+	}*/
 
 	return msg, nil
 }
 
-func encodeAssertion(a *rainslib.AssertionSection) (proto.MessageSection, error) {
+func encodeAssertion(a *rainslib.AssertionSection, seg *capnp.Segment) (proto.MessageSection, error) {
+	msgSection, err := proto.NewMessageSection(seg)
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	assertion, err := msgSection.NewAssertion()
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+
+	assertion.SetContext(a.Context)
+	assertion.SetSubjectZone(a.SubjectZone)
+	assertion.SetSubjectName(a.SubjectName)
+	sigList, err := assertion.NewSignatures(int32(len(a.Signatures)))
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	encodeSignatures(a.Signatures, &sigList, seg)
+	//TODO encode Object
+
+	return msgSection, nil
+}
+
+func encodeShard(s *rainslib.ShardSection, seg *capnp.Segment) (proto.MessageSection, error) {
+	msgSection, err := proto.NewMessageSection(seg)
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	shard, err := msgSection.NewShard()
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+
+	shard.SetContext(s.Context)
+	shard.SetSubjectZone(s.SubjectZone)
+	shard.SetRangeFrom(s.RangeFrom)
+	shard.SetRangeTo(s.RangeTo)
+
+	sigList, err := shard.NewSignatures(int32(len(s.Signatures)))
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	err = encodeSignatures(s.Signatures, &sigList, seg)
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+
+	contentList, err := shard.NewContent(int32(len(s.Content)))
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	for i, assertion := range s.Content {
+		ms, err := encodeAssertion(assertion, seg)
+		if err != nil {
+			return proto.MessageSection{}, err
+		}
+		a, err := ms.Assertion()
+		if err != nil {
+			return proto.MessageSection{}, err
+		}
+		contentList.Set(i, a)
+	}
+	return msgSection, nil
+}
+
+func encodeZone(z *rainslib.ZoneSection, seg *capnp.Segment) (proto.MessageSection, error) {
+	msgSection, err := proto.NewMessageSection(seg)
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	zone, err := msgSection.NewZone()
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+
+	zone.SetContext(z.Context)
+	zone.SetSubjectZone(z.SubjectZone)
+
+	sigList, err := zone.NewSignatures(int32(len(z.Signatures)))
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	err = encodeSignatures(z.Signatures, &sigList, seg)
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+
+	contentList, err := zone.NewContent(int32(len(z.Content)))
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	for i, section := range z.Content {
+		switch section := section.(type) {
+		case *rainslib.AssertionSection:
+			ms, err := encodeAssertion(section, seg)
+			if err != nil {
+				return proto.MessageSection{}, err
+			}
+			contentList.Set(i, ms)
+		case *rainslib.ShardSection:
+			ms, err := encodeShard(section, seg)
+			if err != nil {
+				return proto.MessageSection{}, err
+			}
+			contentList.Set(i, ms)
+		default:
+			log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", section))
+			return proto.MessageSection{}, errors.New("Unsupported section type")
+		}
+	}
+	return msgSection, nil
+}
+
+func encodeQuery(q *rainslib.QuerySection, seg *capnp.Segment) (proto.MessageSection, error) {
 	return proto.MessageSection{}, nil
 }
 
-func encodeShard(s *rainslib.ShardSection) (proto.MessageSection, error) {
+func encodeNotification(n *rainslib.NotificationSection, seg *capnp.Segment) (proto.MessageSection, error) {
 	return proto.MessageSection{}, nil
 }
 
-func encodeZone(z *rainslib.ZoneSection) (proto.MessageSection, error) {
+func encodeAddressAssertion(a *rainslib.AddressAssertionSection, seg *capnp.Segment) (proto.MessageSection, error) {
 	return proto.MessageSection{}, nil
 }
 
-func encodeQuery(q *rainslib.QuerySection) (proto.MessageSection, error) {
+func encodeAddressZone(z *rainslib.AddressZoneSection, seg *capnp.Segment) (proto.MessageSection, error) {
 	return proto.MessageSection{}, nil
 }
 
-func encodeNotification(n *rainslib.NotificationSection) (proto.MessageSection, error) {
+func encodeAddressQuery(q *rainslib.AddressQuerySection, seg *capnp.Segment) (proto.MessageSection, error) {
 	return proto.MessageSection{}, nil
 }
 
-func encodeAddressAssertion(a *rainslib.AddressAssertionSection) (proto.MessageSection, error) {
-	return proto.MessageSection{}, nil
-}
-
-func encodeAddressZone(z *rainslib.AddressZoneSection) (proto.MessageSection, error) {
-	return proto.MessageSection{}, nil
-}
-
-func encodeAddressQuery(q *rainslib.AddressQuerySection) (proto.MessageSection, error) {
-	return proto.MessageSection{}, nil
-}
-
-func encodeSignature(signatures []rainslib.Signature, list *proto.Signature_List, seg *capnp.Segment) error {
+func encodeSignatures(signatures []rainslib.Signature, list *proto.Signature_List, seg *capnp.Segment) error {
 	for i, signature := range signatures {
 		sig, err := proto.NewSignature(seg)
 		if err != nil {
@@ -238,6 +350,7 @@ func encodeSignature(signatures []rainslib.Signature, list *proto.Signature_List
 		}
 		sig.SetValidSince(signature.ValidSince)
 		sig.SetValidUntil(signature.ValidUntil)
+
 		list.Set(i, sig)
 	}
 	return nil
