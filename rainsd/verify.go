@@ -391,17 +391,17 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainsli
 			log.Warn("signatures do not match")
 			return false
 		} else {
-			updateSectionValidity(section, pkey.ValidFrom, pkey.ValidUntil, sig.ValidSince, sig.ValidUntil)
+			updateSectionValidity(section, pkey.ValidSince, pkey.ValidUntil, sig.ValidSince, sig.ValidUntil)
 		}
 	}
-	if section.ValidFrom() == math.MaxInt64 && section.ValidUntil() == 0 {
+	if section.ValidSince() == math.MaxInt64 && section.ValidUntil() == 0 {
 		log.Warn("No signature is valid until the MaxValidity date in the future.")
 		return false
 	}
 	return len(section.Sigs()) > 0
 }
 
-func updateSectionValidity(section rainslib.MessageSectionWithSig, pkeyValidFrom, pkeyValidUntil, sigValidSince, sigValidUntil int64) {
+func updateSectionValidity(section rainslib.MessageSectionWithSig, pkeyValidSince, pkeyValidUntil, sigValidSince, sigValidUntil int64) {
 	var maxValidity time.Duration
 	switch section.(type) {
 	case *rainslib.AssertionSection:
@@ -413,7 +413,7 @@ func updateSectionValidity(section rainslib.MessageSectionWithSig, pkeyValidFrom
 	default:
 		log.Warn("Not supported section")
 	}
-	if pkeyValidFrom < sigValidSince {
+	if pkeyValidSince < sigValidSince {
 		if pkeyValidUntil < sigValidUntil {
 			section.UpdateValidity(sigValidSince, pkeyValidUntil, maxValidity)
 		} else {
@@ -422,9 +422,9 @@ func updateSectionValidity(section rainslib.MessageSectionWithSig, pkeyValidFrom
 
 	} else {
 		if pkeyValidUntil < sigValidUntil {
-			section.UpdateValidity(pkeyValidFrom, pkeyValidUntil, maxValidity)
+			section.UpdateValidity(pkeyValidSince, pkeyValidUntil, maxValidity)
 		} else {
-			section.UpdateValidity(pkeyValidFrom, sigValidUntil, maxValidity)
+			section.UpdateValidity(pkeyValidSince, sigValidUntil, maxValidity)
 		}
 	}
 }

@@ -248,12 +248,12 @@ type pendingQueryCache interface {
 //assertionCacheValue is the value stored in the assertionCacheValue
 type assertionCacheValue struct {
 	section    *rainslib.AssertionSection
-	validFrom  int64
+	validSince int64
 	validUntil int64
 }
 
 func (a assertionCacheValue) Hash() string {
-	return fmt.Sprintf("%s_%d_%d", a.section.Hash(), a.validFrom, a.validUntil)
+	return fmt.Sprintf("%s_%d_%d", a.section.Hash(), a.validSince, a.validUntil)
 }
 
 //assertionCache is used to store and efficiently lookup assertions
@@ -278,7 +278,7 @@ type assertionCache interface {
 //negativeAssertionCacheValue is the value stored in the negativeAssertionCache
 type negativeAssertionCacheValue struct {
 	section    rainslib.MessageSectionWithSig
-	validFrom  int64
+	validSince int64
 	validUntil int64
 }
 

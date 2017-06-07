@@ -23,7 +23,7 @@ func TestParseZoneFile(t *testing.T) {
 					]
 					`
 	parser := Parser{}
-	assertions, err := parser.ParseZoneFile([]byte(test_zone_1))
+	assertions, err := parser.ParseZoneFile([]byte(test_zone_1), "")
 	if err != nil {
 		log.Warn(err.Error())
 

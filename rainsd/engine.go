@@ -100,14 +100,14 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 //Returns true if the assertion can be further processed.
 func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) bool {
 	if shouldAssertionBeCached(a) {
-		value := assertionCacheValue{section: a, validFrom: a.ValidFrom(), validUntil: a.ValidUntil()}
+		value := assertionCacheValue{section: a, validSince: a.ValidSince(), validUntil: a.ValidUntil()}
 		assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative, value)
 		if a.Content[0].Type == rainslib.OTDelegation {
 			for _, sig := range a.Signatures {
 				if sig.KeySpace == rainslib.RainsKeySpace {
 					cacheKey := keyCacheKey{context: a.Context, zone: a.SubjectName, keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm)}
 					publicKey := a.Content[0].Value.(rainslib.PublicKey)
-					publicKey.ValidFrom = sig.ValidSince
+					publicKey.ValidSince = sig.ValidSince
 					publicKey.ValidUntil = sig.ValidUntil
 					log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)
 					ok := zoneKeyCache.Add(cacheKey, publicKey, isAuthoritative)
@@ -119,7 +119,7 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 			}
 		}
 	}
-	if a.ValidFrom() > time.Now().Unix() {
+	if a.ValidSince() > time.Now().Unix() {
 		pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
 		return false
 	}
@@ -172,14 +172,14 @@ func assertShard(shard *rainslib.ShardSection, isAuthoritative bool, token rains
 		negAssertionCache.Add(shard.Context, shard.SubjectZone, isAuthoritative,
 			negativeAssertionCacheValue{
 				section:    shard,
-				validFrom:  shard.ValidFrom(),
+				validSince: shard.ValidSince(),
 				validUntil: shard.ValidUntil(),
 			})
 	}
 	for _, a := range shard.Content {
 		assertAssertion(a, isAuthoritative, [16]byte{})
 	}
-	if shard.ValidFrom() > time.Now().Unix() {
+	if shard.ValidSince() > time.Now().Unix() {
 		pendingQueries.GetAllAndDelete(token) //shard cannot be used to answer queries, delete all waiting elements for this shard.
 		return false
 	}
@@ -200,7 +200,7 @@ func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool, token rainslib
 		negAssertionCache.Add(zone.Context, zone.SubjectZone, isAuthoritative,
 			negativeAssertionCacheValue{
 				section:    zone,
-				validFrom:  zone.ValidFrom(),
+				validSince: zone.ValidSince(),
 				validUntil: zone.ValidUntil(),
 			})
 	}
@@ -214,7 +214,7 @@ func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool, token rainslib
 			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
 		}
 	}
-	if zone.ValidFrom() > time.Now().Unix() {
+	if zone.ValidSince() > time.Now().Unix() {
 		pendingQueries.GetAllAndDelete(token) //zone cannot be used to answer queries, delete all waiting elements for this shard.
 		return false
 	}

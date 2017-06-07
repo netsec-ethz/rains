@@ -58,8 +58,8 @@ type MessageSectionWithSig interface {
 	GetContext() string
 	GetSubjectZone() string
 	CreateStub() MessageSectionWithSig
-	UpdateValidity(validFrom, validUntil int64, maxValidity time.Duration)
-	ValidFrom() int64
+	UpdateValidity(validSince, validUntil int64, maxValidity time.Duration)
+	ValidSince() int64
 	ValidUntil() int64
 	Hash() string
 	Interval
@@ -110,7 +110,7 @@ type AssertionSection struct {
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
-	validFrom   int64
+	validSince  int64
 	validUntil  int64
 }
 
@@ -164,16 +164,16 @@ func (a *AssertionSection) End() string {
 
 //UpdateValidity updates the validity of this assertion if the validity period is extended.
 //It makes sure that the validity is never larger than maxValidity
-func (a *AssertionSection) UpdateValidity(validFrom, validUntil int64, maxValidity time.Duration) {
-	if a.validFrom == 0 {
-		a.validFrom = math.MaxInt64
+func (a *AssertionSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+	if a.validSince == 0 {
+		a.validSince = math.MaxInt64
 	}
-	if validFrom < a.validFrom {
-		if validFrom > time.Now().Add(maxValidity).Unix() {
+	if validSince < a.validSince {
+		if validSince > time.Now().Add(maxValidity).Unix() {
 			log.Warn("Assertion validity starts too much in the future. Drop Assertion.", "assertion", *a)
 			return
 		}
-		a.validFrom = validFrom
+		a.validSince = validSince
 	}
 	if validUntil > a.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
@@ -185,9 +185,9 @@ func (a *AssertionSection) UpdateValidity(validFrom, validUntil int64, maxValidi
 	}
 }
 
-//ValidFrom returns the earliest validFrom date of all contained signatures
-func (a *AssertionSection) ValidFrom() int64 {
-	return a.validFrom
+//ValidSince returns the earliest validSince date of all contained signatures
+func (a *AssertionSection) ValidSince() int64 {
+	return a.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
@@ -215,7 +215,7 @@ type ShardSection struct {
 	Context     string
 	RangeFrom   string
 	RangeTo     string
-	validFrom   int64
+	validSince  int64
 	validUntil  int64
 }
 
@@ -275,16 +275,16 @@ func (s *ShardSection) End() string {
 }
 
 //UpdateValidity updates the validity of this shard. If restrict is true then the validity Interval can only shrink, otherwise only expand.
-func (s *ShardSection) UpdateValidity(validFrom, validUntil int64, maxValidity time.Duration) {
-	if s.validFrom == 0 {
-		s.validFrom = math.MaxInt64
+func (s *ShardSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+	if s.validSince == 0 {
+		s.validSince = math.MaxInt64
 	}
-	if validFrom < s.validFrom {
-		if validFrom > time.Now().Add(maxValidity).Unix() {
+	if validSince < s.validSince {
+		if validSince > time.Now().Add(maxValidity).Unix() {
 			log.Warn("Shard validity starts too much in the future. Drop Shard.", "shard", *s)
 			return
 		}
-		s.validFrom = validFrom
+		s.validSince = validSince
 	}
 	if validUntil > s.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
@@ -296,9 +296,9 @@ func (s *ShardSection) UpdateValidity(validFrom, validUntil int64, maxValidity t
 	}
 }
 
-//ValidFrom returns the earliest validFrom date of all contained signatures
-func (s *ShardSection) ValidFrom() int64 {
-	return s.validFrom
+//ValidSince returns the earliest validSince date of all contained signatures
+func (s *ShardSection) ValidSince() int64 {
+	return s.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
@@ -321,7 +321,7 @@ type ZoneSection struct {
 	SubjectZone string
 	Context     string
 	Content     []MessageSectionWithSig
-	validFrom   int64
+	validSince  int64
 	validUntil  int64
 }
 
@@ -391,16 +391,16 @@ func (z *ZoneSection) End() string {
 }
 
 //UpdateValidity updates the validity of this zone. If restrict is true then the validity Interval can only shrink, otherwise only expand.
-func (z *ZoneSection) UpdateValidity(validFrom, validUntil int64, maxValidity time.Duration) {
-	if z.validFrom == 0 {
-		z.validFrom = math.MaxInt64
+func (z *ZoneSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+	if z.validSince == 0 {
+		z.validSince = math.MaxInt64
 	}
-	if validFrom < z.validFrom {
-		if validFrom > time.Now().Add(maxValidity).Unix() {
+	if validSince < z.validSince {
+		if validSince > time.Now().Add(maxValidity).Unix() {
 			log.Warn("Zone validity starts too much in the future. Drop Zone.", "zone", *z)
 			return
 		}
-		z.validFrom = validFrom
+		z.validSince = validSince
 	}
 	if validUntil > z.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
@@ -412,9 +412,9 @@ func (z *ZoneSection) UpdateValidity(validFrom, validUntil int64, maxValidity ti
 	}
 }
 
-//ValidFrom returns the earliest validFrom date of all contained signatures
-func (z *ZoneSection) ValidFrom() int64 {
-	return z.validFrom
+//ValidSince returns the earliest validSince date of all contained signatures
+func (z *ZoneSection) ValidSince() int64 {
+	return z.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
@@ -614,7 +614,7 @@ type PublicKey struct {
 	//TODO CFE remove type if not needed anywhere
 	Type       SignatureAlgorithmType
 	Key        interface{}
-	ValidFrom  int64
+	ValidSince int64
 	ValidUntil int64
 }
 
