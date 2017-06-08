@@ -37,15 +37,6 @@ func (t Token) String() string {
 	return hex.EncodeToString(t[:])
 }
 
-//Update changes the value of the token to the first 16 bytes of the input.
-func (t Token) Update(input []byte) {
-	length := 16
-	if len(input) < 16 {
-		length = len(input)
-	}
-	copy(t[:], input[:length])
-}
-
 //MessageSection can be either an Assertion, Shard, Zone, Query or Notification section
 type MessageSection interface {
 }
