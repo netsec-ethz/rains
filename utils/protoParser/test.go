@@ -597,8 +597,8 @@ func encodePublicKey(publicKey rainslib.PublicKey, seg *capnp.Segment) (proto.Pu
 	case rainslib.Ecdsa384:
 		log.Warn("Not yet supported")
 	default:
-		log.Warn("Unsupported signature algorithm type", "type", fmt.Sprintf("%T", publicKey.Type))
-		return proto.PublicKey{}, errors.New("Unsupported signature algorithm type")
+		log.Warn("Unsupported public key type", "type", fmt.Sprintf("%T", publicKey.Type))
+		return proto.PublicKey{}, errors.New("Unsupported public key type")
 	}
 
 	return pubKey, nil
@@ -697,7 +697,15 @@ func decodeAssertion(a proto.AssertionSection) (*rainslib.AssertionSection, erro
 		return nil, err
 	}
 
-	//FIXME CFE decode object
+	content, err := a.Content()
+	if err != nil {
+		log.Warn("Could not decode object list", "error", err)
+		return nil, err
+	}
+	assertion.Content, err = decodeObjects(content)
+	if err != nil {
+		return nil, err
+	}
 
 	return &assertion, nil
 }
@@ -908,7 +916,15 @@ func decodeAddressAssertion(a proto.AddressAssertionSection) (*rainslib.AddressA
 		return nil, err
 	}
 
-	//FIXME decode objects (content)
+	content, err := a.Content()
+	if err != nil {
+		log.Warn("Could not decode object list", "error", err)
+		return nil, err
+	}
+	assertion.Content, err = decodeObjects(content)
+	if err != nil {
+		return nil, err
+	}
 
 	return &assertion, nil
 }
@@ -999,6 +1015,152 @@ func decodeAddressQuery(q proto.AddressQuerySection) (*rainslib.AddressQuerySect
 	}
 
 	return &query, nil
+}
+
+func decodeObjects(objList proto.Obj_List) ([]rainslib.Object, error) {
+	objects := []rainslib.Object{}
+
+	for i := 0; i < objList.Len(); i++ {
+		object := rainslib.Object{}
+		var err error
+		obj := objList.At(i)
+		object.Type = rainslib.ObjectType(obj.Type())
+		switch obj.Value().Which() {
+		case proto.Obj_value_Which_name:
+			nameList, err := obj.Value().Name()
+			if err != nil {
+				log.Warn("Was not able to decode name object value", "error", err)
+				return nil, err
+			}
+			nameObject := rainslib.NameObject{}
+			nameObject.Name, err = nameList.At(0)
+			if err != nil {
+				log.Warn("Was not able to decode name object value", "error", err)
+				return nil, err
+			}
+			for j := 1; j < nameList.Len(); j++ {
+				t, err := nameList.At(j)
+				if err != nil {
+					log.Warn("Was not able to decode name object value", "error", err)
+					return nil, err
+				}
+				objType, err := strconv.Atoi(t)
+				if err != nil {
+					log.Warn("Was not able to convert string to int (objectType)", "error", err)
+					return nil, err
+				}
+				nameObject.Types = append(nameObject.Types, rainslib.ObjectType(objType))
+			}
+			object.Value = nameObject
+		case proto.Obj_value_Which_ip6:
+			object.Value, err = obj.Value().Ip6()
+			if err != nil {
+				log.Warn("Was not able to decode ip6 object value", "error", err)
+				return nil, err
+			}
+		case proto.Obj_value_Which_ip4:
+			object.Value, err = obj.Value().Ip4()
+			if err != nil {
+				log.Warn("Was not able to decode ip4 object value", "error", err)
+				return nil, err
+			}
+		case proto.Obj_value_Which_redir:
+			object.Value, err = obj.Value().Redir()
+			if err != nil {
+				log.Warn("Was not able to decode redirection object value", "error", err)
+				return nil, err
+			}
+		case proto.Obj_value_Which_deleg:
+			pkey, err := obj.Value().Deleg()
+			if err != nil {
+				log.Warn("Was not able to decode delegation object value", "error", err)
+				return nil, err
+			}
+			object.Value, err = decodePublicKey(pkey)
+			if err != nil {
+				return nil, err
+			}
+		case proto.Obj_value_Which_nameset:
+			nameSet, err := obj.Value().Nameset()
+			if err != nil {
+				log.Warn("Was not able to decode nameset object value", "error", err)
+				return nil, err
+			}
+			object.Value = rainslib.NamesetExpression(nameSet)
+		case proto.Obj_value_Which_cert:
+			c, err := obj.Value().Cert()
+			if err != nil {
+				log.Warn("Was not able to decode cert object value", "error", err)
+				return nil, err
+			}
+			cert := rainslib.CertificateObject{
+				Type:     rainslib.ProtocolType(c.Type()),
+				HashAlgo: rainslib.HashAlgorithmType(c.HashAlgo()),
+				Usage:    rainslib.CertificateUsage(c.Usage()),
+			}
+			cert.Data, err = c.Data()
+			if err != nil {
+				log.Warn("Was not able to decode cert data value", "error", err)
+				return nil, err
+			}
+			object.Value = cert
+		case proto.Obj_value_Which_service:
+			si, err := obj.Value().Service()
+			if err != nil {
+				log.Warn("Was not able to decode service info object value", "error", err)
+				return nil, err
+			}
+			serviceInfo := rainslib.ServiceInfo{
+				Port:     uint16(si.Port()),
+				Priority: uint(si.Priority()),
+			}
+
+			serviceInfo.Name, err = si.Name()
+			if err != nil {
+				log.Warn("Was not able to decode service info name", "error", err)
+				return nil, err
+			}
+			object.Value = serviceInfo
+		case proto.Obj_value_Which_regr:
+			object.Value, err = obj.Value().Regr()
+			if err != nil {
+				log.Warn("Was not able to decode registrar object value", "error", err)
+				return nil, err
+			}
+		case proto.Obj_value_Which_regt:
+			object.Value, err = obj.Value().Regt()
+			if err != nil {
+				log.Warn("Was not able to decode registrant object value", "error", err)
+				return nil, err
+			}
+		case proto.Obj_value_Which_infra:
+			pkey, err := obj.Value().Infra()
+			if err != nil {
+				log.Warn("Was not able to decode delegation object value", "error", err)
+				return nil, err
+			}
+			object.Value, err = decodePublicKey(pkey)
+			if err != nil {
+				return nil, err
+			}
+		case proto.Obj_value_Which_extra:
+			pkey, err := obj.Value().Extra()
+			if err != nil {
+				log.Warn("Was not able to decode delegation object value", "error", err)
+				return nil, err
+			}
+			object.Value, err = decodePublicKey(pkey)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			log.Warn("Unsupported object type", "type", fmt.Sprintf("%T", obj.Value()))
+			return nil, errors.New("Unsupported object type")
+		}
+		objects = append(objects, object)
+	}
+
+	return objects, nil
 }
 
 func decodeSignatures(sigList proto.Signature_List) ([]rainslib.Signature, error) {
@@ -1128,6 +1290,35 @@ func decodeContent(contentList proto.MessageSection_List) ([]rainslib.MessageSec
 		}
 	}
 	return sections, nil
+}
+
+func decodePublicKey(pkey proto.PublicKey) (rainslib.PublicKey, error) {
+	publicKey := rainslib.PublicKey{
+		KeySpace:   rainslib.KeySpaceID(pkey.KeySpace()),
+		Type:       rainslib.SignatureAlgorithmType(pkey.Type()),
+		ValidSince: pkey.ValidSince(),
+		ValidUntil: pkey.ValidUntil(),
+	}
+	var err error
+	switch publicKey.Type {
+	case rainslib.Ed25519:
+		publicKey.Key, err = pkey.Key()
+		if err != nil {
+			log.Warn("Was not able to decode key data", "error", err)
+			return rainslib.PublicKey{}, err
+		}
+	case rainslib.Ed448:
+		log.Warn("Not yet supported")
+	case rainslib.Ecdsa256:
+		log.Warn("Not yet supported")
+	case rainslib.Ecdsa384:
+		log.Warn("Not yet supported")
+	default:
+		log.Warn("Unsupported public key type", "type", fmt.Sprintf("%T", publicKey.Type))
+		return rainslib.PublicKey{}, errors.New("Unsupported public key type")
+	}
+
+	return publicKey, nil
 }
 
 func decodeSubjectAddress(addr proto.SubjectAddr) (rainslib.SubjectAddr, error) {
