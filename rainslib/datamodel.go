@@ -528,12 +528,12 @@ type AddressZoneSection struct {
 //AddressQuerySection contains information about the address query
 type AddressQuerySection struct {
 	SubjectAddr
-	Token   [16]byte
+	Token   Token
 	Context string
 	Types   ObjectType
 	Expires int64
 	//Optional
-	Options []int
+	Options []QueryOption
 }
 
 //NotificationSection contains information about the notification

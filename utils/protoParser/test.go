@@ -629,6 +629,7 @@ func DecodeMessage(m *capnp.Message) (rainslib.RainsMessage, error) {
 		return rainslib.RainsMessage{}, err
 	}
 	message.Token.Update(tok)
+
 	capabilities, err := msg.Capabilities()
 	if err != nil {
 		log.Warn("Could not decode capabilities", "error", err)
@@ -642,19 +643,510 @@ func DecodeMessage(m *capnp.Message) (rainslib.RainsMessage, error) {
 		}
 		message.Capabilities = append(message.Capabilities, rainslib.Capability(c))
 	}
+
 	sigList, err := msg.Signatures()
 	if err != nil {
 		log.Warn("Could not decode signature list", "error", err)
 		return rainslib.RainsMessage{}, err
 	}
-	for i := 0; i < sigList.Len(); i++ {
-		sig := sigList.At(i)
-		//TODO parse signature
-		if err != nil {
-			log.Warn("Could not decode capability at", "position", i, "error", err)
-			return rainslib.RainsMessage{}, err
-		}
-		message.Capabilities = append(message.Capabilities, rainslib.Capability(c))
+	message.Signatures, err = decodeSignatures(sigList)
+	if err != nil {
+		return rainslib.RainsMessage{}, err
 	}
 
+	contentList, err := msg.Content()
+	if err != nil {
+		return rainslib.RainsMessage{}, err
+	}
+	message.Content, err = decodeContent(contentList)
+	if err != nil {
+		return rainslib.RainsMessage{}, err
+	}
+	return message, nil
+}
+
+func decodeAssertion(a proto.AssertionSection) (*rainslib.AssertionSection, error) {
+	assertion := rainslib.AssertionSection{}
+	var err error
+
+	assertion.Context, err = a.Context()
+	if err != nil {
+		log.Warn("Was not able to decode context", "error", err)
+		return nil, err
+	}
+
+	assertion.SubjectZone, err = a.SubjectZone()
+	if err != nil {
+		log.Warn("Was not able to decode zone", "error", err)
+		return nil, err
+	}
+
+	assertion.SubjectName, err = a.SubjectName()
+	if err != nil {
+		log.Warn("Was not able to decode name", "error", err)
+		return nil, err
+	}
+
+	sigList, err := a.Signatures()
+	if err != nil {
+		log.Warn("Could not decode signature list", "error", err)
+		return nil, err
+	}
+	assertion.Signatures, err = decodeSignatures(sigList)
+	if err != nil {
+		return nil, err
+	}
+
+	//FIXME CFE decode object
+
+	return &assertion, nil
+}
+
+func decodeShard(s proto.ShardSection) (*rainslib.ShardSection, error) {
+	shard := rainslib.ShardSection{}
+	var err error
+
+	shard.Context, err = s.Context()
+	if err != nil {
+		log.Warn("Was not able to decode context", "error", err)
+		return nil, err
+	}
+
+	shard.SubjectZone, err = s.SubjectZone()
+	if err != nil {
+		log.Warn("Was not able to decode zone", "error", err)
+		return nil, err
+	}
+
+	shard.RangeFrom, err = s.RangeFrom()
+	if err != nil {
+		log.Warn("Was not able to decode rangeFrom", "error", err)
+		return nil, err
+	}
+
+	shard.RangeTo, err = s.RangeTo()
+	if err != nil {
+		log.Warn("Was not able to decode rangeTo", "error", err)
+		return nil, err
+	}
+
+	sigList, err := s.Signatures()
+	if err != nil {
+		log.Warn("Could not decode signature list", "error", err)
+		return nil, err
+	}
+	shard.Signatures, err = decodeSignatures(sigList)
+	if err != nil {
+		return nil, err
+	}
+
+	assertionList, err := s.Content()
+	if err != nil {
+		log.Warn("Could not decode assertion list", "error", err)
+		return nil, err
+	}
+	for i := 0; i < assertionList.Len(); i++ {
+		assertion, err := decodeAssertion(assertionList.At(i))
+		if err != nil {
+			return nil, err
+		}
+		shard.Content = append(shard.Content, assertion)
+	}
+
+	return &shard, nil
+}
+
+func decodeZone(z proto.ZoneSection) (*rainslib.ZoneSection, error) {
+	zone := rainslib.ZoneSection{}
+	var err error
+
+	zone.Context, err = z.Context()
+	if err != nil {
+		log.Warn("Was not able to decode context", "error", err)
+		return nil, err
+	}
+
+	zone.SubjectZone, err = z.SubjectZone()
+	if err != nil {
+		log.Warn("Was not able to decode zone", "error", err)
+		return nil, err
+	}
+
+	sigList, err := z.Signatures()
+	if err != nil {
+		log.Warn("Could not decode signature list", "error", err)
+		return nil, err
+	}
+	zone.Signatures, err = decodeSignatures(sigList)
+	if err != nil {
+		return nil, err
+	}
+
+	sectionList, err := z.Content()
+	if err != nil {
+		log.Warn("Could not decode section list", "error", err)
+		return nil, err
+	}
+	for i := 0; i < sectionList.Len(); i++ {
+		section := sectionList.At(i)
+		switch section.Which() {
+		case proto.MessageSection_Which_assertion:
+			a, err := section.Assertion()
+			if err != nil {
+				log.Warn("Could not extract assertion", "error", err)
+				return nil, err
+			}
+			assertion, err := decodeAssertion(a)
+			if err != nil {
+				return nil, err
+			}
+			zone.Content = append(zone.Content, assertion)
+		case proto.MessageSection_Which_shard:
+			s, err := section.Shard()
+			if err != nil {
+				log.Warn("Could not extract shard", "error", err)
+				return nil, err
+			}
+			shard, err := decodeShard(s)
+			if err != nil {
+				return nil, err
+			}
+			zone.Content = append(zone.Content, shard)
+		default:
+			log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", section))
+			return nil, errors.New("Unsupported section type")
+		}
+	}
+
+	return &zone, nil
+}
+
+func decodeQuery(q proto.QuerySection) (*rainslib.QuerySection, error) {
+	query := rainslib.QuerySection{}
+
+	query.Expires = q.Expires()
+	query.Type = rainslib.ObjectType(q.Type())
+
+	tok, err := q.Token()
+	if err != nil {
+		log.Warn("Could not decode token", "error", err)
+		return nil, err
+	}
+	query.Token.Update(tok)
+
+	query.Context, err = q.Context()
+	if err != nil {
+		log.Warn("Was not able to decode context", "error", err)
+		return nil, err
+	}
+
+	query.Name, err = q.Name()
+	if err != nil {
+		log.Warn("Was not able to decode name", "error", err)
+		return nil, err
+	}
+
+	optList, err := q.Options()
+	if err != nil {
+		log.Warn("Was not able to decode query options", "error", err)
+		return nil, err
+	}
+	for i := 0; i < optList.Len(); i++ {
+		query.Options = append(query.Options, rainslib.QueryOption(optList.At(i)))
+	}
+
+	return &query, nil
+}
+
+func decodeNotification(n proto.NotificationSection) (*rainslib.NotificationSection, error) {
+	notification := rainslib.NotificationSection{}
+
+	notification.Type = rainslib.NotificationType(n.Type())
+
+	tok, err := n.Token()
+	if err != nil {
+		log.Warn("Could not decode token", "error", err)
+		return nil, err
+	}
+	notification.Token.Update(tok)
+
+	notification.Data, err = n.Data()
+	if err != nil {
+		log.Warn("Was not able to decode data", "error", err)
+		return nil, err
+	}
+	return &notification, nil
+}
+
+func decodeAddressAssertion(a proto.AddressAssertionSection) (*rainslib.AddressAssertionSection, error) {
+	assertion := rainslib.AddressAssertionSection{}
+
+	addr, err := a.SubjectAddr()
+	if err != nil {
+		log.Warn("Was not able to decode subjectAddr", "error", err)
+		return nil, err
+	}
+	assertion.SubjectAddr, err = decodeSubjectAddress(addr)
+	if err != nil {
+		log.Warn("Could not decode subjectAddr", "error", err)
+		return nil, err
+	}
+
+	assertion.Context, err = a.Context()
+	if err != nil {
+		log.Warn("Was not able to decode context", "error", err)
+		return nil, err
+	}
+
+	sigList, err := a.Signatures()
+	if err != nil {
+		log.Warn("Could not decode signature list", "error", err)
+		return nil, err
+	}
+	assertion.Signatures, err = decodeSignatures(sigList)
+	if err != nil {
+		return nil, err
+	}
+
+	//FIXME decode objects (content)
+
+	return &assertion, nil
+}
+
+func decodeAddressZone(z proto.AddressZoneSection) (*rainslib.AddressZoneSection, error) {
+	zone := rainslib.AddressZoneSection{}
+
+	addr, err := z.SubjectAddr()
+	if err != nil {
+		log.Warn("Was not able to decode subjectAddr", "error", err)
+		return nil, err
+	}
+	zone.SubjectAddr, err = decodeSubjectAddress(addr)
+	if err != nil {
+		log.Warn("Could not decode subjectAddr", "error", err)
+		return nil, err
+	}
+
+	zone.Context, err = z.Context()
+	if err != nil {
+		log.Warn("Was not able to decode context", "error", err)
+		return nil, err
+	}
+
+	sigList, err := z.Signatures()
+	if err != nil {
+		log.Warn("Could not decode signature list", "error", err)
+		return nil, err
+	}
+	zone.Signatures, err = decodeSignatures(sigList)
+	if err != nil {
+		return nil, err
+	}
+
+	assertionList, err := z.Content()
+	if err != nil {
+		log.Warn("Could not decode assertion list", "error", err)
+		return nil, err
+	}
+	for i := 0; i < assertionList.Len(); i++ {
+		assertion, err := decodeAddressAssertion(assertionList.At(i))
+		if err != nil {
+			return nil, err
+		}
+		zone.Content = append(zone.Content, assertion)
+	}
+
+	return &zone, nil
+}
+
+func decodeAddressQuery(q proto.AddressQuerySection) (*rainslib.AddressQuerySection, error) {
+	query := rainslib.AddressQuerySection{}
+
+	query.Expires = q.Expires()
+	query.Types = rainslib.ObjectType(q.Types())
+
+	addr, err := q.SubjectAddr()
+	if err != nil {
+		log.Warn("Was not able to decode subjectAddr", "error", err)
+		return nil, err
+	}
+	query.SubjectAddr, err = decodeSubjectAddress(addr)
+	if err != nil {
+		log.Warn("Could not decode subjectAddr", "error", err)
+		return nil, err
+	}
+
+	tok, err := q.Token()
+	if err != nil {
+		log.Warn("Could not decode token", "error", err)
+		return nil, err
+	}
+	query.Token.Update(tok)
+
+	query.Context, err = q.Context()
+	if err != nil {
+		log.Warn("Was not able to decode context", "error", err)
+		return nil, err
+	}
+
+	optList, err := q.Options()
+	if err != nil {
+		log.Warn("Was not able to decode query options", "error", err)
+		return nil, err
+	}
+	for i := 0; i < optList.Len(); i++ {
+		query.Options = append(query.Options, rainslib.QueryOption(optList.At(i)))
+	}
+
+	return &query, nil
+}
+
+func decodeSignatures(sigList proto.Signature_List) ([]rainslib.Signature, error) {
+	signatures := []rainslib.Signature{}
+	for i := 0; i < sigList.Len(); i++ {
+		sig := sigList.At(i)
+		signature := rainslib.Signature{
+			KeySpace:   rainslib.KeySpaceID(sig.KeySpace()),
+			Algorithm:  rainslib.SignatureAlgorithmType(sig.Algorithm()),
+			ValidSince: sig.ValidSince(),
+			ValidUntil: sig.ValidUntil()}
+		data, err := sig.Data()
+		if err != nil {
+			log.Warn("Was not able to decode signature data", "error", err)
+			return nil, err
+		}
+		signature.Data = data
+		signatures = append(signatures, signature)
+	}
+	return signatures, nil
+}
+
+func decodeContent(contentList proto.MessageSection_List) ([]rainslib.MessageSection, error) {
+	sections := []rainslib.MessageSection{}
+	for i := 0; i < contentList.Len(); i++ {
+		content := contentList.At(i)
+		switch content.Which() {
+		case proto.MessageSection_Which_assertion:
+			a, err := content.Assertion()
+			if err != nil {
+				log.Warn("Was not able to extract Assertion", "error", err)
+				return nil, err
+			}
+			assertion, err := decodeAssertion(a)
+			if err != nil {
+				log.Warn("Was not able to decode Assertion", "error", err)
+				return nil, err
+			}
+			sections = append(sections, assertion)
+		case proto.MessageSection_Which_shard:
+			s, err := content.Shard()
+			if err != nil {
+				log.Warn("Was not able to extract Shard", "error", err)
+				return nil, err
+			}
+			shard, err := decodeShard(s)
+			if err != nil {
+				log.Warn("Was not able to decode Shard", "error", err)
+				return nil, err
+			}
+			sections = append(sections, shard)
+		case proto.MessageSection_Which_zone:
+			z, err := content.Zone()
+			if err != nil {
+				log.Warn("Was not able to extract Zone", "error", err)
+				return nil, err
+			}
+			zone, err := decodeZone(z)
+			if err != nil {
+				log.Warn("Was not able to decode Zone", "error", err)
+				return nil, err
+			}
+			sections = append(sections, zone)
+		case proto.MessageSection_Which_query:
+			q, err := content.Query()
+			if err != nil {
+				log.Warn("Was not able to extract Query", "error", err)
+				return nil, err
+			}
+			query, err := decodeQuery(q)
+			if err != nil {
+				log.Warn("Was not able to decode Query", "error", err)
+				return nil, err
+			}
+			sections = append(sections, query)
+		case proto.MessageSection_Which_notification:
+			n, err := content.Notification()
+			if err != nil {
+				log.Warn("Was not able to extract Notification", "error", err)
+				return nil, err
+			}
+			notification, err := decodeNotification(n)
+			if err != nil {
+				log.Warn("Was not able to decode Notification", "error", err)
+				return nil, err
+			}
+			sections = append(sections, notification)
+		case proto.MessageSection_Which_addressAssertion:
+			a, err := content.AddressAssertion()
+			if err != nil {
+				log.Warn("Was not able to extract AddressAssertion", "error", err)
+				return nil, err
+			}
+			assertion, err := decodeAddressAssertion(a)
+			if err != nil {
+				log.Warn("Was not able to decode AddressAssertion", "error", err)
+				return nil, err
+			}
+			sections = append(sections, assertion)
+		case proto.MessageSection_Which_addressZone:
+			z, err := content.AddressZone()
+			if err != nil {
+				log.Warn("Was not able to extract AddressZone", "error", err)
+				return nil, err
+			}
+			zone, err := decodeAddressZone(z)
+			if err != nil {
+				log.Warn("Was not able to decode AddressZone", "error", err)
+				return nil, err
+			}
+			sections = append(sections, zone)
+		case proto.MessageSection_Which_addressQuery:
+			q, err := content.AddressQuery()
+			if err != nil {
+				log.Warn("Was not able to extract AddressQuery", "error", err)
+				return nil, err
+			}
+			query, err := decodeAddressQuery(q)
+			if err != nil {
+				log.Warn("Was not able to decode AddressQuery", "error", err)
+				return nil, err
+			}
+			sections = append(sections, query)
+		default:
+			log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", content))
+			return nil, errors.New("Unsupported section type")
+		}
+	}
+	return sections, nil
+}
+
+func decodeSubjectAddress(addr proto.SubjectAddr) (rainslib.SubjectAddr, error) {
+	subjectAddr := rainslib.SubjectAddr{}
+	var err error
+
+	subjectAddr.PrefixLength = uint(addr.PrefixLength())
+
+	subjectAddr.AddressFamily, err = addr.AddressFamily()
+	if err != nil {
+		log.Warn("Could not decode address family", "error", err)
+		return rainslib.SubjectAddr{}, err
+	}
+
+	subjectAddr.Address, err = addr.Address()
+	if err != nil {
+		log.Warn("Could not decode address", "error", err)
+		return rainslib.SubjectAddr{}, err
+	}
+
+	return subjectAddr, nil
 }
