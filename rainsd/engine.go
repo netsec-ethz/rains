@@ -3,6 +3,7 @@ package rainsd
 import (
 	"fmt"
 	"rains/rainslib"
+	"rains/utils/binaryTrie"
 	"strings"
 	"time"
 
@@ -22,6 +23,9 @@ var negAssertionCache negativeAssertionCache
 
 //pendingQueries contains a mapping from all self issued pending queries to the set of message bodies waiting for it.
 var pendingQueries pendingQueryCache
+
+//addressCache contains a set of valid address assertions and address zones where some of them might be expired.
+var addressCache addressSectionCache
 
 //initEngine initialized the engine, which processes valid sections and queries.
 //It spawns a goroutine which periodically goes through the cache and removes outdated entries, see reapEngine()
@@ -45,6 +49,8 @@ func initEngine() error {
 		log.Error("Cannot create negative assertion Cache", "error", err)
 		return err
 	}
+
+	addressCache = new(binaryTrie.Trie)
 
 	go reapEngine()
 
@@ -94,9 +100,9 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 		log.Info("Start processing address assertion", "assertion", section)
 		if isAddressAssertionConsistent(section) {
 			log.Debug("Address Assertion is consistent with cached elements.")
-			ok := assertAddressAssertion(section, isAuthoritative, sectionWSSender.Token)
+			ok := assertAddressAssertion(section, sectionWSSender.Token)
 			if ok {
-				handleAddressAssertion(section, sectionWSSender.Token)
+				handlePendingQueries(section, sectionWSSender.Token)
 			}
 		} else {
 			log.Debug("Address Assertion is inconsistent with cached elements.")
@@ -105,7 +111,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 		log.Info("Start processing address zone", "zone", section)
 		if isAddressZoneConsistent(section) {
 			log.Debug("Address zone is consistent with cached elements.")
-			ok := assertAddressZone(section, isAuthoritative, sectionWSSender.Token)
+			ok := assertAddressZone(section, sectionWSSender.Token)
 			if ok {
 				handlePendingQueries(section, sectionWSSender.Token)
 			}
@@ -300,22 +306,46 @@ func shouldZoneBeCached(zone *rainslib.ZoneSection) bool {
 //assertAddressAssertion adds an assertion to the address assertion cache. The assertion's signatures MUST have already been verified.
 //FIXME CFE only the first element of the assertion is processed
 //Returns true if the address assertion can be further processed.
-func assertAddressAssertion(a *rainslib.AddressAssertionSection, isAuthoritative bool, token rainslib.Token) bool {
-	log.Warn("TODO CFE implement")
-	return false
+func assertAddressAssertion(a *rainslib.AddressAssertionSection, token rainslib.Token) bool {
+	if a.ValidFrom() > time.Now().Unix() {
+		pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
+		return false
+	}
+	if shouldAddressAssertionBeCached(a) {
+		addressCache.AddAddressAssertion(a)
+	}
+	return true
 }
 
-//handleAddressAssertion triggers any pending queries answered by it.
-func handleAddressAssertion(a *rainslib.AddressAssertionSection, token rainslib.Token) {
-	log.Warn("TODO CFE implement")
+//shouldAddressAssertionBeCached returns true if address assertion should be cached
+func shouldAddressAssertionBeCached(assertion *rainslib.AddressAssertionSection) bool {
+	log.Info("Address Assertion will be cached", "addressAssertion", assertion)
+	//TODO CFE implement when necessary
+	return true
 }
 
 //assertAdressZone adds a zone to the address negAssertion cache. It also adds all contained assertions to the address assertions cache.
 //The zone's signatures and all contained assertion signatures MUST have already been verified
 //Returns true if the zone can be further processed.
-func assertAddressZone(zone *rainslib.AddressZoneSection, isAuthoritative bool, token rainslib.Token) bool {
-	log.Warn("TODO CFE implement")
-	return false
+func assertAddressZone(zone *rainslib.AddressZoneSection, token rainslib.Token) bool {
+	if zone.ValidFrom() > time.Now().Unix() {
+		pendingQueries.GetAllAndDelete(token) //address zone cannot be used to answer queries, delete all waiting for this zone.
+		return false
+	}
+	if shouldAddressZoneBeCached(zone) {
+		addressCache.AddAddressZone(zone)
+	}
+	for _, a := range zone.Content {
+		assertAddressAssertion(a, token)
+	}
+	return true
+}
+
+//shouldAddressZoneBeCached returns true if address zone should be cached
+func shouldAddressZoneBeCached(zone *rainslib.AddressZoneSection) bool {
+	log.Info("Address ZOne will be cached", "addressZone", zone)
+	//TODO CFE implement when necessary
+	return true
 }
 
 //addressQuery directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.

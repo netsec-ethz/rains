@@ -72,13 +72,13 @@ func TestAddAndFind(t *testing.T) {
 	trie.assertions[rainslib.OTRegistrant] = set.New()
 	trie.assertions[rainslib.OTDelegation] = set.New()
 
-	trie.AddAssertion(addressAssertion1)
+	trie.AddAddressAssertion(addressAssertion1)
 	a, z, ok := trie.Find(subjectAddress1, []rainslib.ObjectType{rainslib.OTName}, 0)
 	if a != addressAssertion1 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Added AddressAssertion not returned by the cache")
 	}
-	trie.AddZone(addressZone2)
+	trie.AddAddressZone(addressZone2)
 	a, z, ok = trie.Find(subjectAddress2, []rainslib.ObjectType{}, 0)
 	if z != addressZone2 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
@@ -95,7 +95,7 @@ func TestAddAndFind(t *testing.T) {
 		t.Error("No entry should be returned. There is no less specific one")
 	}
 
-	trie.AddZone(addressZone1)
+	trie.AddAddressZone(addressZone1)
 	a, z, ok = trie.Find(subjectAddress1, []rainslib.ObjectType{rainslib.OTName}, 0)
 	if a != addressAssertion1 || z != nil {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)

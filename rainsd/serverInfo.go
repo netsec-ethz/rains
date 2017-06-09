@@ -385,3 +385,19 @@ type zoneAndName struct {
 	zone string
 	name string
 }
+
+//addressCache implements data structure for fast reverse lookup.
+//All operations must be concurrency safe
+type addressSectionCache interface {
+	//AddAssertion adds an address Assertion section to the cache
+	//Returns an error when it was not able to a add the assertion to the cache
+	AddAddressAssertion(assertion *rainslib.AddressAssertionSection) error
+	//AddZone adds an address Zone section to the cache
+	//Returns an error when it was not able to a add the assertion to the cache
+	AddAddressZone(zone *rainslib.AddressZoneSection) error
+	//Find returns the most specific address assertion or zone in relation to the given netAddress' prefix.
+	//If no address assertion or zone is found it return false
+	Find(netAddr *net.IPNet, types []rainslib.ObjectType, depth int) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool)
+	//DeleteExpiredElements removes all expired elements from the data structure.
+	DeleteExpiredElements()
+}

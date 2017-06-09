@@ -1,12 +1,11 @@
 package binaryTrie
 
 import (
+	"errors"
 	"net"
 	"rains/rainslib"
 	"rains/utils/set"
 	"time"
-
-	"errors"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -58,9 +57,9 @@ func containedElement(t *Trie, types []rainslib.ObjectType) (*rainslib.AddressAs
 	return nil, nil, false
 }
 
-//AddAssertion adds the given address assertion to the map (keyed by objectType) at the trie node corresponding to the network address.
+//AddAddressAssertion adds the given address assertion to the map (keyed by objectType) at the trie node corresponding to the network address.
 //Returns an error if it was not able to add the AddressAssertion
-func (t *Trie) AddAssertion(assertion *rainslib.AddressAssertionSection) error {
+func (t *Trie) AddAddressAssertion(assertion *rainslib.AddressAssertionSection) error {
 	node := getNode(t, assertion.SubjectAddr, 0)
 	for _, obj := range assertion.Content {
 		if obj.Type != rainslib.OTName && obj.Type != rainslib.OTDelegation && obj.Type != rainslib.OTRedirection && obj.Type != rainslib.OTRegistrant {
@@ -72,9 +71,9 @@ func (t *Trie) AddAssertion(assertion *rainslib.AddressAssertionSection) error {
 	return nil
 }
 
-//AddZone adds the given address zone to the list of address zones at the trie node corresponding to the network address.
+//AddAddressZone adds the given address zone to the list of address zones at the trie node corresponding to the network address.
 //Returns an error if it was not able to add the addressZone
-func (t *Trie) AddZone(zone *rainslib.AddressZoneSection) error {
+func (t *Trie) AddAddressZone(zone *rainslib.AddressZoneSection) error {
 	node := getNode(t, zone.SubjectAddr, 0)
 	node.zones.Add(zone)
 	return nil
