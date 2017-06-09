@@ -350,7 +350,48 @@ func shouldAddressZoneBeCached(zone *rainslib.AddressZoneSection) bool {
 
 //addressQuery directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
 func addressQuery(query *rainslib.AddressQuerySection, sender ConnInfo) {
-	log.Warn("TODO CFE implement")
+	log.Info("Start processing address query", "addressQuery", query)
+	assertion, zone, ok := addressCache.Get(query.SubjectAddr, query.Types, 0)
+	//TODO CFE add heuristic which assertion to return
+	if ok {
+		if assertion != nil {
+			sendQueryAnswer(assertion, sender, query.Token)
+			log.Debug("Finished handling query by sending address assertion from cache", "query", query)
+		}
+		if zone != nil {
+			sendQueryAnswer(zone, sender, query.Token)
+			log.Debug("Finished handling query by sending address zone from cache", "query", query)
+		}
+		return
+	}
+	log.Debug("No entry found in address cache matching the query")
+
+	if query.ContainsOption(rainslib.CachedAnswersOnly) {
+		log.Debug("Send a notification message back to the sender due to query option: 'Cached Answers only'")
+		sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
+		log.Debug("Finished handling query (unsuccessful) ", "query", query)
+		return
+	}
+
+	delegate := getDelegationAddress(query.Context, "")
+	if delegate.Equal(serverConnInfo) {
+		sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
+		log.Error("Stop processing query. I am authoritative and have no answer in cache")
+		return
+	}
+	//we have a valid delegation
+	token := query.Token
+	if !query.ContainsOption(rainslib.TokenTracing) {
+		token = rainslib.GenerateToken()
+	}
+	validUntil := time.Now().Add(Config.AssertionQueryValidity).Unix() //Upper bound for forwarded query expiration time
+	if query.Expires < validUntil {
+		validUntil = query.Expires
+	}
+	//FIXME CFE allow multiple types
+	pendingQueries.Add(query.Context, "", "", query.Types[0], pendingQuerySetValue{connInfo: sender, token: token, validUntil: validUntil})
+	log.Debug("Added query into to pending query cache", "query", query)
+	sendAddressQuery(query.Context, query.SubjectAddr, validUntil, query.Types, token, delegate)
 }
 
 //query directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.

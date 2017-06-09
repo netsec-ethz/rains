@@ -120,6 +120,25 @@ func sendQuery(context, zone string, expTime int64, objType rainslib.ObjectType,
 	sendTo(msg, sender)
 }
 
+func sendAddressQuery(context string, ipNet *net.IPNet, expTime int64, objType []rainslib.ObjectType, token rainslib.Token, sender ConnInfo) {
+	querySection := rainslib.AddressQuerySection{
+		Context:     context,
+		SubjectAddr: ipNet,
+		Expires:     expTime,
+		Token:       token,
+		Types:       objType,
+	}
+	query := rainslib.RainsMessage{Token: token, Content: []rainslib.MessageSection{&querySection}}
+	//TODO CFE add infrastructure signature to query message?
+	msg, err := msgParser.ParseRainsMsg(query)
+	if err != nil {
+		log.Warn("Cannot parse a delegation Query", "query", query)
+		return
+	}
+	log.Info("Query sent", "query", querySection)
+	sendTo(msg, sender)
+}
+
 //getDelegationAddress returns the address of a server to which this server delegates a query if it has no answer in the cache.
 func getDelegationAddress(context, zone string) ConnInfo {
 	//TODO CFE not yet implemented

@@ -319,7 +319,7 @@ func containedAssertionsValidObjectType(z *rainslib.AddressZoneSection) bool {
 	return true
 }
 
-func validObjectType(subjectAddr net.IPNet, objectType rainslib.ObjectType) bool {
+func validObjectType(subjectAddr *net.IPNet, objectType rainslib.ObjectType) bool {
 	prefixLength, addressLength := subjectAddr.Mask.Size()
 	if addressLength == 32 {
 		if prefixLength == 32 {

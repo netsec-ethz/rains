@@ -395,9 +395,9 @@ type addressSectionCache interface {
 	//AddZone adds an address Zone section to the cache
 	//Returns an error when it was not able to a add the assertion to the cache
 	AddAddressZone(zone *rainslib.AddressZoneSection) error
-	//Find returns the most specific address assertion or zone in relation to the given netAddress' prefix.
+	//Get returns the most specific address assertion or zone in relation to the given netAddress' prefix.
 	//If no address assertion or zone is found it return false
-	Find(netAddr *net.IPNet, types []rainslib.ObjectType, depth int) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool)
+	Get(netAddr *net.IPNet, types []rainslib.ObjectType, depth int) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool)
 	//DeleteExpiredElements removes all expired elements from the data structure.
 	DeleteExpiredElements()
 }

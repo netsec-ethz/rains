@@ -624,13 +624,23 @@ func (z *AddressZoneSection) Hash() string {
 
 //AddressQuerySection contains information about the address query
 type AddressQuerySection struct {
-	SubjectAddr net.IPNet
+	SubjectAddr *net.IPNet
 	Token       Token
 	Context     string
 	Types       []ObjectType
 	Expires     int64
 	//Optional
 	Options []QueryOption
+}
+
+//ContainsOption returns true if the address query contains the given query option.
+func (q AddressQuerySection) ContainsOption(option QueryOption) bool {
+	for _, opt := range q.Options {
+		if opt == option {
+			return true
+		}
+	}
+	return false
 }
 
 //NotificationSection contains information about the notification

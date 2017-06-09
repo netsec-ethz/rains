@@ -17,9 +17,9 @@ type Trie struct {
 	zones      *set.Set
 }
 
-//Find returns the most specific address assertion or zone in relation to the given netAddress' prefix.
+//Get returns the most specific address assertion or zone in relation to the given netAddress' prefix.
 //If no address assertion or zone is found it return false
-func (t *Trie) Find(netAddr *net.IPNet, types []rainslib.ObjectType, depth int) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
+func (t *Trie) Get(netAddr *net.IPNet, types []rainslib.ObjectType, depth int) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
 	addrmasks := [8]byte{0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01}
 	prfLength, _ := netAddr.Mask.Size()
 
@@ -35,7 +35,7 @@ func (t *Trie) Find(netAddr *net.IPNet, types []rainslib.ObjectType, depth int) 
 			return containedElement(t, types)
 		}
 
-		if a, z, ok := t.child[childidx].Find(netAddr, types, depth+1); ok {
+		if a, z, ok := t.child[childidx].Get(netAddr, types, depth+1); ok {
 			return a, z, ok
 		}
 	}
