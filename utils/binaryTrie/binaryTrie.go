@@ -1,4 +1,4 @@
-package main
+package binaryTrie
 
 import (
 	"net"
@@ -7,10 +7,7 @@ import (
 	"time"
 )
 
-func main() {
-
-}
-
+//Trie is a node of a binary trie.
 type Trie struct {
 	child      [2]*Trie
 	assertions map[rainslib.ObjectType]*set.Set
@@ -19,7 +16,7 @@ type Trie struct {
 
 //Find returns the most specific address assertion or zone in relation to the given netAddress' prefix.
 //If no address assertion or zone is found it return false
-func (t *Trie) Find(netAddr net.IPNet, types []rainslib.ObjectType, depth int) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
+func (t *Trie) Find(netAddr *net.IPNet, types []rainslib.ObjectType, depth int) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
 	addrmasks := [8]byte{0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01}
 	prfLength, _ := netAddr.Mask.Size()
 
@@ -71,7 +68,7 @@ func (t *Trie) AddZone(zone *rainslib.AddressZoneSection) {
 	node.zones.Add(zone)
 }
 
-func getNode(t *Trie, ipNet net.IPNet, depth int) *Trie {
+func getNode(t *Trie, ipNet *net.IPNet, depth int) *Trie {
 	addrmasks := [8]byte{0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01}
 	prfLength, _ := ipNet.Mask.Size()
 
@@ -92,7 +89,7 @@ func getNode(t *Trie, ipNet net.IPNet, depth int) *Trie {
 			t.child[subidx].assertions[rainslib.OTDelegation] = set.New()
 
 		}
-		return getNode(t, ipNet, depth+1)
+		return getNode(t.child[subidx], ipNet, depth+1)
 	}
 	return t
 }

@@ -471,7 +471,7 @@ const (
 
 //AddressAssertionSection contains information about the address assertion
 type AddressAssertionSection struct {
-	SubjectAddr net.IPNet
+	SubjectAddr *net.IPNet
 	Content     []Object
 	Signatures  []Signature
 	Context     string
@@ -542,7 +542,7 @@ func (a *AddressAssertionSection) Hash() string {
 
 //AddressZoneSection contains information about the address zone
 type AddressZoneSection struct {
-	SubjectAddr net.IPNet
+	SubjectAddr *net.IPNet
 	Content     []*AddressAssertionSection
 	Signatures  []Signature
 	Context     string
