@@ -2,6 +2,7 @@ package rainsd
 
 import (
 	"fmt"
+	"net"
 	"rains/rainslib"
 	"sort"
 	"sync"
@@ -318,60 +319,33 @@ func containedAssertionsValidObjectType(z *rainslib.AddressZoneSection) bool {
 	return true
 }
 
-func validObjectType(subjectAddr rainslib.SubjectAddr, objectType rainslib.ObjectType) bool {
-	if subjectAddr.AddressFamily == rainslib.OTIP4Addr {
-		if subjectAddr.PrefixLength == 32 {
+func validObjectType(subjectAddr net.IPNet, objectType rainslib.ObjectType) bool {
+	prefixLength, addressLength := subjectAddr.Mask.Size()
+	if addressLength == 32 {
+		if prefixLength == 32 {
 			return objectType == rainslib.OTName
 		}
 		return objectType == rainslib.OTDelegation || objectType == rainslib.OTRedirection || objectType == rainslib.OTRegistrant
 	}
-	if subjectAddr.AddressFamily == rainslib.OTIP6Addr {
-		if subjectAddr.PrefixLength == 128 {
+	if addressLength == 128 {
+		if prefixLength == 128 {
 			return objectType == rainslib.OTName
 		}
 		return objectType == rainslib.OTDelegation || objectType == rainslib.OTRedirection || objectType == rainslib.OTRegistrant
-	}
-	log.Warn("subjAddr AddressFamily is of wrong type", "address familiy", subjectAddr.AddressFamily)
-	return false
-}
-
-func containedAssertionsValidPrefixLength(z *rainslib.AddressZoneSection) bool {
-	if validPrefixLength(z.SubjectAddr) {
-		log.Warn("PrefixLength of zone is too large", "prefixLength", z.SubjectAddr.PrefixLength)
-		return false
-	}
-	for _, a := range z.Content {
-		if validPrefixLength(a.SubjectAddr) {
-			log.Warn("PrefixLength of contained address assertion is too large", "prefixLength", a.SubjectAddr.PrefixLength)
-			return false
-		}
-	}
-	return true
-}
-
-func validPrefixLength(subjectAddr rainslib.SubjectAddr) bool {
-	switch subjectAddr.AddressFamily {
-	case rainslib.OTIP4Addr:
-		return subjectAddr.PrefixLength <= 32
-	case rainslib.OTIP6Addr:
-		return subjectAddr.PrefixLength <= 128
-	default:
-		log.Warn("Not valid ObjectType in subjectAddr", "got", subjectAddr.AddressFamily)
 	}
 	return false
 }
 
 func containedAssertionsWithinNetwork(z *rainslib.AddressZoneSection) bool {
-	zprefix := z.SubjectAddr.PrefixLength
+	zprefix, _ := z.SubjectAddr.Mask.Size()
 	for _, a := range z.Content {
-		aprefix := a.SubjectAddr.PrefixLength
+		aprefix, _ := a.SubjectAddr.Mask.Size()
 		if aprefix < zprefix {
 			log.Warn("Assertion is less specific than zone", "assertion prefix", aprefix, "zone prefix", zprefix)
 			return false
 		}
-		if a.SubjectAddr.Address.String()[:zprefix] != z.SubjectAddr.Address.String()[:zprefix] {
-			log.Warn("Assertion and zone does not have the same prefix", "assertion addr prefix", a.SubjectAddr.Address.String()[:zprefix],
-				"zone addr prefix", z.SubjectAddr.Address.String()[:zprefix])
+		if !z.SubjectAddr.Contains(a.SubjectAddr.IP) {
+			log.Warn("Assertion network is not contained in zone network", "assertion network", a.SubjectAddr, "zone network", z.SubjectAddr)
 			return false
 		}
 	}

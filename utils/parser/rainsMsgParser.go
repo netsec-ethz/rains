@@ -246,11 +246,16 @@ func revParseQuery(q *rainslib.QuerySection) string {
 //revParseAddressAssertion parses a address assertion to its string representation with format:
 //:AA::CN:<context-name>:AF:<address-family>:PL:<prefix-length>:IP:<IP-Address>[(Object)*][]
 func revParseAddressAssertion(a *rainslib.AddressAssertionSection) string {
+	prefixLength, _ := a.SubjectAddr.Mask.Size()
+	addressFamily := rainslib.OTIP6Addr
+	if a.SubjectAddr.IP.To4() != nil {
+		addressFamily = rainslib.OTIP4Addr
+	}
 	assertion := fmt.Sprintf(":AA::CN:%s:AF:%d:PL:%d:IP:%s[%s]][",
 		a.Context,
-		a.SubjectAddr.AddressFamily,
-		a.SubjectAddr.PrefixLength,
-		a.SubjectAddr.Address.String(),
+		addressFamily,
+		prefixLength,
+		a.SubjectAddr.IP,
 		revParseObjects(a.Content))
 	return fmt.Sprintf("%s][]", assertion)
 }
@@ -258,11 +263,16 @@ func revParseAddressAssertion(a *rainslib.AddressAssertionSection) string {
 //revParseAddressZone parses a address zone to its string representation with format:
 //:AZ::CN:<context-name>:AF:<address-family>:PL:<prefix-length>:IP:<IP-Address>[(Address Assertion)*][]
 func revParseAddressZone(z *rainslib.AddressZoneSection) string {
+	prefixLength, _ := z.SubjectAddr.Mask.Size()
+	addressFamily := rainslib.OTIP6Addr
+	if z.SubjectAddr.IP.To4() != nil {
+		addressFamily = rainslib.OTIP4Addr
+	}
 	zone := fmt.Sprintf(":AZ::CN:%s:AF:%d:PL:%d:IP:%s[",
 		z.Context,
-		z.SubjectAddr.AddressFamily,
-		z.SubjectAddr.PrefixLength,
-		z.SubjectAddr.Address.String())
+		addressFamily,
+		prefixLength,
+		z.SubjectAddr.IP)
 	for _, assertion := range z.Content {
 		zone += revParseAddressAssertion(assertion)
 	}

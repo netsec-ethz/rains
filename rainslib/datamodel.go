@@ -2,16 +2,11 @@ package rainslib
 
 import (
 	"crypto/rand"
-	"strconv"
-
-	"fmt"
-
-	"io"
-
 	"encoding/hex"
-
+	"fmt"
+	"io"
 	"net"
-
+	"strconv"
 	"strings"
 
 	log "github.com/inconshreveable/log15"
@@ -474,16 +469,9 @@ const (
 	OTExtraKey    ObjectType = 12
 )
 
-//SubjectAddr TODO correct?
-type SubjectAddr struct {
-	AddressFamily ObjectType
-	PrefixLength  uint
-	Address       net.IPAddr
-}
-
 //AddressAssertionSection contains information about the address assertion
 type AddressAssertionSection struct {
-	SubjectAddr SubjectAddr
+	SubjectAddr net.IPNet
 	Content     []Object
 	Signatures  []Signature
 	Context     string
@@ -545,18 +533,16 @@ func (a *AddressAssertionSection) ValidUntil() int64 {
 
 //Hash returns a string containing all information uniquely identifying an assertion.
 func (a *AddressAssertionSection) Hash() string {
-	return fmt.Sprintf("%s_%d_%d_%s_%v_%v",
+	return fmt.Sprintf("%s_%s_%v_%v",
 		a.Context,
-		a.SubjectAddr.AddressFamily,
-		a.SubjectAddr.PrefixLength,
-		a.SubjectAddr.Address.String(),
+		a.SubjectAddr,
 		a.Content,
 		a.Signatures)
 }
 
 //AddressZoneSection contains information about the address zone
 type AddressZoneSection struct {
-	SubjectAddr SubjectAddr
+	SubjectAddr net.IPNet
 	Content     []*AddressAssertionSection
 	Signatures  []Signature
 	Context     string
@@ -629,24 +615,22 @@ func (z *AddressZoneSection) Hash() string {
 	for _, a := range z.Content {
 		contentHashes += a.Hash()
 	}
-	return fmt.Sprintf("%s_%d_%d_%s_%s_%v",
+	return fmt.Sprintf("%s_%s_%s_%v",
 		z.Context,
-		z.SubjectAddr.AddressFamily,
-		z.SubjectAddr.PrefixLength,
-		z.SubjectAddr.Address.String(),
+		z.SubjectAddr,
 		contentHashes,
 		z.Signatures)
 }
 
 //AddressQuerySection contains information about the address query
 type AddressQuerySection struct {
-	SubjectAddr SubjectAddr
+	SubjectAddr net.IPNet
 	Token       Token
 	Context     string
-	Types       []int
+	Types       []ObjectType
 	Expires     int64
 	//Optional
-	Options []int
+	Options []QueryOption
 }
 
 //NotificationSection contains information about the notification

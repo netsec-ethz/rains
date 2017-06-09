@@ -3,9 +3,8 @@ package rainsd
 import (
 	"fmt"
 	"rains/rainslib"
-	"time"
-
 	"strings"
+	"time"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -89,10 +88,6 @@ func verify(msgSender msgSectionSender) {
 		}
 		switch section := section.(type) {
 		case *rainslib.AddressAssertionSection:
-			if !validPrefixLength(section.SubjectAddr) {
-				log.Warn("PrefixLength of address assertion is too large", "prefixLength", section.SubjectAddr.PrefixLength)
-				return
-			}
 			for _, o := range section.Content {
 				if !validObjectType(section.SubjectAddr, o.Type) {
 					log.Warn("Not Allowed object type of address assertion.", "objectType", o.Type)
@@ -100,7 +95,7 @@ func verify(msgSender msgSectionSender) {
 				}
 			}
 		case *rainslib.AddressZoneSection:
-			if !containedAssertionsValidObjectType(section) || !containedAssertionsValidPrefixLength(section) || !containedAssertionsWithinNetwork(section) {
+			if !containedAssertionsValidObjectType(section) || !containedAssertionsWithinNetwork(section) {
 				return //already logged, that the zone is internally invalid
 			}
 		}
