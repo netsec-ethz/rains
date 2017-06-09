@@ -5,6 +5,10 @@ import (
 	"rains/rainslib"
 	"rains/utils/set"
 	"time"
+
+	"errors"
+
+	log "github.com/inconshreveable/log15"
 )
 
 //Trie is a node of a binary trie.
@@ -44,7 +48,7 @@ func (t *Trie) Find(netAddr *net.IPNet, types []rainslib.ObjectType, depth int) 
 func containedElement(t *Trie, types []rainslib.ObjectType) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
 	for _, obj := range types {
 		aSet := t.assertions[obj]
-		if aSet.Len() > 0 {
+		if aSet != nil && aSet.Len() > 0 {
 			return aSet.GetAll()[0].(*rainslib.AddressAssertionSection), nil, true
 		}
 	}
@@ -55,17 +59,25 @@ func containedElement(t *Trie, types []rainslib.ObjectType) (*rainslib.AddressAs
 }
 
 //AddAssertion adds the given address assertion to the map (keyed by objectType) at the trie node corresponding to the network address.
-func (t *Trie) AddAssertion(assertion *rainslib.AddressAssertionSection) {
+//Returns an error if it was not able to add the AddressAssertion
+func (t *Trie) AddAssertion(assertion *rainslib.AddressAssertionSection) error {
 	node := getNode(t, assertion.SubjectAddr, 0)
 	for _, obj := range assertion.Content {
+		if obj.Type != rainslib.OTName && obj.Type != rainslib.OTDelegation && obj.Type != rainslib.OTRedirection && obj.Type != rainslib.OTRegistrant {
+			log.Warn("Unsupported type.", "type", obj.Type)
+			return errors.New("unsupported object type")
+		}
 		node.assertions[obj.Type].Add(assertion)
 	}
+	return nil
 }
 
 //AddZone adds the given address zone to the list of address zones at the trie node corresponding to the network address.
-func (t *Trie) AddZone(zone *rainslib.AddressZoneSection) {
+//Returns an error if it was not able to add the addressZone
+func (t *Trie) AddZone(zone *rainslib.AddressZoneSection) error {
 	node := getNode(t, zone.SubjectAddr, 0)
 	node.zones.Add(zone)
+	return nil
 }
 
 func getNode(t *Trie, ipNet *net.IPNet, depth int) *Trie {
