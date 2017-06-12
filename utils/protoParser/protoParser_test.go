@@ -10,10 +10,12 @@ func TestEncodeAndDecode(t *testing.T) {
 		Name:  "ethz2.ch",
 		Types: []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr},
 	}
+	var ed25519Pkey rainslib.Ed25519PublicKey
+	copy(ed25519Pkey[:], []byte("01234567890123456789012345678901"))
 	publicKey := rainslib.PublicKey{
 		KeySpace:   rainslib.RainsKeySpace,
 		Type:       rainslib.Ed25519,
-		Key:        []byte("TestKey"),
+		Key:        ed25519Pkey,
 		ValidSince: 10000,
 		ValidUntil: 50000,
 	}
@@ -526,20 +528,15 @@ func checkPublicKey(p1, p2 rainslib.PublicKey, t *testing.T) {
 		t.Error("SubjectAddr ValidUntil mismatch")
 	}
 	switch p1 := p1.Key.(type) {
-	case []byte:
-		if p2, ok := p2.Key.([]byte); ok {
-			if len(p1) != len(p2) {
-				t.Error("publickey key length mismatch")
-			}
-			for i, b1 := range p1 {
-				if b1 != p2[i] {
-					t.Errorf("publickey key mismatch at byte %d", i)
-				}
+	case rainslib.Ed25519PublicKey:
+		if p2, ok := p2.Key.(rainslib.Ed25519PublicKey); ok {
+			if p1 != p2 {
+				t.Errorf("publickey key mismatch p1=%v != %v=p2", p1, p2)
 			}
 		} else {
-			t.Error("publickey key type mismatch")
+			t.Errorf("publickey key type mismatch. Got Type:%T", p2)
 		}
 	default:
-		t.Error("Not yet supported")
+		t.Errorf("Not yet supported. Got Type:%T", p1)
 	}
 }

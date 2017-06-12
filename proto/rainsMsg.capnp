@@ -13,15 +13,15 @@ struct RainsMessage  {
 
 struct MessageSection  {
     union {
-        assertion           @0 :AssertionSection;     
-        shard               @1 :ShardSection; 
-        zone                @2 :ZoneSection;      
-        query               @3 :QuerySection;      
-        notification        @4 :NotificationSection;
-        addressQuery        @5 :AddressQuerySection;
-        addressAssertion    @6 :AddressAssertionSection;
-		addressZone			@7 :AddressZoneSection;
-    }         
+		assertion           @0 :AssertionSection;
+		shard               @1 :ShardSection;
+		zone                @2 :ZoneSection;
+		query               @3 :QuerySection;
+		notification        @4 :NotificationSection;
+		addressQuery        @5 :AddressQuerySection;
+		addressAssertion    @6 :AddressAssertionSection;
+		addressZone         @7 :AddressZoneSection;
+    }   
 }
 
 struct AssertionSection  {
@@ -116,9 +116,9 @@ struct Signature  {
 struct PublicKey  {
     #PublicKey contains information about a public key
 	keySpace   @0 :Int32;
-	type  	     @1 :Int32;
+	type       @1 :Int32;
 	key        @2 :Data;
-	validSince  @3 :Int64;
+	validSince @3 :Int64;
 	validUntil @4 :Int64;
 }
 
@@ -140,19 +140,19 @@ struct ServiceInfo  {
 struct Obj  {
     #Object is a container for different values determined by the given type.
 	type  @0    :Int32;
-	value   :union {
-		name 	@1 	:List(Text);
-        ip6 	@2 	:Text;
-        ip4 	@3 	:Text;
-		redir 	@4 	:Text;
-		deleg 	@5	:PublicKey;
+	value       :union {
+		name    @1  :List(Text);
+		ip6     @2  :Text;
+		ip4     @3  :Text;
+		redir   @4  :Text;
+		deleg   @5  :PublicKey;
 		nameset @6  :Text;
-		cert 	@7 	:CertificateObject;
-		service @8 	:ServiceInfo;
-		regr 	@9 	:Text;
-		regt 	@10 :Text;
-		infra 	@11 :PublicKey;
-		extra	@12 :PublicKey;
+		cert    @7  :CertificateObject;
+		service @8  :ServiceInfo;
+		regr    @9  :Text;
+		regt    @10 :Text;
+		infra   @11 :PublicKey;
+		extra   @12 :PublicKey;
     }
 }
 

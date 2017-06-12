@@ -640,13 +640,13 @@ func decodeAssertion(a proto.AssertionSection) (*rainslib.AssertionSection, erro
 
 	assertion.SubjectZone, err = a.SubjectZone()
 	if err != nil {
-		log.Warn("Was not able to decode zone", "error", err)
+		log.Warn("Was not able to decode SubjectZone", "error", err)
 		return nil, err
 	}
 
 	assertion.SubjectName, err = a.SubjectName()
 	if err != nil {
-		log.Warn("Was not able to decode name", "error", err)
+		log.Warn("Was not able to decode SubjectName", "error", err)
 		return nil, err
 	}
 
@@ -685,7 +685,7 @@ func decodeShard(s proto.ShardSection) (*rainslib.ShardSection, error) {
 
 	shard.SubjectZone, err = s.SubjectZone()
 	if err != nil {
-		log.Warn("Was not able to decode zone", "error", err)
+		log.Warn("Was not able to decode SubjectZone", "error", err)
 		return nil, err
 	}
 
@@ -739,7 +739,7 @@ func decodeZone(z proto.ZoneSection) (*rainslib.ZoneSection, error) {
 
 	zone.SubjectZone, err = z.SubjectZone()
 	if err != nil {
-		log.Warn("Was not able to decode zone", "error", err)
+		log.Warn("Was not able to decode SubjectZone", "error", err)
 		return nil, err
 	}
 
@@ -1002,31 +1002,10 @@ func decodeObjects(objList proto.Obj_List) ([]rainslib.Object, error) {
 		object.Type = rainslib.ObjectType(obj.Type())
 		switch obj.Value().Which() {
 		case proto.Obj_value_Which_name:
-			nameList, err := obj.Value().Name()
+			object.Value, err = decodeObjectName(obj.Value())
 			if err != nil {
-				log.Warn("Was not able to decode name object value", "error", err)
 				return nil, err
 			}
-			nameObject := rainslib.NameObject{}
-			nameObject.Name, err = nameList.At(0)
-			if err != nil {
-				log.Warn("Was not able to decode name object value", "error", err)
-				return nil, err
-			}
-			for j := 1; j < nameList.Len(); j++ {
-				t, err := nameList.At(j)
-				if err != nil {
-					log.Warn("Was not able to decode name object value", "error", err)
-					return nil, err
-				}
-				objType, err := strconv.Atoi(t)
-				if err != nil {
-					log.Warn("Was not able to convert string to int (objectType)", "error", err)
-					return nil, err
-				}
-				nameObject.Types = append(nameObject.Types, rainslib.ObjectType(objType))
-			}
-			object.Value = nameObject
 		case proto.Obj_value_Which_ip6:
 			object.Value, err = obj.Value().Ip6()
 			if err != nil {
@@ -1063,39 +1042,15 @@ func decodeObjects(objList proto.Obj_List) ([]rainslib.Object, error) {
 			}
 			object.Value = rainslib.NamesetExpression(nameSet)
 		case proto.Obj_value_Which_cert:
-			c, err := obj.Value().Cert()
+			object.Value, err = decodeCert(obj.Value())
 			if err != nil {
-				log.Warn("Was not able to decode cert object value", "error", err)
 				return nil, err
 			}
-			cert := rainslib.CertificateObject{
-				Type:     rainslib.ProtocolType(c.Type()),
-				HashAlgo: rainslib.HashAlgorithmType(c.HashAlgo()),
-				Usage:    rainslib.CertificateUsage(c.Usage()),
-			}
-			cert.Data, err = c.Data()
-			if err != nil {
-				log.Warn("Was not able to decode cert data value", "error", err)
-				return nil, err
-			}
-			object.Value = cert
 		case proto.Obj_value_Which_service:
-			si, err := obj.Value().Service()
+			object.Value, err = decodeServiceInfo(obj.Value())
 			if err != nil {
-				log.Warn("Was not able to decode service info object value", "error", err)
 				return nil, err
 			}
-			serviceInfo := rainslib.ServiceInfo{
-				Port:     uint16(si.Port()),
-				Priority: uint(si.Priority()),
-			}
-
-			serviceInfo.Name, err = si.Name()
-			if err != nil {
-				log.Warn("Was not able to decode service info name", "error", err)
-				return nil, err
-			}
-			object.Value = serviceInfo
 		case proto.Obj_value_Which_regr:
 			object.Value, err = obj.Value().Regr()
 			if err != nil {
@@ -1136,6 +1091,72 @@ func decodeObjects(objList proto.Obj_List) ([]rainslib.Object, error) {
 	}
 
 	return objects, nil
+}
+
+func decodeObjectName(value proto.Obj_value) (rainslib.NameObject, error) {
+	nameList, err := value.Name()
+	if err != nil {
+		log.Warn("Was not able to decode name object value", "error", err)
+		return rainslib.NameObject{}, err
+	}
+	nameObject := rainslib.NameObject{}
+	nameObject.Name, err = nameList.At(0)
+	if err != nil {
+		log.Warn("Was not able to decode name object value", "error", err)
+		return rainslib.NameObject{}, err
+	}
+	for j := 1; j < nameList.Len(); j++ {
+		t, err := nameList.At(j)
+		if err != nil {
+			log.Warn("Was not able to decode name object value", "error", err)
+			return rainslib.NameObject{}, err
+		}
+		objType, err := strconv.Atoi(t)
+		if err != nil {
+			log.Warn("Was not able to convert string to int (objectType)", "error", err)
+			return rainslib.NameObject{}, err
+		}
+		nameObject.Types = append(nameObject.Types, rainslib.ObjectType(objType))
+	}
+	return nameObject, nil
+}
+
+func decodeCert(value proto.Obj_value) (rainslib.CertificateObject, error) {
+	c, err := value.Cert()
+	if err != nil {
+		log.Warn("Was not able to decode cert object value", "error", err)
+		return rainslib.CertificateObject{}, err
+	}
+	cert := rainslib.CertificateObject{
+		Type:     rainslib.ProtocolType(c.Type()),
+		HashAlgo: rainslib.HashAlgorithmType(c.HashAlgo()),
+		Usage:    rainslib.CertificateUsage(c.Usage()),
+	}
+	cert.Data, err = c.Data()
+	if err != nil {
+		log.Warn("Was not able to decode cert data value", "error", err)
+		return rainslib.CertificateObject{}, err
+	}
+	return cert, nil
+}
+
+func decodeServiceInfo(value proto.Obj_value) (rainslib.ServiceInfo, error) {
+	si, err := value.Service()
+	if err != nil {
+		log.Warn("Was not able to decode service info object value", "error", err)
+		return rainslib.ServiceInfo{}, err
+	}
+	serviceInfo := rainslib.ServiceInfo{
+		Port:     uint16(si.Port()),
+		Priority: uint(si.Priority()),
+	}
+
+	serviceInfo.Name, err = si.Name()
+	if err != nil {
+		log.Warn("Was not able to decode service info name", "error", err)
+		return rainslib.ServiceInfo{}, err
+	}
+	return serviceInfo, nil
 }
 
 func decodeSignatures(sigList proto.Signature_List) ([]rainslib.Signature, error) {
@@ -1274,14 +1295,16 @@ func decodePublicKey(pkey proto.PublicKey) (rainslib.PublicKey, error) {
 		ValidSince: pkey.ValidSince(),
 		ValidUntil: pkey.ValidUntil(),
 	}
-	var err error
 	switch publicKey.Type {
 	case rainslib.Ed25519:
-		publicKey.Key, err = pkey.Key()
+		var ed25519Publickey rainslib.Ed25519PublicKey
+		byteKey, err := pkey.Key()
 		if err != nil {
 			log.Warn("Was not able to decode key data", "error", err)
 			return rainslib.PublicKey{}, err
 		}
+		copy(ed25519Publickey[:], byteKey)
+		publicKey.Key = ed25519Publickey
 	case rainslib.Ed448:
 		log.Warn("Not yet supported")
 	case rainslib.Ecdsa256:
