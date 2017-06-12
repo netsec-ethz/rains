@@ -2,10 +2,10 @@ package rainsd
 
 import (
 	"fmt"
-	"rains/rainslib"
-	"time"
-
 	"math"
+	"rains/rainslib"
+	"rains/utils/rainsMsgParser"
+	"time"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -382,7 +382,8 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainsli
 		return false
 	}
 	stub := section.CreateStub()
-	bareStub, _ := msgParser.RevParseSignedMsgSection(stub)
+	sigParser := new(rainsMsgParser.RainsMsgParser)
+	bareStub, _ := sigParser.RevParseSignedMsgSection(stub)
 	for i, sig := range section.Sigs() {
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Warn("signature expired", "expTime", sig.ValidUntil)

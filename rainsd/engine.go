@@ -289,11 +289,11 @@ func getZoneAndName(name string) []zoneAndName {
 	return zoneAndNames
 }
 
-//sendQueryAnswer sends a section with Signature to back to the sender with the specified token
+//sendQueryAnswer sends a section with Signature back to the sender with the specified token
 func sendQueryAnswer(section rainslib.MessageSectionWithSig, sender rainslib.ConnInfo, token rainslib.Token) {
 	//TODO CFE add signature on message?
 	msg := rainslib.RainsMessage{Content: []rainslib.MessageSection{section}, Token: token}
-	byteMsg, err := msgParser.ParseRainsMsg(msg)
+	byteMsg, err := msgParser.Encode(msg)
 	if err != nil {
 		log.Error("Was not able to parse message", "message", msg, "error", err)
 		return

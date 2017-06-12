@@ -3,6 +3,7 @@ package protoParser
 import (
 	"errors"
 	"fmt"
+	"io"
 	"rains/proto"
 	"rains/rainslib"
 	"strconv"
@@ -11,13 +12,60 @@ import (
 	capnp "zombiezen.com/go/capnproto2"
 )
 
+//ProtoParserAndFramer contains methods to encode, frame, decode and deframe rainsMessages.
+type ProtoParserAndFramer struct {
+	decoder *capnp.Decoder
+	encoder *capnp.Encoder
+	data    *capnp.Message
+}
+
 func init() {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(h)
 }
 
-//EncodeMessage uses capnproto to encode and frame the message. The message is then ready to be sent over the wire.
-func EncodeMessage(m rainslib.RainsMessage) (*capnp.Message, error) {
+//Frame takes a message and adds a frame (if it not already has one) and send the framed message to the streamWriter defined in InitStream()
+func (p *ProtoParserAndFramer) Frame(msg []byte) error {
+	message, err := capnp.Unmarshal(msg)
+	if err != nil {
+		return err
+	}
+	err = p.encoder.Encode(message)
+	return err
+}
+
+//InitStreams defines 2 streams. Deframe() and Data() are extracting the information from streamReader and Frame() is sending the data to streamWriter.
+//If a stream is readable and writable it is possible that streamReader = streamWriter
+func (p *ProtoParserAndFramer) InitStreams(streamReader io.Reader, streamWriter io.Writer) {
+	p.decoder = capnp.NewDecoder(streamReader)
+	p.encoder = capnp.NewEncoder(streamWriter)
+}
+
+//Deframe extracts the next frame from the streamReader defined in InitStream().
+//It blocks until it encounters the delimiter.
+//It returns false when the stream was not initialized or is already closed.
+//The data is available through Data
+func (p *ProtoParserAndFramer) Deframe() bool {
+	msg, err := p.decoder.Decode()
+	if err != nil {
+		log.Warn("Was not able to decode msg", "error", err)
+		return false
+	}
+	p.data = msg
+	return true
+}
+
+//Data contains the frame read from the stream by Deframe
+func (p *ProtoParserAndFramer) Data() []byte {
+	if data, err := p.data.Marshal(); err == nil {
+		return data
+	}
+	log.Warn("Was not able to marshal protoMessage", "message", p.data)
+	return []byte{}
+}
+
+//Encode uses capnproto to encode and frame the message. The message is then ready to be sent over the wire.
+func (p *ProtoParserAndFramer) Encode(m rainslib.RainsMessage) ([]byte, error) {
 	//Setup structure
 	msg, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
 	if err != nil {
@@ -82,7 +130,8 @@ func EncodeMessage(m rainslib.RainsMessage) (*capnp.Message, error) {
 		contentList.Set(i, ms)
 	}
 
-	return msg, nil
+	return msg.Marshal()
+
 }
 
 func encodeAssertion(a *rainslib.AssertionSection, seg *capnp.Segment) (proto.MessageSection, error) {
@@ -494,7 +543,8 @@ func encodePublicKey(publicKey rainslib.PublicKey, pubKey proto.PublicKey) error
 
 	switch publicKey.Type {
 	case rainslib.Ed25519:
-		pubKey.SetKey(publicKey.Key.([]byte))
+		pkey := publicKey.Key.(rainslib.Ed25519PublicKey)
+		pubKey.SetKey(pkey[:])
 	case rainslib.Ed448:
 		log.Warn("Not yet supported")
 	case rainslib.Ecdsa256:
@@ -520,12 +570,16 @@ func encodeSubjectAddress(subjectAddress rainslib.SubjectAddr, seg *capnp.Segmen
 	return sa, nil
 }
 
-//DecodeMessage uses capnproto to decode and deframe the message.
-func DecodeMessage(m *capnp.Message) (rainslib.RainsMessage, error) {
+//Decode uses capnproto to decode and deframe the message.
+func (p *ProtoParserAndFramer) Decode(input []byte) (rainslib.RainsMessage, error) {
 	message := rainslib.RainsMessage{}
+	m, err := capnp.Unmarshal(input)
+	if err != nil {
+		return rainslib.RainsMessage{}, err
+	}
 	msg, err := proto.ReadRootRainsMessage(m)
 	if err != nil {
-		panic(err)
+		return rainslib.RainsMessage{}, err
 	}
 
 	tok, err := msg.Token()
@@ -533,11 +587,11 @@ func DecodeMessage(m *capnp.Message) (rainslib.RainsMessage, error) {
 		log.Warn("Could not decode token", "error", err)
 		return rainslib.RainsMessage{}, err
 	}
-	length := 16
-	if len(tok) < 16 {
-		length = len(tok)
+	if len(tok) != 16 {
+		log.Warn("Length of token is not 16", "token", tok, "length", len(tok))
+		return rainslib.RainsMessage{}, errors.New("Length of token is not 16")
 	}
-	copy(message.Token[:], tok[:length])
+	copy(message.Token[:], tok)
 
 	capabilities, err := msg.Capabilities()
 	if err != nil {
@@ -1260,4 +1314,30 @@ func decodeSubjectAddress(addr proto.SubjectAddr) (rainslib.SubjectAddr, error) 
 	}
 
 	return subjectAddr, nil
+}
+
+//Token returns the extracted token from the given msg or an error
+func (p *ProtoParserAndFramer) Token(m []byte) (rainslib.Token, error) {
+	token := rainslib.Token{}
+	message, err := capnp.Unmarshal(m)
+	if err != nil {
+		return token, nil
+	}
+	msg, err := proto.ReadRootRainsMessage(message)
+	if err != nil {
+		return token, err
+	}
+
+	tok, err := msg.Token()
+	if err != nil {
+		log.Warn("Could not decode token", "error", err)
+		return token, err
+	}
+	if len(tok) != 16 {
+		log.Warn("Length of token is not 16", "token", tok, "length", len(tok))
+		return token, errors.New("Length of token is not 16")
+	}
+
+	copy(token[:], tok)
+	return token, nil
 }

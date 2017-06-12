@@ -138,11 +138,13 @@ func TestEncodeAndDecode(t *testing.T) {
 		Signatures:   []rainslib.Signature{signature},
 	}
 
-	msg, err := EncodeMessage(message)
+	p := ProtoParserAndFramer{}
+
+	msg, err := p.Encode(message)
 	if err != nil {
 		t.Error("Failed to encode the message")
 	}
-	m, err := DecodeMessage(msg)
+	m, err := p.Decode(msg)
 	if err != nil {
 		t.Error("Failed to decode the message")
 	}

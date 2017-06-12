@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"rains/rainslib"
-	"rains/utils/parser"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -46,17 +45,10 @@ func initInbox() error {
 		return err
 	}
 
-	//init parser
-	msgParser = parser.RainsMsgParser{}
-
 	go workPrio()
 	go workNotification()
 	go workBoth()
 
-	//FIXME CFE for testing purposes (afterwards remove)
-	addToActiveTokenCache("456")
-	addToActiveTokenCache("457")
-	addToActiveTokenCache("458")
 	return nil
 }
 
@@ -79,7 +71,7 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 		return
 	}
 
-	msg, err := msgParser.ParseByteSlice(message)
+	msg, err := msgParser.Decode(message)
 	if err != nil {
 		sendNotificationMsg(msg.Token, sender, rainslib.BadMessage)
 		return

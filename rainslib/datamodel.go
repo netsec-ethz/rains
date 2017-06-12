@@ -1,7 +1,6 @@
 package rainslib
 
 import (
-	"crypto/rand"
 	"net"
 	"strconv"
 
@@ -706,24 +705,18 @@ func (c ConnInfo) Equal(conn ConnInfo) bool {
 	return false
 }
 
-//RainsMsgParser translates between byte slices and RainsMessage.
-//It must always hold that: rainsMsg = ParseByteSlice(ParseRainsMsg(rainsMsg)) && byteMsg = ParseRainsMsg(ParseByteSlice(byteMsg))
+//RainsMsgParser can encode and decode RainsMessage.
+//It is able to efficiently extract only the Token form an encoded RainsMessage
+//It must always hold that: rainsMsg = Decode(Encode(rainsMsg)) && interface{} = Encode(Decode(interface{}))
 type RainsMsgParser interface {
-	//ParseByteSlice parses the byte slice to a RainsMessage.
-	ParseByteSlice(msg []byte) (RainsMessage, error)
+	//Decode extracts information from msg and returns a RainsMessage or an error
+	Decode(msg []byte) (RainsMessage, error)
 
-	//ParseRainsMsg parses a RainsMessage to a byte slice representation.
-	ParseRainsMsg(msg RainsMessage) ([]byte, error)
+	//Encode encodes the given RainsMessage into a more compact representation.
+	Encode(msg RainsMessage) ([]byte, error)
 
-	//Token extracts the token from the byte slice of a RainsMessage
+	//Token returns the extracted token from the given msg or an error
 	Token(msg []byte) (Token, error)
-
-	//RevParseSignedMsgSection parses an MessageSectionWithSig to a byte slice representation
-	RevParseSignedMsgSection(section MessageSectionWithSig) (string, error)
-
-	//ParseSignedAssertion parses a byte slice representation of an assertion to the internal representation of an assertion.
-	//TODO CFE extend this method to also allow parsing shards and zones if necessary
-	ParseSignedAssertion(assertion []byte) (*AssertionSection, error)
 }
 
 //ZoneFileParser is the interface for all parsers of zone files for RAINS
@@ -733,22 +726,22 @@ type ZoneFileParser interface {
 	ParseZoneFile(zoneFile []byte, filePath string) ([]*AssertionSection, error)
 }
 
-//PRG pseudo random generator
-type PRG struct{}
-
-func (prg PRG) Read(p []byte) (n int, err error) {
-	return rand.Read(p)
+//SignatureFormatEncoder is used to deterministically transform a RainsMessage into a byte format that can be signed.
+type SignatureFormatEncoder interface {
+	//Encode transforms the given msg into a signable format.
+	Encode(msg RainsMessage) []byte
 }
 
-//MsgFramer is used to frame rains messages before transmission and deframe on the receiving end.
+//MsgFramer is used to frame and deframe rains messages and send or receive them on the initialized stream.
 type MsgFramer interface {
-	//Frame takes a message and adds a frame to it
-	Frame(msg []byte) ([]byte, error)
+	//Frame takes a message and adds a frame (if it not already has one) and send the framed message to the streamWriter defined in InitStream()
+	Frame(msg []byte) error
 
-	//InitStream defines the stream from which Deframe() and Data() are extracting the information from
-	InitStream(stream io.Reader)
+	//InitStreams defines 2 streams. Deframe() and Data() are extracting the information from streamReader and Frame() is sending the data to streamWriter.
+	//If a stream is readable and writable it is possible that streamReader = streamWriter
+	InitStreams(streamReader io.Reader, streamWriter io.Writer)
 
-	//Deframe extracts the next frame from the stream defined in InitStream().
+	//Deframe extracts the next frame from the streamReader defined in InitStream().
 	//It blocks until it encounters the delimiter.
 	//It returns false when the stream was not initialized or is already closed.
 	//The data is available through Data
