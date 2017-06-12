@@ -67,6 +67,7 @@ func loadRootZonePublicKey() error {
 	if err == nil {
 		for _, c := range a.Content {
 			if c.Type == rainslib.OTDelegation {
+				//FIXME CFE: a.ValidUntil() returns 0 and the value is thus not cached. It is solved in the reverse lookup branch
 				publicKey := rainslib.PublicKey{Key: c.Value, Type: a.Signatures[0].Algorithm, ValidUntil: a.ValidUntil()}
 				keyMap := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
 				keyMap[rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)] = publicKey

@@ -11,6 +11,10 @@ import (
 
 	"encoding/hex"
 
+	"time"
+
+	"math"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -54,7 +58,8 @@ type MessageSectionWithSig interface {
 	GetContext() string
 	GetSubjectZone() string
 	CreateStub() MessageSectionWithSig
-	ValidFrom() int64
+	UpdateValidity(validSince, validUntil int64, maxValidity time.Duration)
+	ValidSince() int64
 	ValidUntil() int64
 	Hash() string
 	Interval
@@ -105,6 +110,8 @@ type AssertionSection struct {
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
+	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
 //Sigs return the assertion's signatures
@@ -155,28 +162,37 @@ func (a *AssertionSection) End() string {
 	return a.SubjectName
 }
 
-//ValidFrom returns the earliest validFrom date of all contained signatures
-func (a *AssertionSection) ValidFrom() int64 {
-	valid := a.Signatures[0].ValidSince
-	for _, sig := range a.Signatures[1:] {
-		if sig.ValidSince < valid {
-			valid = sig.ValidSince
+//UpdateValidity updates the validity of this assertion if the validity period is extended.
+//It makes sure that the validity is never larger than maxValidity
+func (a *AssertionSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+	if a.validSince == 0 {
+		a.validSince = math.MaxInt64
+	}
+	if validSince < a.validSince {
+		if validSince > time.Now().Add(maxValidity).Unix() {
+			log.Warn("Assertion validity starts too far in the future. Drop Assertion.", "assertion", *a, "newValidSince", validSince)
+			return
+		}
+		a.validSince = validSince
+	}
+	if validUntil > a.validUntil {
+		if validUntil > time.Now().Add(maxValidity).Unix() {
+			a.validUntil = time.Now().Add(maxValidity).Unix()
+			log.Warn("Limit the validity of the assertion in the cache. Validity exceeded upper bound", "assertion", *a, "newValidUntil", validUntil)
+		} else {
+			a.validUntil = validUntil
 		}
 	}
-	return valid
+}
+
+//ValidSince returns the earliest validSince date of all contained signatures
+func (a *AssertionSection) ValidSince() int64 {
+	return a.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
 func (a *AssertionSection) ValidUntil() int64 {
-	//FIXME CFE this is not correct. There might be a time interval between several signatures during which this assertion is not valid.
-	//Return the latest time which is reachable with all contained signatures without gaps in between
-	valid := a.Signatures[0].ValidUntil
-	for _, sig := range a.Signatures[1:] {
-		if sig.ValidSince > valid {
-			valid = sig.ValidSince
-		}
-	}
-	return valid
+	return a.validUntil
 }
 
 //Hash returns a string containing all information uniquely identifying an assertion.
@@ -199,6 +215,8 @@ type ShardSection struct {
 	Context     string
 	RangeFrom   string
 	RangeTo     string
+	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
 //Sigs return the shard's signatures
@@ -256,28 +274,36 @@ func (s *ShardSection) End() string {
 	return s.RangeTo
 }
 
-//ValidFrom returns the earliest validFrom date of all contained signatures
-func (s *ShardSection) ValidFrom() int64 {
-	valid := s.Signatures[0].ValidSince
-	for _, sig := range s.Signatures[1:] {
-		if sig.ValidSince < valid {
-			valid = sig.ValidSince
+//UpdateValidity updates the validity of this shard. If restrict is true then the validity Interval can only shrink, otherwise only expand.
+func (s *ShardSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+	if s.validSince == 0 {
+		s.validSince = math.MaxInt64
+	}
+	if validSince < s.validSince {
+		if validSince > time.Now().Add(maxValidity).Unix() {
+			log.Warn("Shard validity starts too far in the future. Drop Shard.", "shard", *s, "newValidSince", validSince)
+			return
+		}
+		s.validSince = validSince
+	}
+	if validUntil > s.validUntil {
+		if validUntil > time.Now().Add(maxValidity).Unix() {
+			s.validUntil = time.Now().Add(maxValidity).Unix()
+			log.Warn("Limit the validity of the shard in the cache. Validity exceeded upper bound", "shard", *s, "newValidUntil", validUntil)
+		} else {
+			s.validUntil = validUntil
 		}
 	}
-	return valid
+}
+
+//ValidSince returns the earliest validSince date of all contained signatures
+func (s *ShardSection) ValidSince() int64 {
+	return s.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
 func (s *ShardSection) ValidUntil() int64 {
-	//FIXME CFE this is not correct. There might be a time interval between several signatures during which this assertion is not valid.
-	//Return the latest time which is reachable with all contained signatures without gaps in between
-	valid := s.Signatures[0].ValidUntil
-	for _, sig := range s.Signatures[1:] {
-		if sig.ValidSince > valid {
-			valid = sig.ValidSince
-		}
-	}
-	return valid
+	return s.validUntil
 }
 
 //Hash returns a string containing all information uniquely identifying a shard.
@@ -295,6 +321,8 @@ type ZoneSection struct {
 	SubjectZone string
 	Context     string
 	Content     []MessageSectionWithSig
+	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
 //Sigs return the zone's signatures
@@ -362,28 +390,36 @@ func (z *ZoneSection) End() string {
 	return ""
 }
 
-//ValidFrom returns the earliest validFrom date of all contained signatures
-func (z *ZoneSection) ValidFrom() int64 {
-	valid := z.Signatures[0].ValidSince
-	for _, sig := range z.Signatures[1:] {
-		if sig.ValidSince < valid {
-			valid = sig.ValidSince
+//UpdateValidity updates the validity of this zone. If restrict is true then the validity Interval can only shrink, otherwise only expand.
+func (z *ZoneSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+	if z.validSince == 0 {
+		z.validSince = math.MaxInt64
+	}
+	if validSince < z.validSince {
+		if validSince > time.Now().Add(maxValidity).Unix() {
+			log.Warn("Zone validity starts too far in the future. Drop Zone.", "zone", *z, "newValidSince", validSince)
+			return
+		}
+		z.validSince = validSince
+	}
+	if validUntil > z.validUntil {
+		if validUntil > time.Now().Add(maxValidity).Unix() {
+			z.validUntil = time.Now().Add(maxValidity).Unix()
+			log.Warn("Limit the validity of the zone in the cache. Validity exceeded upper bound", "zone", *z, "newValidUntil", validUntil)
+		} else {
+			z.validUntil = validUntil
 		}
 	}
-	return valid
+}
+
+//ValidSince returns the earliest validSince date of all contained signatures
+func (z *ZoneSection) ValidSince() int64 {
+	return z.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
 func (z *ZoneSection) ValidUntil() int64 {
-	//FIXME CFE this is not correct. There might be a time interval between several signatures during which this assertion is not valid.
-	//Return the latest time which is reachable with all contained signatures without gaps in between
-	valid := z.Signatures[0].ValidUntil
-	for _, sig := range z.Signatures[1:] {
-		if sig.ValidSince > valid {
-			valid = sig.ValidSince
-		}
-	}
-	return valid
+	return z.validUntil
 }
 
 //Hash returns a string containing all information uniquely identifying a shard.
@@ -578,7 +614,7 @@ type PublicKey struct {
 	//TODO CFE remove type if not needed anywhere
 	Type       SignatureAlgorithmType
 	Key        interface{}
-	ValidFrom  int64
+	ValidSince int64
 	ValidUntil int64
 }
 
