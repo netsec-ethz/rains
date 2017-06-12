@@ -4,9 +4,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
-	"rains/rainsd"
 	"rains/rainslib"
-	rainsMsgParser "rains/utils/parser"
+	"rains/utils/protoParser"
 	"rains/utils/zoneFileParser"
 	"time"
 
@@ -19,7 +18,7 @@ func InitRainspub() {
 	loadConfig()
 	loadPrivateKey()
 	parser = zoneFileParser.Parser{}
-	msgParser = rainsMsgParser.RainsMsgParser{}
+	msgParser = new(protoParser.ProtoParserAndFramer)
 }
 
 //PublishInformation sends a signed zone to a rains servers according the the rainspub config
@@ -57,7 +56,7 @@ func loadAssertions() ([]*rainslib.AssertionSection, error) {
 		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
 		return []*rainslib.AssertionSection{}, err
 	}
-	assertions, err := parser.ParseZoneFile(file)
+	assertions, err := parser.ParseZoneFile(file, config.ZoneFilePath)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)
 		return []*rainslib.AssertionSection{}, err
@@ -123,7 +122,7 @@ func groupAssertionsToShards(assertions []*rainslib.AssertionSection) *rainslib.
 //TODO CFE also support different signature methods
 func signZone(zone *rainslib.ZoneSection, privateKey ed25519.PrivateKey) error {
 	stub := zone.CreateStub()
-	byteStub, err := msgParser.RevParseSignedMsgSection(stub)
+	byteStub, err := sigParser.RevParseSignedMsgSection(stub)
 	if err != nil {
 		return err
 	}
@@ -166,7 +165,7 @@ func signZone(zone *rainslib.ZoneSection, privateKey ed25519.PrivateKey) error {
 //TODO we should use 2 valid signatures to avoid traffic bursts when a signature expires.
 func signShard(s *rainslib.ShardSection, privateKey ed25519.PrivateKey) error {
 	stub := s.CreateStub()
-	byteStub, err := msgParser.RevParseSignedMsgSection(stub)
+	byteStub, err := sigParser.RevParseSignedMsgSection(stub)
 	if err != nil {
 		return err
 	}
@@ -188,7 +187,7 @@ func signShard(s *rainslib.ShardSection, privateKey ed25519.PrivateKey) error {
 func signAssertions(assertions []*rainslib.AssertionSection, privateKey ed25519.PrivateKey) error {
 	for _, a := range assertions {
 		stub := a.CreateStub()
-		byteStub, err := msgParser.RevParseSignedMsgSection(stub)
+		byteStub, err := sigParser.RevParseSignedMsgSection(stub)
 		if err != nil {
 			return err
 		}
@@ -220,14 +219,18 @@ func sendMsg(msg []byte) {
 	}
 	for _, server := range config.ServerAddresses {
 		switch server.Type {
-		case rainsd.TCP:
+		case rainslib.TCP:
 			conn, err := tls.Dial("tcp", server.String(), conf)
 			if err != nil {
 				log.Error("Was not able to establish a connection.", "server", server, "error", err)
 				continue
 			}
-			conn.Write(msg)
-			conn.Close()
+			var msgFramer rainslib.MsgFramer
+			msgFramer = new(protoParser.ProtoParserAndFramer)
+			msgFramer.InitStreams(nil, conn)
+			msgFramer.Frame(msg)
+			//conn.Close() When should I close this connection? If I do it here, then the destination cannot read the content because it gets an EOF
+			log.Info("Message sent", "destination", server.String())
 		default:
 			log.Warn("Connection Information type does not exist", "ConnInfo type", server.Type)
 		}
@@ -237,25 +240,24 @@ func sendMsg(msg []byte) {
 //createRainsMessage creates a rainsMessage containing the given zone and return the byte representation of this rainsMessage ready to send out.
 func createRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
 	msg := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Content: []rainslib.MessageSection{zone}} //no capabilities
-	byteMsg, err := msgParser.ParseRainsMsg(msg)
+	byteMsg, err := msgParser.Encode(msg)
 	if err != nil {
 		return []byte{}, err
 	}
-	log.Info("", "created byte message", string(byteMsg))
 	return byteMsg, nil
 }
 
 //sendDelegations sends the delegations to this zone such that the receiving rains server can verify the signatures on this zone's assertions.
 func sendDelegations() {
 	//load delegations
-	file, err := ioutil.ReadFile("zoneFiles/chZoneDelegation.txt")
+	file, err := ioutil.ReadFile(config.ZoneFileDelegationPath)
 	if err != nil {
-		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
+		log.Error("Was not able to read zone file", "path", config.ZoneFileDelegationPath)
 		return
 	}
 
 	//handle delegations
-	assertions, err := parser.ParseZoneFile(file)
+	assertions, err := parser.ParseZoneFile(file, config.ZoneFileDelegationPath)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)
 		return

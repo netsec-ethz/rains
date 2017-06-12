@@ -8,6 +8,7 @@ import (
 	"net"
 	"rains/rainslib"
 	"rains/utils/cache"
+	"rains/utils/protoParser"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -21,7 +22,8 @@ func InitServer() error {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(h)
 	loadConfig()
-	serverConnInfo = ConnInfo{Type: TCP, IPAddr: Config.ServerIPAddr, Port: Config.ServerPort}
+	serverConnInfo = rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: *Config.ServerTCPAddr}
+	msgParser = new(protoParser.ProtoParserAndFramer)
 	loadAuthoritative()
 	if err := loadCert(); err != nil {
 		return err
@@ -43,6 +45,7 @@ func InitServer() error {
 
 //LoadConfig loads and stores server configuration
 func loadConfig() {
+	Config.ServerTCPAddr = loadDefaultSeverAddrIntoConfig()
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Warn("Could not open config file...", "path", configPath, "error", err)
@@ -66,6 +69,7 @@ func loadRootZonePublicKey() error {
 	if err == nil {
 		for _, c := range a.Content {
 			if c.Type == rainslib.OTDelegation {
+				//FIXME CFE: a.ValidUntil() returns 0 and the value is thus not cached. It is solved in the reverse lookup branch
 				publicKey := rainslib.PublicKey{Key: c.Value, Type: a.Signatures[0].Algorithm, ValidUntil: a.ValidUntil()}
 				keyMap := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
 				keyMap[rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)] = publicKey
@@ -98,10 +102,11 @@ func loadCert() error {
 func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.NotificationType, data string) ([]byte, error) {
 	content := []rainslib.MessageSection{&rainslib.NotificationSection{Type: rainslib.MsgTooLarge, Token: rainslib.GenerateToken(), Data: data}}
 	msg := rainslib.RainsMessage{Token: token, Content: content}
-	return msgParser.ParseRainsMsg(msg)
+	//TODO CFE add infrastructure signature to query message?
+	return msgParser.Encode(msg)
 }
 
-func sendQuery(context, zone string, expTime int64, objType rainslib.ObjectType, token rainslib.Token, sender ConnInfo) {
+func sendQuery(context, zone string, expTime int64, objType rainslib.ObjectType, token rainslib.Token, sender rainslib.ConnInfo) {
 	querySection := rainslib.QuerySection{
 		Context: context,
 		Name:    zone,
@@ -111,16 +116,16 @@ func sendQuery(context, zone string, expTime int64, objType rainslib.ObjectType,
 	}
 	query := rainslib.RainsMessage{Token: token, Content: []rainslib.MessageSection{&querySection}}
 	//TODO CFE add infrastructure signature to query message?
-	msg, err := msgParser.ParseRainsMsg(query)
+	msg, err := msgParser.Encode(query)
 	if err != nil {
-		log.Warn("Cannot parse a delegation Query", "query", query)
+		log.Warn("Cannot encode the query", "query", query, "error", err)
 		return
 	}
 	log.Info("Query sent", "query", querySection)
 	sendTo(msg, sender)
 }
 
-func sendAddressQuery(context string, ipNet *net.IPNet, expTime int64, objType []rainslib.ObjectType, token rainslib.Token, sender ConnInfo) {
+func sendAddressQuery(context string, ipNet *net.IPNet, expTime int64, objType rainslib.ObjectType, token rainslib.Token, sender rainslib.ConnInfo) {
 	querySection := rainslib.AddressQuerySection{
 		Context:     context,
 		SubjectAddr: ipNet,
@@ -130,7 +135,7 @@ func sendAddressQuery(context string, ipNet *net.IPNet, expTime int64, objType [
 	}
 	query := rainslib.RainsMessage{Token: token, Content: []rainslib.MessageSection{&querySection}}
 	//TODO CFE add infrastructure signature to query message?
-	msg, err := msgParser.ParseRainsMsg(query)
+	msg, err := msgParser.Encode(query)
 	if err != nil {
 		log.Warn("Cannot parse a delegation Query", "query", query)
 		return
@@ -140,10 +145,12 @@ func sendAddressQuery(context string, ipNet *net.IPNet, expTime int64, objType [
 }
 
 //getDelegationAddress returns the address of a server to which this server delegates a query if it has no answer in the cache.
-func getDelegationAddress(context, zone string) ConnInfo {
+func getDelegationAddress(context, zone string) rainslib.ConnInfo {
 	//TODO CFE not yet implemented
 	log.Warn("Not yet implemented CFE. return hard coded delegation address")
-	return ConnInfo{Type: TCP, IPAddr: net.ParseIP("127.0.0.1"), Port: 5023}
+	tcpAddr := loadDefaultSeverAddrIntoConfig()
+	tcpAddr.Port = tcpAddr.Port + 1
+	return rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: *tcpAddr}
 }
 
 //createConnectionCache returns a newly created connection cache

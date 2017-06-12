@@ -120,7 +120,7 @@ func isAddressZoneConsistent(zone *rainslib.AddressZoneSection) bool {
 
 //togetherValid returns true if both sections are at some point both valid
 func togetherValid(s1, s2 rainslib.MessageSectionWithSig) bool {
-	return s1.ValidUntil() >= s2.ValidFrom() && s1.ValidFrom() <= s2.ValidUntil()
+	return s1.ValidUntil() >= s2.ValidSince() && s1.ValidSince() <= s2.ValidUntil()
 }
 
 //dropAllWithContextZone deletes all assertions, shards and zones in the cache with the given context and zone

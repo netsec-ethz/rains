@@ -47,13 +47,13 @@ type capabilityCacheImpl struct {
 	hashToCap     *cache.Cache
 }
 
-func (c *capabilityCacheImpl) Add(connInfo ConnInfo, capabilities []rainslib.Capability) bool {
+func (c *capabilityCacheImpl) Add(connInfo rainslib.ConnInfo, capabilities []rainslib.Capability) bool {
 	//FIXME CFE take a SHA-256 hash of the CBOR byte stream derived from normalizing such an array by sorting it in lexicographically increasing order,
 	//then serializing it and add it to the cache
 	return c.connInfoToCap.Add(capabilities, false, "", connInfo.String())
 }
 
-func (c *capabilityCacheImpl) Get(connInfo ConnInfo) ([]rainslib.Capability, bool) {
+func (c *capabilityCacheImpl) Get(connInfo rainslib.ConnInfo) ([]rainslib.Capability, bool) {
 	if v, ok := c.connInfoToCap.Get("", connInfo.String()); ok {
 		if val, ok := v.([]rainslib.Capability); ok {
 			return val, true
@@ -153,7 +153,7 @@ func (l *pubKeyList) Get() (rainslib.PublicKey, bool) {
 	defer l.mux.RUnlock()
 	for e := l.keys.Front(); e != nil; e = e.Next() {
 		key := e.Value.(rainslib.PublicKey)
-		if key.ValidFrom <= time.Now().Unix() && key.ValidUntil > time.Now().Unix() {
+		if key.ValidSince <= time.Now().Unix() && key.ValidUntil > time.Now().Unix() {
 			l.keys.MoveToFront(e)
 			return key, true
 		}
@@ -649,7 +649,7 @@ func (c *negativeAssertionCacheImpl) GetAll(context, zone string, interval rains
 		sections := []rainslib.MessageSectionWithSig{}
 		if intervals, ok := rq.Get(interval); ok && len(intervals) > 0 {
 			for _, element := range intervals {
-				if val, ok := element.(negativeAssertionCacheValue); ok && val.validUntil > time.Now().Unix() && val.validFrom < time.Now().Unix() {
+				if val, ok := element.(negativeAssertionCacheValue); ok && val.validUntil > time.Now().Unix() && val.validSince < time.Now().Unix() {
 					sections = append(sections, val.section)
 				}
 			}
@@ -782,7 +782,7 @@ func (l *sectionList) Len() int {
 
 type elemAndValidity struct {
 	elemAndValidTo
-	validFrom int64
+	validSince int64
 }
 
 type sortedAssertionMetaData struct {
@@ -919,7 +919,7 @@ func addAssertionToRangeMap(c *assertionCacheImpl, context, zone, name string, o
 			name:       name,
 			objType:    objType,
 			validUntil: value.validUntil},
-		validFrom: value.validFrom,
+		validSince: value.validSince,
 	}
 	if val, ok := c.rangeMap[contextAndZone{Context: context, Zone: zone}]; ok {
 		c.rangeMapLock.Unlock()
@@ -950,7 +950,7 @@ func handleAssertionCacheSize(c *assertionCacheImpl) {
 				c.assertionCache.Remove(key[0], key[1])
 				for _, val := range vals {
 					val := val.(assertionCacheValue)
-					deleteAssertionFromRangeMap(c, val.section, val.validFrom, val.validUntil)
+					deleteAssertionFromRangeMap(c, val.section, val.validSince, val.validUntil)
 				}
 			}
 		}
@@ -960,7 +960,7 @@ func handleAssertionCacheSize(c *assertionCacheImpl) {
 }
 
 //deleteAssertionFromRangeMap deletes the given assertion from the rangeMap. Return true if it was able to delete the element
-func deleteAssertionFromRangeMap(c *assertionCacheImpl, assertion *rainslib.AssertionSection, validFrom, validUntil int64) bool {
+func deleteAssertionFromRangeMap(c *assertionCacheImpl, assertion *rainslib.AssertionSection, validSince, validUntil int64) bool {
 	c.rangeMapLock.RLock()
 	e, ok := c.rangeMap[contextAndZone{Context: assertion.Context, Zone: assertion.SubjectZone}]
 	c.rangeMapLock.RUnlock()
@@ -974,7 +974,7 @@ func deleteAssertionFromRangeMap(c *assertionCacheImpl, assertion *rainslib.Asse
 				objType:    assertion.Content[0].Type,
 				validUntil: validUntil,
 			},
-			validFrom: validFrom,
+			validSince: validSince,
 		})
 	}
 	return false
@@ -989,7 +989,7 @@ func (c *assertionCacheImpl) Get(context, zone, name string, objType rainslib.Ob
 		if set, ok := v.(setContainer); ok {
 			for _, val := range set.GetAll() {
 				if value, ok := val.(assertionCacheValue); ok {
-					if value.validFrom < time.Now().Unix() {
+					if value.validSince < time.Now().Unix() {
 						if expiredAllowed || value.validUntil > time.Now().Unix() {
 							assertions = append(assertions, value.section)
 						}
@@ -1013,7 +1013,7 @@ func (c *assertionCacheImpl) GetInRange(context, zone string, interval rainslib.
 	if ok {
 		assertionMetaInfos := sortedList.Get(interval)
 		for _, elem := range assertionMetaInfos {
-			if elem.validFrom < time.Now().Unix() && elem.validUntil > time.Now().Unix() {
+			if elem.validSince < time.Now().Unix() && elem.validUntil > time.Now().Unix() {
 				if assertions, ok := c.Get(context, zone, elem.name, elem.objType, false); ok {
 					return assertions, true
 				}
@@ -1057,7 +1057,7 @@ func deleteAssertions(c *assertionCacheImpl, forceDelete bool, context string, k
 					ok := set.Delete(val)
 					if ok {
 						deleteCount++
-						ok := deleteAssertionFromRangeMap(c, v.section, v.validFrom, v.validUntil)
+						ok := deleteAssertionFromRangeMap(c, v.section, v.validSince, v.validUntil)
 						if !ok {
 							log.Error("Was not able to delete assertion from rangeMap", "assertion", v.section)
 						}

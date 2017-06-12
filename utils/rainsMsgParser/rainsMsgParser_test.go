@@ -1,4 +1,4 @@
-package parser
+package rainsMsgParser
 
 import (
 	"math/rand"

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"rains/rainslib"
-	"rains/utils/parser"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -46,9 +45,6 @@ func initInbox() error {
 		return err
 	}
 
-	//init parser
-	msgParser = parser.RainsMsgParser{}
-
 	go workPrio()
 	go workNotification()
 	go workBoth()
@@ -67,7 +63,7 @@ func addToActiveTokenCache(tok string) {
 }
 
 //deliver pushes all incoming messages to the prio or normal channel based on some strategy
-func deliver(message []byte, sender ConnInfo) {
+func deliver(message []byte, sender rainslib.ConnInfo) {
 	//check message length
 	if uint(len(message)) > Config.MaxMsgByteLength {
 		token, _ := msgParser.Token(message)
@@ -75,7 +71,7 @@ func deliver(message []byte, sender ConnInfo) {
 		return
 	}
 
-	msg, err := msgParser.ParseByteSlice(message)
+	msg, err := msgParser.Decode(message)
 	if err != nil {
 		sendNotificationMsg(msg.Token, sender, rainslib.BadMessage)
 		return
@@ -106,7 +102,7 @@ func deliver(message []byte, sender ConnInfo) {
 }
 
 //processCapability processes capabilities and sends a notification back to the sender if the hash is not understood.
-func processCapability(caps []rainslib.Capability, sender ConnInfo, token rainslib.Token) {
+func processCapability(caps []rainslib.Capability, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Process capabilities", "capabilities", caps)
 	if len(caps) > 0 {
 		//TODO CFE determine when an incoming capability is represented as a hash
@@ -142,7 +138,7 @@ func handleCapabilities(caps []rainslib.Capability) {
 }
 
 //sendNotificationMsg sends a notification message to the sender with the given notificationType. If an error occurs during parsing no message is sent and the error is logged.
-func sendNotificationMsg(token rainslib.Token, sender ConnInfo, notificationType rainslib.NotificationType) {
+func sendNotificationMsg(token rainslib.Token, sender rainslib.ConnInfo, notificationType rainslib.NotificationType) {
 	msg, err := CreateNotificationMsg(token, notificationType, "")
 	if err != nil {
 		log.Warn("Cannot send notification error due to parser error", "error", err)
@@ -152,7 +148,7 @@ func sendNotificationMsg(token rainslib.Token, sender ConnInfo, notificationType
 }
 
 //addMsgSectionToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg section to the prio cache, otherwise to the normal cache.
-func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token, sender ConnInfo) {
+func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token, sender rainslib.ConnInfo) {
 	if _, ok := activeTokens[tok]; ok {
 		log.Debug("add section with signature to priority queue", "token", tok)
 		prioChannel <- msgSectionSender{Sender: sender, Section: msgSection, Token: tok}
@@ -163,7 +159,7 @@ func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token
 }
 
 //addQueryToQueue checks that the token of the message and of the query section are the same and if so adds it to a queue
-func addQueryToQueue(queryToken, msgToken rainslib.Token, section rainslib.MessageSection, sender ConnInfo) {
+func addQueryToQueue(queryToken, msgToken rainslib.Token, section rainslib.MessageSection, sender rainslib.ConnInfo) {
 	if msgToken == queryToken {
 		log.Debug("add query to normal queue")
 		normalChannel <- msgSectionSender{Sender: sender, Section: section, Token: msgToken}
@@ -176,7 +172,7 @@ func addQueryToQueue(queryToken, msgToken rainslib.Token, section rainslib.Messa
 }
 
 //addNotificationToQueue adds a rains message containing one notification message section to the queue if the token is present in the activeToken cache
-func addNotificationToQueue(msg *rainslib.NotificationSection, tok rainslib.Token, sender ConnInfo) {
+func addNotificationToQueue(msg *rainslib.NotificationSection, tok rainslib.Token, sender rainslib.ConnInfo) {
 	if _, ok := activeTokens[tok]; ok {
 		//FIXME CFE right now we only have one cache for tokens (sent out message) where we only store the token when it is priority.
 		//We should have a maximum number of queries we sent out and wait for and after that drop every incoming request that wants access. So we can ensure that we handle

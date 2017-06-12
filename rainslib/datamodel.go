@@ -1,13 +1,14 @@
 package rainslib
 
 import (
-	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -52,7 +53,8 @@ type MessageSectionWithSig interface {
 	GetContext() string
 	GetSubjectZone() string
 	CreateStub() MessageSectionWithSig
-	ValidFrom() int64
+	UpdateValidity(validSince, validUntil int64, maxValidity time.Duration)
+	ValidSince() int64
 	ValidUntil() int64
 	Hash() string
 }
@@ -66,7 +68,8 @@ type MessageSectionWithSigForward interface {
 	GetContext() string
 	GetSubjectZone() string
 	CreateStub() MessageSectionWithSig
-	ValidFrom() int64
+	UpdateValidity(validSince, validUntil int64, maxValidity time.Duration)
+	ValidSince() int64
 	ValidUntil() int64
 	Hash() string
 	Interval
@@ -117,6 +120,8 @@ type AssertionSection struct {
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
+	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
 //Sigs return the assertion's signatures
@@ -167,28 +172,37 @@ func (a *AssertionSection) End() string {
 	return a.SubjectName
 }
 
-//ValidFrom returns the earliest validFrom date of all contained signatures
-func (a *AssertionSection) ValidFrom() int64 {
-	valid := a.Signatures[0].ValidSince
-	for _, sig := range a.Signatures[1:] {
-		if sig.ValidSince < valid {
-			valid = sig.ValidSince
+//UpdateValidity updates the validity of this assertion if the validity period is extended.
+//It makes sure that the validity is never larger than maxValidity
+func (a *AssertionSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+	if a.validSince == 0 {
+		a.validSince = math.MaxInt64
+	}
+	if validSince < a.validSince {
+		if validSince > time.Now().Add(maxValidity).Unix() {
+			log.Warn("Assertion validity starts too far in the future. Drop Assertion.", "assertion", *a, "newValidSince", validSince)
+			return
+		}
+		a.validSince = validSince
+	}
+	if validUntil > a.validUntil {
+		if validUntil > time.Now().Add(maxValidity).Unix() {
+			a.validUntil = time.Now().Add(maxValidity).Unix()
+			log.Warn("Limit the validity of the assertion in the cache. Validity exceeded upper bound", "assertion", *a, "newValidUntil", validUntil)
+		} else {
+			a.validUntil = validUntil
 		}
 	}
-	return valid
+}
+
+//ValidSince returns the earliest validSince date of all contained signatures
+func (a *AssertionSection) ValidSince() int64 {
+	return a.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
 func (a *AssertionSection) ValidUntil() int64 {
-	//FIXME CFE this is not correct. There might be a time interval between several signatures during which this assertion is not valid.
-	//Return the latest time which is reachable with all contained signatures without gaps in between
-	valid := a.Signatures[0].ValidUntil
-	for _, sig := range a.Signatures[1:] {
-		if sig.ValidSince > valid {
-			valid = sig.ValidSince
-		}
-	}
-	return valid
+	return a.validUntil
 }
 
 //Hash returns a string containing all information uniquely identifying an assertion.
@@ -211,6 +225,8 @@ type ShardSection struct {
 	Context     string
 	RangeFrom   string
 	RangeTo     string
+	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
 //Sigs return the shard's signatures
@@ -268,28 +284,37 @@ func (s *ShardSection) End() string {
 	return s.RangeTo
 }
 
-//ValidFrom returns the earliest validFrom date of all contained signatures
-func (s *ShardSection) ValidFrom() int64 {
-	valid := s.Signatures[0].ValidSince
-	for _, sig := range s.Signatures[1:] {
-		if sig.ValidSince < valid {
-			valid = sig.ValidSince
+//UpdateValidity updates the validity of this shard if the validity period is extended.
+//It makes sure that the validity is never larger than maxValidity
+func (s *ShardSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+	if s.validSince == 0 {
+		s.validSince = math.MaxInt64
+	}
+	if validSince < s.validSince {
+		if validSince > time.Now().Add(maxValidity).Unix() {
+			log.Warn("Shard validity starts too far in the future. Drop Shard.", "shard", *s, "newValidSince", validSince)
+			return
+		}
+		s.validSince = validSince
+	}
+	if validUntil > s.validUntil {
+		if validUntil > time.Now().Add(maxValidity).Unix() {
+			s.validUntil = time.Now().Add(maxValidity).Unix()
+			log.Warn("Limit the validity of the shard in the cache. Validity exceeded upper bound", "shard", *s, "newValidUntil", validUntil)
+		} else {
+			s.validUntil = validUntil
 		}
 	}
-	return valid
+}
+
+//ValidSince returns the earliest validSince date of all contained signatures
+func (s *ShardSection) ValidSince() int64 {
+	return s.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
 func (s *ShardSection) ValidUntil() int64 {
-	//FIXME CFE this is not correct. There might be a time interval between several signatures during which this assertion is not valid.
-	//Return the latest time which is reachable with all contained signatures without gaps in between
-	valid := s.Signatures[0].ValidUntil
-	for _, sig := range s.Signatures[1:] {
-		if sig.ValidSince > valid {
-			valid = sig.ValidSince
-		}
-	}
-	return valid
+	return s.validUntil
 }
 
 //Hash returns a string containing all information uniquely identifying a shard.
@@ -307,6 +332,8 @@ type ZoneSection struct {
 	SubjectZone string
 	Context     string
 	Content     []MessageSectionWithSig
+	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
 //Sigs return the zone's signatures
@@ -374,28 +401,37 @@ func (z *ZoneSection) End() string {
 	return ""
 }
 
-//ValidFrom returns the earliest validFrom date of all contained signatures
-func (z *ZoneSection) ValidFrom() int64 {
-	valid := z.Signatures[0].ValidSince
-	for _, sig := range z.Signatures[1:] {
-		if sig.ValidSince < valid {
-			valid = sig.ValidSince
+//UpdateValidity updates the validity of this zone if the validity period is extended.
+//It makes sure that the validity is never larger than maxValidity
+func (z *ZoneSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+	if z.validSince == 0 {
+		z.validSince = math.MaxInt64
+	}
+	if validSince < z.validSince {
+		if validSince > time.Now().Add(maxValidity).Unix() {
+			log.Warn("Zone validity starts too far in the future. Drop Zone.", "zone", *z, "newValidSince", validSince)
+			return
+		}
+		z.validSince = validSince
+	}
+	if validUntil > z.validUntil {
+		if validUntil > time.Now().Add(maxValidity).Unix() {
+			z.validUntil = time.Now().Add(maxValidity).Unix()
+			log.Warn("Limit the validity of the zone in the cache. Validity exceeded upper bound", "zone", *z, "newValidUntil", validUntil)
+		} else {
+			z.validUntil = validUntil
 		}
 	}
-	return valid
+}
+
+//ValidSince returns the earliest validSince date of all contained signatures
+func (z *ZoneSection) ValidSince() int64 {
+	return z.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
 func (z *ZoneSection) ValidUntil() int64 {
-	//FIXME CFE this is not correct. There might be a time interval between several signatures during which this assertion is not valid.
-	//Return the latest time which is reachable with all contained signatures without gaps in between
-	valid := z.Signatures[0].ValidUntil
-	for _, sig := range z.Signatures[1:] {
-		if sig.ValidSince > valid {
-			valid = sig.ValidSince
-		}
-	}
-	return valid
+	return z.validUntil
 }
 
 //Hash returns a string containing all information uniquely identifying a shard.
@@ -475,7 +511,7 @@ type AddressAssertionSection struct {
 	Content     []Object
 	Signatures  []Signature
 	Context     string
-	validFrom   int64
+	validSince  int64
 	validUntil  int64
 }
 
@@ -521,9 +557,32 @@ func (a *AddressAssertionSection) CreateStub() MessageSectionWithSig {
 	return stub
 }
 
-//ValidFrom returns the earliest validFrom date of all contained signatures
-func (a *AddressAssertionSection) ValidFrom() int64 {
-	return a.validFrom
+//UpdateValidity updates the validity of this assertion if the validity period is extended.
+//It makes sure that the validity is never larger than maxValidity
+func (a *AddressAssertionSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+	if a.validSince == 0 {
+		a.validSince = math.MaxInt64
+	}
+	if validSince < a.validSince {
+		if validSince > time.Now().Add(maxValidity).Unix() {
+			log.Warn("AddressAssertion validity starts too far in the future. Drop AddressAssertion.", "addressAssertion", *a, "newValidSince", validSince)
+			return
+		}
+		a.validSince = validSince
+	}
+	if validUntil > a.validUntil {
+		if validUntil > time.Now().Add(maxValidity).Unix() {
+			a.validUntil = time.Now().Add(maxValidity).Unix()
+			log.Warn("Limit the validity of the addressAssertion in the cache. Validity exceeded upper bound", "addressAssertion", *a, "newValidUntil", validUntil)
+		} else {
+			a.validUntil = validUntil
+		}
+	}
+}
+
+//ValidSince returns the earliest ValidSince date of all contained signatures
+func (a *AddressAssertionSection) ValidSince() int64 {
+	return a.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
@@ -546,7 +605,7 @@ type AddressZoneSection struct {
 	Content     []*AddressAssertionSection
 	Signatures  []Signature
 	Context     string
-	validFrom   int64
+	validSince  int64
 	validUntil  int64
 }
 
@@ -599,9 +658,32 @@ func (z *AddressZoneSection) CreateStub() MessageSectionWithSig {
 	return stub
 }
 
-//ValidFrom returns the earliest validFrom date of all contained signatures
-func (z *AddressZoneSection) ValidFrom() int64 {
-	return z.validFrom
+//UpdateValidity updates the validity of this addressZone if the validity period is extended.
+//It makes sure that the validity is never larger than maxValidity
+func (z *AddressZoneSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+	if z.validSince == 0 {
+		z.validSince = math.MaxInt64
+	}
+	if validSince < z.validSince {
+		if validSince > time.Now().Add(maxValidity).Unix() {
+			log.Warn("AddressZone validity starts too far in the future. Drop addressZone.", "addressZone", *z, "newValidSince", validSince)
+			return
+		}
+		z.validSince = validSince
+	}
+	if validUntil > z.validUntil {
+		if validUntil > time.Now().Add(maxValidity).Unix() {
+			z.validUntil = time.Now().Add(maxValidity).Unix()
+			log.Warn("Limit the validity of the addressZone in the cache. Validity exceeded upper bound", "addressZone", *z, "newValidUntil", validUntil)
+		} else {
+			z.validUntil = validUntil
+		}
+	}
+}
+
+//ValidSince returns the earliest validSince date of all contained signatures
+func (z *AddressZoneSection) ValidSince() int64 {
+	return z.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
@@ -627,7 +709,7 @@ type AddressQuerySection struct {
 	SubjectAddr *net.IPNet
 	Token       Token
 	Context     string
-	Types       []ObjectType
+	Types       ObjectType
 	Expires     int64
 	//Optional
 	Options []QueryOption
@@ -727,11 +809,18 @@ const (
 
 //PublicKey contains information about a public key
 type PublicKey struct {
-	//TODO CFE remove type if not needed anywhere
 	Type       SignatureAlgorithmType
+	KeySpace   KeySpaceID
 	Key        interface{}
-	ValidFrom  int64
+	ValidSince int64
 	ValidUntil int64
+}
+
+//NameObject contains a name associated with a name as an alias. Types specifies for which object types the alias is valid
+type NameObject struct {
+	Name string
+	//Types for which the Name is valid
+	Types []ObjectType
 }
 
 //NamesetExpression  encodes a modified POSIX Extended Regular Expression format
@@ -772,51 +861,86 @@ type Object struct {
 	Value interface{}
 }
 
-//RainsMsgParser translates between byte slices and RainsMessage.
-//It must always hold that: rainsMsg = ParseByteSlice(ParseRainsMsg(rainsMsg)) && byteMsg = ParseRainsMsg(ParseByteSlice(byteMsg))
+//NetworkAddrType enumerates network address types
+type NetworkAddrType int
+
+const (
+	TCP NetworkAddrType = iota
+)
+
+//ConnInfo contains address information about one actor of a connection of the declared type
+type ConnInfo struct {
+	Type NetworkAddrType
+
+	TCPAddr net.TCPAddr
+}
+
+//String returns the string representation of the connection information according to its type
+func (c ConnInfo) String() string {
+	switch c.Type {
+	case TCP:
+		return c.TCPAddr.String()
+	default:
+		log.Warn("Unsupported network address", "typeCode", c.Type)
+		return ""
+	}
+}
+
+//Hash returns a string containing all information uniquely identifying a ConnInfo.
+func (c ConnInfo) Hash() string {
+	return fmt.Sprintf("%v_%s", c.Type, c.String())
+}
+
+//Equal returns true if both Connection Information have the same type and the values corresponding to this type are identical.
+func (c ConnInfo) Equal(conn ConnInfo) bool {
+	if c.Type == conn.Type {
+		switch c.Type {
+		case TCP:
+			return c.TCPAddr.IP.Equal(conn.TCPAddr.IP) && c.TCPAddr.Port == conn.TCPAddr.Port && c.TCPAddr.Zone == conn.TCPAddr.Zone
+		default:
+			log.Warn("Not supported network address type")
+		}
+	}
+	return false
+}
+
+//RainsMsgParser can encode and decode RainsMessage.
+//It is able to efficiently extract only the Token form an encoded RainsMessage
+//It must always hold that: rainsMsg = Decode(Encode(rainsMsg)) && interface{} = Encode(Decode(interface{}))
 type RainsMsgParser interface {
-	//ParseByteSlice parses the byte slice to a RainsMessage.
-	ParseByteSlice(msg []byte) (RainsMessage, error)
+	//Decode extracts information from msg and returns a RainsMessage or an error
+	Decode(msg []byte) (RainsMessage, error)
 
-	//ParseRainsMsg parses a RainsMessage to a byte slice representation.
-	ParseRainsMsg(msg RainsMessage) ([]byte, error)
+	//Encode encodes the given RainsMessage into a more compact representation.
+	Encode(msg RainsMessage) ([]byte, error)
 
-	//Token extracts the token from the byte slice of a RainsMessage
+	//Token returns the extracted token from the given msg or an error
 	Token(msg []byte) (Token, error)
-
-	//RevParseSignedMsgSection parses an MessageSectionWithSig to a string representation
-	RevParseSignedMsgSection(section MessageSectionWithSig) (string, error)
-
-	//ParseSignedAssertion parses a byte slice representation of an assertion to the internal representation of an assertion.
-	//TODO CFE extend this method to also allow parsing shards and zones if necessary
-	ParseSignedAssertion(assertion []byte) (*AssertionSection, error)
 }
 
 //ZoneFileParser is the interface for all parsers of zone files for RAINS
 type ZoneFileParser interface {
-	//ParseZoneFile takes as input a zoneFile and returns all contained assertions. A zoneFile has the following format:
-	//:Z: <context> <zone> [(:S:<Shard Content>|:A:<Assertion Content>)*]
-	//Shard Content: [(:A:<Assertion Content>)*]
-	//Assertion Content: <subject-name>[(:objectType:<object data>)*]
-	ParseZoneFile(zoneFile []byte) ([]*AssertionSection, error)
+	//ParseZoneFile takes as input the content of a zoneFile and the name from which the data was loaded.
+	//It returns all contained assertions or an error in case of failure
+	ParseZoneFile(zoneFile []byte, filePath string) ([]*AssertionSection, error)
 }
 
-//PRG pseudo random generator
-type PRG struct{}
-
-func (prg PRG) Read(p []byte) (n int, err error) {
-	return rand.Read(p)
+//SignatureFormatEncoder is used to deterministically transform a RainsMessage into a byte format that can be signed.
+type SignatureFormatEncoder interface {
+	//Encode transforms the given msg into a signable format.
+	Encode(msg RainsMessage) []byte
 }
 
-//MsgFramer is used to frame rains messages before transmission and deframe on the receiving end.
+//MsgFramer is used to frame and deframe rains messages and send or receive them on the initialized stream.
 type MsgFramer interface {
-	//Frame takes a message and adds a frame to it
-	Frame(msg []byte) ([]byte, error)
+	//Frame takes a message and adds a frame (if it not already has one) and send the framed message to the streamWriter defined in InitStream()
+	Frame(msg []byte) error
 
-	//InitStream defines the stream from which Deframe() and Data() are extracting the information from
-	InitStream(stream io.Reader)
+	//InitStreams defines 2 streams. Deframe() and Data() are extracting the information from streamReader and Frame() is sending the data to streamWriter.
+	//If a stream is readable and writable it is possible that streamReader = streamWriter
+	InitStreams(streamReader io.Reader, streamWriter io.Writer)
 
-	//Deframe extracts the next frame from the stream defined in InitStream().
+	//Deframe extracts the next frame from the streamReader defined in InitStream().
 	//It blocks until it encounters the delimiter.
 	//It returns false when the stream was not initialized or is already closed.
 	//The data is available through Data
