@@ -351,7 +351,7 @@ func shouldAddressZoneBeCached(zone *rainslib.AddressZoneSection) bool {
 //addressQuery directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
 func addressQuery(query *rainslib.AddressQuerySection, sender ConnInfo) {
 	log.Info("Start processing address query", "addressQuery", query)
-	assertion, zone, ok := addressCache.Get(query.SubjectAddr, query.Types, 0)
+	assertion, zone, ok := addressCache.Get(query.SubjectAddr, query.Types)
 	//TODO CFE add heuristic which assertion to return
 	if ok {
 		if assertion != nil {

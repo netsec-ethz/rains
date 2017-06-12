@@ -73,36 +73,36 @@ func TestAddAndFind(t *testing.T) {
 	trie.assertions[rainslib.OTDelegation] = set.New()
 
 	trie.AddAddressAssertion(addressAssertion1)
-	a, z, ok := trie.Find(subjectAddress1, []rainslib.ObjectType{rainslib.OTName}, 0)
+	a, z, ok := trie.Get(subjectAddress1, []rainslib.ObjectType{rainslib.OTName})
 	if a != addressAssertion1 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Added AddressAssertion not returned by the cache")
 	}
 	trie.AddAddressZone(addressZone2)
-	a, z, ok = trie.Find(subjectAddress2, []rainslib.ObjectType{}, 0)
+	a, z, ok = trie.Get(subjectAddress2, []rainslib.ObjectType{})
 	if z != addressZone2 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Added AddressZone not returned by the cache")
 	}
-	a, z, ok = trie.Find(subjectAddress3, []rainslib.ObjectType{}, 0)
+	a, z, ok = trie.Get(subjectAddress3, []rainslib.ObjectType{})
 	if z != addressZone2 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Less specific AddressZone not returned by the trie")
 	}
-	a, z, ok = trie.Find(subjectAddress4, []rainslib.ObjectType{}, 0)
+	a, z, ok = trie.Get(subjectAddress4, []rainslib.ObjectType{})
 	if ok {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("No entry should be returned. There is no less specific one")
 	}
 
 	trie.AddAddressZone(addressZone1)
-	a, z, ok = trie.Find(subjectAddress1, []rainslib.ObjectType{rainslib.OTName}, 0)
+	a, z, ok = trie.Get(subjectAddress1, []rainslib.ObjectType{rainslib.OTName})
 	if a != addressAssertion1 || z != nil {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Assertions have priority over zone")
 	}
 
-	a, z, ok = trie.Find(subjectAddress1, []rainslib.ObjectType{rainslib.OTDelegation}, 0)
+	a, z, ok = trie.Get(subjectAddress1, []rainslib.ObjectType{rainslib.OTDelegation})
 	if a != nil || z != addressZone1 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Assertion should not be returned. The type does not match.")

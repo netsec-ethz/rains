@@ -5,6 +5,7 @@ import (
 	"net"
 	"rains/rainslib"
 	"rains/utils/set"
+	"sync"
 	"time"
 
 	log "github.com/inconshreveable/log15"
@@ -15,11 +16,18 @@ type Trie struct {
 	child      [2]*Trie
 	assertions map[rainslib.ObjectType]*set.Set
 	zones      *set.Set
+	mutex      sync.RWMutex
 }
 
 //Get returns the most specific address assertion or zone in relation to the given netAddress' prefix.
 //If no address assertion or zone is found it return false
-func (t *Trie) Get(netAddr *net.IPNet, types []rainslib.ObjectType, depth int) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
+func (t *Trie) Get(netAddr *net.IPNet, types []rainslib.ObjectType) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+	return get(t, netAddr, types, 0)
+}
+
+func get(t *Trie, netAddr *net.IPNet, types []rainslib.ObjectType, depth int) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
 	addrmasks := [8]byte{0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01}
 	prfLength, _ := netAddr.Mask.Size()
 
@@ -35,7 +43,7 @@ func (t *Trie) Get(netAddr *net.IPNet, types []rainslib.ObjectType, depth int) (
 			return containedElement(t, types)
 		}
 
-		if a, z, ok := t.child[childidx].Get(netAddr, types, depth+1); ok {
+		if a, z, ok := get(t.child[childidx], netAddr, types, depth+1); ok {
 			return a, z, ok
 		}
 	}
@@ -60,6 +68,8 @@ func containedElement(t *Trie, types []rainslib.ObjectType) (*rainslib.AddressAs
 //AddAddressAssertion adds the given address assertion to the map (keyed by objectType) at the trie node corresponding to the network address.
 //Returns an error if it was not able to add the AddressAssertion
 func (t *Trie) AddAddressAssertion(assertion *rainslib.AddressAssertionSection) error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	node := getNode(t, assertion.SubjectAddr, 0)
 	for _, obj := range assertion.Content {
 		if obj.Type != rainslib.OTName && obj.Type != rainslib.OTDelegation && obj.Type != rainslib.OTRedirection && obj.Type != rainslib.OTRegistrant {
@@ -74,6 +84,8 @@ func (t *Trie) AddAddressAssertion(assertion *rainslib.AddressAssertionSection) 
 //AddAddressZone adds the given address zone to the list of address zones at the trie node corresponding to the network address.
 //Returns an error if it was not able to add the addressZone
 func (t *Trie) AddAddressZone(zone *rainslib.AddressZoneSection) error {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	node := getNode(t, zone.SubjectAddr, 0)
 	node.zones.Add(zone)
 	return nil
@@ -107,6 +119,8 @@ func getNode(t *Trie, ipNet *net.IPNet, depth int) *Trie {
 
 //DeleteExpiredElements removes all expired elements from the trie. The trie structure is not updated when a node gets empty
 func (t *Trie) DeleteExpiredElements() {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	for _, s := range t.assertions {
 		assertions := s.GetAll()
 		for _, a := range assertions {
