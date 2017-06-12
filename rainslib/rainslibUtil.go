@@ -56,7 +56,7 @@ func SignData(algoType SignatureAlgorithmType, privateKey interface{}, data []by
 }
 
 func signEcdsa(privateKey *ecdsa.PrivateKey, data, hash []byte) interface{} {
-	r, s, err := ecdsa.Sign(PRG{}, privateKey, hash)
+	r, s, err := ecdsa.Sign(rand.Reader, privateKey, hash)
 	if err != nil {
 		log.Warn("Could not sign data with Ecdsa256", "error", err)
 	}

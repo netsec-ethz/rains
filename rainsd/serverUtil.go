@@ -8,6 +8,7 @@ import (
 	"net"
 	"rains/rainslib"
 	"rains/utils/cache"
+	"rains/utils/protoParser"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -22,6 +23,7 @@ func InitServer() error {
 	log.Root().SetHandler(h)
 	loadConfig()
 	serverConnInfo = rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: *Config.ServerTCPAddr}
+	msgParser = new(protoParser.ProtoParserAndFramer)
 	loadAuthoritative()
 	if err := loadCert(); err != nil {
 		return err
@@ -100,7 +102,8 @@ func loadCert() error {
 func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.NotificationType, data string) ([]byte, error) {
 	content := []rainslib.MessageSection{&rainslib.NotificationSection{Type: rainslib.MsgTooLarge, Token: rainslib.GenerateToken(), Data: data}}
 	msg := rainslib.RainsMessage{Token: token, Content: content}
-	return msgParser.ParseRainsMsg(msg)
+	//TODO CFE add infrastructure signature to query message?
+	return msgParser.Encode(msg)
 }
 
 func sendQuery(context, zone string, expTime int64, objType rainslib.ObjectType, token rainslib.Token, sender rainslib.ConnInfo) {
@@ -113,9 +116,9 @@ func sendQuery(context, zone string, expTime int64, objType rainslib.ObjectType,
 	}
 	query := rainslib.RainsMessage{Token: token, Content: []rainslib.MessageSection{&querySection}}
 	//TODO CFE add infrastructure signature to query message?
-	msg, err := msgParser.ParseRainsMsg(query)
+	msg, err := msgParser.Encode(query)
 	if err != nil {
-		log.Warn("Cannot parse a delegation Query", "query", query)
+		log.Warn("Cannot encode the query", "query", query, "error", err)
 		return
 	}
 	log.Info("Query sent", "query", querySection)

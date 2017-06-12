@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"rains/rainslib"
-	rainsMsgParser "rains/utils/parser"
+	"rains/utils/protoParser"
 	"rains/utils/zoneFileParser"
 	"time"
 
@@ -18,7 +18,7 @@ func InitRainspub() {
 	loadConfig()
 	loadPrivateKey()
 	parser = zoneFileParser.Parser{}
-	msgParser = rainsMsgParser.RainsMsgParser{}
+	msgParser = new(protoParser.ProtoParserAndFramer)
 }
 
 //PublishInformation sends a signed zone to a rains servers according the the rainspub config
@@ -122,7 +122,7 @@ func groupAssertionsToShards(assertions []*rainslib.AssertionSection) *rainslib.
 //TODO CFE also support different signature methods
 func signZone(zone *rainslib.ZoneSection, privateKey ed25519.PrivateKey) error {
 	stub := zone.CreateStub()
-	byteStub, err := msgParser.RevParseSignedMsgSection(stub)
+	byteStub, err := sigParser.RevParseSignedMsgSection(stub)
 	if err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func signZone(zone *rainslib.ZoneSection, privateKey ed25519.PrivateKey) error {
 //TODO we should use 2 valid signatures to avoid traffic bursts when a signature expires.
 func signShard(s *rainslib.ShardSection, privateKey ed25519.PrivateKey) error {
 	stub := s.CreateStub()
-	byteStub, err := msgParser.RevParseSignedMsgSection(stub)
+	byteStub, err := sigParser.RevParseSignedMsgSection(stub)
 	if err != nil {
 		return err
 	}
@@ -187,7 +187,7 @@ func signShard(s *rainslib.ShardSection, privateKey ed25519.PrivateKey) error {
 func signAssertions(assertions []*rainslib.AssertionSection, privateKey ed25519.PrivateKey) error {
 	for _, a := range assertions {
 		stub := a.CreateStub()
-		byteStub, err := msgParser.RevParseSignedMsgSection(stub)
+		byteStub, err := sigParser.RevParseSignedMsgSection(stub)
 		if err != nil {
 			return err
 		}
@@ -225,8 +225,12 @@ func sendMsg(msg []byte) {
 				log.Error("Was not able to establish a connection.", "server", server, "error", err)
 				continue
 			}
-			conn.Write(msg)
-			conn.Close()
+			var msgFramer rainslib.MsgFramer
+			msgFramer = new(protoParser.ProtoParserAndFramer)
+			msgFramer.InitStreams(nil, conn)
+			msgFramer.Frame(msg)
+			//conn.Close() When should I close this connection? If I do it here, then the destination cannot read the content because it gets an EOF
+			log.Info("Message sent", "destination", server.String())
 		default:
 			log.Warn("Connection Information type does not exist", "ConnInfo type", server.Type)
 		}
@@ -236,11 +240,10 @@ func sendMsg(msg []byte) {
 //createRainsMessage creates a rainsMessage containing the given zone and return the byte representation of this rainsMessage ready to send out.
 func createRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
 	msg := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Content: []rainslib.MessageSection{zone}} //no capabilities
-	byteMsg, err := msgParser.ParseRainsMsg(msg)
+	byteMsg, err := msgParser.Encode(msg)
 	if err != nil {
 		return []byte{}, err
 	}
-	log.Info("", "created byte message", string(byteMsg))
 	return byteMsg, nil
 }
 
