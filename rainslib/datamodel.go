@@ -178,7 +178,7 @@ func (a *AssertionSection) UpdateValidity(validSince, validUntil int64, maxValid
 	if validUntil > a.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			a.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("Limit the validity of the assertion in the cache. Validity exceeded upper bound", "assertion", *a, "newValidSince", validUntil)
+			log.Warn("Limit the validity of the assertion in the cache. Validity exceeded upper bound", "assertion", *a, "newValidUntil", validUntil)
 		} else {
 			a.validUntil = validUntil
 		}
@@ -289,7 +289,7 @@ func (s *ShardSection) UpdateValidity(validSince, validUntil int64, maxValidity 
 	if validUntil > s.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			s.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("Limit the validity of the shard in the cache. Validity exceeded upper bound", "shard", *s, "newValidSince", validUntil)
+			log.Warn("Limit the validity of the shard in the cache. Validity exceeded upper bound", "shard", *s, "newValidUntil", validUntil)
 		} else {
 			s.validUntil = validUntil
 		}
@@ -405,7 +405,7 @@ func (z *ZoneSection) UpdateValidity(validSince, validUntil int64, maxValidity t
 	if validUntil > z.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			z.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("Limit the validity of the zone in the cache. Validity exceeded upper bound", "zone", *z, "newValidSince", validUntil)
+			log.Warn("Limit the validity of the zone in the cache. Validity exceeded upper bound", "zone", *z, "newValidUntil", validUntil)
 		} else {
 			z.validUntil = validUntil
 		}
