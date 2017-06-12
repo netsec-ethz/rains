@@ -110,8 +110,8 @@ type AssertionSection struct {
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
-	validSince  int64
-	validUntil  int64
+	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
 //Sigs return the assertion's signatures
@@ -170,7 +170,7 @@ func (a *AssertionSection) UpdateValidity(validSince, validUntil int64, maxValid
 	}
 	if validSince < a.validSince {
 		if validSince > time.Now().Add(maxValidity).Unix() {
-			log.Warn("Assertion validity starts too far in the future. Drop Assertion.", "assertion", *a)
+			log.Warn("Assertion validity starts too far in the future. Drop Assertion.", "assertion", *a, "newValidSince", validSince)
 			return
 		}
 		a.validSince = validSince
@@ -178,7 +178,7 @@ func (a *AssertionSection) UpdateValidity(validSince, validUntil int64, maxValid
 	if validUntil > a.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			a.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("Limit the validity of the assertion in the cache. Validity exceeded upper bound", "assertion", *a)
+			log.Warn("Limit the validity of the assertion in the cache. Validity exceeded upper bound", "assertion", *a, "newValidSince", validUntil)
 		} else {
 			a.validUntil = validUntil
 		}
@@ -215,8 +215,8 @@ type ShardSection struct {
 	Context     string
 	RangeFrom   string
 	RangeTo     string
-	validSince  int64
-	validUntil  int64
+	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
 //Sigs return the shard's signatures
@@ -281,7 +281,7 @@ func (s *ShardSection) UpdateValidity(validSince, validUntil int64, maxValidity 
 	}
 	if validSince < s.validSince {
 		if validSince > time.Now().Add(maxValidity).Unix() {
-			log.Warn("Shard validity starts too far in the future. Drop Shard.", "shard", *s)
+			log.Warn("Shard validity starts too far in the future. Drop Shard.", "shard", *s, "newValidSince", validSince)
 			return
 		}
 		s.validSince = validSince
@@ -289,7 +289,7 @@ func (s *ShardSection) UpdateValidity(validSince, validUntil int64, maxValidity 
 	if validUntil > s.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			s.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("Limit the validity of the shard in the cache. Validity exceeded upper bound", "shard", *s)
+			log.Warn("Limit the validity of the shard in the cache. Validity exceeded upper bound", "shard", *s, "newValidSince", validUntil)
 		} else {
 			s.validUntil = validUntil
 		}
@@ -321,8 +321,8 @@ type ZoneSection struct {
 	SubjectZone string
 	Context     string
 	Content     []MessageSectionWithSig
-	validSince  int64
-	validUntil  int64
+	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
 //Sigs return the zone's signatures
@@ -397,7 +397,7 @@ func (z *ZoneSection) UpdateValidity(validSince, validUntil int64, maxValidity t
 	}
 	if validSince < z.validSince {
 		if validSince > time.Now().Add(maxValidity).Unix() {
-			log.Warn("Zone validity starts too far in the future. Drop Zone.", "zone", *z)
+			log.Warn("Zone validity starts too far in the future. Drop Zone.", "zone", *z, "newValidSince", validSince)
 			return
 		}
 		z.validSince = validSince
@@ -405,7 +405,7 @@ func (z *ZoneSection) UpdateValidity(validSince, validUntil int64, maxValidity t
 	if validUntil > z.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			z.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("Limit the validity of the zone in the cache. Validity exceeded upper bound", "zone", *z)
+			log.Warn("Limit the validity of the zone in the cache. Validity exceeded upper bound", "zone", *z, "newValidSince", validUntil)
 		} else {
 			z.validUntil = validUntil
 		}
