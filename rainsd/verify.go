@@ -412,7 +412,7 @@ func updateSectionValidity(section rainslib.MessageSectionWithSig, pkeyValidSinc
 	case *rainslib.ZoneSection:
 		maxValidity = Config.MaxCacheZoneValidity
 	default:
-		log.Warn("Not supported section")
+		log.Warn("Not supported section", "type", fmt.Sprintf("%T", section))
 	}
 	if pkeyValidSince < sigValidSince {
 		if pkeyValidUntil < sigValidUntil {
