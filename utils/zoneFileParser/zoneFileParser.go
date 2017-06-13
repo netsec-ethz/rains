@@ -17,6 +17,25 @@ import (
 type Parser struct {
 }
 
+const (
+	otName          = ":name:"
+	otIP6           = ":ip6:"
+	otIP4           = ":ip4:"
+	otRedirection   = ":redir:"
+	otDelegation    = ":deleg:"
+	otNameSet       = ":nameset:"
+	otCertificate   = ":cert:"
+	otServiceInfo   = ":srv:"
+	otRegistrar     = ":regr:"
+	otRegistrant    = ":regt:"
+	otInfraKey      = ":infra:"
+	otExternalKey   = ":extra:"
+	keyAlgoed25519  = "ed25519"
+	keyAlgoed448    = "ed448"
+	keyAlgoecdsa256 = "ecdsa256"
+	keyAlgoecdsa384 = "ecdsa384"
+)
+
 var lineNrLogger log.Logger
 
 //Decode returns all assertions contained in the given zonefile
@@ -98,34 +117,34 @@ func parseAssertion(context, zone string, scanner *WordScanner) (*rainslib.Asser
 	objects := []rainslib.Object{}
 	for scanner.Text() != "]" {
 		switch scanner.Text() {
-		case ":name:":
+		case otName:
 			scanner.Scan()
 			objects = append(objects, rainslib.Object{Type: rainslib.OTName, Value: scanner.Text()})
-		case ":ip6:":
+		case otIP6:
 			scanner.Scan()
 			objects = append(objects, rainslib.Object{Type: rainslib.OTIP6Addr, Value: scanner.Text()})
-		case ":ip4:":
+		case otIP4:
 			scanner.Scan()
 			objects = append(objects, rainslib.Object{Type: rainslib.OTIP4Addr, Value: scanner.Text()})
-		case ":redir:":
+		case otRedirection:
 			scanner.Scan()
 			objects = append(objects, rainslib.Object{Type: rainslib.OTRedirection, Value: scanner.Text()})
-		case ":deleg:":
+		case otDelegation:
 			delegation, err := getPublicKey(scanner)
 			if err != nil {
 				return nil, err
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTDelegation, Value: delegation})
-		case ":nameset:":
+		case otNameSet:
 			scanner.Scan()
 			objects = append(objects, rainslib.Object{Type: rainslib.OTNameset, Value: scanner.Text()})
-		case ":cert:":
+		case otCertificate:
 			cert, err := getCertObject(scanner)
 			if err != nil {
 				return nil, err
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTCertInfo, Value: cert})
-		case ":srv:":
+		case otServiceInfo:
 			srvInfo := rainslib.ServiceInfo{}
 			scanner.Scan()
 			srvInfo.Name = scanner.Text()
@@ -144,19 +163,19 @@ func parseAssertion(context, zone string, scanner *WordScanner) (*rainslib.Asser
 			}
 			srvInfo.Priority = uint(prio)
 			objects = append(objects, rainslib.Object{Type: rainslib.OTServiceInfo, Value: srvInfo})
-		case ":regr:":
+		case otRegistrar:
 			scanner.Scan()
 			objects = append(objects, rainslib.Object{Type: rainslib.OTRegistrar, Value: scanner.Text()})
-		case ":regt:":
+		case otRegistrant:
 			scanner.Scan()
 			objects = append(objects, rainslib.Object{Type: rainslib.OTRegistrant, Value: scanner.Text()})
-		case ":infra:":
+		case otInfraKey:
 			infrastructureKey, err := getPublicKey(scanner)
 			if err != nil {
 				return nil, err
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTDelegation, Value: infrastructureKey})
-		case ":extra:":
+		case otExternalKey:
 			//TODO CFE not yet implemented
 			return nil, errors.New("TODO CFE not yet implemented")
 		default:
@@ -284,13 +303,13 @@ func decodePublicKey(scanner *WordScanner, publicKey rainslib.PublicKey) (rainsl
 
 func getKeyAlgoType(keyAlgoType string) (rainslib.SignatureAlgorithmType, error) {
 	switch keyAlgoType {
-	case "ed25519":
+	case keyAlgoed25519:
 		return rainslib.Ed25519, nil
-	case "ed448":
+	case keyAlgoed448:
 		return rainslib.Ed448, nil
-	case "ecdsa256":
+	case keyAlgoecdsa256:
 		return rainslib.Ecdsa256, nil
-	case "ecdsa384":
+	case keyAlgoecdsa384:
 		return rainslib.Ecdsa384, nil
 	default:
 		lineNrLogger.Error("zonFile malformed.", "expected", "signature algorithm type identifier", "got", keyAlgoType)
@@ -345,5 +364,135 @@ func (ws *WordScanner) LineNumber() int {
 //Encode returns the given zone represented in the zone file format
 func (p Parser) Encode(zone *rainslib.ZoneSection) string {
 	log.Warn("Not yet implemented")
+	//TODO CFE replace multiple spaces with just one. e.g. for contained shards and assertions when context and zone are not present there are 3 spaces.
+	//This way the code is much cleaner
 	return ""
+}
+
+func encodeObjects(o []rainslib.Object, indent string) string {
+	objects := ""
+	for _, obj := range o {
+		switch obj.Type {
+		case rainslib.OTName:
+			if nameObj, ok := obj.Value.(rainslib.NameObject); ok {
+				objects += fmt.Sprintf("%s %s\n", otDelegation, nameObj.Name)
+				//FIXME CFE Add object Types
+				//It is incorrectly implemented in the decoder, fix it also there!
+				//
+			}
+			log.Warn("Type assertion failed. Expected rainslib.NameObject", "actualType", fmt.Sprintf("%T", obj.Value))
+		case rainslib.OTIP6Addr:
+			objects += fmt.Sprintf("%s %s\n", otIP6, obj.Value)
+		case rainslib.OTIP4Addr:
+			objects += fmt.Sprintf("%s %s\n", otIP4, obj.Value)
+		case rainslib.OTRedirection:
+			objects += fmt.Sprintf("%s %s\n", otRedirection, obj.Value)
+		case rainslib.OTDelegation:
+			if pkey, ok := obj.Value.(rainslib.PublicKey); ok {
+				objects += fmt.Sprintf("%s %s\n", otDelegation, encodePublicKey(pkey))
+			}
+			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+		case rainslib.OTNameset:
+			objects += fmt.Sprintf("%s %s\n", otNameSet, obj.Value)
+		case rainslib.OTCertInfo:
+			if cert, ok := obj.Value.(rainslib.CertificateObject); ok {
+				objects += fmt.Sprintf("%s %s\n", otCertificate)
+				//FIXME CFE TO IMPLEMENT
+				//
+				//
+			}
+			log.Warn("Type assertion failed. Expected rainslib.CertificateObject", "actualType", fmt.Sprintf("%T", obj.Value))
+		case rainslib.OTServiceInfo:
+			if srvInfo, ok := obj.Value.(rainslib.ServiceInfo); ok {
+				objects += fmt.Sprintf("%s %s %d %d\n", otDelegation, srvInfo.Name, srvInfo.Port, srvInfo.Priority)
+			}
+			log.Warn("Type assertion failed. Expected rainslib.ServiceInfo", "actualType", fmt.Sprintf("%T", obj.Value))
+		case rainslib.OTRegistrar:
+			objects += fmt.Sprintf("%s %s\n", otRegistrar, obj.Value)
+		case rainslib.OTRegistrant:
+			objects += fmt.Sprintf("%s %s\n", otRegistrant, obj.Value)
+		case rainslib.OTInfraKey:
+			if pkey, ok := obj.Value.(rainslib.PublicKey); ok {
+				objects += fmt.Sprintf("%s %s\n", otInfraKey, encodePublicKey(pkey))
+			}
+			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+		case rainslib.OTExtraKey:
+			if pkey, ok := obj.Value.(rainslib.PublicKey); ok {
+				objects += fmt.Sprintf("%s %s\n", otExternalKey, encodePublicKey(pkey))
+			}
+			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+		default:
+			log.Warn("Unsupported obj type", "type", fmt.Sprintf("%T", obj.Type))
+		}
+	}
+	return objects
+}
+
+func encodePublicKey(pkey rainslib.PublicKey) string {
+	switch pkey.Type {
+	case rainslib.Ed25519:
+		if key, ok := pkey.Key.(rainslib.Ed25519PublicKey); ok {
+			return fmt.Sprintf("%s %s", keyAlgoed25519, hex.EncodeToString(key[:]))
+		}
+		log.Warn("Type assertion failed. Expected rainslib.Ed25519PublicKey", "actualType", fmt.Sprintf("%T", pkey.Key))
+	case rainslib.Ed448:
+		if key, ok := pkey.Key.(rainslib.Ed448PublicKey); ok {
+			return fmt.Sprintf("%s %s", keyAlgoed448, hex.EncodeToString(key[:]))
+		}
+		log.Warn("Type assertion failed. Expected rainslib.Ed448PublicKey", "type", fmt.Sprintf("%T", pkey.Key))
+	case rainslib.Ecdsa256:
+		log.Warn("Not yet implemented")
+		return ""
+	case rainslib.Ecdsa384:
+		log.Warn("Not yet implemented")
+		return ""
+	default:
+		log.Warn("Unsupported signature algorithm type")
+
+	}
+	return ""
+}
+
+func encodeAssertion(a *rainslib.AssertionSection, context, zone string) string {
+	assertion := fmt.Sprintf(":A: %s %s %s [", context, zone, a.SubjectName)
+	if len(a.Content) > 1 {
+		return fmt.Sprintf("%s\n%s]", assertion, encodeObjects(a.Content, "\t\t\t"))
+	}
+	return fmt.Sprintf("%s %s ]", assertion, encodeObjects(a.Content, ""))
+}
+
+func encodeShard(s *rainslib.ShardSection, context, zone string, toSign bool) string {
+	shard := fmt.Sprintf(":S: %s %s %s %s [\n", context, zone, s.RangeFrom, s.RangeTo)
+	for _, assertion := range s.Content {
+		ctx, subjectZone := getContextAndZone(context, zone, assertion, toSign)
+		shard += fmt.Sprintf("\t\t%s\n", encodeAssertion(assertion, ctx, subjectZone))
+	}
+	return fmt.Sprintf("%s]", shard)
+}
+
+func encodeZone(z *rainslib.ZoneSection, toSign bool) string {
+	zone := fmt.Sprintf(":Z: %s %s [\n", z.Context, z.SubjectZone)
+	for _, section := range z.Content {
+		switch section := section.(type) {
+		case *rainslib.AssertionSection:
+			context, subjectZone := getContextAndZone(z.Context, z.SubjectZone, section, toSign)
+			zone += fmt.Sprintf("\t%s\n", encodeAssertion(section, context, subjectZone))
+		case *rainslib.ShardSection:
+			context, subjectZone := getContextAndZone(z.Context, z.SubjectZone, section, toSign)
+			zone += fmt.Sprintf("\t%s\n", encodeShard(section, context, subjectZone, toSign))
+		default:
+			log.Warn("Unsupported message section type", "msgSection", section)
+		}
+	}
+	return fmt.Sprintf("%s]", zone)
+}
+
+func getContextAndZone(outerContext, outerZone string, containedSection rainslib.MessageSectionWithSigForward, toSign bool) (string, string) {
+	context := containedSection.GetContext()
+	subjectZone := containedSection.GetSubjectZone()
+	if toSign && (context == "" || subjectZone == "") {
+		context = outerContext
+		subjectZone = outerZone
+	}
+	return context, subjectZone
 }

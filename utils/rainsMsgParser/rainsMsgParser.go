@@ -194,7 +194,7 @@ func revParseContainedShard(s *rainslib.ShardSection) string {
 //RevParseSignedShard parses a signed zone to its string representation with format:
 //:SZ::CN:<context-name>:ZN:<zone-name>[(Contained Shard|Contained Assertion):::...:::(Contained Shard|Contained Assertion)][signature*]
 func revParseSignedZone(z *rainslib.ZoneSection) string {
-	zone := fmt.Sprintf(":SZ::CN:%s:ZN:%s[", z.Context, z.SubjectZone)
+	zone := fmt.Sprintf(":Z: %s %s [", z.Context, z.SubjectZone)
 	for _, section := range z.Content {
 		switch section := section.(type) {
 		case *rainslib.AssertionSection:
