@@ -920,15 +920,21 @@ type RainsMsgParser interface {
 
 //ZoneFileParser is the interface for all parsers of zone files for RAINS
 type ZoneFileParser interface {
-	//ParseZoneFile takes as input the content of a zoneFile and the name from which the data was loaded.
+	//Decode takes as input the content of a zoneFile and the name from which the data was loaded.
 	//It returns all contained assertions or an error in case of failure
-	ParseZoneFile(zoneFile []byte, filePath string) ([]*AssertionSection, error)
+	Decode(zoneFile []byte, filePath string) ([]*AssertionSection, error)
+
+	//Encode returns the given zone represented in the zone file format.
+	Encode(zone *ZoneSection) string
 }
 
 //SignatureFormatEncoder is used to deterministically transform a RainsMessage into a byte format that can be signed.
 type SignatureFormatEncoder interface {
 	//Encode transforms the given msg into a signable format.
-	Encode(msg RainsMessage) []byte
+	EncodeMsg(msg RainsMessage) []byte
+
+	//EncodeSection transforms the given msg into a signable format.
+	EncodeSection(msg MessageSectionWithSig) []byte
 }
 
 //MsgFramer is used to frame and deframe rains messages and send or receive them on the initialized stream.

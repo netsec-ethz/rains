@@ -56,7 +56,7 @@ func loadAssertions() ([]*rainslib.AssertionSection, error) {
 		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
 		return []*rainslib.AssertionSection{}, err
 	}
-	assertions, err := parser.ParseZoneFile(file, config.ZoneFilePath)
+	assertions, err := parser.Decode(file, config.ZoneFilePath)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)
 		return []*rainslib.AssertionSection{}, err
@@ -257,7 +257,7 @@ func sendDelegations() {
 	}
 
 	//handle delegations
-	assertions, err := parser.ParseZoneFile(file, config.ZoneFileDelegationPath)
+	assertions, err := parser.Decode(file, config.ZoneFileDelegationPath)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)
 		return

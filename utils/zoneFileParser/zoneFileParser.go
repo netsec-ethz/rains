@@ -19,8 +19,8 @@ type Parser struct {
 
 var lineNrLogger log.Logger
 
-//ParseZoneFile returns all assertions contained in the given zonefile
-func (p Parser) ParseZoneFile(zoneFile []byte, filePath string) ([]*rainslib.AssertionSection, error) {
+//Decode returns all assertions contained in the given zonefile
+func (p Parser) Decode(zoneFile []byte, filePath string) ([]*rainslib.AssertionSection, error) {
 	assertions := []*rainslib.AssertionSection{}
 	scanner := NewWordScanner(zoneFile)
 	lineNrLogger = log.New("file", filePath, "lineNr", log.Lazy{scanner.LineNumber})
@@ -340,4 +340,10 @@ func (ws *WordScanner) LineNumber() int {
 		lineNr++
 	}
 	return lineNr
+}
+
+//Encode returns the given zone represented in the zone file format
+func (p Parser) Encode(zone *rainslib.ZoneSection) string {
+	log.Warn("Not yet implemented")
+	return ""
 }
