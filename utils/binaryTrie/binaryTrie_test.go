@@ -37,6 +37,11 @@ func TestAddAndFind(t *testing.T) {
 	_, subjectAddress3, _ := net.ParseCIDR("10.0.0.0/9")
 	_, subjectAddress4, _ := net.ParseCIDR("10.0.0.0/6")
 
+	_, subjectAddress5, _ := net.ParseCIDR("127B::/128")
+	_, subjectAddress6, _ := net.ParseCIDR("10AA::/8")
+	_, subjectAddress7, _ := net.ParseCIDR("10AA::/9")
+	_, subjectAddress8, _ := net.ParseCIDR("10AA::/6")
+
 	addressAssertion1 := &rainslib.AddressAssertionSection{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
@@ -65,7 +70,39 @@ func TestAddAndFind(t *testing.T) {
 		Signatures:  []rainslib.Signature{signature},
 	}
 
-	trie := &Trie{assertions: make(map[rainslib.ObjectType]*set.Set)}
+	addressAssertion3 := &rainslib.AddressAssertionSection{
+		SubjectAddr: subjectAddress5,
+		Context:     ".",
+		Content:     []rainslib.Object{nameObject},
+		Signatures:  []rainslib.Signature{signature},
+	}
+
+	addressAssertion4 := &rainslib.AddressAssertionSection{
+		SubjectAddr: subjectAddress6,
+		Context:     ".",
+		Content:     []rainslib.Object{redirObject, delegObject, registrantObject},
+		Signatures:  []rainslib.Signature{signature},
+	}
+
+	addressZone3 := &rainslib.AddressZoneSection{
+		SubjectAddr: subjectAddress5,
+		Context:     ".",
+		Content:     []*rainslib.AddressAssertionSection{addressAssertion3, addressAssertion4},
+		Signatures:  []rainslib.Signature{signature},
+	}
+
+	addressZone4 := &rainslib.AddressZoneSection{
+		SubjectAddr: subjectAddress6,
+		Context:     ".",
+		Content:     []*rainslib.AddressAssertionSection{addressAssertion3, addressAssertion4},
+		Signatures:  []rainslib.Signature{signature},
+	}
+
+	/*
+	* IPv4
+	 */
+
+	trie := &TrieNode{assertions: make(map[rainslib.ObjectType]*set.Set)}
 	trie.zones = set.New()
 	trie.assertions[rainslib.OTName] = set.New()
 	trie.assertions[rainslib.OTRedirection] = set.New()
@@ -104,6 +141,53 @@ func TestAddAndFind(t *testing.T) {
 
 	a, z, ok = trie.Get(subjectAddress1, []rainslib.ObjectType{rainslib.OTDelegation})
 	if a != nil || z != addressZone1 {
+		log.Warn("", "assertion", a, "zone", z, "ok", ok)
+		t.Error("Assertion should not be returned. The type does not match.")
+	}
+
+	/*
+	* IPv6
+	 */
+
+	trie = &TrieNode{assertions: make(map[rainslib.ObjectType]*set.Set)}
+	trie.zones = set.New()
+	trie.assertions[rainslib.OTName] = set.New()
+	trie.assertions[rainslib.OTRedirection] = set.New()
+	trie.assertions[rainslib.OTRegistrant] = set.New()
+	trie.assertions[rainslib.OTDelegation] = set.New()
+
+	trie.AddAddressAssertion(addressAssertion3)
+	a, z, ok = trie.Get(subjectAddress5, []rainslib.ObjectType{rainslib.OTName})
+	if a != addressAssertion3 {
+		log.Warn("", "assertion", a, "zone", z, "ok", ok)
+		t.Error("Added AddressAssertion not returned by the cache")
+	}
+	trie.AddAddressZone(addressZone4)
+	a, z, ok = trie.Get(subjectAddress6, []rainslib.ObjectType{})
+	if z != addressZone4 {
+		log.Warn("", "assertion", a, "zone", z, "ok", ok)
+		t.Error("Added AddressZone not returned by the cache")
+	}
+	a, z, ok = trie.Get(subjectAddress7, []rainslib.ObjectType{})
+	if z != addressZone4 {
+		log.Warn("", "assertion", a, "zone", z, "ok", ok)
+		t.Error("Less specific AddressZone not returned by the trie")
+	}
+	a, z, ok = trie.Get(subjectAddress8, []rainslib.ObjectType{})
+	if ok {
+		log.Warn("", "assertion", a, "zone", z, "ok", ok)
+		t.Error("No entry should be returned. There is no less specific one")
+	}
+
+	trie.AddAddressZone(addressZone3)
+	a, z, ok = trie.Get(subjectAddress5, []rainslib.ObjectType{rainslib.OTName})
+	if a != addressAssertion3 || z != nil {
+		log.Warn("", "assertion", a, "zone", z, "ok", ok)
+		t.Error("Assertions have priority over zone")
+	}
+
+	a, z, ok = trie.Get(subjectAddress5, []rainslib.ObjectType{rainslib.OTDelegation})
+	if a != nil || z != addressZone3 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Assertion should not be returned. The type does not match.")
 	}

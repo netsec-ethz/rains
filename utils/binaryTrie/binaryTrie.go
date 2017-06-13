@@ -11,9 +11,9 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
-//Trie is a node of a binary trie.
-type Trie struct {
-	child      [2]*Trie
+//TrieNode is a node of a binary trie.
+type TrieNode struct {
+	child      [2]*TrieNode
 	assertions map[rainslib.ObjectType]*set.Set
 	zones      *set.Set
 	mutex      sync.RWMutex
@@ -21,13 +21,13 @@ type Trie struct {
 
 //Get returns the most specific address assertion or zone in relation to the given netAddress' prefix.
 //If no address assertion or zone is found it return false
-func (t *Trie) Get(netAddr *net.IPNet, types []rainslib.ObjectType) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
+func (t *TrieNode) Get(netAddr *net.IPNet, types []rainslib.ObjectType) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 	return get(t, netAddr, types, 0)
 }
 
-func get(t *Trie, netAddr *net.IPNet, types []rainslib.ObjectType, depth int) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
+func get(t *TrieNode, netAddr *net.IPNet, types []rainslib.ObjectType, depth int) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
 	addrmasks := [8]byte{0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01}
 	prfLength, _ := netAddr.Mask.Size()
 
@@ -52,7 +52,7 @@ func get(t *Trie, netAddr *net.IPNet, types []rainslib.ObjectType, depth int) (*
 
 //containedElement returns true and the first addressAssertion that matches one of the given types or if none is found the first addressZone (if present).
 //in case there is neither false is returned
-func containedElement(t *Trie, types []rainslib.ObjectType) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
+func containedElement(t *TrieNode, types []rainslib.ObjectType) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
 	for _, obj := range types {
 		aSet := t.assertions[obj]
 		if aSet != nil && aSet.Len() > 0 {
@@ -67,7 +67,7 @@ func containedElement(t *Trie, types []rainslib.ObjectType) (*rainslib.AddressAs
 
 //AddAddressAssertion adds the given address assertion to the map (keyed by objectType) at the trie node corresponding to the network address.
 //Returns an error if it was not able to add the AddressAssertion
-func (t *Trie) AddAddressAssertion(assertion *rainslib.AddressAssertionSection) error {
+func (t *TrieNode) AddAddressAssertion(assertion *rainslib.AddressAssertionSection) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	node := getNode(t, assertion.SubjectAddr, 0)
@@ -83,7 +83,7 @@ func (t *Trie) AddAddressAssertion(assertion *rainslib.AddressAssertionSection) 
 
 //AddAddressZone adds the given address zone to the list of address zones at the trie node corresponding to the network address.
 //Returns an error if it was not able to add the addressZone
-func (t *Trie) AddAddressZone(zone *rainslib.AddressZoneSection) error {
+func (t *TrieNode) AddAddressZone(zone *rainslib.AddressZoneSection) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	node := getNode(t, zone.SubjectAddr, 0)
@@ -91,7 +91,7 @@ func (t *Trie) AddAddressZone(zone *rainslib.AddressZoneSection) error {
 	return nil
 }
 
-func getNode(t *Trie, ipNet *net.IPNet, depth int) *Trie {
+func getNode(t *TrieNode, ipNet *net.IPNet, depth int) *TrieNode {
 	addrmasks := [8]byte{0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01}
 	prfLength, _ := ipNet.Mask.Size()
 
@@ -104,7 +104,7 @@ func getNode(t *Trie, ipNet *net.IPNet, depth int) *Trie {
 		}
 
 		if t.child[subidx] == nil {
-			t.child[subidx] = &Trie{assertions: make(map[rainslib.ObjectType]*set.Set)}
+			t.child[subidx] = &TrieNode{assertions: make(map[rainslib.ObjectType]*set.Set)}
 			t.child[subidx].zones = set.New()
 			t.child[subidx].assertions[rainslib.OTName] = set.New()
 			t.child[subidx].assertions[rainslib.OTRedirection] = set.New()
@@ -118,7 +118,7 @@ func getNode(t *Trie, ipNet *net.IPNet, depth int) *Trie {
 }
 
 //DeleteExpiredElements removes all expired elements from the trie. The trie structure is not updated when a node gets empty
-func (t *Trie) DeleteExpiredElements() {
+func (t *TrieNode) DeleteExpiredElements() {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	for _, s := range t.assertions {

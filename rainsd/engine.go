@@ -63,7 +63,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 	switch section := sectionWSSender.Section.(type) {
 	case *rainslib.AssertionSection:
 		//TODO CFE according to draft consistency checks are only done when server has enough resources. How to measure that?
-		log.Info("Start processing Assertion", "assertion", section)
+		log.Debug("Start processing Assertion", "assertion", section)
 		if isAssertionConsistent(section) {
 			log.Debug("Assertion is consistent with cached elements.")
 			ok := assertAssertion(section, isAuthoritative, sectionWSSender.Token)
@@ -74,7 +74,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 			log.Debug("Assertion is inconsistent with cached elements.")
 		}
 	case *rainslib.ShardSection:
-		log.Info("Start processing Shard", "shard", section)
+		log.Debug("Start processing Shard", "shard", section)
 		if isShardConsistent(section) {
 			log.Debug("Shard is consistent with cached elements.")
 			ok := assertShard(section, isAuthoritative, sectionWSSender.Token)
@@ -85,7 +85,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 			log.Debug("Shard is inconsistent with cached elements.")
 		}
 	case *rainslib.ZoneSection:
-		log.Info("Start processing zone", "zone", section)
+		log.Debug("Start processing zone", "zone", section)
 		if isZoneConsistent(section) {
 			log.Debug("Zone is consistent with cached elements.")
 			ok := assertZone(section, isAuthoritative, sectionWSSender.Token)
@@ -96,7 +96,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 			log.Debug("Zone is inconsistent with cached elements.")
 		}
 	case *rainslib.AddressAssertionSection:
-		log.Info("Start processing address assertion", "assertion", section)
+		log.Debug("Start processing address assertion", "assertion", section)
 		if isAddressAssertionConsistent(section) {
 			log.Debug("Address Assertion is consistent with cached elements.")
 			ok := assertAddressAssertion(section, sectionWSSender.Token)
@@ -107,7 +107,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 			log.Debug("Address Assertion is inconsistent with cached elements.")
 		}
 	case *rainslib.AddressZoneSection:
-		log.Info("Start processing address zone", "zone", section)
+		log.Debug("Start processing address zone", "zone", section)
 		if isAddressZoneConsistent(section) {
 			log.Debug("Address zone is consistent with cached elements.")
 			ok := assertAddressZone(section, sectionWSSender.Token)
@@ -302,7 +302,7 @@ func shouldAddressZoneBeCached(zone *rainslib.AddressZoneSection) bool {
 
 //addressQuery directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
 func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo) {
-	log.Info("Start processing address query", "addressQuery", query)
+	log.Debug("Start processing address query", "addressQuery", query)
 	assertion, zone, ok := addressCache.Get(query.SubjectAddr, []rainslib.ObjectType{query.Types})
 	//TODO CFE add heuristic which assertion to return
 	if ok {
@@ -348,7 +348,7 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo)
 
 //query directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
 func query(query *rainslib.QuerySection, sender rainslib.ConnInfo) {
-	log.Info("Start processing query", "query", query)
+	log.Debug("Start processing query", "query", query)
 	zoneAndNames := getZoneAndName(query.Name)
 	for _, zAn := range zoneAndNames {
 		assertions, ok := assertionsCache.Get(query.Context, zAn.zone, zAn.name, query.Type, query.ContainsOption(rainslib.ExpiredAssertionsOk))

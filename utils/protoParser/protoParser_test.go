@@ -54,6 +54,7 @@ func TestEncodeAndDecode(t *testing.T) {
 
 	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
 	_, subjectAddress2, _ := net.ParseCIDR("127.0.0.1/24")
+	_, subjectAddress3, _ := net.ParseCIDR("2001:db8::/32")
 
 	assertion := &rainslib.AssertionSection{
 		Content: []rainslib.Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject, registrarObject,
@@ -109,6 +110,13 @@ func TestEncodeAndDecode(t *testing.T) {
 		Signatures:  []rainslib.Signature{signature},
 	}
 
+	addressAssertion3 := &rainslib.AddressAssertionSection{
+		SubjectAddr: subjectAddress3,
+		Context:     ".",
+		Content:     []rainslib.Object{redirObject, delegObject, registrantObject},
+		Signatures:  []rainslib.Signature{signature},
+	}
+
 	addressZone := &rainslib.AddressZoneSection{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
@@ -126,7 +134,18 @@ func TestEncodeAndDecode(t *testing.T) {
 	}
 
 	message := rainslib.RainsMessage{
-		Content:      []rainslib.MessageSection{assertion, shard, zone, query, notification, addressAssertion1, addressAssertion2, addressZone, addressQuery},
+		Content: []rainslib.MessageSection{
+			assertion,
+			shard,
+			zone,
+			query,
+			notification,
+			addressAssertion1,
+			addressAssertion2,
+			addressAssertion3,
+			addressZone,
+			addressQuery,
+		},
 		Token:        rainslib.GenerateToken(),
 		Capabilities: []rainslib.Capability{rainslib.Capability("Test"), rainslib.Capability("Yes!")},
 		Signatures:   []rainslib.Signature{signature},
