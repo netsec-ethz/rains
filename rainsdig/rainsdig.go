@@ -2,14 +2,14 @@ package main
 
 import (
 	"crypto/tls"
-	"errors"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"net"
 	"os"
 	"rains/rainslib"
-	"rains/utils/msgFramer"
-	"rains/utils/parser"
+	"rains/utils/protoParser"
+	"rains/utils/rainsMsgParser"
 	"strconv"
 	"time"
 
@@ -28,6 +28,15 @@ var expires = flag.Int64("exp", time.Now().Add(10*time.Second).Unix(), "expires 
 
 //TODO CFE enable to set multiple query options
 var queryOption = flag.Int("qopt", 0, "queryOption specifies performance/privacy tradeoffs")
+
+var msgParser rainslib.RainsMsgParser
+var msgFramer rainslib.MsgFramer
+
+func init() {
+	parserAndFramer := new(protoParser.ProtoParserAndFramer)
+	msgParser = parserAndFramer
+	msgFramer = parserAndFramer
+}
 
 func main() {
 	flag.Parse()
@@ -53,15 +62,23 @@ func main() {
 		default:
 			fmt.Println("input parameters malformed")
 		}
+
+		tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", *serverAddr, *port))
+		if err != nil {
+			fmt.Printf("serverAddr malformed, error=%v\n", err)
+		}
+		connInfo := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr}
+
 		token := rainslib.GenerateToken()
 		msg, err := generateMsg(token)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("could not encode the query, error=%s\n", err)
 			os.Exit(1)
 		}
-		err = sendQuery(msg, token, *serverAddr, *port)
+
+		err = sendQuery(msg, token, connInfo)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("could not frame and send the query, error=%s\n", err)
 			os.Exit(1)
 		}
 	}
@@ -82,50 +99,32 @@ func generateMsg(token rainslib.Token) ([]byte, error) {
 		Token:   token,
 		Content: []rainslib.MessageSection{&section},
 	}
-	message, err := parser.RainsMsgParser{}.ParseRainsMsg(msg)
-	if err != nil {
-		return []byte{}, fmt.Errorf("could not parse the query due to: %v", err)
-	}
-
-	return message, nil
+	return msgParser.Encode(msg)
 }
 
-func sendQuery(query []byte, token rainslib.Token, ipAddress string, port uint) error {
+func sendQuery(query []byte, token rainslib.Token, connInfo rainslib.ConnInfo) error {
 	conf := &tls.Config{
 		//TODO CFE add this to cmd line options
 		InsecureSkipVerify: true,
 	}
-	ipAddr := net.ParseIP(ipAddress)
-	if ipAddr == nil {
-		return errors.New("malformed IP address")
-	}
-	//TODO CFE reuse ConnInfo from rainsd -> add it to rainslib
-	conn, err := tls.Dial("tcp", fmt.Sprintf("%v:%d", ipAddr, port), conf)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	done := make(chan rainslib.RainsMessage)
-	parser := &parser.RainsMsgParser{}
-	go func(conn net.Conn, parser rainslib.RainsMsgParser, token rainslib.Token) {
-		framer := msgFramer.NewLineFramer{}
-		framer.InitStream(conn)
-		for framer.Deframe() {
-			msg, err := parser.ParseByteSlice(framer.Data())
-			if err != nil {
-				log.Warn("Was not able to parse deframed message", "message", msg, "error", err)
-				continue
-			}
-			if msg.Token == token {
-				done <- msg
-				return
-			}
-			log.Debug("Token of sent query does not match the token of the received message", "queryToken", token, "recvToken", msg.Token)
+	var conn net.Conn
+	var err error
+	switch connInfo.Type {
+	case rainslib.TCP:
+		conn, err = tls.Dial(connInfo.TCPAddr.Network(), connInfo.String(), conf)
+		if err != nil {
+			return err
 		}
-		done <- rainslib.RainsMessage{}
-	}(conn, parser, token)
-	_, err = conn.Write(append(query, []byte("\n")...))
+		defer conn.Close()
+	default:
+		log.Warn("Unsupported Network address type.")
+	}
+
+	msgFramer.InitStreams(conn, conn)
+	done := make(chan rainslib.RainsMessage)
+	go listen(conn, token, done)
+
+	err = msgFramer.Frame(query)
 	if err != nil {
 		return err
 	}
@@ -133,7 +132,7 @@ func sendQuery(query []byte, token rainslib.Token, ipAddress string, port uint) 
 	for _, section := range result.Content {
 		switch section := section.(type) {
 		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection:
-			output, err := parser.RevParseSignedMsgSection(section.(rainslib.MessageSectionWithSig))
+			output, err := rainsMsgParser.RainsMsgParser{}.RevParseSignedMsgSection(section.(rainslib.MessageSectionWithSig))
 			if err != nil {
 				log.Warn("Could not reverse parse section with signature", "error", err)
 			}
@@ -146,4 +145,21 @@ func sendQuery(query []byte, token rainslib.Token, ipAddress string, port uint) 
 		}
 	}
 	return nil
+}
+
+//listen receives incoming messages. If the message's token matches the query's token, it sends the message back over the channel otherwise it discards the message.
+func listen(conn net.Conn, token rainslib.Token, done chan<- rainslib.RainsMessage) {
+	for msgFramer.DeFrame() {
+		msg, err := msgParser.Decode(msgFramer.Data())
+		if err != nil {
+			log.Warn("Was not able to decode received message", "message", hex.EncodeToString(msgFramer.Data()), "error", err)
+			continue
+		}
+		if msg.Token == token {
+			done <- msg
+			return
+		}
+		log.Debug("Token of sent query does not match the token of the received message", "queryToken", token, "recvToken", msg.Token)
+	}
+	done <- rainslib.RainsMessage{}
 }

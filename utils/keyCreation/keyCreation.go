@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"rains/rainslib"
-	"rains/utils/parser"
+	"rains/utils/rainsMsgParser"
 	"time"
 
 	log "github.com/inconshreveable/log15"
@@ -27,9 +27,8 @@ func CreateDelegationAssertion(context, zone string) error {
 		SubjectName: "@",
 		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}},
 	}
-	msgParser := parser.RainsMsgParser{}
 	if zone == "." {
-		if err := addSignature(assertion, privateKey, msgParser); err != nil {
+		if err := addSignature(assertion, privateKey); err != nil {
 			return err
 		}
 	}
@@ -49,7 +48,8 @@ func CreateDelegationAssertion(context, zone string) error {
 }
 
 //addSignature signs the section with the public key and adds the resulting signature to the section
-func addSignature(a rainslib.MessageSectionWithSig, key ed25519.PrivateKey, msgParser parser.RainsMsgParser) error {
+func addSignature(a rainslib.MessageSectionWithSig, key ed25519.PrivateKey) error {
+	msgParser := rainsMsgParser.RainsMsgParser{}
 	data, err := msgParser.RevParseSignedMsgSection(a)
 	if err != nil {
 		return err
@@ -95,7 +95,7 @@ func SignDelegation(delegationPath, privateKeyPath string) error {
 	if err != nil {
 		return err
 	}
-	err = addSignature(delegation, privateKey, parser.RainsMsgParser{})
+	err = addSignature(delegation, privateKey)
 	if err != nil {
 		return err
 	}

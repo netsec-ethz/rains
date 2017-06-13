@@ -220,7 +220,7 @@ func sendMsg(msg []byte) {
 	for _, server := range config.ServerAddresses {
 		switch server.Type {
 		case rainslib.TCP:
-			conn, err := tls.Dial("tcp", server.String(), conf)
+			conn, err := tls.Dial(server.TCPAddr.Network(), server.String(), conf)
 			if err != nil {
 				log.Error("Was not able to establish a connection.", "server", server, "error", err)
 				continue

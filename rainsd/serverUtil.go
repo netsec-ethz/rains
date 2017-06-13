@@ -22,7 +22,7 @@ func InitServer() error {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(h)
 	loadConfig()
-	serverConnInfo = rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: *Config.ServerTCPAddr}
+	serverConnInfo = rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: Config.ServerTCPAddr}
 	msgParser = new(protoParser.ProtoParserAndFramer)
 	loadAuthoritative()
 	if err := loadCert(); err != nil {
@@ -150,7 +150,7 @@ func getDelegationAddress(context, zone string) rainslib.ConnInfo {
 	log.Warn("Not yet implemented CFE. return hard coded delegation address")
 	tcpAddr := loadDefaultSeverAddrIntoConfig()
 	tcpAddr.Port = tcpAddr.Port + 1
-	return rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: *tcpAddr}
+	return rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr}
 }
 
 //createConnectionCache returns a newly created connection cache

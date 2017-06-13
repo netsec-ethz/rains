@@ -14,7 +14,7 @@ func TestAddAndFind(t *testing.T) {
 	publicKey := rainslib.PublicKey{
 		Type:       rainslib.Ed25519,
 		Key:        []byte("TestKey"),
-		ValidFrom:  10000,
+		ValidSince: 10000,
 		ValidUntil: 50000,
 	}
 

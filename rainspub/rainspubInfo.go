@@ -46,5 +46,5 @@ func loadDefaultSeverAddrIntoConfig() {
 	if err != nil {
 		log.Warn("Was not able to resolve default tcp addr of server")
 	}
-	config.ServerAddresses = []rainslib.ConnInfo{rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: *addr}}
+	config.ServerAddresses = []rainslib.ConnInfo{rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: addr}}
 }

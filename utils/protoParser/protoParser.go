@@ -42,15 +42,19 @@ func (p *ProtoParserAndFramer) InitStreams(streamReader io.Reader, streamWriter 
 	p.encoder = capnp.NewEncoder(streamWriter)
 }
 
-//Deframe extracts the next frame from the streamReader defined in InitStream().
+//DeFrame extracts the next frame from the streamReader defined in InitStream().
 //It blocks until it encounters the delimiter.
-//It returns false when the stream was not initialized or is already closed.
+//It returns false when the stream is already closed.
 //The data is available through Data
-func (p *ProtoParserAndFramer) Deframe() bool {
+func (p *ProtoParserAndFramer) DeFrame() bool {
 	msg, err := p.decoder.Decode()
 	if err != nil {
+		if err == io.EOF {
+			log.Debug("Connection has been closed.")
+			return false
+		}
 		log.Warn("Was not able to decode msg", "error", err)
-		return false
+		return true
 	}
 	p.data = msg
 	return true

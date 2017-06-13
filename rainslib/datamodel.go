@@ -872,7 +872,7 @@ const (
 type ConnInfo struct {
 	Type NetworkAddrType
 
-	TCPAddr net.TCPAddr
+	TCPAddr *net.TCPAddr
 }
 
 //String returns the string representation of the connection information according to its type
@@ -940,12 +940,12 @@ type MsgFramer interface {
 	//If a stream is readable and writable it is possible that streamReader = streamWriter
 	InitStreams(streamReader io.Reader, streamWriter io.Writer)
 
-	//Deframe extracts the next frame from the streamReader defined in InitStream().
+	//DeFrame extracts the next frame from the streamReader defined in InitStream().
 	//It blocks until it encounters the delimiter.
 	//It returns false when the stream was not initialized or is already closed.
 	//The data is available through Data
-	Deframe() bool
+	DeFrame() bool
 
-	//Data contains the frame read from the stream by Deframe
+	//Data contains the frame read from the stream by DeFrame
 	Data() []byte
 }
