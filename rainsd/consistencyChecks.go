@@ -2,6 +2,7 @@ package rainsd
 
 import (
 	"fmt"
+	"net"
 	"rains/rainslib"
 	"sort"
 	"sync"
@@ -101,6 +102,20 @@ func isZoneConsistent(zone *rainslib.ZoneSection) bool {
 		}
 	}
 	return true
+}
+
+//isAddressAssertionConsistent checks if the incoming address assertion is consistent with the elements in the cache.
+//If not, every element of this zone and context is dropped and it returns false
+func isAddressAssertionConsistent(assertion *rainslib.AddressAssertionSection) bool {
+	//TODO CFE implement
+	return false
+}
+
+//isZoneConsistent checks if the incoming address zone is consistent with the elements in the cache.
+//If not every element of this zone is dropped and it return false
+func isAddressZoneConsistent(zone *rainslib.AddressZoneSection) bool {
+	//TODO CFE implement
+	return false
 }
 
 //togetherValid returns true if both sections are at some point both valid
@@ -287,6 +302,51 @@ func containedShardsAreConsistent(z *rainslib.ZoneSection) bool {
 			}
 		default:
 			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+		}
+	}
+	return true
+}
+
+func containedAssertionsValidObjectType(z *rainslib.AddressZoneSection) bool {
+	for _, a := range z.Content {
+		for _, o := range a.Content {
+			if validObjectType(a.SubjectAddr, o.Type) {
+				log.Warn("Not Allowed object type of contained address assertion.", "objectType", o.Type)
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func validObjectType(subjectAddr *net.IPNet, objectType rainslib.ObjectType) bool {
+	prefixLength, addressLength := subjectAddr.Mask.Size()
+	if addressLength == 32 {
+		if prefixLength == 32 {
+			return objectType == rainslib.OTName
+		}
+		return objectType == rainslib.OTDelegation || objectType == rainslib.OTRedirection || objectType == rainslib.OTRegistrant
+	}
+	if addressLength == 128 {
+		if prefixLength == 128 {
+			return objectType == rainslib.OTName
+		}
+		return objectType == rainslib.OTDelegation || objectType == rainslib.OTRedirection || objectType == rainslib.OTRegistrant
+	}
+	return false
+}
+
+func containedAssertionsWithinNetwork(z *rainslib.AddressZoneSection) bool {
+	zprefix, _ := z.SubjectAddr.Mask.Size()
+	for _, a := range z.Content {
+		aprefix, _ := a.SubjectAddr.Mask.Size()
+		if aprefix < zprefix {
+			log.Warn("Assertion is less specific than zone", "assertion prefix", aprefix, "zone prefix", zprefix)
+			return false
+		}
+		if !z.SubjectAddr.Contains(a.SubjectAddr.IP) {
+			log.Warn("Assertion network is not contained in zone network", "assertion network", a.SubjectAddr, "zone network", z.SubjectAddr)
+			return false
 		}
 	}
 	return true

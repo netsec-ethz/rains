@@ -62,15 +62,9 @@ struct QuerySection  {
 	options @5      :List(Int32);
 }
 
-struct SubjectAddr  {
-	addressFamily @0    :Text;
-	prefixLength  @1    :UInt32;
-	address       @2    :Text;
-}
-
 struct AddressAssertionSection  {
     #AddressAssertionSection contains information about the address assertion
-	subjectAddr @0  :SubjectAddr;
+	subjectAddr @0  :Text;
 	content     @1  :List(Obj);
 	signatures  @2  :List(Signature);
 	context     @3  :Text;
@@ -79,7 +73,7 @@ struct AddressAssertionSection  {
 
 struct AddressZoneSection  {
     #AddressZoneSection contains information about the address zone
-	subjectAddr @0  :SubjectAddr;
+	subjectAddr @0  :Text;
 	signatures  @1  :List(Signature);
 	context     @2  :Text;
 	content     @3  :List(AddressAssertionSection);
@@ -87,7 +81,7 @@ struct AddressZoneSection  {
 
 struct AddressQuerySection  {
     #AddressQuerySection contains information about the address query
-	subjectAddr @0 :SubjectAddr;
+	subjectAddr @0 :Text;
 	token       @1 :Data;
 	context     @2 :Text;
 	types       @3 :Int32;

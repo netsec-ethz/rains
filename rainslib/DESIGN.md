@@ -136,8 +136,12 @@ Every part of an assertion, shard or zone that is in byte format (e.g. a token, 
 The signing format currently defined and used is for: (the expression ()* means that the content in parentheses can occur several times where the parentheses and the star are not part of the string representation. Similarly for `<>`, the word between pointy brackets describes the value which should be there instead)  
 
 - Assertion: `:SA::CN:<context-name>:ZN:<zone-name>:SN:<subject-name>[(Object)*][]`
-- Contained Assertion: `:CA::SN:<subject-name>[(Object)*][]`
+- Contained Assertion: same as Assertion, where the context and zone is inherited from the outer section
 - Object: `:OT:<object type>:OD:<object data>` or in case of a delegation type object `:OT:<object type>:OD:<Signature Algorithm Identifier>:KD:<Key data>`
 - Shard: `:SS::CN:<context-name>:ZN:<zone-name>:RB:<range-begin>:RE:<range-end>[(Contained Assertion)*][]`
-- Contained Shard: `:CS::RB:<range-begin>:RE:<range-end>[(Contained Assertion)*][]`
+- Contained Shard: same as Shard, where the context and zone is inherited from the outer section
 - Zone: `:SZ::CN:<context-name>:ZN:<zone-name>[((Contained Shard|Contained Assertion):::)*][]` The last element is not followed by `:::`
+
+- Address Assertion: `:AA::CN:<context-name>:AF:<address-family>:PL:<prefix-length>:IP:<IP-Address>[(Object)*][]`
+- Contained Address Assertion: same as Address Assertion, where the context is inherited from the Address Zone
+- Address Zone: `:AZ::CN:<context-name>:AF:<address-family>:PL:<prefix-length>:IP:<IP-Address>[(Address Assertion)*][]`

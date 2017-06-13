@@ -61,7 +61,7 @@ func createConnection(receiver rainslib.ConnInfo) (net.Conn, error) {
 		dialer := &net.Dialer{
 			KeepAlive: Config.KeepAlivePeriod,
 		}
-		return tls.DialWithDialer(dialer, "tcp", receiver.String(), &tls.Config{RootCAs: roots})
+		return tls.DialWithDialer(dialer, receiver.TCPAddr.Network(), receiver.String(), &tls.Config{RootCAs: roots})
 	default:
 		return nil, errors.New("No matching type found for Connection info")
 	}
@@ -99,7 +99,7 @@ func Listen() {
 				continue
 			}
 			if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-				connInfo := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: *tcpAddr}
+				connInfo := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr}
 				connCache.Add(AddressPair{local: serverConnInfo, remote: connInfo}, conn)
 				go handleConnection(conn, connInfo)
 			} else {
@@ -116,27 +116,10 @@ func handleConnection(conn net.Conn, client rainslib.ConnInfo) {
 	var framer rainslib.MsgFramer
 	framer = new(protoParser.ProtoParserAndFramer)
 	framer.InitStreams(conn, nil)
-	for framer.Deframe() {
+	for framer.DeFrame() {
 		log.Info("Received a message", "client", client)
 		deliver(framer.Data(), client)
 		conn.SetDeadline(time.Now().Add(Config.TCPTimeout))
 	}
 	//TODO CFE should we be able to remove this connection from the connCache?
-}
-
-//parseRemoteAddr translates an address obtained from net.Conn.RemoteAddr() to the internal representation ConnInfo
-//Deprecated remove if capnproto parser works
-func parseRemoteAddr(netAddr net.Addr) rainslib.ConnInfo {
-	/*switch netAddr.Network() {
-	case "tcp", "tcp4", "tcp6":
-		tcpAddr, err := net.ResolveTCPAddr(netAddr.Network(), netAddr.String())
-		if err != nil {
-			log.Warn("tcp address malfomred")
-		}
-		return rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: *tcpAddr}
-	default:
-		log.Warn("Not yet supported network protocol")
-
-	}*/
-	return rainslib.ConnInfo{}
 }

@@ -87,10 +87,12 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 	//handle message content
 	for _, m := range msg.Content {
 		switch m := m.(type) {
-		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection:
+		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.AddressAssertionSection, *rainslib.AddressZoneSection:
 			addMsgSectionToQueue(m, msg.Token, sender)
 		case *rainslib.QuerySection:
-			addQueryToQueue(m, msg, sender)
+			addQueryToQueue(m.Token, msg.Token, m, sender)
+		case *rainslib.AddressQuerySection:
+			addQueryToQueue(m.Token, msg.Token, m, sender)
 		case *rainslib.NotificationSection:
 			addNotificationToQueue(m, msg.Token, sender)
 		default:
@@ -157,15 +159,15 @@ func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token
 }
 
 //addQueryToQueue checks that the token of the message and of the query section are the same and if so adds it to a queue
-func addQueryToQueue(section *rainslib.QuerySection, msg rainslib.RainsMessage, sender rainslib.ConnInfo) {
-	if msg.Token == section.Token {
+func addQueryToQueue(queryToken, msgToken rainslib.Token, section rainslib.MessageSection, sender rainslib.ConnInfo) {
+	if msgToken == queryToken {
 		log.Debug("add query to normal queue")
-		normalChannel <- msgSectionSender{Sender: sender, Section: section, Token: msg.Token}
+		normalChannel <- msgSectionSender{Sender: sender, Section: section, Token: msgToken}
 	} else {
-		log.Warn("Token of message and query section do not match.", "msgToken", msg.Token, "querySectionToken", section.Token)
+		log.Warn("Token of message and query section do not match.", "msgToken", msgToken, "querySectionToken", queryToken)
 		//Tokens do not match in query. We do not know which one is valid. Send BadMessage Notification back to both tokens
-		sendNotificationMsg(msg.Token, sender, rainslib.BadMessage)
-		sendNotificationMsg(section.Token, sender, rainslib.BadMessage)
+		sendNotificationMsg(msgToken, sender, rainslib.BadMessage)
+		sendNotificationMsg(queryToken, sender, rainslib.BadMessage)
 	}
 }
 

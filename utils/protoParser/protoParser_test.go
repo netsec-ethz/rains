@@ -1,6 +1,7 @@
 package protoParser
 
 import (
+	"net"
 	"rains/rainslib"
 	"testing"
 )
@@ -51,17 +52,9 @@ func TestEncodeAndDecode(t *testing.T) {
 		ValidUntil: 2000,
 		Data:       []byte("SignatureData")}
 
-	subjectAddress1 := rainslib.SubjectAddr{
-		AddressFamily: "ip4",
-		PrefixLength:  32,
-		Address:       "127.0.0.1",
-	}
-
-	subjectAddress2 := rainslib.SubjectAddr{
-		AddressFamily: "ip4",
-		PrefixLength:  24,
-		Address:       "127.0.0.1",
-	}
+	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
+	_, subjectAddress2, _ := net.ParseCIDR("127.0.0.1/24")
+	_, subjectAddress3, _ := net.ParseCIDR("2001:db8::/32")
 
 	assertion := &rainslib.AssertionSection{
 		Content: []rainslib.Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject, registrarObject,
@@ -117,6 +110,13 @@ func TestEncodeAndDecode(t *testing.T) {
 		Signatures:  []rainslib.Signature{signature},
 	}
 
+	addressAssertion3 := &rainslib.AddressAssertionSection{
+		SubjectAddr: subjectAddress3,
+		Context:     ".",
+		Content:     []rainslib.Object{redirObject, delegObject, registrantObject},
+		Signatures:  []rainslib.Signature{signature},
+	}
+
 	addressZone := &rainslib.AddressZoneSection{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
@@ -134,7 +134,18 @@ func TestEncodeAndDecode(t *testing.T) {
 	}
 
 	message := rainslib.RainsMessage{
-		Content:      []rainslib.MessageSection{assertion, shard, zone, query, notification, addressAssertion1, addressAssertion2, addressZone, addressQuery},
+		Content: []rainslib.MessageSection{
+			assertion,
+			shard,
+			zone,
+			query,
+			notification,
+			addressAssertion1,
+			addressAssertion2,
+			addressAssertion3,
+			addressZone,
+			addressQuery,
+		},
 		Token:        rainslib.GenerateToken(),
 		Capabilities: []rainslib.Capability{rainslib.Capability("Test"), rainslib.Capability("Yes!")},
 		Signatures:   []rainslib.Signature{signature},
@@ -412,15 +423,9 @@ func checkAddressQuery(q1, q2 *rainslib.AddressQuerySection, t *testing.T) {
 	checkSubjectAddress(q1.SubjectAddr, q2.SubjectAddr, t)
 }
 
-func checkSubjectAddress(a1, a2 rainslib.SubjectAddr, t *testing.T) {
-	if a1.AddressFamily != a2.AddressFamily {
-		t.Error("SubjectAddr AddressFamily mismatch")
-	}
-	if a1.PrefixLength != a2.PrefixLength {
-		t.Error("SubjectAddr PrefixLength mismatch")
-	}
-	if a1.Address != a2.Address {
-		t.Error("SubjectAddr Address mismatch")
+func checkSubjectAddress(a1, a2 *net.IPNet, t *testing.T) {
+	if a1.String() != a2.String() {
+		t.Error("SubjectAddr mismatch")
 	}
 }
 

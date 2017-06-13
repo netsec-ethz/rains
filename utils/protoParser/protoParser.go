@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"rains/proto"
 	"rains/rainslib"
 	"strconv"
@@ -41,15 +42,19 @@ func (p *ProtoParserAndFramer) InitStreams(streamReader io.Reader, streamWriter 
 	p.encoder = capnp.NewEncoder(streamWriter)
 }
 
-//Deframe extracts the next frame from the streamReader defined in InitStream().
+//DeFrame extracts the next frame from the streamReader defined in InitStream().
 //It blocks until it encounters the delimiter.
-//It returns false when the stream was not initialized or is already closed.
+//It returns false when the stream is already closed.
 //The data is available through Data
-func (p *ProtoParserAndFramer) Deframe() bool {
+func (p *ProtoParserAndFramer) DeFrame() bool {
 	msg, err := p.decoder.Decode()
 	if err != nil {
+		if err == io.EOF {
+			log.Debug("Connection has been closed.")
+			return false
+		}
 		log.Warn("Was not able to decode msg", "error", err)
-		return false
+		return true
 	}
 	p.data = msg
 	return true
@@ -325,11 +330,10 @@ func encodeAddressAssertion(a *rainslib.AddressAssertionSection, seg *capnp.Segm
 	}
 	encodeObjects(a.Content, &contentList, seg)
 
-	sa, err := encodeSubjectAddress(a.SubjectAddr, seg)
+	err = assertion.SetSubjectAddr(a.SubjectAddr.String())
 	if err != nil {
 		return proto.MessageSection{}, err
 	}
-	assertion.SetSubjectAddr(sa)
 
 	return msgSection, nil
 }
@@ -355,11 +359,10 @@ func encodeAddressZone(z *rainslib.AddressZoneSection, seg *capnp.Segment) (prot
 		return proto.MessageSection{}, err
 	}
 
-	sa, err := encodeSubjectAddress(z.SubjectAddr, seg)
+	err = zone.SetSubjectAddr(z.SubjectAddr.String())
 	if err != nil {
 		return proto.MessageSection{}, err
 	}
-	zone.SetSubjectAddr(sa)
 
 	contentList, err := zone.NewContent(int32(len(z.Content)))
 	if err != nil {
@@ -405,11 +408,10 @@ func encodeAddressQuery(q *rainslib.AddressQuerySection, seg *capnp.Segment) (pr
 	}
 	query.SetOptions(qoList)
 
-	sa, err := encodeSubjectAddress(q.SubjectAddr, seg)
+	err = query.SetSubjectAddr(q.SubjectAddr.String())
 	if err != nil {
 		return proto.MessageSection{}, err
 	}
-	query.SetSubjectAddr(sa)
 	return msgSection, nil
 }
 
@@ -557,17 +559,6 @@ func encodePublicKey(publicKey rainslib.PublicKey, pubKey proto.PublicKey) error
 	}
 
 	return nil
-}
-
-func encodeSubjectAddress(subjectAddress rainslib.SubjectAddr, seg *capnp.Segment) (proto.SubjectAddr, error) {
-	sa, err := proto.NewSubjectAddr(seg)
-	if err != nil {
-		return proto.SubjectAddr{}, err
-	}
-	sa.SetAddress(subjectAddress.Address)
-	sa.SetAddressFamily(subjectAddress.AddressFamily)
-	sa.SetPrefixLength(uint32(subjectAddress.PrefixLength))
-	return sa, nil
 }
 
 //Decode uses capnproto to decode and deframe the message.
@@ -860,14 +851,14 @@ func decodeNotification(n proto.NotificationSection) (*rainslib.NotificationSect
 func decodeAddressAssertion(a proto.AddressAssertionSection) (*rainslib.AddressAssertionSection, error) {
 	assertion := rainslib.AddressAssertionSection{}
 
-	addr, err := a.SubjectAddr()
+	ipCIDR, err := a.SubjectAddr()
 	if err != nil {
 		log.Warn("Was not able to decode subjectAddr", "error", err)
 		return nil, err
 	}
-	assertion.SubjectAddr, err = decodeSubjectAddress(addr)
+	_, assertion.SubjectAddr, err = net.ParseCIDR(ipCIDR)
 	if err != nil {
-		log.Warn("Could not decode subjectAddr", "error", err)
+		log.Warn("Could not parse IP in CIDR notation to *net.IPNet", "address", ipCIDR, "error", err)
 		return nil, err
 	}
 
@@ -903,14 +894,14 @@ func decodeAddressAssertion(a proto.AddressAssertionSection) (*rainslib.AddressA
 func decodeAddressZone(z proto.AddressZoneSection) (*rainslib.AddressZoneSection, error) {
 	zone := rainslib.AddressZoneSection{}
 
-	addr, err := z.SubjectAddr()
+	ipCIDR, err := z.SubjectAddr()
 	if err != nil {
 		log.Warn("Was not able to decode subjectAddr", "error", err)
 		return nil, err
 	}
-	zone.SubjectAddr, err = decodeSubjectAddress(addr)
+	_, zone.SubjectAddr, err = net.ParseCIDR(ipCIDR)
 	if err != nil {
-		log.Warn("Could not decode subjectAddr", "error", err)
+		log.Warn("Could not parse IP in CIDR notation to *net.IPNet", "address", ipCIDR, "error", err)
 		return nil, err
 	}
 
@@ -952,14 +943,14 @@ func decodeAddressQuery(q proto.AddressQuerySection) (*rainslib.AddressQuerySect
 	query.Expires = q.Expires()
 	query.Types = rainslib.ObjectType(q.Types())
 
-	addr, err := q.SubjectAddr()
+	ipCIDR, err := q.SubjectAddr()
 	if err != nil {
 		log.Warn("Was not able to decode subjectAddr", "error", err)
 		return nil, err
 	}
-	query.SubjectAddr, err = decodeSubjectAddress(addr)
+	_, query.SubjectAddr, err = net.ParseCIDR(ipCIDR)
 	if err != nil {
-		log.Warn("Could not decode subjectAddr", "error", err)
+		log.Warn("Could not parse IP in CIDR notation to *net.IPNet", "address", ipCIDR, "error", err)
 		return nil, err
 	}
 
@@ -1316,27 +1307,6 @@ func decodePublicKey(pkey proto.PublicKey) (rainslib.PublicKey, error) {
 		return rainslib.PublicKey{}, errors.New("Unsupported public key type")
 	}
 	return publicKey, nil
-}
-
-func decodeSubjectAddress(addr proto.SubjectAddr) (rainslib.SubjectAddr, error) {
-	subjectAddr := rainslib.SubjectAddr{}
-	var err error
-
-	subjectAddr.PrefixLength = uint(addr.PrefixLength())
-
-	subjectAddr.AddressFamily, err = addr.AddressFamily()
-	if err != nil {
-		log.Warn("Could not decode address family", "error", err)
-		return rainslib.SubjectAddr{}, err
-	}
-
-	subjectAddr.Address, err = addr.Address()
-	if err != nil {
-		log.Warn("Could not decode address", "error", err)
-		return rainslib.SubjectAddr{}, err
-	}
-
-	return subjectAddr, nil
 }
 
 //Token returns the extracted token from the given msg or an error
