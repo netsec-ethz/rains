@@ -169,16 +169,17 @@ func decodeObjects(scanner *WordScanner) ([]rainslib.Object, error) {
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTInfraKey, Value: infrastructureKey})
 		case typeExternalKey:
-			keySpace, err := decodeKeySpace(scanner)
+			extraKey, err := decodeExternalKey(scanner)
 			if err != nil {
 				return nil, err
 			}
-			extraKey, err := decodePublicKey(scanner)
-			if err != nil {
-				return nil, err
-			}
-			extraKey.KeySpace = keySpace
 			objects = append(objects, rainslib.Object{Type: rainslib.OTExtraKey, Value: extraKey})
+		case typeNextKey:
+			nextKey, err := decodeNextKey(scanner)
+			if err != nil {
+				return nil, err
+			}
+			objects = append(objects, rainslib.Object{Type: rainslib.OTNextKey, Value: nextKey})
 		default:
 			lineNrLogger.Error("zonFile malformed.", "expected", ":<objectType>: (e.g. :ip4:)", "got", scanner.Text())
 			return nil, errors.New("ZoneFile malformed")
@@ -384,13 +385,38 @@ func decodeFreeText(scanner *WordScanner) string {
 	return text[:len(text)-1] //remove last space
 }
 
-func decodeKeySpace(scanner *WordScanner) (rainslib.KeySpaceID, error) {
+func decodeExternalKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	scanner.Scan()
+	var keySpace rainslib.KeySpaceID
 	switch scanner.Text() {
 	case ksRains:
-		return rainslib.RainsKeySpace, nil
+		keySpace = rainslib.RainsKeySpace
 	default:
 		log.Warn("Unsupported key space type", "actualType", scanner.Text())
+		return rainslib.PublicKey{}, errors.New("Unsupported key space type")
 	}
-	return -1, errors.New("Unsupported key space type")
+	extra, err := decodePublicKey(scanner)
+	if err != nil {
+		return rainslib.PublicKey{}, err
+	}
+	extra.KeySpace = keySpace
+	return extra, nil
+}
+
+func decodeNextKey(scanner *WordScanner) (rainslib.PublicKey, error) {
+	nextKey, err := decodePublicKey(scanner)
+	if err != nil {
+		return rainslib.PublicKey{}, err
+	}
+	scanner.Scan()
+	nextKey.ValidSince, err = strconv.ParseInt(scanner.Text(), 10, 64)
+	if err != nil {
+		return rainslib.PublicKey{}, err
+	}
+	scanner.Scan()
+	nextKey.ValidUntil, err = strconv.ParseInt(scanner.Text(), 10, 64)
+	if err != nil {
+		return rainslib.PublicKey{}, err
+	}
+	return nextKey, nil
 }

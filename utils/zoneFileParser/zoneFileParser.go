@@ -19,6 +19,7 @@ const (
 	typeRegistrant  = ":regt:"
 	typeInfraKey    = ":infra:"
 	typeExternalKey = ":extra:"
+	typeNextKey     = ":next:"
 	keyAlgoed25519  = "ed25519"
 	keyAlgoed448    = "ed448"
 	keyAlgoecdsa256 = "ecdsa256"
@@ -43,6 +44,7 @@ const (
 	otRegistrant    = "regt"
 	otInfraKey      = "infra"
 	otExternalKey   = "extra"
+	otNextKey       = "next"
 	ksRains         = "rains"
 	indent4         = "    "
 	indent8         = indent4 + indent4

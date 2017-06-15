@@ -503,6 +503,7 @@ const (
 	OTRegistrant  ObjectType = 10
 	OTInfraKey    ObjectType = 11
 	OTExtraKey    ObjectType = 12
+	OTNextKey     ObjectType = 13
 )
 
 //AddressAssertionSection contains information about the address assertion

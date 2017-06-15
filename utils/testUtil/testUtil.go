@@ -356,6 +356,10 @@ func CheckObjects(objs1, objs2 []rainslib.Object, t *testing.T) {
 			CheckPublicKey(o1.Value.(rainslib.PublicKey), o2.Value.(rainslib.PublicKey), t)
 		case rainslib.OTExtraKey:
 			CheckPublicKey(o1.Value.(rainslib.PublicKey), o2.Value.(rainslib.PublicKey), t)
+		case rainslib.OTNextKey:
+			CheckPublicKey(o1.Value.(rainslib.PublicKey), o2.Value.(rainslib.PublicKey), t)
+		default:
+			t.Errorf("Unsupported object type. got=%T", o1.Type)
 		}
 	}
 }

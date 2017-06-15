@@ -1,40 +1,11 @@
 package zoneFileParser
 
 import (
+	"fmt"
 	"rains/rainslib"
 	"rains/utils/testUtil"
 	"testing"
-
-	"fmt"
 )
-
-func TestParseZoneFile(t *testing.T) {
-	/*test_zone_1 := `
-					:Z: . example.com [
-						:S: [
-							:A: _smtp._tcp [ :srv: mx 25 10 ]
-							:A: foobaz [
-								:ip4: 192.0.2.33
-								:ip6: 2001:db8:cffe:7ea::33
-							]
-							:A: quuxnorg [
-								:ip4: 192.0.3.33
-								:ip6: 2001:db8:cffe:7eb::33
-							]
-						]
-					]
-					`
-	parser := Parser{}
-	assertions, err := parser.Decode([]byte(test_zone_1), "")
-	if err != nil {
-		log.Warn(err.Error())
-
-	} else {
-		for _, a := range assertions {
-			log.Info(a.Hash())
-		}
-	}*/
-}
 
 func TestEncoder(t *testing.T) {
 	nameObjectContent := rainslib.NameObject{
@@ -47,6 +18,13 @@ func TestEncoder(t *testing.T) {
 		KeySpace: rainslib.RainsKeySpace,
 		Type:     rainslib.Ed25519,
 		Key:      ed25519Pkey,
+	}
+	publicKeyWithValidity := rainslib.PublicKey{
+		KeySpace:   rainslib.RainsKeySpace,
+		Type:       rainslib.Ed25519,
+		Key:        ed25519Pkey,
+		ValidSince: 1000,
+		ValidUntil: 20000,
 	}
 	certificate := rainslib.CertificateObject{
 		Type:     rainslib.PTTLS,
@@ -72,6 +50,7 @@ func TestEncoder(t *testing.T) {
 	registrantObject := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}
 	infraObject := rainslib.Object{Type: rainslib.OTInfraKey, Value: publicKey}
 	extraObject := rainslib.Object{Type: rainslib.OTExtraKey, Value: publicKey}
+	nextKey := rainslib.Object{Type: rainslib.OTNextKey, Value: publicKeyWithValidity}
 
 	signature := rainslib.Signature{
 		KeySpace:   rainslib.RainsKeySpace,
@@ -82,7 +61,7 @@ func TestEncoder(t *testing.T) {
 
 	containedAssertion := &rainslib.AssertionSection{
 		Content: []rainslib.Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject, registrarObject,
-			registrantObject, infraObject, extraObject},
+			registrantObject, infraObject, extraObject, nextKey},
 		Context:     "",
 		SubjectName: "ethz",
 		SubjectZone: "",
@@ -115,7 +94,7 @@ func TestEncoder(t *testing.T) {
 
 	compareAssertion := &rainslib.AssertionSection{
 		Content: []rainslib.Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject, registrarObject,
-			registrantObject, infraObject, extraObject},
+			registrantObject, infraObject, extraObject, nextKey},
 		Context:     ".",
 		SubjectName: "ethz",
 		SubjectZone: "ch",

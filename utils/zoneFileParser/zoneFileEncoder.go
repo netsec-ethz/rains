@@ -96,6 +96,12 @@ func encodeObjects(o []rainslib.Object, indent string) string {
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+		case rainslib.OTNextKey:
+			if pkey, ok := obj.Value.(rainslib.PublicKey); ok {
+				objects += fmt.Sprintf("%s    %s %d %d\n", typeNextKey, encodePublicKey(pkey), pkey.ValidSince, pkey.ValidUntil)
+				continue
+			}
+			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
 		default:
 			log.Warn("Unsupported obj type", "type", fmt.Sprintf("%T", obj.Type))
 		}
