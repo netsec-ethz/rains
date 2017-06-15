@@ -81,6 +81,7 @@ func CheckMessage(m1, m2 rainslib.RainsMessage, t *testing.T) {
 func CheckSignatures(s1, s2 []rainslib.Signature, t *testing.T) {
 	if len(s1) != len(s2) {
 		t.Error("Signature count mismatch")
+		return
 	}
 	for i := 0; i < len(s1); i++ {
 		if s1[i].Algorithm != s2[i].Algorithm {
@@ -113,13 +114,13 @@ func CheckSignatures(s1, s2 []rainslib.Signature, t *testing.T) {
 
 func CheckAssertion(a1, a2 *rainslib.AssertionSection, t *testing.T) {
 	if a1.Context != a2.Context {
-		t.Error("Assertion Context mismatch")
+		t.Errorf("Assertion Context mismatch a1.Context=%s a2.Context=%s", a1.Context, a2.Context)
 	}
 	if a1.SubjectZone != a2.SubjectZone {
-		t.Error("Assertion SubjectZone mismatch")
+		t.Errorf("Assertion SubjectZone mismatch a1.SubjectZone=%s a2.SubjectZone=%s", a1.SubjectZone, a2.SubjectZone)
 	}
 	if a1.SubjectName != a2.SubjectName {
-		t.Error("Assertion SubjectName mismatch")
+		t.Errorf("Assertion SubjectName mismatch a1.SubjectName=%s a2.SubjectName=%s", a1.SubjectName, a2.SubjectName)
 	}
 	CheckSignatures(a1.Signatures, a2.Signatures, t)
 	CheckObjects(a1.Content, a2.Content, t)
@@ -309,7 +310,7 @@ func CheckObjects(objs1, objs2 []rainslib.Object, t *testing.T) {
 			CheckPublicKey(o1.Value.(rainslib.PublicKey), o2.Value.(rainslib.PublicKey), t)
 		case rainslib.OTNameset:
 			if o1.Value.(rainslib.NamesetExpression) != o2.Value.(rainslib.NamesetExpression) {
-				t.Errorf("Object Value nameSet mismatch at position %d", i)
+				t.Errorf("Object Value nameSet mismatch at position %d  of content slice. v1=%s v2=%s", i, o1.Value, o2.Value)
 			}
 		case rainslib.OTCertInfo:
 			c1 := o1.Value.(rainslib.CertificateObject)
@@ -345,11 +346,11 @@ func CheckObjects(objs1, objs2 []rainslib.Object, t *testing.T) {
 			}
 		case rainslib.OTRegistrar:
 			if o1.Value.(string) != o2.Value.(string) {
-				t.Errorf("Object Value registrar mismatch at position %d", i)
+				t.Errorf("Object Value registrar mismatch at position %d of content slice. v1=%s v2=%s", i, o1.Value, o2.Value)
 			}
 		case rainslib.OTRegistrant:
 			if o1.Value.(string) != o2.Value.(string) {
-				t.Errorf("Object Value registrant mismatch at position %d", i)
+				t.Errorf("Object Value registrant mismatch at position %d of content slice. v1=%s v2=%s", i, o1.Value, o2.Value)
 			}
 		case rainslib.OTInfraKey:
 			CheckPublicKey(o1.Value.(rainslib.PublicKey), o2.Value.(rainslib.PublicKey), t)
@@ -361,16 +362,16 @@ func CheckObjects(objs1, objs2 []rainslib.Object, t *testing.T) {
 
 func CheckPublicKey(p1, p2 rainslib.PublicKey, t *testing.T) {
 	if p1.KeySpace != p2.KeySpace {
-		t.Error("SubjectAddr KeySpace mismatch")
+		t.Error("PublicKey KeySpace mismatch")
 	}
 	if p1.Type != p2.Type {
-		t.Error("SubjectAddr Type mismatch")
+		t.Error("PublicKey Type mismatch")
 	}
 	if p1.ValidSince != p2.ValidSince {
-		t.Error("SubjectAddr ValidSince mismatch")
+		t.Errorf("PublicKey ValidSince mismatch. p1.ValidSince=%v p2.ValidSince=%v", p1.ValidSince, p2.ValidSince)
 	}
 	if p1.ValidUntil != p2.ValidUntil {
-		t.Error("SubjectAddr ValidUntil mismatch")
+		t.Errorf("PublicKey ValidUntil mismatch. p1.ValidUntil=%v p2.ValidUntil=%v", p1.ValidUntil, p2.ValidUntil)
 	}
 	switch p1 := p1.Key.(type) {
 	case rainslib.Ed25519PublicKey:

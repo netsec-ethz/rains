@@ -56,8 +56,15 @@ func decodeZone(scanner *WordScanner) ([]*rainslib.AssertionSection, error) {
 //decodeShard decodes the shard's content and returns all contained assertions
 func decodeShard(context, zone string, scanner *WordScanner) ([]*rainslib.AssertionSection, error) {
 	assertions := []*rainslib.AssertionSection{}
-	scanner.Scan()
-	if scanner.Text() != "[" {
+	missingBracket := true
+	for i := 0; i < 5; i++ {
+		scanner.Scan()
+		if scanner.Text() == "[" {
+			missingBracket = false
+			break
+		}
+	}
+	if missingBracket {
 		lineNrLogger.Error("zonFile malformed.", "expected", "[", "got", scanner.Text())
 		return []*rainslib.AssertionSection{}, errors.New("ZoneFile malformed")
 	}
@@ -86,6 +93,16 @@ func decodeAssertion(context, zone string, scanner *WordScanner) (*rainslib.Asse
 		lineNrLogger.Error("zonFile malformed.", "expected", "[", "got", scanner.Text())
 		return &rainslib.AssertionSection{}, errors.New("ZoneFile malformed")
 	}
+	objects, err := decodeObjects(scanner)
+	if err != nil {
+		return nil, err
+	}
+	a := &rainslib.AssertionSection{Context: context, SubjectZone: zone, SubjectName: name, Content: objects}
+	log.Debug("decoded Assertion", "assertion", *a)
+	return a, nil
+}
+
+func decodeObjects(scanner *WordScanner) ([]rainslib.Object, error) {
 	scanner.Scan()
 	objects := []rainslib.Object{}
 	for scanner.Text() != "]" {
@@ -112,7 +129,7 @@ func decodeAssertion(context, zone string, scanner *WordScanner) (*rainslib.Asse
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTDelegation, Value: delegation})
 		case typeNameSet:
-			objects = append(objects, rainslib.Object{Type: rainslib.OTNameset, Value: decodeFreeText(scanner)})
+			objects = append(objects, rainslib.Object{Type: rainslib.OTNameset, Value: rainslib.NamesetExpression(decodeFreeText(scanner))})
 			continue
 		case typeCertificate:
 			cert, err := decodeCertObject(scanner)
@@ -168,9 +185,7 @@ func decodeAssertion(context, zone string, scanner *WordScanner) (*rainslib.Asse
 		}
 		scanner.Scan() //scan next object type
 	}
-	a := &rainslib.AssertionSection{Context: context, SubjectZone: zone, SubjectName: name, Content: objects}
-	log.Debug("decoded Assertion", "assertion", *a)
-	return a, nil
+	return objects, nil
 }
 
 //decodeNameObject decodes a nameObject
@@ -366,7 +381,7 @@ func decodeFreeText(scanner *WordScanner) string {
 		text += fmt.Sprintf("%s ", scanner.Text())
 		scanner.Scan()
 	}
-	return text
+	return text[:len(text)-1] //remove last space
 }
 
 func decodeKeySpace(scanner *WordScanner) (rainslib.KeySpaceID, error) {

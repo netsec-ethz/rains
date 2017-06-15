@@ -44,11 +44,9 @@ func TestEncoder(t *testing.T) {
 	var ed25519Pkey rainslib.Ed25519PublicKey
 	copy(ed25519Pkey[:], []byte("01234567890123456789012345678901"))
 	publicKey := rainslib.PublicKey{
-		KeySpace:   rainslib.RainsKeySpace,
-		Type:       rainslib.Ed25519,
-		Key:        ed25519Pkey,
-		ValidSince: 10000,
-		ValidUntil: 50000,
+		KeySpace: rainslib.RainsKeySpace,
+		Type:     rainslib.Ed25519,
+		Key:      ed25519Pkey,
 	}
 	certificate := rainslib.CertificateObject{
 		Type:     rainslib.PTTLS,
@@ -82,7 +80,7 @@ func TestEncoder(t *testing.T) {
 		ValidUntil: 2000,
 		Data:       []byte("SignatureData")}
 
-	assertion := &rainslib.AssertionSection{
+	containedAssertion := &rainslib.AssertionSection{
 		Content: []rainslib.Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject, registrarObject,
 			registrantObject, infraObject, extraObject},
 		Context:     "",
@@ -92,7 +90,7 @@ func TestEncoder(t *testing.T) {
 	}
 
 	shard := &rainslib.ShardSection{
-		Content:     []*rainslib.AssertionSection{assertion},
+		Content:     []*rainslib.AssertionSection{containedAssertion},
 		Context:     ".",
 		SubjectZone: "ch",
 		RangeFrom:   "aaa",
@@ -101,7 +99,7 @@ func TestEncoder(t *testing.T) {
 	}
 
 	zone := &rainslib.ZoneSection{
-		Content:     []rainslib.MessageSectionWithSig{assertion, shard},
+		Content:     []rainslib.MessageSectionWithSig{containedAssertion, shard},
 		Context:     ".",
 		SubjectZone: "ch",
 		Signatures:  []rainslib.Signature{signature},
@@ -114,6 +112,15 @@ func TestEncoder(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	testUtil.CheckAssertion(assertion, assertions[0], t)
+
+	compareAssertion := &rainslib.AssertionSection{
+		Content: []rainslib.Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject, registrarObject,
+			registrantObject, infraObject, extraObject},
+		Context:     ".",
+		SubjectName: "ethz",
+		SubjectZone: "ch",
+		//no signature is decoded it is generated in rainspub
+	}
+	testUtil.CheckAssertion(compareAssertion, assertions[0], t)
 
 }
