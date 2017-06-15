@@ -45,6 +45,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	registrantObject := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}
 	infraObject := rainslib.Object{Type: rainslib.OTInfraKey, Value: publicKey}
 	extraObject := rainslib.Object{Type: rainslib.OTExtraKey, Value: publicKey}
+	nextKey := rainslib.Object{Type: rainslib.OTNextKey, Value: publicKey}
 
 	signature := rainslib.Signature{
 		KeySpace:   rainslib.RainsKeySpace,
@@ -59,7 +60,7 @@ func TestEncodeAndDecode(t *testing.T) {
 
 	assertion := &rainslib.AssertionSection{
 		Content: []rainslib.Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject, registrarObject,
-			registrantObject, infraObject, extraObject},
+			registrantObject, infraObject, extraObject, nextKey},
 		Context:     ".",
 		SubjectName: "ethz",
 		SubjectZone: "ch",
