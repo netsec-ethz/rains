@@ -49,7 +49,7 @@ func initEngine() error {
 		return err
 	}
 
-	addressCache = new(binaryTrie.Trie)
+	addressCache = new(binaryTrie.TrieNode)
 
 	go reapEngine()
 
@@ -318,7 +318,7 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo)
 	}
 	log.Debug("No entry found in address cache matching the query")
 
-	if query.ContainsOption(rainslib.CachedAnswersOnly) {
+	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
 		log.Debug("Send a notification message back to the sender due to query option: 'Cached Answers only'")
 		sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
 		log.Debug("Finished handling query (unsuccessful) ", "query", query)
@@ -333,7 +333,7 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo)
 	}
 	//we have a valid delegation
 	token := query.Token
-	if !query.ContainsOption(rainslib.TokenTracing) {
+	if !query.ContainsOption(rainslib.QOTokenTracing) {
 		token = rainslib.GenerateToken()
 	}
 	validUntil := time.Now().Add(Config.AssertionQueryValidity).Unix() //Upper bound for forwarded query expiration time
@@ -351,7 +351,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo) {
 	log.Debug("Start processing query", "query", query)
 	zoneAndNames := getZoneAndName(query.Name)
 	for _, zAn := range zoneAndNames {
-		assertions, ok := assertionsCache.Get(query.Context, zAn.zone, zAn.name, query.Type, query.ContainsOption(rainslib.ExpiredAssertionsOk))
+		assertions, ok := assertionsCache.Get(query.Context, zAn.zone, zAn.name, query.Type, query.ContainsOption(rainslib.QOExpiredAssertionsOk))
 		//TODO CFE add heuristic which assertion to return
 		if ok {
 			sendQueryAnswer(assertions[0], sender, query.Token)
@@ -371,7 +371,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo) {
 	}
 	log.Debug("No entry found in negAssertion cache matching the query")
 
-	if query.ContainsOption(rainslib.CachedAnswersOnly) {
+	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
 		log.Debug("Send a notification message back to the sender due to query option: 'Cached Answers only'")
 		sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
 		log.Debug("Finished handling query (unsuccessful) ", "query", query)
@@ -386,7 +386,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo) {
 		}
 		//we have a valid delegation
 		token := query.Token
-		if !query.ContainsOption(rainslib.TokenTracing) {
+		if !query.ContainsOption(rainslib.QOTokenTracing) {
 			token = rainslib.GenerateToken()
 		}
 		validUntil := time.Now().Add(Config.AssertionQueryValidity).Unix() //Upper bound for forwarded query expiration time

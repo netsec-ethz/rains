@@ -474,14 +474,14 @@ func (q QuerySection) ContainsOption(option QueryOption) bool {
 type QueryOption int
 
 const (
-	MinE2ELatency            QueryOption = 1
-	MinLastHopAnswerSize     QueryOption = 2
-	MinInfoLeakage           QueryOption = 3
-	CachedAnswersOnly        QueryOption = 4
-	ExpiredAssertionsOk      QueryOption = 5
-	TokenTracing             QueryOption = 6
-	NoVerificationDelegation QueryOption = 7
-	NoProactiveCaching       QueryOption = 8
+	QOMinE2ELatency            QueryOption = 1
+	QOMinLastHopAnswerSize     QueryOption = 2
+	QOMinInfoLeakage           QueryOption = 3
+	QOCachedAnswersOnly        QueryOption = 4
+	QOExpiredAssertionsOk      QueryOption = 5
+	QOTokenTracing             QueryOption = 6
+	QONoVerificationDelegation QueryOption = 7
+	QONoProactiveCaching       QueryOption = 8
 )
 
 type ObjectType int

@@ -86,7 +86,7 @@ func TestEncodeAndDecode(t *testing.T) {
 		Context: ".",
 		Expires: 159159,
 		Name:    "ethz.ch",
-		Options: []rainslib.QueryOption{rainslib.MinE2ELatency, rainslib.MinInfoLeakage},
+		Options: []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
 		Token:   rainslib.GenerateToken(),
 		Type:    rainslib.OTIP4Addr,
 	}
@@ -131,7 +131,7 @@ func TestEncodeAndDecode(t *testing.T) {
 		Expires:     7564859,
 		Token:       rainslib.GenerateToken(),
 		Types:       rainslib.OTName,
-		Options:     []rainslib.QueryOption{rainslib.MinE2ELatency, rainslib.MinInfoLeakage},
+		Options:     []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
 	}
 
 	message := rainslib.RainsMessage{
