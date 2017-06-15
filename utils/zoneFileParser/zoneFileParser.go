@@ -64,7 +64,7 @@ var lineNrLogger log.Logger
 
 //Encode returns the given zone represented in the zone file format
 func (p Parser) Encode(zone *rainslib.ZoneSection) string {
-	return encodeZone(zone, false)
+	return EncodeZone(zone, false)
 }
 
 //Decode returns all assertions contained in the given zonefile

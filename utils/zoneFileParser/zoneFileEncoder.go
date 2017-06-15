@@ -9,16 +9,16 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
-func encodeZone(z *rainslib.ZoneSection, toSign bool) string {
+func EncodeZone(z *rainslib.ZoneSection, toSign bool) string {
 	zone := fmt.Sprintf(":Z: %s %s [\n", z.Context, z.SubjectZone)
 	for _, section := range z.Content {
 		switch section := section.(type) {
 		case *rainslib.AssertionSection:
 			context, subjectZone := getContextAndZone(z.Context, z.SubjectZone, section, toSign)
-			zone += fmt.Sprintf("    %s\n", encodeAssertion(section, context, subjectZone, indent4))
+			zone += fmt.Sprintf("    %s\n", EncodeAssertion(section, context, subjectZone, indent4))
 		case *rainslib.ShardSection:
 			context, subjectZone := getContextAndZone(z.Context, z.SubjectZone, section, toSign)
-			zone += fmt.Sprintf("    %s\n", encodeShard(section, context, subjectZone, toSign))
+			zone += fmt.Sprintf("    %s\n", EncodeShard(section, context, subjectZone, toSign))
 		default:
 			log.Warn("Unsupported message section type", "msgSection", section)
 		}
@@ -26,16 +26,16 @@ func encodeZone(z *rainslib.ZoneSection, toSign bool) string {
 	return fmt.Sprintf("%s]", zone)
 }
 
-func encodeShard(s *rainslib.ShardSection, context, zone string, toSign bool) string {
+func EncodeShard(s *rainslib.ShardSection, context, zone string, toSign bool) string {
 	shard := fmt.Sprintf(":S: %s %s %s %s [\n", context, zone, s.RangeFrom, s.RangeTo)
 	for _, assertion := range s.Content {
 		ctx, subjectZone := getContextAndZone(context, zone, assertion, toSign)
-		shard += fmt.Sprintf("        %s\n", encodeAssertion(assertion, ctx, subjectZone, indent8))
+		shard += fmt.Sprintf("        %s\n", EncodeAssertion(assertion, ctx, subjectZone, indent8))
 	}
 	return fmt.Sprintf("%s    ]", shard)
 }
 
-func encodeAssertion(a *rainslib.AssertionSection, context, zone, indent string) string {
+func EncodeAssertion(a *rainslib.AssertionSection, context, zone, indent string) string {
 	assertion := fmt.Sprintf(":A: %s %s %s [ ", context, zone, a.SubjectName)
 	if len(a.Content) > 1 {
 		return fmt.Sprintf("%s\n%s\n%s]", assertion, encodeObjects(a.Content, indent12), indent)
