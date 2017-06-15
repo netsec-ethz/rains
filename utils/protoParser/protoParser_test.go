@@ -122,7 +122,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	addressZone := &rainslib.AddressZoneSection{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
-		Content:     []*rainslib.AddressAssertionSection{addressAssertion1, addressAssertion2},
+		Content:     []*rainslib.AddressAssertionSection{addressAssertion1, addressAssertion2, addressAssertion3},
 		Signatures:  []rainslib.Signature{signature},
 	}
 

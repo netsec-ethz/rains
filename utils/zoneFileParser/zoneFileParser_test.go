@@ -1,7 +1,9 @@
 package zoneFileParser
 
 import (
+	"encoding/hex"
 	"fmt"
+	"net"
 	"rains/rainslib"
 	"rains/utils/testUtil"
 	"testing"
@@ -102,4 +104,175 @@ func TestEncoder(t *testing.T) {
 	}
 	testUtil.CheckAssertion(compareAssertion, assertions[0], t)
 
+}
+
+func TestEncodeAddressAssertion(t *testing.T) {
+	nameObjectContent := rainslib.NameObject{
+		Name:  "ethz2.ch",
+		Types: []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr},
+	}
+	var ed25519Pkey rainslib.Ed25519PublicKey
+	copy(ed25519Pkey[:], []byte("01234567890123456789012345678901"))
+	publicKey := rainslib.PublicKey{
+		KeySpace:   rainslib.RainsKeySpace,
+		Type:       rainslib.Ed25519,
+		Key:        ed25519Pkey,
+		ValidSince: 10000,
+		ValidUntil: 50000,
+	}
+	nameObject := rainslib.Object{Type: rainslib.OTName, Value: nameObjectContent}
+	redirObject := rainslib.Object{Type: rainslib.OTRedirection, Value: "ns.ethz.ch"}
+	delegObject := rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}
+	registrantObject := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}
+
+	signature := rainslib.Signature{
+		KeySpace:   rainslib.RainsKeySpace,
+		Algorithm:  rainslib.Ed25519,
+		ValidSince: 1000,
+		ValidUntil: 2000,
+		Data:       []byte("SignatureData")}
+
+	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
+	_, subjectAddress2, _ := net.ParseCIDR("127.0.0.1/24")
+	_, subjectAddress3, _ := net.ParseCIDR("2001:db8::/128")
+	addressAssertion1 := &rainslib.AddressAssertionSection{
+		SubjectAddr: subjectAddress1,
+		Context:     ".",
+		Content:     []rainslib.Object{nameObject},
+		Signatures:  []rainslib.Signature{signature},
+	}
+	addressAssertion2 := &rainslib.AddressAssertionSection{
+		SubjectAddr: subjectAddress2,
+		Context:     ".",
+		Content:     []rainslib.Object{redirObject, delegObject, registrantObject},
+		Signatures:  []rainslib.Signature{signature},
+	}
+	addressAssertion3 := &rainslib.AddressAssertionSection{
+		SubjectAddr: subjectAddress3,
+		Context:     ".",
+		Content:     []rainslib.Object{nameObject},
+		Signatures:  []rainslib.Signature{signature},
+	}
+	encodedAA1 := EncodeAddressAssertion(addressAssertion1)
+	if encodedAA1 != ":AA: . ip4 127.0.0.1/32 [ :name:     ethz2.ch [ ip4 ip6 ] ]" {
+		t.Errorf("Encoding wrong. expected=:AA: . ip4 127.0.0.1/32 [ :name:     ethz2.ch [ ip4 ip6 ] ] actual=%s", encodedAA1)
+	}
+	encodedAA2 := EncodeAddressAssertion(addressAssertion2)
+	if encodedAA2 != ":AA: . ip4 127.0.0.0/24 [ :redir:    ns.ethz.ch\n:deleg:    ed25519 3031323334353637383930313233343536373839303132333435363738393031\n:regt:     Registrant information ]" {
+		t.Errorf("Encoding wrong. expected=:AA: . ip4 127.0.0.0/24 [ :redir:    ns.ethz.ch\n:deleg:    ed25519 3031323334353637383930313233343536373839303132333435363738393031\n:regt:     Registrant information ] actual=%s", encodedAA2)
+	}
+	encodedAA3 := EncodeAddressAssertion(addressAssertion3)
+	if encodedAA3 != ":AA: . ip6 20010db8000000000000000000000000/128 [ :name:     ethz2.ch [ ip4 ip6 ] ]" {
+		t.Errorf("Encoding wrong. expected=:AA: . ip6 20010db8000000000000000000000000/128 [ :name:     ethz2.ch [ ip4 ip6 ] ] actual=%s", encodedAA3)
+	}
+}
+
+func TestEncodeAddressZone(t *testing.T) {
+	nameObjectContent := rainslib.NameObject{
+		Name:  "ethz2.ch",
+		Types: []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr},
+	}
+	var ed25519Pkey rainslib.Ed25519PublicKey
+	copy(ed25519Pkey[:], []byte("01234567890123456789012345678901"))
+	publicKey := rainslib.PublicKey{
+		KeySpace:   rainslib.RainsKeySpace,
+		Type:       rainslib.Ed25519,
+		Key:        ed25519Pkey,
+		ValidSince: 10000,
+		ValidUntil: 50000,
+	}
+	nameObject := rainslib.Object{Type: rainslib.OTName, Value: nameObjectContent}
+	redirObject := rainslib.Object{Type: rainslib.OTRedirection, Value: "ns.ethz.ch"}
+	delegObject := rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}
+	registrantObject := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}
+
+	signature := rainslib.Signature{
+		KeySpace:   rainslib.RainsKeySpace,
+		Algorithm:  rainslib.Ed25519,
+		ValidSince: 1000,
+		ValidUntil: 2000,
+		Data:       []byte("SignatureData")}
+
+	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
+	_, subjectAddress2, _ := net.ParseCIDR("127.0.0.1/24")
+	_, subjectAddress3, _ := net.ParseCIDR("2001:db8::/128")
+	addressAssertion1 := &rainslib.AddressAssertionSection{
+		SubjectAddr: subjectAddress1,
+		Context:     ".",
+		Content:     []rainslib.Object{nameObject},
+		Signatures:  []rainslib.Signature{signature},
+	}
+	addressAssertion2 := &rainslib.AddressAssertionSection{
+		SubjectAddr: subjectAddress2,
+		Context:     ".",
+		Content:     []rainslib.Object{redirObject, delegObject, registrantObject},
+		Signatures:  []rainslib.Signature{signature},
+	}
+	addressAssertion3 := &rainslib.AddressAssertionSection{
+		SubjectAddr: subjectAddress3,
+		Context:     ".",
+		Content:     []rainslib.Object{nameObject},
+		Signatures:  []rainslib.Signature{signature},
+	}
+
+	addressZone := &rainslib.AddressZoneSection{
+		SubjectAddr: subjectAddress2,
+		Context:     ".",
+		Content:     []*rainslib.AddressAssertionSection{addressAssertion1, addressAssertion2, addressAssertion3},
+		Signatures:  []rainslib.Signature{signature},
+	}
+
+	encodedAZ := EncodeAddressZone(addressZone)
+	if encodedAZ != ":AZ: . ip4 127.0.0.0/24 [ :AA: . ip4 127.0.0.1/32 [ :name:     ethz2.ch [ ip4 ip6 ] ] :AA: . ip4 127.0.0.0/24 [ :redir:    ns.ethz.ch\n:deleg:    ed25519 3031323334353637383930313233343536373839303132333435363738393031\n:regt:     Registrant information ] :AA: . ip6 20010db8000000000000000000000000/128 [ :name:     ethz2.ch [ ip4 ip6 ] ] ]" {
+		t.Errorf("Encoding wrong. expected=:AZ: . ip4 127.0.0.0/24 [ :AA: . ip4 127.0.0.1/32 [ :name:     ethz2.ch [ ip4 ip6 ] ] :AA: . ip4 127.0.0.0/24 [ :redir:    ns.ethz.ch\n:deleg:    ed25519 3031323334353637383930313233343536373839303132333435363738393031\n:regt:     Registrant information ] :AA: . ip6 20010db8000000000000000000000000/128 [ :name:     ethz2.ch [ ip4 ip6 ] ] ] actual=%s", encodedAZ)
+	}
+}
+
+func TestEncodeAddressQuery(t *testing.T) {
+	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
+	token := rainslib.GenerateToken()
+	encodedToken := hex.EncodeToString(token[:])
+	addressQuery := &rainslib.AddressQuerySection{
+		SubjectAddr: subjectAddress1,
+		Context:     ".",
+		Expires:     7564859,
+		Token:       token,
+		Types:       rainslib.OTName,
+		Options:     []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
+	}
+	encodedAQ := encodeAddressQuery(addressQuery)
+	if encodedAQ != fmt.Sprintf(":AQ: %s . ip4 127.0.0.1/32 [ 1 ] 7564859 [ 1 3 ]", encodedToken) {
+		t.Errorf("Encoding wrong. expected=:AQ: %s . ip4 127.0.0.1/32 [ 1 ] 7564859 [ 1 3 ] actual=%s", encodedToken, encodedAQ)
+	}
+}
+
+func TestEncodeQuery(t *testing.T) {
+	token := rainslib.GenerateToken()
+	encodedToken := hex.EncodeToString(token[:])
+	query := &rainslib.QuerySection{
+		Context: ".",
+		Expires: 159159,
+		Name:    "ethz.ch",
+		Options: []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
+		Token:   token,
+		Type:    rainslib.OTIP4Addr,
+	}
+	encodedQ := encodeQuery(query)
+	if encodedQ != fmt.Sprintf(":Q: %s . ethz.ch [ 3 ] 159159 [ 1 3 ]", encodedToken) {
+		t.Errorf("Encoding wrong. expected=:Q: %s . ethz.ch [ 3 ] 159159 [ 1 3 ] actual=%s", encodedToken, encodedQ)
+	}
+}
+
+func TestEncodeNotification(t *testing.T) {
+	token := rainslib.GenerateToken()
+	encodedToken := hex.EncodeToString(token[:])
+	notification := &rainslib.NotificationSection{
+		Token: token,
+		Type:  rainslib.NoAssertionsExist,
+		Data:  "Notification information",
+	}
+	encodedN := encodeNotification(notification)
+	if encodedN != fmt.Sprintf(":N: %s 404 Notification information", encodedToken) {
+		t.Errorf("Encoding wrong. expected=:N: %s 404 Notification information actual=%s", encodedToken, encodedN)
+	}
 }

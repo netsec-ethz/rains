@@ -9,6 +9,7 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
+//EncodeZone transforms a shard into a signable format. It is also represented this way in a zone file
 func EncodeZone(z *rainslib.ZoneSection, toSign bool) string {
 	zone := fmt.Sprintf(":Z: %s %s [\n", z.Context, z.SubjectZone)
 	for _, section := range z.Content {
@@ -26,6 +27,7 @@ func EncodeZone(z *rainslib.ZoneSection, toSign bool) string {
 	return fmt.Sprintf("%s]", zone)
 }
 
+//EncodeShard transforms a shard into a signable format. It is also represented this way in a zone file
 func EncodeShard(s *rainslib.ShardSection, context, zone string, toSign bool) string {
 	rangeFrom := s.RangeFrom
 	rangeTo := s.RangeTo
@@ -43,6 +45,7 @@ func EncodeShard(s *rainslib.ShardSection, context, zone string, toSign bool) st
 	return fmt.Sprintf("%s    ]", shard)
 }
 
+//EncodeAssertion transforms an assertion into a signable format. It is also represented this way in a zone file
 func EncodeAssertion(a *rainslib.AssertionSection, context, zone, indent string) string {
 	assertion := fmt.Sprintf(":A: %s %s %s [ ", context, zone, a.SubjectName)
 	if len(a.Content) > 1 {

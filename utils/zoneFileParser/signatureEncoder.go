@@ -11,6 +11,7 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
+//EncodeMessage transforms a rains message into a signable format
 func EncodeMessage(m *rainslib.RainsMessage) string {
 	encoding := fmt.Sprintf(":M: %s %s ", m.Token.String(), encodeCapabilities(m.Capabilities))
 	for _, section := range m.Content {
@@ -22,17 +23,15 @@ func EncodeMessage(m *rainslib.RainsMessage) string {
 		case *rainslib.ZoneSection:
 			encoding += EncodeZone(s, true) + " "
 		case *rainslib.QuerySection:
-			encoding += fmt.Sprintf(":Q: %s %s %s %s %d %s ", s.Token.String(), s.Context, s.Name, encodeObjectTypes([]rainslib.ObjectType{s.Type}),
-				s.Expires, encodeQueryOptions(s.Options))
+			encoding += encodeQuery(s) + " "
 		case *rainslib.NotificationSection:
-			encoding += fmt.Sprintf(":N: %s %s %s ", s.Token.String(), strconv.Itoa(int(s.Type)), s.Data)
+			encoding += encodeNotification(s) + " "
 		case *rainslib.AddressAssertionSection:
 			encoding += EncodeAddressAssertion(s) + " "
 		case *rainslib.AddressZoneSection:
 			encoding += EncodeAddressZone(s) + " "
 		case *rainslib.AddressQuerySection:
-			encoding += fmt.Sprintf(":AQ: %s %s %s %s %d %s ", s.Token.String(), s.Context, encodeSubjectAddress(s.SubjectAddr),
-				encodeObjectTypes([]rainslib.ObjectType{s.Types}), s.Expires, encodeQueryOptions(s.Options))
+			encoding += encodeAddressQuery(s) + " "
 		default:
 			log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))
 			return ""
@@ -41,16 +40,32 @@ func EncodeMessage(m *rainslib.RainsMessage) string {
 	return encoding
 }
 
+//EncodeAddressAssertion transforms an address assertion into a signable format
 func EncodeAddressAssertion(a *rainslib.AddressAssertionSection) string {
 	return fmt.Sprintf(":AA: %s %s [ %s ]", a.Context, encodeSubjectAddress(a.SubjectAddr), encodeObjects(a.Content, ""))
 }
 
+//EncodeAddressZone transforms an address zone into a signable format
 func EncodeAddressZone(z *rainslib.AddressZoneSection) string {
 	assertions := make([]string, len(z.Content))
 	for i, a := range z.Content {
 		assertions[i] = EncodeAddressAssertion(a)
 	}
 	return fmt.Sprintf(":AZ: %s %s [ %s ]", z.Context, encodeSubjectAddress(z.SubjectAddr), strings.Join(assertions, " "))
+}
+
+func encodeAddressQuery(q *rainslib.AddressQuerySection) string {
+	return fmt.Sprintf(":AQ: %s %s %s %s %d %s", q.Token.String(), q.Context, encodeSubjectAddress(q.SubjectAddr),
+		encodeObjectTypes([]rainslib.ObjectType{q.Types}), q.Expires, encodeQueryOptions(q.Options))
+}
+
+func encodeQuery(q *rainslib.QuerySection) string {
+	return fmt.Sprintf(":Q: %s %s %s %s %d %s", q.Token.String(), q.Context, q.Name, encodeObjectTypes([]rainslib.ObjectType{q.Type}),
+		q.Expires, encodeQueryOptions(q.Options))
+}
+
+func encodeNotification(n *rainslib.NotificationSection) string {
+	return fmt.Sprintf(":N: %s %s %s", n.Token.String(), strconv.Itoa(int(n.Type)), n.Data)
 }
 
 func encodeCapabilities(caps []rainslib.Capability) string {
