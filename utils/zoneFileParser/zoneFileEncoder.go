@@ -27,7 +27,15 @@ func EncodeZone(z *rainslib.ZoneSection, toSign bool) string {
 }
 
 func EncodeShard(s *rainslib.ShardSection, context, zone string, toSign bool) string {
-	shard := fmt.Sprintf(":S: %s %s %s %s [\n", context, zone, s.RangeFrom, s.RangeTo)
+	rangeFrom := s.RangeFrom
+	rangeTo := s.RangeTo
+	if rangeFrom == "" {
+		rangeFrom = "<"
+	}
+	if rangeTo == "" {
+		rangeTo = ">"
+	}
+	shard := fmt.Sprintf(":S: %s %s %s %s [\n", context, zone, rangeFrom, rangeTo)
 	for _, assertion := range s.Content {
 		ctx, subjectZone := getContextAndZone(context, zone, assertion, toSign)
 		shard += fmt.Sprintf("        %s\n", EncodeAssertion(assertion, ctx, subjectZone, indent8))

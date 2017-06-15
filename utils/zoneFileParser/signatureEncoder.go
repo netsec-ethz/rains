@@ -42,11 +42,15 @@ func EncodeMessage(m *rainslib.RainsMessage) string {
 }
 
 func EncodeAddressAssertion(a *rainslib.AddressAssertionSection) string {
-	return ""
+	return fmt.Sprintf(":AA: %s %s [ %s ]", a.Context, encodeSubjectAddress(a.SubjectAddr), encodeObjects(a.Content, ""))
 }
 
 func EncodeAddressZone(z *rainslib.AddressZoneSection) string {
-	return ""
+	assertions := make([]string, len(z.Content))
+	for i, a := range z.Content {
+		assertions[i] = EncodeAddressAssertion(a)
+	}
+	return fmt.Sprintf(":AZ: %s %s [ %s ]", z.Context, encodeSubjectAddress(z.SubjectAddr), strings.Join(assertions, " "))
 }
 
 func encodeCapabilities(caps []rainslib.Capability) string {
