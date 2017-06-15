@@ -121,3 +121,17 @@ func Load(path string, object interface{}) error {
 	}
 	return err
 }
+
+//CheckSectionSignatures verifies all signatures on the section. Expired signatures are removed.
+//Returns true if at least one signature is valid and all signatures are correct.
+func CheckSectionSignatures(s MessageSectionWithSig) bool {
+	//check that there is at least one signature
+	//check that string fields do not contain  <whitespace>:<non whitespace>:<whitespace>
+	//sort section ->alphanumerically all sections and message add this function to rainslib.MessageSection and rainslib.RainsMessage
+	//encode section (done)
+	//remove unnecessary whitespaces (there must be one between fields such that the start and end of them are well defined) -> word scanner, add to array then strings.Join(array, " ")
+	//add signatureMetadata at the end of the encoding
+	//sign the resulting string -> rainslib.VerifySignature()
+	//compare the resulting signature data with the signature data received with the object.
+	return false
+}
