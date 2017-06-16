@@ -9,6 +9,10 @@ import (
 	"rains/utils/zoneFileParser"
 	"time"
 
+	"rains/rainsSiglib"
+
+	"errors"
+
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
 )
@@ -121,31 +125,16 @@ func groupAssertionsToShards(assertions []*rainslib.AssertionSection) *rainslib.
 //TODO CFE we should use 2 valid signatures to avoid traffic bursts when a signature expires.
 //TODO CFE also support different signature methods
 func signZone(zone *rainslib.ZoneSection, privateKey ed25519.PrivateKey) error {
-	stub := zone.CreateStub()
-	byteStub, err := sigParser.RevParseSignedMsgSection(stub)
-	if err != nil {
-		return err
-	}
-	sigData := rainslib.SignData(rainslib.Ed25519, privateKey, []byte(byteStub))
-
-	/*
-	 *TODO CFE remove after we have correct testing. For debugging purposes, check that the params to verify a signature are the same here and in the server
-	 */
-	/*pkey := loadPublicKey()
-	if ok := rainslib.VerifySignature(rainslib.Ed25519, pkey, []byte(byteStub), sigData); !ok {
-		log.Error("Bad THIS SHOULD NEVER HAPPEN")
-	}
-	log.Debug("", "byteStub", []byte(byteStub), "pubKey", pkey, "sigData", sigData)*/
-
 	signature := rainslib.Signature{
 		Algorithm: rainslib.Ed25519,
 		KeySpace:  rainslib.RainsKeySpace,
-		Data:      sigData,
 		//TODO What time should we choose for valid since?
 		ValidSince: time.Now().Unix(),
 		ValidUntil: time.Now().Add(config.ZoneValidity).Unix(),
 	}
-	zone.Signatures = append(zone.Signatures, signature)
+	if ok := rainsSiglib.SignSection(zone, privateKey, signature, zoneFileParser.Parser{}); !ok {
+		return errors.New("Was not able to sign and add the signature")
+	}
 
 	for _, sec := range zone.Content {
 		switch sec := sec.(type) {
@@ -164,21 +153,16 @@ func signZone(zone *rainslib.ZoneSection, privateKey ed25519.PrivateKey) error {
 //signShard signs the shard and all contained assertions with the context/zone's private key.
 //TODO we should use 2 valid signatures to avoid traffic bursts when a signature expires.
 func signShard(s *rainslib.ShardSection, privateKey ed25519.PrivateKey) error {
-	stub := s.CreateStub()
-	byteStub, err := sigParser.RevParseSignedMsgSection(stub)
-	if err != nil {
-		return err
-	}
-	sigData := rainslib.SignData(rainslib.Ed25519, privateKey, []byte(byteStub))
 	signature := rainslib.Signature{
 		Algorithm: rainslib.Ed25519,
 		KeySpace:  rainslib.RainsKeySpace,
-		Data:      sigData,
 		//TODO What time should we choose for valid since?
 		ValidSince: time.Now().Unix(),
 		ValidUntil: time.Now().Add(config.ShardValidity).Unix()}
-	s.Signatures = append(s.Signatures, signature)
-	err = signAssertions(s.Content, privateKey)
+	if ok := rainsSiglib.SignSection(s, privateKey, signature, zoneFileParser.Parser{}); !ok {
+		return errors.New("Was not able to sign and add the signature")
+	}
+	err := signAssertions(s.Content, privateKey)
 	return err
 }
 
@@ -186,12 +170,6 @@ func signShard(s *rainslib.ShardSection, privateKey ed25519.PrivateKey) error {
 //TODO we should use 2 valid signatures to avoid traffic bursts when a signature expires.
 func signAssertions(assertions []*rainslib.AssertionSection, privateKey ed25519.PrivateKey) error {
 	for _, a := range assertions {
-		stub := a.CreateStub()
-		byteStub, err := sigParser.RevParseSignedMsgSection(stub)
-		if err != nil {
-			return err
-		}
-		sigData := rainslib.SignData(rainslib.Ed25519, privateKey, []byte(byteStub))
 		//TODO CFE handle multiple types per assertion
 		validUntil := int64(0)
 		if a.Content[0].Type == rainslib.OTDelegation {
@@ -202,11 +180,12 @@ func signAssertions(assertions []*rainslib.AssertionSection, privateKey ed25519.
 		signature := rainslib.Signature{
 			Algorithm: rainslib.Ed25519,
 			KeySpace:  rainslib.RainsKeySpace,
-			Data:      sigData,
 			//TODO What time should we choose for valid since?
 			ValidSince: time.Now().Unix(),
 			ValidUntil: validUntil}
-		a.Signatures = append(a.Signatures, signature)
+		if ok := rainsSiglib.SignSection(a, privateKey, signature, zoneFileParser.Parser{}); !ok {
+			return errors.New("Was not able to sign and add the signature")
+		}
 	}
 	return nil
 }

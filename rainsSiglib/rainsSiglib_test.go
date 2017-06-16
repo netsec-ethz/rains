@@ -159,7 +159,9 @@ func TestEncodeAndDecode(t *testing.T) {
 		ValidUntil: time.Now().Add(24 * time.Hour).Unix(),
 		Key:        ed25519Pkey,
 	}
-	maxValidity := rainslib.MaxSectionValidity{
+	pKeys := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
+	pKeys[rainslib.KeyAlgorithmType(pKey.Type)] = pKey
+	maxValidity := rainslib.MaxCacheValidity{
 		AssertionValidity:        30 * time.Hour,
 		ShardValidity:            30 * time.Hour,
 		ZoneValidity:             30 * time.Hour,
@@ -179,7 +181,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	if !ok {
 		t.Error("Was not able to generate and add a signature to the assertion")
 	}
-	ok = CheckSectionSignatures(assertion, pKey, zoneFileParser.Parser{}, maxValidity)
+	ok = CheckSectionSignatures(assertion, pKeys, zoneFileParser.Parser{}, maxValidity)
 	if !ok {
 		t.Error("Verification of assertion signature failed")
 	}
@@ -188,7 +190,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	if !ok {
 		t.Error("Was not able to generate and add a signature to the shard")
 	}
-	ok = CheckSectionSignatures(shard, pKey, zoneFileParser.Parser{}, maxValidity)
+	ok = CheckSectionSignatures(shard, pKeys, zoneFileParser.Parser{}, maxValidity)
 	if !ok {
 		t.Error("Verification of shard signature failed")
 	}
@@ -197,7 +199,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	if !ok {
 		t.Error("Was not able to generate and add a signature to the zone")
 	}
-	ok = CheckSectionSignatures(zone, pKey, zoneFileParser.Parser{}, maxValidity)
+	ok = CheckSectionSignatures(zone, pKeys, zoneFileParser.Parser{}, maxValidity)
 	if !ok {
 		t.Error("Verification of zone signature failed")
 	}
@@ -206,7 +208,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	if !ok {
 		t.Error("Was not able to generate and add a signature to the addressAssertion")
 	}
-	ok = CheckSectionSignatures(addressAssertion1, pKey, zoneFileParser.Parser{}, maxValidity)
+	ok = CheckSectionSignatures(addressAssertion1, pKeys, zoneFileParser.Parser{}, maxValidity)
 	if !ok {
 		t.Error("Verification of addressAssertion signature failed")
 	}
@@ -215,7 +217,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	if !ok {
 		t.Error("Was not able to generate and add a signature to the addressAssertion")
 	}
-	ok = CheckSectionSignatures(addressAssertion2, pKey, zoneFileParser.Parser{}, maxValidity)
+	ok = CheckSectionSignatures(addressAssertion2, pKeys, zoneFileParser.Parser{}, maxValidity)
 	if !ok {
 		t.Error("Verification of addressAssertion signature failed")
 	}
@@ -224,7 +226,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	if !ok {
 		t.Error("Was not able to generate and add a signature to the addressAssertion")
 	}
-	ok = CheckSectionSignatures(addressAssertion3, pKey, zoneFileParser.Parser{}, maxValidity)
+	ok = CheckSectionSignatures(addressAssertion3, pKeys, zoneFileParser.Parser{}, maxValidity)
 	if !ok {
 		t.Error("Verification of addressAssertion signature failed")
 	}
@@ -233,7 +235,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	if !ok {
 		t.Error("Was not able to generate and add a signature to the addressZone")
 	}
-	ok = CheckSectionSignatures(addressZone, pKey, zoneFileParser.Parser{}, maxValidity)
+	ok = CheckSectionSignatures(addressZone, pKeys, zoneFileParser.Parser{}, maxValidity)
 	if !ok {
 		t.Error("Verification of addressZone signature failed")
 	}

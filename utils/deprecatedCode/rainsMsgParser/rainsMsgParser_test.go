@@ -1,15 +1,6 @@
 package rainsMsgParser
 
-import (
-	"math/rand"
-	"rains/rainslib"
-	"testing"
-	"time"
-
-	"golang.org/x/crypto/ed25519"
-)
-
-func TestSigningProcess(t *testing.T) {
+/*func TestSigningProcess(t *testing.T) {
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.New(rand.NewSource(time.Now().UnixNano())))
 	if err != nil {
 		t.Error(err)
@@ -26,4 +17,4 @@ func TestSigningProcess(t *testing.T) {
 	if !ok {
 		t.Error("Signature did not verify")
 	}
-}
+}*/

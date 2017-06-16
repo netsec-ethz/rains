@@ -9,7 +9,7 @@ import (
 	"os"
 	"rains/rainslib"
 	"rains/utils/protoParser"
-	"rains/utils/rainsMsgParser"
+	"rains/utils/zoneFileParser"
 	"strconv"
 	"time"
 
@@ -31,11 +31,13 @@ var queryOption = flag.Int("qopt", 0, "queryOption specifies performance/privacy
 
 var msgParser rainslib.RainsMsgParser
 var msgFramer rainslib.MsgFramer
+var zfParser rainslib.ZoneFileParser
 
 func init() {
 	parserAndFramer := new(protoParser.ProtoParserAndFramer)
 	msgParser = parserAndFramer
 	msgFramer = parserAndFramer
+	zfParser = zoneFileParser.Parser{}
 }
 
 func main() {
@@ -130,16 +132,11 @@ func sendQuery(query []byte, token rainslib.Token, connInfo rainslib.ConnInfo) e
 	}
 	result := <-done // wait for answer
 	for _, section := range result.Content {
+		//FIXME CFE validate signature before displaying information
 		switch section := section.(type) {
-		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection:
-			output, err := rainsMsgParser.RainsMsgParser{}.RevParseSignedMsgSection(section.(rainslib.MessageSectionWithSig))
-			if err != nil {
-				log.Warn("Could not reverse parse section with signature", "error", err)
-			}
-			fmt.Println(output)
-		case *rainslib.NotificationSection:
-			//TODO implement a pretty printer
-			fmt.Printf(":NO::TN:%v:NT:%d:ND:%s\n", section.Token, section.Type, section.Data)
+		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.QuerySection, *rainslib.NotificationSection,
+			*rainslib.AddressAssertionSection, *rainslib.AddressQuerySection, *rainslib.AddressZoneSection:
+			fmt.Println(zfParser.Encode(section))
 		default:
 			log.Warn("Unexpected section type", "Type", fmt.Sprintf("%T", section))
 		}

@@ -5,8 +5,6 @@ import (
 	"rains/rainslib"
 	"time"
 
-	"rains/utils/rainsMsgParser"
-
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
 )
@@ -20,7 +18,6 @@ var config = defaultConfig
 var zonePrivateKey ed25519.PrivateKey
 var parser rainslib.ZoneFileParser
 var msgParser rainslib.RainsMsgParser
-var sigParser = new(rainsMsgParser.RainsMsgParser)
 
 //rainpubConfig lists configurations for publishing zone information
 type rainpubConfig struct {

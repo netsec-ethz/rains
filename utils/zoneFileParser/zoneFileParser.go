@@ -65,9 +65,30 @@ type Parser struct {
 
 var lineNrLogger log.Logger
 
-//Encode returns the given zone represented in the zone file format
-func (p Parser) Encode(zone *rainslib.ZoneSection) string {
-	return encodeZone(zone, false)
+//Encode returns the given section represented in the zone file format if it is a zoneSection.
+//In all other cases it returns the section in a displayable format similar to the zone file format
+func (p Parser) Encode(s rainslib.MessageSection) string {
+	switch s := s.(type) {
+	case *rainslib.AssertionSection:
+		return encodeAssertion(s, s.Context, s.SubjectZone, "")
+	case *rainslib.ShardSection:
+		return encodeShard(s, s.Context, s.SubjectZone, false)
+	case *rainslib.ZoneSection:
+		return encodeZone(s, false)
+	case *rainslib.QuerySection:
+		return encodeQuery(s)
+	case *rainslib.NotificationSection:
+		return encodeNotification(s)
+	case *rainslib.AddressAssertionSection:
+		return encodeAddressAssertion(s)
+	case *rainslib.AddressZoneSection:
+		return encodeAddressZone(s)
+	case *rainslib.AddressQuerySection:
+		return encodeAddressQuery(s)
+	default:
+		log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))
+	}
+	return ""
 }
 
 //Decode returns all assertions contained in the given zonefile

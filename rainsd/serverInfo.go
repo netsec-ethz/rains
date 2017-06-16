@@ -60,9 +60,7 @@ type rainsdConfig struct {
 	AssertionQueryValidity     time.Duration
 	ContextAuthority           []string
 	ZoneAuthority              []string
-	MaxCacheAssertionValidity  time.Duration
-	MaxCacheShardValidity      time.Duration
-	MaxCacheZoneValidity       time.Duration
+	MaxCacheValidity           rainslib.MaxCacheValidity
 	ReapEngineTimeout          time.Duration
 }
 
@@ -72,8 +70,8 @@ var defaultConfig = rainsdConfig{ServerAddrType: rainslib.TCP, MaxConnections: 1
 	NormalWorkerCount: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
 	NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}, InfrastructureKeyCacheSize: 10,
 	ExternalKeyCacheSize: 5, DelegationQueryValidity: 5 * time.Second, NegativeAssertionCacheSize: 500, AssertionQueryValidity: 5 * time.Second,
-	MaxCacheAssertionValidity: 365 * 24 * time.Hour, MaxCacheShardValidity: 365 * 24 * time.Hour, MaxCacheZoneValidity: 365 * 24 * time.Hour, ReapVerifyTimeout: 30 * time.Minute,
-	ReapEngineTimeout: 30 * time.Minute, RootZonePublicKeyPath: "keys/selfSignedRootDelegationAssertion.gob"}
+	MaxCacheValidity:  rainslib.MaxCacheValidity{AssertionValidity: 365 * 24 * time.Hour, ShardValidity: 365 * 24 * time.Hour, ZoneValidity: 365 * 24 * time.Hour},
+	ReapVerifyTimeout: 30 * time.Minute, ReapEngineTimeout: 30 * time.Minute, RootZonePublicKeyPath: "keys/selfSignedRootDelegationAssertion.gob"}
 
 func loadDefaultSeverAddrIntoConfig() *net.TCPAddr {
 	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:5022")

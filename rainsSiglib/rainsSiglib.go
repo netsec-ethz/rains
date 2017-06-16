@@ -25,7 +25,8 @@ import (
 //4) encode section
 //5) sign the encoding and compare the resulting signature data with the signature data received with the section. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func CheckSectionSignatures(s rainslib.MessageSectionWithSig, publicKey rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder, maxVal rainslib.MaxSectionValidity) bool {
+func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib.KeyAlgorithmType]rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder,
+	maxVal rainslib.MaxCacheValidity) bool {
 	if len(s.Sigs()) == 0 {
 		log.Debug("Section contain no signatures")
 		return false
@@ -36,13 +37,14 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, publicKey rainslib
 	s.Sort()
 	encodedSection := encoder.EncodeSection(s)
 	for i, sig := range s.Sigs() {
+		pkey := pkeys[rainslib.KeyAlgorithmType(sig.Algorithm)]
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Debug("signature is expired", "signature", sig)
 			s.DeleteSig(i)
-		} else if !verifySignature(sig, publicKey.Key, encodedSection) {
+		} else if !verifySignature(sig, pkey.Key, encodedSection) {
 			return false
 		} else {
-			rainslib.UpdateSectionValidity(s, publicKey.ValidSince, publicKey.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
+			rainslib.UpdateSectionValidity(s, pkey.ValidSince, pkey.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
 		}
 	}
 	return len(s.Sigs()) > 0
@@ -58,7 +60,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, publicKey rainslib
 //4) encode message
 //5) sign the encoding and compare the resulting signature data with the signature data received with the message. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func CheckMessageSignatures(msg *rainslib.RainsMessage, publicKey rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder, maxVal rainslib.MaxSectionValidity) bool {
+func CheckMessageSignatures(msg *rainslib.RainsMessage, publicKey rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder, maxVal rainslib.MaxCacheValidity) bool {
 	if len(msg.Signatures) == 0 {
 		log.Debug("Message contain no signatures")
 		return false

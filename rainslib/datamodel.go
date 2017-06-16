@@ -952,8 +952,8 @@ func (c ConnInfo) Equal(conn ConnInfo) bool {
 	return false
 }
 
-//MaxSectionValidity defines the maximum duration each section containing signatures can be valid, starting from time.Now()
-type MaxSectionValidity struct {
+//MaxCacheValidity defines the maximum duration each section containing signatures can be valid, starting from time.Now()
+type MaxCacheValidity struct {
 	AssertionValidity        time.Duration
 	ShardValidity            time.Duration
 	ZoneValidity             time.Duration
@@ -981,8 +981,9 @@ type ZoneFileParser interface {
 	//It returns all contained assertions or an error in case of failure
 	Decode(zoneFile []byte, filePath string) ([]*AssertionSection, error)
 
-	//Encode returns the given zone represented in the zone file format.
-	Encode(zone *ZoneSection) string
+	//Encode returns the given section represented in the zone file format if it is a zoneSection.
+	//In all other cases it returns the section in a displayable format similar to the zone file format
+	Encode(section MessageSection) string
 }
 
 //SignatureFormatEncoder is used to deterministically transform a RainsMessage into a byte format that can be signed.

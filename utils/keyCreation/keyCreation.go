@@ -5,8 +5,12 @@ import (
 	"io/ioutil"
 	"os"
 	"rains/rainslib"
-	"rains/utils/rainsMsgParser"
 	"time"
+
+	"rains/rainsSiglib"
+	"rains/utils/zoneFileParser"
+
+	"errors"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
@@ -28,8 +32,8 @@ func CreateDelegationAssertion(context, zone string) error {
 		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}},
 	}
 	if zone == "." {
-		if err := addSignature(assertion, privateKey); err != nil {
-			return err
+		if ok := addSignature(assertion, privateKey); !ok {
+			return errors.New("Was not able to sign the assertion")
 		}
 	}
 	if err := storeKeyPair(publicKey, privateKey); err != nil {
@@ -48,23 +52,15 @@ func CreateDelegationAssertion(context, zone string) error {
 }
 
 //addSignature signs the section with the public key and adds the resulting signature to the section
-func addSignature(a rainslib.MessageSectionWithSig, key ed25519.PrivateKey) error {
-	msgParser := rainsMsgParser.RainsMsgParser{}
-	data, err := msgParser.RevParseSignedMsgSection(a)
-	if err != nil {
-		return err
-	}
-	sigData := rainslib.SignData(rainslib.Ed25519, key, []byte(data))
+func addSignature(a rainslib.MessageSectionWithSig, key ed25519.PrivateKey) bool {
 	signature := rainslib.Signature{
 		Algorithm: rainslib.Ed25519,
 		KeySpace:  rainslib.RainsKeySpace,
-		Data:      sigData,
 		//FIXME CFE add validity times to config
 		ValidSince: time.Now().Unix(),
 		ValidUntil: time.Now().Add(30 * 24 * time.Hour).Unix(),
 	}
-	a.AddSig(signature)
-	return nil
+	return rainsSiglib.SignSection(a, key, signature, zoneFileParser.Parser{})
 }
 
 //storeKeyPair stores the public and private key to separate files (hex encoded)
@@ -95,9 +91,8 @@ func SignDelegation(delegationPath, privateKeyPath string) error {
 	if err != nil {
 		return err
 	}
-	err = addSignature(delegation, privateKey)
-	if err != nil {
-		return err
+	if ok := addSignature(delegation, privateKey); !ok {
+		return errors.New("Was not able to sign and add signature")
 	}
 	err = rainslib.Save(delegationPath, delegation)
 	if err != nil {
