@@ -23,7 +23,6 @@ func loadConfig() {
 //TODO CFE remove when we have air gapping
 func loadPrivateKey() {
 	if _, err := os.Stat(config.ZonePrivateKeyPath); os.IsNotExist(err) {
-		//FIXME CFE use a better source of randomness for the key generation
 		var publicKey ed25519.PublicKey
 		publicKey, zonePrivateKey, err = ed25519.GenerateKey(nil)
 		if err != nil {

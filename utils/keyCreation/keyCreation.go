@@ -2,15 +2,13 @@ package keyCreation
 
 import (
 	"encoding/hex"
+	"errors"
 	"io/ioutil"
 	"os"
-	"rains/rainslib"
-	"time"
-
 	"rains/rainsSiglib"
+	"rains/rainslib"
 	"rains/utils/zoneFileParser"
-
-	"errors"
+	"time"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
@@ -25,11 +23,18 @@ func CreateDelegationAssertion(context, zone string) error {
 		return err
 	}
 	log.Debug("Generated root public Key", "publicKey", publicKey)
+	var ed25519Pkey rainslib.Ed25519PublicKey
+	copy(ed25519Pkey[:], publicKey)
+	pkey := rainslib.PublicKey{
+		KeySpace: rainslib.RainsKeySpace,
+		Type:     rainslib.Ed25519,
+		Key:      ed25519Pkey,
+	}
 	assertion := &rainslib.AssertionSection{
 		Context:     context,
 		SubjectZone: zone,
 		SubjectName: "@",
-		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}},
+		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation, Value: pkey}},
 	}
 	if zone == "." {
 		if ok := addSignature(assertion, privateKey); !ok {

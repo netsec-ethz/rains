@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"rains/utils/zoneFileParser"
-
 	log "github.com/inconshreveable/log15"
 )
 
@@ -38,6 +36,7 @@ func initVerify() error {
 		return err
 	}
 	if err := loadRootZonePublicKey(); err != nil {
+		log.Error("Was not able to load root zone public key", "error", err)
 		return err
 	}
 
@@ -58,8 +57,6 @@ func initVerify() error {
 		log.Error("Cannot create pending signature cache", "error", err)
 		return err
 	}
-
-	sigEncoder = zoneFileParser.Parser{}
 
 	go reapVerify()
 	return nil

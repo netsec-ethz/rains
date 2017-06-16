@@ -117,7 +117,9 @@ func encodeObjects(o []rainslib.Object, indent string) string {
 			log.Warn("Unsupported obj type", "type", fmt.Sprintf("%T", obj.Type))
 		}
 	}
-	objects = objects[:len(objects)-1] //remove the last new line
+	if len(o) > 0 {
+		objects = objects[:len(objects)-1] //remove the last new line
+	}
 	return objects
 }
 

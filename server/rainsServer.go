@@ -4,6 +4,8 @@ import (
 	"rains/rainsd"
 	"rains/rainspub"
 	"time"
+
+	log "github.com/inconshreveable/log15"
 )
 
 //This package initializes and starts the server
@@ -12,6 +14,7 @@ func main() {
 	rainspub.InitRainspub()
 	err := rainsd.InitServer()
 	if err != nil {
+		log.Error("Error on startup", "error", err)
 		panic(err)
 	}
 	//TODO CFE add hardcoded duration to config

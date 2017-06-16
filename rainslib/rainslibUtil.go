@@ -38,6 +38,7 @@ func Save(path string, object interface{}) error {
 
 //Load fetches the gob encoded object from the file located at path
 func Load(path string, object interface{}) error {
+	log.Warn("", "", path)
 	file, err := os.Open(path)
 	defer file.Close()
 	if err == nil {

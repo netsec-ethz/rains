@@ -9,6 +9,7 @@ import (
 	"rains/rainslib"
 	"rains/utils/cache"
 	"rains/utils/protoParser"
+	"rains/utils/zoneFileParser"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -24,22 +25,28 @@ func InitServer() error {
 	loadConfig()
 	serverConnInfo = rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: Config.ServerTCPAddr}
 	msgParser = new(protoParser.ProtoParserAndFramer)
+	sigEncoder = new(zoneFileParser.Parser)
 	loadAuthoritative()
 	if err := loadCert(); err != nil {
 		return err
 	}
+	log.Debug("Successfully loaded Certificate")
 	if err := initSwitchboard(); err != nil {
 		return err
 	}
+	log.Debug("Successfully initiated switchboard")
 	if err := initInbox(); err != nil {
 		return err
 	}
+	log.Debug("Successfully initiated inbox")
 	if err := initVerify(); err != nil {
 		return err
 	}
+	log.Debug("Successfully initiated verify")
 	if err := initEngine(); err != nil {
 		return err
 	}
+	log.Debug("Successfully initiated engine")
 	return nil
 }
 
@@ -70,6 +77,9 @@ func loadRootZonePublicKey() error {
 		for _, c := range a.Content {
 			if c.Type == rainslib.OTDelegation {
 				//FIXME CFE: a.ValidUntil() returns 0 and the value is thus not cached. It is solved in the reverse lookup branch
+				if a.ValidUntil() == 0 {
+					log.Error("Here is the mistake!")
+				}
 				publicKey := rainslib.PublicKey{Key: c.Value, Type: a.Signatures[0].Algorithm, ValidUntil: a.ValidUntil()}
 				keyMap := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
 				keyMap[rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)] = publicKey
