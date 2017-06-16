@@ -80,7 +80,7 @@ func (p Parser) Decode(zoneFile []byte, filePath string) ([]*rainslib.AssertionS
 //EncodeMessage transforms the given msg into a signable format.
 //It must have already been verified that the msg does not contain malicious content.
 //Signature meta data is not added
-func EncodeMessage(msg *rainslib.RainsMessage) string {
+func (p Parser) EncodeMessage(msg *rainslib.RainsMessage) string {
 	encoding := encodeMessage(msg)
 	return replaceWhitespaces(encoding)
 }
@@ -88,7 +88,7 @@ func EncodeMessage(msg *rainslib.RainsMessage) string {
 //EncodeSection transforms the given msg into a signable format
 //It must have already been verified that the section does not contain malicious content
 //Signature meta data is not added
-func EncodeSection(s rainslib.MessageSection) string {
+func (p Parser) EncodeSection(s rainslib.MessageSection) string {
 	encoding := ""
 	switch s := s.(type) {
 	case *rainslib.AssertionSection:
