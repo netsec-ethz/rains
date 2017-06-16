@@ -458,34 +458,6 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainsli
 	return len(section.Sigs()) > 0
 }
 
-func updateSectionValidity(section rainslib.MessageSectionWithSig, pkeyValidSince, pkeyValidUntil, sigValidSince, sigValidUntil int64) {
-	var maxValidity time.Duration
-	switch section.(type) {
-	case *rainslib.AssertionSection:
-		maxValidity = Config.MaxCacheAssertionValidity
-	case *rainslib.ShardSection:
-		maxValidity = Config.MaxCacheShardValidity
-	case *rainslib.ZoneSection:
-		maxValidity = Config.MaxCacheZoneValidity
-	default:
-		log.Warn("Not supported section", "type", fmt.Sprintf("%T", section))
-	}
-	if pkeyValidSince < sigValidSince {
-		if pkeyValidUntil < sigValidUntil {
-			section.UpdateValidity(sigValidSince, pkeyValidUntil, maxValidity)
-		} else {
-			section.UpdateValidity(sigValidSince, sigValidUntil, maxValidity)
-		}
-
-	} else {
-		if pkeyValidUntil < sigValidUntil {
-			section.UpdateValidity(pkeyValidSince, pkeyValidUntil, maxValidity)
-		} else {
-			section.UpdateValidity(pkeyValidSince, sigValidUntil, maxValidity)
-		}
-	}
-}
-
 //reapVerify deletes expired keys from the key caches and expired sections from the pendingSignature cache in intervals according to the config
 func reapVerify() {
 	for {

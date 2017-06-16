@@ -9,17 +9,17 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
-//EncodeZone transforms a shard into a signable format. It is also represented this way in a zone file
-func EncodeZone(z *rainslib.ZoneSection, toSign bool) string {
+//encodeZone transforms a shard into a signable format. It is also represented this way in a zone file
+func encodeZone(z *rainslib.ZoneSection, toSign bool) string {
 	zone := fmt.Sprintf(":Z: %s %s [\n", z.Context, z.SubjectZone)
 	for _, section := range z.Content {
 		switch section := section.(type) {
 		case *rainslib.AssertionSection:
 			context, subjectZone := getContextAndZone(z.Context, z.SubjectZone, section, toSign)
-			zone += fmt.Sprintf("    %s\n", EncodeAssertion(section, context, subjectZone, indent4))
+			zone += fmt.Sprintf("    %s\n", encodeAssertion(section, context, subjectZone, indent4))
 		case *rainslib.ShardSection:
 			context, subjectZone := getContextAndZone(z.Context, z.SubjectZone, section, toSign)
-			zone += fmt.Sprintf("    %s\n", EncodeShard(section, context, subjectZone, toSign))
+			zone += fmt.Sprintf("    %s\n", encodeShard(section, context, subjectZone, toSign))
 		default:
 			log.Warn("Unsupported message section type", "msgSection", section)
 		}
@@ -27,8 +27,8 @@ func EncodeZone(z *rainslib.ZoneSection, toSign bool) string {
 	return fmt.Sprintf("%s]", zone)
 }
 
-//EncodeShard transforms a shard into a signable format. It is also represented this way in a zone file
-func EncodeShard(s *rainslib.ShardSection, context, zone string, toSign bool) string {
+//encodeShard transforms a shard into a signable format. It is also represented this way in a zone file
+func encodeShard(s *rainslib.ShardSection, context, zone string, toSign bool) string {
 	rangeFrom := s.RangeFrom
 	rangeTo := s.RangeTo
 	if rangeFrom == "" {
@@ -40,13 +40,13 @@ func EncodeShard(s *rainslib.ShardSection, context, zone string, toSign bool) st
 	shard := fmt.Sprintf(":S: %s %s %s %s [\n", context, zone, rangeFrom, rangeTo)
 	for _, assertion := range s.Content {
 		ctx, subjectZone := getContextAndZone(context, zone, assertion, toSign)
-		shard += fmt.Sprintf("        %s\n", EncodeAssertion(assertion, ctx, subjectZone, indent8))
+		shard += fmt.Sprintf("        %s\n", encodeAssertion(assertion, ctx, subjectZone, indent8))
 	}
 	return fmt.Sprintf("%s    ]", shard)
 }
 
-//EncodeAssertion transforms an assertion into a signable format. It is also represented this way in a zone file
-func EncodeAssertion(a *rainslib.AssertionSection, context, zone, indent string) string {
+//encodeAssertion transforms an assertion into a signable format. It is also represented this way in a zone file
+func encodeAssertion(a *rainslib.AssertionSection, context, zone, indent string) string {
 	assertion := fmt.Sprintf(":A: %s %s %s [ ", context, zone, a.SubjectName)
 	if len(a.Content) > 1 {
 		return fmt.Sprintf("%s\n%s\n%s]", assertion, encodeObjects(a.Content, indent12), indent)

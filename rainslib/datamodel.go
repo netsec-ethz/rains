@@ -25,15 +25,20 @@ type RainsMessage struct {
 	Capabilities []Capability
 }
 
-//Token is a byte slice with maximal length 32
+func (m *RainsMessage) Sort() {
+
+}
+
+//Token is used to identify a message
 type Token [16]byte
 
 func (t Token) String() string {
 	return hex.EncodeToString(t[:])
 }
 
-//MessageSection can be either an Assertion, Shard, Zone, Query or Notification section
+//MessageSection can be either an Assertion, Shard, Zone, Query, Notification, AddressAssertion, AddressZone, AddressQuery section
 type MessageSection interface {
+	Sort()
 }
 
 //Capability is a urn of a capability
@@ -57,6 +62,7 @@ type MessageSectionWithSig interface {
 	ValidSince() int64
 	ValidUntil() int64
 	Hash() string
+	Sort()
 }
 
 //MessageSectionWithSigForward can be either an Assertion, Shard or Zone
@@ -72,6 +78,7 @@ type MessageSectionWithSigForward interface {
 	ValidSince() int64
 	ValidUntil() int64
 	Hash() string
+	Sort()
 	Interval
 }
 
@@ -217,6 +224,11 @@ func (a *AssertionSection) EqualContextZoneName(assertion *AssertionSection) boo
 		a.SubjectName == assertion.SubjectName
 }
 
+//Sort sorts the content of the assertion lexicographically.
+func (a *AssertionSection) Sort() {
+
+}
+
 //ShardSection contains information about the shard
 type ShardSection struct {
 	Content     []*AssertionSection
@@ -324,6 +336,11 @@ func (s *ShardSection) Hash() string {
 		aHashes += a.Hash()
 	}
 	return fmt.Sprintf("%s_%s_%s_%s_%s_%v", s.Context, s.SubjectZone, s.RangeFrom, s.RangeTo, aHashes, s.Signatures)
+}
+
+//Sort sorts the content of the shard lexicographically.
+func (s *ShardSection) Sort() {
+
 }
 
 //ZoneSection contains information about the zone
@@ -448,6 +465,11 @@ func (z *ZoneSection) Hash() string {
 	return fmt.Sprintf("%s_%s_%s_%v", z.Context, z.SubjectZone, contentHashes, z.Signatures)
 }
 
+//Sort sorts the content of the zone lexicographically.
+func (z *ZoneSection) Sort() {
+
+}
+
 //QuerySection contains information about the query
 type QuerySection struct {
 	//Mandatory
@@ -469,6 +491,11 @@ func (q QuerySection) ContainsOption(option QueryOption) bool {
 		}
 	}
 	return false
+}
+
+//Sort sorts the content of the query lexicographically.
+func (q *QuerySection) Sort() {
+
 }
 
 type QueryOption int
@@ -600,6 +627,11 @@ func (a *AddressAssertionSection) Hash() string {
 		a.Signatures)
 }
 
+//Sort sorts the content of the addressAssertion lexicographically.
+func (a *AddressAssertionSection) Sort() {
+
+}
+
 //AddressZoneSection contains information about the address zone
 type AddressZoneSection struct {
 	SubjectAddr *net.IPNet
@@ -705,6 +737,11 @@ func (z *AddressZoneSection) Hash() string {
 		z.Signatures)
 }
 
+//Sort sorts the content of the addressZone lexicographically.
+func (z *AddressZoneSection) Sort() {
+
+}
+
 //AddressQuerySection contains information about the address query
 type AddressQuerySection struct {
 	SubjectAddr *net.IPNet
@@ -726,6 +763,11 @@ func (q AddressQuerySection) ContainsOption(option QueryOption) bool {
 	return false
 }
 
+//Sort sorts the content of the addressQuery lexicographically.
+func (q *AddressQuerySection) Sort() {
+
+}
+
 //NotificationSection contains information about the notification
 type NotificationSection struct {
 	//Mandatory
@@ -733,6 +775,11 @@ type NotificationSection struct {
 	Type  NotificationType
 	//Optional
 	Data string
+}
+
+//Sort sorts the content of the notification lexicographically.
+func (a *NotificationSection) Sort() {
+	//notification is already sorted (it does not contain a list of elements).
 }
 
 type NotificationType int
@@ -905,6 +952,15 @@ func (c ConnInfo) Equal(conn ConnInfo) bool {
 	return false
 }
 
+//MaxSectionValidity defines the maximum duration each section containing signatures can be valid, starting from time.Now()
+type MaxSectionValidity struct {
+	AssertionValidity        time.Duration
+	ShardValidity            time.Duration
+	ZoneValidity             time.Duration
+	AddressAssertionValidity time.Duration
+	AddressZoneValidity      time.Duration
+}
+
 //RainsMsgParser can encode and decode RainsMessage.
 //It is able to efficiently extract only the Token form an encoded RainsMessage
 //It must always hold that: rainsMsg = Decode(Encode(rainsMsg)) && interface{} = Encode(Decode(interface{}))
@@ -931,11 +987,15 @@ type ZoneFileParser interface {
 
 //SignatureFormatEncoder is used to deterministically transform a RainsMessage into a byte format that can be signed.
 type SignatureFormatEncoder interface {
-	//Encode transforms the given msg into a signable format.
-	EncodeMsg(msg RainsMessage) []byte
+	//EncodeMessage transforms the given msg into a signable format.
+	//It must have already been verified that the msg does not contain malicious content.
+	//Signature meta data is not added
+	EncodeMessage(msg *RainsMessage) string
 
-	//EncodeSection transforms the given msg into a signable format.
-	EncodeSection(msg MessageSectionWithSig) []byte
+	//EncodeSection transforms the given msg into a signable format
+	//It must have already been verified that the section does not contain malicious content
+	//Signature meta data is not added
+	EncodeSection(section MessageSection) string
 }
 
 //MsgFramer is used to frame and deframe rains messages and send or receive them on the initialized stream.

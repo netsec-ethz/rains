@@ -1,7 +1,10 @@
 package zoneFileParser
 
 import (
+	"bufio"
+	"fmt"
 	"rains/rainslib"
+	"strings"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -64,7 +67,7 @@ var lineNrLogger log.Logger
 
 //Encode returns the given zone represented in the zone file format
 func (p Parser) Encode(zone *rainslib.ZoneSection) string {
-	return EncodeZone(zone, false)
+	return encodeZone(zone, false)
 }
 
 //Decode returns all assertions contained in the given zonefile
@@ -72,4 +75,52 @@ func (p Parser) Decode(zoneFile []byte, filePath string) ([]*rainslib.AssertionS
 	scanner := NewWordScanner(zoneFile)
 	lineNrLogger = log.New("file", filePath, "lineNr", log.Lazy{scanner.LineNumber})
 	return decodeZone(scanner)
+}
+
+//EncodeMessage transforms the given msg into a signable format.
+//It must have already been verified that the msg does not contain malicious content.
+//Signature meta data is not added
+func EncodeMessage(msg *rainslib.RainsMessage) string {
+	encoding := encodeMessage(msg)
+	return replaceWhitespaces(encoding)
+}
+
+//EncodeSection transforms the given msg into a signable format
+//It must have already been verified that the section does not contain malicious content
+//Signature meta data is not added
+func EncodeSection(s rainslib.MessageSection) string {
+	encoding := ""
+	switch s := s.(type) {
+	case *rainslib.AssertionSection:
+		encoding = encodeAssertion(s, s.Context, s.SubjectZone, "")
+	case *rainslib.ShardSection:
+		encoding = encodeShard(s, s.Context, s.SubjectZone, true)
+	case *rainslib.ZoneSection:
+		encoding = encodeZone(s, true)
+	case *rainslib.QuerySection:
+		encoding = encodeQuery(s)
+	case *rainslib.NotificationSection:
+		encoding = encodeNotification(s)
+	case *rainslib.AddressAssertionSection:
+		encoding = encodeAddressAssertion(s)
+	case *rainslib.AddressZoneSection:
+		encoding = encodeAddressZone(s)
+	case *rainslib.AddressQuerySection:
+		encoding = encodeAddressQuery(s)
+	default:
+		log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))
+		return ""
+	}
+	return replaceWhitespaces(encoding)
+}
+
+//replaceWhitespaces replaces a single or consecutive whitespaces with a single space.
+func replaceWhitespaces(encoding string) string {
+	scanner := bufio.NewScanner(strings.NewReader(encoding))
+	scanner.Split(bufio.ScanWords)
+	var words []string
+	for scanner.Scan() {
+		words = append(words, scanner.Text())
+	}
+	return strings.Join(words, " ")
 }

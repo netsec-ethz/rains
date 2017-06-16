@@ -11,25 +11,25 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
-//EncodeMessage transforms a rains message into a signable format
-func EncodeMessage(m *rainslib.RainsMessage) string {
+//encodeMessage transforms a rains message into a signable format
+func encodeMessage(m *rainslib.RainsMessage) string {
 	encoding := fmt.Sprintf(":M: %s %s ", m.Token.String(), encodeCapabilities(m.Capabilities))
 	for _, section := range m.Content {
 		switch s := section.(type) {
 		case *rainslib.AssertionSection:
-			encoding += EncodeAssertion(s, s.Context, s.SubjectZone, "") + " "
+			encoding += encodeAssertion(s, s.Context, s.SubjectZone, "") + " "
 		case *rainslib.ShardSection:
-			encoding += EncodeShard(s, s.Context, s.SubjectZone, true) + " "
+			encoding += encodeShard(s, s.Context, s.SubjectZone, true) + " "
 		case *rainslib.ZoneSection:
-			encoding += EncodeZone(s, true) + " "
+			encoding += encodeZone(s, true) + " "
 		case *rainslib.QuerySection:
 			encoding += encodeQuery(s) + " "
 		case *rainslib.NotificationSection:
 			encoding += encodeNotification(s) + " "
 		case *rainslib.AddressAssertionSection:
-			encoding += EncodeAddressAssertion(s) + " "
+			encoding += encodeAddressAssertion(s) + " "
 		case *rainslib.AddressZoneSection:
-			encoding += EncodeAddressZone(s) + " "
+			encoding += encodeAddressZone(s) + " "
 		case *rainslib.AddressQuerySection:
 			encoding += encodeAddressQuery(s) + " "
 		default:
@@ -40,16 +40,16 @@ func EncodeMessage(m *rainslib.RainsMessage) string {
 	return encoding
 }
 
-//EncodeAddressAssertion transforms an address assertion into a signable format
-func EncodeAddressAssertion(a *rainslib.AddressAssertionSection) string {
+//encodeAddressAssertion transforms an address assertion into a signable format
+func encodeAddressAssertion(a *rainslib.AddressAssertionSection) string {
 	return fmt.Sprintf(":AA: %s %s [ %s ]", a.Context, encodeSubjectAddress(a.SubjectAddr), encodeObjects(a.Content, ""))
 }
 
-//EncodeAddressZone transforms an address zone into a signable format
-func EncodeAddressZone(z *rainslib.AddressZoneSection) string {
+//encodeAddressZone transforms an address zone into a signable format
+func encodeAddressZone(z *rainslib.AddressZoneSection) string {
 	assertions := make([]string, len(z.Content))
 	for i, a := range z.Content {
-		assertions[i] = EncodeAddressAssertion(a)
+		assertions[i] = encodeAddressAssertion(a)
 	}
 	return fmt.Sprintf(":AZ: %s %s [ %s ]", z.Context, encodeSubjectAddress(z.SubjectAddr), strings.Join(assertions, " "))
 }
