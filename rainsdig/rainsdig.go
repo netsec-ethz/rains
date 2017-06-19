@@ -132,7 +132,7 @@ func sendQuery(query []byte, token rainslib.Token, connInfo rainslib.ConnInfo) e
 	}
 	result := <-done // wait for answer
 	for _, section := range result.Content {
-		//FIXME CFE validate signature before displaying information
+		//FIXME CFE validate signature before displaying information?
 		switch section := section.(type) {
 		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.QuerySection, *rainslib.NotificationSection,
 			*rainslib.AddressAssertionSection, *rainslib.AddressQuerySection, *rainslib.AddressZoneSection:

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"net"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -23,8 +25,11 @@ var negAssertionCache negativeAssertionCache
 //pendingQueries contains a mapping from all self issued pending queries to the set of message bodies waiting for it.
 var pendingQueries pendingQueryCache
 
-//addressCache contains a set of valid address assertions and address zones where some of them might be expired.
-var addressCache addressSectionCache
+//addressCache contains a set of valid IPv4 address assertions and address zones where some of them might be expired per context.
+var addressCacheIPv4 map[string]addressSectionCache
+
+//addressCache contains a set of valid IPv6 address assertions and address zones where some of them might be expired per context.
+var addressCacheIPv6 map[string]addressSectionCache
 
 //initEngine initialized the engine, which processes valid sections and queries.
 //It spawns a goroutine which periodically goes through the cache and removes outdated entries, see reapEngine()
@@ -48,8 +53,10 @@ func initEngine() error {
 		log.Error("Cannot create negative assertion Cache", "error", err)
 		return err
 	}
-
-	addressCache = new(binaryTrie.TrieNode)
+	addressCacheIPv4 = make(map[string]addressSectionCache)
+	addressCacheIPv4["."] = new(binaryTrie.TrieNode)
+	addressCacheIPv6 = make(map[string]addressSectionCache)
+	addressCacheIPv6["."] = new(binaryTrie.TrieNode)
 
 	go reapEngine()
 
@@ -66,7 +73,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 		log.Debug("Start processing Assertion", "assertion", section)
 		if isAssertionConsistent(section) {
 			log.Debug("Assertion is consistent with cached elements.")
-			ok := assertAssertion(section, isAuthoritative, sectionWSSender.Token)
+			ok := assertAssertion(section.Context, section.SubjectZone, section, isAuthoritative, sectionWSSender.Token)
 			if ok {
 				handleAssertion(section, sectionWSSender.Token)
 			}
@@ -77,7 +84,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 		log.Debug("Start processing Shard", "shard", section)
 		if isShardConsistent(section) {
 			log.Debug("Shard is consistent with cached elements.")
-			ok := assertShard(section, isAuthoritative, sectionWSSender.Token)
+			ok := assertShard(section.Context, section.SubjectZone, section, isAuthoritative, sectionWSSender.Token)
 			if ok {
 				handlePendingQueries(section, sectionWSSender.Token)
 			}
@@ -99,7 +106,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 		log.Debug("Start processing address assertion", "assertion", section)
 		if isAddressAssertionConsistent(section) {
 			log.Debug("Address Assertion is consistent with cached elements.")
-			ok := assertAddressAssertion(section, sectionWSSender.Token)
+			ok := assertAddressAssertion(section.Context, section, sectionWSSender.Token)
 			if ok {
 				handlePendingQueries(section, sectionWSSender.Token)
 			}
@@ -126,10 +133,10 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 //assertAssertion adds an assertion to the assertion cache. The assertion's signatures MUST have already been verified.
 //TODO CFE only the first element of the assertion is processed
 //Returns true if the assertion can be further processed.
-func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) bool {
+func assertAssertion(context, subjectZone string, a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) bool {
 	if shouldAssertionBeCached(a) {
 		value := assertionCacheValue{section: a, validSince: a.ValidSince(), validUntil: a.ValidUntil()}
-		assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative, value)
+		assertionsCache.Add(context, subjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative, value)
 		if a.Content[0].Type == rainslib.OTDelegation {
 			for _, sig := range a.Signatures {
 				if sig.KeySpace == rainslib.RainsKeySpace {
@@ -195,9 +202,9 @@ func shouldAssertionBeCached(assertion *rainslib.AssertionSection) bool {
 //assertShard adds a shard to the negAssertion cache and all contained assertions to the asseriontsCache.
 //The shard's signatures and all contained assertion signatures MUST have already been verified
 //Returns true if the shard can be further processed.
-func assertShard(shard *rainslib.ShardSection, isAuthoritative bool, token rainslib.Token) bool {
+func assertShard(context, subjectZone string, shard *rainslib.ShardSection, isAuthoritative bool, token rainslib.Token) bool {
 	if shouldShardBeCached(shard) {
-		negAssertionCache.Add(shard.Context, shard.SubjectZone, isAuthoritative,
+		negAssertionCache.Add(context, subjectZone, isAuthoritative,
 			negativeAssertionCacheValue{
 				section:    shard,
 				validSince: shard.ValidSince(),
@@ -205,7 +212,7 @@ func assertShard(shard *rainslib.ShardSection, isAuthoritative bool, token rains
 			})
 	}
 	for _, a := range shard.Content {
-		assertAssertion(a, isAuthoritative, [16]byte{})
+		assertAssertion(context, subjectZone, a, isAuthoritative, [16]byte{})
 	}
 	if shard.ValidSince() > time.Now().Unix() {
 		pendingQueries.GetAllAndDelete(token) //shard cannot be used to answer queries, delete all waiting elements for this shard.
@@ -235,9 +242,9 @@ func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool, token rainslib
 	for _, v := range zone.Content {
 		switch v := v.(type) {
 		case *rainslib.AssertionSection:
-			assertAssertion(v, isAuthoritative, [16]byte{})
+			assertAssertion(zone.Context, zone.SubjectZone, v, isAuthoritative, [16]byte{})
 		case *rainslib.ShardSection:
-			assertShard(v, isAuthoritative, [16]byte{})
+			assertShard(zone.Context, zone.SubjectZone, v, isAuthoritative, [16]byte{})
 		default:
 			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
 		}
@@ -256,17 +263,35 @@ func shouldZoneBeCached(zone *rainslib.ZoneSection) bool {
 }
 
 //assertAddressAssertion adds an assertion to the address assertion cache. The assertion's signatures MUST have already been verified.
-//FIXME CFE only the first element of the assertion is processed
 //Returns true if the address assertion can be further processed.
-func assertAddressAssertion(a *rainslib.AddressAssertionSection, token rainslib.Token) bool {
+func assertAddressAssertion(context string, a *rainslib.AddressAssertionSection, token rainslib.Token) bool {
 	if a.ValidSince() > time.Now().Unix() {
 		pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
 		return false
 	}
 	if shouldAddressAssertionBeCached(a) {
-		addressCache.AddAddressAssertion(a)
+		if err := getAddressCache(a.SubjectAddr, context).AddAddressAssertion(a); err != nil {
+			log.Warn("Was not able to add addressAssertion to cache", "addressAssertion", a)
+		}
 	}
 	return true
+}
+
+func getAddressCache(addr *net.IPNet, context string) (tree addressSectionCache) {
+	if addr.IP.To4() != nil {
+		tree = addressCacheIPv4[context]
+		if tree == nil {
+			tree = new(binaryTrie.TrieNode)
+			addressCacheIPv4[context] = tree
+		}
+	} else {
+		tree = addressCacheIPv6[context]
+		if tree == nil {
+			tree = new(binaryTrie.TrieNode)
+			addressCacheIPv6[context] = tree
+		}
+	}
+	return
 }
 
 //shouldAddressAssertionBeCached returns true if address assertion should be cached
@@ -285,10 +310,10 @@ func assertAddressZone(zone *rainslib.AddressZoneSection, token rainslib.Token) 
 		return false
 	}
 	if shouldAddressZoneBeCached(zone) {
-		addressCache.AddAddressZone(zone)
+		getAddressCache(zone.SubjectAddr, zone.Context).AddAddressZone(zone)
 	}
 	for _, a := range zone.Content {
-		assertAddressAssertion(a, token)
+		assertAddressAssertion(zone.Context, a, token)
 	}
 	return true
 }
@@ -303,7 +328,7 @@ func shouldAddressZoneBeCached(zone *rainslib.AddressZoneSection) bool {
 //addressQuery directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
 func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo) {
 	log.Debug("Start processing address query", "addressQuery", query)
-	assertion, zone, ok := addressCache.Get(query.SubjectAddr, []rainslib.ObjectType{query.Types})
+	assertion, zone, ok := getAddressCache(query.SubjectAddr, query.Context).Get(query.SubjectAddr, []rainslib.ObjectType{query.Types})
 	//TODO CFE add heuristic which assertion to return
 	if ok {
 		if assertion != nil {
