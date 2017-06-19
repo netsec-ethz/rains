@@ -13,6 +13,8 @@ import (
 
 	"time"
 
+	"fmt"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -85,21 +87,20 @@ func loadAuthoritative() {
 
 //loadRootZonePublicKey stores the root zone public key from disk into the zoneKeyCache.
 func loadRootZonePublicKey() error {
-	a := &rainslib.AssertionSection{}
+	a := new(rainslib.AssertionSection)
 	err := rainslib.Load(Config.RootZonePublicKeyPath, a)
 	if err == nil {
 		for _, c := range a.Content {
 			if c.Type == rainslib.OTDelegation {
-				//FIXME CFE: a.ValidUntil() returns 0 and the value is thus not cached. It is solved in the reverse lookup branch
-				if a.ValidUntil() == 0 {
-					log.Error("Here is the mistake!")
-				}
-				publicKey := rainslib.PublicKey{Key: c.Value, Type: a.Signatures[0].Algorithm, ValidUntil: a.ValidUntil()}
-				keyMap := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
-				keyMap[rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)] = publicKey
-				if validateSignatures(a, keyMap) {
-					log.Info("Added root public key to zone key cache.", "context", a.Context, "zone", a.SubjectZone, "RootPublicKey", publicKey)
-					zoneKeyCache.Add(keyCacheKey{context: a.Context, zone: a.SubjectZone, keyAlgo: rainslib.KeyAlgorithmType(publicKey.Type)}, publicKey, true)
+				if publicKey, ok := c.Value.(rainslib.PublicKey); ok {
+					keyMap := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
+					keyMap[rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)] = publicKey
+					if validateSignatures(a, keyMap) {
+						log.Info("Added root public key to zone key cache.", "context", a.Context, "zone", a.SubjectZone, "RootPublicKey", c.Value)
+						zoneKeyCache.Add(keyCacheKey{context: a.Context, zone: a.SubjectZone, keyAlgo: rainslib.KeyAlgorithmType(publicKey.Type)}, publicKey, true)
+					}
+				} else {
+					log.Warn(fmt.Sprintf("Was not able to cast to rainslib.PublicKey Got Type:%T", c.Value))
 				}
 			}
 		}

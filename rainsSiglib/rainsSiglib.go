@@ -344,6 +344,7 @@ func signData(sig *rainslib.Signature, privateKey interface{}, encoding string) 
 	data := []byte(encoding)
 	switch sig.Algorithm {
 	case rainslib.Ed25519:
+
 		if pkey, ok := privateKey.(ed25519.PrivateKey); ok {
 			sig.Data = ed25519.Sign(pkey, data)
 			return

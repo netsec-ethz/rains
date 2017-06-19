@@ -16,6 +16,7 @@ const (
 //Config contains configurations for publishing assertions
 var config rainpubConfig
 var zonePrivateKey ed25519.PrivateKey
+var rootPrivateKey ed25519.PrivateKey
 var parser rainslib.ZoneFileParser
 var msgParser rainslib.RainsMsgParser
 

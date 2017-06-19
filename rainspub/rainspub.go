@@ -18,7 +18,7 @@ import (
 //InitRainspub initializes rainspub
 func InitRainspub() {
 	loadConfig()
-	loadPrivateKey()
+	loadPrivateKeys()
 	parser = zoneFileParser.Parser{}
 	msgParser = new(protoParser.ProtoParserAndFramer)
 }
@@ -241,10 +241,6 @@ func sendDelegations() {
 	}
 	zone := groupAssertionsToShards(assertions)
 
-	rootPrivateKey, err := ioutil.ReadFile(config.RootPrivateKeyPath)
-	if err != nil {
-		log.Error("Could not read zone private key file", "error", err)
-	}
 	signZone(zone, rootPrivateKey)
 	if err != nil {
 		log.Warn("Was not able to sign zone.", "error", err)

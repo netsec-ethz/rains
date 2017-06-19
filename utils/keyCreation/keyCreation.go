@@ -24,9 +24,11 @@ func CreateDelegationAssertion(context, zone string) error {
 	}
 	log.Debug("Generated root public Key", "publicKey", publicKey)
 	pkey := rainslib.PublicKey{
-		KeySpace: rainslib.RainsKeySpace,
-		Type:     rainslib.Ed25519,
-		Key:      publicKey,
+		KeySpace:   rainslib.RainsKeySpace,
+		Type:       rainslib.Ed25519,
+		Key:        publicKey,
+		ValidSince: time.Now().Unix(),
+		ValidUntil: time.Now().Add(30 * 24 * time.Hour).Unix(),
 	}
 	assertion := &rainslib.AssertionSection{
 		Context:     context,
