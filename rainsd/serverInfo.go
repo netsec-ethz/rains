@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"rains/rainslib"
-
-	log "github.com/inconshreveable/log15"
 )
 
 var serverConnInfo rainslib.ConnInfo
@@ -25,8 +23,7 @@ type rainsdConfig struct {
 	RootZonePublicKeyPath string
 
 	//switchboard
-	ServerAddrType     rainslib.NetworkAddrType
-	ServerTCPAddr      *net.TCPAddr
+	ServerAddress      rainslib.ConnInfo
 	MaxConnections     uint
 	KeepAlivePeriod    time.Duration //in seconds
 	TCPTimeout         time.Duration //in seconds
@@ -63,24 +60,6 @@ type rainsdConfig struct {
 	ZoneAuthority              []string
 	MaxCacheValidity           rainslib.MaxCacheValidity //in hours
 	ReapEngineTimeout          time.Duration             //in seconds
-}
-
-//DefaultConfig is a rainsdConfig object containing default values
-/*var defaultConfig = rainsdConfig{ServerAddrType: rainslib.TCP, MaxConnections: 1000, KeepAlivePeriod: time.Minute, TCPTimeout: 5 * time.Minute,
-TLSCertificateFile: "config/server.crt", TLSPrivateKeyFile: "config/server.key", MaxMsgByteLength: 65536, PrioBufferSize: 1000, NormalBufferSize: 100000, PrioWorkerCount: 2,
-NormalWorkerCount: 10, ZoneKeyCacheSize: 1000, PendingSignatureCacheSize: 1000, AssertionCacheSize: 10000, PendingQueryCacheSize: 100, CapabilitiesCacheSize: 50,
-NotificationBufferSize: 20, NotificationWorkerCount: 2, PeerToCapCacheSize: 1000, Capabilities: []rainslib.Capability{rainslib.TLSOverTCP}, InfrastructureKeyCacheSize: 10,
-ExternalKeyCacheSize: 5, DelegationQueryValidity: 5 * time.Second, NegativeAssertionCacheSize: 500, AddressQueryValidity: 5 * time.Second, QueryValidity: 5,
-MaxCacheValidity:  rainslib.MaxCacheValidity{AssertionValidity: 365 * 24 * time.Hour, ShardValidity: 365 * 24 * time.Hour, ZoneValidity: 365 * 24 * time.Hour},
-ReapVerifyTimeout: 30 * time.Minute, ReapEngineTimeout: 30 * time.Minute, RootZonePublicKeyPath: "keys/selfSignedRootDelegationAssertion.gob",
-ContextAuthority: []string{"."}, ZoneAuthority: []string{"ch"}}*/
-
-func loadDefaultSeverAddrIntoConfig() *net.TCPAddr {
-	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:5022")
-	if err != nil {
-		log.Warn("Was not able to resolve default tcp addr of server")
-	}
-	return addr
 }
 
 //AddressPair contains address information about both peers of a connection

@@ -1,18 +1,17 @@
 package rainspub
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"io/ioutil"
 	"os"
-
-	"encoding/hex"
+	"time"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
 )
 
 func loadConfig() {
-	loadDefaultSeverAddrIntoConfig()
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Warn("Could not open config file...", "path", configPath, "error", err)
@@ -20,6 +19,10 @@ func loadConfig() {
 	if err = json.Unmarshal(file, &config); err != nil {
 		log.Warn("Could not unmarshal json format of config", "error", err)
 	}
+	config.AssertionValidity *= time.Hour
+	config.ShardValidity *= time.Hour
+	config.ZoneValidity *= time.Hour
+	config.DelegationValidity *= time.Hour
 }
 
 //TODO CFE remove when we have air gapping

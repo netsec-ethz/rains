@@ -4,16 +4,14 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"rains/rainslib"
 	"rains/utils/cache"
 	"rains/utils/protoParser"
 	"rains/utils/zoneFileParser"
-
 	"time"
-
-	"fmt"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -27,7 +25,7 @@ func InitServer() error {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(h)
 	loadConfig()
-	serverConnInfo = rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: Config.ServerTCPAddr}
+	serverConnInfo = Config.ServerAddress
 	msgParser = new(protoParser.ProtoParserAndFramer)
 	sigEncoder = new(zoneFileParser.Parser)
 	loadAuthoritative()
@@ -56,7 +54,6 @@ func InitServer() error {
 
 //LoadConfig loads and stores server configuration
 func loadConfig() {
-	Config.ServerTCPAddr = loadDefaultSeverAddrIntoConfig()
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Warn("Could not open config file...", "path", configPath, "error", err)
@@ -173,9 +170,9 @@ func sendAddressQuery(context string, ipNet *net.IPNet, expTime int64, objType r
 func getDelegationAddress(context, zone string) rainslib.ConnInfo {
 	//TODO CFE not yet implemented
 	log.Warn("Not yet implemented CFE. return hard coded delegation address")
-	tcpAddr := loadDefaultSeverAddrIntoConfig()
-	tcpAddr.Port = tcpAddr.Port + 1
-	return rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr}
+	delegAddr := Config.ServerAddress
+	delegAddr.TCPAddr.Port++
+	return delegAddr
 }
 
 //createConnectionCache returns a newly created connection cache

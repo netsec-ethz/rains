@@ -1,11 +1,9 @@
 package rainspub
 
 import (
-	"net"
 	"rains/rainslib"
 	"time"
 
-	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -33,16 +31,4 @@ type rainpubConfig struct {
 	ZonePrivateKeyPath     string
 	ZonePublicKeyPath      string
 	RootPrivateKeyPath     string
-}
-
-func loadDefaultSeverAddrIntoConfig() {
-	addr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:5022")
-	if err != nil {
-		log.Warn("Was not able to resolve default tcp addr of server")
-	}
-	config.ServerAddresses = []rainslib.ConnInfo{rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: addr}}
-	config.AssertionValidity *= time.Hour
-	config.ShardValidity *= time.Hour
-	config.ZoneValidity *= time.Hour
-	config.DelegationValidity *= time.Hour
 }

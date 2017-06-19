@@ -133,7 +133,6 @@ func signZone(zone *rainslib.ZoneSection, privateKey ed25519.PrivateKey) error {
 	if ok := rainsSiglib.SignSection(zone, privateKey, signature, zoneFileParser.Parser{}); !ok {
 		return errors.New("Was not able to sign and add the signature")
 	}
-
 	for _, sec := range zone.Content {
 		switch sec := sec.(type) {
 		case *rainslib.ShardSection:
@@ -169,18 +168,18 @@ func signShard(s *rainslib.ShardSection, privateKey ed25519.PrivateKey) error {
 func signAssertions(assertions []*rainslib.AssertionSection, privateKey ed25519.PrivateKey) error {
 	for _, a := range assertions {
 		//TODO CFE handle multiple types per assertion
-		validUntil := int64(0)
-		if a.Content[0].Type == rainslib.OTDelegation {
-			validUntil = time.Now().Add(config.DelegationValidity).Unix()
-		} else {
-			validUntil = time.Now().Add(config.AssertionValidity).Unix()
-		}
 		signature := rainslib.Signature{
 			Algorithm: rainslib.Ed25519,
 			KeySpace:  rainslib.RainsKeySpace,
 			//TODO What time should we choose for valid since?
 			ValidSince: time.Now().Unix(),
-			ValidUntil: validUntil}
+		}
+		if a.Content[0].Type == rainslib.OTDelegation {
+			signature.ValidUntil = time.Now().Add(config.DelegationValidity).Unix()
+		} else {
+			signature.ValidUntil = time.Now().Add(config.AssertionValidity).Unix()
+		}
+
 		if ok := rainsSiglib.SignSection(a, privateKey, signature, zoneFileParser.Parser{}); !ok {
 			return errors.New("Was not able to sign and add the signature")
 		}

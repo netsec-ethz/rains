@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"time"
 
+	"encoding/hex"
+
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
 )
@@ -27,6 +29,7 @@ import (
 //   signature meta data is added in the verifySignature() method
 func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib.KeyAlgorithmType]rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder,
 	maxVal rainslib.MaxCacheValidity) bool {
+	log.Debug("Check Section signature")
 	if len(s.Sigs()) == 0 {
 		log.Debug("Section contain no signatures")
 		return false
@@ -41,11 +44,12 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Debug("signature is expired", "signature", sig)
 			s.DeleteSig(i)
+			continue
 		} else if !verifySignature(sig, pkey.Key, encodedSection) {
+			log.Warn("", "publicKey", hex.EncodeToString(pkey.Key.(ed25519.PublicKey)), "encoded Section", encodedSection, "signature", sig)
 			return false
-		} else {
-			rainslib.UpdateSectionValidity(s, pkey.ValidSince, pkey.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
 		}
+		rainslib.UpdateSectionValidity(s, pkey.ValidSince, pkey.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
 	}
 	return len(s.Sigs()) > 0
 }
@@ -75,6 +79,7 @@ func CheckMessageSignatures(msg *rainslib.RainsMessage, publicKey rainslib.Publi
 			log.Debug("current time is not in this signature's validity period", "signature", sig)
 			msg.Signatures = append(msg.Signatures[:i], msg.Signatures[i+1:]...)
 		} else if !verifySignature(sig, publicKey.Key, encodedSection) {
+			log.Warn("", "publicKey", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)), "encoded Section", encodedSection, "signature", sig)
 			return false
 		}
 	}
@@ -340,11 +345,11 @@ func verifySignature(sig rainslib.Signature, publicKey interface{}, encoding str
 
 //signData adds signature meta data to the encoding. It then signs the encoding with the given private key and adds generated signature to sig
 func signData(sig *rainslib.Signature, privateKey interface{}, encoding string) {
+	log.Debug("Sign data", "signature", sig, "privateKey", hex.EncodeToString(privateKey.(ed25519.PrivateKey)), "encoding", encoding)
 	encoding += fmt.Sprintf("%d %d %d %d", sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil)
 	data := []byte(encoding)
 	switch sig.Algorithm {
 	case rainslib.Ed25519:
-
 		if pkey, ok := privateKey.(ed25519.PrivateKey); ok {
 			sig.Data = ed25519.Sign(pkey, data)
 			return
