@@ -830,20 +830,8 @@ const (
 	Ecdsa384 SignatureAlgorithmType = 4
 )
 
-//FIXME CFE are these types necessary???
-//Ed25519PublicKey is a 32-byte bit string
-type Ed25519PublicKey [32]byte
-
-//Ed448PublicKey is a 57-byte bit string
+//TODO CFE replace this type with the public key type of the crypto library we use for ed448
 type Ed448PublicKey [57]byte
-
-type Ecdsa256PublicKey struct {
-	//TODO to implement
-}
-
-type Ecdsa384PublicKey struct {
-	//TODO to implement
-}
 
 //HashAlgorithmType specifies a hash algorithm type
 type HashAlgorithmType int
@@ -912,6 +900,7 @@ type Object struct {
 //NetworkAddrType enumerates network address types
 type NetworkAddrType int
 
+//run 'jsonenums -type=NetworkAddrType' in this directory if a new networkAddrType is added [source https://github.com/campoy/jsonenums]
 const (
 	TCP NetworkAddrType = iota
 )

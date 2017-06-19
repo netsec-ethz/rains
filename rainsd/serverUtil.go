@@ -11,6 +11,8 @@ import (
 	"rains/utils/protoParser"
 	"rains/utils/zoneFileParser"
 
+	"time"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -58,8 +60,20 @@ func loadConfig() {
 		log.Warn("Could not open config file...", "path", configPath, "error", err)
 	}
 	if err = json.Unmarshal(file, &Config); err != nil {
-		log.Warn("Could not unmarshal json format of config")
+		log.Warn("Could not unmarshal json format of config", "error", err)
 	}
+	Config.KeepAlivePeriod *= time.Second
+	Config.TCPTimeout *= time.Second
+	Config.DelegationQueryValidity *= time.Second
+	Config.ReapVerifyTimeout *= time.Second
+	Config.QueryValidity *= time.Second
+	Config.AddressQueryValidity *= time.Second
+	Config.ReapEngineTimeout *= time.Second
+	Config.MaxCacheValidity.AddressAssertionValidity *= time.Hour
+	Config.MaxCacheValidity.AddressZoneValidity *= time.Hour
+	Config.MaxCacheValidity.AssertionValidity *= time.Hour
+	Config.MaxCacheValidity.ShardValidity *= time.Hour
+	Config.MaxCacheValidity.ZoneValidity *= time.Hour
 }
 
 func loadAuthoritative() {

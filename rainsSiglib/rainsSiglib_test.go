@@ -3,11 +3,9 @@ package rainsSiglib
 import (
 	"net"
 	"rains/rainslib"
-	"testing"
-
-	"time"
-
 	"rains/utils/zoneFileParser"
+	"testing"
+	"time"
 
 	"golang.org/x/crypto/ed25519"
 )
@@ -17,12 +15,11 @@ func TestEncodeAndDecode(t *testing.T) {
 		Name:  "ethz2.ch",
 		Types: []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr},
 	}
-	var ed25519Pkey rainslib.Ed25519PublicKey
-	copy(ed25519Pkey[:], []byte("01234567890123456789012345678901"))
+
 	publicKey := rainslib.PublicKey{
 		KeySpace:   rainslib.RainsKeySpace,
 		Type:       rainslib.Ed25519,
-		Key:        ed25519Pkey,
+		Key:        ed25519.PublicKey([]byte("01234567890123456789012345678901")),
 		ValidSince: 10000,
 		ValidUntil: 50000,
 	}
@@ -151,13 +148,12 @@ func TestEncodeAndDecode(t *testing.T) {
 	}
 
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	copy(ed25519Pkey[:], []byte(genPublicKey))
 	pKey := rainslib.PublicKey{
 		KeySpace:   rainslib.RainsKeySpace,
 		Type:       rainslib.Ed25519,
 		ValidSince: time.Now().Add(-24 * time.Hour).Unix(),
 		ValidUntil: time.Now().Add(24 * time.Hour).Unix(),
-		Key:        ed25519Pkey,
+		Key:        genPublicKey,
 	}
 	pKeys := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
 	pKeys[rainslib.KeyAlgorithmType(pKey.Type)] = pKey
@@ -239,5 +235,4 @@ func TestEncodeAndDecode(t *testing.T) {
 	if !ok {
 		t.Error("Verification of addressZone signature failed")
 	}
-
 }

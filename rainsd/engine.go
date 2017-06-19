@@ -361,7 +361,7 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo)
 	if !query.ContainsOption(rainslib.QOTokenTracing) {
 		token = rainslib.GenerateToken()
 	}
-	validUntil := time.Now().Add(Config.AssertionQueryValidity).Unix() //Upper bound for forwarded query expiration time
+	validUntil := time.Now().Add(Config.AddressQueryValidity).Unix() //Upper bound for forwarded query expiration time
 	if query.Expires < validUntil {
 		validUntil = query.Expires
 	}
@@ -414,7 +414,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo) {
 		if !query.ContainsOption(rainslib.QOTokenTracing) {
 			token = rainslib.GenerateToken()
 		}
-		validUntil := time.Now().Add(Config.AssertionQueryValidity).Unix() //Upper bound for forwarded query expiration time
+		validUntil := time.Now().Add(Config.QueryValidity).Unix() //Upper bound for forwarded query expiration time
 		if query.Expires < validUntil {
 			validUntil = query.Expires
 		}

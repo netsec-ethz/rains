@@ -6,6 +6,8 @@ import (
 	"rains/rainslib"
 	"strings"
 
+	"golang.org/x/crypto/ed25519"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -109,7 +111,7 @@ func encodeObjects(o []rainslib.Object, indent string) string {
 			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
 		case rainslib.OTNextKey:
 			if pkey, ok := obj.Value.(rainslib.PublicKey); ok {
-				objects += fmt.Sprintf("%s    %s %d %d\n", typeNextKey, encodePublicKey(pkey), pkey.ValidSince, pkey.ValidUntil)
+				objects += fmt.Sprintf("%s     %s %d %d\n", typeNextKey, encodePublicKey(pkey), pkey.ValidSince, pkey.ValidUntil)
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
@@ -161,8 +163,8 @@ func encodeNameObject(no rainslib.NameObject) string {
 func encodePublicKey(pkey rainslib.PublicKey) string {
 	switch pkey.Type {
 	case rainslib.Ed25519:
-		if key, ok := pkey.Key.(rainslib.Ed25519PublicKey); ok {
-			return fmt.Sprintf("%s %s", keyAlgoed25519, hex.EncodeToString(key[:]))
+		if key, ok := pkey.Key.(ed25519.PublicKey); ok {
+			return fmt.Sprintf("%s %s", keyAlgoed25519, hex.EncodeToString(key))
 		}
 		log.Warn("Type assertion failed. ExpsOTServiceInfoected rainslib.Ed25519PublicKey", "actualType", fmt.Sprintf("%T", pkey.Key))
 	case rainslib.Ed448:

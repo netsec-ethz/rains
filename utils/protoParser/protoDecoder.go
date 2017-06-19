@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 )
 
 func decodeAssertion(a proto.AssertionSection) (*rainslib.AssertionSection, error) {
@@ -690,14 +691,12 @@ func decodePublicKey(pkey proto.PublicKey) (rainslib.PublicKey, error) {
 	}
 	switch publicKey.Type {
 	case rainslib.Ed25519:
-		var ed25519Publickey rainslib.Ed25519PublicKey
-		byteKey, err := pkey.Key()
+		pubKey, err := pkey.Key()
+		publicKey.Key = ed25519.PublicKey(pubKey)
 		if err != nil {
 			log.Warn("Was not able to decode key data", "error", err)
 			return rainslib.PublicKey{}, err
 		}
-		copy(ed25519Publickey[:], byteKey)
-		publicKey.Key = ed25519Publickey
 	case rainslib.Ed448:
 		log.Warn("Not yet supported")
 	case rainslib.Ecdsa256:

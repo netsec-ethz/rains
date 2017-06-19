@@ -306,8 +306,8 @@ func verifySignature(sig rainslib.Signature, publicKey interface{}, encoding str
 	}
 	switch sig.Algorithm {
 	case rainslib.Ed25519:
-		if pkey, ok := publicKey.(rainslib.Ed25519PublicKey); ok {
-			return ed25519.Verify(ed25519.PublicKey(pkey[:]), data, sig.Data.([]byte))
+		if pkey, ok := publicKey.(ed25519.PublicKey); ok {
+			return ed25519.Verify(pkey, data, sig.Data.([]byte))
 		}
 		log.Warn("Could not cast key to ed25519.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
 	case rainslib.Ed448:

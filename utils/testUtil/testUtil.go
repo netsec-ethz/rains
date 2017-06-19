@@ -4,6 +4,8 @@ import (
 	"net"
 	"rains/rainslib"
 	"testing"
+
+	"golang.org/x/crypto/ed25519"
 )
 
 func CheckMessage(m1, m2 rainslib.RainsMessage, t *testing.T) {
@@ -378,13 +380,18 @@ func CheckPublicKey(p1, p2 rainslib.PublicKey, t *testing.T) {
 		t.Errorf("PublicKey ValidUntil mismatch. p1.ValidUntil=%v p2.ValidUntil=%v", p1.ValidUntil, p2.ValidUntil)
 	}
 	switch p1 := p1.Key.(type) {
-	case rainslib.Ed25519PublicKey:
-		if p2, ok := p2.Key.(rainslib.Ed25519PublicKey); ok {
-			if p1 != p2 {
+	case ed25519.PublicKey:
+		if p21, ok := p2.Key.(ed25519.PublicKey); ok {
+			if len(p1) != len(p21) {
 				t.Errorf("publickey key mismatch p1=%v != %v=p2", p1, p2)
 			}
+			for i := 0; i < len(p1); i++ {
+				if p1[i] != p21[i] {
+					t.Errorf("publickey key mismatch p1=%v != %v=p2 at position %d", p1, p2, i)
+				}
+			}
 		} else {
-			t.Errorf("publickey key type mismatch. Got Type:%T", p2)
+			t.Errorf("publickey key type mismatch. Got Type:%T", p2.Key)
 		}
 	default:
 		t.Errorf("Not yet supported. Got Type:%T", p1)

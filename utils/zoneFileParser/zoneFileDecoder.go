@@ -1,6 +1,7 @@
 package zoneFileParser
 
 import (
+	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 )
 
 //decodeZone decodes the zone's content and returns all contained assertions
@@ -325,10 +327,10 @@ func decodePublicKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 		return decodePublicKeyData(scanner, publicKey)
 	case rainslib.Ecdsa256:
 		log.Warn("Not yet implemented")
-		publicKey.Key = rainslib.Ecdsa256PublicKey{}
+		publicKey.Key = new(ecdsa.PublicKey)
 	case rainslib.Ecdsa384:
 		log.Warn("Not yet implemented")
-		publicKey.Key = rainslib.Ecdsa384PublicKey{}
+		publicKey.Key = new(ecdsa.PublicKey)
 	default:
 		lineNrLogger.Error("zonFile malformed.", "expected", "key algorithm type identifier", "got", keyAlgoType)
 		return rainslib.PublicKey{}, errors.New("encountered non existing signature algorithm type")
@@ -343,9 +345,7 @@ func decodePublicKeyData(scanner *WordScanner, publicKey rainslib.PublicKey) (ra
 		return publicKey, err
 	}
 	if len(pKey) == 32 {
-		key := rainslib.Ed25519PublicKey{}
-		copy(key[:], pKey)
-		publicKey.Key = key
+		publicKey.Key = ed25519.PublicKey(pKey)
 		return publicKey, nil
 	}
 	if len(pKey) == 57 {

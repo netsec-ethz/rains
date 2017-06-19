@@ -36,7 +36,6 @@ func initVerify() error {
 		return err
 	}
 	if err := loadRootZonePublicKey(); err != nil {
-		log.Error("Was not able to load root zone public key", "error", err)
 		return err
 	}
 
@@ -432,7 +431,6 @@ func validAddressZoneSignatures(section *rainslib.AddressZoneSection, keys map[r
 
 //validateSignatures returns true if all signatures of the section are valid. It removes valid signatures that are expired
 func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
-	log.Info(fmt.Sprintf("Validate %T", section), "msgSection", section)
 	if !rainsSiglib.CheckSectionSignatures(section, keys, sigEncoder, Config.MaxCacheValidity) {
 		log.Warn("signatures do not match")
 		return false

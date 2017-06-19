@@ -5,6 +5,8 @@ import (
 	"rains/rainslib"
 	"rains/utils/testUtil"
 	"testing"
+
+	"golang.org/x/crypto/ed25519"
 )
 
 func TestEncodeAndDecode(t *testing.T) {
@@ -12,12 +14,11 @@ func TestEncodeAndDecode(t *testing.T) {
 		Name:  "ethz2.ch",
 		Types: []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr},
 	}
-	var ed25519Pkey rainslib.Ed25519PublicKey
-	copy(ed25519Pkey[:], []byte("01234567890123456789012345678901"))
+	pubKey, _, _ := ed25519.GenerateKey(nil)
 	publicKey := rainslib.PublicKey{
 		KeySpace:   rainslib.RainsKeySpace,
 		Type:       rainslib.Ed25519,
-		Key:        ed25519Pkey,
+		Key:        pubKey,
 		ValidSince: 10000,
 		ValidUntil: 50000,
 	}

@@ -16,7 +16,7 @@ func loadConfig() {
 		log.Warn("Could not open config file...", "path", configPath, "error", err)
 	}
 	if err = json.Unmarshal(file, &config); err != nil {
-		log.Warn("Could not unmarshal json format of config")
+		log.Warn("Could not unmarshal json format of config", "error", err)
 	}
 }
 

@@ -7,6 +7,8 @@ import (
 	"rains/rainslib"
 	"strconv"
 
+	"golang.org/x/crypto/ed25519"
+
 	log "github.com/inconshreveable/log15"
 	capnp "zombiezen.com/go/capnproto2"
 )
@@ -426,8 +428,7 @@ func encodePublicKey(publicKey rainslib.PublicKey, pubKey proto.PublicKey) error
 
 	switch publicKey.Type {
 	case rainslib.Ed25519:
-		pkey := publicKey.Key.(rainslib.Ed25519PublicKey)
-		pubKey.SetKey(pkey[:])
+		pubKey.SetKey(publicKey.Key.(ed25519.PublicKey))
 	case rainslib.Ed448:
 		log.Warn("Not yet supported")
 	case rainslib.Ecdsa256:

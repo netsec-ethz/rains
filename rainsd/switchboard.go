@@ -75,7 +75,7 @@ func Listen() {
 	if err != nil {
 		srvLogger.Warn("Path to CertificateFile or privateKeyFile might be invalid. Default values are used", "CertPath", Config.TLSCertificateFile,
 			"KeyPath", Config.TLSPrivateKeyFile, "error", err)
-		cert, err = tls.LoadX509KeyPair(defaultConfig.TLSCertificateFile, defaultConfig.TLSPrivateKeyFile)
+		cert, err = tls.LoadX509KeyPair(Config.TLSCertificateFile, Config.TLSPrivateKeyFile)
 		if err != nil {
 			srvLogger.Error("Cannot load certificate", "error", err)
 			return

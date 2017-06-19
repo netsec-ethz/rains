@@ -12,7 +12,8 @@ import (
 )
 
 func init() {
-	gob.Register(ed25519.PublicKey{})
+	gob.Register(PublicKey{})
+	gob.RegisterName("ed25519.PublicKey", ed25519.PublicKey{})
 }
 
 //GenerateToken generates a new unique Token
@@ -38,12 +39,16 @@ func Save(path string, object interface{}) error {
 
 //Load fetches the gob encoded object from the file located at path
 func Load(path string, object interface{}) error {
-	log.Warn("", "", path)
 	file, err := os.Open(path)
 	defer file.Close()
-	if err == nil {
-		decoder := gob.NewDecoder(file)
-		err = decoder.Decode(object)
+	if err != nil {
+		log.Error("Was not able to open file", "path", path, "error", err)
+		return err
+	}
+	decoder := gob.NewDecoder(file)
+	err = decoder.Decode(object)
+	if err != nil {
+		log.Error("Was not able to decode file.", "path", path, "error", err)
 	}
 	return err
 }

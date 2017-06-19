@@ -23,12 +23,10 @@ func CreateDelegationAssertion(context, zone string) error {
 		return err
 	}
 	log.Debug("Generated root public Key", "publicKey", publicKey)
-	var ed25519Pkey rainslib.Ed25519PublicKey
-	copy(ed25519Pkey[:], publicKey)
 	pkey := rainslib.PublicKey{
 		KeySpace: rainslib.RainsKeySpace,
 		Type:     rainslib.Ed25519,
-		Key:      ed25519Pkey,
+		Key:      publicKey,
 	}
 	assertion := &rainslib.AssertionSection{
 		Context:     context,

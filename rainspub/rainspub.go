@@ -2,16 +2,14 @@ package rainspub
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"rains/rainsSiglib"
 	"rains/rainslib"
 	"rains/utils/protoParser"
 	"rains/utils/zoneFileParser"
 	"time"
-
-	"rains/rainsSiglib"
-
-	"errors"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
@@ -243,7 +241,7 @@ func sendDelegations() {
 	}
 	zone := groupAssertionsToShards(assertions)
 
-	rootPrivateKey, err := ioutil.ReadFile("keys/rootPrivate.Key")
+	rootPrivateKey, err := ioutil.ReadFile(config.RootPrivateKeyPath)
 	if err != nil {
 		log.Error("Could not read zone private key file", "error", err)
 	}
