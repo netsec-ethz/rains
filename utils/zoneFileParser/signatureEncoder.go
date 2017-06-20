@@ -13,7 +13,7 @@ import (
 
 //encodeMessage transforms a rains message into a signable format
 func encodeMessage(m *rainslib.RainsMessage) string {
-	encoding := fmt.Sprintf(":M: %s %s ", m.Token.String(), encodeCapabilities(m.Capabilities))
+	encoding := fmt.Sprintf(":M: %s %s ", encodeCapabilities(m.Capabilities), m.Token.String())
 	for _, section := range m.Content {
 		switch s := section.(type) {
 		case *rainslib.AssertionSection:
@@ -42,7 +42,7 @@ func encodeMessage(m *rainslib.RainsMessage) string {
 
 //encodeAddressAssertion transforms an address assertion into a signable format
 func encodeAddressAssertion(a *rainslib.AddressAssertionSection) string {
-	return fmt.Sprintf(":AA: %s %s [ %s ]", a.Context, encodeSubjectAddress(a.SubjectAddr), encodeObjects(a.Content, ""))
+	return fmt.Sprintf(":AA: %s %s [ %s ]", encodeSubjectAddress(a.SubjectAddr), a.Context, encodeObjects(a.Content, ""))
 }
 
 //encodeAddressZone transforms an address zone into a signable format
@@ -51,11 +51,11 @@ func encodeAddressZone(z *rainslib.AddressZoneSection) string {
 	for i, a := range z.Content {
 		assertions[i] = encodeAddressAssertion(a)
 	}
-	return fmt.Sprintf(":AZ: %s %s [ %s ]", z.Context, encodeSubjectAddress(z.SubjectAddr), strings.Join(assertions, " "))
+	return fmt.Sprintf(":AZ: %s %s [ %s ]", encodeSubjectAddress(z.SubjectAddr), z.Context, strings.Join(assertions, " "))
 }
 
 func encodeAddressQuery(q *rainslib.AddressQuerySection) string {
-	return fmt.Sprintf(":AQ: %s %s %s %s %d %s", q.Token.String(), q.Context, encodeSubjectAddress(q.SubjectAddr),
+	return fmt.Sprintf(":AQ: %s %s %s %s %d %s", q.Token.String(), encodeSubjectAddress(q.SubjectAddr), q.Context,
 		encodeObjectTypes([]rainslib.ObjectType{q.Type}), q.Expires, encodeQueryOptions(q.Options))
 }
 

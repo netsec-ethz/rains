@@ -13,7 +13,7 @@ import (
 
 //encodeZone transforms a shard into a signable format. It is also represented this way in a zone file
 func encodeZone(z *rainslib.ZoneSection, toSign bool) string {
-	zone := fmt.Sprintf(":Z: %s %s [\n", z.Context, z.SubjectZone)
+	zone := fmt.Sprintf(":Z: %s %s [\n", z.SubjectZone, z.Context)
 	for _, section := range z.Content {
 		switch section := section.(type) {
 		case *rainslib.AssertionSection:
@@ -39,7 +39,7 @@ func encodeShard(s *rainslib.ShardSection, context, zone string, toSign bool) st
 	if rangeTo == "" {
 		rangeTo = ">"
 	}
-	shard := fmt.Sprintf(":S: %s %s %s %s [\n", context, zone, rangeFrom, rangeTo)
+	shard := fmt.Sprintf(":S: %s %s %s %s [\n", zone, context, rangeFrom, rangeTo)
 	for _, assertion := range s.Content {
 		ctx, subjectZone := getContextAndZone(context, zone, assertion, toSign)
 		shard += fmt.Sprintf("        %s\n", encodeAssertion(assertion, ctx, subjectZone, indent8))
@@ -49,7 +49,7 @@ func encodeShard(s *rainslib.ShardSection, context, zone string, toSign bool) st
 
 //encodeAssertion transforms an assertion into a signable format. It is also represented this way in a zone file
 func encodeAssertion(a *rainslib.AssertionSection, context, zone, indent string) string {
-	assertion := fmt.Sprintf(":A: %s %s %s [ ", context, zone, a.SubjectName)
+	assertion := fmt.Sprintf(":A: %s %s %s [ ", a.SubjectName, zone, context)
 	if len(a.Content) > 1 {
 		return fmt.Sprintf("%s\n%s\n%s]", assertion, encodeObjects(a.Content, indent12), indent)
 	}

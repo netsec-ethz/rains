@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"rains/rainslib"
 	"strconv"
-
 	"strings"
 
 	log "github.com/inconshreveable/log15"
@@ -23,9 +22,9 @@ func decodeZone(scanner *WordScanner) ([]*rainslib.AssertionSection, error) {
 		return []*rainslib.AssertionSection{}, errors.New("ZoneFile malformed")
 	}
 	scanner.Scan()
-	context := scanner.Text()
-	scanner.Scan()
 	zone := scanner.Text()
+	scanner.Scan()
+	context := scanner.Text()
 	scanner.Scan()
 	if scanner.Text() != "[" {
 		lineNrLogger.Error("zonFile malformed.", "expected", "[", "got", scanner.Text())
@@ -59,6 +58,7 @@ func decodeZone(scanner *WordScanner) ([]*rainslib.AssertionSection, error) {
 func decodeShard(context, zone string, scanner *WordScanner) ([]*rainslib.AssertionSection, error) {
 	assertions := []*rainslib.AssertionSection{}
 	missingBracket := true
+	//skip subjectZone and context, validFrom and validUntil if they are present
 	for i := 0; i < 5; i++ {
 		scanner.Scan()
 		if scanner.Text() == "[" {
@@ -90,8 +90,16 @@ func decodeShard(context, zone string, scanner *WordScanner) ([]*rainslib.Assert
 func decodeAssertion(context, zone string, scanner *WordScanner) (*rainslib.AssertionSection, error) {
 	scanner.Scan()
 	name := scanner.Text()
-	scanner.Scan()
-	if scanner.Text() != "[" {
+	missingBracket := true
+	//skip subjectZone and context if they are present
+	for i := 0; i < 3; i++ {
+		scanner.Scan()
+		if scanner.Text() == "[" {
+			missingBracket = false
+			break
+		}
+	}
+	if missingBracket {
 		lineNrLogger.Error("zonFile malformed.", "expected", "[", "got", scanner.Text())
 		return &rainslib.AssertionSection{}, errors.New("ZoneFile malformed")
 	}
