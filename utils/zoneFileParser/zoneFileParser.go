@@ -68,27 +68,7 @@ var lineNrLogger log.Logger
 //Encode returns the given section represented in the zone file format if it is a zoneSection.
 //In all other cases it returns the section in a displayable format similar to the zone file format
 func (p Parser) Encode(s rainslib.MessageSection) string {
-	switch s := s.(type) {
-	case *rainslib.AssertionSection:
-		return encodeAssertion(s, s.Context, s.SubjectZone, "")
-	case *rainslib.ShardSection:
-		return encodeShard(s, s.Context, s.SubjectZone, false)
-	case *rainslib.ZoneSection:
-		return encodeZone(s, false)
-	case *rainslib.QuerySection:
-		return encodeQuery(s)
-	case *rainslib.NotificationSection:
-		return encodeNotification(s)
-	case *rainslib.AddressAssertionSection:
-		return encodeAddressAssertion(s)
-	case *rainslib.AddressZoneSection:
-		return encodeAddressZone(s)
-	case *rainslib.AddressQuerySection:
-		return encodeAddressQuery(s)
-	default:
-		log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))
-	}
-	return ""
+	return getEncoding(s, true)
 }
 
 //Decode returns all assertions contained in the given zonefile
@@ -110,14 +90,19 @@ func (p Parser) EncodeMessage(msg *rainslib.RainsMessage) string {
 //It must have already been verified that the section does not contain malicious content
 //Signature meta data is not added
 func (p Parser) EncodeSection(s rainslib.MessageSection) string {
+	encoding := getEncoding(s, true)
+	return replaceWhitespaces(encoding)
+}
+
+func getEncoding(s rainslib.MessageSection, forSigning bool) string {
 	encoding := ""
 	switch s := s.(type) {
 	case *rainslib.AssertionSection:
 		encoding = encodeAssertion(s, s.Context, s.SubjectZone, "")
 	case *rainslib.ShardSection:
-		encoding = encodeShard(s, s.Context, s.SubjectZone, true)
+		encoding = encodeShard(s, s.Context, s.SubjectZone, forSigning)
 	case *rainslib.ZoneSection:
-		encoding = encodeZone(s, true)
+		encoding = encodeZone(s, forSigning)
 	case *rainslib.QuerySection:
 		encoding = encodeQuery(s)
 	case *rainslib.NotificationSection:
@@ -132,7 +117,7 @@ func (p Parser) EncodeSection(s rainslib.MessageSection) string {
 		log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))
 		return ""
 	}
-	return replaceWhitespaces(encoding)
+	return encoding
 }
 
 //replaceWhitespaces replaces a single or consecutive whitespaces with a single space.

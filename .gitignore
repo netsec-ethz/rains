@@ -37,3 +37,6 @@ _testmain.go
 
 #binary of rainsdig
 /rainsdig/rainsdig
+
+#test coverage files
+coverage.out

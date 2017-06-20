@@ -1,9 +1,6 @@
 package zoneFileParser
 
 import (
-	"encoding/hex"
-	"fmt"
-	"net"
 	"rains/rainslib"
 	"rains/utils/testUtil"
 	"testing"
@@ -108,168 +105,97 @@ func TestEncoder(t *testing.T) {
 }
 
 func TestEncodeAddressAssertion(t *testing.T) {
-	nameObjectContent := rainslib.NameObject{
-		Name:  "ethz2.ch",
-		Types: []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr},
-	}
-	publicKey := rainslib.PublicKey{
-		KeySpace:   rainslib.RainsKeySpace,
-		Type:       rainslib.Ed25519,
-		Key:        ed25519.PublicKey([]byte("01234567890123456789012345678901")),
-		ValidSince: 10000,
-		ValidUntil: 50000,
-	}
-	nameObject := rainslib.Object{Type: rainslib.OTName, Value: nameObjectContent}
-	redirObject := rainslib.Object{Type: rainslib.OTRedirection, Value: "ns.ethz.ch"}
-	delegObject := rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}
-	registrantObject := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}
-
-	signature := rainslib.Signature{
-		KeySpace:   rainslib.RainsKeySpace,
-		Algorithm:  rainslib.Ed25519,
-		ValidSince: 1000,
-		ValidUntil: 2000,
-		Data:       []byte("SignatureData")}
-
-	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
-	_, subjectAddress2, _ := net.ParseCIDR("127.0.0.1/24")
-	_, subjectAddress3, _ := net.ParseCIDR("2001:db8::/128")
-	addressAssertion1 := &rainslib.AddressAssertionSection{
-		SubjectAddr: subjectAddress1,
-		Context:     ".",
-		Content:     []rainslib.Object{nameObject},
-		Signatures:  []rainslib.Signature{signature},
-	}
-	addressAssertion2 := &rainslib.AddressAssertionSection{
-		SubjectAddr: subjectAddress2,
-		Context:     ".",
-		Content:     []rainslib.Object{redirObject, delegObject, registrantObject},
-		Signatures:  []rainslib.Signature{signature},
-	}
-	addressAssertion3 := &rainslib.AddressAssertionSection{
-		SubjectAddr: subjectAddress3,
-		Context:     ".",
-		Content:     []rainslib.Object{nameObject},
-		Signatures:  []rainslib.Signature{signature},
-	}
-	encodedAA1 := encodeAddressAssertion(addressAssertion1)
-	if encodedAA1 != ":AA: ip4 127.0.0.1/32 . [ :name:     ethz2.ch [ ip4 ip6 ] ]" {
-		t.Errorf("Encoding wrong. expected=:AA: ip4 127.0.0.1/32 . [ :name:     ethz2.ch [ ip4 ip6 ] ] actual=%s", encodedAA1)
-	}
-	encodedAA2 := encodeAddressAssertion(addressAssertion2)
-	if encodedAA2 != ":AA: ip4 127.0.0.0/24 . [ :redir:    ns.ethz.ch\n:deleg:    ed25519 3031323334353637383930313233343536373839303132333435363738393031\n:regt:     Registrant information ]" {
-		t.Errorf("Encoding wrong. expected=:AA: ip4 127.0.0.0/24 . [ :redir:    ns.ethz.ch\n:deleg:    ed25519 3031323334353637383930313233343536373839303132333435363738393031\n:regt:     Registrant information ] actual=%s", encodedAA2)
-	}
-	encodedAA3 := encodeAddressAssertion(addressAssertion3)
-	if encodedAA3 != ":AA: ip6 20010db8000000000000000000000000/128 . [ :name:     ethz2.ch [ ip4 ip6 ] ]" {
-		t.Errorf("Encoding wrong. expected=:AA: ip6 20010db8000000000000000000000000/128 . [ :name:     ethz2.ch [ ip4 ip6 ] ] actual=%s", encodedAA3)
+	assertions, encodings := getAddressAssertionsAndEncodings()
+	for i, assertion := range assertions {
+		encodedAA := encodeAddressAssertion(assertion)
+		if encodedAA != encodings[i] {
+			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedAA)
+		}
 	}
 }
 
 func TestEncodeAddressZone(t *testing.T) {
-	nameObjectContent := rainslib.NameObject{
-		Name:  "ethz2.ch",
-		Types: []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr},
-	}
-	publicKey := rainslib.PublicKey{
-		KeySpace:   rainslib.RainsKeySpace,
-		Type:       rainslib.Ed25519,
-		Key:        ed25519.PublicKey([]byte("01234567890123456789012345678901")),
-		ValidSince: 10000,
-		ValidUntil: 50000,
-	}
-	nameObject := rainslib.Object{Type: rainslib.OTName, Value: nameObjectContent}
-	redirObject := rainslib.Object{Type: rainslib.OTRedirection, Value: "ns.ethz.ch"}
-	delegObject := rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}
-	registrantObject := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}
-
-	signature := rainslib.Signature{
-		KeySpace:   rainslib.RainsKeySpace,
-		Algorithm:  rainslib.Ed25519,
-		ValidSince: 1000,
-		ValidUntil: 2000,
-		Data:       []byte("SignatureData")}
-
-	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
-	_, subjectAddress2, _ := net.ParseCIDR("127.0.0.1/24")
-	_, subjectAddress3, _ := net.ParseCIDR("2001:db8::/128")
-	addressAssertion1 := &rainslib.AddressAssertionSection{
-		SubjectAddr: subjectAddress1,
-		Context:     ".",
-		Content:     []rainslib.Object{nameObject},
-		Signatures:  []rainslib.Signature{signature},
-	}
-	addressAssertion2 := &rainslib.AddressAssertionSection{
-		SubjectAddr: subjectAddress2,
-		Context:     ".",
-		Content:     []rainslib.Object{redirObject, delegObject, registrantObject},
-		Signatures:  []rainslib.Signature{signature},
-	}
-	addressAssertion3 := &rainslib.AddressAssertionSection{
-		SubjectAddr: subjectAddress3,
-		Context:     ".",
-		Content:     []rainslib.Object{nameObject},
-		Signatures:  []rainslib.Signature{signature},
-	}
-
-	addressZone := &rainslib.AddressZoneSection{
-		SubjectAddr: subjectAddress2,
-		Context:     ".",
-		Content:     []*rainslib.AddressAssertionSection{addressAssertion1, addressAssertion2, addressAssertion3},
-		Signatures:  []rainslib.Signature{signature},
-	}
-
-	encodedAZ := encodeAddressZone(addressZone)
-	if encodedAZ != ":AZ: ip4 127.0.0.0/24 . [ :AA: ip4 127.0.0.1/32 . [ :name:     ethz2.ch [ ip4 ip6 ] ] :AA: ip4 127.0.0.0/24 . [ :redir:    ns.ethz.ch\n:deleg:    ed25519 3031323334353637383930313233343536373839303132333435363738393031\n:regt:     Registrant information ] :AA: ip6 20010db8000000000000000000000000/128 . [ :name:     ethz2.ch [ ip4 ip6 ] ] ]" {
-		t.Errorf("Encoding wrong. expected=:AZ: ip4 127.0.0.0/24 . [ :AA: ip4 127.0.0.1/32 . [ :name:     ethz2.ch [ ip4 ip6 ] ] :AA: ip4 127.0.0.0/24 . [ :redir:    ns.ethz.ch\n:deleg:    ed25519 3031323334353637383930313233343536373839303132333435363738393031\n:regt:     Registrant information ] :AA: ip6 20010db8000000000000000000000000/128 . [ :name:     ethz2.ch [ ip4 ip6 ] ] ] actual=%s", encodedAZ)
+	zones, encodings := getAddressZonesAndEncodings()
+	for i, zone := range zones {
+		encodedAZ := encodeAddressZone(zone)
+		if encodedAZ != encodings[i] {
+			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedAZ)
+		}
 	}
 }
 
 func TestEncodeAddressQuery(t *testing.T) {
-	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
-	token := rainslib.GenerateToken()
-	encodedToken := hex.EncodeToString(token[:])
-	addressQuery := &rainslib.AddressQuerySection{
-		SubjectAddr: subjectAddress1,
-		Context:     ".",
-		Expires:     7564859,
-		Token:       token,
-		Type:        rainslib.OTName,
-		Options:     []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
-	}
-	encodedAQ := encodeAddressQuery(addressQuery)
-	if encodedAQ != fmt.Sprintf(":AQ: %s ip4 127.0.0.1/32 . [ 1 ] 7564859 [ 1 3 ]", encodedToken) {
-		t.Errorf("Encoding wrong. expected=:AQ: %s . ip4 127.0.0.1/32 [ 1 ] 7564859 [ 1 3 ] actual=%s", encodedToken, encodedAQ)
+	queries, encodings := getAddressQueriesAndEncodings()
+	for i, query := range queries {
+		encodedAQ := encodeAddressQuery(query)
+		if encodedAQ != encodings[i] {
+			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedAQ)
+		}
 	}
 }
 
 func TestEncodeQuery(t *testing.T) {
-	token := rainslib.GenerateToken()
-	encodedToken := hex.EncodeToString(token[:])
-	query := &rainslib.QuerySection{
-		Context: ".",
-		Expires: 159159,
-		Name:    "ethz.ch",
-		Options: []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
-		Token:   token,
-		Type:    rainslib.OTIP4Addr,
-	}
-	encodedQ := encodeQuery(query)
-	if encodedQ != fmt.Sprintf(":Q: %s . ethz.ch [ 3 ] 159159 [ 1 3 ]", encodedToken) {
-		t.Errorf("Encoding wrong. expected=:Q: %s . ethz.ch [ 3 ] 159159 [ 1 3 ] actual=%s", encodedToken, encodedQ)
+	queries, encodings := getQueriesAndEncodings()
+	for i, query := range queries {
+		encodedQ := encodeQuery(query)
+		if encodedQ != encodings[i] {
+			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedQ)
+		}
 	}
 }
 
 func TestEncodeNotification(t *testing.T) {
-	token := rainslib.GenerateToken()
-	encodedToken := hex.EncodeToString(token[:])
-	notification := &rainslib.NotificationSection{
-		Token: token,
-		Type:  rainslib.NoAssertionsExist,
-		Data:  "Notification information",
+	notifications, encodings := getNotificationsAndEncodings()
+	for i, notification := range notifications {
+		encodedN := encodeNotification(notification)
+		if encodedN != encodings[i] {
+			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedN)
+		}
 	}
-	encodedN := encodeNotification(notification)
-	if encodedN != fmt.Sprintf(":N: %s 404 Notification information", encodedToken) {
-		t.Errorf("Encoding wrong. expected=:N: %s 404 Notification information actual=%s", encodedToken, encodedN)
+}
+
+func TestMessageEncoding(t *testing.T) {
+	/*encodingForTestUtilMessage := ""
+	var tests = []struct {
+		input    rainslib.RainsMessage
+		encoding string
+	}{
+		{testUtil.GetMessage(), encodingForTestUtilMessage},
+	}
+	p := new(Parser)
+	for _, test := range tests {
+		actual := p.EncodeMessage(&test.input)
+		if actual != test.encoding {
+			t.Errorf("Encoding incorrect. expected=%s, actual=%s", test.encoding, actual)
+		}
+	}*/
+}
+
+func TestWordScanner(t *testing.T) {
+	var tests = []struct {
+		input      string
+		scansCalls int
+		lineNumber int
+		text       string
+	}{
+		{"Hello my name", 2, 1, "my"},
+		{"Hello\tmy\tname", 2, 1, "my"},
+		{"Hello\tmy\nname", 2, 1, "my"},
+		{"Hello my\nname", 3, 2, "name"},
+		{"Hello\tmy\n\nname", 3, 3, "name"},
+		{"Hello\tmy\n\nname \t\nis", 4, 4, "is"},
+		{"Hello\tmy\n\nname \t\nis", 5, 5, ""},
+	}
+	for _, test := range tests {
+		scanner := NewWordScanner([]byte(test.input))
+		for i := 0; i < test.scansCalls; i++ {
+			scanner.Scan()
+		}
+		if scanner.Text() != test.text {
+			t.Errorf("Wrong test. expected=%s, actual=%s", test.text, scanner.Text())
+		}
+		if scanner.LineNumber() != test.lineNumber {
+			t.Errorf("Line number incorrect. expected=%d, actual=%d", test.lineNumber, scanner.LineNumber())
+		}
 	}
 }

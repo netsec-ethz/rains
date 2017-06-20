@@ -7,35 +7,13 @@ import (
 	"rains/rainslib"
 	"strconv"
 	"strings"
-
-	log "github.com/inconshreveable/log15"
 )
 
 //encodeMessage transforms a rains message into a signable format
 func encodeMessage(m *rainslib.RainsMessage) string {
 	encoding := fmt.Sprintf(":M: %s %s ", encodeCapabilities(m.Capabilities), m.Token.String())
 	for _, section := range m.Content {
-		switch s := section.(type) {
-		case *rainslib.AssertionSection:
-			encoding += encodeAssertion(s, s.Context, s.SubjectZone, "") + " "
-		case *rainslib.ShardSection:
-			encoding += encodeShard(s, s.Context, s.SubjectZone, true) + " "
-		case *rainslib.ZoneSection:
-			encoding += encodeZone(s, true) + " "
-		case *rainslib.QuerySection:
-			encoding += encodeQuery(s) + " "
-		case *rainslib.NotificationSection:
-			encoding += encodeNotification(s) + " "
-		case *rainslib.AddressAssertionSection:
-			encoding += encodeAddressAssertion(s) + " "
-		case *rainslib.AddressZoneSection:
-			encoding += encodeAddressZone(s) + " "
-		case *rainslib.AddressQuerySection:
-			encoding += encodeAddressQuery(s) + " "
-		default:
-			log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))
-			return ""
-		}
+		encoding += getEncoding(section, true) + " "
 	}
 	return encoding
 }
