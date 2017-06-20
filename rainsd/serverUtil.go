@@ -153,7 +153,7 @@ func sendAddressQuery(context string, ipNet *net.IPNet, expTime int64, objType r
 		SubjectAddr: ipNet,
 		Expires:     expTime,
 		Token:       token,
-		Types:       objType,
+		Type:        objType,
 	}
 	query := rainslib.RainsMessage{Token: token, Content: []rainslib.MessageSection{&querySection}}
 	//TODO CFE add infrastructure signature to query message?

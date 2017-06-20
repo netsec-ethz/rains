@@ -1,16 +1,19 @@
 package rainslib
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"math"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 )
 
 //RainsMessage contains the data of a message
@@ -25,8 +28,72 @@ type RainsMessage struct {
 	Capabilities []Capability
 }
 
+//Sort sorts the sections in m.Content first by type (lexicographically) and second the sections of equal type according to their sort function.
 func (m *RainsMessage) Sort() {
-
+	var assertions []*AssertionSection
+	var shards []*ShardSection
+	var zones []*ZoneSection
+	var queries []*QuerySection
+	var addressAssertions []*AddressAssertionSection
+	var addressZones []*AddressZoneSection
+	var addressQueries []*AddressQuerySection
+	var notifications []*NotificationSection
+	for _, sec := range m.Content {
+		sec.Sort()
+		switch sec := sec.(type) {
+		case *AssertionSection:
+			assertions = append(assertions, sec)
+		case *ShardSection:
+			shards = append(shards, sec)
+		case *ZoneSection:
+			zones = append(zones, sec)
+		case *QuerySection:
+			queries = append(queries, sec)
+		case *NotificationSection:
+			notifications = append(notifications, sec)
+		case *AddressAssertionSection:
+			addressAssertions = append(addressAssertions, sec)
+		case *AddressZoneSection:
+			addressZones = append(addressZones, sec)
+		case *AddressQuerySection:
+			addressQueries = append(addressQueries, sec)
+		default:
+			log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", sec))
+		}
+	}
+	sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
+	sort.Slice(shards, func(i, j int) bool { return shards[i].CompareTo(shards[j]) < 0 })
+	sort.Slice(zones, func(i, j int) bool { return zones[i].CompareTo(zones[j]) < 0 })
+	sort.Slice(queries, func(i, j int) bool { return queries[i].CompareTo(queries[j]) < 0 })
+	sort.Slice(addressAssertions, func(i, j int) bool { return addressAssertions[i].CompareTo(addressAssertions[j]) < 0 })
+	sort.Slice(addressZones, func(i, j int) bool { return addressZones[i].CompareTo(addressZones[j]) < 0 })
+	sort.Slice(addressQueries, func(i, j int) bool { return addressQueries[i].CompareTo(addressQueries[j]) < 0 })
+	sort.Slice(notifications, func(i, j int) bool { return notifications[i].CompareTo(notifications[j]) < 0 })
+	m.Content = []MessageSection{}
+	for _, section := range addressQueries {
+		m.Content = append(m.Content, section)
+	}
+	for _, section := range addressZones {
+		m.Content = append(m.Content, section)
+	}
+	for _, section := range addressAssertions {
+		m.Content = append(m.Content, section)
+	}
+	for _, section := range assertions {
+		m.Content = append(m.Content, section)
+	}
+	for _, section := range shards {
+		m.Content = append(m.Content, section)
+	}
+	for _, section := range zones {
+		m.Content = append(m.Content, section)
+	}
+	for _, section := range queries {
+		m.Content = append(m.Content, section)
+	}
+	for _, section := range notifications {
+		m.Content = append(m.Content, section)
+	}
 }
 
 //Token is used to identify a message
@@ -226,7 +293,37 @@ func (a *AssertionSection) EqualContextZoneName(assertion *AssertionSection) boo
 
 //Sort sorts the content of the assertion lexicographically.
 func (a *AssertionSection) Sort() {
+	for _, o := range a.Content {
+		o.Sort()
+	}
+	sort.Slice(a.Content, func(i, j int) bool { return a.Content[i].CompareTo(a.Content[j]) < 0 })
+}
 
+//CompareTo compares two assertions and returns 0 if they are equal, 1 if a is greater than assertion and -1 if a is smaller than assertion
+func (a *AssertionSection) CompareTo(assertion *AssertionSection) int {
+	if a.SubjectName < assertion.SubjectName {
+		return -1
+	} else if a.SubjectName < assertion.SubjectName {
+		return 1
+	} else if a.SubjectZone < assertion.SubjectZone {
+		return 1
+	} else if a.SubjectZone > assertion.SubjectZone {
+		return -1
+	} else if a.Context < assertion.Context {
+		return -1
+	} else if a.Context > assertion.Context {
+		return 1
+	} else if len(a.Content) < len(assertion.Content) {
+		return -1
+	} else if len(a.Content) > len(assertion.Content) {
+		return 1
+	}
+	for i, o := range a.Content {
+		if o.CompareTo(assertion.Content[i]) != 0 {
+			return o.CompareTo(assertion.Content[i])
+		}
+	}
+	return 0
 }
 
 //ShardSection contains information about the shard
@@ -340,7 +437,41 @@ func (s *ShardSection) Hash() string {
 
 //Sort sorts the content of the shard lexicographically.
 func (s *ShardSection) Sort() {
+	for _, a := range s.Content {
+		a.Sort()
+	}
+	sort.Slice(s.Content, func(i, j int) bool { return s.Content[i].CompareTo(s.Content[j]) < 0 })
+}
 
+//CompareTo compares two shards and returns 0 if they are equal, 1 if s is greater than shard and -1 if s is smaller than shard
+func (s *ShardSection) CompareTo(shard *ShardSection) int {
+	if s.SubjectZone < shard.SubjectZone {
+		return 1
+	} else if s.SubjectZone > shard.SubjectZone {
+		return -1
+	} else if s.Context < shard.Context {
+		return -1
+	} else if s.Context > shard.Context {
+		return 1
+	} else if s.RangeFrom < shard.RangeFrom {
+		return -1
+	} else if s.RangeFrom > shard.RangeFrom {
+		return 1
+	} else if s.RangeTo < shard.RangeTo {
+		return -1
+	} else if s.RangeTo > shard.RangeTo {
+		return 1
+	} else if len(s.Content) < len(shard.Content) {
+		return -1
+	} else if len(s.Content) > len(shard.Content) {
+		return 1
+	}
+	for i, a := range s.Content {
+		if a.CompareTo(shard.Content[i]) != 0 {
+			return a.CompareTo(shard.Content[i])
+		}
+	}
+	return 0
 }
 
 //ZoneSection contains information about the zone
@@ -467,7 +598,66 @@ func (z *ZoneSection) Hash() string {
 
 //Sort sorts the content of the zone lexicographically.
 func (z *ZoneSection) Sort() {
+	for _, s := range z.Content {
+		s.Sort()
+	}
+	sort.Slice(z.Content, func(i, j int) bool {
+		switch section := z.Content[i].(type) {
+		case *AssertionSection:
+			if a, ok := z.Content[j].(*AssertionSection); ok {
+				return section.CompareTo(a) < 0
+			}
+			return true
+		case *ShardSection:
+			if s, ok := z.Content[j].(*ShardSection); ok {
+				return section.CompareTo(s) < 0
+			}
+			return false
+		default:
+			log.Error(fmt.Sprintf("Unexpected element contained in zone: got Type=%T", z.Content[i]))
+			return false
+		}
+	})
+}
 
+//CompareTo compares two zones and returns 0 if they are equal, 1 if z is greater than zone and -1 if z is smaller than zone
+func (z *ZoneSection) CompareTo(zone *ZoneSection) int {
+	if z.SubjectZone < zone.SubjectZone {
+		return -1
+	} else if z.SubjectZone > zone.SubjectZone {
+		return 1
+	} else if z.Context < zone.Context {
+		return -1
+	} else if z.Context > zone.Context {
+		return 1
+	} else if len(z.Content) < len(zone.Content) {
+		return -1
+	} else if len(z.Content) > len(zone.Content) {
+		return 1
+	}
+	for i, section := range z.Content {
+		switch section := section.(type) {
+		case *AssertionSection:
+			if a, ok := zone.Content[i].(*AssertionSection); ok {
+				if section.CompareTo(a) != 0 {
+					return section.CompareTo(a)
+				}
+			} else {
+				return -1
+			}
+		case *ShardSection:
+			if s, ok := z.Content[i].(*ShardSection); ok {
+				if section.CompareTo(s) != 0 {
+					return section.CompareTo(s)
+				}
+			} else {
+				return 1
+			}
+		default:
+			log.Error(fmt.Sprintf("Unexpected element contained in zone: got Type=%T", z.Content[i]))
+		}
+	}
+	return 0
 }
 
 //QuerySection contains information about the query
@@ -495,43 +685,50 @@ func (q QuerySection) ContainsOption(option QueryOption) bool {
 
 //Sort sorts the content of the query lexicographically.
 func (q *QuerySection) Sort() {
-
+	sort.Slice(q.Options, func(i, j int) bool { return q.Options[i] < q.Options[j] })
 }
 
-type QueryOption int
-
-const (
-	QOMinE2ELatency            QueryOption = 1
-	QOMinLastHopAnswerSize     QueryOption = 2
-	QOMinInfoLeakage           QueryOption = 3
-	QOCachedAnswersOnly        QueryOption = 4
-	QOExpiredAssertionsOk      QueryOption = 5
-	QOTokenTracing             QueryOption = 6
-	QONoVerificationDelegation QueryOption = 7
-	QONoProactiveCaching       QueryOption = 8
-)
-
-type ObjectType int
-
-func (o ObjectType) String() string {
-	return strconv.Itoa(int(o))
+//CompareTo compares two queries and returns 0 if they are equal, 1 if q is greater than query and -1 if q is smaller than query
+func (q *QuerySection) CompareTo(query *QuerySection) int {
+	if q.Token != query.Token {
+		for i, b := range q.Token {
+			if b < query.Token[i] {
+				return -1
+			} else if b > query.Token[i] {
+				return 1
+			}
+		}
+		log.Error("Token must be different", "t1", q.Token, "t2", query.Token)
+	} else if q.Context < query.Context {
+		return -1
+	} else if q.Context > query.Context {
+		return 1
+	} else if q.Name < query.Name {
+		return -1
+	} else if q.Name > query.Name {
+		return 1
+	} else if q.Type < query.Type {
+		return -1
+	} else if q.Type > query.Type {
+		return 1
+	} else if q.Expires < query.Expires {
+		return -1
+	} else if q.Expires > query.Expires {
+		return 1
+	} else if len(q.Options) < len(query.Options) {
+		return -1
+	} else if len(q.Options) > len(query.Options) {
+		return 1
+	}
+	for i, o := range q.Options {
+		if o < query.Options[i] {
+			return -1
+		} else if o > query.Options[i] {
+			return 1
+		}
+	}
+	return 0
 }
-
-const (
-	OTName        ObjectType = 1
-	OTIP6Addr     ObjectType = 2
-	OTIP4Addr     ObjectType = 3
-	OTRedirection ObjectType = 4
-	OTDelegation  ObjectType = 5
-	OTNameset     ObjectType = 6
-	OTCertInfo    ObjectType = 7
-	OTServiceInfo ObjectType = 8
-	OTRegistrar   ObjectType = 9
-	OTRegistrant  ObjectType = 10
-	OTInfraKey    ObjectType = 11
-	OTExtraKey    ObjectType = 12
-	OTNextKey     ObjectType = 13
-)
 
 //AddressAssertionSection contains information about the address assertion
 type AddressAssertionSection struct {
@@ -629,7 +826,29 @@ func (a *AddressAssertionSection) Hash() string {
 
 //Sort sorts the content of the addressAssertion lexicographically.
 func (a *AddressAssertionSection) Sort() {
+	for _, o := range a.Content {
+		o.Sort()
+	}
+	sort.Slice(a.Content, func(i, j int) bool { return a.Content[i].CompareTo(a.Content[j]) < 0 })
+}
 
+//CompareTo compares two addressAssertions and returns 0 if they are equal, 1 if a is greater than assertion and -1 if a is smaller than assertion
+func (a *AddressAssertionSection) CompareTo(assertion *AddressAssertionSection) int {
+	if a.SubjectAddr.String() < assertion.SubjectAddr.String() {
+		return -1
+	} else if a.SubjectAddr.String() > assertion.SubjectAddr.String() {
+		return 1
+	} else if a.Context < assertion.Context {
+		return -1
+	} else if a.Context > assertion.Context {
+		return 1
+	}
+	for i, o := range a.Content {
+		if o.CompareTo(assertion.Content[i]) != 0 {
+			return o.CompareTo(assertion.Content[i])
+		}
+	}
+	return 0
 }
 
 //AddressZoneSection contains information about the address zone
@@ -739,7 +958,29 @@ func (z *AddressZoneSection) Hash() string {
 
 //Sort sorts the content of the addressZone lexicographically.
 func (z *AddressZoneSection) Sort() {
+	for _, a := range z.Content {
+		a.Sort()
+	}
+	sort.Slice(z.Content, func(i, j int) bool { return z.Content[i].CompareTo(z.Content[j]) < 0 })
+}
 
+//CompareTo compares two addressZones and returns 0 if they are equal, 1 if z is greater than zone and -1 if z is smaller than zone
+func (z *AddressZoneSection) CompareTo(zone *AddressZoneSection) int {
+	if z.SubjectAddr.String() < zone.SubjectAddr.String() {
+		return -1
+	} else if z.SubjectAddr.String() > zone.SubjectAddr.String() {
+		return 1
+	} else if z.Context < zone.Context {
+		return -1
+	} else if z.Context > zone.Context {
+		return 1
+	}
+	for i, a := range z.Content {
+		if a.CompareTo(zone.Content[i]) != 0 {
+			return a.CompareTo(zone.Content[i])
+		}
+	}
+	return 0
 }
 
 //AddressQuerySection contains information about the address query
@@ -747,7 +988,7 @@ type AddressQuerySection struct {
 	SubjectAddr *net.IPNet
 	Token       Token
 	Context     string
-	Types       ObjectType
+	Type        ObjectType
 	Expires     int64
 	//Optional
 	Options []QueryOption
@@ -765,7 +1006,49 @@ func (q AddressQuerySection) ContainsOption(option QueryOption) bool {
 
 //Sort sorts the content of the addressQuery lexicographically.
 func (q *AddressQuerySection) Sort() {
+	sort.Slice(q.Options, func(i, j int) bool { return q.Options[i] < q.Options[j] })
+}
 
+//CompareTo compares two addressQueries and returns 0 if they are equal, 1 if q is greater than query and -1 if q is smaller than query
+func (q *AddressQuerySection) CompareTo(query *AddressQuerySection) int {
+	if q.Token != query.Token {
+		for i, b := range q.Token {
+			if b < query.Token[i] {
+				return -1
+			} else if b > query.Token[i] {
+				return 1
+			}
+		}
+		log.Error("Token must be different", "t1", q.Token, "t2", query.Token)
+	} else if q.SubjectAddr.String() < query.SubjectAddr.String() {
+		return -1
+	} else if q.SubjectAddr.String() > query.SubjectAddr.String() {
+		return 1
+	} else if q.Context < query.Context {
+		return -1
+	} else if q.Context > query.Context {
+		return 1
+	} else if q.Type < query.Type {
+		return -1
+	} else if q.Type > query.Type {
+		return 1
+	} else if q.Expires < query.Expires {
+		return -1
+	} else if q.Expires > query.Expires {
+		return 1
+	} else if len(q.Options) < len(query.Options) {
+		return -1
+	} else if len(q.Options) > len(query.Options) {
+		return 1
+	}
+	for i, o := range q.Options {
+		if o < query.Options[i] {
+			return -1
+		} else if o > query.Options[i] {
+			return 1
+		}
+	}
+	return 0
 }
 
 //NotificationSection contains information about the notification
@@ -778,8 +1061,29 @@ type NotificationSection struct {
 }
 
 //Sort sorts the content of the notification lexicographically.
-func (a *NotificationSection) Sort() {
+func (n *NotificationSection) Sort() {
 	//notification is already sorted (it does not contain a list of elements).
+}
+
+//CompareTo compares two notifications and returns 0 if they are equal, 1 if n is greater than notification and -1 if n is smaller than notification
+func (n *NotificationSection) CompareTo(notification *NotificationSection) int {
+	if n.Type < notification.Type {
+		return -1
+	} else if n.Type > notification.Type {
+		return 1
+	} else if n.Data < notification.Data {
+		return -1
+	} else if n.Data > notification.Data {
+		return 1
+	}
+	for i, b := range n.Token {
+		if b < notification.Token[i] {
+			return -1
+		} else if b > notification.Token[i] {
+			return 1
+		}
+	}
+	return 0
 }
 
 type NotificationType int
@@ -794,6 +1098,19 @@ const (
 	UnspecServerErr    NotificationType = 500
 	ServerNotCapable   NotificationType = 501
 	NoAssertionAvail   NotificationType = 504
+)
+
+type QueryOption int
+
+const (
+	QOMinE2ELatency            QueryOption = 1
+	QOMinLastHopAnswerSize     QueryOption = 2
+	QOMinInfoLeakage           QueryOption = 3
+	QOCachedAnswersOnly        QueryOption = 4
+	QOExpiredAssertionsOk      QueryOption = 5
+	QOTokenTracing             QueryOption = 6
+	QONoVerificationDelegation QueryOption = 7
+	QONoProactiveCaching       QueryOption = 8
 )
 
 //Signature on a Rains message or section
@@ -852,11 +1169,156 @@ type PublicKey struct {
 	ValidUntil int64
 }
 
+//CompareTo compares two publicKey objects and returns 0 if they are equal, 1 if p is greater than pkey and -1 if p is smaller than pkey
+func (p PublicKey) CompareTo(pkey PublicKey) int {
+	if p.Type < pkey.Type {
+		return -1
+	} else if p.Type > pkey.Type {
+		return 1
+	} else if p.KeySpace < pkey.KeySpace {
+		return -1
+	} else if p.KeySpace > pkey.KeySpace {
+		return 1
+	} else if p.ValidSince < pkey.ValidSince {
+		return -1
+	} else if p.ValidSince > pkey.ValidSince {
+		return 1
+	} else if p.ValidUntil < pkey.ValidUntil {
+		return -1
+	} else if p.ValidUntil > pkey.ValidUntil {
+		return 1
+	}
+	switch k1 := p.Key.(type) {
+	case ed25519.PublicKey:
+		if k2, ok := pkey.Key.(ed25519.PublicKey); ok {
+			return bytes.Compare(k1, k2)
+		}
+		log.Error("PublicKey.Key Type does not match algorithmIdType", "algoType", pkey.Type, "KeyType", fmt.Sprintf("%T", pkey.Key))
+	default:
+		log.Warn("Unsupported public key type", "type", fmt.Sprintf("%T", p.Key))
+	}
+	return 0
+}
+
+//Object is a container for different values determined by the given type.
+type Object struct {
+	Type  ObjectType
+	Value interface{}
+}
+
+//Sort sorts the content of the object lexicographically.
+func (o *Object) Sort() {
+	if name, ok := o.Value.(NameObject); ok {
+		sort.Slice(name.Types, func(i, j int) bool { return name.Types[i] < name.Types[j] })
+	}
+	if o.Type == OTExtraKey {
+		log.Error("Sort not implemented for external key. Format not yet defined")
+	}
+}
+
+//CompareTo compares two objects and returns 0 if they are equal, 1 if o is greater than object and -1 if o is smaller than object
+func (o Object) CompareTo(object Object) int {
+	if o.Type < object.Type {
+		return -1
+	} else if o.Type > object.Type {
+		return 1
+	}
+	switch v1 := o.Value.(type) {
+	case NameObject:
+		if v2, ok := object.Value.(NameObject); ok {
+			return v1.CompareTo(v2)
+		}
+		logObjectTypeAssertionFailure(object.Type, object.Value)
+	case string:
+		if v2, ok := object.Value.(string); ok {
+			if v1 < v2 {
+				return -1
+			} else if v1 > v2 {
+				return 1
+			}
+		} else {
+			logObjectTypeAssertionFailure(object.Type, object.Value)
+		}
+	case PublicKey:
+		if v2, ok := object.Value.(PublicKey); ok {
+			return v1.CompareTo(v2)
+		}
+		logObjectTypeAssertionFailure(object.Type, object.Value)
+	case NamesetExpression:
+		if v2, ok := object.Value.(NamesetExpression); ok {
+			if v1 < v2 {
+				return -1
+			} else if v1 > v2 {
+				return 1
+			}
+		} else {
+			logObjectTypeAssertionFailure(object.Type, object.Value)
+		}
+	case CertificateObject:
+		if v2, ok := object.Value.(CertificateObject); ok {
+			return v1.CompareTo(v2)
+		}
+		logObjectTypeAssertionFailure(object.Type, object.Value)
+	case ServiceInfo:
+		if v2, ok := object.Value.(ServiceInfo); ok {
+			return v1.CompareTo(v2)
+		}
+		logObjectTypeAssertionFailure(object.Type, object.Value)
+	default:
+		log.Warn("Unsupported object.Value type", "type", fmt.Sprintf("%T", o.Value))
+	}
+	return 0
+}
+
+func logObjectTypeAssertionFailure(t ObjectType, value interface{}) {
+	log.Error("Object Type and corresponding type assertion of object's value do not match",
+		"objectType", t, "objectValueType", fmt.Sprintf("%T", value))
+}
+
+type ObjectType int
+
+func (o ObjectType) String() string {
+	return strconv.Itoa(int(o))
+}
+
+const (
+	OTName        ObjectType = 1
+	OTIP6Addr     ObjectType = 2
+	OTIP4Addr     ObjectType = 3
+	OTRedirection ObjectType = 4
+	OTDelegation  ObjectType = 5
+	OTNameset     ObjectType = 6
+	OTCertInfo    ObjectType = 7
+	OTServiceInfo ObjectType = 8
+	OTRegistrar   ObjectType = 9
+	OTRegistrant  ObjectType = 10
+	OTInfraKey    ObjectType = 11
+	OTExtraKey    ObjectType = 12
+	OTNextKey     ObjectType = 13
+)
+
 //NameObject contains a name associated with a name as an alias. Types specifies for which object types the alias is valid
 type NameObject struct {
 	Name string
 	//Types for which the Name is valid
 	Types []ObjectType
+}
+
+//CompareTo compares two nameObjects and returns 0 if they are equal, 1 if n is greater than nameObject and -1 if n is smaller than nameObject
+func (n NameObject) CompareTo(nameObj NameObject) int {
+	if n.Name < nameObj.Name {
+		return -1
+	} else if n.Name > nameObj.Name {
+		return 1
+	}
+	for i, t := range n.Types {
+		if t < nameObj.Types[i] {
+			return -1
+		} else if t > nameObj.Types[i] {
+			return 1
+		}
+	}
+	return 0
 }
 
 //NamesetExpression  encodes a modified POSIX Extended Regular Expression format
@@ -868,6 +1330,24 @@ type CertificateObject struct {
 	Usage    CertificateUsage
 	HashAlgo HashAlgorithmType
 	Data     []byte
+}
+
+//CompareTo compares two certificateObject objects and returns 0 if they are equal, 1 if c is greater than cert and -1 if c is smaller than cert
+func (c CertificateObject) CompareTo(cert CertificateObject) int {
+	if c.Type < cert.Type {
+		return -1
+	} else if c.Type > cert.Type {
+		return 1
+	} else if c.Usage < cert.Usage {
+		return -1
+	} else if c.Usage > cert.Usage {
+		return 1
+	} else if c.HashAlgo < cert.HashAlgo {
+		return -1
+	} else if c.HashAlgo > cert.HashAlgo {
+		return 1
+	}
+	return bytes.Compare(c.Data, cert.Data)
 }
 
 type ProtocolType int
@@ -891,10 +1371,22 @@ type ServiceInfo struct {
 	Priority uint
 }
 
-//Object is a container for different values determined by the given type.
-type Object struct {
-	Type  ObjectType
-	Value interface{}
+//CompareTo compares two serviceInfo objects and returns 0 if they are equal, 1 if s is greater than serviceInfo and -1 if s is smaller than serviceInfo
+func (s ServiceInfo) CompareTo(serviceInfo ServiceInfo) int {
+	if s.Name < serviceInfo.Name {
+		return -1
+	} else if s.Name > serviceInfo.Name {
+		return 1
+	} else if s.Port < serviceInfo.Port {
+		return -1
+	} else if s.Port > serviceInfo.Port {
+		return 1
+	} else if s.Priority < serviceInfo.Priority {
+		return -1
+	} else if s.Priority > serviceInfo.Priority {
+		return 1
+	}
+	return 0
 }
 
 //NetworkAddrType enumerates network address types

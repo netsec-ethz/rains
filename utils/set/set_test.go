@@ -93,8 +93,8 @@ func TestDelete(t *testing.T) {
 	set.data[v2.Hash()] = v2
 	ok = set.Delete(v)
 	_, ok2 := set.data[v.Hash()]
-	if _, ok := set.data[v2.Hash()]; ok || ok2 {
-		t.Errorf("Delete did not work. %v", set.data)
+	if !ok || ok2 {
+		t.Errorf("Delete did not work. %v, ok=%v, ok2=%v", set.data, ok, ok2)
 	}
 	if !ok {
 		t.Errorf("Wrong return value=%v", ok)
@@ -103,7 +103,7 @@ func TestDelete(t *testing.T) {
 	set = New()
 	set.data[v.Hash()] = v
 	ok = set.Delete(v3)
-	if _, ok := set.data[v.Hash()]; ok {
+	if ok {
 		t.Errorf("Delete did not work. %v", set.data)
 	}
 	if ok {

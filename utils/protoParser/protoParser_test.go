@@ -132,7 +132,7 @@ func TestEncodeAndDecode(t *testing.T) {
 		Context:     ".",
 		Expires:     7564859,
 		Token:       rainslib.GenerateToken(),
-		Types:       rainslib.OTName,
+		Type:        rainslib.OTName,
 		Options:     []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
 	}
 

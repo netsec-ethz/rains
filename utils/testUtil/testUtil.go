@@ -252,7 +252,7 @@ func CheckAddressQuery(q1, q2 *rainslib.AddressQuerySection, t *testing.T) {
 	if q1.Token != q2.Token {
 		t.Error("AddressQuery Token mismatch")
 	}
-	if q1.Types != q2.Types {
+	if q1.Type != q2.Type {
 		t.Error("AddressQuery Type mismatch")
 	}
 	if len(q1.Options) != len(q2.Options) {

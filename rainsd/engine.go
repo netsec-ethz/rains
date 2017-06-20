@@ -328,7 +328,7 @@ func shouldAddressZoneBeCached(zone *rainslib.AddressZoneSection) bool {
 //addressQuery directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
 func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo) {
 	log.Debug("Start processing address query", "addressQuery", query)
-	assertion, zone, ok := getAddressCache(query.SubjectAddr, query.Context).Get(query.SubjectAddr, []rainslib.ObjectType{query.Types})
+	assertion, zone, ok := getAddressCache(query.SubjectAddr, query.Context).Get(query.SubjectAddr, []rainslib.ObjectType{query.Type})
 	//TODO CFE add heuristic which assertion to return
 	if ok {
 		if assertion != nil {
@@ -366,9 +366,9 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo)
 		validUntil = query.Expires
 	}
 	//FIXME CFE allow multiple types
-	pendingQueries.Add(query.Context, "", "", query.Types, pendingQuerySetValue{connInfo: sender, token: token, validUntil: validUntil})
+	pendingQueries.Add(query.Context, "", "", query.Type, pendingQuerySetValue{connInfo: sender, token: token, validUntil: validUntil})
 	log.Debug("Added query into to pending query cache", "query", query)
-	sendAddressQuery(query.Context, query.SubjectAddr, validUntil, query.Types, token, delegate)
+	sendAddressQuery(query.Context, query.SubjectAddr, validUntil, query.Type, token, delegate)
 }
 
 //query directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.

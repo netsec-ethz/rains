@@ -334,7 +334,7 @@ func decodeAddressQuery(q proto.AddressQuerySection) (*rainslib.AddressQuerySect
 	query := rainslib.AddressQuerySection{}
 
 	query.Expires = q.Expires()
-	query.Types = rainslib.ObjectType(q.Types())
+	query.Type = rainslib.ObjectType(q.Types())
 
 	ipCIDR, err := q.SubjectAddr()
 	if err != nil {

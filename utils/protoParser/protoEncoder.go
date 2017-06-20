@@ -271,7 +271,7 @@ func encodeAddressQuery(q *rainslib.AddressQuerySection, seg *capnp.Segment) (pr
 	query.SetToken(tok[:])
 	query.SetContext(q.Context)
 	query.SetExpires(q.Expires)
-	query.SetTypes(int32(q.Types))
+	query.SetTypes(int32(q.Type))
 
 	qoList, err := capnp.NewInt32List(seg, int32(len(q.Options)))
 	if err != nil {

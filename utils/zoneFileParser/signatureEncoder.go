@@ -56,7 +56,7 @@ func encodeAddressZone(z *rainslib.AddressZoneSection) string {
 
 func encodeAddressQuery(q *rainslib.AddressQuerySection) string {
 	return fmt.Sprintf(":AQ: %s %s %s %s %d %s", q.Token.String(), q.Context, encodeSubjectAddress(q.SubjectAddr),
-		encodeObjectTypes([]rainslib.ObjectType{q.Types}), q.Expires, encodeQueryOptions(q.Options))
+		encodeObjectTypes([]rainslib.ObjectType{q.Type}), q.Expires, encodeQueryOptions(q.Options))
 }
 
 func encodeQuery(q *rainslib.QuerySection) string {
