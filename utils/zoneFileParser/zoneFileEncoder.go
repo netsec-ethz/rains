@@ -19,10 +19,10 @@ func encodeZone(z *rainslib.ZoneSection, toSign bool) string {
 		switch section := section.(type) {
 		case *rainslib.AssertionSection:
 			context, subjectZone := getContextAndZone(z.Context, z.SubjectZone, section, toSign)
-			zone += fmt.Sprintf("    %s\n", encodeAssertion(section, context, subjectZone, indent4))
+			zone += fmt.Sprintf("%s%s\n", indent4, encodeAssertion(section, context, subjectZone, indent4))
 		case *rainslib.ShardSection:
 			context, subjectZone := getContextAndZone(z.Context, z.SubjectZone, section, toSign)
-			zone += fmt.Sprintf("    %s\n", encodeShard(section, context, subjectZone, toSign))
+			zone += fmt.Sprintf("%s%s\n", indent4, encodeShard(section, context, subjectZone, toSign))
 		default:
 			log.Warn("Unsupported message section type", "msgSection", section)
 		}

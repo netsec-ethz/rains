@@ -134,6 +134,16 @@ func TestEncodeShards(t *testing.T) {
 	}
 }
 
+func TestEncodeZones(t *testing.T) {
+	zones, encodings := getZonesAndEncodings()
+	for i, zone := range zones {
+		encodedZ := encodeZone(zone, false)
+		if encodedZ != encodings[i] {
+			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedZ)
+		}
+	}
+}
+
 func TestEncodeAddressAssertion(t *testing.T) {
 	assertions, encodings := getAddressAssertionsAndEncodings()
 	for i, assertion := range assertions {

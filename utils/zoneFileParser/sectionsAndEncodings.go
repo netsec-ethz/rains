@@ -35,10 +35,28 @@ func getObjectsAndEncodings() (ObjectIndent, []string) {
 		ValidSince: 1000,
 		ValidUntil: 20000,
 	}
-	certificate := rainslib.CertificateObject{
+	certificate0 := rainslib.CertificateObject{
 		Type:     rainslib.PTTLS,
 		HashAlgo: rainslib.Sha256,
 		Usage:    rainslib.CUEndEntity,
+		Data:     []byte("certData"),
+	}
+	certificate1 := rainslib.CertificateObject{
+		Type:     rainslib.PTUnspecified,
+		HashAlgo: rainslib.Sha512,
+		Usage:    rainslib.CUTrustAnchor,
+		Data:     []byte("certData"),
+	}
+	certificate2 := rainslib.CertificateObject{
+		Type:     rainslib.PTUnspecified,
+		HashAlgo: rainslib.Sha384,
+		Usage:    rainslib.CUTrustAnchor,
+		Data:     []byte("certData"),
+	}
+	certificate3 := rainslib.CertificateObject{
+		Type:     rainslib.PTUnspecified,
+		HashAlgo: rainslib.NoHashAlgo,
+		Usage:    rainslib.CUTrustAnchor,
 		Data:     []byte("certData"),
 	}
 	serviceInfo := rainslib.ServiceInfo{
@@ -59,8 +77,14 @@ func getObjectsAndEncodings() (ObjectIndent, []string) {
 	delegObjectEncoding0 := fmt.Sprintf(":deleg:    ed25519 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
 	nameSetObject0 := rainslib.Object{Type: rainslib.OTNameset, Value: rainslib.NamesetExpression("Would be an expression")}
 	nameSetObjectEncoding0 := ":nameset:  Would be an expression\n"
-	certObject0 := rainslib.Object{Type: rainslib.OTCertInfo, Value: certificate}
-	certObjectEncoding0 := fmt.Sprintf(":cert:     tls endEntity sha256 %s\n", hex.EncodeToString(certificate.Data))
+	certObject0 := rainslib.Object{Type: rainslib.OTCertInfo, Value: certificate0}
+	certObjectEncoding0 := fmt.Sprintf(":cert:     tls endEntity sha256 %s\n", hex.EncodeToString(certificate0.Data))
+	certObject1 := rainslib.Object{Type: rainslib.OTCertInfo, Value: certificate1}
+	certObjectEncoding1 := fmt.Sprintf(":cert:     unspecified trustAnchor sha512 %s\n", hex.EncodeToString(certificate1.Data))
+	certObject2 := rainslib.Object{Type: rainslib.OTCertInfo, Value: certificate2}
+	certObjectEncoding2 := fmt.Sprintf(":cert:     unspecified trustAnchor sha384 %s\n", hex.EncodeToString(certificate2.Data))
+	certObject3 := rainslib.Object{Type: rainslib.OTCertInfo, Value: certificate3}
+	certObjectEncoding3 := fmt.Sprintf(":cert:     unspecified trustAnchor noHashAlgo %s\n", hex.EncodeToString(certificate3.Data))
 	serviceInfoObject0 := rainslib.Object{Type: rainslib.OTServiceInfo, Value: serviceInfo}
 	serviceInfoObjectEncoding0 := ":srv:      lookup 49830 1\n"
 	registrarObject0 := rainslib.Object{Type: rainslib.OTRegistrar, Value: "Registrar information"}
@@ -89,6 +113,9 @@ func getObjectsAndEncodings() (ObjectIndent, []string) {
 	objects = append(objects, []rainslib.Object{infraObject0})
 	objects = append(objects, []rainslib.Object{extraObject0})
 	objects = append(objects, []rainslib.Object{nextObject0})
+	objects = append(objects, []rainslib.Object{certObject1})
+	objects = append(objects, []rainslib.Object{certObject2})
+	objects = append(objects, []rainslib.Object{certObject3})
 
 	//encodings
 	encodings := []string{}
@@ -109,6 +136,9 @@ func getObjectsAndEncodings() (ObjectIndent, []string) {
 	encodings = append(encodings, infraObjectEncoding0)
 	encodings = append(encodings, extraObjectEncoding0)
 	encodings = append(encodings, nextObjectEncoding0)
+	encodings = append(encodings, certObjectEncoding1)
+	encodings = append(encodings, certObjectEncoding2)
+	encodings = append(encodings, certObjectEncoding3)
 	//remove the last new line of each encoding
 	for i := range encodings {
 		encodings[i] = encodings[i][:len(encodings[i])-1]
@@ -116,7 +146,7 @@ func getObjectsAndEncodings() (ObjectIndent, []string) {
 
 	indents := []string{}
 	indents = append(indents, indent12)
-	for i := 0; i < 13; i++ {
+	for i := 0; i < len(encodings)-1; i++ {
 		indents = append(indents, "")
 	}
 	return ObjectIndent{Objects: objects, Indents: indents}, encodings
@@ -242,7 +272,7 @@ func getZonesAndEncodings() ([]*rainslib.ZoneSection, []string) {
 	shards, shardEncodings := getShardAndEncodings()
 
 	zone0 := &rainslib.ZoneSection{
-		Content:     []rainslib.MessageSectionWithSig{assertions[0], shards[3]},
+		Content:     []rainslib.MessageSectionWithSig{assertions[0], shards[1]},
 		Context:     ".",
 		SubjectZone: "ch",
 		Signatures:  []rainslib.Signature{getSignature()},
@@ -258,8 +288,8 @@ func getZonesAndEncodings() ([]*rainslib.ZoneSection, []string) {
 
 	//encodings
 	encodings := []string{}
-	encodings = append(encodings, fmt.Sprintf(":Z: ch . [ %s %s ]", assertionEncodings[0], shardEncodings[3]))
-	encodings = append(encodings, ":Z: ch . [ ]")
+	encodings = append(encodings, fmt.Sprintf(":Z: ch . [\n%s%s\n%s%s\n]", indent4, assertionEncodings[0], indent4, shardEncodings[1]))
+	encodings = append(encodings, ":Z: ch . [\n]")
 
 	return zones, encodings
 }
@@ -411,4 +441,29 @@ func getNotificationsAndEncodings() ([]*rainslib.NotificationSection, []string) 
 	encodings = append(encodings, fmt.Sprintf(":N: %s 404 Notification information", encodedToken))
 
 	return notifications, encodings
+}
+
+//getMessagesAndEncodings returns a slice of messages and a slice of their encodings used for testing
+func getMessagesAndEncodings() ([]*rainslib.RainsMessage, []string) {
+	//messages
+	messages := []*rainslib.RainsMessage{}
+	assertions, assertionencodings := getAssertionAndEncodings(indent4)
+
+	token := rainslib.GenerateToken()
+	capabilities := []rainslib.Capability{rainslib.Capability("capa1"), rainslib.Capability("capa2")}
+	encodedToken := hex.EncodeToString(token[:])
+	message := &rainslib.RainsMessage{
+		Token:        token,
+		Capabilities: capabilities,
+		Content:      []rainslib.MessageSection{assertions[0]},
+		Signatures:   []rainslib.Signature{getSignature()},
+	}
+	messages = append(messages, message)
+
+	//encodings
+	encodings := []string{}
+	//FIXME CFE
+	encodings = append(encodings, fmt.Sprintf(":M:%s%s", encodedToken, assertionencodings))
+
+	return messages, encodings
 }
