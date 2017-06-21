@@ -104,6 +104,36 @@ func TestEncoder(t *testing.T) {
 
 }
 
+func TestEncodeObjects(t *testing.T) {
+	objectsIndents, encodings := getObjectsAndEncodings()
+	for i, objects := range objectsIndents.Objects {
+		encodedO := encodeObjects(objects, objectsIndents.Indents[i])
+		if encodedO != encodings[i] {
+			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedO)
+		}
+	}
+}
+
+func TestEncodeAssertions(t *testing.T) {
+	assertions, encodings := getAssertionAndEncodings("")
+	for i, assertion := range assertions {
+		encodedA := encodeAssertion(assertion, assertion.Context, assertion.SubjectZone, "")
+		if encodedA != encodings[i] {
+			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedA)
+		}
+	}
+}
+
+func TestEncodeShards(t *testing.T) {
+	shards, encodings := getShardAndEncodings()
+	for i, shard := range shards {
+		encodedS := encodeShard(shard, shard.Context, shard.SubjectZone, false)
+		if encodedS != encodings[i] {
+			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedS)
+		}
+	}
+}
+
 func TestEncodeAddressAssertion(t *testing.T) {
 	assertions, encodings := getAddressAssertionsAndEncodings()
 	for i, assertion := range assertions {

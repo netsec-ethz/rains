@@ -45,9 +45,9 @@ func encodeShard(s *rainslib.ShardSection, context, subjectZone string, toSign b
 	shard := fmt.Sprintf(":S: %s %s %s %s [\n", subjectZone, context, rangeFrom, rangeTo)
 	for _, assertion := range s.Content {
 		ctx, zone := getContextAndZone(context, subjectZone, assertion, toSign)
-		shard += fmt.Sprintf("        %s\n", encodeAssertion(assertion, ctx, zone, indent8))
+		shard += fmt.Sprintf("%s%s\n", indent8, encodeAssertion(assertion, ctx, zone, indent8))
 	}
-	return fmt.Sprintf("%s    ]", shard)
+	return fmt.Sprintf("%s%s]", shard, indent4)
 }
 
 //encodeAssertion returns a as a string. If toSign is true, the return value is in signable format
@@ -58,7 +58,7 @@ func encodeAssertion(a *rainslib.AssertionSection, context, zone, indent string)
 	if len(a.Content) > 1 {
 		return fmt.Sprintf("%s\n%s\n%s]", assertion, encodeObjects(a.Content, indent12), indent)
 	}
-	return fmt.Sprintf("%s %s ]", assertion, encodeObjects(a.Content, ""))
+	return fmt.Sprintf("%s%s ]", assertion, encodeObjects(a.Content, ""))
 }
 
 //encodeObjects returns o represented as a string in zone file format where indent determines the indent added before the each object

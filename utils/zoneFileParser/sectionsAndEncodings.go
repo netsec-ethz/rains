@@ -5,15 +5,19 @@ import (
 	"fmt"
 	"net"
 	"rains/rainslib"
-	"strings"
 
 	"golang.org/x/crypto/ed25519"
 )
 
+type ObjectIndent struct {
+	Objects [][]rainslib.Object
+	Indents []string
+}
+
 //getObjectsAndEncodings returns a slice of options and a slice of their encodings used for testing
-func getObjectsAndEncodings() ([]rainslib.Object, []string) {
-	//options
-	options := []rainslib.Object{}
+func getObjectsAndEncodings() (ObjectIndent, []string) {
+	//objects
+	objects := [][]rainslib.Object{}
 	nameObjectContent := rainslib.NameObject{
 		Name:  "ethz2.ch",
 		Types: []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr},
@@ -43,40 +47,79 @@ func getObjectsAndEncodings() ([]rainslib.Object, []string) {
 		Priority: 1,
 	}
 
-	nameObject := rainslib.Object{Type: rainslib.OTName, Value: nameObjectContent}
-	ip6Object := rainslib.Object{Type: rainslib.OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"}
-	ip4Object := rainslib.Object{Type: rainslib.OTIP4Addr, Value: "127.0.0.1"}
-	redirObject := rainslib.Object{Type: rainslib.OTRedirection, Value: "ns.ethz.ch"}
-	delegObject := rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}
-	nameSetObject := rainslib.Object{Type: rainslib.OTNameset, Value: rainslib.NamesetExpression("Would be an expression")}
-	certObject := rainslib.Object{Type: rainslib.OTCertInfo, Value: certificate}
-	serviceInfoObject := rainslib.Object{Type: rainslib.OTServiceInfo, Value: serviceInfo}
-	registrarObject := rainslib.Object{Type: rainslib.OTRegistrar, Value: "Registrar information"}
-	registrantObject := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}
-	infraObject := rainslib.Object{Type: rainslib.OTInfraKey, Value: publicKey}
-	extraObject := rainslib.Object{Type: rainslib.OTExtraKey, Value: publicKey}
-	nextKey := rainslib.Object{Type: rainslib.OTNextKey, Value: publicKeyWithValidity}
+	nameObject0 := rainslib.Object{Type: rainslib.OTName, Value: nameObjectContent}
+	nameObjectEncoding0 := ":name:     ethz2.ch [ ip4 ip6 ]\n"
+	ip6Object0 := rainslib.Object{Type: rainslib.OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"}
+	ip6ObjectEncoding0 := ":ip6:      2001:0db8:85a3:0000:0000:8a2e:0370:7334\n"
+	ip4Object0 := rainslib.Object{Type: rainslib.OTIP4Addr, Value: "127.0.0.1"}
+	ip4ObjectEncoding0 := ":ip4:      127.0.0.1\n"
+	redirObject0 := rainslib.Object{Type: rainslib.OTRedirection, Value: "ns.ethz.ch"}
+	redirObjectEncoding0 := ":redir:    ns.ethz.ch\n"
+	delegObject0 := rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}
+	delegObjectEncoding0 := fmt.Sprintf(":deleg:    ed25519 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
+	nameSetObject0 := rainslib.Object{Type: rainslib.OTNameset, Value: rainslib.NamesetExpression("Would be an expression")}
+	nameSetObjectEncoding0 := ":nameset:  Would be an expression\n"
+	certObject0 := rainslib.Object{Type: rainslib.OTCertInfo, Value: certificate}
+	certObjectEncoding0 := fmt.Sprintf(":cert:     tls endEntity sha256 %s\n", hex.EncodeToString(certificate.Data))
+	serviceInfoObject0 := rainslib.Object{Type: rainslib.OTServiceInfo, Value: serviceInfo}
+	serviceInfoObjectEncoding0 := ":srv:      lookup 49830 1\n"
+	registrarObject0 := rainslib.Object{Type: rainslib.OTRegistrar, Value: "Registrar information"}
+	registrarObjectEncoding0 := ":regr:     Registrar information\n"
+	registrantObject0 := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}
+	registrantObjectEncoding0 := ":regt:     Registrant information\n"
+	infraObject0 := rainslib.Object{Type: rainslib.OTInfraKey, Value: publicKey}
+	infraObjectEncoding0 := fmt.Sprintf(":infra:    ed25519 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
+	extraObject0 := rainslib.Object{Type: rainslib.OTExtraKey, Value: publicKey}
+	extraObjectEncoding0 := fmt.Sprintf(":extra:    rains ed25519 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
+	nextObject0 := rainslib.Object{Type: rainslib.OTNextKey, Value: publicKeyWithValidity}
+	nextObjectEncoding0 := fmt.Sprintf(":next:     ed25519 %s 1000 20000\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
 
-	options = []rainslib.Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject,
-		registrarObject, registrantObject, infraObject, extraObject, nextKey}
+	objects = append(objects, []rainslib.Object{nameObject0, ip6Object0, ip4Object0, redirObject0, delegObject0, nameSetObject0, certObject0, serviceInfoObject0,
+		registrarObject0, registrantObject0, infraObject0, extraObject0, nextObject0})
+	objects = append(objects, []rainslib.Object{nameObject0})
+	objects = append(objects, []rainslib.Object{ip6Object0})
+	objects = append(objects, []rainslib.Object{ip4Object0})
+	objects = append(objects, []rainslib.Object{redirObject0})
+	objects = append(objects, []rainslib.Object{delegObject0})
+	objects = append(objects, []rainslib.Object{nameSetObject0})
+	objects = append(objects, []rainslib.Object{certObject0})
+	objects = append(objects, []rainslib.Object{serviceInfoObject0})
+	objects = append(objects, []rainslib.Object{registrarObject0})
+	objects = append(objects, []rainslib.Object{registrantObject0})
+	objects = append(objects, []rainslib.Object{infraObject0})
+	objects = append(objects, []rainslib.Object{extraObject0})
+	objects = append(objects, []rainslib.Object{nextObject0})
 
 	//encodings
 	encodings := []string{}
-	encodings = append(encodings, ":name: ethz2.ch [ ip4 ip6 ]")
-	encodings = append(encodings, ":ip6: 2001:0db8:85a3:0000:0000:8a2e:0370:7334")
-	encodings = append(encodings, ":ip4: 127.0.0.1")
-	encodings = append(encodings, ":redir: ns.ethz.ch")
-	encodings = append(encodings, fmt.Sprintf(":deleg: ed25519 %s", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey))))
-	encodings = append(encodings, ":nameSet: Would be an expression")
-	encodings = append(encodings, fmt.Sprintf(":cert: tls endEntity sha256 %s", hex.EncodeToString(certificate.Data)))
-	encodings = append(encodings, ":srv: lookup 49830 1")
-	encodings = append(encodings, ":regr: Registrar information")
-	encodings = append(encodings, ":regt: Registrant information")
-	encodings = append(encodings, fmt.Sprintf(":infra: ed25519 %s", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey))))
-	encodings = append(encodings, fmt.Sprintf(":extra: 0 ed25519 %s", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey))))
-	encodings = append(encodings, fmt.Sprintf(":next: ed25519 %s 1000 2000", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey))))
+	encodings = append(encodings, fmt.Sprintf("%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s", indent12, nameObjectEncoding0, indent12, ip6ObjectEncoding0,
+		indent12, ip4ObjectEncoding0, indent12, redirObjectEncoding0, indent12, delegObjectEncoding0, indent12, nameSetObjectEncoding0, indent12,
+		certObjectEncoding0, indent12, serviceInfoObjectEncoding0, indent12, registrarObjectEncoding0, indent12, registrantObjectEncoding0, indent12,
+		infraObjectEncoding0, indent12, extraObjectEncoding0, indent12, nextObjectEncoding0))
+	encodings = append(encodings, nameObjectEncoding0)
+	encodings = append(encodings, ip6ObjectEncoding0)
+	encodings = append(encodings, ip4ObjectEncoding0)
+	encodings = append(encodings, redirObjectEncoding0)
+	encodings = append(encodings, delegObjectEncoding0)
+	encodings = append(encodings, nameSetObjectEncoding0)
+	encodings = append(encodings, certObjectEncoding0)
+	encodings = append(encodings, serviceInfoObjectEncoding0)
+	encodings = append(encodings, registrarObjectEncoding0)
+	encodings = append(encodings, registrantObjectEncoding0)
+	encodings = append(encodings, infraObjectEncoding0)
+	encodings = append(encodings, extraObjectEncoding0)
+	encodings = append(encodings, nextObjectEncoding0)
+	//remove the last new line of each encoding
+	for i := range encodings {
+		encodings[i] = encodings[i][:len(encodings[i])-1]
+	}
 
-	return options, encodings
+	indents := []string{}
+	indents = append(indents, indent12)
+	for i := 0; i < 13; i++ {
+		indents = append(indents, "")
+	}
+	return ObjectIndent{Objects: objects, Indents: indents}, encodings
 }
 
 //getSignature returns a signature. Currently it is not used for encoding. It is used to test that encoder can handle unnecessary content on sections
@@ -90,31 +133,41 @@ func getSignature() rainslib.Signature {
 }
 
 //getAssertionAndEncodings returns a slice of assertions and a slice of their encodings used for testing
-func getAssertionAndEncodings() ([]*rainslib.AssertionSection, []string) {
+func getAssertionAndEncodings(indent string) ([]*rainslib.AssertionSection, []string) {
 	//assertions
 	assertions := []*rainslib.AssertionSection{}
-	objects, objEncodings := getObjectsAndEncodings()
+	objectIndents, objEncodings := getObjectsAndEncodings()
 
 	assertion0 := &rainslib.AssertionSection{
-		Content:     objects,
+		Content:     objectIndents.Objects[0],
 		Context:     "",
 		SubjectName: "ethz",
 		SubjectZone: "",
 		Signatures:  []rainslib.Signature{},
 	}
 	assertion1 := &rainslib.AssertionSection{
-		Content:     objects,
+		Content:     objectIndents.Objects[0],
 		Context:     ".",
 		SubjectName: "ethz",
 		SubjectZone: "ch",
 		Signatures:  []rainslib.Signature{getSignature()},
 	}
+	assertion2 := &rainslib.AssertionSection{
+		Content:     objectIndents.Objects[1],
+		Context:     "",
+		SubjectName: "ethz",
+		SubjectZone: "",
+		Signatures:  []rainslib.Signature{},
+	}
 	assertions = append(assertions, assertion0)
 	assertions = append(assertions, assertion1)
+	assertions = append(assertions, assertion2)
 
 	//encodings
 	encodings := []string{}
-	encodings = append(encodings, fmt.Sprintf(":A: ethz ch . [ %s ]", strings.Join(objEncodings, " ")))
+	encodings = append(encodings, fmt.Sprintf(":A: ethz   [ \n%s\n%s]", objEncodings[0], indent))
+	encodings = append(encodings, fmt.Sprintf(":A: ethz ch . [ \n%s\n%s]", objEncodings[0], indent))
+	encodings = append(encodings, fmt.Sprintf(":A: ethz   [ %s ]", objEncodings[1]))
 
 	return assertions, encodings
 }
@@ -123,7 +176,7 @@ func getAssertionAndEncodings() ([]*rainslib.AssertionSection, []string) {
 func getShardAndEncodings() ([]*rainslib.ShardSection, []string) {
 	//shards
 	shards := []*rainslib.ShardSection{}
-	assertions, assertionEncodings := getAssertionAndEncodings()
+	assertions, assertionEncodings := getAssertionAndEncodings(indent8)
 
 	shard0 := &rainslib.ShardSection{
 		Content:     []*rainslib.AssertionSection{assertions[0]},
@@ -172,11 +225,11 @@ func getShardAndEncodings() ([]*rainslib.ShardSection, []string) {
 
 	//encodings
 	encodings := []string{}
-	encodings = append(encodings, fmt.Sprintf(":S: < > [ %s ]", assertionEncodings[0]))
-	encodings = append(encodings, fmt.Sprintf(":S: aaa zzz [ %s ]", assertionEncodings[0]))
-	encodings = append(encodings, fmt.Sprintf(":S: ch . aaa zzz [ %s ]", assertionEncodings[0]))
-	encodings = append(encodings, fmt.Sprintf(":S: ethz.ch . < > [ %s %s ]", assertionEncodings[0], assertionEncodings[0]))
-	encodings = append(encodings, ":S: ethz.ch . cd ef [ ]")
+	encodings = append(encodings, fmt.Sprintf(":S:   < > [\n%s%s\n%s]", indent8, assertionEncodings[0], indent4))
+	encodings = append(encodings, fmt.Sprintf(":S:   aaa zzz [\n%s%s\n%s]", indent8, assertionEncodings[0], indent4))
+	encodings = append(encodings, fmt.Sprintf(":S: ch . aaa zzz [\n%s%s\n%s]", indent8, assertionEncodings[0], indent4))
+	encodings = append(encodings, fmt.Sprintf(":S: ethz.ch . < > [\n%s%s\n%s%s\n%s]", indent8, assertionEncodings[0], indent8, assertionEncodings[0], indent4))
+	encodings = append(encodings, ":S: ethz.ch . cd ef [\n    ]")
 
 	return shards, encodings
 }
@@ -185,7 +238,7 @@ func getShardAndEncodings() ([]*rainslib.ShardSection, []string) {
 func getZonesAndEncodings() ([]*rainslib.ZoneSection, []string) {
 	//zones
 	zones := []*rainslib.ZoneSection{}
-	assertions, assertionEncodings := getAssertionAndEncodings()
+	assertions, assertionEncodings := getAssertionAndEncodings(indent4)
 	shards, shardEncodings := getShardAndEncodings()
 
 	zone0 := &rainslib.ZoneSection{
