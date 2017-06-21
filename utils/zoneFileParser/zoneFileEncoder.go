@@ -6,12 +6,13 @@ import (
 	"rains/rainslib"
 	"strings"
 
-	"golang.org/x/crypto/ed25519"
-
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 )
 
-//encodeZone transforms a shard into a signable format. It is also represented this way in a zone file
+//encodeZone return z as a string. If toSign is true, the return value is in signable format
+//i.e. that the context and subject zone are present also for all contained sections
+//Otherwise the output is a string representation of the zone file generated from z.
 func encodeZone(z *rainslib.ZoneSection, toSign bool) string {
 	zone := fmt.Sprintf(":Z: %s %s [\n", z.SubjectZone, z.Context)
 	for _, section := range z.Content {
@@ -29,8 +30,10 @@ func encodeZone(z *rainslib.ZoneSection, toSign bool) string {
 	return fmt.Sprintf("%s]", zone)
 }
 
-//encodeShard transforms a shard into a signable format. It is also represented this way in a zone file
-func encodeShard(s *rainslib.ShardSection, context, zone string, toSign bool) string {
+//encodeShard returns s as a string. If toSign is true, the return value is in signable format
+//i.e. that the context and subject zone are present also for all contained assertions
+//Otherwise the output is a string representation of s in zone file format.
+func encodeShard(s *rainslib.ShardSection, context, subjectZone string, toSign bool) string {
 	rangeFrom := s.RangeFrom
 	rangeTo := s.RangeTo
 	if rangeFrom == "" {
@@ -39,15 +42,17 @@ func encodeShard(s *rainslib.ShardSection, context, zone string, toSign bool) st
 	if rangeTo == "" {
 		rangeTo = ">"
 	}
-	shard := fmt.Sprintf(":S: %s %s %s %s [\n", zone, context, rangeFrom, rangeTo)
+	shard := fmt.Sprintf(":S: %s %s %s %s [\n", subjectZone, context, rangeFrom, rangeTo)
 	for _, assertion := range s.Content {
-		ctx, subjectZone := getContextAndZone(context, zone, assertion, toSign)
-		shard += fmt.Sprintf("        %s\n", encodeAssertion(assertion, ctx, subjectZone, indent8))
+		ctx, zone := getContextAndZone(context, subjectZone, assertion, toSign)
+		shard += fmt.Sprintf("        %s\n", encodeAssertion(assertion, ctx, zone, indent8))
 	}
 	return fmt.Sprintf("%s    ]", shard)
 }
 
-//encodeAssertion transforms an assertion into a signable format. It is also represented this way in a zone file
+//encodeAssertion returns a as a string. If toSign is true, the return value is in signable format
+//i.e. that the context and subject zone are present also for all contained assertions
+//Otherwise the output is a string representation of s in zone file format.
 func encodeAssertion(a *rainslib.AssertionSection, context, zone, indent string) string {
 	assertion := fmt.Sprintf(":A: %s %s %s [ ", a.SubjectName, zone, context)
 	if len(a.Content) > 1 {
@@ -56,6 +61,7 @@ func encodeAssertion(a *rainslib.AssertionSection, context, zone, indent string)
 	return fmt.Sprintf("%s %s ]", assertion, encodeObjects(a.Content, ""))
 }
 
+//encodeObjects returns o represented as a string in zone file format where indent determines the indent added before the each object
 func encodeObjects(o []rainslib.Object, indent string) string {
 	objects := ""
 	for _, obj := range o {
@@ -125,6 +131,7 @@ func encodeObjects(o []rainslib.Object, indent string) string {
 	return objects
 }
 
+//encodeNameObject returns no represented as a string in zone file format.
 func encodeNameObject(no rainslib.NameObject) string {
 	nameObject := []string{}
 	for _, oType := range no.Types {
@@ -160,6 +167,7 @@ func encodeNameObject(no rainslib.NameObject) string {
 	return fmt.Sprintf("%s [ %s ]", no.Name, strings.Join(nameObject, " "))
 }
 
+//encodePublicKey returns pkey represented as a string in zone file format.
 func encodePublicKey(pkey rainslib.PublicKey) string {
 	switch pkey.Type {
 	case rainslib.Ed25519:
@@ -185,6 +193,7 @@ func encodePublicKey(pkey rainslib.PublicKey) string {
 	return ""
 }
 
+//encodeKeySpace returns keySpace represented as a string in zone file format.
 func encodeKeySpace(keySpace rainslib.KeySpaceID) string {
 	switch keySpace {
 	case rainslib.RainsKeySpace:
@@ -195,6 +204,7 @@ func encodeKeySpace(keySpace rainslib.KeySpaceID) string {
 	return ""
 }
 
+//encodeCertificate returns cert represented as a string in zone file format.
 func encodeCertificate(cert rainslib.CertificateObject) string {
 	var pt, cu, ca string
 	switch cert.Type {
@@ -231,12 +241,11 @@ func encodeCertificate(cert rainslib.CertificateObject) string {
 	return fmt.Sprintf("%s %s %s %s", pt, cu, ca, hex.EncodeToString(cert.Data))
 }
 
+//getContextAndZone return the context and subjectZone to be used in contained assertions or shards.
+//if toSign is true it returns the context and subjectZone from the outer section.
 func getContextAndZone(outerContext, outerZone string, containedSection rainslib.MessageSectionWithSigForward, toSign bool) (string, string) {
-	context := containedSection.GetContext()
-	subjectZone := containedSection.GetSubjectZone()
-	if toSign && (context == "" || subjectZone == "") {
-		context = outerContext
-		subjectZone = outerZone
+	if toSign {
+		return outerContext, outerZone
 	}
-	return context, subjectZone
+	return containedSection.GetContext(), containedSection.GetSubjectZone()
 }
