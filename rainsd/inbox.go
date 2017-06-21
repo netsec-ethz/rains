@@ -137,6 +137,19 @@ func handleCapabilities(caps []rainslib.Capability) {
 	}*/
 }
 
+//verifyMessageSignature verifies signatures of the message against the infrastructure key of the RAINS Server originating the message
+func verifyMessageSignature(msg rainslib.RainsMessage) bool {
+	log.Info("Verify Message Signature")
+	if len(msg.Signatures) == 0 {
+		log.Info("No signature on the message")
+		return true
+	}
+	//TODO CFE get publicKey
+	log.Error("Not yet implemented ")
+	//return rainsSiglib.CheckMessageSignatures(msg, , zoneFileParser.Parser{}, )
+	return false
+}
+
 //sendNotificationMsg sends a notification message to the sender with the given notificationType. If an error occurs during parsing no message is sent and the error is logged.
 func sendNotificationMsg(token rainslib.Token, sender rainslib.ConnInfo, notificationType rainslib.NotificationType) {
 	msg, err := CreateNotificationMsg(token, notificationType, "")
