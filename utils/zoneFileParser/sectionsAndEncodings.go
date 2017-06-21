@@ -9,6 +9,7 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+//getQueriesAndEncodings returns a slice of queries and a slice of their encodings used for testing
 func getQueriesAndEncodings() ([]*rainslib.QuerySection, []string) {
 	//addressqueries
 	queries := []*rainslib.QuerySection{}
@@ -31,6 +32,7 @@ func getQueriesAndEncodings() ([]*rainslib.QuerySection, []string) {
 	return queries, encodings
 }
 
+//getAddressAssertionsAndEncodings returns a slice of address assertins and a slice of their encodings used for testing
 func getAddressAssertionsAndEncodings() ([]*rainslib.AddressAssertionSection, []string) {
 	//addressAssertions
 	addressAssertions := []*rainslib.AddressAssertionSection{}
@@ -91,6 +93,7 @@ func getAddressAssertionsAndEncodings() ([]*rainslib.AddressAssertionSection, []
 	return addressAssertions, encodings
 }
 
+//getAddressZonesAndEncodings returns a slice of address zones and a slice of their encodings used for testing
 func getAddressZonesAndEncodings() ([]*rainslib.AddressZoneSection, []string) {
 	//addressZones
 	addressZones := []*rainslib.AddressZoneSection{}
@@ -111,6 +114,7 @@ func getAddressZonesAndEncodings() ([]*rainslib.AddressZoneSection, []string) {
 	return addressZones, encodings
 }
 
+//getAddressQueriesAndEncodings returns a slice of address queries and a slice of their encodings used for testing
 func getAddressQueriesAndEncodings() ([]*rainslib.AddressQuerySection, []string) {
 	//addressqueries
 	addressQueries := []*rainslib.AddressQuerySection{}
@@ -134,6 +138,7 @@ func getAddressQueriesAndEncodings() ([]*rainslib.AddressQuerySection, []string)
 	return addressQueries, encodings
 }
 
+//getNotificationsAndEncodings returns a slice of notifications and a slice of their encodings used for testing
 func getNotificationsAndEncodings() ([]*rainslib.NotificationSection, []string) {
 	//addressqueries
 	notifications := []*rainslib.NotificationSection{}
