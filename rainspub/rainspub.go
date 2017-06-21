@@ -70,44 +70,40 @@ func loadAssertions() ([]*rainslib.AssertionSection, error) {
 func groupAssertionsToShards(assertions []*rainslib.AssertionSection) *rainslib.ZoneSection {
 	context := assertions[0].Context
 	zone := assertions[0].SubjectZone
+	for _, a := range assertions {
+		a.Context = ""
+		a.SubjectZone = ""
+	}
 	shards := []rainslib.MessageSectionWithSig{}
 	if len(assertions) <= int(config.MaxAssertionsPerShard) {
 		shards = []rainslib.MessageSectionWithSig{&rainslib.ShardSection{
-			Context:     context,
-			SubjectZone: zone,
-			RangeFrom:   "",
-			RangeTo:     "",
-			Content:     assertions,
+			RangeFrom: "",
+			RangeTo:   "",
+			Content:   assertions,
 		}}
 	} else {
 		firstShard := &rainslib.ShardSection{
-			Context:     context,
-			SubjectZone: zone,
-			RangeFrom:   "",
-			RangeTo:     assertions[config.MaxAssertionsPerShard].SubjectName,
-			Content:     assertions[:config.MaxAssertionsPerShard],
+			RangeFrom: "",
+			RangeTo:   assertions[config.MaxAssertionsPerShard].SubjectName,
+			Content:   assertions[:config.MaxAssertionsPerShard],
 		}
 		shards = append(shards, firstShard)
 		previousRangeEnd := assertions[config.MaxAssertionsPerShard-1].SubjectName
 		assertions = assertions[config.MaxAssertionsPerShard:]
 		for len(assertions) > int(config.MaxAssertionsPerShard) {
 			shard := &rainslib.ShardSection{
-				Context:     context,
-				SubjectZone: zone,
-				RangeFrom:   previousRangeEnd,
-				RangeTo:     assertions[config.MaxAssertionsPerShard].SubjectName,
-				Content:     assertions[:config.MaxAssertionsPerShard],
+				RangeFrom: previousRangeEnd,
+				RangeTo:   assertions[config.MaxAssertionsPerShard].SubjectName,
+				Content:   assertions[:config.MaxAssertionsPerShard],
 			}
 			shards = append(shards, shard)
 			previousRangeEnd = assertions[config.MaxAssertionsPerShard-1].SubjectName
 			assertions = assertions[config.MaxAssertionsPerShard:]
 		}
 		lastShard := &rainslib.ShardSection{
-			Context:     context,
-			SubjectZone: zone,
-			RangeFrom:   previousRangeEnd,
-			RangeTo:     "",
-			Content:     assertions,
+			RangeFrom: previousRangeEnd,
+			RangeTo:   "",
+			Content:   assertions,
 		}
 		shards = append(shards, lastShard)
 	}

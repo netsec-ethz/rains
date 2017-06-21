@@ -95,22 +95,22 @@ func getAssertionAndEncodings() ([]*rainslib.AssertionSection, []string) {
 	assertions := []*rainslib.AssertionSection{}
 	objects, objEncodings := getObjectsAndEncodings()
 
-	assertion := &rainslib.AssertionSection{
+	assertion0 := &rainslib.AssertionSection{
 		Content:     objects,
 		Context:     "",
 		SubjectName: "ethz",
 		SubjectZone: "",
 		Signatures:  []rainslib.Signature{},
 	}
-	assertion2 := &rainslib.AssertionSection{
+	assertion1 := &rainslib.AssertionSection{
 		Content:     objects,
 		Context:     ".",
 		SubjectName: "ethz",
 		SubjectZone: "ch",
 		Signatures:  []rainslib.Signature{getSignature()},
 	}
-	assertions = append(assertions, assertion)
-	assertions = append(assertions, assertion2)
+	assertions = append(assertions, assertion0)
+	assertions = append(assertions, assertion1)
 
 	//encodings
 	encodings := []string{}
@@ -119,13 +119,13 @@ func getAssertionAndEncodings() ([]*rainslib.AssertionSection, []string) {
 	return assertions, encodings
 }
 
-//getShardAndEncodings returns a slice of assertions and a slice of their encodings used for testing
-func getShardAndEncodings() ([]*rainslib.AssertionSection, []string) {
+//getShardAndEncodings returns a slice of shards and a slice of their encodings used for testing
+func getShardAndEncodings() ([]*rainslib.ShardSection, []string) {
 	//shards
 	shards := []*rainslib.ShardSection{}
 	assertions, assertionEncodings := getAssertionAndEncodings()
 
-	shard := &rainslib.ShardSection{
+	shard0 := &rainslib.ShardSection{
 		Content:     []*rainslib.AssertionSection{assertions[0]},
 		Context:     "",
 		SubjectZone: "",
@@ -133,7 +133,7 @@ func getShardAndEncodings() ([]*rainslib.AssertionSection, []string) {
 		RangeTo:     "",
 		Signatures:  []rainslib.Signature{getSignature()},
 	}
-	shard2 := &rainslib.ShardSection{
+	shard1 := &rainslib.ShardSection{
 		Content:     []*rainslib.AssertionSection{assertions[0]},
 		Context:     "",
 		SubjectZone: "",
@@ -141,32 +141,74 @@ func getShardAndEncodings() ([]*rainslib.AssertionSection, []string) {
 		RangeTo:     "zzz",
 		Signatures:  []rainslib.Signature{getSignature()},
 	}
-	shard3 := &rainslib.ShardSection{
-		Content:     []*rainslib.AssertionSection{assertions[1]},
+	shard2 := &rainslib.ShardSection{
+		Content:     []*rainslib.AssertionSection{assertions[0]},
 		Context:     ".",
 		SubjectZone: "ch",
 		RangeFrom:   "aaa",
 		RangeTo:     "zzz",
 		Signatures:  []rainslib.Signature{getSignature()},
 	}
-	shard4 := &rainslib.ShardSection{
-		Content:     []*rainslib.AssertionSection{assertions[0]},
+	shard3 := &rainslib.ShardSection{
+		Content:     []*rainslib.AssertionSection{assertions[0], assertions[0]},
 		Context:     ".",
 		SubjectZone: "ethz.ch",
-		RangeFrom:   "aaa",
-		RangeTo:     "zzz",
+		RangeFrom:   "",
+		RangeTo:     "",
 		Signatures:  []rainslib.Signature{getSignature()},
 	}
-	shards = append(shards, shard)
+	shard4 := &rainslib.ShardSection{
+		Context:     ".",
+		SubjectZone: "ethz.ch",
+		RangeFrom:   "cd",
+		RangeTo:     "ef",
+		Signatures:  []rainslib.Signature{getSignature()},
+	}
+	shards = append(shards, shard0)
+	shards = append(shards, shard1)
 	shards = append(shards, shard2)
 	shards = append(shards, shard3)
 	shards = append(shards, shard4)
 
 	//encodings
 	encodings := []string{}
-	encodings = append(encodings, fmt.Sprintf(":A: ethz ch . [ %s ]", strings.Join(assertionEncodings, " ")))
+	encodings = append(encodings, fmt.Sprintf(":S: < > [ %s ]", assertionEncodings[0]))
+	encodings = append(encodings, fmt.Sprintf(":S: aaa zzz [ %s ]", assertionEncodings[0]))
+	encodings = append(encodings, fmt.Sprintf(":S: ch . aaa zzz [ %s ]", assertionEncodings[0]))
+	encodings = append(encodings, fmt.Sprintf(":S: ethz.ch . < > [ %s %s ]", assertionEncodings[0], assertionEncodings[0]))
+	encodings = append(encodings, ":S: ethz.ch . cd ef [ ]")
 
-	return assertions, encodings
+	return shards, encodings
+}
+
+//getZonesAndEncodings returns a slice of zones and a slice of their encodings used for testing
+func getZonesAndEncodings() ([]*rainslib.ZoneSection, []string) {
+	//zones
+	zones := []*rainslib.ZoneSection{}
+	assertions, assertionEncodings := getAssertionAndEncodings()
+	shards, shardEncodings := getShardAndEncodings()
+
+	zone0 := &rainslib.ZoneSection{
+		Content:     []rainslib.MessageSectionWithSig{assertions[0], shards[3]},
+		Context:     ".",
+		SubjectZone: "ch",
+		Signatures:  []rainslib.Signature{getSignature()},
+	}
+	zone1 := &rainslib.ZoneSection{
+		Context:     ".",
+		SubjectZone: "ch",
+		Signatures:  []rainslib.Signature{getSignature()},
+	}
+
+	zones = append(zones, zone0)
+	zones = append(zones, zone1)
+
+	//encodings
+	encodings := []string{}
+	encodings = append(encodings, fmt.Sprintf(":Z: ch . [ %s %s ]", assertionEncodings[0], shardEncodings[3]))
+	encodings = append(encodings, ":Z: ch . [ ]")
+
+	return zones, encodings
 }
 
 //getQueriesAndEncodings returns a slice of queries and a slice of their encodings used for testing

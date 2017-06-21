@@ -80,6 +80,7 @@ func verify(msgSender msgSectionSender) {
 		if zone, ok := section.(*rainslib.ZoneSection); ok && !containedShardsAreConsistent(zone) {
 			return //already logged, that the zone is internally invalid
 		}
+		//FIXME CFE add context and subjectZone to assertion and shard
 		if verifySignatures(sectionSender) {
 			assert(sectionSender, authoritative[contextAndZone{Context: sectionSender.Section.GetContext(), Zone: sectionSender.Section.GetSubjectZone()}])
 		}
@@ -92,6 +93,7 @@ func verify(msgSender msgSectionSender) {
 			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.RcvInconsistentMsg)
 			return //already logged, that context is invalid
 		}
+		//FIXME CFE add context and subjectZone to assertion and shard
 		if verifySignatures(sectionSender) {
 			assert(sectionSender, authoritative[contextAndZone{Context: sectionSender.Section.GetContext(), Zone: sectionSender.Section.GetSubjectZone()}])
 		}
