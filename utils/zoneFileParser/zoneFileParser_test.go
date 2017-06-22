@@ -11,99 +11,25 @@ import (
 )
 
 func TestEncoder(t *testing.T) {
-	/*nameObjectContent := rainslib.NameObject{
-		Name:  "ethz2.ch",
-		Types: []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr},
-	}
-	pubKey, _, _ := ed25519.GenerateKey(nil)
-	publicKey := rainslib.PublicKey{
-		KeySpace: rainslib.RainsKeySpace,
-		Type:     rainslib.Ed25519,
-		Key:      pubKey,
-	}
-	publicKeyWithValidity := rainslib.PublicKey{
-		KeySpace:   rainslib.RainsKeySpace,
-		Type:       rainslib.Ed25519,
-		Key:        pubKey,
-		ValidSince: 1000,
-		ValidUntil: 20000,
-	}
-	certificate := rainslib.CertificateObject{
-		Type:     rainslib.PTTLS,
-		HashAlgo: rainslib.Sha256,
-		Usage:    rainslib.CUEndEntity,
-		Data:     []byte("certData"),
-	}
-	serviceInfo := rainslib.ServiceInfo{
-		Name:     "lookup",
-		Port:     49830,
-		Priority: 1,
-	}
-
-	nameObject := rainslib.Object{Type: rainslib.OTName, Value: nameObjectContent}
-	ip6Object := rainslib.Object{Type: rainslib.OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"}
-	ip4Object := rainslib.Object{Type: rainslib.OTIP4Addr, Value: "127.0.0.1"}
-	redirObject := rainslib.Object{Type: rainslib.OTRedirection, Value: "ns.ethz.ch"}
-	delegObject := rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}
-	nameSetObject := rainslib.Object{Type: rainslib.OTNameset, Value: rainslib.NamesetExpression("Would be an expression")}
-	certObject := rainslib.Object{Type: rainslib.OTCertInfo, Value: certificate}
-	serviceInfoObject := rainslib.Object{Type: rainslib.OTServiceInfo, Value: serviceInfo}
-	registrarObject := rainslib.Object{Type: rainslib.OTRegistrar, Value: "Registrar information"}
-	registrantObject := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}
-	infraObject := rainslib.Object{Type: rainslib.OTInfraKey, Value: publicKey}
-	extraObject := rainslib.Object{Type: rainslib.OTExtraKey, Value: publicKey}
-	nextKey := rainslib.Object{Type: rainslib.OTNextKey, Value: publicKeyWithValidity}
-
-	signature := rainslib.Signature{
-		KeySpace:   rainslib.RainsKeySpace,
-		Algorithm:  rainslib.Ed25519,
-		ValidSince: 1000,
-		ValidUntil: 2000,
-		Data:       []byte("SignatureData")}
-
-	containedAssertion := &rainslib.AssertionSection{
-		Content: []rainslib.Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject, registrarObject,
-			registrantObject, infraObject, extraObject, nextKey},
-		Context:     "",
-		SubjectName: "ethz",
-		SubjectZone: "",
-		Signatures:  []rainslib.Signature{signature},
-	}
-
-	shard := &rainslib.ShardSection{
-		Content:     []*rainslib.AssertionSection{containedAssertion},
-		Context:     ".",
-		SubjectZone: "ch",
-		RangeFrom:   "aaa",
-		RangeTo:     "zzz",
-		Signatures:  []rainslib.Signature{signature},
-	}
-
-	zone := &rainslib.ZoneSection{
-		Content:     []rainslib.MessageSectionWithSig{containedAssertion, shard},
-		Context:     ".",
-		SubjectZone: "ch",
-		Signatures:  []rainslib.Signature{signature},
-	}
+	zones, _ := getZonesAndEncodings()
 
 	parser := Parser{}
-	zoneFile := parser.Encode(zone)
+	zoneFile := parser.Encode(zones[0])
 
 	assertions, err := parser.Decode([]byte(zoneFile), "generatedInTest")
 	if err != nil {
 		t.Error(err)
 	}
 
-	compareAssertion := &rainslib.AssertionSection{
-		Content: []rainslib.Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject, registrarObject,
-			registrantObject, infraObject, extraObject, nextKey},
-		Context:     ".",
-		SubjectName: "ethz",
-		SubjectZone: "ch",
-		//no signature is decoded it is generated in rainspub
+	containedAssertions := []*rainslib.AssertionSection{zones[0].Content[0].(*rainslib.AssertionSection), zones[0].Content[1].(*rainslib.ShardSection).Content[0]}
+	for i, a := range assertions {
+		//contained section must not have a context or subjectZone, thus to compare it, inherit the value from the zone
+		containedAssertions[i].Context = zones[0].Context
+		containedAssertions[i].SubjectZone = zones[0].SubjectZone
+		if a != nil && a.CompareTo(containedAssertions[i]) != 0 {
+			t.Errorf("incorrect decoding of zone. expected=%v, actual=%v", containedAssertions[i], a)
+		}
 	}
-	testUtil.CheckAssertion(compareAssertion, assertions[0], t)*/
-
 }
 
 func TestEncodeObjects(t *testing.T) {
@@ -244,10 +170,98 @@ func TestEncodeNameObject(t *testing.T) {
 				rainslib.OTNextKey,
 			},
 		}, "name.ethz.ch [ name ip6 ip4 redir deleg nameset cert srv regr regt infra extra next ]"},
+		{rainslib.NameObject{Name: "ethz.ch", Types: []rainslib.ObjectType{rainslib.ObjectType(-1)}}, "ethz.ch [  ]"},
 	}
 	for _, test := range tests {
 		if encodeNameObject(test.input) != test.want {
 			t.Errorf("Encoding incorrect. expected=%v, actual=%s", test.want, encodeNameObject(test.input))
+		}
+	}
+}
+
+func TestEncodePublicKey(t *testing.T) {
+	pkey, _, _ := ed25519.GenerateKey(nil)
+	var tests = []struct {
+		input rainslib.PublicKey
+		want  string
+	}{
+		{rainslib.PublicKey{Type: rainslib.Ed25519, Key: pkey}, fmt.Sprintf("ed25519 %s", hex.EncodeToString(pkey))},
+		{rainslib.PublicKey{Type: rainslib.Ed25519, Key: []byte(" ")}, ""},
+		{rainslib.PublicKey{Type: rainslib.Ed448}, ""},
+		{rainslib.PublicKey{Type: rainslib.Ecdsa256}, ""},
+		{rainslib.PublicKey{Type: rainslib.Ecdsa384}, ""},
+		{rainslib.PublicKey{Type: rainslib.SignatureAlgorithmType(-1)}, ""},
+	}
+	for _, test := range tests {
+		if encodePublicKey(test.input) != test.want {
+			t.Errorf("Encoding incorrect. expected=%v, actual=%s", test.want, encodePublicKey(test.input))
+		}
+	}
+}
+
+func TestEncodeKeySpace(t *testing.T) {
+	var tests = []struct {
+		input rainslib.KeySpaceID
+		want  string
+	}{
+		{rainslib.RainsKeySpace, "rains"},
+		{rainslib.KeySpaceID(-1), ""},
+	}
+	for _, test := range tests {
+		if encodeKeySpace(test.input) != test.want {
+			t.Errorf("Encoding incorrect. expected=%v, actual=%s", test.want, encodeKeySpace(test.input))
+		}
+	}
+}
+
+func TestEncodeCertificateErrors(t *testing.T) {
+	var tests = []struct {
+		input rainslib.CertificateObject
+		want  string
+	}{
+		{rainslib.CertificateObject{Type: rainslib.ProtocolType(-1)}, ""},
+		{rainslib.CertificateObject{Type: rainslib.PTTLS, Usage: rainslib.CertificateUsage(-1)}, ""},
+		{rainslib.CertificateObject{Type: rainslib.PTTLS, Usage: rainslib.CUTrustAnchor, HashAlgo: rainslib.HashAlgorithmType(-1)}, ""},
+	}
+	for _, test := range tests {
+		if encodeCertificate(test.input) != test.want {
+			t.Errorf("Encoding incorrect. expected=%v, actual=%s", test.want, encodeCertificate(test.input))
+		}
+	}
+}
+
+func TestEncodeObjectErrors(t *testing.T) {
+	var tests = []struct {
+		input []rainslib.Object
+		want  string
+	}{
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTName}}, ""},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation}}, ""},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTCertInfo}}, ""},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTServiceInfo}}, ""},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTInfraKey}}, ""},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTExtraKey}}, ""},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTNextKey}}, ""},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTNextKey}}, ""},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.ObjectType(-1)}}, ""},
+	}
+	for _, test := range tests {
+		if encodeObjects(test.input, "") != test.want {
+			t.Errorf("Encoding incorrect. expected=%v, actual=%s", test.want, encodeObjects(test.input, ""))
+		}
+	}
+}
+
+func TestGetEncodingErrors(t *testing.T) {
+	var tests = []struct {
+		input rainslib.MessageSection
+		want  string
+	}{
+		{rainslib.MessageSection(&rainslib.Object{}), ""},
+	}
+	for _, test := range tests {
+		if getEncoding(test.input, true) != test.want {
+			t.Errorf("Encoding incorrect. expected=%v, actual=%s", test.want, getEncoding(test.input, true))
 		}
 	}
 }
@@ -399,7 +413,7 @@ func TestDecodePublicKeyData(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		pkey, err := decodePublicKeyData(test.input, test.inputKey)
+		pkey, err := decodeEd25519PublicKeyData(test.input, test.inputKey)
 		if pkey.CompareTo(test.want) != 0 {
 			t.Errorf("Resulting publicKey incorrect after decoding. expected=%v, actual=%v", test.want, pkey)
 		}
@@ -419,7 +433,7 @@ func TestDecodeKeyAlgoType(t *testing.T) {
 		{"ed448", rainslib.Ed448, ""},
 		{"ecdsa256", rainslib.Ecdsa256, ""},
 		{"ecdsa384", rainslib.Ecdsa384, ""},
-		{"FalseEncoding", rainslib.SignatureAlgorithmType(-1), "encountered non existing signature algorithm type: FalseEncoding"},
+		{"FalseEncoding", rainslib.SignatureAlgorithmType(-1), "non existing signature algorithm type: FalseEncoding"},
 	}
 	for _, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
@@ -447,7 +461,7 @@ func TestDecodeSigAlgoAndData(t *testing.T) {
 		{"ed448", rainslib.PublicKey{}, "not yet implemented"},
 		{"ecdsa256", rainslib.PublicKey{}, "not yet implemented"},
 		{"ecdsa384", rainslib.PublicKey{}, "not yet implemented"},
-		{"noEncoding", rainslib.PublicKey{}, "encountered non existing signature algorithm type: noEncoding"},
+		{"noEncoding", rainslib.PublicKey{}, "non existing signature algorithm type: noEncoding"},
 	}
 	for _, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
@@ -478,7 +492,7 @@ func TestDecodeNextKey(t *testing.T) {
 			"",
 		},
 		{"WrongType", rainslib.PublicKey{}, "ZoneFile malformed wrong object type"},
-		{":next: inexistentAlgoType", rainslib.PublicKey{}, "encountered non existing signature algorithm type: inexistentAlgoType"},
+		{":next: inexistentAlgoType", rainslib.PublicKey{}, "non existing signature algorithm type: inexistentAlgoType"},
 		{fmt.Sprintf(":next: ed25519 %s NaN1 10", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))), rainslib.PublicKey{}, "strconv.ParseInt: parsing \"NaN1\": invalid syntax"},
 		{fmt.Sprintf(":next: ed25519 %s 5 NaN2", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))), rainslib.PublicKey{}, "strconv.ParseInt: parsing \"NaN2\": invalid syntax"},
 	}
@@ -512,7 +526,7 @@ func TestDecodeExternalKey(t *testing.T) {
 		},
 		{"WrongType", rainslib.PublicKey{}, "ZoneFile malformed wrong object type"},
 		{":extra: UnsupportedKeySpaceID", rainslib.PublicKey{}, "Unsupported key space type"},
-		{":extra: rains inexistentAlgoType", rainslib.PublicKey{}, "encountered non existing signature algorithm type: inexistentAlgoType"},
+		{":extra: rains inexistentAlgoType", rainslib.PublicKey{}, "non existing signature algorithm type: inexistentAlgoType"},
 	}
 	for _, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
@@ -786,6 +800,128 @@ func TestDecodeNameObject(t *testing.T) {
 		nameObject, err := decodeNameObject(scanner)
 		if nameObject.CompareTo(test.want) != 0 {
 			t.Errorf("incorrect decoding of nameObject. expected=%v, actual=%v", test.want, nameObject)
+		}
+		if err != nil && err.Error() != test.wantErrorMsg {
+			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+		}
+	}
+}
+
+func TestDecodeObjects(t *testing.T) {
+	objects, objectEncodings := getObjectsAndEncodings()
+	var tests = []struct {
+		input        string
+		want         []rainslib.Object
+		wantErrorMsg string
+	}{
+		{objectEncodings[0] + " ]", objects.Objects[0], ""},
+		{"WrongType", nil, "ZoneFile malformed unsupported objectType"},
+		{":ip4: 127.0.0.1 ", nil, "ZoneFile malformed, not a closing bracket but EOF"},
+		{":name: name NotABracket", nil, "ZoneFile malformed not open bracket"},
+		{":deleg: 153", nil, "non existing signature algorithm type: 153"},
+		{":cert: 153", nil, "non existing certificate protocol type"},
+		{":srv: name NaN", nil, "strconv.Atoi: parsing \"NaN\": invalid syntax"},
+		{":infra: 153", nil, "non existing signature algorithm type: 153"},
+		{":extra: rains 153", nil, "non existing signature algorithm type: 153"},
+		{":next: 153", nil, "non existing signature algorithm type: 153"},
+	}
+	for _, test := range tests {
+		scanner := NewWordScanner([]byte(test.input))
+		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
+		objs, err := decodeObjects(scanner)
+		for i, o := range objs {
+			if o.CompareTo(test.want[i]) != 0 {
+				t.Errorf("incorrect decoding of object. expected=%v, actual=%v", test.want[i], o)
+			}
+		}
+
+		if err != nil && err.Error() != test.wantErrorMsg {
+			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+		}
+	}
+}
+
+func TestDecodeAssertion(t *testing.T) {
+	assertions, assertionEncodings := getAssertionAndEncodings("")
+	var tests = []struct {
+		input        string
+		want         *rainslib.AssertionSection
+		wantErrorMsg string
+	}{
+		{assertionEncodings[2], assertions[2], ""},
+		{"WrongType", nil, "ZoneFile malformed wrong section type"},
+		{":A: ", nil, "ZoneFile malformed, missing open bracket"},
+		{":A: ethz.ch [ ", nil, "ZoneFile malformed unsupported objectType"},
+	}
+	for _, test := range tests {
+		scanner := NewWordScanner([]byte(test.input))
+		scanner.Scan()
+		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
+		a, err := decodeAssertion("", "", scanner)
+		if a != nil && a.CompareTo(test.want) != 0 {
+			t.Errorf("incorrect decoding of assertion. expected=%v, actual=%v", test.want, a)
+		}
+		if err != nil && err.Error() != test.wantErrorMsg {
+			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+		}
+	}
+}
+
+func TestDecodeShard(t *testing.T) {
+	shards, shardEncodings := getShardAndEncodings()
+
+	var tests = []struct {
+		input        string
+		want         []*rainslib.AssertionSection
+		wantErrorMsg string
+	}{
+		{shardEncodings[3], shards[3].Content, ""},
+		{"WrongType", nil, "ZoneFile malformed wrong section type"},
+		{":S: ", nil, "ZoneFile malformed, missing open bracket"},
+		{":S:  [ WrongType", nil, "ZoneFile malformed wrong section type"},
+	}
+	for _, test := range tests {
+		scanner := NewWordScanner([]byte(test.input))
+		scanner.Scan()
+		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
+		s, err := decodeShard("", "", scanner)
+		for i, a := range s {
+			if a != nil && a.CompareTo(test.want[i]) != 0 {
+				t.Errorf("incorrect decoding of shard. expected=%v, actual=%v", test.want[i], a)
+			}
+		}
+		if err != nil && err.Error() != test.wantErrorMsg {
+			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+		}
+	}
+}
+
+func TestDecodeZone(t *testing.T) {
+	zones, zoneEncodings := getZonesAndEncodings()
+
+	var tests = []struct {
+		input        string
+		want         []*rainslib.AssertionSection
+		wantErrorMsg string
+	}{
+		{zoneEncodings[0], []*rainslib.AssertionSection{zones[0].Content[0].(*rainslib.AssertionSection), zones[0].Content[1].(*rainslib.ShardSection).Content[0]}, ""},
+		{"WrongType", nil, "ZoneFile malformed wrong section type"},
+		{":Z: ch . ", nil, "ZoneFile malformed, missing open bracket"},
+		{":Z: ch . [ WrongType", nil, "ZoneFile malformed wrong section type"},
+		{":Z: ch . [ :A: ", nil, "ZoneFile malformed, missing open bracket"},
+		{":Z: ch . [ :S: ", nil, "ZoneFile malformed, missing open bracket"},
+	}
+	for _, test := range tests {
+		scanner := NewWordScanner([]byte(test.input))
+		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
+		z, err := decodeZone(scanner)
+		for i, a := range z {
+			//contained section must not have a context or subjectZone, thus to compare it, inherit the value from the zone
+			test.want[i].Context = zones[0].Context
+			test.want[i].SubjectZone = zones[0].SubjectZone
+			if a != nil && a.CompareTo(test.want[i]) != 0 {
+				t.Errorf("incorrect decoding of zone. expected=%v, actual=%v", test.want[i], a)
+			}
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
 			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())

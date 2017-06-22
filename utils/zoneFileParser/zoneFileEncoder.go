@@ -73,6 +73,7 @@ func encodeObjects(o []rainslib.Object, indent string) string {
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.NameObject", "actualType", fmt.Sprintf("%T", obj.Value))
+			return ""
 		case rainslib.OTIP6Addr:
 			objects += fmt.Sprintf("%s      %s\n", typeIP6, obj.Value)
 		case rainslib.OTIP4Addr:
@@ -85,6 +86,7 @@ func encodeObjects(o []rainslib.Object, indent string) string {
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+			return ""
 		case rainslib.OTNameset:
 			objects += fmt.Sprintf("%s  %s\n", typeNameSet, obj.Value)
 		case rainslib.OTCertInfo:
@@ -93,12 +95,14 @@ func encodeObjects(o []rainslib.Object, indent string) string {
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.CertificateObject", "actualType", fmt.Sprintf("%T", obj.Value))
+			return ""
 		case rainslib.OTServiceInfo:
 			if srvInfo, ok := obj.Value.(rainslib.ServiceInfo); ok {
 				objects += fmt.Sprintf("%s      %s %d %d\n", typeServiceInfo, srvInfo.Name, srvInfo.Port, srvInfo.Priority)
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.ServiceInfo", "actualType", fmt.Sprintf("%T", obj.Value))
+			return ""
 		case rainslib.OTRegistrar:
 			objects += fmt.Sprintf("%s     %s\n", typeRegistrar, obj.Value)
 		case rainslib.OTRegistrant:
@@ -109,20 +113,24 @@ func encodeObjects(o []rainslib.Object, indent string) string {
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+			return ""
 		case rainslib.OTExtraKey:
 			if pkey, ok := obj.Value.(rainslib.PublicKey); ok {
 				objects += fmt.Sprintf("%s    %s %s\n", typeExternalKey, encodeKeySpace(pkey.KeySpace), encodePublicKey(pkey))
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+			return ""
 		case rainslib.OTNextKey:
 			if pkey, ok := obj.Value.(rainslib.PublicKey); ok {
 				objects += fmt.Sprintf("%s     %s %d %d\n", typeNextKey, encodePublicKey(pkey), pkey.ValidSince, pkey.ValidUntil)
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+			return ""
 		default:
 			log.Warn("Unsupported obj type", "type", fmt.Sprintf("%T", obj.Type))
+			return ""
 		}
 	}
 	if len(o) > 0 {
@@ -176,12 +184,10 @@ func encodePublicKey(pkey rainslib.PublicKey) string {
 		if key, ok := pkey.Key.(ed25519.PublicKey); ok {
 			return fmt.Sprintf("%s %s", keyAlgoed25519, hex.EncodeToString(key))
 		}
-		log.Warn("Type assertion failed. ExpsOTServiceInfoected rainslib.Ed25519PublicKey", "actualType", fmt.Sprintf("%T", pkey.Key))
+		log.Warn("Type assertion failed. Expected rainslib.Ed25519PublicKey", "actualType", fmt.Sprintf("%T", pkey.Key))
 	case rainslib.Ed448:
-		if key, ok := pkey.Key.(rainslib.Ed448PublicKey); ok {
-			return fmt.Sprintf("%s %s", keyAlgoed448, hex.EncodeToString(key[:]))
-		}
-		log.Warn("Type assertion failed. Expected rainslib.Ed448PublicKey", "type", fmt.Sprintf("%T", pkey.Key))
+		log.Warn("Not yet implemented")
+		return ""
 	case rainslib.Ecdsa256:
 		log.Warn("Not yet implemented")
 		return ""
