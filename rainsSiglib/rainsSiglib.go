@@ -5,13 +5,12 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"rains/rainslib"
 	"regexp"
 	"time"
-
-	"encoding/hex"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
