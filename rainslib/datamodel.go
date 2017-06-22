@@ -303,12 +303,16 @@ type SignatureFormatEncoder interface {
 
 //MsgFramer is used to frame and deframe rains messages and send or receive them on the initialized stream.
 type MsgFramer interface {
-	//Frame takes a message and adds a frame (if it not already has one) and send the framed message to the streamWriter defined in InitStream()
-	Frame(msg []byte) error
-
-	//InitStreams defines 2 streams. Deframe() and Data() are extracting the information from streamReader and Frame() is sending the data to streamWriter.
+	//InitStreams defines 2 streams.
+	//Deframe() and Data() are extracting information from streamReader
+	//Frame() is sending data to streamWriter.
 	//If a stream is readable and writable it is possible that streamReader = streamWriter
 	InitStreams(streamReader io.Reader, streamWriter io.Writer)
+
+	//Frame encodes the msg and writes it to the streamWriter defined in InitStream()
+	//The following must hold: DeFrame(Frame(msg)); Data() = msg
+	//If Frame() was not able to frame or write the message an error is returned indicating what the problem was
+	Frame(msg []byte) error
 
 	//DeFrame extracts the next frame from the streamReader defined in InitStream().
 	//It blocks until it encounters the delimiter.

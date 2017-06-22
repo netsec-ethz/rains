@@ -36,6 +36,7 @@ func (p *ProtoParserAndFramer) Frame(msg []byte) error {
 	if err != nil {
 		return err
 	}
+
 	err = p.encoder.Encode(message)
 	return err
 }
