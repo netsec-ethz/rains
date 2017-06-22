@@ -700,7 +700,7 @@ func TestDecodeFreeText(t *testing.T) {
 	}{
 		{":regt: Hello my name is ]", "Hello my name is"},
 		{":regt: Hello my name is :ip:", "Hello my name is"},
-		{":redir: Hello my name is   ", "Hello my name is"}, //avoid infinite loop
+		{":redir: Hello my name is   ", ""}, //not finished correctly, return empty string
 	}
 	for _, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
@@ -709,6 +709,86 @@ func TestDecodeFreeText(t *testing.T) {
 		text := decodeFreeText(scanner)
 		if text != test.want {
 			t.Errorf("incorrect decoding of delegKey. expected=%v, actual=%v", test.want, text)
+		}
+	}
+}
+
+func TestDecodeServiceInfo(t *testing.T) {
+	var tests = []struct {
+		input        string
+		want         rainslib.ServiceInfo
+		wantErrorMsg string
+	}{
+		{
+			":srv: ethz.ch 80 1",
+			rainslib.ServiceInfo{
+				Name:     "ethz.ch",
+				Port:     80,
+				Priority: 1,
+			},
+			"",
+		},
+		{"WrongType", rainslib.ServiceInfo{}, "ZoneFile malformed wrong object type"},
+		{":srv: ethz.ch NaN1", rainslib.ServiceInfo{}, "strconv.Atoi: parsing \"NaN1\": invalid syntax"},
+		{":srv: ethz.ch 80 NaN2", rainslib.ServiceInfo{}, "strconv.Atoi: parsing \"NaN2\": invalid syntax"},
+	}
+	for _, test := range tests {
+		scanner := NewWordScanner([]byte(test.input))
+		scanner.Scan()
+		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
+		srvInfo, err := decodeServiceInfo(scanner)
+		if srvInfo.CompareTo(test.want) != 0 {
+			t.Errorf("incorrect decoding of serviceInfo object. expected=%v, actual=%v", test.want, srvInfo)
+		}
+		if err != nil && err.Error() != test.wantErrorMsg {
+			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+		}
+	}
+}
+
+func TestDecodeNameObject(t *testing.T) {
+	var tests = []struct {
+		input        string
+		want         rainslib.NameObject
+		wantErrorMsg string
+	}{
+		{
+			":name: ethz.ch [ name ip6 ip4 redir deleg nameset cert srv regr regt infra extra next ]",
+			rainslib.NameObject{
+				Name: "ethz.ch",
+				Types: []rainslib.ObjectType{
+					rainslib.OTName,
+					rainslib.OTIP6Addr,
+					rainslib.OTIP4Addr,
+					rainslib.OTRedirection,
+					rainslib.OTDelegation,
+					rainslib.OTNameset,
+					rainslib.OTCertInfo,
+					rainslib.OTServiceInfo,
+					rainslib.OTRegistrar,
+					rainslib.OTRegistrant,
+					rainslib.OTInfraKey,
+					rainslib.OTExtraKey,
+					rainslib.OTNextKey,
+				},
+			},
+			"",
+		},
+		{"WrongType", rainslib.NameObject{}, "ZoneFile malformed wrong object type"},
+		{":name: ethz.ch NotOpenBracket", rainslib.NameObject{}, "ZoneFile malformed not open bracket"},
+		{":name: ethz.ch [ NotAnObjectType", rainslib.NameObject{}, "unsupported object type"},
+		{":name: ethz.ch [ cert ", rainslib.NameObject{}, "ZoneFile malformed, not a closing bracket but EOF"},
+	}
+	for _, test := range tests {
+		scanner := NewWordScanner([]byte(test.input))
+		scanner.Scan()
+		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
+		nameObject, err := decodeNameObject(scanner)
+		if nameObject.CompareTo(test.want) != 0 {
+			t.Errorf("incorrect decoding of nameObject. expected=%v, actual=%v", test.want, nameObject)
+		}
+		if err != nil && err.Error() != test.wantErrorMsg {
+			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
 		}
 	}
 }

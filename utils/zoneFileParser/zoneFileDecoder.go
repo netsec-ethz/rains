@@ -218,7 +218,7 @@ func decodeNameObject(scanner *WordScanner) (rainslib.NameObject, error) {
 	scanner.Scan()
 	if scanner.Text() != "[" {
 		lineNrLogger.Error("zonFile malformed.", "expected", "[", "actual", scanner.Text())
-		return rainslib.NameObject{}, errors.New("ZoneFile malformed")
+		return rainslib.NameObject{}, errors.New("ZoneFile malformed not open bracket")
 	}
 	scanner.Scan()
 	for scanner.Text() != "]" {
@@ -247,11 +247,17 @@ func decodeNameObject(scanner *WordScanner) (rainslib.NameObject, error) {
 			nameObject.Types = append(nameObject.Types, rainslib.OTInfraKey)
 		case otExternalKey:
 			nameObject.Types = append(nameObject.Types, rainslib.OTExtraKey)
+		case otNextKey:
+			nameObject.Types = append(nameObject.Types, rainslib.OTNextKey)
 		default:
 			log.Warn("Unsupported object type", "type", scanner.Text())
 			return rainslib.NameObject{}, errors.New("unsupported object type")
 		}
-		scanner.Scan()
+		notEOF := scanner.Scan()
+		if !notEOF {
+			lineNrLogger.Error("zonFile malformed.", "expected", "]", "actual", scanner.Text())
+			return rainslib.NameObject{}, errors.New("ZoneFile malformed, not a closing bracket but EOF")
+		}
 	}
 	return nameObject, nil
 }
@@ -270,14 +276,14 @@ func decodeServiceInfo(scanner *WordScanner) (rainslib.ServiceInfo, error) {
 	scanner.Scan()
 	portNr, err := strconv.Atoi(scanner.Text())
 	if err != nil {
-		lineNrLogger.Error("zonFile malformed.", "expected", "<a number>", "actual", scanner.Text())
+		lineNrLogger.Error("zonFile malformed.", "expected", "<number>", "actual", scanner.Text())
 		return rainslib.ServiceInfo{}, err
 	}
 	srvInfo.Port = uint16(portNr)
 	scanner.Scan()
 	prio, err := strconv.Atoi(scanner.Text())
 	if err != nil {
-		lineNrLogger.Error("zonFile malformed.", "expected", "<a number>", "actual", scanner.Text())
+		lineNrLogger.Error("zonFile malformed.", "expected", "<number>", "actual", scanner.Text())
 		return rainslib.ServiceInfo{}, err
 	}
 	srvInfo.Priority = uint(prio)
@@ -290,10 +296,14 @@ func decodeServiceInfo(scanner *WordScanner) (rainslib.ServiceInfo, error) {
 //The error indicates what value was expected and in which line of the input the error occurred.
 func decodeFreeText(scanner *WordScanner) string {
 	text := ""
-	notEOF := scanner.Scan()
-	for notEOF && (!strings.HasPrefix(scanner.Text(), ":") || !strings.HasSuffix(scanner.Text(), ":")) && scanner.Text() != "]" {
+	scanner.Scan()
+	for (!strings.HasPrefix(scanner.Text(), ":") || !strings.HasSuffix(scanner.Text(), ":")) && scanner.Text() != "]" {
 		text += fmt.Sprintf("%s ", scanner.Text())
-		notEOF = scanner.Scan()
+		notEOF := scanner.Scan()
+		if !notEOF {
+			lineNrLogger.Error("zonFile malformed.", "expected", "]", "actual", scanner.Text())
+			return ""
+		}
 	}
 	return text[:len(text)-1] //remove last space
 }
@@ -448,13 +458,13 @@ func decodeNextKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	scanner.Scan()
 	nextKey.ValidSince, err = strconv.ParseInt(scanner.Text(), 10, 64)
 	if err != nil {
-		log.Warn("Was not able to parse validSince to int64", "expected", "<a number>", "actual", scanner.Text())
+		log.Warn("Was not able to parse validSince to int64", "expected", "<number>", "actual", scanner.Text())
 		return rainslib.PublicKey{}, err
 	}
 	scanner.Scan()
 	nextKey.ValidUntil, err = strconv.ParseInt(scanner.Text(), 10, 64)
 	if err != nil {
-		log.Warn("Was not able to parse validUntil to int64", "expected", "<a number>", "actual", scanner.Text())
+		log.Warn("Was not able to parse validUntil to int64", "expected", "<number>", "actual", scanner.Text())
 		return rainslib.PublicKey{}, err
 	}
 	return nextKey, nil
