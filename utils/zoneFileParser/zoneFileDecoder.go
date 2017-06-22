@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	log "github.com/inconshreveable/log15"
-	"golang.org/x/crypto/ed25519"
 )
 
 //decodeZone expects as input a scanner holding the data of a zone represented in the zone file format.
@@ -211,7 +210,7 @@ func decodeObjects(scanner *WordScanner) ([]rainslib.Object, error) {
 func decodeNameObject(scanner *WordScanner) (rainslib.NameObject, error) {
 	if scanner.Text() != ":name:" {
 		lineNrLogger.Error("Scanner is not at the beginning of a nameObject", "expected", ":name:", "actual", scanner.Text())
-		return rainslib.NameObject{}, errors.New("ZoneFile malformed")
+		return rainslib.NameObject{}, errors.New("ZoneFile malformed wrong object type")
 	}
 	nameObject := rainslib.NameObject{}
 	scanner.Scan()
@@ -263,7 +262,7 @@ func decodeNameObject(scanner *WordScanner) (rainslib.NameObject, error) {
 func decodeServiceInfo(scanner *WordScanner) (rainslib.ServiceInfo, error) {
 	if scanner.Text() != ":srv:" {
 		lineNrLogger.Error("Scanner is not at the beginning of a serviceInfo object", "expected", ":srv:", "actual", scanner.Text())
-		return rainslib.ServiceInfo{}, errors.New("ZoneFile malformed")
+		return rainslib.ServiceInfo{}, errors.New("ZoneFile malformed wrong object type")
 	}
 	srvInfo := rainslib.ServiceInfo{}
 	scanner.Scan()
@@ -291,10 +290,10 @@ func decodeServiceInfo(scanner *WordScanner) (rainslib.ServiceInfo, error) {
 //The error indicates what value was expected and in which line of the input the error occurred.
 func decodeFreeText(scanner *WordScanner) string {
 	text := ""
-	scanner.Scan()
-	for (!strings.HasPrefix(scanner.Text(), ":") || !strings.HasSuffix(scanner.Text(), ":")) && scanner.Text() != "]" {
+	notEOF := scanner.Scan()
+	for notEOF && (!strings.HasPrefix(scanner.Text(), ":") || !strings.HasSuffix(scanner.Text(), ":")) && scanner.Text() != "]" {
 		text += fmt.Sprintf("%s ", scanner.Text())
-		scanner.Scan()
+		notEOF = scanner.Scan()
 	}
 	return text[:len(text)-1] //remove last space
 }
@@ -305,7 +304,7 @@ func decodeFreeText(scanner *WordScanner) string {
 func decodeCertObject(scanner *WordScanner) (rainslib.CertificateObject, error) {
 	if scanner.Text() != ":cert:" {
 		lineNrLogger.Error("Scanner is not at the beginning of a serviceInfo object", "expected", ":cert:", "actual", scanner.Text())
-		return rainslib.CertificateObject{}, errors.New("ZoneFile malformed")
+		return rainslib.CertificateObject{}, errors.New("ZoneFile malformed wrong object type")
 	}
 	scanner.Scan()
 	certType, err := decodeCertPT(scanner.Text())
@@ -346,7 +345,7 @@ func decodeCertPT(certType string) (rainslib.ProtocolType, error) {
 		return rainslib.PTTLS, nil
 	default:
 		lineNrLogger.Error("zonFile malformed.", "expected", "certificate protocol type identifier", "actual", certType)
-		return rainslib.ProtocolType(-1), errors.New("encountered non existing certificate protocol type id")
+		return rainslib.ProtocolType(-1), errors.New("non existing certificate protocol type")
 	}
 }
 
@@ -360,7 +359,7 @@ func decodeCertUsage(usageType string) (rainslib.CertificateUsage, error) {
 		return rainslib.CUEndEntity, nil
 	default:
 		lineNrLogger.Error("zonFile malformed.", "expected", "certificate usage identifier", "actual", usageType)
-		return rainslib.CertificateUsage(-1), errors.New("encountered non existing certificate usage")
+		return rainslib.CertificateUsage(-1), errors.New("non existing certificate usage type")
 	}
 }
 
@@ -379,7 +378,7 @@ func decodeCertHashType(hashType string) (rainslib.HashAlgorithmType, error) {
 		return rainslib.Sha512, nil
 	default:
 		lineNrLogger.Error("zonFile malformed.", "expected", "certificate hash algo identifier", "actual", hashType)
-		return rainslib.HashAlgorithmType(-1), errors.New("encountered non existing certificate hash algorithm")
+		return rainslib.HashAlgorithmType(-1), errors.New("non existing certificate hash algorithm type")
 	}
 }
 
@@ -388,8 +387,8 @@ func decodeCertHashType(hashType string) (rainslib.HashAlgorithmType, error) {
 //The error indicates what value was expected and in which line of the input the error occurred.
 func decodeDelegationKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	if scanner.Text() != ":deleg:" {
-		lineNrLogger.Error("Scanner is not at the beginning of a extraKey object", "expected", ":deleg:", "actual", scanner.Text())
-		return rainslib.PublicKey{}, errors.New("ZoneFile malformed")
+		lineNrLogger.Error("Scanner is not at the beginning of a delegationKey object", "expected", ":deleg:", "actual", scanner.Text())
+		return rainslib.PublicKey{}, errors.New("ZoneFile malformed wrong object type")
 	}
 	scanner.Scan()
 	return decodeSigAlgoAndData(scanner)
@@ -400,8 +399,8 @@ func decodeDelegationKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 //The error indicates what value was expected and in which line of the input the error occurred.
 func decodeInfraKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	if scanner.Text() != ":infra:" {
-		lineNrLogger.Error("Scanner is not at the beginning of a extraKey object", "expected", ":infra:", "actual", scanner.Text())
-		return rainslib.PublicKey{}, errors.New("ZoneFile malformed")
+		lineNrLogger.Error("Scanner is not at the beginning of a infraKey object", "expected", ":infra:", "actual", scanner.Text())
+		return rainslib.PublicKey{}, errors.New("ZoneFile malformed wrong object type")
 	}
 	scanner.Scan()
 	return decodeSigAlgoAndData(scanner)
@@ -413,7 +412,7 @@ func decodeInfraKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 func decodeExternalKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	if scanner.Text() != ":extra:" {
 		lineNrLogger.Error("Scanner is not at the beginning of a extraKey object", "expected", ":extra:", "actual", scanner.Text())
-		return rainslib.PublicKey{}, errors.New("ZoneFile malformed")
+		return rainslib.PublicKey{}, errors.New("ZoneFile malformed wrong object type")
 	}
 	scanner.Scan()
 	var keySpace rainslib.KeySpaceID
@@ -439,7 +438,7 @@ func decodeExternalKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 func decodeNextKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	if scanner.Text() != ":next:" {
 		lineNrLogger.Error("Scanner is not at the beginning of a nextKey object", "expected", ":next:", "actual", scanner.Text())
-		return rainslib.PublicKey{}, errors.New("ZoneFile malformed")
+		return rainslib.PublicKey{}, errors.New("ZoneFile malformed wrong object type")
 	}
 	scanner.Scan()
 	nextKey, err := decodeSigAlgoAndData(scanner)
@@ -476,7 +475,8 @@ func decodeSigAlgoAndData(scanner *WordScanner) (rainslib.PublicKey, error) {
 	case rainslib.Ed25519:
 		return decodePublicKeyData(scanner.Text(), publicKey)
 	case rainslib.Ed448:
-		return decodePublicKeyData(scanner.Text(), publicKey)
+		log.Warn("Not yet implemented")
+		publicKey.Key = []byte{}
 	case rainslib.Ecdsa256:
 		log.Warn("Not yet implemented")
 		publicKey.Key = new(ecdsa.PublicKey)
@@ -487,7 +487,7 @@ func decodeSigAlgoAndData(scanner *WordScanner) (rainslib.PublicKey, error) {
 		lineNrLogger.Error("zonFile malformed.", "expected", "key algorithm type identifier", "actual", keyAlgoType)
 		return rainslib.PublicKey{}, errors.New("encountered non existing signature algorithm type")
 	}
-	return publicKey, nil
+	return rainslib.PublicKey{}, errors.New("not yet implemented")
 }
 
 //decodeKeyAlgoType returns the signature algorithm type or an error in case the input holds a malformed signature algorithm type i.e. it is not in zone file format
@@ -504,7 +504,7 @@ func decodeKeyAlgoType(keyAlgoType string) (rainslib.SignatureAlgorithmType, err
 		return rainslib.Ecdsa384, nil
 	default:
 		lineNrLogger.Error("zonFile malformed.", "expected", "signature algorithm type identifier", "actual", keyAlgoType)
-		return rainslib.SignatureAlgorithmType(-1), errors.New("encountered non existing signature algorithm type")
+		return rainslib.SignatureAlgorithmType(-1), fmt.Errorf("encountered non existing signature algorithm type: %s", keyAlgoType)
 	}
 }
 
@@ -512,17 +512,11 @@ func decodeKeyAlgoType(keyAlgoType string) (rainslib.SignatureAlgorithmType, err
 func decodePublicKeyData(pkeyInput string, publicKey rainslib.PublicKey) (rainslib.PublicKey, error) {
 	pKey, err := hex.DecodeString(pkeyInput)
 	if err != nil {
-		return publicKey, err
+		return rainslib.PublicKey{}, err
 	}
 	if len(pKey) == 32 {
-		publicKey.Key = ed25519.PublicKey(pKey)
+		publicKey.Key = (pKey)
 		return publicKey, nil
 	}
-	if len(pKey) == 57 {
-		key := rainslib.Ed448PublicKey{}
-		copy(key[:], pKey)
-		publicKey.Key = key
-		return publicKey, nil
-	}
-	return publicKey, fmt.Errorf("public key length is not 32 or 57. actual:%d", len(pKey))
+	return rainslib.PublicKey{}, fmt.Errorf("public key length is not 32. actual:%d", len(pKey))
 }
