@@ -1,9 +1,12 @@
 package zoneFileParser
 
 import (
+	"encoding/hex"
 	"rains/rainslib"
 	"rains/utils/testUtil"
 	"testing"
+
+	"fmt"
 
 	"golang.org/x/crypto/ed25519"
 )
@@ -195,20 +198,59 @@ func TestEncodeNotification(t *testing.T) {
 }
 
 func TestMessageEncoding(t *testing.T) {
-	/*encodingForTestUtilMessage := ""
-	var tests = []struct {
-		input    rainslib.RainsMessage
-		encoding string
-	}{
-		{testUtil.GetMessage(), encodingForTestUtilMessage},
-	}
-	p := new(Parser)
-	for _, test := range tests {
-		actual := p.EncodeMessage(&test.input)
-		if actual != test.encoding {
-			t.Errorf("Encoding incorrect. expected=%s, actual=%s", test.encoding, actual)
+	messages, encodings := getMessagesAndEncodings()
+	for i, message := range messages {
+		encodedM := encodeMessage(message)
+		if encodedM != encodings[i] {
+			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedM)
 		}
-	}*/
+	}
+}
+
+func TestEncodeCapabilities(t *testing.T) {
+	var tests = []struct {
+		input []rainslib.Capability
+		want  string
+	}{
+		{[]rainslib.Capability{rainslib.Capability("capa1")}, "[ capa1 ]"},
+		{[]rainslib.Capability{rainslib.Capability("capa1"), rainslib.Capability("capa2")}, "[ capa1 capa2 ]"},
+	}
+	for _, test := range tests {
+		if encodeCapabilities(test.input) != test.want {
+			t.Errorf("Encoding incorrect. expected=%s, actual=%s", test.want, encodeCapabilities(test.input))
+		}
+	}
+}
+
+func TestEncodeNameObject(t *testing.T) {
+	var tests = []struct {
+		input rainslib.NameObject
+		want  string
+	}{
+		{rainslib.NameObject{
+			Name: "name.ethz.ch",
+			Types: []rainslib.ObjectType{
+				rainslib.OTName,
+				rainslib.OTIP6Addr,
+				rainslib.OTIP4Addr,
+				rainslib.OTRedirection,
+				rainslib.OTDelegation,
+				rainslib.OTNameset,
+				rainslib.OTCertInfo,
+				rainslib.OTServiceInfo,
+				rainslib.OTRegistrar,
+				rainslib.OTRegistrant,
+				rainslib.OTInfraKey,
+				rainslib.OTExtraKey,
+				rainslib.OTNextKey,
+			},
+		}, "name.ethz.ch [ name ip6 ip4 redir deleg nameset cert srv regr regt infra extra next ]"},
+	}
+	for _, test := range tests {
+		if encodeNameObject(test.input) != test.want {
+			t.Errorf("Encoding incorrect. expected=%v, actual=%s", test.want, encodeNameObject(test.input))
+		}
+	}
 }
 
 func TestWordScanner(t *testing.T) {
@@ -236,6 +278,80 @@ func TestWordScanner(t *testing.T) {
 		}
 		if scanner.LineNumber() != test.lineNumber {
 			t.Errorf("Line number incorrect. expected=%d, actual=%d", test.lineNumber, scanner.LineNumber())
+		}
+	}
+}
+
+func TestReplaceWhitespaces(t *testing.T) {
+	var tests = []struct {
+		input string
+		want  string
+	}{
+		//spaces
+		{"asdf", "asdf"},
+		{"asdf asdf", "asdf asdf"},
+		{"asdf   asdf", "asdf asdf"},
+		{"   asdf asdf", "asdf asdf"},
+		{"asdf asdf   ", "asdf asdf"},
+		//tabs
+		{"asdf\tasdf", "asdf asdf"},
+		{"\tasdf\t asdf", "asdf asdf"},
+		{"asdf\t\t\nasdf\t", "asdf asdf"},
+		//new lines
+		{"asdf \n \n asdf", "asdf asdf"},
+		{"asdf   asdf", "asdf asdf"},
+		{"\n \nasdf asdf", "asdf asdf"},
+		{"asdf asdf \n\n \n  ", "asdf asdf"},
+	}
+	for _, test := range tests {
+		if replaceWhitespaces(test.input) != test.want {
+			t.Errorf("Whitespace replacement was incorrect. expected=%s, actual=%s", test.want, replaceWhitespaces(test.input))
+		}
+	}
+}
+
+func TestEncodeSection(t *testing.T) {
+	assertion := &rainslib.AssertionSection{
+		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTIP4Addr, Value: "127.0.0.1"}},
+		SubjectName: "ethz",
+	}
+	var tests = []struct {
+		input rainslib.MessageSection
+		want  string
+	}{
+		{assertion, ":A: ethz [ :ip4: 127.0.0.1 ]"},
+	}
+	p := Parser{}
+	for _, test := range tests {
+		if p.EncodeSection(test.input) != test.want {
+			t.Errorf("parser.EncodeSection() incorrect. expected=%s, actual=%s", test.want, p.EncodeSection(test.input))
+		}
+	}
+}
+
+func TestEncodeMessage(t *testing.T) {
+	assertion := &rainslib.AssertionSection{
+		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTIP4Addr, Value: "127.0.0.1"}},
+		SubjectName: "ethz",
+	}
+	token := rainslib.GenerateToken()
+	capabilities := []rainslib.Capability{rainslib.Capability("capa1"), rainslib.Capability("capa2")}
+	encodedToken := hex.EncodeToString(token[:])
+	message := &rainslib.RainsMessage{
+		Capabilities: capabilities,
+		Token:        token,
+		Content:      []rainslib.MessageSection{assertion},
+	}
+	var tests = []struct {
+		input *rainslib.RainsMessage
+		want  string
+	}{
+		{message, fmt.Sprintf(":M: [ capa1 capa2 ] %s [ :A: ethz [ :ip4: 127.0.0.1 ] ]", encodedToken)},
+	}
+	p := Parser{}
+	for _, test := range tests {
+		if p.EncodeMessage(test.input) != test.want {
+			t.Errorf("parser.EncodeSection() incorrect. expected=%s, actual=%s", test.want, p.EncodeMessage(test.input))
 		}
 	}
 }

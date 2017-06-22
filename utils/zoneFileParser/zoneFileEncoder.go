@@ -160,8 +160,10 @@ func encodeNameObject(no rainslib.NameObject) string {
 			nameObject = append(nameObject, otInfraKey)
 		case rainslib.OTExtraKey:
 			nameObject = append(nameObject, otExternalKey)
+		case rainslib.OTNextKey:
+			nameObject = append(nameObject, otNextKey)
 		default:
-
+			log.Warn("Unsupported object type in nameObject", "actualType", oType, "nameObject", no)
 		}
 	}
 	return fmt.Sprintf("%s [ %s ]", no.Name, strings.Join(nameObject, " "))

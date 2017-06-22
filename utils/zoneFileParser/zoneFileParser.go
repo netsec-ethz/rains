@@ -98,7 +98,7 @@ func getEncoding(s rainslib.MessageSection, forSigning bool) string {
 	encoding := ""
 	switch s := s.(type) {
 	case *rainslib.AssertionSection:
-		encoding = encodeAssertion(s, s.Context, s.SubjectZone, "")
+		encoding = encodeAssertion(s, s.Context, s.SubjectZone, indent4)
 	case *rainslib.ShardSection:
 		encoding = encodeShard(s, s.Context, s.SubjectZone, forSigning)
 	case *rainslib.ZoneSection:

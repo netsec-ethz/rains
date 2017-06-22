@@ -189,15 +189,24 @@ func getAssertionAndEncodings(indent string) ([]*rainslib.AssertionSection, []st
 		SubjectZone: "",
 		Signatures:  []rainslib.Signature{},
 	}
+	assertion3 := &rainslib.AssertionSection{
+		Content:     objectIndents.Objects[2],
+		Context:     "",
+		SubjectName: "ethz",
+		SubjectZone: "",
+		Signatures:  []rainslib.Signature{},
+	}
 	assertions = append(assertions, assertion0)
 	assertions = append(assertions, assertion1)
 	assertions = append(assertions, assertion2)
+	assertions = append(assertions, assertion3)
 
 	//encodings
 	encodings := []string{}
 	encodings = append(encodings, fmt.Sprintf(":A: ethz   [ \n%s\n%s]", objEncodings[0], indent))
 	encodings = append(encodings, fmt.Sprintf(":A: ethz ch . [ \n%s\n%s]", objEncodings[0], indent))
 	encodings = append(encodings, fmt.Sprintf(":A: ethz   [ %s ]", objEncodings[1]))
+	encodings = append(encodings, fmt.Sprintf(":A: ethz   [ %s ]", objEncodings[2]))
 
 	return assertions, encodings
 }
@@ -288,7 +297,7 @@ func getZonesAndEncodings() ([]*rainslib.ZoneSection, []string) {
 
 	//encodings
 	encodings := []string{}
-	encodings = append(encodings, fmt.Sprintf(":Z: ch . [\n%s%s\n%s%s\n]", indent4, assertionEncodings[0], indent4, shardEncodings[1]))
+	encodings = append(encodings, fmt.Sprintf(":Z: ch . [\n%s%s\n%s%s\n]", indent4, assertionEncodings[0], indent4, shardEncodings[1])) //when not used for signing, it does not copy context and subjectZone to contained shards and assertions
 	encodings = append(encodings, ":Z: ch . [\n]")
 
 	return zones, encodings
@@ -448,22 +457,92 @@ func getMessagesAndEncodings() ([]*rainslib.RainsMessage, []string) {
 	//messages
 	messages := []*rainslib.RainsMessage{}
 	assertions, assertionencodings := getAssertionAndEncodings(indent4)
+	shards, shardencodings := getShardAndEncodings()
+	zones, zoneencodings := getZonesAndEncodings()
+	queries, queryencodings := getQueriesAndEncodings()
+	aassertions, aassertionencodings := getAddressAssertionsAndEncodings()
+	azones, azoneencodings := getAddressZonesAndEncodings()
+	aqueries, aqueryencodings := getAddressQueriesAndEncodings()
+	notifs, notifsencoding := getNotificationsAndEncodings()
 
 	token := rainslib.GenerateToken()
 	capabilities := []rainslib.Capability{rainslib.Capability("capa1"), rainslib.Capability("capa2")}
 	encodedToken := hex.EncodeToString(token[:])
-	message := &rainslib.RainsMessage{
+	message0 := &rainslib.RainsMessage{
 		Token:        token,
 		Capabilities: capabilities,
 		Content:      []rainslib.MessageSection{assertions[0]},
 		Signatures:   []rainslib.Signature{getSignature()},
 	}
-	messages = append(messages, message)
+	message1 := &rainslib.RainsMessage{
+		Token:        token,
+		Capabilities: capabilities,
+		Content:      []rainslib.MessageSection{shards[0]},
+		Signatures:   []rainslib.Signature{getSignature()},
+	}
+	message2 := &rainslib.RainsMessage{
+		Token:        token,
+		Capabilities: capabilities,
+		Content:      []rainslib.MessageSection{zones[1]},
+		Signatures:   []rainslib.Signature{getSignature()},
+	}
+	message3 := &rainslib.RainsMessage{
+		Token:        token,
+		Capabilities: capabilities,
+		Content:      []rainslib.MessageSection{queries[0]},
+		Signatures:   []rainslib.Signature{getSignature()},
+	}
+	message4 := &rainslib.RainsMessage{
+		Token:        token,
+		Capabilities: capabilities,
+		Content:      []rainslib.MessageSection{aassertions[0]},
+		Signatures:   []rainslib.Signature{getSignature()},
+	}
+	message5 := &rainslib.RainsMessage{
+		Token:        token,
+		Capabilities: capabilities,
+		Content:      []rainslib.MessageSection{azones[0]},
+		Signatures:   []rainslib.Signature{getSignature()},
+	}
+	message6 := &rainslib.RainsMessage{
+		Token:        token,
+		Capabilities: capabilities,
+		Content:      []rainslib.MessageSection{aqueries[0]},
+		Signatures:   []rainslib.Signature{getSignature()},
+	}
+	message7 := &rainslib.RainsMessage{
+		Token:        token,
+		Capabilities: capabilities,
+		Content:      []rainslib.MessageSection{notifs[0]},
+		Signatures:   []rainslib.Signature{getSignature()},
+	}
+	message8 := &rainslib.RainsMessage{
+		Token:        token,
+		Capabilities: capabilities,
+		Content:      []rainslib.MessageSection{queries[0], aqueries[0]},
+		Signatures:   []rainslib.Signature{getSignature()},
+	}
+	messages = append(messages, message0)
+	messages = append(messages, message1)
+	messages = append(messages, message2)
+	messages = append(messages, message3)
+	messages = append(messages, message4)
+	messages = append(messages, message5)
+	messages = append(messages, message6)
+	messages = append(messages, message7)
+	messages = append(messages, message8)
 
 	//encodings
 	encodings := []string{}
-	//FIXME CFE
-	encodings = append(encodings, fmt.Sprintf(":M:%s%s", encodedToken, assertionencodings))
+	encodings = append(encodings, fmt.Sprintf(":M: [ capa1 capa2 ] %s [\n%s\n]", encodedToken, assertionencodings[0]))
+	encodings = append(encodings, fmt.Sprintf(":M: [ capa1 capa2 ] %s [\n%s\n]", encodedToken, shardencodings[0]))
+	encodings = append(encodings, fmt.Sprintf(":M: [ capa1 capa2 ] %s [\n%s\n]", encodedToken, zoneencodings[1]))
+	encodings = append(encodings, fmt.Sprintf(":M: [ capa1 capa2 ] %s [\n%s\n]", encodedToken, queryencodings[0]))
+	encodings = append(encodings, fmt.Sprintf(":M: [ capa1 capa2 ] %s [\n%s\n]", encodedToken, aassertionencodings[0]))
+	encodings = append(encodings, fmt.Sprintf(":M: [ capa1 capa2 ] %s [\n%s\n]", encodedToken, azoneencodings[0]))
+	encodings = append(encodings, fmt.Sprintf(":M: [ capa1 capa2 ] %s [\n%s\n]", encodedToken, aqueryencodings[0]))
+	encodings = append(encodings, fmt.Sprintf(":M: [ capa1 capa2 ] %s [\n%s\n]", encodedToken, notifsencoding[0]))
+	encodings = append(encodings, fmt.Sprintf(":M: [ capa1 capa2 ] %s [\n%s\n%s\n]", encodedToken, queryencodings[0], aqueryencodings[0]))
 
 	return messages, encodings
 }
