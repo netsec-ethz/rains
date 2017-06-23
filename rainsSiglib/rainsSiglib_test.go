@@ -3,6 +3,7 @@ package rainsSiglib
 import (
 	"net"
 	"rains/rainslib"
+	"rains/utils/testUtil"
 	"rains/utils/zoneFileParser"
 	"testing"
 	"time"
@@ -237,39 +238,152 @@ func TestEncodeAndDecode(t *testing.T) {
 	}
 }
 
-func TestSignAndVerify(t *testing.T) {
+func TestSignMessageErrors(t *testing.T) {
 
 }
 
-func TestVerifySignatureErrors(t *testing.T) {
-
-}
-
-func TestSignDataErrors(t *testing.T) {
+func TestCheckMessageStringFields(t *testing.T) {
+	message := testUtil.GetMessage()
 	var tests = []struct {
-		inputSig        *rainslib.Signature
-		inputPrivateKey interface{}
-		inputData       string
-		text            string
+		input *rainslib.RainsMessage
+		want  bool
 	}{
-		{"Hello my name", 2, 1, "my"},
-		{"Hello\tmy\tname", 2, 1, "my"},
-		{"Hello\tmy\nname", 2, 1, "my"},
-		{"Hello my\nname", 3, 2, "name"},
-		{"Hello\tmy\n\nname", 3, 3, "name"},
-		{"Hello\tmy\n\nname \t\nis", 4, 4, "is"},
-		{"Hello\tmy\n\nname \t\nis", 5, 5, ""},
+		{nil, false},
+		{&message, true},
+		{&rainslib.RainsMessage{Capabilities: []rainslib.Capability{rainslib.Capability(":ip:")}}, false},
+		{&rainslib.RainsMessage{Content: []rainslib.MessageSection{&rainslib.AssertionSection{SubjectName: ":ip:"}}}, false},
 	}
 	for _, test := range tests {
-		scanner := NewWordScanner([]byte(test.input))
-		for i := 0; i < test.scansCalls; i++ {
-			scanner.Scan()
+		if checkMessageStringFields(test.input) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, checkMessageStringFields(test.input), test.input)
 		}
-		if scanner.Text() != test.text {
-			t.Errorf("Wrong test. expected=%s, actual=%s", test.text, scanner.Text())
+	}
+}
+
+func TestCheckStringFields(t *testing.T) {
+	sections := testUtil.GetMessage().Content
+	var tests = []struct {
+		input rainslib.MessageSection
+		want  bool
+	}{
+		{nil, false},
+		{sections[0], true},
+		{sections[1], true},
+		{sections[2], true},
+		{sections[3], true},
+		{sections[4], true},
+		{sections[5], true},
+		{sections[6], true},
+		{sections[8], true},
+		{sections[9], true},
+		{&rainslib.AssertionSection{SubjectName: ":ip:"}, false},
+		{&rainslib.AssertionSection{Context: ":ip:"}, false},
+		{&rainslib.AssertionSection{SubjectZone: ":ip:"}, false},
+		{&rainslib.AssertionSection{Content: []rainslib.Object{rainslib.Object{Type: rainslib.OTRegistrar, Value: ":ip55:"}}}, false},
+		{&rainslib.ShardSection{Context: ":ip:"}, false},
+		{&rainslib.ShardSection{SubjectZone: ":ip:"}, false},
+		{&rainslib.ShardSection{RangeFrom: ":ip:"}, false},
+		{&rainslib.ShardSection{RangeTo: ":ip:"}, false},
+		{&rainslib.ShardSection{Content: []*rainslib.AssertionSection{&rainslib.AssertionSection{SubjectName: ":ip:"}}}, false},
+		{&rainslib.ZoneSection{SubjectZone: ":ip:"}, false},
+		{&rainslib.ZoneSection{Context: ":ip:"}, false},
+		{&rainslib.ZoneSection{Content: []rainslib.MessageSectionWithSig{&rainslib.AssertionSection{SubjectName: ":ip:"}}}, false},
+		{&rainslib.QuerySection{Context: ":ip:"}, false},
+		{&rainslib.QuerySection{Name: ":ip:"}, false},
+		{&rainslib.NotificationSection{Data: ":ip:"}, false},
+		{&rainslib.AddressQuerySection{Context: ":ip:"}, false},
+		{&rainslib.AddressAssertionSection{Context: ":ip:"}, false},
+		{&rainslib.AddressAssertionSection{Content: []rainslib.Object{rainslib.Object{Type: rainslib.OTRegistrant, Value: ":ip55:"}}}, false},
+		{&rainslib.AddressZoneSection{Context: ":ip:"}, false},
+		{&rainslib.AddressZoneSection{Content: []*rainslib.AddressAssertionSection{&rainslib.AddressAssertionSection{Context: ":ip:"}}}, false},
+	}
+	for _, test := range tests {
+		if checkStringFields(test.input) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, checkStringFields(test.input), test.input)
 		}
-		if scanner.LineNumber() != test.lineNumber {
-			t.Errorf("Line number incorrect. expected=%d, actual=%d", test.lineNumber, scanner.LineNumber())
+	}
+}
+
+func TestCheckObjectFields(t *testing.T) {
+	var tests = []struct {
+		input []rainslib.Object
+		want  bool
+	}{
+		{nil, true},
+		{[]rainslib.Object{}, true},
+		{testUtil.GetAllValidObjects(), true},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTName, Value: rainslib.NameObject{Name: ":ip55:"}}}, false},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTRedirection, Value: ":ip55:"}}, false},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTNameset, Value: rainslib.NamesetExpression(":ip55:")}}, false},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTServiceInfo, Value: rainslib.ServiceInfo{Name: ":ip55:"}}}, false},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTRegistrar, Value: ":ip55:"}}, false},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTRegistrant, Value: ":ip55:"}}, false},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.ObjectType(-1), Value: nil}}, false},
+	}
+	for _, test := range tests {
+		if checkObjectFields(test.input) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, checkObjectFields(test.input), test.input)
+		}
+	}
+}
+
+func TestCheckCapabilites(t *testing.T) {
+	var tests = []struct {
+		input []rainslib.Capability
+		want  bool
+	}{
+		{nil, true},
+		{[]rainslib.Capability{}, true},
+		{[]rainslib.Capability{rainslib.Capability("")}, true},
+		{[]rainslib.Capability{rainslib.Capability("Good")}, true},
+		{[]rainslib.Capability{rainslib.Capability(":ip: bad")}, false},
+		{[]rainslib.Capability{rainslib.Capability(":ip:")}, false},
+		{[]rainslib.Capability{rainslib.Capability("bad :ip: test")}, false},
+		{[]rainslib.Capability{rainslib.Capability("bad\t:ip:\ttest")}, false},
+		{[]rainslib.Capability{rainslib.Capability("bad\n:ip:\ntest")}, false},
+		{[]rainslib.Capability{rainslib.Capability("bad\n:ip:\ttest")}, false},
+		{[]rainslib.Capability{rainslib.Capability("bad test :ip:")}, false},
+		{[]rainslib.Capability{rainslib.Capability("bad test\n\n :ip:")}, false},
+		{[]rainslib.Capability{rainslib.Capability("as:Good:dh")}, true},
+		{[]rainslib.Capability{rainslib.Capability("as:Good: dh")}, true},
+		{[]rainslib.Capability{rainslib.Capability("as :Good:dh")}, true},
+		{[]rainslib.Capability{rainslib.Capability(" :: ")}, true},
+		{[]rainslib.Capability{rainslib.Capability("::")}, true},
+		{[]rainslib.Capability{rainslib.Capability("::"), rainslib.Capability(":ip4:Good")}, true},
+		{[]rainslib.Capability{rainslib.Capability("::"), rainslib.Capability(":ip4: Good")}, false},
+	}
+	for _, test := range tests {
+		if checkCapabilites(test.input) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, checkCapabilites(test.input), test.input)
+		}
+	}
+}
+
+func TestContainsZoneFileType(t *testing.T) {
+	var tests = []struct {
+		input string
+		want  bool
+	}{
+		{"", false},
+		{"Good", false},
+		{":ip:", true},
+		{":ip: bad", true},
+		{"bad test\n\n :ip:", true},
+		{"bad :ip: test", true},
+		{"bad\t:ip:\ttest", true},
+		{"bad\n:ip:\ntest", true},
+		{"bad\n:ip:\ttest", true},
+		{"bad test :ip:", true},
+		{"as:Good:dh", false},
+		{"as:Good: dh", false},
+		{"as :Good:dh", false},
+		{":ip:d", false},
+		{" :: ", false},
+		{"::", false},
+	}
+	for _, test := range tests {
+		if containsZoneFileType(test.input) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, containsZoneFileType(test.input), test.input)
 		}
 	}
 }
