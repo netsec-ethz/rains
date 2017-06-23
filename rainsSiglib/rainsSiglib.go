@@ -1,14 +1,12 @@
 package rainsSiglib
 
 import (
-	"encoding/hex"
 	"fmt"
 	"rains/rainslib"
 	"regexp"
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	"golang.org/x/crypto/ed25519"
 )
 
 //CheckSectionSignatures verifies all signatures on the section. Expired signatures are removed.
@@ -24,6 +22,14 @@ import (
 func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib.KeyAlgorithmType]rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder,
 	maxVal rainslib.MaxCacheValidity) bool {
 	log.Debug("Check Section signature")
+	if s == nil {
+		log.Warn("section is nil")
+		return false
+	}
+	if pkeys == nil {
+		log.Warn("pkeys map is nil")
+		return false
+	}
 	if len(s.Sigs()) == 0 {
 		log.Debug("Section contain no signatures")
 		return false
@@ -34,16 +40,19 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 	s.Sort()
 	encodedSection := encoder.EncodeSection(s)
 	for i, sig := range s.Sigs() {
-		pkey := pkeys[rainslib.KeyAlgorithmType(sig.Algorithm)]
-		if int64(sig.ValidUntil) < time.Now().Unix() {
-			log.Debug("signature is expired", "signature", sig)
-			s.DeleteSig(i)
-			continue
-		} else if !sig.VerifySignature(pkey.Key, encodedSection) {
-			log.Warn("", "publicKey", hex.EncodeToString(pkey.Key.(ed25519.PublicKey)), "encoded Section", encodedSection, "signature", sig)
+		if pkey, ok := pkeys[rainslib.KeyAlgorithmType(sig.Algorithm)]; ok {
+			if int64(sig.ValidUntil) < time.Now().Unix() {
+				log.Debug("signature is expired", "signature", sig)
+				s.DeleteSig(i)
+				continue
+			} else if !sig.VerifySignature(pkey.Key, encodedSection) {
+				return false
+			}
+			rainslib.UpdateSectionValidity(s, pkey.ValidSince, pkey.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
+		} else {
+			log.Warn("No publicKey in keymap matching algorithm type", "keymap", pkeys, "algorithmType", rainslib.KeyAlgorithmType(sig.Algorithm))
 			return false
 		}
-		rainslib.UpdateSectionValidity(s, pkey.ValidSince, pkey.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
 	}
 	return len(s.Sigs()) > 0
 }
@@ -59,6 +68,11 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 //5) sign the encoding and compare the resulting signature data with the signature data received with the message. The encoding of the
 //   signature meta data is added in the verifySignature() method
 func CheckMessageSignatures(msg *rainslib.RainsMessage, publicKey rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder, maxVal rainslib.MaxCacheValidity) bool {
+	log.Debug("Check Message signature")
+	if msg == nil {
+		log.Warn("msg is nil")
+		return false
+	}
 	if len(msg.Signatures) == 0 {
 		log.Debug("Message contain no signatures")
 		return false
@@ -69,11 +83,10 @@ func CheckMessageSignatures(msg *rainslib.RainsMessage, publicKey rainslib.Publi
 	msg.Sort()
 	encodedSection := encoder.EncodeMessage(msg)
 	for i, sig := range msg.Signatures {
-		if int64(sig.ValidUntil) < time.Now().Unix() || int64(sig.ValidSince) > time.Now().Unix() {
-			log.Debug("current time is not in this signature's validity period", "signature", sig)
+		if int64(sig.ValidUntil) < time.Now().Unix() {
+			log.Debug("signature is expired", "signature", sig)
 			msg.Signatures = append(msg.Signatures[:i], msg.Signatures[i+1:]...)
 		} else if !sig.VerifySignature(publicKey.Key, encodedSection) {
-			log.Warn("", "publicKey", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)), "encoded Section", encodedSection, "signature", sig)
 			return false
 		}
 	}
@@ -92,6 +105,11 @@ func CheckMessageSignatures(msg *rainslib.RainsMessage, publicKey rainslib.Publi
 //5) sign the encoding and add it to the signature which will then be added to the section. The encoding of the
 //   signature meta data is added in the verifySignature() method
 func SignSection(s rainslib.MessageSectionWithSig, privateKey interface{}, sig rainslib.Signature, encoder rainslib.SignatureFormatEncoder) bool {
+	log.Debug("Sign Section")
+	if s == nil {
+		log.Warn("section is nil")
+		return false
+	}
 	if int64(sig.ValidUntil) < time.Now().Unix() {
 		log.Warn("signature is expired", "signature", sig)
 		return false
@@ -120,7 +138,12 @@ func SignSection(s rainslib.MessageSectionWithSig, privateKey interface{}, sig r
 //5) sign the encoding and add it to the signature which will then be added to the message. The encoding of the
 //   signature meta data is added in the verifySignature() method
 func SignMessage(msg *rainslib.RainsMessage, privateKey interface{}, sig rainslib.Signature, encoder rainslib.SignatureFormatEncoder) bool {
-	if int64(sig.ValidUntil) < time.Now().Unix() {
+	log.Debug("Sign Message")
+	if msg == nil {
+		log.Warn("msg is nil")
+		return false
+	}
+	if sig.ValidUntil < time.Now().Unix() {
 		log.Warn("signature is expired", "signature", sig)
 		return false
 	}

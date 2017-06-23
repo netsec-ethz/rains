@@ -206,11 +206,15 @@ func (sig Signature) GetSignatureMetaData() string {
 //SignData adds signature meta data to encoding. It then signs the encoding with privateKey and updates sig.Data field with the generated signature
 //In case of an error an error is returned indicating the cause, otherwise nil is returned
 func (sig *Signature) SignData(privateKey interface{}, encoding string) error {
-	log.Debug("Sign data", "signature", sig, "privateKey", hex.EncodeToString(privateKey.(ed25519.PrivateKey)), "encoding", encoding)
+	if privateKey == nil {
+		log.Warn("PrivateKey is nil")
+		return errors.New("privateKey is nil")
+	}
 	encoding += sig.GetSignatureMetaData()
 	data := []byte(encoding)
 	switch sig.Algorithm {
 	case Ed25519:
+		log.Debug("Sign data", "signature", sig, "privateKey", hex.EncodeToString(privateKey.(ed25519.PrivateKey)), "encoding", encoding)
 		if pkey, ok := privateKey.(ed25519.PrivateKey); ok {
 			sig.Data = ed25519.Sign(pkey, data)
 			return nil
@@ -256,6 +260,10 @@ func (sig *Signature) SignData(privateKey interface{}, encoding string) error {
 func (sig *Signature) VerifySignature(publicKey interface{}, encoding string) bool {
 	if sig.Data == nil {
 		log.Warn("sig does not contain signature data", "sig", sig)
+		return false
+	}
+	if publicKey == nil {
+		log.Warn("PublicKey is nil")
 		return false
 	}
 	encoding += sig.GetSignatureMetaData()

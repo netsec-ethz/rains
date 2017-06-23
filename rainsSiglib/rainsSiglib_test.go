@@ -238,8 +238,104 @@ func TestEncodeAndDecode(t *testing.T) {
 	}
 }
 
-func TestSignMessageErrors(t *testing.T) {
+func TestCheckSectionSignaturesErrors(t *testing.T) {
+	encoder := new(zoneFileParser.Parser)
+	maxVal := rainslib.MaxCacheValidity{AddressAssertionValidity: time.Hour}
+	keys := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
+	keys1 := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
+	keys1[rainslib.KeyAlgorithmType(rainslib.Ed25519)] = rainslib.PublicKey{}
+	var tests = []struct {
+		input           rainslib.MessageSectionWithSig
+		inputPublicKeys map[rainslib.KeyAlgorithmType]rainslib.PublicKey
+		want            bool
+	}{
+		{nil, nil, false},                                                                                                             //msg nil
+		{&rainslib.AssertionSection{}, nil, false},                                                                                    //pkeys nil
+		{&rainslib.AssertionSection{}, keys, false},                                                                                   //no signatures
+		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{}}, SubjectName: ":ip55:"}, keys, false},      //checkStringField false
+		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{}}}, keys, false},                             //no matching algotype in keys
+		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{Algorithm: rainslib.Ed25519}}}, keys1, false}, //sig expired
+		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{Algorithm: rainslib.Ed25519,
+			ValidUntil: time.Now().Add(time.Second).Unix()}}}, keys1, false}, //VerifySignature invalid
+	}
+	for _, test := range tests {
+		if CheckSectionSignatures(test.input, test.inputPublicKeys, encoder, maxVal) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, CheckSectionSignatures(test.input, test.inputPublicKeys, encoder, maxVal), test.input)
+		}
+	}
+}
 
+func TestCheckMessageSignaturesErrors(t *testing.T) {
+	encoder := new(zoneFileParser.Parser)
+	message := testUtil.GetMessage()
+	message2 := testUtil.GetMessage()
+	message2.Capabilities = []rainslib.Capability{rainslib.Capability(":ip:")}
+	message3 := testUtil.GetMessage()
+	message3.Signatures = []rainslib.Signature{rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}}
+	maxVal := rainslib.MaxCacheValidity{AddressAssertionValidity: time.Hour}
+	var tests = []struct {
+		input          *rainslib.RainsMessage
+		inputPublicKey rainslib.PublicKey
+		want           bool
+	}{
+		{nil, rainslib.PublicKey{}, false},                      //msg nil
+		{&message, rainslib.PublicKey{}, false},                 //sig expired
+		{&rainslib.RainsMessage{}, rainslib.PublicKey{}, false}, //no sig
+		{&message2, rainslib.PublicKey{}, false},                //TextField of Content invalid
+		{&message3, rainslib.PublicKey{}, false},                //signature invalid
+	}
+	for _, test := range tests {
+		if CheckMessageSignatures(test.input, test.inputPublicKey, encoder, maxVal) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, CheckMessageSignatures(test.input, test.inputPublicKey, encoder, maxVal), test.input)
+		}
+	}
+}
+
+func TestSignSectionErrors(t *testing.T) {
+	encoder := new(zoneFileParser.Parser)
+	sections := testUtil.GetMessage().Content
+	_, pkey, _ := ed25519.GenerateKey(nil)
+	var tests = []struct {
+		input           rainslib.MessageSectionWithSig
+		inputPrivateKey interface{}
+		inputSig        rainslib.Signature
+		want            bool
+	}{
+		{nil, nil, rainslib.Signature{}, false},
+		{sections[0].(rainslib.MessageSectionWithSig), pkey, rainslib.Signature{Algorithm: rainslib.Ed25519, ValidUntil: time.Now().Add(time.Second).Unix()}, true},
+		{sections[0].(rainslib.MessageSectionWithSig), pkey, rainslib.Signature{ValidUntil: time.Now().Unix() - 100}, false},
+		{&rainslib.AssertionSection{SubjectName: ":ip:"}, pkey, rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+		{sections[0].(rainslib.MessageSectionWithSig), nil, rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+	}
+	for _, test := range tests {
+		if SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder), test.input)
+		}
+	}
+}
+
+func TestSignMessageErrors(t *testing.T) {
+	encoder := new(zoneFileParser.Parser)
+	message := testUtil.GetMessage()
+	_, pkey, _ := ed25519.GenerateKey(nil)
+	var tests = []struct {
+		input           *rainslib.RainsMessage
+		inputPrivateKey interface{}
+		inputSig        rainslib.Signature
+		want            bool
+	}{
+		{nil, nil, rainslib.Signature{}, false},
+		{&message, pkey, rainslib.Signature{Algorithm: rainslib.Ed25519, ValidUntil: time.Now().Add(time.Second).Unix()}, true},
+		{&message, pkey, rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix() - 100}, false},
+		{&rainslib.RainsMessage{Capabilities: []rainslib.Capability{rainslib.Capability(":ip:")}}, pkey,
+			rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+		{&rainslib.RainsMessage{}, nil, rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+	}
+	for _, test := range tests {
+		if SignMessage(test.input, test.inputPrivateKey, test.inputSig, encoder) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, SignMessage(test.input, test.inputPrivateKey, test.inputSig, encoder), test.input)
+		}
+	}
 }
 
 func TestCheckMessageStringFields(t *testing.T) {
