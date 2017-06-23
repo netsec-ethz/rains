@@ -104,23 +104,29 @@ const (
 	TLSOverTCP   Capability = "urn:x-rains:tlssrv"
 )
 
-//connectionCache stores all active connections
+//connectionCache stores persistent stream-oriented network connections.
+//It must support adding new connection objects.
+//It must support fast retrieval of a connection object based on network address type and destination address. The connection is not guaranteed to be active.
+//It must support deletion of a connection object. The connection will be closed before it is removed from the cache.
+//During initialization the capacity of the cache must be specified.
 type connectionCache interface {
-	//Add adds a new connection to the cash. If for the given addrPair there is already a connection in the cache, the connection gets replaced with the new one.
-	//Returns false if the cache already contained an entry for the addrPair.
-	//If the cache is full it closes and removes a connection according to some metric
-	Add(addrPair AddressPair, conn net.Conn) bool
-	//Get returns a connection associated with the given four tuple.
-	//If there is an element in the cache its recentness will be updated
-	//Returns false if there is no connection for the given addrPair in the cache.
-	Get(addrPair AddressPair) (net.Conn, bool)
-	//Len returns the number of elements in the cache.
+	//Add adds conn to the cache. If there is already a connection in the cache for the localAddr-remoteAddr tuple, then this connection gets closed and replaced.
+	//Add returns true if it was able to add the connection to the cache.
+	//If the cache capacity is reached, a connection from the cache will be chosen by some metric, closed and removed.
+	Add(conn net.Conn) bool
+	//Get returns all cached connection objects to dstAddr.
+	//Get returns false if there is no cached connection to dstAddr.
+	Get(dstAddr rainslib.ConnInfo) ([]net.Conn, bool)
+	//Delete closes conn and removes it from the cache.
+	//True is returned if conn was successfully removed from the cache
+	Delete(conn net.Conn) bool
+	//Len returns the number of connections currently in the cache.
 	Len() int
 }
 
 //capabilityCache contains known capabilities
 type capabilityCache interface {
-	//Add adds the capabilities to the cash and creates or updates a mapping between the capabilities and the hash thereof.
+	//Add adds the capabilities to the cache and creates or updates a mapping between the capabilities and the hash thereof.
 	//Returns true if the given rainslib.ConnInfo was not yet in the cache and false if it updated the capabilities and the recentness of the entry for rainslib.ConnInfo.
 	//If the cache is full it removes a capability according to some metric
 	Add(ConnInfo rainslib.ConnInfo, capabilities []rainslib.Capability) bool
@@ -143,7 +149,7 @@ func (k keyCacheKey) Hash() string {
 
 //keyCache is the Interface which must be implemented by all caches for keys.
 type keyCache interface {
-	//Add adds the public key to the cash.
+	//Add adds the public key to the cache.
 	//Returns true if the given public key was successfully added. If it was not possible to add the key it return false.
 	//If the cache is full it removes all public keys from a keyCacheKey entry according to some metric
 	//The cache makes sure that only a small limited amount of public keys (e.g. 3) can be stored associated with a keyCacheKey

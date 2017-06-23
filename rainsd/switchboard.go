@@ -43,21 +43,22 @@ func sendTo(message []byte, receiver rainslib.ConnInfo) {
 	var framer rainslib.MsgFramer
 	var err error
 
-	addrPair := AddressPair{local: Config.ServerAddress, remote: receiver}
-	conn, ok := connCache.Get(addrPair)
+	conns, ok := connCache.Get(receiver)
 	if !ok {
-		conn, err = createConnection(receiver)
+		conn, err := createConnection(receiver)
+		conns = append(conns, conn)
 		if err != nil {
 			log.Warn("Could not establish connection", "error", err, "receiver", receiver)
 			return
 		}
-		connCache.Add(addrPair, conn)
+		connCache.Add(conn)
 	}
 	framer = new(protoParser.ProtoParserAndFramer)
-	framer.InitStreams(nil, conn)
+	//FIXME CFE currently we only support one connection per destination addr
+	framer.InitStreams(nil, conns[0])
 	err = framer.Frame(message)
 	if err != nil {
-		log.Error("Was not able to frame or send the message", "Error", err, "connection", conn, "receiver", receiver)
+		log.Error("Was not able to frame or send the message", "Error", err, "connections", conns, "receiver", receiver)
 		return
 	}
 	log.Debug("Send successful", "receiver", receiver)
@@ -96,10 +97,9 @@ func Listen() {
 				srvLogger.Error("lister could not accept connection", "error", err)
 				continue
 			}
+			connCache.Add(conn)
 			if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-				connInfo := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr}
-				connCache.Add(AddressPair{local: serverConnInfo, remote: connInfo}, conn)
-				go handleConnection(conn, connInfo)
+				go handleConnection(conn, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
 			} else {
 				log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 			}
@@ -109,15 +109,15 @@ func Listen() {
 	}
 }
 
-//handleConnection deframes all incoming messages on this connection and passes them to the inbox.
-func handleConnection(conn net.Conn, client rainslib.ConnInfo) {
+//handleConnection deframes all incoming messages on conn and passes them to the inbox along with the dstAddr
+func handleConnection(conn net.Conn, dstAddr rainslib.ConnInfo) {
 	var framer rainslib.MsgFramer
 	framer = new(protoParser.ProtoParserAndFramer)
 	framer.InitStreams(conn, nil)
 	for framer.DeFrame() {
-		log.Info("Received a message", "sender", client)
-		deliver(framer.Data(), client)
+		log.Info("Received a message", "sender", dstAddr)
+		deliver(framer.Data(), dstAddr)
 		conn.SetDeadline(time.Now().Add(Config.TCPTimeout))
 	}
-	//TODO CFE should we be able to remove this connection from the connCache?
+	connCache.Delete(conn)
 }

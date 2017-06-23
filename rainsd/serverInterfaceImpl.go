@@ -21,18 +21,34 @@ type connectionCacheImpl struct {
 	cache *cache.Cache
 }
 
-func (c *connectionCacheImpl) Add(addrPair AddressPair, conn net.Conn) bool {
-	return c.cache.Add(conn, false, "", addrPair.String())
+//Add adds conn to the cache. If the cache is full the least recently used connection is removed.
+//TODO CFE currently this cache only supports one connection per destination
+func (c *connectionCacheImpl) Add(conn net.Conn) bool {
+	return c.cache.Add(conn, false, "", conn.RemoteAddr().Network(), conn.RemoteAddr().String())
 }
 
-func (c *connectionCacheImpl) Get(addrPair AddressPair) (net.Conn, bool) {
-	if v, ok := c.cache.Get("", addrPair.String()); ok {
-		if val, ok := v.(net.Conn); ok {
-			return val, true
+//Get returns all cached connections to dstAddr
+//TODO CFE currently this cache only supports one connection per destination
+func (c *connectionCacheImpl) Get(dstAddr rainslib.ConnInfo) ([]net.Conn, bool) {
+	switch dstAddr.Type {
+	case rainslib.TCP:
+		if v, ok := c.cache.Get("", dstAddr.TCPAddr.Network(), dstAddr.TCPAddr.String()); ok {
+			if val, ok := v.(net.Conn); ok {
+				return []net.Conn{val}, true
+			}
+			log.Warn("Cache entry is not of type net.Conn", "type", fmt.Sprintf("%T", v))
 		}
-		log.Warn("Cache entry is not of type net.Conn", "type", fmt.Sprintf("%T", v))
+	default:
+		log.Warn("Unsupported network address type", "type", dstAddr.Type)
 	}
 	return nil, false
+}
+
+//Delete closes the connection and removes it from the cache
+//TODO CFE currently this cache only supports one connection per destination
+func (c *connectionCacheImpl) Delete(conn net.Conn) bool {
+	conn.Close()
+	return c.cache.Remove("", conn.RemoteAddr().Network(), conn.RemoteAddr().String())
 }
 
 func (c *connectionCacheImpl) Len() int {
