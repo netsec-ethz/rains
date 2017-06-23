@@ -106,7 +106,8 @@ const (
 
 //connectionCache stores persistent stream-oriented network connections.
 //It must support adding new connection objects.
-//It must support fast retrieval of a connection object based on network address type and destination address. The connection is not guaranteed to be active.
+//It must support multiple connections between two communication partners.
+//It must support fast retrieval of all connection objects based on network address type and destination address. The connections are not guaranteed to be active.
 //It must support deletion of a connection object. The connection will be closed before it is removed from the cache.
 //During initialization the capacity of the cache must be specified.
 type connectionCache interface {

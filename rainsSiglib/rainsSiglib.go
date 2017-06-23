@@ -1,13 +1,8 @@
 package rainsSiglib
 
 import (
-	"crypto/ecdsa"
-	"crypto/rand"
-	"crypto/sha256"
-	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"rains/rainslib"
 	"regexp"
 	"time"
@@ -297,88 +292,4 @@ func checkCapabilites(caps []rainslib.Capability, re *regexp.Regexp) bool {
 		}
 	}
 	return true
-}
-
-//verifySignature adds signature meta data to the encoding. It then signs it and compares the resulting signature with the given signature.
-//Returns true if the signatures are identical
-func verifySignature(sig rainslib.Signature, publicKey interface{}, encoding string) bool {
-	encoding += fmt.Sprintf("%d %d %d %d", sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil)
-	data := []byte(encoding)
-	if sig.Data == nil {
-		log.Warn("sig does not contain signature data", "sig", sig)
-		return false
-	}
-	switch sig.Algorithm {
-	case rainslib.Ed25519:
-		if pkey, ok := publicKey.(ed25519.PublicKey); ok {
-			return ed25519.Verify(pkey, data, sig.Data.([]byte))
-		}
-		log.Warn("Could not cast key to ed25519.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
-	case rainslib.Ed448:
-		log.Warn("Ed448 not yet Supported!")
-	case rainslib.Ecdsa256:
-		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
-			if sig, ok := sig.Data.([]*big.Int); ok && len(sig) == 2 {
-				hash := sha256.Sum256(data)
-				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])
-			}
-			log.Warn("Could not cast signature ", "signature", sig.Data)
-			return false
-		}
-		log.Warn("Could not cast key to ecdsa.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
-	case rainslib.Ecdsa384:
-		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
-			if sig, ok := sig.Data.([]*big.Int); ok && len(sig) == 2 {
-				hash := sha512.Sum384(data)
-				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])
-			}
-			log.Warn("Could not cast signature ", "signature", sig.Data)
-			return false
-		}
-		log.Warn("Could not cast key to ecdsa.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
-	default:
-		log.Warn("Signature algorithm type not supported", "type", sig.Algorithm)
-	}
-	return false
-}
-
-//signData adds signature meta data to the encoding. It then signs the encoding with the given private key and adds generated signature to sig
-func signData(sig *rainslib.Signature, privateKey interface{}, encoding string) {
-	log.Debug("Sign data", "signature", sig, "privateKey", hex.EncodeToString(privateKey.(ed25519.PrivateKey)), "encoding", encoding)
-	encoding += fmt.Sprintf("%d %d %d %d", sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil)
-	data := []byte(encoding)
-	switch sig.Algorithm {
-	case rainslib.Ed25519:
-		if pkey, ok := privateKey.(ed25519.PrivateKey); ok {
-			sig.Data = ed25519.Sign(pkey, data)
-			return
-		}
-		log.Warn("Could not cast key to ed25519.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
-	case rainslib.Ed448:
-		log.Warn("Ed448 not yet Supported!")
-	case rainslib.Ecdsa256:
-		if pkey, ok := privateKey.(*ecdsa.PrivateKey); ok {
-			hash := sha256.Sum256(data)
-			sig.Data = signEcdsa(pkey, data, hash[:])
-			return
-		}
-		log.Warn("Could not cast key to ecdsa.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
-	case rainslib.Ecdsa384:
-		if pkey, ok := privateKey.(*ecdsa.PrivateKey); ok {
-			hash := sha512.Sum384(data)
-			sig.Data = signEcdsa(pkey, data, hash[:])
-			return
-		}
-		log.Warn("Could not cast key to ecdsa.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
-	default:
-		log.Warn("Signature algorithm type not supported", "type", sig.Algorithm)
-	}
-}
-
-func signEcdsa(privateKey *ecdsa.PrivateKey, data, hash []byte) interface{} {
-	r, s, err := ecdsa.Sign(rand.Reader, privateKey, hash)
-	if err != nil {
-		log.Warn("Could not sign data with Ecdsa256", "error", err)
-	}
-	return []*big.Int{r, s}
 }

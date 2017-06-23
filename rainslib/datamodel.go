@@ -1,14 +1,21 @@
 package rainslib
 
 import (
+	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
 	"sort"
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 )
 
 //RainsMessage contains the data of a message
@@ -189,6 +196,102 @@ type Signature struct {
 	ValidSince int64
 	ValidUntil int64
 	Data       interface{}
+}
+
+//GetSignatureMetaData returns a string containing the signature's metadata (keyspace, algorithm type, validSince and validUntil) in signable format
+func (sig Signature) GetSignatureMetaData() string {
+	return fmt.Sprintf("%d %d %d %d", sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil)
+}
+
+//SignData adds signature meta data to encoding. It then signs the encoding with privateKey and updates sig.Data field with the generated signature
+//In case of an error an error is returned indicating the cause, otherwise nil is returned
+func (sig *Signature) SignData(privateKey interface{}, encoding string) error {
+	log.Debug("Sign data", "signature", sig, "privateKey", hex.EncodeToString(privateKey.(ed25519.PrivateKey)), "encoding", encoding)
+	encoding += sig.GetSignatureMetaData()
+	data := []byte(encoding)
+	switch sig.Algorithm {
+	case Ed25519:
+		if pkey, ok := privateKey.(ed25519.PrivateKey); ok {
+			sig.Data = ed25519.Sign(pkey, data)
+			return nil
+		}
+		log.Warn("Could not assert type ed25519.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
+		return errors.New("could not assert type ed25519.PrivateKey")
+	case Ed448:
+		return errors.New("ed448 not yet supported in SignData()")
+	case Ecdsa256:
+		if pkey, ok := privateKey.(*ecdsa.PrivateKey); ok {
+			hash := sha256.Sum256(data)
+			r, s, err := ecdsa.Sign(rand.Reader, pkey, hash[:])
+			if err != nil {
+				log.Warn("Could not sign data", "error", err)
+				return err
+			}
+			sig.Data = []*big.Int{r, s}
+			return nil
+		}
+		log.Warn("Could not assert type ecdsa.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
+		return errors.New("could not assert type ecdsa.PrivateKey")
+	case Ecdsa384:
+		if pkey, ok := privateKey.(*ecdsa.PrivateKey); ok {
+			hash := sha512.Sum384(data)
+			r, s, err := ecdsa.Sign(rand.Reader, pkey, hash[:])
+			if err != nil {
+				log.Warn("Could not sign data", "error", err)
+				return err
+			}
+			sig.Data = []*big.Int{r, s}
+			return nil
+		}
+		log.Warn("Could not cast key to ecdsa.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
+		return errors.New("could not assert type ecdsa.PrivateKey")
+	default:
+		log.Warn("Signature algorithm type not supported", "type", sig.Algorithm)
+		return errors.New("signature algorithm type not supported")
+	}
+}
+
+//VerifySignature adds signature meta data to the encoding. It then signs the encoding with privateKey and compares the resulting signature with the sig.Data.
+//Returns true if there exist signatures and they are identical
+func (sig *Signature) VerifySignature(publicKey interface{}, encoding string) bool {
+	if sig.Data == nil {
+		log.Warn("sig does not contain signature data", "sig", sig)
+		return false
+	}
+	encoding += sig.GetSignatureMetaData()
+	data := []byte(encoding)
+	switch sig.Algorithm {
+	case Ed25519:
+		if pkey, ok := publicKey.(ed25519.PublicKey); ok {
+			return ed25519.Verify(pkey, data, sig.Data.([]byte))
+		}
+		log.Warn("Could not assert type ed25519.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
+	case Ed448:
+		log.Warn("Ed448 not yet Supported!")
+	case Ecdsa256:
+		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
+			if sig, ok := sig.Data.([]*big.Int); ok && len(sig) == 2 {
+				hash := sha256.Sum256(data)
+				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])
+			}
+			log.Warn("Could not assert type []*big.Int", "signatureDataType", fmt.Sprintf("%T", sig.Data))
+			return false
+		}
+		log.Warn("Could not assert type ecdsa.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
+	case Ecdsa384:
+		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
+			if sig, ok := sig.Data.([]*big.Int); ok && len(sig) == 2 {
+				hash := sha512.Sum384(data)
+				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])
+			}
+			log.Warn("Could not assert type []*big.Int", "signature", sig.Data)
+			return false
+		}
+		log.Warn("Could not assert type ecdsa.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
+	default:
+		log.Warn("Signature algorithm type not supported", "type", sig.Algorithm)
+	}
+	return false
 }
 
 type NotificationType int

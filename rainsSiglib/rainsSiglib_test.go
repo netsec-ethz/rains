@@ -236,3 +236,40 @@ func TestEncodeAndDecode(t *testing.T) {
 		t.Error("Verification of addressZone signature failed")
 	}
 }
+
+func TestSignAndVerify(t *testing.T) {
+
+}
+
+func TestVerifySignatureErrors(t *testing.T) {
+
+}
+
+func TestSignDataErrors(t *testing.T) {
+	var tests = []struct {
+		inputSig        *rainslib.Signature
+		inputPrivateKey interface{}
+		inputData       string
+		text            string
+	}{
+		{"Hello my name", 2, 1, "my"},
+		{"Hello\tmy\tname", 2, 1, "my"},
+		{"Hello\tmy\nname", 2, 1, "my"},
+		{"Hello my\nname", 3, 2, "name"},
+		{"Hello\tmy\n\nname", 3, 3, "name"},
+		{"Hello\tmy\n\nname \t\nis", 4, 4, "is"},
+		{"Hello\tmy\n\nname \t\nis", 5, 5, ""},
+	}
+	for _, test := range tests {
+		scanner := NewWordScanner([]byte(test.input))
+		for i := 0; i < test.scansCalls; i++ {
+			scanner.Scan()
+		}
+		if scanner.Text() != test.text {
+			t.Errorf("Wrong test. expected=%s, actual=%s", test.text, scanner.Text())
+		}
+		if scanner.LineNumber() != test.lineNumber {
+			t.Errorf("Line number incorrect. expected=%d, actual=%d", test.lineNumber, scanner.LineNumber())
+		}
+	}
+}
