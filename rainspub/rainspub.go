@@ -70,40 +70,44 @@ func loadAssertions() ([]*rainslib.AssertionSection, error) {
 func groupAssertionsToShards(assertions []*rainslib.AssertionSection) *rainslib.ZoneSection {
 	context := assertions[0].Context
 	zone := assertions[0].SubjectZone
-	for _, a := range assertions {
-		a.Context = ""
-		a.SubjectZone = ""
-	}
 	shards := []rainslib.MessageSectionWithSig{}
 	if len(assertions) <= int(config.MaxAssertionsPerShard) {
 		shards = []rainslib.MessageSectionWithSig{&rainslib.ShardSection{
-			RangeFrom: "",
-			RangeTo:   "",
-			Content:   assertions,
+			Context:     context,
+			SubjectZone: zone,
+			RangeFrom:   "",
+			RangeTo:     "",
+			Content:     assertions,
 		}}
 	} else {
 		firstShard := &rainslib.ShardSection{
-			RangeFrom: "",
-			RangeTo:   assertions[config.MaxAssertionsPerShard].SubjectName,
-			Content:   assertions[:config.MaxAssertionsPerShard],
+			Context:     context,
+			SubjectZone: zone,
+			RangeFrom:   "",
+			RangeTo:     assertions[config.MaxAssertionsPerShard].SubjectName,
+			Content:     assertions[:config.MaxAssertionsPerShard],
 		}
 		shards = append(shards, firstShard)
 		previousRangeEnd := assertions[config.MaxAssertionsPerShard-1].SubjectName
 		assertions = assertions[config.MaxAssertionsPerShard:]
 		for len(assertions) > int(config.MaxAssertionsPerShard) {
 			shard := &rainslib.ShardSection{
-				RangeFrom: previousRangeEnd,
-				RangeTo:   assertions[config.MaxAssertionsPerShard].SubjectName,
-				Content:   assertions[:config.MaxAssertionsPerShard],
+				Context:     context,
+				SubjectZone: zone,
+				RangeFrom:   previousRangeEnd,
+				RangeTo:     assertions[config.MaxAssertionsPerShard].SubjectName,
+				Content:     assertions[:config.MaxAssertionsPerShard],
 			}
 			shards = append(shards, shard)
 			previousRangeEnd = assertions[config.MaxAssertionsPerShard-1].SubjectName
 			assertions = assertions[config.MaxAssertionsPerShard:]
 		}
 		lastShard := &rainslib.ShardSection{
-			RangeFrom: previousRangeEnd,
-			RangeTo:   "",
-			Content:   assertions,
+			Context:     context,
+			SubjectZone: zone,
+			RangeFrom:   previousRangeEnd,
+			RangeTo:     "",
+			Content:     assertions,
 		}
 		shards = append(shards, lastShard)
 	}
@@ -155,6 +159,9 @@ func signShard(s *rainslib.ShardSection, privateKey ed25519.PrivateKey) error {
 	if ok := rainsSiglib.SignSection(s, privateKey, signature, zoneFileParser.Parser{}); !ok {
 		return errors.New("Was not able to sign and add the signature")
 	}
+	//only remove context and subjectZone after signature was added
+	s.Context = ""
+	s.SubjectZone = ""
 	err := signAssertions(s.Content, privateKey)
 	return err
 }
@@ -179,6 +186,8 @@ func signAssertions(assertions []*rainslib.AssertionSection, privateKey ed25519.
 		if ok := rainsSiglib.SignSection(a, privateKey, signature, zoneFileParser.Parser{}); !ok {
 			return errors.New("Was not able to sign and add the signature")
 		}
+		a.Context = ""
+		a.SubjectZone = ""
 	}
 	return nil
 }

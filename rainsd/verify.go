@@ -296,24 +296,41 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 func neededKeys(section rainslib.MessageSectionWithSig) map[keyCacheKey]bool {
 	neededKeys := make(map[keyCacheKey]bool)
 	switch section := section.(type) {
-	case *rainslib.AssertionSection:
+	case *rainslib.AssertionSection, *rainslib.AddressAssertionSection:
 		extractNeededKeys(section, true, neededKeys)
 	case *rainslib.ShardSection:
 		extractNeededKeys(section, false, neededKeys)
 		for _, a := range section.Content {
+			a.Context = section.Context
+			a.SubjectZone = section.SubjectZone
 			extractNeededKeys(a, true, neededKeys)
 		}
 	case *rainslib.ZoneSection:
 		extractNeededKeys(section, false, neededKeys)
 		for _, sec := range section.Content {
-			switch sec.(type) {
+			switch sec := sec.(type) {
 			case *rainslib.AssertionSection:
+				sec.Context = section.Context
+				sec.SubjectZone = section.SubjectZone
 				extractNeededKeys(sec, true, neededKeys)
 			case *rainslib.ShardSection:
+				sec.Context = section.Context
+				sec.SubjectZone = section.SubjectZone
 				extractNeededKeys(sec, false, neededKeys)
+				for _, a := range sec.Content {
+					a.Context = section.Context
+					a.SubjectZone = section.SubjectZone
+					extractNeededKeys(a, true, neededKeys)
+				}
 			default:
 				log.Warn("Not supported message section inside zone")
 			}
+		}
+	case *rainslib.AddressZoneSection:
+		extractNeededKeys(section, false, neededKeys)
+		for _, a := range section.Content {
+			a.Context = section.Context
+			extractNeededKeys(a, true, neededKeys)
 		}
 	default:
 		log.Warn("Not supported message section with sig")

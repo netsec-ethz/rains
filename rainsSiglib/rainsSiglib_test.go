@@ -291,7 +291,7 @@ func TestCheckMessageSignaturesErrors(t *testing.T) {
 	}
 }
 
-func TestSignSectionErrors(t *testing.T) {
+func TestSignSection(t *testing.T) {
 	encoder := new(zoneFileParser.Parser)
 	sections := testUtil.GetMessage().Content
 	_, pkey, _ := ed25519.GenerateKey(nil)
@@ -311,10 +311,13 @@ func TestSignSectionErrors(t *testing.T) {
 		if SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder) != test.want {
 			t.Errorf("expected=%v, actual=%v, value=%v", test.want, SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder), test.input)
 		}
+		if test.want && test.input.Sigs()[0].Data == nil {
+			t.Error("msg.Signature does not contain generated signature data")
+		}
 	}
 }
 
-func TestSignMessageErrors(t *testing.T) {
+func TestSignMessage(t *testing.T) {
 	encoder := new(zoneFileParser.Parser)
 	message := testUtil.GetMessage()
 	_, pkey, _ := ed25519.GenerateKey(nil)
@@ -334,6 +337,9 @@ func TestSignMessageErrors(t *testing.T) {
 	for _, test := range tests {
 		if SignMessage(test.input, test.inputPrivateKey, test.inputSig, encoder) != test.want {
 			t.Errorf("expected=%v, actual=%v, value=%v", test.want, SignMessage(test.input, test.inputPrivateKey, test.inputSig, encoder), test.input)
+		}
+		if test.want && test.input.Signatures[0].Data == nil {
+			t.Error("msg.Signature does not contain generated signature data")
 		}
 	}
 }

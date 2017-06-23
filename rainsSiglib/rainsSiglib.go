@@ -1,3 +1,6 @@
+//rainsSiglib provides helperfunctions to sign messages and sections and to verify the validity of signatures on messages and sections
+//These helperfunctions are not in rainslib because then we would have a circular dependency as we need rainslib and zoneFileParser to check signatures
+
 package rainsSiglib
 
 import (
@@ -21,7 +24,7 @@ import (
 //   signature meta data is added in the verifySignature() method
 func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib.KeyAlgorithmType]rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder,
 	maxVal rainslib.MaxCacheValidity) bool {
-	log.Debug("Check Section signature")
+	log.Debug(fmt.Sprintf("Check %T signature", s))
 	if s == nil {
 		log.Warn("section is nil")
 		return false
@@ -46,8 +49,10 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 				s.DeleteSig(i)
 				continue
 			} else if !sig.VerifySignature(pkey.Key, encodedSection) {
+				log.Error("", "", s)
 				return false
 			}
+			log.Debug("Signature was valid")
 			rainslib.UpdateSectionValidity(s, pkey.ValidSince, pkey.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
 		} else {
 			log.Warn("No publicKey in keymap matching algorithm type", "keymap", pkeys, "algorithmType", rainslib.KeyAlgorithmType(sig.Algorithm))
