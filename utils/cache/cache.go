@@ -13,7 +13,7 @@ import (
 //Cache is a LRU cache where some elements are not subject to the LRU removal strategy. This cache is safe for concurrent use.
 type Cache struct {
 	//maxEntries is the maximum number of cache entries before an item is evicted.
-	maxEntries int
+	maxEntries uint
 
 	//hasAnyContext is true if cache also supports any context
 	hasAnyContext bool
@@ -76,11 +76,11 @@ func NewWithEvict(onEvicted func(value interface{}, key ...string), params ...in
 	return &cache, nil
 }
 
-func checkParams(params ...interface{}) (int, bool, error) {
+func checkParams(params ...interface{}) (uint, bool, error) {
 	if len(params) < 2 {
 		return 0, false, fmt.Errorf("Not enough parameters, got %d, with values: param1=%v", len(params), params)
 	}
-	maxSize, ok := params[0].(int)
+	maxSize, ok := params[0].(uint)
 	if !ok || maxSize < 1 {
 		return 0, false, fmt.Errorf("Invalid maxEntries parameter:%v", params[0])
 	}
@@ -143,7 +143,7 @@ func (c *Cache) Add(value interface{}, internal bool, context string, keys ...st
 	c.mux.Unlock()
 
 	//check if cache size is reached
-	if c.Len() > c.maxEntries {
+	if uint(c.Len()) > c.maxEntries {
 		c.RemoveWithStrategy()
 	}
 	return true

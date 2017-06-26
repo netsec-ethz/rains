@@ -72,7 +72,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 //4) encode message
 //5) sign the encoding and compare the resulting signature data with the signature data received with the message. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func CheckMessageSignatures(msg *rainslib.RainsMessage, publicKey rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder, maxVal rainslib.MaxCacheValidity) bool {
+func CheckMessageSignatures(msg *rainslib.RainsMessage, publicKey rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder) bool {
 	log.Debug("Check Message signature")
 	if msg == nil {
 		log.Warn("msg is nil")

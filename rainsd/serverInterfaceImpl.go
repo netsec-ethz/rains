@@ -200,8 +200,8 @@ func (l *pubKeyList) RemoveExpiredKeys() {
  */
 type pendingSignatureCacheImpl struct {
 	cache        *cache.Cache
-	maxElements  int
-	elementCount int
+	maxElements  uint
+	elementCount uint
 	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
 	//TODO CFE take both mutex together, here and cache
 	elemCountLock sync.RWMutex
@@ -261,14 +261,14 @@ func handleCacheSize(c *pendingSignatureCacheImpl) {
 //then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
 func (c *pendingSignatureCacheImpl) GetAllAndDelete(context, zone string) ([]sectionWithSigSender, bool) {
 	sections := []sectionWithSigSender{}
-	deleteCount := 0
+	deleteCount := uint(0)
 	v, ok := c.cache.Get(context, zone)
 	if !ok {
 		return sections, false
 	}
 	if set, ok := v.(setContainer); ok {
 		secs := set.GetAllAndDelete()
-		deleteCount = len(secs)
+		deleteCount = uint(len(secs))
 		c.cache.Remove(context, zone)
 		for _, section := range secs {
 			if s, ok := section.(pendingSignatureCacheValue); ok {
@@ -294,7 +294,7 @@ func (c *pendingSignatureCacheImpl) GetAllAndDelete(context, zone string) ([]sec
 //RemoveExpiredSections goes through the cache and removes all expired sections. If for a given context and zone there is no section left it removes the entry from cache.
 func (c *pendingSignatureCacheImpl) RemoveExpiredSections() {
 	keys := c.cache.Keys()
-	deleteCount := 0
+	deleteCount := uint(0)
 	for _, key := range keys {
 		v, ok := c.cache.Get(key[0], key[1])
 		if ok { //check if element is still contained
@@ -347,7 +347,7 @@ func (c *pendingSignatureCacheImpl) RemoveExpiredSections() {
 func (c *pendingSignatureCacheImpl) Len() int {
 	c.elemCountLock.RLock()
 	defer c.elemCountLock.RUnlock()
-	return c.elementCount
+	return int(c.elementCount)
 }
 
 type elemAndValidTo struct {
@@ -371,8 +371,8 @@ type pendingQueryCacheImpl struct {
 	//callBackCache stores to a given <context,zone,name,type> the query validity and connection information of the querier waiting for the answer.
 	//It is used to avoid sending the same query multiple times to obtain the same information.
 	callBackCache *cache.Cache
-	maxElements   int
-	elementCount  int
+	maxElements   uint
+	elementCount  uint
 	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
 	elemCountLock sync.RWMutex
 
@@ -455,7 +455,7 @@ func handlePendingQueryCacheSize(c *pendingQueryCacheImpl) {
 //If in the meantime an Add operation happened, then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
 func (c *pendingQueryCacheImpl) GetAllAndDelete(token rainslib.Token) ([]pendingQuerySetValue, bool) {
 	sendInfos := []pendingQuerySetValue{}
-	deleteCount := 0
+	deleteCount := uint(0)
 	c.activeTokenLock.RLock()
 	v, ok := c.activeTokens[token]
 	c.activeTokenLock.RUnlock()
@@ -474,7 +474,7 @@ func (c *pendingQueryCacheImpl) GetAllAndDelete(token rainslib.Token) ([]pending
 		delete(c.activeTokens, token)
 		c.activeTokenLock.RUnlock()
 		queriers := cval.set.GetAllAndDelete()
-		deleteCount = len(queriers)
+		deleteCount = uint(len(queriers))
 		for _, querier := range queriers {
 			if q, ok := querier.(pendingQuerySetValue); ok {
 				if q.validUntil > time.Now().Unix() {
@@ -509,7 +509,7 @@ func (c *pendingQueryCacheImpl) RemoveExpiredValues() {
 	c.activeTokenLock.Unlock()
 	//Delete expired received queries.
 	keys := c.callBackCache.Keys()
-	deleteCount := 0
+	deleteCount := uint(0)
 	for _, key := range keys {
 		v, ok := c.callBackCache.Get(key[0], key[1])
 		if ok { //check if element is still contained
@@ -565,7 +565,7 @@ func (c *pendingQueryCacheImpl) RemoveExpiredValues() {
 func (c *pendingQueryCacheImpl) Len() int {
 	c.elemCountLock.RLock()
 	defer c.elemCountLock.RUnlock()
-	return c.elementCount
+	return int(c.elementCount)
 }
 
 /*
@@ -579,8 +579,8 @@ func (c *pendingQueryCacheImpl) Len() int {
  */
 type negativeAssertionCacheImpl struct {
 	cache        *cache.Cache
-	maxElements  int
-	elementCount int
+	maxElements  uint
+	elementCount uint
 	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the underlying data structure.
 	elemCountLock sync.RWMutex
 }
@@ -636,7 +636,7 @@ func handleNegElementCacheSize(c *negativeAssertionCacheImpl) {
 			c.cache.Remove(key[0], key[1])
 			v, _ := v.(rangeQueryDataStruct).Get(rainslib.TotalInterval{})
 			c.elemCountLock.Lock()
-			c.elementCount -= len(v)
+			c.elementCount -= uint(len(v))
 			c.elemCountLock.Unlock()
 		}
 	}
@@ -681,13 +681,13 @@ func (c *negativeAssertionCacheImpl) GetAll(context, zone string, interval rains
 func (c *negativeAssertionCacheImpl) Len() int {
 	c.elemCountLock.RLock()
 	defer c.elemCountLock.RUnlock()
-	return c.elementCount
+	return int(c.elementCount)
 }
 
 //RemoveExpiredValues goes through the cache and removes all expired values. If for a given context and zone there is no value left it removes the entry from cache.
 func (c *negativeAssertionCacheImpl) RemoveExpiredValues() {
 	keys := c.cache.Keys()
-	deleteCount := 0
+	deleteCount := uint(0)
 	for _, key := range keys {
 		v, ok := c.cache.Get(key[0], key[1])
 		if ok { //check if element is still contained
@@ -735,7 +735,7 @@ func (c *negativeAssertionCacheImpl) Remove(context, zone string) bool {
 		rq, ok := v.(rangeQueryDataStruct)
 		if ok {
 			c.elemCountLock.Lock()
-			c.elementCount -= rq.Len()
+			c.elementCount -= uint(rq.Len())
 			c.elemCountLock.Unlock()
 		} else {
 			log.Error(fmt.Sprintf("Cache element was not of type rangeQueryDataStruct. Got:%T", v))
@@ -879,8 +879,8 @@ func (s *sortedAssertionMetaData) Get(interval rainslib.Interval) []elemAndValid
 type assertionCacheImpl struct {
 	//assertionCache stores to a given <context,zone,name,type> a set of assertions
 	assertionCache *cache.Cache
-	maxElements    int
-	elementCount   int
+	maxElements    uint
+	elementCount   uint
 	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
 	elemCountLock sync.RWMutex
 
@@ -1043,7 +1043,7 @@ func (c *assertionCacheImpl) GetInRange(context, zone string, interval rainslib.
 func (c *assertionCacheImpl) Len() int {
 	c.elemCountLock.RLock()
 	defer c.elemCountLock.RUnlock()
-	return c.elementCount
+	return int(c.elementCount)
 }
 
 //RemoveExpiredValues goes through the cache and removes all expired assertions. If for a given context and zone there is no assertion left it removes the entry from cache.
@@ -1060,8 +1060,8 @@ func (c *assertionCacheImpl) RemoveExpiredValues() {
 //deleteAssertions removes assertions from the cache and the rangeMap matching the given parameter. It does not update the cache structure.
 //if forceDelete is true then all matching assertions are deleted. Otherwise only expired once.
 //Returns the number of deleted elements
-func deleteAssertions(c *assertionCacheImpl, forceDelete bool, context string, keys ...string) int {
-	deleteCount := 0
+func deleteAssertions(c *assertionCacheImpl, forceDelete bool, context string, keys ...string) uint {
+	deleteCount := uint(0)
 	set, ok := getAssertionSet(c, context, keys...)
 	if ok {
 		vals := set.GetAll()
@@ -1154,8 +1154,8 @@ func (c *assertionCacheImpl) Remove(assertion *rainslib.AssertionSection) bool {
 type activeTokenCacheImpl struct {
 	//assertionCache stores to a given <context,zone,name,type> a set of assertions
 	activeTokenCache map[rainslib.Token]int64
-	maxElements      int
-	elementCount     int
+	maxElements      uint
+	elementCount     uint
 	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
 	elemCountLock sync.RWMutex
 

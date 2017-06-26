@@ -40,6 +40,7 @@ type rainsdConfig struct {
 	NotificationWorkerCount uint
 	CapabilitiesCacheSize   uint
 	PeerToCapCacheSize      uint
+	ActiveTokenCacheSize    uint
 	Capabilities            []rainslib.Capability
 
 	//verify

@@ -169,7 +169,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	if !ok {
 		t.Error("Was not able to generate and add a signature to the message")
 	}
-	ok = CheckMessageSignatures(&message, pKey, zoneFileParser.Parser{}, maxValidity)
+	ok = CheckMessageSignatures(&message, pKey, zoneFileParser.Parser{})
 	if !ok {
 		t.Error("Verification of message signature failed")
 	}
@@ -272,7 +272,6 @@ func TestCheckMessageSignaturesErrors(t *testing.T) {
 	message2.Capabilities = []rainslib.Capability{rainslib.Capability(":ip:")}
 	message3 := testUtil.GetMessage()
 	message3.Signatures = []rainslib.Signature{rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}}
-	maxVal := rainslib.MaxCacheValidity{AddressAssertionValidity: time.Hour}
 	var tests = []struct {
 		input          *rainslib.RainsMessage
 		inputPublicKey rainslib.PublicKey
@@ -285,8 +284,8 @@ func TestCheckMessageSignaturesErrors(t *testing.T) {
 		{&message3, rainslib.PublicKey{}, false},                //signature invalid
 	}
 	for _, test := range tests {
-		if CheckMessageSignatures(test.input, test.inputPublicKey, encoder, maxVal) != test.want {
-			t.Errorf("expected=%v, actual=%v, value=%v", test.want, CheckMessageSignatures(test.input, test.inputPublicKey, encoder, maxVal), test.input)
+		if CheckMessageSignatures(test.input, test.inputPublicKey, encoder) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, CheckMessageSignatures(test.input, test.inputPublicKey, encoder), test.input)
 		}
 	}
 }

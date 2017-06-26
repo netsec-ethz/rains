@@ -35,7 +35,7 @@ func initVerify() error {
 	var err error
 	//FIXME CFE rethink design of this cache! Should it be possible that two public keys are valid at the same time? if so then it must be specified which one is used
 	//for verifying signature. I would propose it is not possible, but then cache must be: <context, subjectZone, algoType> -> <PublicKey> where on Get() the currently valid key is returned
-	zoneKeyCache, err = createKeyCache(int(Config.ZoneKeyCacheSize))
+	zoneKeyCache, err = createKeyCache(Config.ZoneKeyCacheSize)
 	if err != nil {
 		log.Error("Cannot create zone key Cache", "error", err)
 		return err
@@ -44,19 +44,19 @@ func initVerify() error {
 		return err
 	}
 
-	infrastructureKeyCache, err = createKeyCache(int(Config.InfrastructureKeyCacheSize))
+	infrastructureKeyCache, err = createKeyCache(Config.InfrastructureKeyCacheSize)
 	if err != nil {
 		log.Error("Cannot create infrastructure key cache", "error", err)
 		return err
 	}
 
-	externalKeyCache, err = createKeyCache(int(Config.ExternalKeyCacheSize))
+	externalKeyCache, err = createKeyCache(Config.ExternalKeyCacheSize)
 	if err != nil {
 		log.Error("Cannot create external key cache", "error", err)
 		return err
 	}
 
-	pendingSignatures, err = createPendingSignatureCache(int(Config.PendingSignatureCacheSize))
+	pendingSignatures, err = createPendingSignatureCache(Config.PendingSignatureCacheSize)
 	if err != nil {
 		log.Error("Cannot create pending signature cache", "error", err)
 		return err
@@ -289,7 +289,9 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 		delegate := getDelegationAddress(section.GetContext(), section.GetSubjectZone())
 		token := rainslib.GenerateToken()
 		sendQuery(section.GetContext(), section.GetSubjectZone(), cacheValue.validUntil, rainslib.OTDelegation, token, delegate)
-		activeTokens[token] = true
+		if !activeTokens.AddToken(token, cacheValue.validUntil) {
+			log.Warn("activeTokenCache is full. Delegation query cannot be handled over the priority queue")
+		}
 	} else {
 		log.Info("already issued a delegation query for this context and zone.", "context", section.GetContext(), "zone", section.GetSubjectZone())
 	}

@@ -122,9 +122,9 @@ func loadCert() error {
 
 //CreateNotificationMsg creates a notification messages
 func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.NotificationType, data string) ([]byte, error) {
-	content := []rainslib.MessageSection{&rainslib.NotificationSection{Type: rainslib.MsgTooLarge, Token: rainslib.GenerateToken(), Data: data}}
-	msg := rainslib.RainsMessage{Token: token, Content: content}
-	//TODO CFE add infrastructure signature to query message?
+	content := []rainslib.MessageSection{&rainslib.NotificationSection{Type: rainslib.MsgTooLarge, Token: token, Data: data}}
+	msg := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Content: content}
+	//TODO CFE add infrastructure signature to notification message?
 	return msgParser.Encode(msg)
 }
 
@@ -176,7 +176,7 @@ func getDelegationAddress(context, zone string) rainslib.ConnInfo {
 }
 
 //createConnectionCache returns a newly created connection cache
-func createConnectionCache(connCacheSize int) (connectionCache, error) {
+func createConnectionCache(connCacheSize uint) (connectionCache, error) {
 	c, err := cache.NewWithEvict(func(value interface{}, key ...string) {
 		if value, ok := value.(net.Conn); ok {
 			value.Close()
@@ -189,7 +189,7 @@ func createConnectionCache(connCacheSize int) (connectionCache, error) {
 }
 
 //createCapabilityCache returns a newly created capability cache
-func createCapabilityCache(hashToCapCacheSize, connectionToCapSize int) (capabilityCache, error) {
+func createCapabilityCache(hashToCapCacheSize, connectionToCapSize uint) (capabilityCache, error) {
 	hc, err := cache.New(hashToCapCacheSize, "noAnyContext")
 	if err != nil {
 		return nil, err
@@ -205,7 +205,7 @@ func createCapabilityCache(hashToCapCacheSize, connectionToCapSize int) (capabil
 }
 
 //createKeyCache returns a newly key capability cache
-func createKeyCache(keyCacheSize int) (keyCache, error) {
+func createKeyCache(keyCacheSize uint) (keyCache, error) {
 	c, err := cache.New(keyCacheSize, "anyContext")
 	if err != nil {
 		return nil, err
@@ -213,7 +213,7 @@ func createKeyCache(keyCacheSize int) (keyCache, error) {
 	return &keyCacheImpl{cache: c}, nil
 }
 
-func createPendingSignatureCache(cacheSize int) (pendingSignatureCache, error) {
+func createPendingSignatureCache(cacheSize uint) (pendingSignatureCache, error) {
 	c, err := cache.New(cacheSize, "noAnyContext")
 	if err != nil {
 		return nil, err
@@ -221,7 +221,7 @@ func createPendingSignatureCache(cacheSize int) (pendingSignatureCache, error) {
 	return &pendingSignatureCacheImpl{cache: c, maxElements: cacheSize, elementCount: 0}, nil
 }
 
-func createPendingQueryCache(cacheSize int) (pendingQueryCache, error) {
+func createPendingQueryCache(cacheSize uint) (pendingQueryCache, error) {
 	c, err := cache.New(cacheSize, "noAnyContext")
 	if err != nil {
 		return nil, err
@@ -229,7 +229,7 @@ func createPendingQueryCache(cacheSize int) (pendingQueryCache, error) {
 	return &pendingQueryCacheImpl{callBackCache: c, maxElements: cacheSize, elementCount: 0, activeTokens: make(map[[16]byte]elemAndValidTo)}, nil
 }
 
-func createNegativeAssertionCache(cacheSize int) (negativeAssertionCache, error) {
+func createNegativeAssertionCache(cacheSize uint) (negativeAssertionCache, error) {
 	c, err := cache.New(cacheSize, "anyContext")
 	if err != nil {
 		return nil, err
@@ -238,11 +238,19 @@ func createNegativeAssertionCache(cacheSize int) (negativeAssertionCache, error)
 
 }
 
-func createAssertionCache(cacheSize int) (assertionCache, error) {
+func createAssertionCache(cacheSize uint) (assertionCache, error) {
 	c, err := cache.New(cacheSize, "anyContext")
 	if err != nil {
 		return nil, err
 	}
-	return &assertionCacheImpl{assertionCache: c, maxElements: cacheSize, elementCount: 0, rangeMap: make(map[contextAndZone]*sortedAssertionMetaData)}, nil
+	return &assertionCacheImpl{
+		assertionCache: c,
+		maxElements:    cacheSize,
+		elementCount:   0,
+		rangeMap:       make(map[contextAndZone]*sortedAssertionMetaData),
+	}, nil
+}
 
+func createActiveTokenCache(cacheSize uint) activeTokenCache {
+	return &activeTokenCacheImpl{maxElements: cacheSize, elementCount: 0, activeTokenCache: make(map[rainslib.Token]int64)}
 }

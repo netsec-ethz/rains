@@ -36,19 +36,19 @@ var addressCacheIPv6 map[string]addressSectionCache
 func initEngine() error {
 	//init Caches
 	var err error
-	pendingQueries, err = createPendingQueryCache(int(Config.PendingQueryCacheSize))
+	pendingQueries, err = createPendingQueryCache(Config.PendingQueryCacheSize)
 	if err != nil {
 		log.Error("Cannot create pending query Cache", "error", err)
 		return err
 	}
 
-	assertionsCache, err = createAssertionCache(int(Config.AssertionCacheSize))
+	assertionsCache, err = createAssertionCache(Config.AssertionCacheSize)
 	if err != nil {
 		log.Error("Cannot create assertion Cache", "error", err)
 		return err
 	}
 
-	negAssertionCache, err = createNegativeAssertionCache(int(Config.NegativeAssertionCacheSize))
+	negAssertionCache, err = createNegativeAssertionCache(Config.NegativeAssertionCacheSize)
 	if err != nil {
 		log.Error("Cannot create negative assertion Cache", "error", err)
 		return err

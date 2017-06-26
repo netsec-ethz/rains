@@ -24,7 +24,7 @@ var cert tls.Certificate
 func initSwitchboard() error {
 	var err error
 	//init cache
-	connCache, err = createConnectionCache(int(Config.MaxConnections))
+	connCache, err = createConnectionCache(Config.MaxConnections)
 	if err != nil {
 		log.Error("Cannot create connCache", "error", err)
 		return err
