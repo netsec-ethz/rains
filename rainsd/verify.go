@@ -1,6 +1,7 @@
 package rainsd
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -8,8 +9,6 @@ import (
 	"rains/rainslib"
 	"strings"
 	"time"
-
-	"errors"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -26,6 +25,7 @@ var externalKeyCache keyCache
 //pendingSignatures contains all sections that are waiting for a delegation query to arrive such that their signatures can be verified.
 var pendingSignatures pendingSignatureCache
 
+//sigEncoder is used to translate a message or section into a signable format
 var sigEncoder rainslib.SignatureFormatEncoder
 
 //initVerify initialized the module which is responsible for checking the validity of the signatures and the structure of the sections.

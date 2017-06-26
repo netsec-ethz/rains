@@ -2,18 +2,18 @@ package rainsd
 
 import (
 	"fmt"
-
 	"rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
 )
 
 //incoming messages are buffered in one of these channels until they get processed by a worker go routine
+//the prioChannel only contains incoming sections in response to a delegation query issued by this server.
 var prioChannel chan msgSectionSender
 var normalChannel chan msgSectionSender
 var notificationChannel chan msgSectionSender
 
-//These channels limit the number of go routines working on the queue to avoid memory exhaustion.
+//These channels limit the number of go routines working on the different queues to avoid memory exhaustion.
 var prioWorkers chan struct{}
 var normalWorkers chan struct{}
 var notificationWorkers chan struct{}
@@ -69,7 +69,7 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 		sendNotificationMsg(token, sender, rainslib.MsgTooLarge)
 		return
 	}
-
+	//FIXME CFE first extract only SubjectZone to determine if zone is on blacklist and if so drop it instantly
 	msg, err := msgParser.Decode(message)
 	if err != nil {
 		sendNotificationMsg(msg.Token, sender, rainslib.BadMessage)

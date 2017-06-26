@@ -1147,3 +1147,72 @@ func (c *assertionCacheImpl) Remove(assertion *rainslib.AssertionSection) bool {
 	//CFE FIXME This does not work if we have several types per assertion
 	return deleteAssertions(c, true, assertion.Context, assertion.SubjectZone, assertion.SubjectName, assertion.Content[0].Type.String()) > 0
 }
+
+/*
+ * active token cache implementation
+ */
+type activeTokenCacheImpl struct {
+	//assertionCache stores to a given <context,zone,name,type> a set of assertions
+	activeTokenCache map[rainslib.Token]int64
+	maxElements      int
+	elementCount     int
+	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
+	elemCountLock sync.RWMutex
+
+	//cacheLock is used to protect activeTokenCache from simultaneous access.
+	cacheLock sync.RWMutex
+}
+
+//isPriority returns true and removes token from the cache if the section containing token has high priority and is not yet expired
+func (c *activeTokenCacheImpl) IsPriority(token rainslib.Token) bool {
+	c.cacheLock.RLock()
+	if exp, ok := c.activeTokenCache[token]; ok {
+		c.cacheLock.RUnlock()
+		if exp < time.Now().Unix() {
+			return false
+		}
+		c.elemCountLock.Lock()
+		c.cacheLock.Lock()
+		c.elementCount--
+		delete(c.activeTokenCache, token)
+		c.cacheLock.Unlock()
+		c.elemCountLock.Unlock()
+		return true
+	}
+	c.cacheLock.RUnlock()
+	return false
+}
+
+//AddToken adds token to the datastructure. The first incoming section with the same token will be processed with high priority
+//expiration is the query expiration time which determines how long the token is treated with high priority.
+//It returns false if the cache is full and the token is not added to the cache.
+func (c *activeTokenCacheImpl) AddToken(token rainslib.Token, expiration int64) bool {
+	c.elemCountLock.Lock()
+	defer c.elemCountLock.Unlock()
+	if c.elementCount < c.maxElements {
+		c.cacheLock.Lock()
+		defer c.cacheLock.Unlock()
+		c.elementCount++
+		c.activeTokenCache[token] = expiration
+		return true
+	}
+	return false
+}
+
+//DeleteExpiredElements removes all expired tokens from the data structure and logs their information
+//Returns all expired tokens
+func (c *activeTokenCacheImpl) DeleteExpiredElements() []rainslib.Token {
+	tokens := []rainslib.Token{}
+	c.elemCountLock.Lock()
+	c.cacheLock.Lock()
+	defer c.elemCountLock.Unlock()
+	defer c.cacheLock.Unlock()
+	for token, exp := range c.activeTokenCache {
+		if exp < time.Now().Unix() {
+			c.elementCount--
+			delete(c.activeTokenCache, token)
+			tokens = append(tokens, token)
+		}
+	}
+	return tokens
+}

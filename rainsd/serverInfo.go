@@ -341,7 +341,7 @@ type zoneAndName struct {
 	name string
 }
 
-//addressCache implements data structure for fast reverse lookup.
+//addressCache implements a data structure for fast reverse lookup.
 //All operations must be concurrency safe
 type addressSectionCache interface {
 	//AddAssertion adds an address Assertion section to the cache
@@ -355,4 +355,21 @@ type addressSectionCache interface {
 	Get(netAddr *net.IPNet, types []rainslib.ObjectType) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool)
 	//DeleteExpiredElements removes all expired elements from the data structure.
 	DeleteExpiredElements()
+}
+
+//activeTokenCache implements a data structure to quickly determine if an incoming section will be processed with priority.
+//All operations must be concurrency safe
+//This cache keeps state of all active delegation queries. The return values can be used to log information about expired queries
+//Based on the logs a higher level service can then decide to put a zone on a blacklist
+//It also reduces the time sections have to stay in the pendingSignatureCache in times of high load
+type activeTokenCache interface {
+	//isPriority returns true and removes token from the cache if the section containing token has high priority
+	IsPriority(token rainslib.Token) bool
+	//AddToken adds token to the datastructure. The first incoming section with the same token will be processed with high priority
+	//expiration is the query expiration time which determines how long the token is treated with high priority.
+	//It returns false if the cache is full and the token is not added to the cache.
+	AddToken(token rainslib.Token, expiration int64) bool
+	//DeleteExpiredElements removes all expired tokens from the data structure and logs their information
+	//IT returns all expired tokens
+	DeleteExpiredElements() []rainslib.Token
 }
