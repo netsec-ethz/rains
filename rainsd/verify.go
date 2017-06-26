@@ -62,9 +62,11 @@ func initVerify() error {
 	return nil
 }
 
-//verify verifies the incoming message section. It sends a notification if the msg section is inconsistent and it validates the signatures, stripping of expired once.
-//If no signature remain on an assertion, shard or zone then the corresponding msg section gets removed.
-//If at least one signatures cannot be verified with the public key, the whole section gets dropped
+//verify verifies msgSender.Section
+//It checks the consistency of the msgSender.Section and if it is inconsistent a notification msg is sent. (Consistency with cached elements is checked later in engine)
+//It validates all signatures (including contained once), stripping of expired once.
+//If no signature remains on an assertion, shard, zone, addressAssertion or addressZone it gets dropped (signatures of contained sections are not taken into account).
+//If there happens an error in the signature verification process of any signature, the whole section gets dropped (signatures of contained sections are also considered)
 func verify(msgSender msgSectionSender) {
 	log.Info(fmt.Sprintf("Verify %T", msgSender.Section), "msgSection", msgSender.Section)
 	switch section := msgSender.Section.(type) {
@@ -80,7 +82,6 @@ func verify(msgSender msgSectionSender) {
 		if zone, ok := section.(*rainslib.ZoneSection); ok && !containedShardsAreConsistent(zone) {
 			return //already logged, that the zone is internally invalid
 		}
-		//FIXME CFE add context and subjectZone to assertion and shard
 		if verifySignatures(sectionSender) {
 			assert(sectionSender, authoritative[contextAndZone{Context: sectionSender.Section.GetContext(), Zone: sectionSender.Section.GetSubjectZone()}])
 		}
@@ -93,7 +94,6 @@ func verify(msgSender msgSectionSender) {
 			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.RcvInconsistentMsg)
 			return //already logged, that context is invalid
 		}
-		//FIXME CFE add context and subjectZone to assertion and shard
 		if verifySignatures(sectionSender) {
 			assert(sectionSender, authoritative[contextAndZone{Context: sectionSender.Section.GetContext(), Zone: sectionSender.Section.GetSubjectZone()}])
 		}
@@ -127,7 +127,7 @@ func contextInvalid(context string) bool {
 	return false
 }
 
-//validQuery validates the expiration time of the query
+//validQuery returns false when the expires is in the past
 func validQuery(expires int64) bool {
 	if expires < time.Now().Unix() {
 		log.Info("Query expired", "expirationTime", expires)
