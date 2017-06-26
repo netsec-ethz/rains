@@ -74,7 +74,7 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 
 	//FIXME CFE get infrastructure key from cache and if not present send a infra query, add a new cache for whole messages to wait for missing public keys
 	if !rainsSiglib.CheckMessageSignatures(&msg, rainslib.PublicKey{}, sigEncoder) {
-		return
+		//return TODO CFE uncomment when we can obtain a public key
 	}
 
 	//handle message content
