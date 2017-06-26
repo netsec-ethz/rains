@@ -249,12 +249,12 @@ func TestCheckSectionSignaturesErrors(t *testing.T) {
 		inputPublicKeys map[rainslib.KeyAlgorithmType]rainslib.PublicKey
 		want            bool
 	}{
-		{nil, nil, false},                                                                                                             //msg nil
-		{&rainslib.AssertionSection{}, nil, false},                                                                                    //pkeys nil
-		{&rainslib.AssertionSection{}, keys, false},                                                                                   //no signatures
-		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{}}, SubjectName: ":ip55:"}, keys, false},      //checkStringField false
-		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{}}}, keys, false},                             //no matching algotype in keys
-		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{Algorithm: rainslib.Ed25519}}}, keys1, false}, //sig expired
+		{nil, nil, false},                                                                                                            //msg nil
+		{&rainslib.AssertionSection{}, nil, false},                                                                                   //pkeys nil
+		{&rainslib.AssertionSection{}, keys, true},                                                                                   //no signatures
+		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{}}, SubjectName: ":ip55:"}, keys, false},     //checkStringField false
+		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{}}}, keys, false},                            //no matching algotype in keys
+		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{Algorithm: rainslib.Ed25519}}}, keys1, true}, //sig expired
 		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{Algorithm: rainslib.Ed25519,
 			ValidUntil: time.Now().Add(time.Second).Unix()}}}, keys1, false}, //VerifySignature invalid
 	}

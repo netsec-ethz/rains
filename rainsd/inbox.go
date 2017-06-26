@@ -18,9 +18,8 @@ var prioWorkers chan struct{}
 var normalWorkers chan struct{}
 var notificationWorkers chan struct{}
 
-//activeTokens contains tokens created by this server (indicate self issued queries)
-//TODO create a mechanism such that this map does not grow too much in case of an attack. -> If the token is evicted before answer -> answer comes not on prio queue.
-//Solution: if full do not add it to cache and these answers are then not handled with priority.???
+//FIXME CFE handle activeTokenCache. -> not lru strategy. if full drop incoming message. keep state. After response handled remove from cache.
+//log if entry expired such that upper layer can do monitoring
 var activeTokens = make(map[[16]byte]bool)
 
 //capabilities stores known hashes of capabilities and for each connInfo what capability the communication partner has.

@@ -13,7 +13,7 @@ import (
 )
 
 //CheckSectionSignatures verifies all signatures on the section. Expired signatures are removed.
-//Returns true if at least one signature is valid and all signatures are correct.
+//Returns true if all signatures are correct.
 //
 //Process is defined as:
 //1) check that there is at least one signature
@@ -24,7 +24,7 @@ import (
 //   signature meta data is added in the verifySignature() method
 func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib.KeyAlgorithmType]rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder,
 	maxVal rainslib.MaxCacheValidity) bool {
-	log.Debug(fmt.Sprintf("Check %T signature", s))
+	log.Debug(fmt.Sprintf("Check %T signature", s), "section", s)
 	if s == nil {
 		log.Warn("section is nil")
 		return false
@@ -35,10 +35,10 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 	}
 	if len(s.Sigs()) == 0 {
 		log.Debug("Section contain no signatures")
-		return false
+		return true
 	}
 	if !checkStringFields(s) {
-		return false
+		return false //error already logged
 	}
 	s.Sort()
 	encodedSection := encoder.EncodeSection(s)
@@ -49,7 +49,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 				s.DeleteSig(i)
 				continue
 			} else if !sig.VerifySignature(pkey.Key, encodedSection) {
-				log.Error("", "", s)
+				log.Warn("Signature does not match", "encoding", encodedSection, "signature", sig)
 				return false
 			}
 			log.Debug("Signature was valid")
@@ -59,7 +59,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 			return false
 		}
 	}
-	return len(s.Sigs()) > 0
+	return true
 }
 
 //CheckMessageSignatures verifies all signatures on the message. Signatures that are not valid now are removed.
