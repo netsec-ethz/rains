@@ -73,7 +73,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 		log.Debug("Start processing Assertion", "assertion", section)
 		if isAssertionConsistent(section) {
 			log.Debug("Assertion is consistent with cached elements.")
-			ok := assertAssertion(section.Context, section.SubjectZone, section, isAuthoritative, sectionWSSender.Token)
+			ok := assertAssertion(section, isAuthoritative, sectionWSSender.Token)
 			if ok {
 				handleAssertion(section, sectionWSSender.Token)
 			}
@@ -84,7 +84,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 		log.Debug("Start processing Shard", "shard", section)
 		if isShardConsistent(section) {
 			log.Debug("Shard is consistent with cached elements.")
-			ok := assertShard(section.Context, section.SubjectZone, section, isAuthoritative, sectionWSSender.Token)
+			ok := assertShard(section, isAuthoritative, sectionWSSender.Token)
 			if ok {
 				handlePendingQueries(section, sectionWSSender.Token)
 			}
@@ -133,10 +133,10 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 //assertAssertion adds an assertion to the assertion cache. The assertion's signatures MUST have already been verified.
 //TODO CFE only the first element of the assertion is processed
 //Returns true if the assertion can be further processed.
-func assertAssertion(context, subjectZone string, a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) bool {
+func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) bool {
 	if shouldAssertionBeCached(a) {
 		value := assertionCacheValue{section: a, validSince: a.ValidSince(), validUntil: a.ValidUntil()}
-		assertionsCache.Add(context, subjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative, value)
+		assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative, value)
 		if a.Content[0].Type == rainslib.OTDelegation {
 			for _, sig := range a.Signatures {
 				if sig.KeySpace == rainslib.RainsKeySpace {
@@ -202,17 +202,18 @@ func shouldAssertionBeCached(assertion *rainslib.AssertionSection) bool {
 //assertShard adds a shard to the negAssertion cache and all contained assertions to the asseriontsCache.
 //The shard's signatures and all contained assertion signatures MUST have already been verified
 //Returns true if the shard can be further processed.
-func assertShard(context, subjectZone string, shard *rainslib.ShardSection, isAuthoritative bool, token rainslib.Token) bool {
+func assertShard(shard *rainslib.ShardSection, isAuthoritative bool, token rainslib.Token) bool {
 	if shouldShardBeCached(shard) {
-		negAssertionCache.Add(context, subjectZone, isAuthoritative,
+		negAssertionCache.Add(shard.Context, shard.SubjectZone, isAuthoritative,
 			negativeAssertionCacheValue{
 				section:    shard,
 				validSince: shard.ValidSince(),
 				validUntil: shard.ValidUntil(),
 			})
 	}
-	for _, a := range shard.Content {
-		assertAssertion(context, subjectZone, a, isAuthoritative, [16]byte{})
+	for _, assertion := range shard.Content {
+		a := assertion.Copy(shard.Context, shard.SubjectZone)
+		assertAssertion(a, isAuthoritative, [16]byte{})
 	}
 	if shard.ValidSince() > time.Now().Unix() {
 		pendingQueries.GetAllAndDelete(token) //shard cannot be used to answer queries, delete all waiting elements for this shard.
@@ -239,14 +240,16 @@ func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool, token rainslib
 				validUntil: zone.ValidUntil(),
 			})
 	}
-	for _, v := range zone.Content {
-		switch v := v.(type) {
+	for _, section := range zone.Content {
+		switch section := section.(type) {
 		case *rainslib.AssertionSection:
-			assertAssertion(zone.Context, zone.SubjectZone, v, isAuthoritative, [16]byte{})
+			a := section.Copy(zone.Context, zone.SubjectZone)
+			assertAssertion(a, isAuthoritative, [16]byte{})
 		case *rainslib.ShardSection:
-			assertShard(zone.Context, zone.SubjectZone, v, isAuthoritative, [16]byte{})
+			s := section.Copy(zone.Context, zone.SubjectZone)
+			assertShard(s, isAuthoritative, [16]byte{})
 		default:
-			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", section))
 		}
 	}
 	if zone.ValidSince() > time.Now().Unix() {

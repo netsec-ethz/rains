@@ -120,7 +120,7 @@ func decodeAssertion(context, zone string, scanner *WordScanner) (*rainslib.Asse
 		return nil, err
 	}
 	a := &rainslib.AssertionSection{Context: context, SubjectZone: zone, SubjectName: name, Content: objects}
-	log.Debug("decoded Assertion", "assertion", *a)
+	log.Debug("decoded Assertion", "assertion", a)
 	return a, nil
 }
 

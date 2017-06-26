@@ -52,11 +52,12 @@ func (a *AssertionSection) GetSubjectZone() string {
 	return a.SubjectZone
 }
 
-//CreateStub creates a copy of the assertion without the signatures.
-func (a *AssertionSection) CreateStub() MessageSectionWithSig {
+//Copy creates a copy of the assertion with the given context and subjectZone values
+func (a *AssertionSection) Copy(context, subjectZone string) *AssertionSection {
 	stub := &AssertionSection{}
 	*stub = *a
-	stub.DeleteAllSigs()
+	stub.Context = context
+	stub.SubjectZone = subjectZone
 	return stub
 }
 
@@ -150,6 +151,15 @@ func (a *AssertionSection) CompareTo(assertion *AssertionSection) int {
 	return 0
 }
 
+//String implements Stringer interface
+func (a *AssertionSection) String() string {
+	if a == nil {
+		return "Assertion is nil"
+	}
+	return fmt.Sprintf("Assertion:[SubjectName=%s, SubjectZone=%s, Context=%s, Content=%v, Signatures:[%v]]",
+		a.SubjectName, a.SubjectZone, a.Context, a.Content, a.Signatures)
+}
+
 //ShardSection contains information about the shard
 type ShardSection struct {
 	Content     []*AssertionSection
@@ -195,15 +205,12 @@ func (s *ShardSection) GetSubjectZone() string {
 	return s.SubjectZone
 }
 
-//CreateStub creates a copy of the shard and its contained assertions without the signatures.
-func (s *ShardSection) CreateStub() MessageSectionWithSig {
+//Copy creates a copy of the shard with the given context and subjectZone values. The contained assertions are not modified
+func (s *ShardSection) Copy(context, subjectZone string) *ShardSection {
 	stub := &ShardSection{}
 	*stub = *s
-	stub.Content = []*AssertionSection{}
-	for _, assertion := range s.Content {
-		stub.Content = append(stub.Content, assertion.CreateStub().(*AssertionSection))
-	}
-	stub.DeleteAllSigs()
+	stub.Context = context
+	stub.SubjectZone = subjectZone
 	return stub
 }
 
@@ -298,6 +305,15 @@ func (s *ShardSection) CompareTo(shard *ShardSection) int {
 	return 0
 }
 
+//String implements Stringer interface
+func (s *ShardSection) String() string {
+	if s == nil {
+		return "Shard is nil"
+	}
+	return fmt.Sprintf("Shard:[SubjectZone=%s, Context=%s, RangeFrom=%s, RangeTo=%s, Content=%v, Signatures:[%v]]",
+		s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, s.Content, s.Signatures)
+}
+
 //ZoneSection contains information about the zone
 type ZoneSection struct {
 	Signatures  []Signature
@@ -344,23 +360,6 @@ func (z *ZoneSection) GetContext() string {
 //GetSubjectZone returns the zone of the zone
 func (z *ZoneSection) GetSubjectZone() string {
 	return z.SubjectZone
-}
-
-//CreateStub creates a copy of the zone and the contained shards and assertions without the signatures.
-func (z *ZoneSection) CreateStub() MessageSectionWithSig {
-	stub := &ZoneSection{}
-	*stub = *z
-	stub.Content = []MessageSectionWithSig{}
-	for _, section := range z.Content {
-		switch section := section.(type) {
-		case *AssertionSection, *ShardSection:
-			stub.Content = append(stub.Content, section.CreateStub())
-		default:
-			log.Warn("Unknown message section", "messageSection", section)
-		}
-	}
-	stub.DeleteAllSigs()
-	return stub
 }
 
 //Begin returns the begining of the interval of this zone.
@@ -482,6 +481,15 @@ func (z *ZoneSection) CompareTo(zone *ZoneSection) int {
 		}
 	}
 	return 0
+}
+
+//String implements Stringer interface
+func (z *ZoneSection) String() string {
+	if z == nil {
+		return "Zone is nil"
+	}
+	return fmt.Sprintf("Zone:[SubjectZone=%s, Context=%s, Content=%v, Signatures=[%v]]",
+		z.SubjectZone, z.Context, z.Content, z.Signatures)
 }
 
 //QuerySection contains information about the query

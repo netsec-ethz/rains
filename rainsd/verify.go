@@ -282,6 +282,7 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 	ok = pendingSignatures.Add(section.GetContext(), section.GetSubjectZone(), cacheValue)
 	log.Info("Section added to the pending signature cache", "section", section)
 	if ok {
+		//FIXME CFE delegation query for a delegation assertion must go to a different location
 		delegate := getDelegationAddress(section.GetContext(), section.GetSubjectZone())
 		token := rainslib.GenerateToken()
 		sendQuery(section.GetContext(), section.GetSubjectZone(), cacheValue.validUntil, rainslib.OTDelegation, token, delegate)
@@ -293,44 +294,46 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 }
 
 //neededKeys returns the set of public key identifiers necessary to verify all rains signatures on the section
+//it also returns assertions that contains a currently valid delegation (valid in terms of the signature's time validity)
 func neededKeys(section rainslib.MessageSectionWithSig) map[keyCacheKey]bool {
 	neededKeys := make(map[keyCacheKey]bool)
 	switch section := section.(type) {
 	case *rainslib.AssertionSection, *rainslib.AddressAssertionSection:
-		extractNeededKeys(section, true, neededKeys)
+		extractNeededKeys(section, neededKeys)
+
 	case *rainslib.ShardSection:
-		extractNeededKeys(section, false, neededKeys)
+		extractNeededKeys(section, neededKeys)
 		for _, a := range section.Content {
 			a.Context = section.Context
 			a.SubjectZone = section.SubjectZone
-			extractNeededKeys(a, true, neededKeys)
+			extractNeededKeys(a, neededKeys)
 		}
 	case *rainslib.ZoneSection:
-		extractNeededKeys(section, false, neededKeys)
+		extractNeededKeys(section, neededKeys)
 		for _, sec := range section.Content {
 			switch sec := sec.(type) {
 			case *rainslib.AssertionSection:
 				sec.Context = section.Context
 				sec.SubjectZone = section.SubjectZone
-				extractNeededKeys(sec, true, neededKeys)
+				extractNeededKeys(sec, neededKeys)
 			case *rainslib.ShardSection:
 				sec.Context = section.Context
 				sec.SubjectZone = section.SubjectZone
-				extractNeededKeys(sec, false, neededKeys)
+				extractNeededKeys(sec, neededKeys)
 				for _, a := range sec.Content {
 					a.Context = section.Context
 					a.SubjectZone = section.SubjectZone
-					extractNeededKeys(a, true, neededKeys)
+					extractNeededKeys(section, neededKeys)
 				}
 			default:
 				log.Warn("Not supported message section inside zone")
 			}
 		}
 	case *rainslib.AddressZoneSection:
-		extractNeededKeys(section, false, neededKeys)
+		extractNeededKeys(section, neededKeys)
 		for _, a := range section.Content {
 			a.Context = section.Context
-			extractNeededKeys(a, true, neededKeys)
+			extractNeededKeys(a, neededKeys)
 		}
 	default:
 		log.Warn("Not supported message section with sig")
@@ -338,23 +341,27 @@ func neededKeys(section rainslib.MessageSectionWithSig) map[keyCacheKey]bool {
 	return neededKeys
 }
 
-func extractNeededKeys(section rainslib.MessageSectionWithSig, isAssertion bool, keys map[keyCacheKey]bool) {
+//extractNeededKeys adds all key metadata to keys which are necessary to verify all section's signatures
+//returns true if section is an assertion that contains a currently valid delegation
+func extractNeededKeys(section rainslib.MessageSectionWithSig, keys map[keyCacheKey]bool) {
 	for _, sig := range section.Sigs() {
 		if sig.KeySpace != rainslib.RainsKeySpace {
 			log.Debug("external keyspace", "keySpaceID", sig.KeySpace)
 			continue
 		}
-		if isAssertion {
-			containsDelegation, allElementsDelegations := analyseAssertionContent(section.(*rainslib.AssertionSection))
+		if assertion, ok := section.(*rainslib.AssertionSection); ok {
+			containsDelegation, allElementsDelegations := analyseAssertionContent(assertion)
 			if containsDelegation {
 				key := keyCacheKey{
-					context: section.GetContext(),
-					zone:    section.(*rainslib.AssertionSection).SubjectName,
+					context: assertion.Context,
+					zone:    assertion.SubjectName,
 					keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm),
 				}
 				keys[key] = true
 			}
 			if allElementsDelegations {
+				//FIXME CFE if an assertion contains a delegation then all other elements must be delegations otherwise signature will fail.
+				//add another consistency check?
 				continue
 			}
 		}
@@ -444,6 +451,9 @@ func validShardSignatures(section *rainslib.ShardSection, keys map[rainslib.KeyA
 		if !validateSignatures(assertion, keys) {
 			return false
 		}
+		//context and subjectZone must be empty for contained assertions, but was needed for signature verification
+		assertion.Context = ""
+		assertion.SubjectZone = ""
 	}
 	return true
 }
@@ -460,12 +470,19 @@ func validZoneSignatures(section *rainslib.ZoneSection, keys map[rainslib.KeyAlg
 			if !validateSignatures(sec, keys) {
 				return false
 			}
+			//context and subjectZone must be empty for contained assertions, but was needed for signature verification
+			sec.Context = ""
+			sec.SubjectZone = ""
 		case *rainslib.ShardSection:
+			//context and subjectZone must be empty for contained shards, but was needed for signature verification
 			if !validShardSignatures(sec, keys) {
 				return false
 			}
+			sec.Context = ""
+			sec.SubjectZone = ""
 		default:
 			log.Warn("Unknown message section", "messageSection", section)
+			return false
 		}
 	}
 	return true
@@ -481,6 +498,8 @@ func validAddressZoneSignatures(section *rainslib.AddressZoneSection, keys map[r
 		if !validateSignatures(assertion, keys) {
 			return false
 		}
+		//context must be empty for contained addressAssertions, but was needed for signature verification
+		assertion.Context = ""
 	}
 	return true
 }

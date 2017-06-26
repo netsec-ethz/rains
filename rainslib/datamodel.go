@@ -126,7 +126,6 @@ type MessageSectionWithSig interface {
 	DeleteAllSigs()
 	GetContext() string
 	GetSubjectZone() string
-	CreateStub() MessageSectionWithSig
 	UpdateValidity(validSince, validUntil int64, maxValidity time.Duration)
 	ValidSince() int64
 	ValidUntil() int64
@@ -142,7 +141,6 @@ type MessageSectionWithSigForward interface {
 	DeleteAllSigs()
 	GetContext() string
 	GetSubjectZone() string
-	CreateStub() MessageSectionWithSig
 	UpdateValidity(validSince, validUntil int64, maxValidity time.Duration)
 	ValidSince() int64
 	ValidUntil() int64
@@ -300,6 +298,19 @@ func (sig *Signature) VerifySignature(publicKey interface{}, encoding string) bo
 		log.Warn("Signature algorithm type not supported", "type", sig.Algorithm)
 	}
 	return false
+}
+
+//String implements Stringer interface
+func (sig Signature) String() string {
+	data := "notYetImplementedInString()"
+	if sig.Algorithm == Ed25519 {
+		if sig.Data == nil {
+			data = "nil"
+		} else {
+			data = hex.EncodeToString(sig.Data.([]byte))
+		}
+	}
+	return fmt.Sprintf("keyspace=%d, algoType=%d, validSince=%d, validUntil=%d, data=%s", sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, data)
 }
 
 type NotificationType int
