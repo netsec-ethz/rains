@@ -81,15 +81,16 @@ func (a *AssertionSection) UpdateValidity(validSince, validUntil int64, maxValid
 	}
 	if validSince < a.validSince {
 		if validSince > time.Now().Add(maxValidity).Unix() {
-			log.Warn("Assertion validity starts too far in the future. Drop Assertion.", "assertion", *a, "newValidSince", validSince)
-			return
+			a.validSince = time.Now().Add(maxValidity).Unix()
+			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", a.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
+		} else {
+			a.validSince = validSince
 		}
-		a.validSince = validSince
 	}
 	if validUntil > a.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			a.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("Limit the validity of the assertion in the cache. Validity exceeded upper bound", "assertion", *a, "newValidUntil", validUntil)
+			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", a.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
 		} else {
 			a.validUntil = validUntil
 		}
@@ -234,15 +235,16 @@ func (s *ShardSection) UpdateValidity(validSince, validUntil int64, maxValidity 
 	}
 	if validSince < s.validSince {
 		if validSince > time.Now().Add(maxValidity).Unix() {
-			log.Warn("Shard validity starts too far in the future. Drop Shard.", "shard", *s, "newValidSince", validSince)
-			return
+			s.validSince = time.Now().Add(maxValidity).Unix()
+			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", s.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
+		} else {
+			s.validSince = validSince
 		}
-		s.validSince = validSince
 	}
 	if validUntil > s.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			s.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("Limit the validity of the shard in the cache. Validity exceeded upper bound", "shard", *s, "newValidUntil", validUntil)
+			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", s.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
 		} else {
 			s.validUntil = validUntil
 		}
@@ -382,15 +384,16 @@ func (z *ZoneSection) UpdateValidity(validSince, validUntil int64, maxValidity t
 	}
 	if validSince < z.validSince {
 		if validSince > time.Now().Add(maxValidity).Unix() {
-			log.Warn("Zone validity starts too far in the future. Drop Zone.", "zone", *z, "newValidSince", validSince)
-			return
+			z.validSince = time.Now().Add(maxValidity).Unix()
+			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", z.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
+		} else {
+			z.validSince = validSince
 		}
-		z.validSince = validSince
 	}
 	if validUntil > z.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			z.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("Limit the validity of the zone in the cache. Validity exceeded upper bound", "zone", *z, "newValidUntil", validUntil)
+			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", z.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
 		} else {
 			z.validUntil = validUntil
 		}
@@ -631,15 +634,17 @@ func (a *AddressAssertionSection) UpdateValidity(validSince, validUntil int64, m
 	}
 	if validSince < a.validSince {
 		if validSince > time.Now().Add(maxValidity).Unix() {
-			log.Warn("AddressAssertion validity starts too far in the future. Drop AddressAssertion.", "addressAssertion", *a, "newValidSince", validSince)
-			return
+			a.validSince = time.Now().Add(maxValidity).Unix()
+			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", a.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
+
+		} else {
+			a.validSince = validSince
 		}
-		a.validSince = validSince
 	}
 	if validUntil > a.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			a.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("Limit the validity of the addressAssertion in the cache. Validity exceeded upper bound", "addressAssertion", *a, "newValidUntil", validUntil)
+			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", a.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
 		} else {
 			a.validUntil = validUntil
 		}
@@ -767,15 +772,16 @@ func (z *AddressZoneSection) UpdateValidity(validSince, validUntil int64, maxVal
 	}
 	if validSince < z.validSince {
 		if validSince > time.Now().Add(maxValidity).Unix() {
-			log.Warn("AddressZone validity starts too far in the future. Drop addressZone.", "addressZone", *z, "newValidSince", validSince)
-			return
+			z.validSince = time.Now().Add(maxValidity).Unix()
+			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", z.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
+		} else {
+			z.validSince = validSince
 		}
-		z.validSince = validSince
 	}
 	if validUntil > z.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			z.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("Limit the validity of the addressZone in the cache. Validity exceeded upper bound", "addressZone", *z, "newValidUntil", validUntil)
+			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", z.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
 		} else {
 			z.validUntil = validUntil
 		}

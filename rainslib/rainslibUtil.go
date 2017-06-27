@@ -55,33 +55,36 @@ func Load(path string, object interface{}) error {
 
 //UpdateSectionValidity updates the validity of the section according to the signature validity and the publicKey validity used to verify this signature
 func UpdateSectionValidity(section MessageSectionWithSig, pkeyValidSince, pkeyValidUntil, sigValidSince, sigValidUntil int64, maxVal MaxCacheValidity) {
-	var maxValidity time.Duration
-	switch section.(type) {
-	case *AssertionSection:
-		maxValidity = maxVal.AssertionValidity
-	case *ShardSection:
-		maxValidity = maxVal.ShardValidity
-	case *ZoneSection:
-		maxValidity = maxVal.ZoneValidity
-	case *AddressAssertionSection:
-		maxValidity = maxVal.AddressAssertionValidity
-	case *AddressZoneSection:
-		maxValidity = maxVal.AddressZoneValidity
-	default:
-		log.Warn("Not supported section", "type", fmt.Sprintf("%T", section))
-	}
-	if pkeyValidSince < sigValidSince {
-		if pkeyValidUntil < sigValidUntil {
-			section.UpdateValidity(sigValidSince, pkeyValidUntil, maxValidity)
-		} else {
-			section.UpdateValidity(sigValidSince, sigValidUntil, maxValidity)
+	if section != nil {
+		var maxValidity time.Duration
+		switch section.(type) {
+		case *AssertionSection:
+			maxValidity = maxVal.AssertionValidity
+		case *ShardSection:
+			maxValidity = maxVal.ShardValidity
+		case *ZoneSection:
+			maxValidity = maxVal.ZoneValidity
+		case *AddressAssertionSection:
+			maxValidity = maxVal.AddressAssertionValidity
+		case *AddressZoneSection:
+			maxValidity = maxVal.AddressZoneValidity
+		default:
+			log.Warn("Not supported section", "type", fmt.Sprintf("%T", section))
+			return
 		}
+		if pkeyValidSince < sigValidSince {
+			if pkeyValidUntil < sigValidUntil {
+				section.UpdateValidity(sigValidSince, pkeyValidUntil, maxValidity)
+			} else {
+				section.UpdateValidity(sigValidSince, sigValidUntil, maxValidity)
+			}
 
-	} else {
-		if pkeyValidUntil < sigValidUntil {
-			section.UpdateValidity(pkeyValidSince, pkeyValidUntil, maxValidity)
 		} else {
-			section.UpdateValidity(pkeyValidSince, sigValidUntil, maxValidity)
+			if pkeyValidUntil < sigValidUntil {
+				section.UpdateValidity(pkeyValidSince, pkeyValidUntil, maxValidity)
+			} else {
+				section.UpdateValidity(pkeyValidSince, sigValidUntil, maxValidity)
+			}
 		}
 	}
 }
