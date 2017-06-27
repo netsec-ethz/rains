@@ -10,13 +10,13 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-//Object is a container for different values determined by the given type.
+//Object contains a Value of to the specified Type
 type Object struct {
 	Type  ObjectType
 	Value interface{}
 }
 
-//Sort sorts the content of the object lexicographically.
+//Sort sorts the content of o lexicographically.
 func (o *Object) Sort() {
 	if name, ok := o.Value.(NameObject); ok {
 		sort.Slice(name.Types, func(i, j int) bool { return name.Types[i] < name.Types[j] })
@@ -85,13 +85,16 @@ func (o *Object) String() string {
 	return fmt.Sprintf("OT:%d OV:%v", o.Type, o.Value)
 }
 
+//logObjectTypeAssertionFailure logs that it was not possible to type assert value as t
 func logObjectTypeAssertionFailure(t ObjectType, value interface{}) {
 	log.Error("Object Type and corresponding type assertion of object's value do not match",
 		"objectType", t, "objectValueType", fmt.Sprintf("%T", value))
 }
 
+//ObjectType identifier for object types. ID chosen according to RAINS Protocol Specification
 type ObjectType int
 
+//String returns the ID as a string
 func (o ObjectType) String() string {
 	return strconv.Itoa(int(o))
 }
@@ -161,9 +164,6 @@ const (
 	Ecdsa384 SignatureAlgorithmType = 4
 )
 
-//TODO CFE replace this type with the public key type of the crypto library we use for ed448
-type Ed448PublicKey [57]byte
-
 //HashAlgorithmType specifies a hash algorithm type
 type HashAlgorithmType int
 
@@ -214,10 +214,10 @@ func (p PublicKey) CompareTo(pkey PublicKey) int {
 	return 0
 }
 
-//NamesetExpression  encodes a modified POSIX Extended Regular Expression format
+//NamesetExpression encodes a modified POSIX Extended Regular Expression format
 type NamesetExpression string
 
-//CertificateObject contains certificate information
+//CertificateObject contains a certificate and its meta data (type, usage and hash algorithm identifier)
 type CertificateObject struct {
 	Type     ProtocolType
 	Usage    CertificateUsage
@@ -243,6 +243,7 @@ func (c CertificateObject) CompareTo(cert CertificateObject) int {
 	return bytes.Compare(c.Data, cert.Data)
 }
 
+//ProtocolType is an identifier for a protocol. The ID is chosen according to the RAINS Protocol Specification.
 type ProtocolType int
 
 const (
@@ -250,6 +251,7 @@ const (
 	PTTLS         ProtocolType = 1
 )
 
+//CertificateUsage is an identifier for a certificate usage. The ID is chosen according to the RAINS Protocol Specification.
 type CertificateUsage int
 
 const (

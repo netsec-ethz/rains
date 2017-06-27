@@ -13,6 +13,9 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
+//TODO CFE replace this type with the public key type of the crypto library we use for ed448
+type Ed448PublicKey [57]byte
+
 //RainsMsgParser contains methods to convert rainsMessages as a byte slice to an internal representation and vice versa
 type RainsMsgParser struct{}
 
@@ -160,7 +163,7 @@ func revParseObjects(content []rainslib.Object) string {
 			switch key := value.Key.(type) {
 			case ed25519.PublicKey:
 				objs += fmt.Sprintf(":OT:%v:OD:%d:KD:%v", obj.Type, rainslib.Ed25519, hex.EncodeToString(key))
-			case rainslib.Ed448PublicKey:
+			case Ed448PublicKey:
 				objs += fmt.Sprintf(":OT:%v:OD:%d:KD:%v", obj.Type, rainslib.Ed448, hex.EncodeToString(key[:]))
 			default:
 				log.Warn("not yet implemented public key type", "type", fmt.Sprintf("%T", key), "obj", obj)
