@@ -116,6 +116,7 @@ func (t Token) String() string {
 //MessageSection can be either an Assertion, Shard, Zone, Query, Notification, AddressAssertion, AddressZone, AddressQuery section
 type MessageSection interface {
 	Sort()
+	String() string
 }
 
 //MessageSectionWithSig can be either an Assertion, Shard, Zone, AddressAssertion, AddressZone
@@ -131,6 +132,7 @@ type MessageSectionWithSig interface {
 	ValidUntil() int64
 	Hash() string
 	Sort()
+	String() string
 }
 
 //MessageSectionWithSigForward can be either an Assertion, Shard or Zone
@@ -146,6 +148,7 @@ type MessageSectionWithSigForward interface {
 	ValidUntil() int64
 	Hash() string
 	Sort()
+	String() string
 	Interval
 }
 
@@ -160,10 +163,12 @@ type Interval interface {
 //TotalInterval is an interval over the whole namespace
 type TotalInterval struct{}
 
+//Begin defines the start of the total namespace
 func (t TotalInterval) Begin() string {
 	return ""
 }
 
+//End defines the end of the total namespace
 func (t TotalInterval) End() string {
 	return ""
 }
@@ -173,17 +178,21 @@ type StringInterval struct {
 	Name string
 }
 
+//Begin defines the start of a StringInterval namespace
 func (s StringInterval) Begin() string {
 	return s.Name
 }
 
+//End defines the end of a StringInterval namespace
 func (s StringInterval) End() string {
 	return s.Name
 }
 
 //Hashable can be implemented by objects that are not natively hashable.
+//For an object to be a map key (or a part thereof), it must be hashable.
 type Hashable interface {
 	//Hash must return a string uniquely identifying the object
+	//It must hold for all objects that o1 == o2 iff o1.Hash() == o2.Hash()
 	Hash() string
 }
 
@@ -199,6 +208,19 @@ type Signature struct {
 //GetSignatureMetaData returns a string containing the signature's metadata (keyspace, algorithm type, validSince and validUntil) in signable format
 func (sig Signature) GetSignatureMetaData() string {
 	return fmt.Sprintf("%d %d %d %d", sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil)
+}
+
+//String implements Stringer interface
+func (sig Signature) String() string {
+	data := "notYetImplementedInStringMethod"
+	if sig.Algorithm == Ed25519 {
+		if sig.Data == nil {
+			data = "nil"
+		} else {
+			data = hex.EncodeToString(sig.Data.([]byte))
+		}
+	}
+	return fmt.Sprintf("KS=%d AT=%d VS=%d VU=%d data=%s", sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, data)
 }
 
 //SignData adds signature meta data to encoding. It then signs the encoding with privateKey and updates sig.Data field with the generated signature
@@ -300,19 +322,6 @@ func (sig *Signature) VerifySignature(publicKey interface{}, encoding string) bo
 	return false
 }
 
-//String implements Stringer interface
-func (sig Signature) String() string {
-	data := "notYetImplementedInString()"
-	if sig.Algorithm == Ed25519 {
-		if sig.Data == nil {
-			data = "nil"
-		} else {
-			data = hex.EncodeToString(sig.Data.([]byte))
-		}
-	}
-	return fmt.Sprintf("keyspace=%d, algoType=%d, validSince=%d, validUntil=%d, data=%s", sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, data)
-}
-
 type NotificationType int
 
 const (
@@ -363,7 +372,7 @@ func (c ConnInfo) Hash() string {
 	return fmt.Sprintf("%v_%s", c.Type, c.String())
 }
 
-//Equal returns true if both Connection Information have the same type and the values corresponding to this type are identical.
+//Equal returns true if both Connection Information have the same existing type and the values corresponding to this type are identical.
 func (c ConnInfo) Equal(conn ConnInfo) bool {
 	if c.Type == conn.Type {
 		switch c.Type {

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"encoding/hex"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -154,9 +156,9 @@ func (a *AssertionSection) CompareTo(assertion *AssertionSection) int {
 //String implements Stringer interface
 func (a *AssertionSection) String() string {
 	if a == nil {
-		return "Assertion is nil"
+		return "Assertion=nil"
 	}
-	return fmt.Sprintf("Assertion:[SubjectName=%s, SubjectZone=%s, Context=%s, Content=%v, Signatures:[%v]]",
+	return fmt.Sprintf("Assertion:[SN=%s SZ=%s CTX=%s Content=%v Sig:[%v]]",
 		a.SubjectName, a.SubjectZone, a.Context, a.Content, a.Signatures)
 }
 
@@ -308,9 +310,9 @@ func (s *ShardSection) CompareTo(shard *ShardSection) int {
 //String implements Stringer interface
 func (s *ShardSection) String() string {
 	if s == nil {
-		return "Shard is nil"
+		return "Shard=nil"
 	}
-	return fmt.Sprintf("Shard:[SubjectZone=%s, Context=%s, RangeFrom=%s, RangeTo=%s, Content=%v, Signatures:[%v]]",
+	return fmt.Sprintf("Shard:[SZ=%s CTX=%s RF=%s RT=%s Content=%v Sig:[%v]]",
 		s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, s.Content, s.Signatures)
 }
 
@@ -486,10 +488,9 @@ func (z *ZoneSection) CompareTo(zone *ZoneSection) int {
 //String implements Stringer interface
 func (z *ZoneSection) String() string {
 	if z == nil {
-		return "Zone is nil"
+		return "Zone=nil"
 	}
-	return fmt.Sprintf("Zone:[SubjectZone=%s, Context=%s, Content=%v, Signatures=[%v]]",
-		z.SubjectZone, z.Context, z.Content, z.Signatures)
+	return fmt.Sprintf("Zone:[SZ=%s CTX=%s Content=%v Sig=[%v]]", z.SubjectZone, z.Context, z.Content, z.Signatures)
 }
 
 //QuerySection contains information about the query
@@ -560,6 +561,14 @@ func (q *QuerySection) CompareTo(query *QuerySection) int {
 		}
 	}
 	return 0
+}
+
+//String implements Stringer interface
+func (q *QuerySection) String() string {
+	if q == nil {
+		return "Query=nil"
+	}
+	return fmt.Sprintf("Query:[TOK=%s CTX=%s NA=%s Type=%d EXP=%d OPT:[%v]]", hex.EncodeToString(q.Token[:]), q.Context, q.Name, q.Type, q.Expires, q.Options)
 }
 
 //AddressAssertionSection contains information about the address assertion
@@ -681,6 +690,14 @@ func (a *AddressAssertionSection) CompareTo(assertion *AddressAssertionSection) 
 		}
 	}
 	return 0
+}
+
+//String implements Stringer interface
+func (a *AddressAssertionSection) String() string {
+	if a == nil {
+		return "AddressAssertion=nil"
+	}
+	return fmt.Sprintf("AddressAssertion:[SA=%s CTX=%s Content:[%v] Sig:[%v]]", a.SubjectAddr, a.Context, a.Content, a.Signatures)
 }
 
 //AddressZoneSection contains information about the address zone
@@ -815,6 +832,14 @@ func (z *AddressZoneSection) CompareTo(zone *AddressZoneSection) int {
 	return 0
 }
 
+//String implements Stringer interface
+func (z *AddressZoneSection) String() string {
+	if z == nil {
+		return "AddressZone=nil"
+	}
+	return fmt.Sprintf("AddressZone:[SA=%s CTX=%s Content:[%v] Sig:[%v]]", z.SubjectAddr, z.Context, z.Content, z.Signatures)
+}
+
 //AddressQuerySection contains information about the address query
 type AddressQuerySection struct {
 	SubjectAddr *net.IPNet
@@ -883,6 +908,14 @@ func (q *AddressQuerySection) CompareTo(query *AddressQuerySection) int {
 	return 0
 }
 
+//String implements Stringer interface
+func (q *AddressQuerySection) String() string {
+	if q == nil {
+		return "AddressQuery=nil"
+	}
+	return fmt.Sprintf("AddressQuery:[TOK=%s SA=%s CTX=%s Type=%d EXP=%d OPT:[%v]]", hex.EncodeToString(q.Token[:]), q.SubjectAddr, q.Context, q.Type, q.Expires, q.Options)
+}
+
 //NotificationSection contains information about the notification
 type NotificationSection struct {
 	//Mandatory
@@ -916,4 +949,12 @@ func (n *NotificationSection) CompareTo(notification *NotificationSection) int {
 		}
 	}
 	return 0
+}
+
+//String implements Stringer interface
+func (n *NotificationSection) String() string {
+	if n == nil {
+		return "AddressQuery=nil"
+	}
+	return fmt.Sprintf("Notification:[TOK=%s Type=%d Data=%s]", hex.EncodeToString(n.Token[:]), n.Type, n.Data)
 }

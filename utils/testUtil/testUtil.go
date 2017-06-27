@@ -8,6 +8,9 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+//CFE To compare recursively if two structs contain the same elements one can use reflect.DeepEqual(x,y interface{}) bool.
+//Unfortunately the function does not return which element(s) are not equal. We want this in a test scenario.
+
 func CheckMessage(m1, m2 rainslib.RainsMessage, t *testing.T) {
 	if m1.Token != m2.Token {
 		t.Error("Token mismatch")

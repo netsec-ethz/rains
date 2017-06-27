@@ -282,5 +282,5 @@ type NetworkAddrType int
 
 //run 'jsonenums -type=NetworkAddrType' in this directory if a new networkAddrType is added [source https://github.com/campoy/jsonenums]
 const (
-	TCP NetworkAddrType = iota
+	TCP NetworkAddrType = iota + 1
 )
