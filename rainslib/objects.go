@@ -80,6 +80,11 @@ func (o Object) CompareTo(object Object) int {
 	return 0
 }
 
+//String implements Stringer interface
+func (o *Object) String() string {
+	return fmt.Sprintf("OT:%d OV:%v", o.Type, o.Value)
+}
+
 func logObjectTypeAssertionFailure(t ObjectType, value interface{}) {
 	log.Error("Object Type and corresponding type assertion of object's value do not match",
 		"objectType", t, "objectValueType", fmt.Sprintf("%T", value))

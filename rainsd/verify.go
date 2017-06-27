@@ -80,7 +80,7 @@ func verify(msgSender msgSectionSender) {
 			return //already logged, that contained section is invalid
 		}
 		if contextInvalid(sectionSender.Section.GetContext()) {
-			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.RcvInconsistentMsg)
+			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg)
 			return //already logged, that context is invalid
 		}
 		if zone, ok := section.(*rainslib.ZoneSection); ok && !containedShardsAreConsistent(zone) {
@@ -95,7 +95,7 @@ func verify(msgSender msgSectionSender) {
 			return //already logged, that contained section is invalid
 		}
 		if contextInvalid(sectionSender.Section.GetContext()) {
-			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.RcvInconsistentMsg)
+			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg)
 			return //already logged, that context is invalid
 		}
 		if verifySignatures(sectionSender) {
@@ -103,7 +103,7 @@ func verify(msgSender msgSectionSender) {
 		}
 	case *rainslib.AddressQuerySection:
 		if contextInvalid(section.Context) {
-			sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.RcvInconsistentMsg)
+			sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTRcvInconsistentMsg)
 			return //already logged, that context is invalid
 		}
 		if validQuery(section.Expires) {
@@ -111,7 +111,7 @@ func verify(msgSender msgSectionSender) {
 		}
 	case *rainslib.QuerySection:
 		if contextInvalid(section.Context) {
-			sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.RcvInconsistentMsg)
+			sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTRcvInconsistentMsg)
 			return //already logged, that context is invalid
 		}
 		if validQuery(section.Expires) {
@@ -214,7 +214,7 @@ func containedSectionInRange(subjectName string, shard *rainslib.ShardSection, s
 	if shard.RangeFrom != "" && subjectName < shard.RangeFrom || shard.RangeTo != "" && subjectName > shard.RangeTo {
 		log.Warn("Contained assertion's subjectName is outside the shard's range", "subjectName", subjectName,
 			"Range", fmt.Sprintf("[%s:%s]", shard.RangeFrom, shard.RangeTo))
-		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.RcvInconsistentMsg)
+		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg)
 		return false
 	}
 	return true

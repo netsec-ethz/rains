@@ -440,7 +440,7 @@ func getNotificationsAndEncodings() ([]*rainslib.NotificationSection, []string) 
 	encodedToken := hex.EncodeToString(token[:])
 	notification := &rainslib.NotificationSection{
 		Token: token,
-		Type:  rainslib.NoAssertionsExist,
+		Type:  rainslib.NTNoAssertionsExist,
 		Data:  "Notification information",
 	}
 	notifications = append(notifications, notification)

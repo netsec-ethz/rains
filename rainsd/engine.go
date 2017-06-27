@@ -348,14 +348,14 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo)
 
 	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
 		log.Debug("Send a notification message back to the sender due to query option: 'Cached Answers only'")
-		sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
+		sendNotificationMsg(query.Token, sender, rainslib.NTNoAssertionAvail)
 		log.Debug("Finished handling query (unsuccessful) ", "query", query)
 		return
 	}
 
 	delegate := getDelegationAddress(query.Context, "")
 	if delegate.Equal(serverConnInfo) {
-		sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
+		sendNotificationMsg(query.Token, sender, rainslib.NTNoAssertionAvail)
 		log.Error("Stop processing query. I am authoritative and have no answer in cache")
 		return
 	}
@@ -401,14 +401,14 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo) {
 
 	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
 		log.Debug("Send a notification message back to the sender due to query option: 'Cached Answers only'")
-		sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
+		sendNotificationMsg(query.Token, sender, rainslib.NTNoAssertionAvail)
 		log.Debug("Finished handling query (unsuccessful) ", "query", query)
 		return
 	}
 	for _, zAn := range zoneAndNames {
 		delegate := getDelegationAddress(query.Context, zAn.zone)
 		if delegate.Equal(serverConnInfo) {
-			sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
+			sendNotificationMsg(query.Token, sender, rainslib.NTNoAssertionAvail)
 			log.Error("Stop processing query. I am authoritative and have no answer in cache")
 			return
 		}

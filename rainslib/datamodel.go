@@ -18,19 +18,21 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-//RainsMessage contains the data of a message
+//RainsMessage represents a Message
 type RainsMessage struct {
-	//Mandatory
-	Token   Token
-	Content []MessageSection
-
-	//Optional
-	Signatures []Signature
-	//FIXME CFE capabilities can also be represented as a hash, how should we model this?
+	//Capabilities is a slice of capabilities the server originating the message has.
+	//TODO CFE how to distinguish between hash of capability and capability itself
 	Capabilities []Capability
+	//Token is used to identify a message
+	Token Token
+	//Content is a slice of
+	Content []MessageSection
+	//Signatures authenticate the content of this message. An encoding of RainsMessage is signed by the infrastructure key of the originating server.
+	Signatures []Signature
 }
 
-//Sort sorts the sections in m.Content first by type (lexicographically) and second the sections of equal type according to their sort function.
+//Sort sorts the sections in m.Content first by Message Section Type Codes (see RAINS Protocol Specification) and
+//second the sections of equal type according to their sort function.
 func (m *RainsMessage) Sort() {
 	var assertions []*AssertionSection
 	var shards []*ShardSection
@@ -106,9 +108,10 @@ const (
 	TLSOverTCP   Capability = "urn:x-rains:tlssrv"
 )
 
-//Token is used to identify a message
+//Token identifies a message
 type Token [16]byte
 
+//String implements Stringer interface
 func (t Token) String() string {
 	return hex.EncodeToString(t[:])
 }
@@ -196,13 +199,18 @@ type Hashable interface {
 	Hash() string
 }
 
-//Signature on a Rains message or section
+//Signature contains meta data of the signature and the signature data itself.
 type Signature struct {
-	KeySpace   KeySpaceID
-	Algorithm  SignatureAlgorithmType
+	//KeySpace is an identifier of a key space
+	KeySpace KeySpaceID
+	//Algorithm determines the signature algorithm to be used for signing and verification
+	Algorithm SignatureAlgorithmType
+	//ValidSince defines the time from which on this signature is valid. ValidSince is represented as seconds since the UNIX epoch UTC.
 	ValidSince int64
+	//ValidUntil defines the time after which this signature is not valid anymore. ValidUntil is represented as seconds since the UNIX epoch UTC.
 	ValidUntil int64
-	Data       interface{}
+	//Data holds the signature data
+	Data interface{}
 }
 
 //GetSignatureMetaData returns a string containing the signature's metadata (keyspace, algorithm type, validSince and validUntil) in signable format
@@ -322,20 +330,22 @@ func (sig *Signature) VerifySignature(publicKey interface{}, encoding string) bo
 	return false
 }
 
+//NotificationType defines the type of a notification section
 type NotificationType int
 
 const (
-	Heartbeat          NotificationType = 100
-	CapHashNotKnown    NotificationType = 399
-	BadMessage         NotificationType = 400
-	RcvInconsistentMsg NotificationType = 403
-	NoAssertionsExist  NotificationType = 404
-	MsgTooLarge        NotificationType = 413
-	UnspecServerErr    NotificationType = 500
-	ServerNotCapable   NotificationType = 501
-	NoAssertionAvail   NotificationType = 504
+	NTHeartbeat          NotificationType = 100
+	NTCapHashNotKnown    NotificationType = 399
+	NTBadMessage         NotificationType = 400
+	NTRcvInconsistentMsg NotificationType = 403
+	NTNoAssertionsExist  NotificationType = 404
+	NTMsgTooLarge        NotificationType = 413
+	NTUnspecServerErr    NotificationType = 500
+	NTServerNotCapable   NotificationType = 501
+	NTNoAssertionAvail   NotificationType = 504
 )
 
+//QueryOption enables a client or server to specify performance/privacy tradeoffs
 type QueryOption int
 
 const (
@@ -351,6 +361,7 @@ const (
 
 //ConnInfo contains address information about one actor of a connection of the declared type
 type ConnInfo struct {
+	//Type determines the network address type
 	Type NetworkAddrType
 
 	TCPAddr *net.TCPAddr

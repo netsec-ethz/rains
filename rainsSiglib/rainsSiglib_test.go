@@ -94,7 +94,7 @@ func TestEncodeAndDecode(t *testing.T) {
 
 	notification := &rainslib.NotificationSection{
 		Token: rainslib.GenerateToken(),
-		Type:  rainslib.NoAssertionsExist,
+		Type:  rainslib.NTNoAssertionsExist,
 		Data:  "Notification information",
 	}
 

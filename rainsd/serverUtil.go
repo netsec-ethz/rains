@@ -122,7 +122,7 @@ func loadCert() error {
 
 //CreateNotificationMsg creates a notification messages
 func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.NotificationType, data string) ([]byte, error) {
-	content := []rainslib.MessageSection{&rainslib.NotificationSection{Type: rainslib.MsgTooLarge, Token: token, Data: data}}
+	content := []rainslib.MessageSection{&rainslib.NotificationSection{Type: rainslib.NTMsgTooLarge, Token: token, Data: data}}
 	msg := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Content: content}
 	//TODO CFE add infrastructure signature to notification message?
 	return msgParser.Encode(msg)

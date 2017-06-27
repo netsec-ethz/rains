@@ -59,13 +59,13 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 	//check message length
 	if uint(len(message)) > Config.MaxMsgByteLength {
 		token, _ := msgParser.Token(message)
-		sendNotificationMsg(token, sender, rainslib.MsgTooLarge)
+		sendNotificationMsg(token, sender, rainslib.NTMsgTooLarge)
 		return
 	}
 	//FIXME CFE first extract only SubjectZone to determine if zone is on blacklist and if so drop it instantly
 	msg, err := msgParser.Decode(message)
 	if err != nil {
-		sendNotificationMsg(msg.Token, sender, rainslib.BadMessage)
+		sendNotificationMsg(msg.Token, sender, rainslib.NTBadMessage)
 		return
 	}
 	log.Info("Parsed Message", "msg", msg)
@@ -107,7 +107,7 @@ func processCapability(caps []rainslib.Capability, sender rainslib.ConnInfo, tok
 				capabilities.Add(sender, caps)
 				handleCapabilities(caps)
 			} else {
-				sendNotificationMsg(token, sender, rainslib.CapHashNotKnown)
+				sendNotificationMsg(token, sender, rainslib.NTCapHashNotKnown)
 			}
 		} else {
 			capabilities.Add(sender, caps)
@@ -160,8 +160,8 @@ func addQueryToQueue(queryToken, msgToken rainslib.Token, section rainslib.Messa
 		normalChannel <- msgSectionSender{Sender: sender, Section: section, Token: msgToken}
 	} else {
 		log.Warn("Token of message and query section do not match.", "msgToken", msgToken, "querySectionToken", queryToken)
-		sendNotificationMsg(msgToken, sender, rainslib.BadMessage)
-		sendNotificationMsg(queryToken, sender, rainslib.BadMessage)
+		sendNotificationMsg(msgToken, sender, rainslib.NTBadMessage)
+		sendNotificationMsg(queryToken, sender, rainslib.NTBadMessage)
 	}
 }
 
