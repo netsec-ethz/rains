@@ -70,9 +70,9 @@ func loadAssertions() ([]*rainslib.AssertionSection, error) {
 func groupAssertionsToShards(assertions []*rainslib.AssertionSection) *rainslib.ZoneSection {
 	context := assertions[0].Context
 	zone := assertions[0].SubjectZone
-	shards := []rainslib.MessageSectionWithSig{}
+	shards := []rainslib.MessageSectionWithSigForward{}
 	if len(assertions) <= int(config.MaxAssertionsPerShard) {
-		shards = []rainslib.MessageSectionWithSig{&rainslib.ShardSection{
+		shards = []rainslib.MessageSectionWithSigForward{&rainslib.ShardSection{
 			Context:     context,
 			SubjectZone: zone,
 			RangeFrom:   "",

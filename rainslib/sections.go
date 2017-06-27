@@ -104,7 +104,7 @@ func (a *AssertionSection) ValidUntil() int64 {
 
 //Hash returns a string containing all information uniquely identifying an assertion.
 func (a *AssertionSection) Hash() string {
-	return fmt.Sprintf("%s_%s_%s_%v_%v", a.Context, a.SubjectZone, a.SubjectName, a.Content, a.Signatures)
+	return fmt.Sprintf("%s_%s_%s_%v_%v", a.SubjectName, a.SubjectZone, a.Context, a.Content, a.Signatures)
 }
 
 //EqualContextZoneName return true if the given assertion has the same context, zone, name.
@@ -250,11 +250,11 @@ func (s *ShardSection) ValidUntil() int64 {
 
 //Hash returns a string containing all information uniquely identifying a shard.
 func (s *ShardSection) Hash() string {
-	aHashes := ""
+	aHashes := []string{}
 	for _, a := range s.Content {
-		aHashes += a.Hash()
+		aHashes = append(aHashes, a.Hash())
 	}
-	return fmt.Sprintf("%s_%s_%s_%s_%s_%v", s.Context, s.SubjectZone, s.RangeFrom, s.RangeTo, aHashes, s.Signatures)
+	return fmt.Sprintf("%s_%s_%s_%s_[%s]_%v", s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, strings.Join(aHashes, " "), s.Signatures)
 }
 
 //Sort sorts the content of the shard lexicographically.
@@ -310,7 +310,7 @@ type ZoneSection struct {
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
-	Content     []MessageSectionWithSig
+	Content     []MessageSectionWithSigForward
 	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
@@ -386,16 +386,17 @@ func (z *ZoneSection) ValidUntil() int64 {
 
 //Hash returns a string containing all information uniquely identifying a shard.
 func (z *ZoneSection) Hash() string {
-	contentHashes := ""
+	contentHashes := []string{}
 	for _, v := range z.Content {
 		switch v := v.(type) {
 		case *AssertionSection, *ShardSection:
-			contentHashes += v.Hash()
+			contentHashes = append(contentHashes, v.Hash())
 		default:
 			log.Warn(fmt.Sprintf("not supported zone section content, must be assertion or shard, got %T", v))
+			return ""
 		}
 	}
-	return fmt.Sprintf("%s_%s_%s_%v", z.Context, z.SubjectZone, contentHashes, z.Signatures)
+	return fmt.Sprintf("%s_%s_[%s]_%v", z.SubjectZone, z.Context, strings.Join(contentHashes, " "), z.Signatures)
 }
 
 //Sort sorts the content of the zone lexicographically.
@@ -625,8 +626,8 @@ func (a *AddressAssertionSection) ValidUntil() int64 {
 //Hash returns a string containing all information uniquely identifying an assertion.
 func (a *AddressAssertionSection) Hash() string {
 	return fmt.Sprintf("%s_%s_%v_%v",
-		a.Context,
 		a.SubjectAddr,
+		a.Context,
 		a.Content,
 		a.Signatures)
 }
@@ -741,14 +742,14 @@ func (z *AddressZoneSection) ValidUntil() int64 {
 
 //Hash returns a string containing all information uniquely identifying a shard.
 func (z *AddressZoneSection) Hash() string {
-	contentHashes := ""
+	contentHashes := []string{}
 	for _, a := range z.Content {
-		contentHashes += a.Hash()
+		contentHashes = append(contentHashes, a.Hash())
 	}
-	return fmt.Sprintf("%s_%s_%s_%v",
-		z.Context,
+	return fmt.Sprintf("%s_%s_[%s]_%v",
 		z.SubjectAddr,
-		contentHashes,
+		z.Context,
+		strings.Join(contentHashes, " "),
 		z.Signatures)
 }
 

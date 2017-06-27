@@ -281,7 +281,7 @@ func getZonesAndEncodings() ([]*rainslib.ZoneSection, []string) {
 	shards, shardEncodings := getShardAndEncodings()
 
 	zone0 := &rainslib.ZoneSection{
-		Content:     []rainslib.MessageSectionWithSig{assertions[0], shards[1]},
+		Content:     []rainslib.MessageSectionWithSigForward{assertions[0], shards[1]},
 		Context:     ".",
 		SubjectZone: "ch",
 		Signatures:  []rainslib.Signature{getSignature()},

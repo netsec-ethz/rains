@@ -254,7 +254,7 @@ func TestConnInfoHash(t *testing.T) {
 	}
 	for i, test := range tests {
 		if test.input.Hash() != test.want {
-			t.Errorf("%d: Wrong Signature meta data. expected=%v, actual=%v", i, test.want, test.input.Hash())
+			t.Errorf("%d: Wrong Signature Hash. expected=%v, actual=%v", i, test.want, test.input.Hash())
 		}
 	}
 }
