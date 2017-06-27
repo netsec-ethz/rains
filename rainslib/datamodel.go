@@ -234,8 +234,8 @@ func (sig *Signature) SignData(privateKey interface{}, encoding string) error {
 	data := []byte(encoding)
 	switch sig.Algorithm {
 	case Ed25519:
-		log.Debug("Sign data", "signature", sig, "privateKey", hex.EncodeToString(privateKey.(ed25519.PrivateKey)), "encoding", encoding)
 		if pkey, ok := privateKey.(ed25519.PrivateKey); ok {
+			log.Debug("Sign data", "signature", sig, "privateKey", hex.EncodeToString(privateKey.(ed25519.PrivateKey)), "encoding", encoding)
 			sig.Data = ed25519.Sign(pkey, data)
 			return nil
 		}
