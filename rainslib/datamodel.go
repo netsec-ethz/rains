@@ -124,34 +124,21 @@ type MessageSection interface {
 
 //MessageSectionWithSig can be either an Assertion, Shard, Zone, AddressAssertion, AddressZone
 type MessageSectionWithSig interface {
+	MessageSection
 	Sigs() []Signature
 	AddSig(sig Signature)
-	DeleteSig(int)
-	DeleteAllSigs()
+	DeleteSig(index int)
 	GetContext() string
 	GetSubjectZone() string
 	UpdateValidity(validSince, validUntil int64, maxValidity time.Duration)
 	ValidSince() int64
 	ValidUntil() int64
 	Hash() string
-	Sort()
-	String() string
 }
 
 //MessageSectionWithSigForward can be either an Assertion, Shard or Zone
 type MessageSectionWithSigForward interface {
-	Sigs() []Signature
-	AddSig(sig Signature)
-	DeleteSig(int)
-	DeleteAllSigs()
-	GetContext() string
-	GetSubjectZone() string
-	UpdateValidity(validSince, validUntil int64, maxValidity time.Duration)
-	ValidSince() int64
-	ValidUntil() int64
-	Hash() string
-	Sort()
-	String() string
+	MessageSectionWithSig
 	Interval
 }
 

@@ -3,7 +3,6 @@ package rainsSiglib
 import (
 	"net"
 	"rains/rainslib"
-	"rains/utils/testUtil"
 	"rains/utils/zoneFileParser"
 	"testing"
 	"time"
@@ -267,10 +266,10 @@ func TestCheckSectionSignaturesErrors(t *testing.T) {
 
 func TestCheckMessageSignaturesErrors(t *testing.T) {
 	encoder := new(zoneFileParser.Parser)
-	message := testUtil.GetMessage()
-	message2 := testUtil.GetMessage()
+	message := rainslib.GetMessage()
+	message2 := rainslib.GetMessage()
 	message2.Capabilities = []rainslib.Capability{rainslib.Capability(":ip:")}
-	message3 := testUtil.GetMessage()
+	message3 := rainslib.GetMessage()
 	message3.Signatures = []rainslib.Signature{rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}}
 	var tests = []struct {
 		input          *rainslib.RainsMessage
@@ -292,7 +291,7 @@ func TestCheckMessageSignaturesErrors(t *testing.T) {
 
 func TestSignSection(t *testing.T) {
 	encoder := new(zoneFileParser.Parser)
-	sections := testUtil.GetMessage().Content
+	sections := rainslib.GetMessage().Content
 	_, pkey, _ := ed25519.GenerateKey(nil)
 	var tests = []struct {
 		input           rainslib.MessageSectionWithSig
@@ -318,7 +317,7 @@ func TestSignSection(t *testing.T) {
 
 func TestSignMessage(t *testing.T) {
 	encoder := new(zoneFileParser.Parser)
-	message := testUtil.GetMessage()
+	message := rainslib.GetMessage()
 	_, pkey, _ := ed25519.GenerateKey(nil)
 	var tests = []struct {
 		input           *rainslib.RainsMessage
@@ -344,7 +343,7 @@ func TestSignMessage(t *testing.T) {
 }
 
 func TestCheckMessageStringFields(t *testing.T) {
-	message := testUtil.GetMessage()
+	message := rainslib.GetMessage()
 	var tests = []struct {
 		input *rainslib.RainsMessage
 		want  bool
@@ -362,7 +361,7 @@ func TestCheckMessageStringFields(t *testing.T) {
 }
 
 func TestCheckStringFields(t *testing.T) {
-	sections := testUtil.GetMessage().Content
+	sections := rainslib.GetMessage().Content
 	var tests = []struct {
 		input rainslib.MessageSection
 		want  bool
@@ -412,7 +411,7 @@ func TestCheckObjectFields(t *testing.T) {
 	}{
 		{nil, true},
 		{[]rainslib.Object{}, true},
-		{testUtil.GetAllValidObjects(), true},
+		{rainslib.GetAllValidObjects(), true},
 		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTName, Value: rainslib.NameObject{Name: ":ip55:"}}}, false},
 		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTRedirection, Value: ":ip55:"}}, false},
 		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTNameset, Value: rainslib.NamesetExpression(":ip55:")}}, false},

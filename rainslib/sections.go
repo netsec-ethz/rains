@@ -39,11 +39,6 @@ func (a *AssertionSection) DeleteSig(i int) {
 	a.Signatures = append(a.Signatures[:i], a.Signatures[i+1:]...)
 }
 
-//DeleteAllSigs deletes all signatures
-func (a *AssertionSection) DeleteAllSigs() {
-	a.Signatures = []Signature{}
-}
-
 //GetContext returns the context of the assertion
 func (a *AssertionSection) GetContext() string {
 	return a.Context
@@ -190,14 +185,6 @@ func (s *ShardSection) DeleteSig(i int) {
 	s.Signatures = append(s.Signatures[:i], s.Signatures[i+1:]...)
 }
 
-//DeleteAllSigs deletes all signatures
-func (s *ShardSection) DeleteAllSigs() {
-	s.Signatures = []Signature{}
-	for _, assertion := range s.Content {
-		assertion.DeleteAllSigs()
-	}
-}
-
 //GetContext returns the context of the shard
 func (s *ShardSection) GetContext() string {
 	return s.Context
@@ -341,19 +328,6 @@ func (z *ZoneSection) AddSig(sig Signature) {
 //DeleteSig deletes ith signature
 func (z *ZoneSection) DeleteSig(i int) {
 	z.Signatures = append(z.Signatures[:i], z.Signatures[i+1:]...)
-}
-
-//DeleteAllSigs deletes all signatures
-func (z *ZoneSection) DeleteAllSigs() {
-	z.Signatures = []Signature{}
-	for _, section := range z.Content {
-		switch section := section.(type) {
-		case *AssertionSection, *ShardSection:
-			section.DeleteAllSigs()
-		default:
-			log.Warn("Unknown message section", "messageSection", section)
-		}
-	}
 }
 
 //GetContext returns the context of the zone
@@ -599,11 +573,6 @@ func (a *AddressAssertionSection) DeleteSig(i int) {
 	a.Signatures = append(a.Signatures[:i], a.Signatures[i+1:]...)
 }
 
-//DeleteAllSigs deletes all signatures
-func (a *AddressAssertionSection) DeleteAllSigs() {
-	a.Signatures = []Signature{}
-}
-
 //GetContext returns the context of the assertion
 func (a *AddressAssertionSection) GetContext() string {
 	return a.Context
@@ -616,14 +585,6 @@ func (a *AddressAssertionSection) GetSubjectZone() string {
 		return "."
 	}
 	return strings.Split(a.Context, "cx-")[1]
-}
-
-//CreateStub creates a copy of the assertion without the signatures.
-func (a *AddressAssertionSection) CreateStub() MessageSectionWithSig {
-	stub := &AddressAssertionSection{}
-	*stub = *a
-	stub.DeleteAllSigs()
-	return stub
 }
 
 //UpdateValidity updates the validity of this assertion if the validity period is extended.
@@ -730,14 +691,6 @@ func (z *AddressZoneSection) DeleteSig(i int) {
 	z.Signatures = append(z.Signatures[:i], z.Signatures[i+1:]...)
 }
 
-//DeleteAllSigs deletes all signatures
-func (z *AddressZoneSection) DeleteAllSigs() {
-	z.Signatures = []Signature{}
-	for _, assertion := range z.Content {
-		assertion.DeleteAllSigs()
-	}
-}
-
 //GetContext returns the context of the zone
 func (z *AddressZoneSection) GetContext() string {
 	return z.Context
@@ -750,18 +703,6 @@ func (z *AddressZoneSection) GetSubjectZone() string {
 		return "."
 	}
 	return strings.Split(z.Context, "cx-")[1]
-}
-
-//CreateStub creates a copy of the zone and the contained shards and assertions without the signatures.
-func (z *AddressZoneSection) CreateStub() MessageSectionWithSig {
-	stub := &AddressZoneSection{}
-	*stub = *z
-	stub.Content = []*AddressAssertionSection{}
-	for _, assertion := range z.Content {
-		stub.Content = append(stub.Content, assertion.CreateStub().(*AddressAssertionSection))
-	}
-	stub.DeleteAllSigs()
-	return stub
 }
 
 //UpdateValidity updates the validity of this addressZone if the validity period is extended.

@@ -15,13 +15,13 @@ type wantNew struct {
 
 func TestNew(t *testing.T) {
 	inputs := [][]interface{}{
-		[]interface{}{10, "anyContext"},
-		[]interface{}{10, "noAnyContext"},
-		[]interface{}{10, "anyContext", "something", "not important"},
-		[]interface{}{},                  //no parameters
-		[]interface{}{10},                //second parameter missing
-		[]interface{}{"10"},              //wrong type
-		[]interface{}{10, "wrong input"}, //wrong value for second parameter
+		[]interface{}{uint(10), "anyContext"},
+		[]interface{}{uint(10), "noAnyContext"},
+		[]interface{}{uint(10), "anyContext", "something", "not important"},
+		[]interface{}{},                        //no parameters
+		[]interface{}{uint(10)},                //second parameter missing
+		[]interface{}{"10"},                    //wrong type
+		[]interface{}{uint(10), "wrong input"}, //wrong value for second parameter
 	}
 	want := []wantNew{
 		wantNew{hasError: false, isAnyCacheInit: true},
@@ -69,8 +69,8 @@ func TestNew(t *testing.T) {
 			t.Error("lrulist not initialized")
 		}
 	}
-	cache, _ := New(10, "anyContext")
-	cache2, _ := New(10, "anyContext")
+	cache, _ := New(uint(10), "anyContext")
+	cache2, _ := New(uint(10), "anyContext")
 	if cache == cache2 {
 		t.Errorf("New did not create a new instance, %v == %v", cache, cache2)
 	}
@@ -83,13 +83,13 @@ type newWithEvictInput struct {
 
 func TestNewWithEvict(t *testing.T) {
 	inputs := []newWithEvictInput{
-		newWithEvictInput{function: func(value interface{}, key ...string) {}, key: []interface{}{10, "anyContext"}},
-		newWithEvictInput{function: func(value interface{}, key ...string) { a := 5; fmt.Println(a) }, key: []interface{}{10, "noAnyContext"}},
-		newWithEvictInput{function: func(value interface{}, key ...string) {}, key: []interface{}{10, "anyContext", "something", "not important"}},
-		newWithEvictInput{function: nil, key: []interface{}{""}},                //no parameters
-		newWithEvictInput{function: nil, key: []interface{}{10}},                //second parameter missing
-		newWithEvictInput{function: nil, key: []interface{}{"10"}},              //wrong type
-		newWithEvictInput{function: nil, key: []interface{}{10, "wrong input"}}, //wrong value for second parameter
+		newWithEvictInput{function: func(value interface{}, key ...string) {}, key: []interface{}{uint(10), "anyContext"}},
+		newWithEvictInput{function: func(value interface{}, key ...string) { a := 5; fmt.Println(a) }, key: []interface{}{uint(10), "noAnyContext"}},
+		newWithEvictInput{function: func(value interface{}, key ...string) {}, key: []interface{}{uint(10), "anyContext", "something", "not important"}},
+		newWithEvictInput{function: nil, key: []interface{}{""}},                      //no parameters
+		newWithEvictInput{function: nil, key: []interface{}{uint(10)}},                //second parameter missing
+		newWithEvictInput{function: nil, key: []interface{}{"10"}},                    //wrong type
+		newWithEvictInput{function: nil, key: []interface{}{uint(10), "wrong input"}}, //wrong value for second parameter
 	}
 	want := []wantNew{
 		wantNew{hasError: false, isAnyCacheInit: true},
@@ -137,15 +137,15 @@ func TestNewWithEvict(t *testing.T) {
 			t.Error("lrulist not initialized")
 		}
 	}
-	cache, _ := NewWithEvict(func(value interface{}, key ...string) {}, 10, "anyContext")
-	cache2, _ := NewWithEvict(func(value interface{}, key ...string) {}, 10, "anyContext")
+	cache, _ := NewWithEvict(func(value interface{}, key ...string) {}, uint(10), "anyContext")
+	cache2, _ := NewWithEvict(func(value interface{}, key ...string) {}, uint(10), "anyContext")
 	if cache == cache2 {
 		t.Errorf("NewWithEvict did not create a new instance, %v == %v", cache, cache2)
 	}
 }
 
 type wantCheckParams struct {
-	maxEntries    int
+	maxEntries    uint
 	hasAnyContext bool
 	errorMsg      string
 }
@@ -153,14 +153,13 @@ type wantCheckParams struct {
 func TestCheckParams(t *testing.T) {
 	inputs := [][]interface{}{
 		[]interface{}{},
-		[]interface{}{10},
+		[]interface{}{uint(10)},
 		[]interface{}{"Test"},
 		[]interface{}{"Test", "Hello"},
-		[]interface{}{10, "anyContext"},
-		[]interface{}{0, "anyContext"},
-		[]interface{}{-5, "anyContext"},
-		[]interface{}{1, "noAnyContext"},
-		[]interface{}{1, "aoiwhf"},
+		[]interface{}{uint(10), "anyContext"},
+		[]interface{}{uint(0), "anyContext"},
+		[]interface{}{uint(1), "noAnyContext"},
+		[]interface{}{uint(1), "aoiwhf"},
 	}
 	want := []wantCheckParams{
 		wantCheckParams{maxEntries: 0, hasAnyContext: false, errorMsg: "Not enough parameters, got 0, with values: param1=[]"},
@@ -169,7 +168,6 @@ func TestCheckParams(t *testing.T) {
 		wantCheckParams{maxEntries: 0, hasAnyContext: false, errorMsg: "Invalid maxEntries parameter:Test"},
 		wantCheckParams{maxEntries: 10, hasAnyContext: true, errorMsg: ""},
 		wantCheckParams{maxEntries: 0, hasAnyContext: false, errorMsg: "Invalid maxEntries parameter:0"},
-		wantCheckParams{maxEntries: 0, hasAnyContext: false, errorMsg: "Invalid maxEntries parameter:-5"},
 		wantCheckParams{maxEntries: 1, hasAnyContext: false, errorMsg: ""},
 		wantCheckParams{maxEntries: 0, hasAnyContext: false, errorMsg: "Invalid value on second parameter (hasAnyContext): param2=aoiwhf"},
 	}
@@ -216,7 +214,7 @@ func TestAdd(t *testing.T) {
 		t.Error("Element inserted in wrong list")
 	}
 	//check that it does not reinitialize when already initialized.
-	cache, _ = New(10, "anyContext")
+	cache, _ = New(uint(10), "anyContext")
 	cache.cache["hello"] = nil
 	cache.cacheAnyContext["asdf"] = nil
 	list := cache.list
@@ -226,7 +224,7 @@ func TestAdd(t *testing.T) {
 		t.Error("cache reinitialized")
 	}
 	//check that external element is added correctly
-	cache, _ = New(10, "anyContext")
+	cache, _ = New(uint(10), "anyContext")
 	cache.Add("val", false, ".", "many", "keys")
 	if _, ok := cache.cache[".:many:keys"]; !ok {
 		t.Error("Value not added to cache")
@@ -241,7 +239,7 @@ func TestAdd(t *testing.T) {
 		t.Error("Element inserted in wrong list")
 	}
 	//check that element is only added to cacheAnyContext if hasAnyContext is true
-	cache, _ = New(10, "noAnyContext")
+	cache, _ = New(uint(10), "noAnyContext")
 	cache.Add("val", false, ".", "many", "keys")
 	if _, ok := cache.cache[".:many:keys"]; !ok {
 		t.Error("Value not added to cache")
@@ -256,7 +254,7 @@ func TestAdd(t *testing.T) {
 		t.Error("Element inserted in wrong list")
 	}
 	//check that cache size exceeds not maximum
-	cache, _ = New(1, "anyContext")
+	cache, _ = New(uint(1), "anyContext")
 	cache.Add("val", false, ".", "many", "keys")
 	cache.Add("val", false, ".", "many", "keys2")
 	cache.Add("val", false, ".", "many", "keys3")
@@ -266,7 +264,7 @@ func TestAdd(t *testing.T) {
 	}
 	//concurrency test
 	runs := 1000
-	cache, _ = New(runs, "anyContext")
+	cache, _ = New(uint(runs), "anyContext")
 	var wg sync.WaitGroup
 	for i := 0; i < runs; i++ {
 		wg.Add(1)
@@ -299,7 +297,7 @@ func TestParseKeys(t *testing.T) {
 }
 
 func TestContains(t *testing.T) {
-	cache, _ := New(10, "anyContext")
+	cache, _ := New(uint(10), "anyContext")
 	if cache.Contains("", "v") {
 		t.Error("After init cache should be empty")
 	}
@@ -322,7 +320,7 @@ func TestContains(t *testing.T) {
 
 	//concurrency test
 	runs := 100000
-	cache, _ = New(runs, "anyContext")
+	cache, _ = New(uint(runs), "anyContext")
 	var wg sync.WaitGroup
 	for i := 0; i < runs; i++ {
 		wg.Add(1)
@@ -339,7 +337,7 @@ func containsValue(cache *Cache, wg *sync.WaitGroup, t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	cache, _ := New(10, "anyContext")
+	cache, _ := New(uint(10), "anyContext")
 	//check return values when element not contained
 	if val, ok := cache.Get("", "v"); val != nil || ok {
 		t.Error("After init cache should be empty")
@@ -368,7 +366,7 @@ func TestGet(t *testing.T) {
 }
 
 func TestKeys(t *testing.T) {
-	cache, _ := New(10, "anyContext")
+	cache, _ := New(uint(10), "anyContext")
 	if len(cache.Keys()) != 0 {
 		t.Error("cache not initialized with zero elements")
 	}
@@ -403,7 +401,7 @@ func TestKeys(t *testing.T) {
 }
 
 func TestLen(t *testing.T) {
-	cache, _ := New(10, "anyContext")
+	cache, _ := New(uint(10), "anyContext")
 	if cache.Len() != 0 {
 		t.Error("cache not initialized with zero elements")
 	}
@@ -427,7 +425,7 @@ func TestLen(t *testing.T) {
 
 //TODO CFE test onEvicted function
 func TestRemove(t *testing.T) {
-	cache, _ := New(10, "anyContext")
+	cache, _ := New(uint(10), "anyContext")
 	ele := cache.lruList.PushBack(&entry{value: "value", internal: false})
 	cache.list.PushBack(&entry{value: "value", internal: true})
 	cache.cache["con:test:my"] = ele
@@ -452,7 +450,7 @@ func TestRemove(t *testing.T) {
 		t.Error("element in external list should not be affected")
 	}
 	//anycontext and internal, no effect on lru (external) list
-	cache, _ = New(10, "anyContext")
+	cache, _ = New(uint(10), "anyContext")
 	ele = cache.list.PushBack(&entry{value: "value", internal: true})
 	cache.lruList.PushBack(&entry{value: "value", internal: false})
 	cache.cache["con:test:my"] = ele
@@ -475,7 +473,7 @@ func TestRemove(t *testing.T) {
 
 	//concurrency test
 	runs := 1000
-	cache, _ = New(runs, "anyContext")
+	cache, _ = New(uint(runs), "anyContext")
 	for i := 0; i < runs; i++ {
 		cache.Add("val", false, ".", "Hello", strconv.Itoa(i))
 	}
@@ -498,7 +496,7 @@ func removeValue(i int, cache *Cache, wg *sync.WaitGroup) {
 
 //TODO CFE test onEvicted function
 func TestRemoveWithStrategy(t *testing.T) {
-	cache, _ := New(10, "anyContext")
+	cache, _ := New(uint(10), "anyContext")
 	if cache.RemoveWithStrategy() {
 		t.Error("Should return false, as there is nothing to remove")
 	}
@@ -547,7 +545,7 @@ func TestRemoveWithStrategy(t *testing.T) {
 
 	//concurrency test
 	runs := 1000
-	cache, _ = New(runs, "anyContext")
+	cache, _ = New(uint(runs), "anyContext")
 	for i := 0; i < runs; i++ {
 		cache.Add("val", false, ".", "Hello", strconv.Itoa(i))
 	}

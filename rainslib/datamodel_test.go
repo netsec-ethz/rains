@@ -10,6 +10,61 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+func TestMessageSectionWithSigSignatures(t *testing.T) {
+	sig1 := Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("testData")}
+	sig2 := Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 3000, ValidUntil: 4500, Data: []byte("testData2")}
+	var tests = []struct {
+		input MessageSectionWithSig
+	}{
+		{new(AssertionSection)},
+		{new(ShardSection)},
+		{new(ZoneSection)},
+		{new(AddressAssertionSection)},
+		{new(AddressZoneSection)},
+	}
+	for i, test := range tests {
+		test.input.AddSig(sig1)
+		if len(test.input.Sigs()) != 1 {
+			t.Errorf("%d: Added signature does not match stored count. expected=%v, actual=%v", i, sig1, test.input.Sigs()[0])
+		}
+		CheckSignatures(test.input.Sigs(), []Signature{sig1}, t)
+		test.input.AddSig(sig2)
+		if len(test.input.Sigs()) != 2 {
+			t.Errorf("%d: Added signature does not match stored count. expected=%v, actual=%v", i, sig2, test.input.Sigs()[0])
+		}
+		CheckSignatures(test.input.Sigs(), []Signature{sig1, sig2}, t)
+		test.input.DeleteSig(1)
+		if len(test.input.Sigs()) != 1 {
+			t.Errorf("%d: Not the specified signature was deleted. expectedToStay=%v, actualStayed=%v", i, sig1, test.input.Sigs()[0])
+		}
+		CheckSignatures(test.input.Sigs(), []Signature{sig1}, t)
+		test.input.DeleteSig(0)
+		if len(test.input.Sigs()) != 0 {
+			t.Errorf("%d: Added signature does not match stored one. expected=%v, actual=%v", i, sig1, test.input.Sigs()[0])
+		}
+	}
+}
+
+func TestMessageSectionWithSigGetContextAndSubjectZone(t *testing.T) {
+	var tests = []struct {
+		input MessageSectionWithSig
+	}{
+		{&AssertionSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"}},
+		{&ShardSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"}},
+		{&ZoneSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"}},
+		{&AddressAssertionSection{Context: "testContextcx-testSubjectZone"}},
+		{&AddressZoneSection{Context: "testContextcx-testSubjectZone"}},
+	}
+	for i, test := range tests {
+		if test.input.GetContext() != "testContextcx-testSubjectZone" {
+			t.Errorf("%d: Context does not match. expected=testContextcx-testSubjectZone actual=%s", i, test.input.GetContext())
+		}
+		if test.input.GetSubjectZone() != "testSubjectZone" {
+			t.Errorf("%d: SubjectZone does not match. expected=testSubjectZone actual=%s", i, test.input.GetSubjectZone())
+		}
+	}
+}
+
 func TestTokenString(t *testing.T) {
 	tok := []byte("0123456789abcdsf")
 	token := Token{}
