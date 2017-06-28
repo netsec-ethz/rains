@@ -22,10 +22,14 @@ func loadConfig(configPath string) error {
 		log.Error("Could not unmarshal json format of config", "error", err)
 		return err
 	}
-	config.AssertionValidity *= time.Hour
-	config.ShardValidity *= time.Hour
-	config.ZoneValidity *= time.Hour
-	config.DelegationValidity *= time.Hour
+	config.AssertionValidSince *= time.Hour
+	config.ShardValidSince *= time.Hour
+	config.ZoneValidSince *= time.Hour
+	config.DelegationValidSince *= time.Hour
+	config.AssertionValidUntil *= time.Hour
+	config.ShardValidUntil *= time.Hour
+	config.ZoneValidUntil *= time.Hour
+	config.DelegationValidUntil *= time.Hour
 	return nil
 }
 

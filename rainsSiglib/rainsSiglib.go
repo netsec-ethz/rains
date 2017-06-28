@@ -178,7 +178,8 @@ func checkMessageStringFields(msg *rainslib.RainsMessage) bool {
 	return true
 }
 
-//checkStringFields returns true if non of the string fields of the given section contain a zone file type marker,
+//checkStringFields returns true if non of the string fields of the given section contain a zone file type marker.
+//It panics if the interface s contains a type but the interfaces value is nil
 func checkStringFields(s rainslib.MessageSection) bool {
 	switch s := s.(type) {
 	case *rainslib.AssertionSection:

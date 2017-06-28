@@ -14,10 +14,14 @@ import (
 func TestLoadConfig(t *testing.T) {
 	tcpAddr, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:5022")
 	expectedConfig := rainpubConfig{
-		AssertionValidity:     86400 * time.Hour,
-		DelegationValidity:    86400 * time.Hour,
-		ShardValidity:         86400 * time.Hour,
-		ZoneValidity:          86400 * time.Hour,
+		AssertionValidUntil:   86400 * time.Hour,
+		DelegationValidUntil:  86400 * time.Hour,
+		ShardValidUntil:       86400 * time.Hour,
+		ZoneValidUntil:        86400 * time.Hour,
+		AssertionValidSince:   0,
+		DelegationValidSince:  0,
+		ShardValidSince:       0,
+		ZoneValidSince:        0,
 		MaxAssertionsPerShard: 5,
 		ServerAddresses:       []rainslib.ConnInfo{rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr}},
 		ZoneFilePath:          "zoneFiles/chZoneFile.txt",
