@@ -9,6 +9,7 @@ import (
 	"rains/rainslib"
 	"rains/utils/protoParser"
 	"rains/utils/zoneFileParser"
+	"sort"
 	"time"
 
 	log "github.com/inconshreveable/log15"
@@ -23,53 +24,62 @@ func InitRainspub(configPath string) {
 	msgParser = new(protoParser.ProtoParserAndFramer)
 }
 
-//PublishInformation sends a signed zone to a rains servers according the the rainspub config
-func PublishInformation() {
-	//FIXME CFE remove after we have a running basic environment.
-	//Delegation to the current zone must be handled before assertions to be able to verify them.
-	sendDelegations()
-	time.Sleep(time.Second)
-
-	//TODO make validSince a parameter. Right now we use current time: time.Now()
+//PublishInformation
+//1) loads all assertions from the rains zone file.
+//2) groups assertions into shards
+//3) signs the zone and all contained shards and assertions
+//4) create a message containing the zone
+//5) send the message to all rains servers specified in the config
+func PublishInformation() error {
 	assertions, err := loadAssertions()
 	if err != nil {
-		return
+		return err
 	}
-	//TODO add additional sharding parameters to config/allow for different sharding strategies
+
+	//TODO CFE add additional sharding parameters to config/allow for different sharding strategies
 	zone := groupAssertionsToShards(assertions)
 
 	//TODO implement signing with airgapping
 	signZone(zone, zonePrivateKey)
 	if err != nil {
 		log.Warn("Was not able to sign zone.", "error", err)
+		return err
 	}
 
-	//send signed zone to rains server
+	//send signed zone to rains servers
 	msg, err := createRainsMessage(zone)
 	if err != nil {
 		log.Warn("Was not able to parse the zone to a rains message.", "error", err)
+		return err
 	}
 	sendMsg(msg)
+	return nil
 }
 
+//loadAssertions returns all assertions contained in the rains zone file or an error.
 func loadAssertions() ([]*rainslib.AssertionSection, error) {
 	file, err := ioutil.ReadFile(config.ZoneFilePath)
 	if err != nil {
 		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
-		return []*rainslib.AssertionSection{}, err
+		return nil, err
 	}
 	assertions, err := parser.Decode(file, config.ZoneFilePath)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)
-		return []*rainslib.AssertionSection{}, err
+		return nil, err
 	}
 	return assertions, nil
 }
 
 //groupAssertionsToShards creates shards containing a fixed number of assertions according to the configuration (except the last one).
+//Before grouping the assertions, it sorts them.
+//It returns a zone section containing the created shards. The contained shards and assertions still have non empty subjectZone and context values
+//as these values are needed to generate a signatures
 func groupAssertionsToShards(assertions []*rainslib.AssertionSection) *rainslib.ZoneSection {
 	context := assertions[0].Context
 	zone := assertions[0].SubjectZone
+	//the assertion compareTo function sorts first by subjectName. Thus we can use it here.
+	sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
 	shards := []rainslib.MessageSectionWithSigForward{}
 	if len(assertions) <= int(config.MaxAssertionsPerShard) {
 		shards = []rainslib.MessageSectionWithSigForward{&rainslib.ShardSection{
@@ -168,6 +178,7 @@ func signShard(s *rainslib.ShardSection, privateKey ed25519.PrivateKey) error {
 
 //signAssertions signs all assertions with the context/zone's private key.
 //TODO we should use 2 valid signatures to avoid traffic bursts when a signature expires.
+//TODO make validSince a parameter. Right now we use current time: time.Now()
 func signAssertions(assertions []*rainslib.AssertionSection, privateKey ed25519.PrivateKey) error {
 	for _, a := range assertions {
 		//TODO CFE handle multiple types per assertion
@@ -226,34 +237,4 @@ func createRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
 		return []byte{}, err
 	}
 	return byteMsg, nil
-}
-
-//sendDelegations sends the delegations to this zone such that the receiving rains server can verify the signatures on this zone's assertions.
-func sendDelegations() {
-	//load delegations
-	/*file, err := ioutil.ReadFile(config.ZoneFileDelegationPath)
-	if err != nil {
-		log.Error("Was not able to read zone file", "path", config.ZoneFileDelegationPath)
-		return
-	}
-
-	//handle delegations
-	assertions, err := parser.Decode(file, config.ZoneFileDelegationPath)
-	if err != nil {
-		log.Error("Was not able to parse zone file.", "error", err)
-		return
-	}
-	zone := groupAssertionsToShards(assertions)
-
-	signZone(zone, rootPrivateKey)
-	if err != nil {
-		log.Warn("Was not able to sign zone.", "error", err)
-	}
-
-	//send signed zone with delegations to rains server
-	msg, err := createRainsMessage(zone)
-	if err != nil {
-		log.Warn("Was not able to parse the zone to a rains message.", "error", err)
-	}
-	sendMsg(msg)*/
 }
