@@ -104,11 +104,17 @@ func (a *AssertionSection) ValidUntil() int64 {
 
 //Hash returns a string containing all information uniquely identifying an assertion.
 func (a *AssertionSection) Hash() string {
-	return fmt.Sprintf("%s_%s_%s_%v_%v", a.SubjectName, a.SubjectZone, a.Context, a.Content, a.Signatures)
+	if a == nil {
+		return "A_nil"
+	}
+	return fmt.Sprintf("A_%s_%s_%s_%v_%v", a.SubjectName, a.SubjectZone, a.Context, a.Content, a.Signatures)
 }
 
-//EqualContextZoneName return true if the given assertion has the same context, zone, name.
+//EqualContextZoneName return true if the given assertion has the same context, subjectZone, subjectName.
 func (a *AssertionSection) EqualContextZoneName(assertion *AssertionSection) bool {
+	if assertion == nil {
+		return false
+	}
 	return a.Context == assertion.Context &&
 		a.SubjectZone == assertion.SubjectZone &&
 		a.SubjectName == assertion.SubjectName
@@ -152,9 +158,9 @@ func (a *AssertionSection) CompareTo(assertion *AssertionSection) int {
 //String implements Stringer interface
 func (a *AssertionSection) String() string {
 	if a == nil {
-		return "Assertion=nil"
+		return "Assertion:nil"
 	}
-	return fmt.Sprintf("Assertion:[SN=%s SZ=%s CTX=%s Content=%v Sig:[%v]]",
+	return fmt.Sprintf("Assertion:[SN=%s SZ=%s CTX=%s CONTENT=%v SIG=%v]",
 		a.SubjectName, a.SubjectZone, a.Context, a.Content, a.Signatures)
 }
 
@@ -250,11 +256,14 @@ func (s *ShardSection) ValidUntil() int64 {
 
 //Hash returns a string containing all information uniquely identifying a shard.
 func (s *ShardSection) Hash() string {
+	if s == nil {
+		return "S_nil"
+	}
 	aHashes := []string{}
 	for _, a := range s.Content {
 		aHashes = append(aHashes, a.Hash())
 	}
-	return fmt.Sprintf("%s_%s_%s_%s_[%s]_%v", s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, strings.Join(aHashes, " "), s.Signatures)
+	return fmt.Sprintf("S_%s_%s_%s_%s_[%s]_%v", s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, strings.Join(aHashes, " "), s.Signatures)
 }
 
 //Sort sorts the content of the shard lexicographically.
@@ -299,9 +308,9 @@ func (s *ShardSection) CompareTo(shard *ShardSection) int {
 //String implements Stringer interface
 func (s *ShardSection) String() string {
 	if s == nil {
-		return "Shard=nil"
+		return "Shard:nil"
 	}
-	return fmt.Sprintf("Shard:[SZ=%s CTX=%s RF=%s RT=%s Content=%v Sig:[%v]]",
+	return fmt.Sprintf("Shard:[SZ=%s CTX=%s RF=%s RT=%s CONTENT=%v SIG=%v]",
 		s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, s.Content, s.Signatures)
 }
 
@@ -386,6 +395,9 @@ func (z *ZoneSection) ValidUntil() int64 {
 
 //Hash returns a string containing all information uniquely identifying a shard.
 func (z *ZoneSection) Hash() string {
+	if z == nil {
+		return "Z_nil"
+	}
 	contentHashes := []string{}
 	for _, v := range z.Content {
 		switch v := v.(type) {
@@ -396,7 +408,7 @@ func (z *ZoneSection) Hash() string {
 			return ""
 		}
 	}
-	return fmt.Sprintf("%s_%s_[%s]_%v", z.SubjectZone, z.Context, strings.Join(contentHashes, " "), z.Signatures)
+	return fmt.Sprintf("Z_%s_%s_[%s]_%v", z.SubjectZone, z.Context, strings.Join(contentHashes, " "), z.Signatures)
 }
 
 //Sort sorts the content of the zone lexicographically.
@@ -466,9 +478,9 @@ func (z *ZoneSection) CompareTo(zone *ZoneSection) int {
 //String implements Stringer interface
 func (z *ZoneSection) String() string {
 	if z == nil {
-		return "Zone=nil"
+		return "Zone:nil"
 	}
-	return fmt.Sprintf("Zone:[SZ=%s CTX=%s Content=%v Sig=[%v]]", z.SubjectZone, z.Context, z.Content, z.Signatures)
+	return fmt.Sprintf("Zone:[SZ=%s CTX=%s CONTENT=%v SIG=%v]", z.SubjectZone, z.Context, z.Content, z.Signatures)
 }
 
 //QuerySection contains information about the query
@@ -486,7 +498,12 @@ type QuerySection struct {
 
 //ContainsOption returns true if the query contains the given query option.
 func (q QuerySection) ContainsOption(option QueryOption) bool {
-	for _, opt := range q.Options {
+	return containsOption(option, q.Options)
+}
+
+//containsOption return true if option is contained in options
+func containsOption(option QueryOption, options []QueryOption) bool {
+	for _, opt := range options {
 		if opt == option {
 			return true
 		}
@@ -544,9 +561,9 @@ func (q *QuerySection) CompareTo(query *QuerySection) int {
 //String implements Stringer interface
 func (q *QuerySection) String() string {
 	if q == nil {
-		return "Query=nil"
+		return "Query:nil"
 	}
-	return fmt.Sprintf("Query:[TOK=%s CTX=%s NA=%s Type=%d EXP=%d OPT:[%v]]", hex.EncodeToString(q.Token[:]), q.Context, q.Name, q.Type, q.Expires, q.Options)
+	return fmt.Sprintf("Query:[TOK=%s CTX=%s NA=%s TYPE=%d EXP=%d OPT=%v]", hex.EncodeToString(q.Token[:]), q.Context, q.Name, q.Type, q.Expires, q.Options)
 }
 
 //AddressAssertionSection contains information about the address assertion
@@ -625,7 +642,10 @@ func (a *AddressAssertionSection) ValidUntil() int64 {
 
 //Hash returns a string containing all information uniquely identifying an assertion.
 func (a *AddressAssertionSection) Hash() string {
-	return fmt.Sprintf("%s_%s_%v_%v",
+	if a == nil {
+		return "AA_nil"
+	}
+	return fmt.Sprintf("AA_%s_%s_%v_%v",
 		a.SubjectAddr,
 		a.Context,
 		a.Content,
@@ -662,9 +682,9 @@ func (a *AddressAssertionSection) CompareTo(assertion *AddressAssertionSection) 
 //String implements Stringer interface
 func (a *AddressAssertionSection) String() string {
 	if a == nil {
-		return "AddressAssertion=nil"
+		return "AddressAssertion:nil"
 	}
-	return fmt.Sprintf("AddressAssertion:[SA=%s CTX=%s Content:[%v] Sig:[%v]]", a.SubjectAddr, a.Context, a.Content, a.Signatures)
+	return fmt.Sprintf("AddressAssertion:[SA=%s CTX=%s CONTENT=%v SIG=%v]", a.SubjectAddr, a.Context, a.Content, a.Signatures)
 }
 
 //AddressZoneSection contains information about the address zone
@@ -742,11 +762,14 @@ func (z *AddressZoneSection) ValidUntil() int64 {
 
 //Hash returns a string containing all information uniquely identifying a shard.
 func (z *AddressZoneSection) Hash() string {
+	if z == nil {
+		return "AZ_nil"
+	}
 	contentHashes := []string{}
 	for _, a := range z.Content {
 		contentHashes = append(contentHashes, a.Hash())
 	}
-	return fmt.Sprintf("%s_%s_[%s]_%v",
+	return fmt.Sprintf("AZ_%s_%s_[%s]_%v",
 		z.SubjectAddr,
 		z.Context,
 		strings.Join(contentHashes, " "),
@@ -783,9 +806,9 @@ func (z *AddressZoneSection) CompareTo(zone *AddressZoneSection) int {
 //String implements Stringer interface
 func (z *AddressZoneSection) String() string {
 	if z == nil {
-		return "AddressZone=nil"
+		return "AddressZone:nil"
 	}
-	return fmt.Sprintf("AddressZone:[SA=%s CTX=%s Content:[%v] Sig:[%v]]", z.SubjectAddr, z.Context, z.Content, z.Signatures)
+	return fmt.Sprintf("AddressZone:[SA=%s CTX=%s CONTENT=%v SIG=%v]", z.SubjectAddr, z.Context, z.Content, z.Signatures)
 }
 
 //AddressQuerySection contains information about the address query
@@ -801,12 +824,7 @@ type AddressQuerySection struct {
 
 //ContainsOption returns true if the address query contains the given query option.
 func (q AddressQuerySection) ContainsOption(option QueryOption) bool {
-	for _, opt := range q.Options {
-		if opt == option {
-			return true
-		}
-	}
-	return false
+	return containsOption(option, q.Options)
 }
 
 //Sort sorts the content of the addressQuery lexicographically.
@@ -859,9 +877,9 @@ func (q *AddressQuerySection) CompareTo(query *AddressQuerySection) int {
 //String implements Stringer interface
 func (q *AddressQuerySection) String() string {
 	if q == nil {
-		return "AddressQuery=nil"
+		return "AddressQuery:nil"
 	}
-	return fmt.Sprintf("AddressQuery:[TOK=%s SA=%s CTX=%s Type=%d EXP=%d OPT:[%v]]", hex.EncodeToString(q.Token[:]), q.SubjectAddr, q.Context, q.Type, q.Expires, q.Options)
+	return fmt.Sprintf("AddressQuery:[TOK=%s SA=%s CTX=%s TYPE=%d EXP=%d OPT=%v]", hex.EncodeToString(q.Token[:]), q.SubjectAddr, q.Context, q.Type, q.Expires, q.Options)
 }
 
 //NotificationSection contains information about the notification
@@ -902,7 +920,7 @@ func (n *NotificationSection) CompareTo(notification *NotificationSection) int {
 //String implements Stringer interface
 func (n *NotificationSection) String() string {
 	if n == nil {
-		return "AddressQuery=nil"
+		return "Notification:nil"
 	}
-	return fmt.Sprintf("Notification:[TOK=%s Type=%d Data=%s]", hex.EncodeToString(n.Token[:]), n.Type, n.Data)
+	return fmt.Sprintf("Notification:[TOK=%s TYPE=%d DATA=%s]", hex.EncodeToString(n.Token[:]), n.Type, n.Data)
 }

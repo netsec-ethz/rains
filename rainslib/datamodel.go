@@ -215,7 +215,7 @@ func (sig Signature) String() string {
 			data = hex.EncodeToString(sig.Data.([]byte))
 		}
 	}
-	return fmt.Sprintf("KS=%d AT=%d VS=%d VU=%d data=%s", sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, data)
+	return fmt.Sprintf("{KS=%d AT=%d VS=%d VU=%d data=%s}", sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, data)
 }
 
 //SignData adds signature meta data to encoding. It then signs the encoding with privateKey and updates sig.Data field with the generated signature

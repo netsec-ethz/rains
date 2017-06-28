@@ -108,12 +108,12 @@ func TestSignatureString(t *testing.T) {
 		input Signature
 		want  string
 	}{
-		{Signature{}, "KS=0 AT=0 VS=0 VU=0 data=notYetImplementedInStringMethod"},
-		{Signature{Algorithm: Ed448}, "KS=0 AT=2 VS=0 VU=0 data=notYetImplementedInStringMethod"},
-		{Signature{Algorithm: Ecdsa256}, "KS=0 AT=3 VS=0 VU=0 data=notYetImplementedInStringMethod"},
-		{Signature{Algorithm: Ecdsa384}, "KS=0 AT=4 VS=0 VU=0 data=notYetImplementedInStringMethod"},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2, Data: []byte("testData")}, "KS=0 AT=1 VS=1 VU=2 data=7465737444617461"},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2}, "KS=0 AT=1 VS=1 VU=2 data=nil"},
+		{Signature{}, "{KS=0 AT=0 VS=0 VU=0 data=notYetImplementedInStringMethod}"},
+		{Signature{Algorithm: Ed448}, "{KS=0 AT=2 VS=0 VU=0 data=notYetImplementedInStringMethod}"},
+		{Signature{Algorithm: Ecdsa256}, "{KS=0 AT=3 VS=0 VU=0 data=notYetImplementedInStringMethod}"},
+		{Signature{Algorithm: Ecdsa384}, "{KS=0 AT=4 VS=0 VU=0 data=notYetImplementedInStringMethod}"},
+		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2, Data: []byte("testData")}, "{KS=0 AT=1 VS=1 VU=2 data=7465737444617461}"},
+		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2}, "{KS=0 AT=1 VS=1 VU=2 data=nil}"},
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {
