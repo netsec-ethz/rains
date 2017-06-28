@@ -16,9 +16,9 @@ import (
 )
 
 //InitRainspub initializes rainspub
-func InitRainspub() {
-	loadConfig()
-	loadPrivateKeys()
+func InitRainspub(configPath string) {
+	loadConfig(configPath)
+	loadPrivateKey(config.ZonePrivateKeyPath)
 	parser = zoneFileParser.Parser{}
 	msgParser = new(protoParser.ProtoParserAndFramer)
 }
@@ -231,7 +231,7 @@ func createRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
 //sendDelegations sends the delegations to this zone such that the receiving rains server can verify the signatures on this zone's assertions.
 func sendDelegations() {
 	//load delegations
-	file, err := ioutil.ReadFile(config.ZoneFileDelegationPath)
+	/*file, err := ioutil.ReadFile(config.ZoneFileDelegationPath)
 	if err != nil {
 		log.Error("Was not able to read zone file", "path", config.ZoneFileDelegationPath)
 		return
@@ -255,5 +255,5 @@ func sendDelegations() {
 	if err != nil {
 		log.Warn("Was not able to parse the zone to a rains message.", "error", err)
 	}
-	sendMsg(msg)
+	sendMsg(msg)*/
 }

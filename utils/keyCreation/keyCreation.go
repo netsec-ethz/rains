@@ -105,3 +105,20 @@ func SignDelegation(delegationPath, privateKeyPath string) error {
 	}
 	return err
 }
+
+//CreateEd25519Keypair creates a ed25519 keypair where it stores the keys hexadecimal encoded to privateKeyPath or publicKeyPath respectively
+func CreateEd25519Keypair(privateKeyPath, publicKeyPath string) {
+	publicKey, privateKey, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		log.Error("Could not generate key pair", "error", err)
+		return
+	}
+	err = ioutil.WriteFile(privateKeyPath, []byte(hex.EncodeToString(privateKey)), 0644)
+	if err != nil {
+		log.Error("Could not store the private key", "path", privateKeyPath, "error", err)
+	}
+	err = ioutil.WriteFile(publicKeyPath, []byte(hex.EncodeToString(publicKey)), 0644)
+	if err != nil {
+		log.Error("Could not store the public key", "path", publicKeyPath, "error", err)
+	}
+}

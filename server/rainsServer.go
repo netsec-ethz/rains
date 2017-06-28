@@ -8,10 +8,14 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
+const (
+	rainspubConfigPath = "config/rainspub.conf"
+)
+
 //This package initializes and starts the server
 
 func main() {
-	rainspub.InitRainspub()
+	rainspub.InitRainspub(rainspubConfigPath)
 	err := rainsd.InitServer()
 	if err != nil {
 		log.Error("Error on startup", "error", err)
