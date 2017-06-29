@@ -46,12 +46,19 @@ func sendTo(message []byte, receiver rainslib.ConnInfo) {
 	conns, ok := connCache.Get(receiver)
 	if !ok {
 		conn, err := createConnection(receiver)
+		//add connection to cache
 		conns = append(conns, conn)
 		if err != nil {
 			log.Warn("Could not establish connection", "error", err, "receiver", receiver)
 			return
 		}
 		connCache.Add(conn)
+		//handle connection
+		if tcpAddr, ok := conns[0].RemoteAddr().(*net.TCPAddr); ok {
+			go handleConnection(conns[0], rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
+		} else {
+			log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conns[0].RemoteAddr())
+		}
 	}
 	framer = new(protoParser.ProtoParserAndFramer)
 	//FIXME CFE currently we only support one connection per destination addr
@@ -62,11 +69,6 @@ func sendTo(message []byte, receiver rainslib.ConnInfo) {
 		return
 	}
 	log.Debug("Send successful", "receiver", receiver)
-	if tcpAddr, ok := conns[0].RemoteAddr().(*net.TCPAddr); ok {
-		go handleConnection(conns[0], rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
-	} else {
-		log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conns[0].RemoteAddr())
-	}
 }
 
 //createConnection establishes a connection with receiver
@@ -126,8 +128,8 @@ func handleConnection(conn net.Conn, dstAddr rainslib.ConnInfo) {
 			deliver(framer.Data(), dstAddr)
 			conn.SetDeadline(time.Now().Add(Config.TCPTimeout))
 		}
+		//FIXME determine when a connection is closed and then break out of this loop
 	}
-	//FIXME this is never called right now
 	connCache.Delete(conn)
 	conn.Close()
 	log.Debug("connection removed from cache", "remoteAddr", conn.RemoteAddr)

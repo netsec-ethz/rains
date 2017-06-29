@@ -460,7 +460,7 @@ func (c *pendingQueryCacheImpl) GetAllAndDelete(token rainslib.Token) ([]pending
 	v, ok := c.activeTokens[token]
 	c.activeTokenLock.RUnlock()
 	if !ok || v.validUntil < time.Now().Unix() {
-		log.Info("Token not anymore in the active Token cache or expired", "token", token, "Now", time.Now(), "ValidUntil", time.Unix(v.validUntil, 0))
+		log.Debug("Token not in cache or expired", "token", token, "Now", time.Now(), "ValidUntil", time.Unix(v.validUntil, 0))
 		return sendInfos, false
 	}
 	val, ok := c.callBackCache.Get(v.context, v.zone, v.name, v.objType.String())

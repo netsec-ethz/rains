@@ -138,36 +138,40 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 		value := assertionCacheValue{section: a, validSince: a.ValidSince(), validUntil: a.ValidUntil()}
 		assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative, value)
 		if a.Content[0].Type == rainslib.OTDelegation {
-			for _, sig := range a.Signatures {
-				if sig.KeySpace == rainslib.RainsKeySpace {
-					cacheKey := keyCacheKey{context: a.Context, zone: a.SubjectName, keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm)}
-					publicKey := a.Content[0].Value.(rainslib.PublicKey)
-					publicKey.ValidSince = sig.ValidSince
-					publicKey.ValidUntil = sig.ValidUntil
-					log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)
-					ok := zoneKeyCache.Add(cacheKey, publicKey, isAuthoritative)
-					if !ok {
-						log.Warn("Was not able to add entry to zone key cache", "cacheKey", cacheKey, "publicKey", publicKey)
-					}
+			if publicKey, ok := a.Content[0].Value.(rainslib.PublicKey); ok {
+				cacheKey := keyCacheKey{context: a.Context, zone: a.SubjectName, keyAlgo: rainslib.KeyAlgorithmType(publicKey.Type)}
+				publicKey.ValidSince = a.ValidSince()
+				publicKey.ValidUntil = a.ValidUntil()
+				log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)
+				ok := zoneKeyCache.Add(cacheKey, publicKey, isAuthoritative)
+				if !ok {
+					log.Warn("Was not able to add entry to zone key cache", "cacheKey", cacheKey, "publicKey", publicKey)
+					pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
+					pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
+					return false
 				}
-
+			} else {
+				log.Warn("Type assertion failed expected a rainslib.PublicKey", "actual", a.Content[0].Value)
+				pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
+				pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
+				return false
 			}
 		}
 	}
 	if a.ValidSince() > time.Now().Unix() {
 		pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
+		pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
 		return false
 	}
 	return true
-
 }
 
 //handleAssertion triggers any pending queries answered by it.
 func handleAssertion(a *rainslib.AssertionSection, token rainslib.Token) {
 	//FIXME CFE multiple types per assertion is not handled
 	if a.Content[0].Type == rainslib.OTDelegation {
-		//Trigger elements from pendingSignatureCache
-		sections, ok := pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
+		sections, ok := pendingSignatures.GetAllAndDelete(a.Context, a.SubjectName)
+		log.Debug("handle sections from pending signature cache", "waitingSectionCount", len(sections), "subjectZone", a.SubjectName, "context", a.Context)
 		if ok {
 			for _, sectionSender := range sections {
 				normalChannel <- msgSectionSender{Section: sectionSender.Section, Sender: sectionSender.Sender, Token: sectionSender.Token}
@@ -179,8 +183,8 @@ func handleAssertion(a *rainslib.AssertionSection, token rainslib.Token) {
 
 //handlePendingQueries triggers any pending queries and send the response to it.
 func handlePendingQueries(section rainslib.MessageSectionWithSig, token rainslib.Token) {
-	//FIXME CFE also allow pending Queries to GetAllAndDelete(zone, type, name,context) because we might get the answer back indirectly.
 	values, ok := pendingQueries.GetAllAndDelete(token)
+	log.Debug("handle pending queries.", "waitingQueriesCount", len(values))
 	if ok {
 		for _, v := range values {
 			if v.validUntil > time.Now().Unix() {

@@ -277,6 +277,7 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 	publicKeys, missingKeys, ok := publicKeysPresent(neededKeys)
 	if ok {
 		log.Info("All public keys are present.", "msgSectionWithSig", section)
+		addZoneAndContextToContainedSections(section)
 		return validSignature(section, publicKeys)
 	}
 	log.Info("Some public keys are missing", "#missingKeys", len(missingKeys))
@@ -304,31 +305,23 @@ func neededKeys(section rainslib.MessageSectionWithSig) (map[keyCacheKey]bool, e
 	neededKeys := make(map[keyCacheKey]bool)
 	switch section := section.(type) {
 	case *rainslib.AssertionSection, *rainslib.AddressAssertionSection:
-		extractNeededKeys(section, neededKeys)
+		extractNeededKeys(section.GetSubjectZone(), section.GetContext(), section, neededKeys)
 
 	case *rainslib.ShardSection:
-		extractNeededKeys(section, neededKeys)
+		extractNeededKeys(section.GetSubjectZone(), section.GetContext(), section, neededKeys)
 		for _, a := range section.Content {
-			a.Context = section.Context
-			a.SubjectZone = section.SubjectZone
-			extractNeededKeys(a, neededKeys)
+			extractNeededKeys(section.GetSubjectZone(), section.GetContext(), a, neededKeys)
 		}
 	case *rainslib.ZoneSection:
-		extractNeededKeys(section, neededKeys)
+		extractNeededKeys(section.GetSubjectZone(), section.GetContext(), section, neededKeys)
 		for _, sec := range section.Content {
 			switch sec := sec.(type) {
 			case *rainslib.AssertionSection:
-				sec.Context = section.Context
-				sec.SubjectZone = section.SubjectZone
-				extractNeededKeys(sec, neededKeys)
+				extractNeededKeys(section.GetSubjectZone(), section.GetContext(), sec, neededKeys)
 			case *rainslib.ShardSection:
-				sec.Context = section.Context
-				sec.SubjectZone = section.SubjectZone
-				extractNeededKeys(sec, neededKeys)
+				extractNeededKeys(section.GetSubjectZone(), section.GetContext(), sec, neededKeys)
 				for _, a := range sec.Content {
-					a.Context = section.Context
-					a.SubjectZone = section.SubjectZone
-					extractNeededKeys(section, neededKeys)
+					extractNeededKeys(section.GetSubjectZone(), section.GetContext(), a, neededKeys)
 				}
 			default:
 				log.Warn("Not supported message section inside zone")
@@ -336,10 +329,9 @@ func neededKeys(section rainslib.MessageSectionWithSig) (map[keyCacheKey]bool, e
 			}
 		}
 	case *rainslib.AddressZoneSection:
-		extractNeededKeys(section, neededKeys)
+		extractNeededKeys(section.GetSubjectZone(), section.GetContext(), section, neededKeys)
 		for _, a := range section.Content {
-			a.Context = section.Context
-			extractNeededKeys(a, neededKeys)
+			extractNeededKeys(section.GetSubjectZone(), section.GetContext(), a, neededKeys)
 		}
 	default:
 		log.Warn("Not supported message section with sig")
@@ -349,15 +341,15 @@ func neededKeys(section rainslib.MessageSectionWithSig) (map[keyCacheKey]bool, e
 }
 
 //extractNeededKeys adds all key metadata to keys which are necessary to verify all section's signatures
-func extractNeededKeys(section rainslib.MessageSectionWithSig, keys map[keyCacheKey]bool) {
+func extractNeededKeys(subjectZone, context string, section rainslib.MessageSectionWithSig, keys map[keyCacheKey]bool) {
 	for _, sig := range section.Sigs() {
 		if sig.KeySpace != rainslib.RainsKeySpace {
 			log.Debug("external keyspace", "keySpaceID", sig.KeySpace)
 			continue
 		}
 		key := keyCacheKey{
-			context: section.GetContext(),
-			zone:    section.GetSubjectZone(),
+			context: context,
+			zone:    subjectZone,
 			keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm),
 		}
 		keys[key] = true
@@ -381,6 +373,42 @@ func publicKeysPresent(neededKeys map[keyCacheKey]bool) (map[rainslib.KeyAlgorit
 		}
 	}
 	return keys, missingKeys, len(missingKeys) == 0
+}
+
+//addZoneAndContextToContainedSections adds subjectZone and context to all contained sections.
+func addZoneAndContextToContainedSections(section rainslib.MessageSectionWithSig) {
+	switch section := section.(type) {
+	case *rainslib.AssertionSection, *rainslib.AddressAssertionSection:
+		//no contained sections
+	case *rainslib.ShardSection:
+		for _, a := range section.Content {
+			a.SubjectZone = section.GetSubjectZone()
+			a.Context = section.GetContext()
+		}
+	case *rainslib.ZoneSection:
+		for _, sec := range section.Content {
+			switch sec := sec.(type) {
+			case *rainslib.AssertionSection:
+				sec.SubjectZone = section.GetSubjectZone()
+				sec.Context = section.GetContext()
+			case *rainslib.ShardSection:
+				sec.SubjectZone = section.GetSubjectZone()
+				sec.Context = section.GetContext()
+				for _, a := range sec.Content {
+					a.SubjectZone = section.GetSubjectZone()
+					a.Context = section.GetContext()
+				}
+			default:
+				log.Warn("Not supported message section inside zone")
+			}
+		}
+	case *rainslib.AddressZoneSection:
+		for _, a := range section.Content {
+			a.Context = section.Context
+		}
+	default:
+		log.Warn("Not supported message section with sig")
+	}
 }
 
 //getQueryValidity returns the expiration value for a delegation query.
