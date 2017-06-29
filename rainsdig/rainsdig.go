@@ -155,6 +155,9 @@ func listen(conn net.Conn, token rainslib.Token, done chan<- rainslib.RainsMessa
 		if msg.Token == token {
 			done <- msg
 			return
+		} else if n, ok := msg.Content[0].(*rainslib.NotificationSection); ok && n.Token == token {
+			done <- msg
+			return
 		}
 		log.Debug("Token of sent query does not match the token of the received message", "queryToken", token, "recvToken", msg.Token)
 	}

@@ -134,7 +134,7 @@ func contextInvalid(context string) bool {
 //validQuery returns false when the expires is in the past
 func validQuery(expires int64) bool {
 	if expires < time.Now().Unix() {
-		log.Info("Query expired", "expirationTime", expires)
+		log.Info("Query expired", "expirationTime", expires, "now", time.Now().Unix())
 		return false
 	}
 	log.Info("Query is valid")

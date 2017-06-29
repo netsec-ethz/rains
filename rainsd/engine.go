@@ -386,8 +386,8 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo) {
 			log.Debug("Finished handling query by sending assertion from cache", "query", query)
 			return
 		}
+		log.Debug("No entry found in assertion cache", "name", zAn.name, "zone", zAn.zone, "context", query.Context, "type", query.Type)
 	}
-	log.Debug("No entry found in assertion cache matching the query")
 
 	for _, zAn := range zoneAndNames {
 		negAssertion, ok := negAssertionCache.Get(query.Context, zAn.zone, rainslib.StringInterval{Name: zAn.name})
@@ -428,10 +428,14 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo) {
 }
 
 //getZoneAndName tries to split a fully qualified name into zone and name
-func getZoneAndName(name string) []zoneAndName {
+func getZoneAndName(name string) (zoneAndNames []zoneAndName) {
 	//TODO CFE use also different heuristics
 	names := strings.Split(name, ".")
-	zoneAndNames := []zoneAndName{zoneAndName{zone: strings.Join(names[1:], "."), name: names[0]}}
+	if len(names) == 1 {
+		zoneAndNames = []zoneAndName{zoneAndName{zone: ".", name: names[0]}}
+	} else {
+		zoneAndNames = []zoneAndName{zoneAndName{zone: strings.Join(names[1:], "."), name: names[0]}}
+	}
 	log.Debug("Split into zone and name", "zone", zoneAndNames[0].zone, "name", zoneAndNames[0].name)
 	return zoneAndNames
 }

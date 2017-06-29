@@ -165,9 +165,9 @@ func sendAddressQuery(context string, ipNet *net.IPNet, expTime int64, objType r
 //getDelegationAddress returns the address of a server to which this server delegates a query if it has no answer in the cache.
 func getDelegationAddress(context, zone string) rainslib.ConnInfo {
 	//TODO CFE not yet implemented
-	log.Warn("Not yet implemented CFE. return hard coded delegation address")
 	delegAddr := Config.ServerAddress
 	delegAddr.TCPAddr.Port++
+	log.Warn("Not yet implemented CFE. return hard coded delegation address", "connInfo", delegAddr)
 	return delegAddr
 }
 

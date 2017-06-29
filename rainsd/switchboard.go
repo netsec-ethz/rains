@@ -62,6 +62,11 @@ func sendTo(message []byte, receiver rainslib.ConnInfo) {
 		return
 	}
 	log.Debug("Send successful", "receiver", receiver)
+	if tcpAddr, ok := conns[0].RemoteAddr().(*net.TCPAddr); ok {
+		go handleConnection(conns[0], rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
+	} else {
+		log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conns[0].RemoteAddr())
+	}
 }
 
 //createConnection establishes a connection with receiver
@@ -71,7 +76,7 @@ func createConnection(receiver rainslib.ConnInfo) (net.Conn, error) {
 		dialer := &net.Dialer{
 			KeepAlive: Config.KeepAlivePeriod,
 		}
-		return tls.DialWithDialer(dialer, receiver.TCPAddr.Network(), receiver.String(), &tls.Config{RootCAs: roots})
+		return tls.DialWithDialer(dialer, receiver.TCPAddr.Network(), receiver.String(), &tls.Config{RootCAs: roots, InsecureSkipVerify: true})
 	default:
 		return nil, errors.New("No matching type found for Connection info")
 	}
@@ -84,7 +89,8 @@ func Listen() {
 	switch serverConnInfo.Type {
 	case rainslib.TCP:
 		srvLogger.Info("Start TCP listener")
-		listener, err := tls.Listen(serverConnInfo.TCPAddr.Network(), serverConnInfo.String(), &tls.Config{Certificates: []tls.Certificate{cert}})
+		tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}, InsecureSkipVerify: true}
+		listener, err := tls.Listen(serverConnInfo.TCPAddr.Network(), serverConnInfo.String(), tlsConfig)
 		if err != nil {
 			srvLogger.Error("Listener error on startup", "error", err)
 			return
@@ -114,10 +120,15 @@ func handleConnection(conn net.Conn, dstAddr rainslib.ConnInfo) {
 	var framer rainslib.MsgFramer
 	framer = new(protoParser.ProtoParserAndFramer)
 	framer.InitStreams(conn, nil)
-	for framer.DeFrame() {
-		log.Info("Received a message", "sender", dstAddr)
-		deliver(framer.Data(), dstAddr)
-		conn.SetDeadline(time.Now().Add(Config.TCPTimeout))
+	for true {
+		for framer.DeFrame() {
+			log.Info("Received a message", "sender", dstAddr)
+			deliver(framer.Data(), dstAddr)
+			conn.SetDeadline(time.Now().Add(Config.TCPTimeout))
+		}
 	}
+	//FIXME this is never called right now
 	connCache.Delete(conn)
+	conn.Close()
+	log.Debug("connection removed from cache", "remoteAddr", conn.RemoteAddr)
 }

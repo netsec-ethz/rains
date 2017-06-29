@@ -49,7 +49,7 @@ func (p *ProtoParserAndFramer) DeFrame() bool {
 	msg, err := p.decoder.Decode()
 	if err != nil {
 		if err == io.EOF {
-			log.Debug("Connection has been closed.")
+			//log.Debug("Connection has been closed.")
 			return false
 		}
 		log.Warn("Was not able to decode msg", "error", err)
