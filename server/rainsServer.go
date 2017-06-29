@@ -16,7 +16,7 @@ const (
 
 func main() {
 	rainspub.InitRainspub(rainspubConfigPath)
-	err := rainsd.InitServer()
+	err := rainsd.InitServer("config/server.conf")
 	if err != nil {
 		log.Error("Error on startup", "error", err)
 		panic(err)

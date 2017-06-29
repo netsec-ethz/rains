@@ -5,14 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"rains/rainsSiglib"
 	"rains/rainslib"
 	"rains/utils/protoParser"
 	"rains/utils/zoneFileParser"
 	"sort"
 	"time"
-
-	"net"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -50,19 +49,23 @@ func PublishInformation() error {
 	zone := groupAssertionsToShards(assertions)
 
 	//TODO implement signing with airgapping
-	signZone(zone, rainslib.Ed25519, zonePrivateKey)
+	err = signZone(zone, rainslib.Ed25519, zonePrivateKey)
 	if err != nil {
 		log.Warn("Was not able to sign zone.", "error", err)
 		return err
 	}
 
-	//send signed zone to rains servers
 	msg, err := createRainsMessage(zone)
 	if err != nil {
 		log.Warn("Was not able to parse the zone to a rains message.", "error", err)
 		return err
 	}
-	sendMsg(msg)
+
+	err = sendMsg(msg)
+	if err != nil {
+		log.Warn("Was not able to send signed zone.", "error", err)
+		return err
+	}
 	return nil
 }
 
@@ -162,7 +165,6 @@ func signZone(zone *rainslib.ZoneSection, keyAlgo rainslib.SignatureAlgorithmTyp
 				return err
 			}
 		default:
-			log.Warn(fmt.Sprintf("Content of the zone section must be a shard. Got:%T", sec))
 			return fmt.Errorf("Zone contained unexpected type expected=*ShardSection actual=%T", sec)
 		}
 	}
@@ -248,8 +250,7 @@ func sendMsg(msg []byte) error {
 			}
 			log.Debug("Message sent", "destination", server.String())
 		default:
-			log.Warn("Connection Information type does not exist", "ConnInfo type", server.Type)
-			return errors.New("Connection Information type does not exist")
+			return fmt.Errorf("unsupported connection information type. actual=%v", server.Type)
 		}
 	}
 	//If the connections are directly closed the destination is not able to receive the information. Is this true?

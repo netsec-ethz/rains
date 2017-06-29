@@ -13,6 +13,7 @@ import (
 
 func TestLoadConfig(t *testing.T) {
 	tcpAddr, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:5022")
+	tcpAddr2, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:5023")
 	expectedConfig := rainpubConfig{
 		AssertionValidUntil:   86400 * time.Hour,
 		DelegationValidUntil:  86439 * time.Hour,
@@ -23,9 +24,12 @@ func TestLoadConfig(t *testing.T) {
 		ShardValidSince:       0,
 		ZoneValidSince:        0,
 		MaxAssertionsPerShard: 5,
-		ServerAddresses:       []rainslib.ConnInfo{rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr}},
-		ZoneFilePath:          "zoneFiles/chZoneFile.txt",
-		ZonePrivateKeyPath:    "test/zonePrivate.key",
+		ServerAddresses: []rainslib.ConnInfo{
+			rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr},
+			rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr2},
+		},
+		ZoneFilePath:       "zoneFiles/chZoneFile.txt",
+		ZonePrivateKeyPath: "test/zonePrivate.key",
 	}
 	var tests = []struct {
 		input  string

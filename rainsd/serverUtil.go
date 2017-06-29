@@ -16,15 +16,11 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
-const (
-	configPath = "config/server.conf"
-)
-
 //InitServer initializes the server
-func InitServer() error {
+func InitServer(configPath string) error {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(h)
-	loadConfig()
+	loadConfig(configPath)
 	serverConnInfo = Config.ServerAddress
 	msgParser = new(protoParser.ProtoParserAndFramer)
 	sigEncoder = new(zoneFileParser.Parser)
@@ -53,7 +49,7 @@ func InitServer() error {
 }
 
 //LoadConfig loads and stores server configuration
-func loadConfig() {
+func loadConfig(configPath string) {
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Warn("Could not open config file...", "path", configPath, "error", err)

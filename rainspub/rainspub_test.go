@@ -1,10 +1,10 @@
 package rainspub
 
 import (
+	"rains/rainsd"
 	"rains/rainslib"
 	"rains/utils/zoneFileParser"
 	"testing"
-
 	"time"
 
 	"golang.org/x/crypto/ed25519"
@@ -28,6 +28,23 @@ func TestInitRainspub(t *testing.T) {
 			if parser == nil || msgParser == nil || signatureEncoder == nil {
 				t.Errorf("%d: parser should not be nil.", i)
 			}
+		}
+	}
+}
+
+func TestPublishInformation(t *testing.T) {
+	var tests = []struct {
+		input  string
+		errMsg string
+	}{
+		{"test/rainspub2.conf", ""},                                                        //no errors
+		{"test/rainspub.conf", "open zoneFiles/chZoneFile.txt: no such file or directory"}, //load assertion error
+	}
+	for i, test := range tests {
+		InitRainspub(test.input)
+		err := PublishInformation()
+		if err != nil && err.Error() != test.errMsg {
+			t.Errorf("%d: PublishInformation() wrong error message. expected=%s, actual=%s", i, test.errMsg, err.Error())
 		}
 	}
 }
@@ -224,6 +241,9 @@ func TestCreateRainsMessage(t *testing.T) {
 
 func TestSendMessage(t *testing.T) {
 	InitRainspub("test/rainspub.conf")
+	rainsd.InitServer("test/server.conf")
+	go rainsd.Listen()
+	time.Sleep(time.Second / 10)
 	a := getAssertionWithTwoIPObjects()
 	zone := &rainslib.ZoneSection{SubjectZone: "ch", Context: ".", Content: []rainslib.MessageSectionWithSigForward{
 		&rainslib.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "", Content: []*rainslib.AssertionSection{a}}}}
@@ -234,7 +254,8 @@ func TestSendMessage(t *testing.T) {
 		errMsg string
 	}{
 		{msg, config.ServerAddresses, ""},
-		{msg, []rainslib.ConnInfo{rainslib.ConnInfo{Type: rainslib.NetworkAddrType(-1)}}, "Connection Information type does not exist"},
+		{nil, config.ServerAddresses, "EOF"},
+		{msg, []rainslib.ConnInfo{rainslib.ConnInfo{Type: rainslib.NetworkAddrType(-1)}}, "unsupported connection information type. actual=-1"},
 	}
 	for i, test := range tests {
 		config.ServerAddresses = test.conns
