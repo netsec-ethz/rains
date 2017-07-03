@@ -92,10 +92,10 @@ func UpdateSectionValidity(section MessageSectionWithSig, pkeyValidSince, pkeyVa
 }
 
 //NewQueryMessage creates a new message containing a query body with values obtained from the input parameter
-func NewQueryMessage(context, zone string, expTime int64, objType ObjectType, queryOptions []QueryOption, token Token) RainsMessage {
+func NewQueryMessage(context, name string, expTime int64, objType ObjectType, queryOptions []QueryOption, token Token) RainsMessage {
 	query := QuerySection{
 		Context: context,
-		Name:    zone,
+		Name:    name,
 		Expires: expTime,
 		Type:    objType,
 		Options: queryOptions,

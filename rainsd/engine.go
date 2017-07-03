@@ -131,14 +131,14 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 
 //assertAssertion adds an assertion to the assertion cache. The assertion's signatures MUST have already been verified.
 //TODO CFE only the first element of the assertion is processed
-//Returns true if the assertion can be further processed.
+//Returns true if the assertion can be used to answer pending queries.
 func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) bool {
 	if shouldAssertionBeCached(a) {
 		value := assertionCacheValue{section: a, validSince: a.ValidSince(), validUntil: a.ValidUntil()}
 		assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative, value)
 		if a.Content[0].Type == rainslib.OTDelegation {
 			if publicKey, ok := a.Content[0].Value.(rainslib.PublicKey); ok {
-				cacheKey := keyCacheKey{context: a.Context, zone: a.SubjectName, keyAlgo: rainslib.KeyAlgorithmType(publicKey.Type)}
+				cacheKey := keyCacheKey{context: a.Context, zone: a.SubjectName, keyAlgo: publicKey.Type}
 				publicKey.ValidSince = a.ValidSince()
 				publicKey.ValidUntil = a.ValidUntil()
 				log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)

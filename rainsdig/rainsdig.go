@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"errors"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -85,37 +87,19 @@ func main() {
 		}
 		connInfo := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr}
 
-		token := rainslib.GenerateToken()
-		msg, err := generateMsg(token)
+		message := rainslib.NewQueryMessage(*context, *name, *expires, rainslib.ObjectType(*queryType), queryOptions, rainslib.GenerateToken())
+		msg, err := msgParser.Encode(message)
 		if err != nil {
 			fmt.Printf("could not encode the query, error=%s\n", err)
 			os.Exit(1)
 		}
 
-		err = sendQuery(msg, token, connInfo)
+		err = sendQuery(msg, message.Token, connInfo)
 		if err != nil {
 			fmt.Printf("could not frame and send the query, error=%s\n", err)
 			os.Exit(1)
 		}
 	}
-}
-
-//generateMsg transforms the command line arguments and flags into a query section. This query is then added to a newly generated message.
-//It encodes the messages and returns it.
-func generateMsg(token rainslib.Token) ([]byte, error) {
-	section := rainslib.QuerySection{
-		Context: *context,
-		Expires: *expires,
-		Type:    rainslib.ObjectType(*queryType),
-		Token:   token,
-		Name:    *name,
-		Options: queryOptions,
-	}
-	msg := rainslib.RainsMessage{
-		Token:   token,
-		Content: []rainslib.MessageSection{&section},
-	}
-	return msgParser.Encode(msg)
 }
 
 //sendQuery creates a connection with connInfo, frames msg and writes it to the connection.
@@ -152,14 +136,11 @@ func sendQuery(msg []byte, token rainslib.Token, connInfo rainslib.ConnInfo) err
 func createConnection(connInfo rainslib.ConnInfo) (conn net.Conn, err error) {
 	switch connInfo.Type {
 	case rainslib.TCP:
-		conn, err = tls.Dial(connInfo.TCPAddr.Network(), connInfo.String(), &tls.Config{InsecureSkipVerify: *insecureTLS})
-		if err != nil {
-			return nil, err
-		}
+		return tls.Dial(connInfo.TCPAddr.Network(), connInfo.String(), &tls.Config{InsecureSkipVerify: *insecureTLS})
 	default:
 		log.Warn("Unsupported Network address type.")
+		return nil, errors.New("unsupported Network address type")
 	}
-	return conn, nil
 }
 
 //listen receives incoming messages. If the message's token matches the query's token, it sends the message back over the channel otherwise it discards the message.

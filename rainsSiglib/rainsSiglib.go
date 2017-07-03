@@ -22,7 +22,7 @@ import (
 //4) encode section
 //5) sign the encoding and compare the resulting signature data with the signature data received with the section. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib.KeyAlgorithmType]rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder,
+func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib.SignatureAlgorithmType]rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder,
 	maxVal rainslib.MaxCacheValidity) bool {
 	log.Debug(fmt.Sprintf("Check %T signature", s), "section", s)
 	if s == nil {
@@ -43,7 +43,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 	s.Sort()
 	encodedSection := encoder.EncodeSection(s)
 	for i, sig := range s.Sigs() {
-		if pkey, ok := pkeys[rainslib.KeyAlgorithmType(sig.Algorithm)]; ok {
+		if pkey, ok := pkeys[sig.Algorithm]; ok {
 			if int64(sig.ValidUntil) < time.Now().Unix() {
 				log.Debug("signature is expired", "signature", sig)
 				s.DeleteSig(i)
@@ -55,7 +55,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 			log.Debug("Signature was valid")
 			rainslib.UpdateSectionValidity(s, pkey.ValidSince, pkey.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
 		} else {
-			log.Warn("No publicKey in keymap matching algorithm type", "keymap", pkeys, "algorithmType", rainslib.KeyAlgorithmType(sig.Algorithm))
+			log.Warn("No publicKey in keymap matching algorithm type", "keymap", pkeys, "algorithmType", sig.Algorithm)
 			return false
 		}
 	}

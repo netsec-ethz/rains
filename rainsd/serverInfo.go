@@ -142,7 +142,7 @@ type capabilityCache interface {
 type keyCacheKey struct {
 	context string
 	zone    string
-	keyAlgo rainslib.KeyAlgorithmType
+	keyAlgo rainslib.SignatureAlgorithmType
 }
 
 func (k keyCacheKey) Hash() string {

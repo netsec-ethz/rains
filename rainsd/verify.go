@@ -351,7 +351,7 @@ func extractNeededKeys(subjectZone, context string, section rainslib.MessageSect
 		key := keyCacheKey{
 			context: context,
 			zone:    subjectZone,
-			keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm),
+			keyAlgo: sig.Algorithm,
 		}
 		keys[key] = true
 	}
@@ -359,8 +359,8 @@ func extractNeededKeys(subjectZone, context string, section rainslib.MessageSect
 
 //publicKeysPresent returns true if all public keys are already cached.
 //It also returns the set of cached publicKeys and a set of the missing publicKey identifiers
-func publicKeysPresent(neededKeys map[keyCacheKey]bool) (map[rainslib.KeyAlgorithmType]rainslib.PublicKey, map[keyCacheKey]bool, bool) {
-	keys := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
+func publicKeysPresent(neededKeys map[keyCacheKey]bool) (map[rainslib.SignatureAlgorithmType]rainslib.PublicKey, map[keyCacheKey]bool, bool) {
+	keys := make(map[rainslib.SignatureAlgorithmType]rainslib.PublicKey)
 	missingKeys := make(map[keyCacheKey]bool)
 
 	for keyID := range neededKeys {
@@ -431,7 +431,7 @@ func getQueryValidity(sigs []rainslib.Signature) int64 {
 
 //validSignature validates section's signatures and strips all expired signatures away.
 //Returns false if there are no signatures left (not considering internal sections) or if at least one signature is invalid (due to incorrect signature)
-func validSignature(section rainslib.MessageSectionWithSig, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
+func validSignature(section rainslib.MessageSectionWithSig, keys map[rainslib.SignatureAlgorithmType]rainslib.PublicKey) bool {
 	switch section := section.(type) {
 	case *rainslib.AssertionSection, *rainslib.AddressAssertionSection:
 		return validateSignatures(section, keys)
@@ -450,7 +450,7 @@ func validSignature(section rainslib.MessageSectionWithSig, keys map[rainslib.Ke
 //validShardSignatures validates all signatures on the shard and contained in the shard's content
 //It returns false if there is a signatures that does not verify
 //It removes the context and subjectZone of all contained assertions (which was necessary for signature verification)
-func validShardSignatures(section *rainslib.ShardSection, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
+func validShardSignatures(section *rainslib.ShardSection, keys map[rainslib.SignatureAlgorithmType]rainslib.PublicKey) bool {
 	if !validateSignatures(section, keys) || !validContainedAssertions(section.Content, keys) {
 		return false
 	}
@@ -460,7 +460,7 @@ func validShardSignatures(section *rainslib.ShardSection, keys map[rainslib.KeyA
 //validZoneSignatures validates all signatures on the zone and contained assertions and shards
 //It returns false if there is a signatures that does not verify
 //It removes the context and subjectZone of all contained assertions and shards (which was necessary for signature verification)
-func validZoneSignatures(section *rainslib.ZoneSection, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
+func validZoneSignatures(section *rainslib.ZoneSection, keys map[rainslib.SignatureAlgorithmType]rainslib.PublicKey) bool {
 	if !validateSignatures(section, keys) {
 		return false
 	}
@@ -487,7 +487,7 @@ func validZoneSignatures(section *rainslib.ZoneSection, keys map[rainslib.KeyAlg
 //validContainedAssertions validates all signatures on the contained assertions
 //It returns false if there is a signatures that does not verify
 //It removes the context and subjectZone of all contained assertions (which was necessary for signature verification)
-func validContainedAssertions(assertions []*rainslib.AssertionSection, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
+func validContainedAssertions(assertions []*rainslib.AssertionSection, keys map[rainslib.SignatureAlgorithmType]rainslib.PublicKey) bool {
 	for _, assertion := range assertions {
 		if !rainsSiglib.CheckSectionSignatures(assertion, keys, sigEncoder, Config.MaxCacheValidity) {
 			return false
@@ -501,7 +501,7 @@ func validContainedAssertions(assertions []*rainslib.AssertionSection, keys map[
 //validAddressZoneSignatures validates all signatures on the address zone and contained addressAssertions
 //It returns false if there is a signatures that does not verify
 //It removes the context of all contained addressAssertions (which was necessary for signature verification)
-func validAddressZoneSignatures(section *rainslib.AddressZoneSection, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
+func validAddressZoneSignatures(section *rainslib.AddressZoneSection, keys map[rainslib.SignatureAlgorithmType]rainslib.PublicKey) bool {
 	if !validateSignatures(section, keys) {
 		return false
 	}
@@ -516,7 +516,7 @@ func validAddressZoneSignatures(section *rainslib.AddressZoneSection, keys map[r
 
 //validateSignatures returns true if all non expired signatures of section are valid and there is at least one signature valid before Config.MaxValidity.
 //It removes valid signatures that are expired
-func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
+func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainslib.SignatureAlgorithmType]rainslib.PublicKey) bool {
 	if !rainsSiglib.CheckSectionSignatures(section, keys, sigEncoder, Config.MaxCacheValidity) {
 		return false //already logged
 	}

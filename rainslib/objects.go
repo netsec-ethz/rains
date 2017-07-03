@@ -128,6 +128,10 @@ func (n NameObject) CompareTo(nameObj NameObject) int {
 		return -1
 	} else if n.Name > nameObj.Name {
 		return 1
+	} else if len(n.Types) < len(nameObj.Types) {
+		return -1
+	} else if len(n.Types) > len(nameObj.Types) {
+		return 1
 	}
 	for i, t := range n.Types {
 		if t < nameObj.Types[i] {
@@ -146,14 +150,6 @@ const (
 	RainsKeySpace KeySpaceID = 0
 )
 
-//AlgorithmType specifies an identifier an algorithm
-//TODO CFE how do we want to distinguish SignatureAlgorithmType and HashAlgorithmType
-type KeyAlgorithmType int
-
-func (k KeyAlgorithmType) String() string {
-	return strconv.Itoa(int(k))
-}
-
 //SignatureAlgorithmType specifies a signature algorithm type
 type SignatureAlgorithmType int
 
@@ -163,6 +159,10 @@ const (
 	Ecdsa256 SignatureAlgorithmType = 3
 	Ecdsa384 SignatureAlgorithmType = 4
 )
+
+func (sigAlgo SignatureAlgorithmType) String() string {
+	return strconv.Itoa(int(sigAlgo))
+}
 
 //HashAlgorithmType specifies a hash algorithm type
 type HashAlgorithmType int

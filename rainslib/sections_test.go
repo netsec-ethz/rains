@@ -3,7 +3,9 @@ package rainslib
 import (
 	"encoding/hex"
 	"fmt"
+	"math/rand"
 	"net"
+	"sort"
 	"testing"
 )
 
@@ -390,5 +392,28 @@ func TestContainsOptions(t *testing.T) {
 		if addressquery.ContainsOption(test.param) != test.want {
 			t.Errorf("%d: addressQuery.ContainsOptions response incorrect. expected=%v, actual=%v", i, test.want, containsOption(test.param, test.input))
 		}
+	}
+}
+
+func TestNotificationCompareTo(t *testing.T) {
+	ns := sortedNotifications(9)
+	var shuffled []MessageSection
+	for _, n := range ns {
+		shuffled = append(shuffled, n)
+	}
+	shuffleSections(shuffled)
+	sort.Slice(shuffled, func(i, j int) bool {
+		return shuffled[i].(*NotificationSection).CompareTo(shuffled[j].(*NotificationSection)) < 0
+	})
+	for i, n := range ns {
+		CheckNotification(n, shuffled[i].(*NotificationSection), t)
+	}
+
+}
+
+func shuffleSections(sections []MessageSection) {
+	for i := len(sections) - 1; i > 0; i-- {
+		j := rand.Intn(i)
+		sections[i], sections[j] = sections[j], sections[i]
 	}
 }

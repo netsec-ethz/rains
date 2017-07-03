@@ -1,14 +1,13 @@
 package rainslib
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math"
 	"net"
 	"sort"
 	"strings"
 	"time"
-
-	"encoding/hex"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -898,6 +897,16 @@ func (n *NotificationSection) Sort() {
 
 //CompareTo compares two notifications and returns 0 if they are equal, 1 if n is greater than notification and -1 if n is smaller than notification
 func (n *NotificationSection) CompareTo(notification *NotificationSection) int {
+	if n.Token != notification.Token {
+		for i, b := range n.Token {
+			if b < notification.Token[i] {
+				return -1
+			} else if b > notification.Token[i] {
+				return 1
+			}
+		}
+		log.Error("Token must be different", "t1", n.Token, "t2", notification.Token)
+	}
 	if n.Type < notification.Type {
 		return -1
 	} else if n.Type > notification.Type {
@@ -906,13 +915,6 @@ func (n *NotificationSection) CompareTo(notification *NotificationSection) int {
 		return -1
 	} else if n.Data > notification.Data {
 		return 1
-	}
-	for i, b := range n.Token {
-		if b < notification.Token[i] {
-			return -1
-		} else if b > notification.Token[i] {
-			return 1
-		}
 	}
 	return 0
 }
