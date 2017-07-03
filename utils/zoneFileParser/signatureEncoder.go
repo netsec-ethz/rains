@@ -11,11 +11,11 @@ import (
 
 //encodeMessage returns a rains message as a string in signable format (which resembles the zone file format)
 func encodeMessage(m *rainslib.RainsMessage) string {
-	content := ""
+	content := []string{}
 	for _, section := range m.Content {
-		content += getEncoding(section, true) + "\n"
+		content = append(content, getEncoding(section, true))
 	}
-	return fmt.Sprintf(":M: %s %s [\n%s]", encodeCapabilities(m.Capabilities), m.Token.String(), content)
+	return fmt.Sprintf(":M: %s %s [\n%s\n]", encodeCapabilities(m.Capabilities), m.Token.String(), strings.Join(content, "\n"))
 }
 
 //encodeAddressAssertion returns an address assertion in signable format (which resembles the zone file format)

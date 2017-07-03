@@ -3,7 +3,9 @@ package rainslib
 import (
 	"crypto/rand"
 	"encoding/gob"
+	"errors"
 	"fmt"
+	"net"
 	"os"
 	"time"
 
@@ -87,4 +89,52 @@ func UpdateSectionValidity(section MessageSectionWithSig, pkeyValidSince, pkeyVa
 			}
 		}
 	}
+}
+
+//NewQueryMessage creates a new message containing a query body with values obtained from the input parameter
+func NewQueryMessage(context, zone string, expTime int64, objType ObjectType, queryOptions []QueryOption, token Token) RainsMessage {
+	query := QuerySection{
+		Context: context,
+		Name:    zone,
+		Expires: expTime,
+		Type:    objType,
+		Options: queryOptions,
+	}
+	return RainsMessage{Token: token, Content: []MessageSection{&query}}
+}
+
+//NewAddressQueryMessage creates a new message containing an addressQuery body with values obtained from the input parameter
+func NewAddressQueryMessage(context string, ipNet *net.IPNet, expTime int64, objType ObjectType, queryOptions []QueryOption, token Token) RainsMessage {
+	addressQuery := AddressQuerySection{
+		Context:     context,
+		SubjectAddr: ipNet,
+		Expires:     expTime,
+		Type:        objType,
+		Options:     queryOptions,
+	}
+	return RainsMessage{Token: token, Content: []MessageSection{&addressQuery}}
+}
+
+//NewNotificationsMessage creates a new message containing notification bodies with values obtained from the input parameter
+func NewNotificationsMessage(tokens []Token, types []NotificationType, data []string) (RainsMessage, error) {
+	if len(tokens) != len(types) || len(types) != len(data) {
+		log.Warn("input slices have not the same length", "tokenLen", len(tokens), "typesLen", len(types), "dataLen", len(data))
+		return RainsMessage{}, errors.New("input slices have not the same length")
+	}
+	msg := RainsMessage{Token: GenerateToken(), Content: []MessageSection{}}
+	for i := range tokens {
+		notification := &NotificationSection{
+			Token: tokens[i],
+			Type:  types[i],
+			Data:  data[i],
+		}
+		msg.Content = append(msg.Content, notification)
+	}
+	return msg, nil
+}
+
+//NewNotificationMessage creates a new message containing one notification body with values obtained from the input parameter
+func NewNotificationMessage(token Token, t NotificationType, data string) RainsMessage {
+	msg, _ := NewNotificationsMessage([]Token{token}, []NotificationType{t}, []string{data})
+	return msg
 }

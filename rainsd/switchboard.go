@@ -122,17 +122,12 @@ func handleConnection(conn net.Conn, dstAddr rainslib.ConnInfo) {
 	var framer rainslib.MsgFramer
 	framer = new(protoParser.ProtoParserAndFramer)
 	framer.InitStreams(conn, nil)
-	for true {
-		for framer.DeFrame() {
-			log.Info("Received a message", "sender", dstAddr)
-			deliver(framer.Data(), dstAddr)
-			conn.SetDeadline(time.Now().Add(Config.TCPTimeout))
-		}
-		//FIXME determine when a connection is closed and then break out of this loop
-		//polling without backoff is probably too aggressive. CPU load is very high if we do not sleep here
-		time.Sleep(50 * time.Millisecond)
+	for framer.DeFrame() {
+		log.Info("Received a message", "sender", dstAddr)
+		deliver(framer.Data(), dstAddr)
+		conn.SetDeadline(time.Now().Add(Config.TCPTimeout))
 	}
 	connCache.Delete(conn)
 	conn.Close()
-	log.Debug("connection removed from cache", "remoteAddr", conn.RemoteAddr)
+	log.Debug("connection removed from cache", "remoteAddr", conn.RemoteAddr())
 }

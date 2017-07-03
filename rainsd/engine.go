@@ -2,12 +2,11 @@ package rainsd
 
 import (
 	"fmt"
+	"net"
 	"rains/rainslib"
 	"rains/utils/binaryTrie"
 	"strings"
 	"time"
-
-	"net"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -333,17 +332,17 @@ func shouldAddressZoneBeCached(zone *rainslib.AddressZoneSection) bool {
 }
 
 //addressQuery directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
-func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo) {
+func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Start processing address query", "addressQuery", query)
 	assertion, zone, ok := getAddressCache(query.SubjectAddr, query.Context).Get(query.SubjectAddr, []rainslib.ObjectType{query.Type})
 	//TODO CFE add heuristic which assertion to return
 	if ok {
 		if assertion != nil {
-			sendQueryAnswer(assertion, sender, query.Token)
+			sendQueryAnswer(assertion, sender, token)
 			log.Debug("Finished handling query by sending address assertion from cache", "query", query)
 		}
 		if zone != nil {
-			sendQueryAnswer(zone, sender, query.Token)
+			sendQueryAnswer(zone, sender, token)
 			log.Debug("Finished handling query by sending address zone from cache", "query", query)
 		}
 		return
@@ -352,41 +351,42 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo)
 
 	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
 		log.Debug("Send a notification message back to the sender due to query option: 'Cached Answers only'")
-		sendNotificationMsg(query.Token, sender, rainslib.NTNoAssertionAvail)
+		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail)
 		log.Debug("Finished handling query (unsuccessful) ", "query", query)
 		return
 	}
 
 	delegate := getDelegationAddress(query.Context, "")
 	if delegate.Equal(serverConnInfo) {
-		sendNotificationMsg(query.Token, sender, rainslib.NTNoAssertionAvail)
+		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail)
 		log.Error("Stop processing query. I am authoritative and have no answer in cache")
 		return
 	}
 	//we have a valid delegation
-	token := query.Token
+	tok := query.Token
 	if !query.ContainsOption(rainslib.QOTokenTracing) {
-		token = rainslib.GenerateToken()
+		tok = rainslib.GenerateToken()
 	}
 	validUntil := time.Now().Add(Config.AddressQueryValidity).Unix() //Upper bound for forwarded query expiration time
 	if query.Expires < validUntil {
 		validUntil = query.Expires
 	}
 	//FIXME CFE allow multiple types
-	pendingQueries.Add(query.Context, "", "", query.Type, pendingQuerySetValue{connInfo: sender, token: token, validUntil: validUntil})
+	pendingQueries.Add(query.Context, "", "", query.Type, pendingQuerySetValue{connInfo: sender, token: tok, validUntil: validUntil})
 	log.Debug("Added query into to pending query cache", "query", query)
-	sendAddressQuery(query.Context, query.SubjectAddr, validUntil, query.Type, token, delegate)
+	msg := rainslib.NewAddressQueryMessage(query.Context, query.SubjectAddr, validUntil, query.Type, nil, tok)
+	SendMessage(msg, delegate)
 }
 
 //query directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
-func query(query *rainslib.QuerySection, sender rainslib.ConnInfo) {
+func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Start processing query", "query", query)
 	zoneAndNames := getZoneAndName(query.Name)
 	for _, zAn := range zoneAndNames {
 		assertions, ok := assertionsCache.Get(query.Context, zAn.zone, zAn.name, query.Type, query.ContainsOption(rainslib.QOExpiredAssertionsOk))
 		//TODO CFE add heuristic which assertion to return
 		if ok {
-			sendQueryAnswer(assertions[0], sender, query.Token)
+			sendQueryAnswer(assertions[0], sender, token)
 			log.Debug("Finished handling query by sending assertion from cache", "query", query)
 			return
 		}
@@ -396,7 +396,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo) {
 	for _, zAn := range zoneAndNames {
 		negAssertion, ok := negAssertionCache.Get(query.Context, zAn.zone, rainslib.StringInterval{Name: zAn.name})
 		if ok {
-			sendQueryAnswer(negAssertion, sender, query.Token)
+			sendQueryAnswer(negAssertion, sender, token)
 			log.Debug("Finished handling query by sending shard or zone from cache", "query", query)
 			return
 		}
@@ -405,29 +405,30 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo) {
 
 	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
 		log.Debug("Send a notification message back to the sender due to query option: 'Cached Answers only'")
-		sendNotificationMsg(query.Token, sender, rainslib.NTNoAssertionAvail)
+		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail)
 		log.Debug("Finished handling query (unsuccessful) ", "query", query)
 		return
 	}
 	for _, zAn := range zoneAndNames {
 		delegate := getDelegationAddress(query.Context, zAn.zone)
 		if delegate.Equal(serverConnInfo) {
-			sendNotificationMsg(query.Token, sender, rainslib.NTNoAssertionAvail)
+			sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail)
 			log.Error("Stop processing query. I am authoritative and have no answer in cache")
 			return
 		}
 		//we have a valid delegation
-		token := query.Token
+		tok := token
 		if !query.ContainsOption(rainslib.QOTokenTracing) {
-			token = rainslib.GenerateToken()
+			tok = rainslib.GenerateToken()
 		}
 		validUntil := time.Now().Add(Config.QueryValidity).Unix() //Upper bound for forwarded query expiration time
 		if query.Expires < validUntil {
 			validUntil = query.Expires
 		}
-		pendingQueries.Add(query.Context, zAn.zone, zAn.name, query.Type, pendingQuerySetValue{connInfo: sender, token: token, validUntil: validUntil})
+		pendingQueries.Add(query.Context, zAn.zone, zAn.name, query.Type, pendingQuerySetValue{connInfo: sender, token: tok, validUntil: validUntil})
 		log.Debug("Added query into to pending query cache", "query", query)
-		sendQuery(query.Context, zAn.zone, validUntil, query.Type, token, delegate)
+		msg := rainslib.NewQueryMessage(query.Context, zAn.zone, validUntil, query.Type, nil, tok)
+		SendMessage(msg, delegate)
 	}
 }
 

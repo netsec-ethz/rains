@@ -82,10 +82,9 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 		switch m := m.(type) {
 		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.AddressAssertionSection, *rainslib.AddressZoneSection:
 			addMsgSectionToQueue(m, msg.Token, sender)
-		case *rainslib.QuerySection:
-			addQueryToQueue(m.Token, msg.Token, m, sender)
-		case *rainslib.AddressQuerySection:
-			addQueryToQueue(m.Token, msg.Token, m, sender)
+		case *rainslib.QuerySection, *rainslib.AddressQuerySection:
+			log.Debug(fmt.Sprintf("add %T to normal queue", m))
+			normalChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
 		case *rainslib.NotificationSection:
 			addNotificationToQueue(m, msg.Token, sender)
 		default:
@@ -131,15 +130,11 @@ func handleCapabilities(caps []rainslib.Capability) {
 	}*/
 }
 
-//sendNotificationMsg sends a notification message to the sender with the given notificationType.
+//sendNotificationMsg sends a notification message to dst with the given notificationType.
 //If an error occurs during parsing no message is sent and the error is logged.
-func sendNotificationMsg(token rainslib.Token, sender rainslib.ConnInfo, notificationType rainslib.NotificationType) {
-	msg, err := CreateNotificationMsg(token, notificationType, "")
-	if err != nil {
-		log.Warn("Error during encoding of a message containing a notification section", "error", err)
-		return
-	}
-	sendTo(msg, sender)
+func sendNotificationMsg(token rainslib.Token, dst rainslib.ConnInfo, notificationType rainslib.NotificationType) {
+	msg := rainslib.NewNotificationMessage(token, notificationType, "")
+	SendMessage(msg, dst)
 }
 
 //addMsgSectionToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg section to the prio cache, otherwise to the normal cache.
@@ -156,8 +151,7 @@ func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token
 //addQueryToQueue checks that the token of the message and of the query section are the same and if so adds it to a queue
 func addQueryToQueue(queryToken, msgToken rainslib.Token, section rainslib.MessageSection, sender rainslib.ConnInfo) {
 	if msgToken == queryToken {
-		log.Debug("add query to normal queue")
-		normalChannel <- msgSectionSender{Sender: sender, Section: section, Token: msgToken}
+
 	} else {
 		log.Warn("Token of message and query section do not match.", "msgToken", msgToken, "querySectionToken", queryToken)
 		sendNotificationMsg(msgToken, sender, rainslib.NTBadMessage)

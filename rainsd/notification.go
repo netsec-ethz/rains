@@ -1,9 +1,9 @@
 package rainsd
 
 import (
-	log "github.com/inconshreveable/log15"
-
 	"rains/rainslib"
+
+	log "github.com/inconshreveable/log15"
 )
 
 //notify handles incoming notification messages
@@ -23,11 +23,8 @@ func notify(msgSender msgSectionSender) {
 		notifLog.Error("Sent msg was too large")
 	case rainslib.NTNoAssertionsExist:
 		notifLog.Info("Bad request, only clients receive this notification type")
-		msg, err := CreateNotificationMsg(msgSender.Token, rainslib.NTBadMessage, "")
-		if err != nil {
-			return
-		}
-		sendTo(msg, msgSender.Sender)
+		msg := rainslib.NewNotificationMessage(msgSender.Token, rainslib.NTBadMessage, "")
+		SendMessage(msg, msgSender.Sender)
 	case rainslib.NTUnspecServerErr:
 		notifLog.Error("Unspecified error of other server")
 	case rainslib.NTServerNotCapable:
@@ -37,10 +34,7 @@ func notify(msgSender msgSectionSender) {
 		//TODO CFE forward this msg to the query issuing it. Lookup token mapping in delegationTokenMapping
 	default:
 		notifLog.Warn("No matching notification type")
-		msg, err := CreateNotificationMsg(msgSender.Token, rainslib.NTBadMessage, "No matching notification type")
-		if err != nil {
-			return
-		}
-		sendTo(msg, msgSender.Sender)
+		msg := rainslib.NewNotificationMessage(msgSender.Token, rainslib.NTBadMessage, "No matching notification type")
+		SendMessage(msg, msgSender.Sender)
 	}
 }

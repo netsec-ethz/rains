@@ -11,9 +11,8 @@ import (
 	"rains/utils/protoParser"
 	"rains/utils/zoneFileParser"
 	"strconv"
-	"time"
-
 	"strings"
+	"time"
 
 	log "github.com/inconshreveable/log15"
 )

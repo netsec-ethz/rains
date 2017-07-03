@@ -40,7 +40,7 @@ func initVerify() error {
 		log.Error("Cannot create zone key Cache", "error", err)
 		return err
 	}
-	if err := loadRootZonePublicKey(); err != nil {
+	if err := loadRootZonePublicKey(Config.RootZonePublicKeyPath); err != nil {
 		return err
 	}
 
@@ -107,7 +107,7 @@ func verify(msgSender msgSectionSender) {
 			return //already logged, that context is invalid
 		}
 		if validQuery(section.Expires) {
-			addressQuery(section, msgSender.Sender)
+			addressQuery(section, msgSender.Sender, msgSender.Token)
 		}
 	case *rainslib.QuerySection:
 		if contextInvalid(section.Context) {
@@ -115,7 +115,7 @@ func verify(msgSender msgSectionSender) {
 			return //already logged, that context is invalid
 		}
 		if validQuery(section.Expires) {
-			query(section, msgSender.Sender)
+			query(section, msgSender.Sender, msgSender.Token)
 		}
 	default:
 		log.Warn("Not supported Msg section to verify", "msgSection", section)
@@ -289,7 +289,8 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 	if ok {
 		delegate := getDelegationAddress(section.GetContext(), section.GetSubjectZone())
 		token := rainslib.GenerateToken()
-		sendQuery(section.GetContext(), section.GetSubjectZone(), cacheValue.validUntil, rainslib.OTDelegation, token, delegate)
+		msg := rainslib.NewQueryMessage(section.GetContext(), section.GetSubjectZone(), cacheValue.validUntil, rainslib.OTDelegation, nil, token)
+		SendMessage(msg, delegate)
 		if !activeTokens.AddToken(token, cacheValue.validUntil) {
 			log.Warn("activeTokenCache is full. Delegation query cannot be handled over the priority queue")
 		}

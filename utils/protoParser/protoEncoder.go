@@ -7,9 +7,8 @@ import (
 	"rains/rainslib"
 	"strconv"
 
-	"golang.org/x/crypto/ed25519"
-
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 	capnp "zombiezen.com/go/capnproto2"
 )
 

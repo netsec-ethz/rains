@@ -445,8 +445,8 @@ type MsgFramer interface {
 	Frame(msg []byte) error
 
 	//DeFrame extracts the next frame from the streamReader defined in InitStream().
-	//It blocks until it encounters the delimiter.
-	//It returns false when the stream was not initialized or is already closed.
+	//It blocks until it encounters the end of the next frame.
+	//It returns false when the stream was not initialized, an error occurred while reading or is already closed.
 	//The data is available through Data
 	DeFrame() bool
 
