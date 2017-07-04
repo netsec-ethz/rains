@@ -147,6 +147,7 @@ struct Obj  {
 		regt    @10 :Text;
 		infra   @11 :PublicKey;
 		extra   @12 :PublicKey;
+		next    @13 :PublicKey;
     }
 }
 

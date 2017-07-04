@@ -37,3 +37,7 @@ _testmain.go
 
 #binary of rainsdig
 /rainsdig/rainsdig
+
+#test
+*.out
+test/

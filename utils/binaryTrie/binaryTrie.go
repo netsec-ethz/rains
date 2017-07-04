@@ -30,7 +30,6 @@ func (t *TrieNode) Get(netAddr *net.IPNet, types []rainslib.ObjectType) (*rainsl
 func get(t *TrieNode, netAddr *net.IPNet, types []rainslib.ObjectType, depth int) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
 	addrmasks := [8]byte{0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01}
 	prfLength, _ := netAddr.Mask.Size()
-
 	if depth < prfLength {
 		var childidx int
 		if netAddr.IP[depth/8]&addrmasks[depth%8] == 0 {

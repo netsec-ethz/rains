@@ -2,10 +2,12 @@ package keyCreation
 
 import (
 	"encoding/hex"
+	"errors"
 	"io/ioutil"
 	"os"
+	"rains/rainsSiglib"
 	"rains/rainslib"
-	"rains/utils/rainsMsgParser"
+	"rains/utils/zoneFileParser"
 	"time"
 
 	log "github.com/inconshreveable/log15"
@@ -21,15 +23,22 @@ func CreateDelegationAssertion(context, zone string) error {
 		return err
 	}
 	log.Debug("Generated root public Key", "publicKey", publicKey)
+	pkey := rainslib.PublicKey{
+		KeySpace:   rainslib.RainsKeySpace,
+		Type:       rainslib.Ed25519,
+		Key:        publicKey,
+		ValidSince: time.Now().Unix(),
+		ValidUntil: time.Now().Add(30 * 24 * time.Hour).Unix(),
+	}
 	assertion := &rainslib.AssertionSection{
 		Context:     context,
 		SubjectZone: zone,
 		SubjectName: "@",
-		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}},
+		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation, Value: pkey}},
 	}
 	if zone == "." {
-		if err := addSignature(assertion, privateKey); err != nil {
-			return err
+		if ok := addSignature(assertion, privateKey); !ok {
+			return errors.New("Was not able to sign the assertion")
 		}
 	}
 	if err := storeKeyPair(publicKey, privateKey); err != nil {
@@ -48,23 +57,15 @@ func CreateDelegationAssertion(context, zone string) error {
 }
 
 //addSignature signs the section with the public key and adds the resulting signature to the section
-func addSignature(a rainslib.MessageSectionWithSig, key ed25519.PrivateKey) error {
-	msgParser := rainsMsgParser.RainsMsgParser{}
-	data, err := msgParser.RevParseSignedMsgSection(a)
-	if err != nil {
-		return err
-	}
-	sigData := rainslib.SignData(rainslib.Ed25519, key, []byte(data))
+func addSignature(a rainslib.MessageSectionWithSig, key ed25519.PrivateKey) bool {
 	signature := rainslib.Signature{
 		Algorithm: rainslib.Ed25519,
 		KeySpace:  rainslib.RainsKeySpace,
-		Data:      sigData,
 		//FIXME CFE add validity times to config
 		ValidSince: time.Now().Unix(),
 		ValidUntil: time.Now().Add(30 * 24 * time.Hour).Unix(),
 	}
-	a.AddSig(signature)
-	return nil
+	return rainsSiglib.SignSection(a, key, signature, zoneFileParser.Parser{})
 }
 
 //storeKeyPair stores the public and private key to separate files (hex encoded)
@@ -95,9 +96,8 @@ func SignDelegation(delegationPath, privateKeyPath string) error {
 	if err != nil {
 		return err
 	}
-	err = addSignature(delegation, privateKey)
-	if err != nil {
-		return err
+	if ok := addSignature(delegation, privateKey); !ok {
+		return errors.New("Was not able to sign and add signature")
 	}
 	err = rainslib.Save(delegationPath, delegation)
 	if err != nil {

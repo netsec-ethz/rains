@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/crypto/ed25519"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -156,8 +158,8 @@ func revParseObjects(content []rainslib.Object) string {
 		//FIXME CFE make sure that all delegation, cert, infra and external type are correctly encoded.
 		case rainslib.PublicKey:
 			switch key := value.Key.(type) {
-			case rainslib.Ed25519PublicKey:
-				objs += fmt.Sprintf(":OT:%v:OD:%d:KD:%v", obj.Type, rainslib.Ed25519, hex.EncodeToString(key[:]))
+			case ed25519.PublicKey:
+				objs += fmt.Sprintf(":OT:%v:OD:%d:KD:%v", obj.Type, rainslib.Ed25519, hex.EncodeToString(key))
 			case rainslib.Ed448PublicKey:
 				objs += fmt.Sprintf(":OT:%v:OD:%d:KD:%v", obj.Type, rainslib.Ed448, hex.EncodeToString(key[:]))
 			default:
@@ -430,9 +432,7 @@ func parseObjects(inputObjects string) ([]rainslib.Object, error) {
 					log.Warn("Object's value malformed.", "bytestring", od[1], "error", err)
 					return []rainslib.Object{}, errors.New("Object's objectValue malformed, could not decode")
 				}
-				pkey := rainslib.Ed25519PublicKey{}
-				copy(pkey[:], keyData)
-				publicKey := rainslib.PublicKey{Key: pkey, Type: rainslib.Ed25519}
+				publicKey := rainslib.PublicKey{Key: ed25519.PublicKey(keyData), Type: rainslib.Ed25519}
 				object := rainslib.Object{Type: rainslib.ObjectType(objectType), Value: publicKey}
 				objects = append(objects, object)
 			case rainslib.Ed448:

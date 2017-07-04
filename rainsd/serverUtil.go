@@ -4,11 +4,14 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"rains/rainslib"
 	"rains/utils/cache"
 	"rains/utils/protoParser"
+	"rains/utils/zoneFileParser"
+	"time"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -22,37 +25,54 @@ func InitServer() error {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(h)
 	loadConfig()
-	serverConnInfo = rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: Config.ServerTCPAddr}
+	serverConnInfo = Config.ServerAddress
 	msgParser = new(protoParser.ProtoParserAndFramer)
+	sigEncoder = new(zoneFileParser.Parser)
 	loadAuthoritative()
 	if err := loadCert(); err != nil {
 		return err
 	}
+	log.Debug("Successfully loaded Certificate")
 	if err := initSwitchboard(); err != nil {
 		return err
 	}
+	log.Debug("Successfully initiated switchboard")
 	if err := initInbox(); err != nil {
 		return err
 	}
+	log.Debug("Successfully initiated inbox")
 	if err := initVerify(); err != nil {
 		return err
 	}
+	log.Debug("Successfully initiated verify")
 	if err := initEngine(); err != nil {
 		return err
 	}
+	log.Debug("Successfully initiated engine")
 	return nil
 }
 
 //LoadConfig loads and stores server configuration
 func loadConfig() {
-	Config.ServerTCPAddr = loadDefaultSeverAddrIntoConfig()
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Warn("Could not open config file...", "path", configPath, "error", err)
 	}
 	if err = json.Unmarshal(file, &Config); err != nil {
-		log.Warn("Could not unmarshal json format of config")
+		log.Warn("Could not unmarshal json format of config", "error", err)
 	}
+	Config.KeepAlivePeriod *= time.Second
+	Config.TCPTimeout *= time.Second
+	Config.DelegationQueryValidity *= time.Second
+	Config.ReapVerifyTimeout *= time.Second
+	Config.QueryValidity *= time.Second
+	Config.AddressQueryValidity *= time.Second
+	Config.ReapEngineTimeout *= time.Second
+	Config.MaxCacheValidity.AddressAssertionValidity *= time.Hour
+	Config.MaxCacheValidity.AddressZoneValidity *= time.Hour
+	Config.MaxCacheValidity.AssertionValidity *= time.Hour
+	Config.MaxCacheValidity.ShardValidity *= time.Hour
+	Config.MaxCacheValidity.ZoneValidity *= time.Hour
 }
 
 func loadAuthoritative() {
@@ -64,18 +84,20 @@ func loadAuthoritative() {
 
 //loadRootZonePublicKey stores the root zone public key from disk into the zoneKeyCache.
 func loadRootZonePublicKey() error {
-	a := &rainslib.AssertionSection{}
+	a := new(rainslib.AssertionSection)
 	err := rainslib.Load(Config.RootZonePublicKeyPath, a)
 	if err == nil {
 		for _, c := range a.Content {
 			if c.Type == rainslib.OTDelegation {
-				//FIXME CFE: a.ValidUntil() returns 0 and the value is thus not cached. It is solved in the reverse lookup branch
-				publicKey := rainslib.PublicKey{Key: c.Value, Type: a.Signatures[0].Algorithm, ValidUntil: a.ValidUntil()}
-				keyMap := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
-				keyMap[rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)] = publicKey
-				if validateSignatures(a, keyMap) {
-					log.Info("Added root public key to zone key cache.", "context", a.Context, "zone", a.SubjectZone, "RootPublicKey", publicKey)
-					zoneKeyCache.Add(keyCacheKey{context: a.Context, zone: a.SubjectZone, keyAlgo: rainslib.KeyAlgorithmType(publicKey.Type)}, publicKey, true)
+				if publicKey, ok := c.Value.(rainslib.PublicKey); ok {
+					keyMap := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
+					keyMap[rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)] = publicKey
+					if validateSignatures(a, keyMap) {
+						log.Info("Added root public key to zone key cache.", "context", a.Context, "zone", a.SubjectZone, "RootPublicKey", c.Value)
+						zoneKeyCache.Add(keyCacheKey{context: a.Context, zone: a.SubjectZone, keyAlgo: rainslib.KeyAlgorithmType(publicKey.Type)}, publicKey, true)
+					}
+				} else {
+					log.Warn(fmt.Sprintf("Was not able to cast to rainslib.PublicKey Got Type:%T", c.Value))
 				}
 			}
 		}
@@ -131,7 +153,7 @@ func sendAddressQuery(context string, ipNet *net.IPNet, expTime int64, objType r
 		SubjectAddr: ipNet,
 		Expires:     expTime,
 		Token:       token,
-		Types:       objType,
+		Type:        objType,
 	}
 	query := rainslib.RainsMessage{Token: token, Content: []rainslib.MessageSection{&querySection}}
 	//TODO CFE add infrastructure signature to query message?
@@ -148,9 +170,9 @@ func sendAddressQuery(context string, ipNet *net.IPNet, expTime int64, objType r
 func getDelegationAddress(context, zone string) rainslib.ConnInfo {
 	//TODO CFE not yet implemented
 	log.Warn("Not yet implemented CFE. return hard coded delegation address")
-	tcpAddr := loadDefaultSeverAddrIntoConfig()
-	tcpAddr.Port = tcpAddr.Port + 1
-	return rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr}
+	delegAddr := Config.ServerAddress
+	delegAddr.TCPAddr.Port++
+	return delegAddr
 }
 
 //createConnectionCache returns a newly created connection cache

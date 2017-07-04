@@ -1,10 +1,11 @@
-package protoParser
+package rainsSiglib
 
 import (
 	"net"
 	"rains/rainslib"
-	"rains/utils/testUtil"
+	"rains/utils/zoneFileParser"
 	"testing"
+	"time"
 
 	"golang.org/x/crypto/ed25519"
 )
@@ -14,11 +15,11 @@ func TestEncodeAndDecode(t *testing.T) {
 		Name:  "ethz2.ch",
 		Types: []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr},
 	}
-	pubKey, _, _ := ed25519.GenerateKey(nil)
+
 	publicKey := rainslib.PublicKey{
 		KeySpace:   rainslib.RainsKeySpace,
 		Type:       rainslib.Ed25519,
-		Key:        pubKey,
+		Key:        ed25519.PublicKey([]byte("01234567890123456789012345678901")),
 		ValidSince: 10000,
 		ValidUntil: 50000,
 	}
@@ -51,9 +52,9 @@ func TestEncodeAndDecode(t *testing.T) {
 	signature := rainslib.Signature{
 		KeySpace:   rainslib.RainsKeySpace,
 		Algorithm:  rainslib.Ed25519,
-		ValidSince: 1000,
-		ValidUntil: 2000,
-		Data:       []byte("SignatureData")}
+		ValidSince: time.Now().Unix(),
+		ValidUntil: time.Now().Add(24 * time.Hour).Unix(),
+	}
 
 	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
 	_, subjectAddress2, _ := net.ParseCIDR("127.0.0.1/24")
@@ -65,7 +66,6 @@ func TestEncodeAndDecode(t *testing.T) {
 		Context:     ".",
 		SubjectName: "ethz",
 		SubjectZone: "ch",
-		Signatures:  []rainslib.Signature{signature},
 	}
 
 	shard := &rainslib.ShardSection{
@@ -74,14 +74,12 @@ func TestEncodeAndDecode(t *testing.T) {
 		SubjectZone: "ch",
 		RangeFrom:   "aaa",
 		RangeTo:     "zzz",
-		Signatures:  []rainslib.Signature{signature},
 	}
 
 	zone := &rainslib.ZoneSection{
 		Content:     []rainslib.MessageSectionWithSig{assertion, shard},
 		Context:     ".",
 		SubjectZone: "ch",
-		Signatures:  []rainslib.Signature{signature},
 	}
 
 	query := &rainslib.QuerySection{
@@ -103,28 +101,24 @@ func TestEncodeAndDecode(t *testing.T) {
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Content:     []rainslib.Object{nameObject},
-		Signatures:  []rainslib.Signature{signature},
 	}
 
 	addressAssertion2 := &rainslib.AddressAssertionSection{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
 		Content:     []rainslib.Object{redirObject, delegObject, registrantObject},
-		Signatures:  []rainslib.Signature{signature},
 	}
 
 	addressAssertion3 := &rainslib.AddressAssertionSection{
 		SubjectAddr: subjectAddress3,
 		Context:     ".",
 		Content:     []rainslib.Object{redirObject, delegObject, registrantObject},
-		Signatures:  []rainslib.Signature{signature},
 	}
 
 	addressZone := &rainslib.AddressZoneSection{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
 		Content:     []*rainslib.AddressAssertionSection{addressAssertion1, addressAssertion2, addressAssertion3},
-		Signatures:  []rainslib.Signature{signature},
 	}
 
 	addressQuery := &rainslib.AddressQuerySection{
@@ -151,20 +145,94 @@ func TestEncodeAndDecode(t *testing.T) {
 		},
 		Token:        rainslib.GenerateToken(),
 		Capabilities: []rainslib.Capability{rainslib.Capability("Test"), rainslib.Capability("Yes!")},
-		Signatures:   []rainslib.Signature{signature},
 	}
 
-	p := ProtoParserAndFramer{}
-
-	msg, err := p.Encode(message)
-	if err != nil {
-		t.Error("Failed to encode the message")
+	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
+	pKey := rainslib.PublicKey{
+		KeySpace:   rainslib.RainsKeySpace,
+		Type:       rainslib.Ed25519,
+		ValidSince: time.Now().Add(-24 * time.Hour).Unix(),
+		ValidUntil: time.Now().Add(24 * time.Hour).Unix(),
+		Key:        genPublicKey,
 	}
-	m, err := p.Decode(msg)
-	if err != nil {
-		t.Error("Failed to decode the message")
+	pKeys := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
+	pKeys[rainslib.KeyAlgorithmType(pKey.Type)] = pKey
+	maxValidity := rainslib.MaxCacheValidity{
+		AssertionValidity:        30 * time.Hour,
+		ShardValidity:            30 * time.Hour,
+		ZoneValidity:             30 * time.Hour,
+		AddressAssertionValidity: 30 * time.Hour,
+		AddressZoneValidity:      30 * time.Hour,
+	}
+	ok := SignMessage(&message, genPrivateKey, signature, zoneFileParser.Parser{})
+	if !ok {
+		t.Error("Was not able to generate and add a signature to the message")
+	}
+	ok = CheckMessageSignatures(&message, pKey, zoneFileParser.Parser{}, maxValidity)
+	if !ok {
+		t.Error("Verification of message signature failed")
 	}
 
-	testUtil.CheckMessage(m, message, t)
+	ok = SignSection(assertion, genPrivateKey, signature, zoneFileParser.Parser{})
+	if !ok {
+		t.Error("Was not able to generate and add a signature to the assertion")
+	}
+	ok = CheckSectionSignatures(assertion, pKeys, zoneFileParser.Parser{}, maxValidity)
+	if !ok {
+		t.Error("Verification of assertion signature failed")
+	}
 
+	ok = SignSection(shard, genPrivateKey, signature, zoneFileParser.Parser{})
+	if !ok {
+		t.Error("Was not able to generate and add a signature to the shard")
+	}
+	ok = CheckSectionSignatures(shard, pKeys, zoneFileParser.Parser{}, maxValidity)
+	if !ok {
+		t.Error("Verification of shard signature failed")
+	}
+
+	ok = SignSection(zone, genPrivateKey, signature, zoneFileParser.Parser{})
+	if !ok {
+		t.Error("Was not able to generate and add a signature to the zone")
+	}
+	ok = CheckSectionSignatures(zone, pKeys, zoneFileParser.Parser{}, maxValidity)
+	if !ok {
+		t.Error("Verification of zone signature failed")
+	}
+
+	ok = SignSection(addressAssertion1, genPrivateKey, signature, zoneFileParser.Parser{})
+	if !ok {
+		t.Error("Was not able to generate and add a signature to the addressAssertion")
+	}
+	ok = CheckSectionSignatures(addressAssertion1, pKeys, zoneFileParser.Parser{}, maxValidity)
+	if !ok {
+		t.Error("Verification of addressAssertion signature failed")
+	}
+
+	ok = SignSection(addressAssertion2, genPrivateKey, signature, zoneFileParser.Parser{})
+	if !ok {
+		t.Error("Was not able to generate and add a signature to the addressAssertion")
+	}
+	ok = CheckSectionSignatures(addressAssertion2, pKeys, zoneFileParser.Parser{}, maxValidity)
+	if !ok {
+		t.Error("Verification of addressAssertion signature failed")
+	}
+
+	ok = SignSection(addressAssertion3, genPrivateKey, signature, zoneFileParser.Parser{})
+	if !ok {
+		t.Error("Was not able to generate and add a signature to the addressAssertion")
+	}
+	ok = CheckSectionSignatures(addressAssertion3, pKeys, zoneFileParser.Parser{}, maxValidity)
+	if !ok {
+		t.Error("Verification of addressAssertion signature failed")
+	}
+
+	ok = SignSection(addressZone, genPrivateKey, signature, zoneFileParser.Parser{})
+	if !ok {
+		t.Error("Was not able to generate and add a signature to the addressZone")
+	}
+	ok = CheckSectionSignatures(addressZone, pKeys, zoneFileParser.Parser{}, maxValidity)
+	if !ok {
+		t.Error("Verification of addressZone signature failed")
+	}
 }

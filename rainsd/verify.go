@@ -3,8 +3,8 @@ package rainsd
 import (
 	"fmt"
 	"math"
+	"rains/rainsSiglib"
 	"rains/rainslib"
-	"rains/utils/rainsMsgParser"
 	"strings"
 	"time"
 
@@ -22,6 +22,8 @@ var externalKeyCache keyCache
 
 //pendingSignatures contains all sections that are waiting for a delegation query to arrive such that their signatures can be verified.
 var pendingSignatures pendingSignatureCache
+
+var sigEncoder rainslib.SignatureFormatEncoder
 
 //initVerify initialized the module which is responsible for checking the validity of the signatures and the structure of the sections.
 //It spawns a goroutine which periodically goes through the cache and removes outdated entries, see reapVerify()
@@ -124,13 +126,10 @@ func verifyMessageSignature(msg rainslib.RainsMessage) bool {
 		log.Info("No signature on the message")
 		return true
 	}
-	for _, sig := range msg.Signatures {
-		//TODO CFE think about how to best implement this generically perhaps combine with assertion/shard/zone checking?
-		if !validMsgSignature("", sig) {
-			return false
-		}
-	}
-	return true
+	//TODO CFE get publicKey
+	log.Error("Not yet implemented ")
+	//return rainsSiglib.CheckMessageSignatures(msg, , zoneFileParser.Parser{}, )
+	return false
 }
 
 func validMsgSignature(msgStub string, sig rainslib.Signature) bool {
@@ -432,58 +431,15 @@ func validAddressZoneSignatures(section *rainslib.AddressZoneSection, keys map[r
 
 //validateSignatures returns true if all signatures of the section are valid. It removes valid signatures that are expired
 func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainslib.KeyAlgorithmType]rainslib.PublicKey) bool {
-	log.Info(fmt.Sprintf("Validate %T", section), "msgSection", section)
-	if len(section.Sigs()) == 0 {
-		log.Warn("Section does not contain any signature")
+	if !rainsSiglib.CheckSectionSignatures(section, keys, sigEncoder, Config.MaxCacheValidity) {
+		log.Warn("signatures do not match")
 		return false
 	}
-	stub := section.CreateStub()
-	sigParser := new(rainsMsgParser.RainsMsgParser)
-	bareStub, _ := sigParser.RevParseSignedMsgSection(stub)
-	for i, sig := range section.Sigs() {
-		if int64(sig.ValidUntil) < time.Now().Unix() {
-			log.Warn("signature expired", "expTime", sig.ValidUntil)
-			section.DeleteSig(i)
-		} else if pkey := keys[rainslib.KeyAlgorithmType(sig.Algorithm)]; !rainslib.VerifySignature(sig.Algorithm, pkey.Key, []byte(bareStub), sig.Data) {
-			log.Warn("signatures do not match")
-			return false
-		} else {
-			updateSectionValidity(section, pkey.ValidSince, pkey.ValidUntil, sig.ValidSince, sig.ValidUntil)
-		}
-	}
-	if section.ValidSince() == math.MaxInt64 && section.ValidUntil() == 0 {
+	if section.ValidSince() == math.MaxInt64 {
 		log.Warn("No signature is valid until the MaxValidity date in the future.")
 		return false
 	}
 	return len(section.Sigs()) > 0
-}
-
-func updateSectionValidity(section rainslib.MessageSectionWithSig, pkeyValidSince, pkeyValidUntil, sigValidSince, sigValidUntil int64) {
-	var maxValidity time.Duration
-	switch section.(type) {
-	case *rainslib.AssertionSection:
-		maxValidity = Config.MaxCacheAssertionValidity
-	case *rainslib.ShardSection:
-		maxValidity = Config.MaxCacheShardValidity
-	case *rainslib.ZoneSection:
-		maxValidity = Config.MaxCacheZoneValidity
-	default:
-		log.Warn("Not supported section", "type", fmt.Sprintf("%T", section))
-	}
-	if pkeyValidSince < sigValidSince {
-		if pkeyValidUntil < sigValidUntil {
-			section.UpdateValidity(sigValidSince, pkeyValidUntil, maxValidity)
-		} else {
-			section.UpdateValidity(sigValidSince, sigValidUntil, maxValidity)
-		}
-
-	} else {
-		if pkeyValidUntil < sigValidUntil {
-			section.UpdateValidity(pkeyValidSince, pkeyValidUntil, maxValidity)
-		} else {
-			section.UpdateValidity(pkeyValidSince, sigValidUntil, maxValidity)
-		}
-	}
 }
 
 //reapVerify deletes expired keys from the key caches and expired sections from the pendingSignature cache in intervals according to the config
