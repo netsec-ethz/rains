@@ -1,6 +1,7 @@
 package rainslib
 
 import (
+	"net"
 	"reflect"
 	"testing"
 	"time"
@@ -14,11 +15,11 @@ func TestSaveAndLoad(t *testing.T) {
 		storeErrMsg string
 		loadErrMsg  string
 	}{
-		{&AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".", Content: []Object{Object{Type: OTIP4Addr, Value: "127.0.0.1"}}},
+		{&AssertionSection{SubjectName: testSubjectName, SubjectZone: testZone, Context: globalContext, Content: []Object{Object{Type: OTIP4Addr, Value: ip4TestAddr}}},
 			new(AssertionSection), "test/test.gob", "", ""},
-		{&AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".", Content: []Object{Object{Type: OTIP4Addr, Value: "127.0.0.1"}}},
+		{&AssertionSection{SubjectName: testSubjectName, SubjectZone: testZone, Context: globalContext, Content: []Object{Object{Type: OTIP4Addr, Value: ip4TestAddr}}},
 			nil, "test/test.gob", "", "gob: DecodeValue of unassignable value"},
-		{&AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".", Content: []Object{Object{Type: OTIP4Addr, Value: "127.0.0.1"}}},
+		{&AssertionSection{SubjectName: testSubjectName, SubjectZone: "ch", Context: globalContext, Content: []Object{Object{Type: OTIP4Addr, Value: ip4TestAddr}}},
 			new(AssertionSection), "nonExistDir/test.gob", "open nonExistDir/test.gob: no such file or directory", "open nonExistDir/test.gob: no such file or directory"},
 	}
 	for i, test := range tests {
@@ -99,6 +100,106 @@ func TestUpdateSectionValidity(t *testing.T) {
 		}
 		if test.input != nil && test.input.ValidUntil() != test.wantValidUntil {
 			t.Errorf("%d: ValidUntil does not match. expected=%d actual=%d", i, test.wantValidUntil, test.input.ValidUntil())
+		}
+	}
+}
+
+func TestNewQueryMessage(t *testing.T) {
+	token := GenerateToken()
+	var tests = []struct {
+		context  string
+		name     string
+		expires  int64
+		t        ObjectType
+		options  []QueryOption
+		token    Token
+		expected RainsMessage
+	}{
+		{".", "example.com", 100, OTIP4Addr, []QueryOption{QOTokenTracing, QOMinE2ELatency}, token,
+			RainsMessage{Token: token, Content: []MessageSection{&QuerySection{Name: "example.com", Context: ".", Expires: 100, Type: OTIP4Addr,
+				Options: []QueryOption{QOTokenTracing, QOMinE2ELatency}}}}},
+	}
+	for i, test := range tests {
+		msg := NewQueryMessage(test.context, test.name, test.expires, test.t, test.options, test.token)
+		if !reflect.DeepEqual(test.expected, msg) {
+			t.Errorf("%d: Message containing Query do not match. expected=%v actual=%v", i, test.expected, msg)
+		}
+	}
+}
+
+func TestNewAddressQueryMessage(t *testing.T) {
+	token := GenerateToken()
+	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
+	_, subjectAddress2, _ := net.ParseCIDR(ip6TestAddrCIDR)
+	var tests = []struct {
+		context  string
+		ipNet    *net.IPNet
+		expires  int64
+		t        ObjectType
+		options  []QueryOption
+		token    Token
+		expected RainsMessage
+	}{
+		{".", subjectAddress1, 100, OTIP4Addr, []QueryOption{QOTokenTracing, QOMinE2ELatency}, token,
+			RainsMessage{Token: token, Content: []MessageSection{&AddressQuerySection{SubjectAddr: subjectAddress1, Context: ".", Expires: 100, Type: OTIP4Addr,
+				Options: []QueryOption{QOTokenTracing, QOMinE2ELatency}}}}},
+		{".", subjectAddress2, 100, OTIP4Addr, []QueryOption{QOTokenTracing, QOMinE2ELatency}, token,
+			RainsMessage{Token: token, Content: []MessageSection{&AddressQuerySection{SubjectAddr: subjectAddress2, Context: ".", Expires: 100, Type: OTIP4Addr,
+				Options: []QueryOption{QOTokenTracing, QOMinE2ELatency}}}}},
+	}
+	for i, test := range tests {
+		msg := NewAddressQueryMessage(test.context, test.ipNet, test.expires, test.t, test.options, test.token)
+		if !reflect.DeepEqual(test.expected, msg) {
+			t.Errorf("%d: Message containing Query do not match. expected=%v actual=%v", i, test.expected, msg)
+		}
+	}
+}
+
+func TestNewNotificationsMessage(t *testing.T) {
+	tokens := []Token{}
+	for i := 0; i < 10; i++ {
+		tokens = append(tokens, GenerateToken())
+	}
+	var tests = []struct {
+		tokens   []Token
+		types    []NotificationType
+		data     []string
+		expected RainsMessage
+		errMsg   string
+	}{
+		{tokens[:2], []NotificationType{NTHeartbeat, NTMsgTooLarge}, []string{"1", "2"},
+			RainsMessage{Content: []MessageSection{&NotificationSection{Token: tokens[0], Type: NTHeartbeat, Data: "1"},
+				&NotificationSection{Token: tokens[1], Type: NTMsgTooLarge, Data: "2"}}}, ""},
+		{tokens[:3], []NotificationType{NTHeartbeat, NTMsgTooLarge}, []string{"1", "2"}, RainsMessage{}, "input slices have not the same length"},
+	}
+	for i, test := range tests {
+		msg, err := NewNotificationsMessage(test.tokens, test.types, test.data)
+		test.expected.Token = msg.Token
+		if err == nil && !reflect.DeepEqual(test.expected, msg) {
+			t.Errorf("%d: Message containing Notifications do not match. expected=%v actual=%v", i, test.expected, msg)
+		}
+		if err != nil && err.Error() != test.errMsg {
+			t.Errorf("%d: error msg do not match. expected=%v actual=%v", i, test.errMsg, err.Error())
+		}
+	}
+}
+
+func TestNewNotificationMessage(t *testing.T) {
+	token := GenerateToken()
+	var tests = []struct {
+		token    Token
+		t        NotificationType
+		data     string
+		expected RainsMessage
+	}{
+		{token, NTHeartbeat, "1",
+			RainsMessage{Content: []MessageSection{&NotificationSection{Token: token, Type: NTHeartbeat, Data: "1"}}}},
+	}
+	for i, test := range tests {
+		msg := NewNotificationMessage(test.token, test.t, test.data)
+		test.expected.Token = msg.Token
+		if !reflect.DeepEqual(test.expected, msg) {
+			t.Errorf("%d: Message containing Notification do not match. expected=%v actual=%v", i, test.expected, msg)
 		}
 	}
 }

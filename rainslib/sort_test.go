@@ -93,17 +93,16 @@ func sortedServiceInfo(nof int) []ServiceInfo {
 	return sis
 }
 
-//TODO loop indices are false
 func sortedObjects(nofObj int) []Object {
 	objects := []Object{}
 	if nofObj > 13 {
 		nofObj = 13
 	}
 	for i := 0; i < nofObj; i++ {
-		nos := sortedNameObjects(nofObj / 2)
-		pkeys := sortedPublicKeys(nofObj / 2)
-		certs := sortedCertificates(nofObj / 2)
-		sis := sortedServiceInfo(nofObj / 2)
+		nos := sortedNameObjects(nofObj)
+		pkeys := sortedPublicKeys(nofObj)
+		certs := sortedCertificates(nofObj)
+		sis := sortedServiceInfo(nofObj)
 		for j := 0; j < nofObj/2; j++ {
 			var value interface{}
 			switch i {

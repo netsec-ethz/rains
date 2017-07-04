@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strconv"
 
+	"encoding/hex"
+
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
 )
@@ -81,7 +83,7 @@ func (o Object) CompareTo(object Object) int {
 }
 
 //String implements Stringer interface
-func (o *Object) String() string {
+func (o Object) String() string {
 	return fmt.Sprintf("OT:%d OV:%v", o.Type, o.Value)
 }
 
@@ -178,9 +180,9 @@ const (
 type PublicKey struct {
 	Type       SignatureAlgorithmType
 	KeySpace   KeySpaceID
-	Key        interface{}
 	ValidSince int64
 	ValidUntil int64
+	Key        interface{}
 }
 
 //CompareTo compares two publicKey objects and returns 0 if they are equal, 1 if p is greater than pkey and -1 if p is smaller than pkey
@@ -214,6 +216,18 @@ func (p PublicKey) CompareTo(pkey PublicKey) int {
 	return 0
 }
 
+//String implements Stringer interface
+func (p PublicKey) String() string {
+	keyString := ""
+	switch k1 := p.Key.(type) {
+	case ed25519.PublicKey:
+		keyString = hex.EncodeToString(k1)
+	default:
+		log.Warn("Unsupported public key type", "type", fmt.Sprintf("%T", p.Key))
+	}
+	return fmt.Sprintf("{%d %d %d %d %s}", p.Type, p.KeySpace, p.ValidSince, p.ValidUntil, keyString)
+}
+
 //NamesetExpression encodes a modified POSIX Extended Regular Expression format
 type NamesetExpression string
 
@@ -241,6 +255,11 @@ func (c CertificateObject) CompareTo(cert CertificateObject) int {
 		return 1
 	}
 	return bytes.Compare(c.Data, cert.Data)
+}
+
+//String implements Stringer interface
+func (c CertificateObject) String() string {
+	return fmt.Sprintf("{%d %d %d %s}", c.Type, c.Usage, c.HashAlgo, hex.EncodeToString(c.Data))
 }
 
 //ProtocolType is an identifier for a protocol. The ID is chosen according to the RAINS Protocol Specification.

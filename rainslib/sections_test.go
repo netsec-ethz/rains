@@ -82,7 +82,7 @@ func TestAssertionHash(t *testing.T) {
 		{new(AssertionSection), "A____[]_[]"},
 		{&AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "ctx", Content: GetAllValidObjects()[:3],
 			Signatures: []Signature{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
-			"A_name_zone_ctx_[{1 {ethz2.ch [3 2]}} {2 2001:0db8:85a3:0000:0000:8a2e:0370:7334} {3 127.0.0.1}]_[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]"},
+			"A_name_zone_ctx_[OT:1 OV:{example.com [3 2]} OT:2 OV:2001:db8:: OT:3 OV:192.0.2.0]_[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]"},
 	}
 	for i, test := range tests {
 		if test.input.Hash() != test.want {
@@ -130,7 +130,7 @@ func TestZoneHash(t *testing.T) {
 
 func TestAddressAssertionHash(t *testing.T) {
 	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
-	_, subjectAddress2, _ := net.ParseCIDR("2001:db8::/32")
+	_, subjectAddress2, _ := net.ParseCIDR(ip6TestAddrCIDR)
 	objects1 := append(GetAllValidObjects()[3:5], GetAllValidObjects()[9])
 	objects2 := []Object{GetAllValidObjects()[0]}
 	var tests = []struct {
@@ -141,11 +141,11 @@ func TestAddressAssertionHash(t *testing.T) {
 		{new(AddressAssertionSection), "AA_<nil>__[]_[]"},
 		{&AddressAssertionSection{SubjectAddr: subjectAddress1, Context: "ctx", Content: objects2,
 			Signatures: []Signature{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
-			"AA_127.0.0.1/32_ctx_[{1 {ethz2.ch [3 2]}}]_[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]"},
+			"AA_127.0.0.1/32_ctx_[OT:1 OV:{example.com [3 2]}]_[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]"},
 		{&AddressAssertionSection{SubjectAddr: subjectAddress2, Context: "ctx", Content: objects1,
 			Signatures: []Signature{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
-			fmt.Sprintf("AA_2001:db8::/32_ctx_[{4 ns.ethz.ch} {5 {1 0 %v 10000 50000}} {10 Registrant information}]_[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]",
-				objects1[1].Value.(PublicKey).Key)},
+			fmt.Sprintf("AA_2001:db8::/32_ctx_[OT:4 OV:example.com OT:5 OV:%s OT:10 OV:Registrant information]_[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]",
+				objects1[1].Value.(PublicKey).String())},
 	}
 	for i, test := range tests {
 		if test.input.Hash() != test.want {
@@ -156,7 +156,7 @@ func TestAddressAssertionHash(t *testing.T) {
 
 func TestAddressZoneHash(t *testing.T) {
 	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
-	_, subjectAddress2, _ := net.ParseCIDR("2001:db8::/32")
+	_, subjectAddress2, _ := net.ParseCIDR(ip6TestAddrCIDR)
 	var tests = []struct {
 		input *AddressZoneSection
 		want  string
@@ -214,7 +214,7 @@ func TestAssertionString(t *testing.T) {
 		{&AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "ctx", Content: GetAllValidObjects()[:3],
 			Signatures: []Signature{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")},
 				Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 3000, ValidUntil: 4000, Data: []byte("SigData2")}}},
-			"Assertion:[SN=name SZ=zone CTX=ctx CONTENT=[{1 {ethz2.ch [3 2]}} {2 2001:0db8:85a3:0000:0000:8a2e:0370:7334} {3 127.0.0.1}] SIG=[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461} {KS=0 AT=1 VS=3000 VU=4000 data=5369674461746132}]]"},
+			"Assertion:[SN=name SZ=zone CTX=ctx CONTENT=[OT:1 OV:{example.com [3 2]} OT:2 OV:2001:db8:: OT:3 OV:192.0.2.0] SIG=[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461} {KS=0 AT=1 VS=3000 VU=4000 data=5369674461746132}]]"},
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {
@@ -262,7 +262,7 @@ func TestZoneString(t *testing.T) {
 
 func TestAddressAssertionString(t *testing.T) {
 	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
-	_, subjectAddress2, _ := net.ParseCIDR("2001:db8::/32")
+	_, subjectAddress2, _ := net.ParseCIDR(ip6TestAddrCIDR)
 	objects1 := append(GetAllValidObjects()[3:5], GetAllValidObjects()[9])
 	objects2 := []Object{GetAllValidObjects()[0]}
 	var tests = []struct {
@@ -273,11 +273,11 @@ func TestAddressAssertionString(t *testing.T) {
 		{new(AddressAssertionSection), "AddressAssertion:[SA=<nil> CTX= CONTENT=[] SIG=[]]"},
 		{&AddressAssertionSection{SubjectAddr: subjectAddress1, Context: "ctx", Content: objects2,
 			Signatures: []Signature{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
-			"AddressAssertion:[SA=127.0.0.1/32 CTX=ctx CONTENT=[{1 {ethz2.ch [3 2]}}] SIG=[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]]"},
+			"AddressAssertion:[SA=127.0.0.1/32 CTX=ctx CONTENT=[OT:1 OV:{example.com [3 2]}] SIG=[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]]"},
 		{&AddressAssertionSection{SubjectAddr: subjectAddress2, Context: "ctx", Content: objects1,
 			Signatures: []Signature{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
-			fmt.Sprintf("AddressAssertion:[SA=2001:db8::/32 CTX=ctx CONTENT=[{4 ns.ethz.ch} {5 {1 0 %v 10000 50000}} {10 Registrant information}] SIG=[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]]",
-				objects1[1].Value.(PublicKey).Key)},
+			fmt.Sprintf("AddressAssertion:[SA=2001:db8::/32 CTX=ctx CONTENT=[OT:4 OV:example.com OT:5 OV:%s OT:10 OV:Registrant information] SIG=[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]]",
+				objects1[1].Value.(PublicKey).String())},
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {
@@ -288,7 +288,7 @@ func TestAddressAssertionString(t *testing.T) {
 
 func TestAddressZoneString(t *testing.T) {
 	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
-	_, subjectAddress2, _ := net.ParseCIDR("2001:db8::/32")
+	_, subjectAddress2, _ := net.ParseCIDR(ip6TestAddrCIDR)
 	var tests = []struct {
 		input *AddressZoneSection
 		want  string
@@ -329,7 +329,7 @@ func TestQueryString(t *testing.T) {
 
 func TestAddressQueryString(t *testing.T) {
 	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
-	_, subjectAddress2, _ := net.ParseCIDR("2001:db8::/32")
+	_, subjectAddress2, _ := net.ParseCIDR(ip6TestAddrCIDR)
 	token := GenerateToken()
 	var tests = []struct {
 		input *AddressQuerySection

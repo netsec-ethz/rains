@@ -6,6 +6,21 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+const (
+	ip4TestAddr      = "192.0.2.0"
+	ip4TestAddr2     = "198.51.100.0"
+	ip4TestAddr3     = "203.0.113.0"
+	ip6TestAddr      = "2001:db8::"
+	ip4TestAddrCIDR  = "192.0.2.0/24"
+	ip4TestAddr2CIDR = "198.51.100.0/24"
+	ip4TestAddr3CIDR = "203.0.113.0/24"
+	ip6TestAddrCIDR  = "2001:db8::/32"
+	testDomain       = "example.com"
+	testZone         = "com"
+	testSubjectName  = "example"
+	globalContext    = "."
+)
+
 //GetMessage returns a messages containing all sections. The assertion contains an instance of every objectTypes
 func GetMessage() RainsMessage {
 	signature := Signature{
@@ -16,21 +31,21 @@ func GetMessage() RainsMessage {
 		Data:       []byte("SignatureData")}
 
 	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
-	_, subjectAddress2, _ := net.ParseCIDR("127.0.0.1/24")
-	_, subjectAddress3, _ := net.ParseCIDR("2001:db8::/32")
+	_, subjectAddress2, _ := net.ParseCIDR(ip4TestAddrCIDR)
+	_, subjectAddress3, _ := net.ParseCIDR(ip6TestAddrCIDR)
 
 	assertion := &AssertionSection{
 		Content:     GetAllValidObjects(),
-		Context:     ".",
-		SubjectName: "ethz",
-		SubjectZone: "ch",
+		Context:     globalContext,
+		SubjectName: testSubjectName,
+		SubjectZone: testSubjectName,
 		Signatures:  []Signature{signature},
 	}
 
 	shard := &ShardSection{
 		Content:     []*AssertionSection{assertion},
-		Context:     ".",
-		SubjectZone: "ch",
+		Context:     globalContext,
+		SubjectZone: testSubjectName,
 		RangeFrom:   "aaa",
 		RangeTo:     "zzz",
 		Signatures:  []Signature{signature},
@@ -38,15 +53,15 @@ func GetMessage() RainsMessage {
 
 	zone := &ZoneSection{
 		Content:     []MessageSectionWithSigForward{assertion, shard},
-		Context:     ".",
-		SubjectZone: "ch",
+		Context:     globalContext,
+		SubjectZone: testSubjectName,
 		Signatures:  []Signature{signature},
 	}
 
 	query := &QuerySection{
-		Context: ".",
+		Context: globalContext,
 		Expires: 159159,
-		Name:    "ethz.ch",
+		Name:    testDomain,
 		Options: []QueryOption{QOMinE2ELatency, QOMinInfoLeakage},
 		Token:   GenerateToken(),
 		Type:    OTIP4Addr,
@@ -60,35 +75,35 @@ func GetMessage() RainsMessage {
 
 	addressAssertion1 := &AddressAssertionSection{
 		SubjectAddr: subjectAddress1,
-		Context:     ".",
+		Context:     globalContext,
 		Content:     []Object{GetValidNameObject()},
 		Signatures:  []Signature{signature},
 	}
 
 	addressAssertion2 := &AddressAssertionSection{
 		SubjectAddr: subjectAddress2,
-		Context:     ".",
+		Context:     globalContext,
 		Content:     GetAllowedNetworkObjects(),
 		Signatures:  []Signature{signature},
 	}
 
 	addressAssertion3 := &AddressAssertionSection{
 		SubjectAddr: subjectAddress3,
-		Context:     ".",
+		Context:     globalContext,
 		Content:     GetAllowedNetworkObjects(),
 		Signatures:  []Signature{signature},
 	}
 
 	addressZone := &AddressZoneSection{
 		SubjectAddr: subjectAddress2,
-		Context:     ".",
+		Context:     globalContext,
 		Content:     []*AddressAssertionSection{addressAssertion1, addressAssertion2, addressAssertion3},
 		Signatures:  []Signature{signature},
 	}
 
 	addressQuery := &AddressQuerySection{
 		SubjectAddr: subjectAddress1,
-		Context:     ".",
+		Context:     globalContext,
 		Expires:     7564859,
 		Token:       GenerateToken(),
 		Type:        OTName,
@@ -133,15 +148,15 @@ func GetAllValidObjects() []Object {
 		Data:     []byte("certData"),
 	}
 	serviceInfo := ServiceInfo{
-		Name:     "lookup",
+		Name:     "srvName",
 		Port:     49830,
 		Priority: 1,
 	}
 
 	nameObject := GetValidNameObject()
-	ip6Object := Object{Type: OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"}
-	ip4Object := Object{Type: OTIP4Addr, Value: "127.0.0.1"}
-	redirObject := Object{Type: OTRedirection, Value: "ns.ethz.ch"}
+	ip6Object := Object{Type: OTIP6Addr, Value: ip6TestAddr}
+	ip4Object := Object{Type: OTIP4Addr, Value: ip4TestAddr}
+	redirObject := Object{Type: OTRedirection, Value: testDomain}
 	delegObject := Object{Type: OTDelegation, Value: publicKey}
 	nameSetObject := Object{Type: OTNameset, Value: NamesetExpression("Would be an expression")}
 	certObject := Object{Type: OTCertInfo, Value: certificate}
@@ -158,7 +173,7 @@ func GetAllValidObjects() []Object {
 //GetValidNameObject returns nameObject with valid content
 func GetValidNameObject() Object {
 	nameObjectContent := NameObject{
-		Name:  "ethz2.ch",
+		Name:  testDomain,
 		Types: []ObjectType{OTIP4Addr, OTIP6Addr},
 	}
 	return Object{Type: OTName, Value: nameObjectContent}
@@ -174,7 +189,7 @@ func GetAllowedNetworkObjects() []Object {
 		ValidSince: 10000,
 		ValidUntil: 50000,
 	}
-	redirObject := Object{Type: OTRedirection, Value: "ns.ethz.ch"}
+	redirObject := Object{Type: OTRedirection, Value: testDomain}
 	delegObject := Object{Type: OTDelegation, Value: publicKey}
 	registrantObject := Object{Type: OTRegistrant, Value: "Registrant information"}
 	return []Object{redirObject, delegObject, registrantObject}
