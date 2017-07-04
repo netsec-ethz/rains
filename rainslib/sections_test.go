@@ -663,7 +663,7 @@ func TestAddressAssertionSort(t *testing.T) {
 		a := &AddressAssertionSection{Content: test.input}
 		a.Sort()
 		if !reflect.DeepEqual(a.Content, test.sorted) {
-			t.Errorf("%d: Assertion.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, a.Content)
+			t.Errorf("%d: AddressAssertion.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, a.Content)
 		}
 	}
 }
@@ -683,7 +683,7 @@ func TestAddressZoneSort(t *testing.T) {
 		z := &AddressZoneSection{Content: test.input}
 		z.Sort()
 		if !reflect.DeepEqual(z.Content, test.sorted) {
-			t.Errorf("%d: Shard.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, z.Content)
+			t.Errorf("%d: AddressZone.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, z.Content)
 		}
 	}
 }

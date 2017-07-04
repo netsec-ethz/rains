@@ -5,6 +5,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"net"
+	"reflect"
 	"testing"
 
 	"golang.org/x/crypto/ed25519"
@@ -285,6 +286,26 @@ func TestConnInfoEqual(t *testing.T) {
 	for i, test := range tests {
 		if test.input.Equal(test.inputParam) != test.want {
 			t.Errorf("%d: Wrong Signature meta data. expected=%v, actual=%v", i, test.want, test.input.Equal(test.inputParam))
+		}
+	}
+}
+
+func TestSort(t *testing.T) {
+	var tests = []struct {
+		input  []MessageSection
+		sorted []MessageSection
+	}{
+		{[]MessageSection{&NotificationSection{}, &QuerySection{}, &ZoneSection{}, &ShardSection{}, &AssertionSection{}, &AddressAssertionSection{},
+			&AddressZoneSection{}, &AddressQuerySection{}},
+			[]MessageSection{&AddressQuerySection{}, &AddressZoneSection{}, &AddressAssertionSection{}, &AssertionSection{}, &ShardSection{},
+				&ZoneSection{}, &QuerySection{}, &NotificationSection{}}},
+		//TODO add test for each separate. meaning comparing shard with shard, then zone with zone etc.
+	}
+	for i, test := range tests {
+		m := &RainsMessage{Content: test.input}
+		m.Sort()
+		if !reflect.DeepEqual(m.Content, test.sorted) {
+			t.Errorf("%d: RainsMessage.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, m.Content)
 		}
 	}
 }
