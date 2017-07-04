@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"reflect"
 	"sort"
 	"testing"
 )
@@ -565,5 +566,66 @@ func shuffleSections(sections []MessageSection) {
 	for i := len(sections) - 1; i > 0; i-- {
 		j := rand.Intn(i)
 		sections[i], sections[j] = sections[j], sections[i]
+	}
+}
+
+func TestAssertionSort(t *testing.T) {
+	var tests = []struct {
+		input  []Object
+		sorted []Object
+	}{
+		{[]Object{Object{Type: OTIP4Addr, Value: "192.0.2.0"}, Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTDelegation, OTName}}}},
+			[]Object{Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTName, OTDelegation}}}, Object{Type: OTIP4Addr, Value: "192.0.2.0"}}},
+	}
+	for i, test := range tests {
+		a := &AssertionSection{Content: test.input}
+		a.Sort()
+		if !reflect.DeepEqual(a.Content, test.sorted) {
+			t.Errorf("%d: Assertion.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, a.Content)
+		}
+	}
+}
+
+func TestShardSort(t *testing.T) {
+	var tests = []struct {
+		input  []*AssertionSection
+		sorted []*AssertionSection
+	}{
+		{[]*AssertionSection{&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+			&AssertionSection{Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}}},
+			[]*AssertionSection{&AssertionSection{Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
+				&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}}}},
+	}
+	for i, test := range tests {
+		s := &ShardSection{Content: test.input}
+		s.Sort()
+		if !reflect.DeepEqual(s.Content, test.sorted) {
+			t.Errorf("%d: Shard.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, s.Content)
+		}
+	}
+}
+
+func TestZoneSort(t *testing.T) {
+	var tests = []struct {
+		input  []MessageSectionWithSigForward
+		sorted []MessageSectionWithSigForward
+	}{
+		{[]MessageSectionWithSigForward{&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}}, //Assertion compared with Assertion
+			&AssertionSection{Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}}},
+			[]MessageSectionWithSigForward{&AssertionSection{Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
+				&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}}}},
+		{[]MessageSectionWithSigForward{&ShardSection{}, &AssertionSection{}}, //Assertion compared with Shard
+			[]MessageSectionWithSigForward{&AssertionSection{}, &ShardSection{}}},
+		{[]MessageSectionWithSigForward{&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "b"}, &AssertionSection{SubjectName: "d"}}}, //Shard compared with Shard
+			&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "c"}, &AssertionSection{SubjectName: "a"}}}},
+			[]MessageSectionWithSigForward{&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "a"}, &AssertionSection{SubjectName: "c"}}},
+				&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "b"}, &AssertionSection{SubjectName: "d"}}}}},
+	}
+	for i, test := range tests {
+		s := &ZoneSection{Content: test.input}
+		s.Sort()
+		if !reflect.DeepEqual(s.Content, test.sorted) {
+			t.Errorf("%d: Zone.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, s.Content)
+		}
 	}
 }
