@@ -408,6 +408,29 @@ func TestNotificationCompareTo(t *testing.T) {
 	for i, n := range ns {
 		CheckNotification(n, shuffled[i].(*NotificationSection), t)
 	}
+}
+
+func TestAssertionCompareTo(t *testing.T) {
+	assertions := sortedAssertions(3)
+	var shuffled []MessageSection
+	for _, a := range assertions {
+		shuffled = append(shuffled, a)
+	}
+	shuffleSections(shuffled)
+	sort.Slice(shuffled, func(i, j int) bool {
+		return shuffled[i].(*AssertionSection).CompareTo(shuffled[j].(*AssertionSection)) < 0
+	})
+	for i, a := range assertions {
+		CheckAssertion(a, shuffled[i].(*AssertionSection), t)
+	}
+	a1 := &AssertionSection{}
+	a2 := &AssertionSection{Content: []Object{Object{}}}
+	if a1.CompareTo(a2) != -1 {
+		t.Error("Different content length are not sorted correctly")
+	}
+	if a2.CompareTo(a1) != 1 {
+		t.Error("Different content length are not sorted correctly")
+	}
 
 }
 

@@ -79,7 +79,7 @@ func sortedCertificates(nof int) []CertificateObject {
 func sortedServiceInfo(nof int) []ServiceInfo {
 	sis := []ServiceInfo{}
 	for i := 0; i < nof; i++ {
-		for j := 2; j < nof; j++ {
+		for j := 0; j < nof; j++ {
 			for k := 0; k < nof; k++ {
 				sis = append(sis, ServiceInfo{
 					Name:     strconv.Itoa(i),
@@ -143,32 +143,50 @@ func sortedObjects(nofObj int) []Object {
 	return objects
 }
 
-func sortedAssertions(nofObj, nofAssertions int) []AssertionSection {
-	return []AssertionSection{}
+func sortedAssertions(nof int) []*AssertionSection {
+	assertions := []*AssertionSection{}
+	for i := 0; i < nof; i++ {
+		for j := 0; j < nof; j++ {
+			for k := 0; k < nof; k++ {
+				objs := sortedObjects(13)
+				//TODO CFE extend this test when we support multiple types per assertion
+				for l := 0; l < 78; l++ {
+					assertions = append(assertions, &AssertionSection{
+						SubjectName: strconv.Itoa(i),
+						SubjectZone: strconv.Itoa(j),
+						Context:     strconv.Itoa(k),
+						Content:     []Object{objs[l]},
+					})
+				}
+			}
+		}
+	}
+	assertions = append(assertions, assertions[len(assertions)-1]) //equals
+	return assertions
 }
 
-func sortedShards(nofObj, nofAssertions, nofShards int) []ShardSection {
-	return []ShardSection{}
+func sortedShards(nofObj, nofAssertions, nofShards int) []*ShardSection {
+	return []*ShardSection{}
 }
 
-func sortedZones(nofObj, nofAssertions, nofShards, nofZones int) []ZoneSection {
-	return []ZoneSection{}
+func sortedZones(nofObj, nofAssertions, nofShards, nofZones int) []*ZoneSection {
+	return []*ZoneSection{}
 }
 
-func sortedQueries(nofQueries, nofOptions int) []QuerySection {
-	return []QuerySection{}
+func sortedQueries(nofQueries, nofOptions int) []*QuerySection {
+	return []*QuerySection{}
 }
 
-func sortedAddressAssertions(nofObj, nofAssertions int) []AddressAssertionSection {
-	return []AddressAssertionSection{}
+func sortedAddressAssertions(nofObj, nofAssertions int) []*AddressAssertionSection {
+	return []*AddressAssertionSection{}
 }
 
-func sortedAddressZones(nofObj, nofAssertions, nofZones int) []AddressZoneSection {
-	return []AddressZoneSection{}
+func sortedAddressZones(nofObj, nofAssertions, nofZones int) []*AddressZoneSection {
+	return []*AddressZoneSection{}
 }
 
-func sortedAddressQueries(nofQueries, nofOptions int) []AddressQuerySection {
-	return []AddressQuerySection{}
+func sortedAddressQueries(nofQueries, nofOptions int) []*AddressQuerySection {
+	return []*AddressQuerySection{}
 }
 
 func sortedNotifications(nofNotifications int) []*NotificationSection {

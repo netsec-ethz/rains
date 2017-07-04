@@ -131,12 +131,12 @@ func (a *AssertionSection) Sort() {
 func (a *AssertionSection) CompareTo(assertion *AssertionSection) int {
 	if a.SubjectName < assertion.SubjectName {
 		return -1
-	} else if a.SubjectName < assertion.SubjectName {
+	} else if a.SubjectName > assertion.SubjectName {
 		return 1
 	} else if a.SubjectZone < assertion.SubjectZone {
-		return 1
-	} else if a.SubjectZone > assertion.SubjectZone {
 		return -1
+	} else if a.SubjectZone > assertion.SubjectZone {
+		return 1
 	} else if a.Context < assertion.Context {
 		return -1
 	} else if a.Context > assertion.Context {
