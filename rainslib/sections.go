@@ -460,7 +460,7 @@ func (z *ZoneSection) CompareTo(zone *ZoneSection) int {
 				return -1
 			}
 		case *ShardSection:
-			if s, ok := z.Content[i].(*ShardSection); ok {
+			if s, ok := zone.Content[i].(*ShardSection); ok {
 				if section.CompareTo(s) != 0 {
 					return section.CompareTo(s)
 				}
@@ -517,16 +517,7 @@ func (q *QuerySection) Sort() {
 
 //CompareTo compares two queries and returns 0 if they are equal, 1 if q is greater than query and -1 if q is smaller than query
 func (q *QuerySection) CompareTo(query *QuerySection) int {
-	if q.Token != query.Token {
-		for i, b := range q.Token {
-			if b < query.Token[i] {
-				return -1
-			} else if b > query.Token[i] {
-				return 1
-			}
-		}
-		log.Error("Token must be different", "t1", q.Token, "t2", query.Token)
-	} else if q.Context < query.Context {
+	if q.Context < query.Context {
 		return -1
 	} else if q.Context > query.Context {
 		return 1
@@ -669,6 +660,10 @@ func (a *AddressAssertionSection) CompareTo(assertion *AddressAssertionSection) 
 		return -1
 	} else if a.Context > assertion.Context {
 		return 1
+	} else if len(a.Content) < len(assertion.Content) {
+		return -1
+	} else if len(a.Content) > len(assertion.Content) {
+		return 1
 	}
 	for i, o := range a.Content {
 		if o.CompareTo(assertion.Content[i]) != 0 {
@@ -793,6 +788,10 @@ func (z *AddressZoneSection) CompareTo(zone *AddressZoneSection) int {
 		return -1
 	} else if z.Context > zone.Context {
 		return 1
+	} else if len(z.Content) < len(zone.Content) {
+		return -1
+	} else if len(z.Content) > len(zone.Content) {
+		return 1
 	}
 	for i, a := range z.Content {
 		if a.CompareTo(zone.Content[i]) != 0 {
@@ -833,16 +832,7 @@ func (q *AddressQuerySection) Sort() {
 
 //CompareTo compares two addressQueries and returns 0 if they are equal, 1 if q is greater than query and -1 if q is smaller than query
 func (q *AddressQuerySection) CompareTo(query *AddressQuerySection) int {
-	if q.Token != query.Token {
-		for i, b := range q.Token {
-			if b < query.Token[i] {
-				return -1
-			} else if b > query.Token[i] {
-				return 1
-			}
-		}
-		log.Error("Token must be different", "t1", q.Token, "t2", query.Token)
-	} else if q.SubjectAddr.String() < query.SubjectAddr.String() {
+	if q.SubjectAddr.String() < query.SubjectAddr.String() {
 		return -1
 	} else if q.SubjectAddr.String() > query.SubjectAddr.String() {
 		return 1

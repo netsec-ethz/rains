@@ -1,7 +1,10 @@
 package rainslib
 
 import (
+	"net"
 	"strconv"
+
+	"fmt"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
@@ -30,6 +33,7 @@ func sortedNameObjects(nof int) []NameObject {
 func sortedPublicKeys(nof int) []PublicKey {
 	if nof > 255 {
 		log.Error("nof must be smaller than 256", "nof", nof)
+		nof = 255
 	}
 	pkeys := []PublicKey{}
 	for i := 1; i < 5; i++ {
@@ -56,6 +60,7 @@ func sortedPublicKeys(nof int) []PublicKey {
 func sortedCertificates(nof int) []CertificateObject {
 	if nof > 255 {
 		log.Error("nof must be smaller than 256", "nof", nof)
+		nof = 255
 	}
 	certs := []CertificateObject{}
 	for i := 0; i < 2; i++ {
@@ -98,11 +103,11 @@ func sortedObjects(nofObj int) []Object {
 	if nofObj > 13 {
 		nofObj = 13
 	}
+	nos := sortedNameObjects(nofObj)
+	pkeys := sortedPublicKeys(nofObj)
+	certs := sortedCertificates(nofObj)
+	sis := sortedServiceInfo(nofObj)
 	for i := 0; i < nofObj; i++ {
-		nos := sortedNameObjects(nofObj)
-		pkeys := sortedPublicKeys(nofObj)
-		certs := sortedCertificates(nofObj)
-		sis := sortedServiceInfo(nofObj)
 		for j := 0; j < nofObj/2; j++ {
 			var value interface{}
 			switch i {
@@ -145,10 +150,10 @@ func sortedObjects(nofObj int) []Object {
 
 func sortedAssertions(nof int) []*AssertionSection {
 	assertions := []*AssertionSection{}
+	objs := sortedObjects(13)
 	for i := 0; i < nof; i++ {
 		for j := 0; j < nof; j++ {
 			for k := 0; k < nof; k++ {
-				objs := sortedObjects(13)
 				//TODO CFE extend this test when we support multiple types per assertion
 				for l := 0; l < 78; l++ {
 					assertions = append(assertions, &AssertionSection{
@@ -167,11 +172,11 @@ func sortedAssertions(nof int) []*AssertionSection {
 
 func sortedShards(nof int) []*ShardSection {
 	shards := []*ShardSection{}
+	assertions := sortedAssertions(2)
 	for i := 0; i < nof; i++ {
 		for j := 0; j < nof; j++ {
 			for k := 0; k < nof; k++ {
 				for l := 0; l < nof; l++ {
-					assertions := sortedAssertions(2)
 					//TODO CFE extend this test when we support multiple types per assertion
 					for m := 0; m < 312; m++ {
 						shards = append(shards, &ShardSection{
@@ -190,29 +195,215 @@ func sortedShards(nof int) []*ShardSection {
 	return shards
 }
 
-func sortedZones(nofObj, nofAssertions, nofShards, nofZones int) []*ZoneSection {
-	return []*ZoneSection{}
+func sortedZones(nof int) []*ZoneSection {
+	zones := []*ZoneSection{}
+	assertions := sortedAssertions(5)
+	shards := sortedShards(2)
+	for i := 0; i < nof; i++ {
+		for j := 0; j < nof; j++ {
+			//TODO CFE extend this test when we support multiple types per assertion
+			for l := 0; l < 9751; l++ {
+				zones = append(zones, &ZoneSection{
+					SubjectZone: strconv.Itoa(i),
+					Context:     strconv.Itoa(j),
+					Content:     []MessageSectionWithSigForward{assertions[l]},
+				})
+			}
+			for l := 0; l < 4993; l++ {
+				zones = append(zones, &ZoneSection{
+					SubjectZone: strconv.Itoa(i),
+					Context:     strconv.Itoa(j),
+					Content:     []MessageSectionWithSigForward{shards[l]},
+				})
+			}
+		}
+	}
+	zones = append(zones, zones[len(zones)-1]) //equals
+	return zones
 }
 
-func sortedQueries(nofQueries, nofOptions int) []*QuerySection {
-	return []*QuerySection{}
+func sortedQueries(nof int) []*QuerySection {
+	queries := []*QuerySection{}
+	for i := 0; i < nof; i++ {
+		for j := 0; j < nof; j++ {
+			for k := 0; k < 13; k++ {
+				for l := 0; l < nof; l++ {
+					for m := 0; m < 8; m++ {
+						//TODO CFE extend this test when we support multiple types per assertion
+						queries = append(queries, &QuerySection{
+							Context: strconv.Itoa(i),
+							Name:    strconv.Itoa(j),
+							Type:    ObjectType(k),
+							Expires: int64(l),
+							Options: []QueryOption{QueryOption(m)},
+						})
+					}
+					for m := 0; m < 7; m++ {
+						for n := m + 1; n < 8; n++ {
+							//TODO CFE extend this test when we support multiple types per assertion
+							queries = append(queries, &QuerySection{
+								Context: strconv.Itoa(i),
+								Name:    strconv.Itoa(j),
+								Type:    ObjectType(k),
+								Expires: int64(l),
+								Options: []QueryOption{QueryOption(m), QueryOption(n)},
+							})
+						}
+					}
+				}
+
+			}
+		}
+	}
+	queries = append(queries, queries[len(queries)-1])
+	return queries
 }
 
-func sortedAddressAssertions(nofObj, nofAssertions int) []*AddressAssertionSection {
-	return []*AddressAssertionSection{}
+func sortedAddressAssertions(nof int) []*AddressAssertionSection {
+	if nof > 9 {
+		log.Error("nof must be smaller than 10", "nof", nof)
+		//otherwise subjectAddr first value is now 2 digit and in string comparison "10." sorts before "2.",
+		//which makes the test much more complicated
+		nof = 9
+	}
+	assertions := []*AddressAssertionSection{}
+	objs := sortedObjects(13)
+	for i := 1; i < nof+1; i++ {
+		//We start from 1 as leading zero's are omitted in IPv6 format while there are present in ipv4.
+		//Thus leading zero is a special case. Where IPv6 are sorted before IPv4.
+		_, subjectAddress, _ := net.ParseCIDR(fmt.Sprintf("%d.0.0.1/32", i))
+		_, subjectAddress2, _ := net.ParseCIDR(fmt.Sprintf("%d::/64", i))
+		for j := 0; j < nof; j++ {
+			//TODO CFE extend this test when we support multiple types per assertion
+			for l := 0; l < 78; l++ {
+				assertions = append(assertions, &AddressAssertionSection{
+					SubjectAddr: subjectAddress,
+					Context:     strconv.Itoa(j),
+					Content:     []Object{objs[l]},
+				})
+			}
+		}
+		for j := 0; j < nof; j++ {
+			//TODO CFE extend this test when we support multiple types per assertion
+			for l := 0; l < 78; l++ {
+				assertions = append(assertions, &AddressAssertionSection{
+					SubjectAddr: subjectAddress2,
+					Context:     strconv.Itoa(j),
+					Content:     []Object{objs[l]},
+				})
+
+			}
+		}
+	}
+	assertions = append(assertions, assertions[len(assertions)-1]) //equals
+	return assertions
 }
 
-func sortedAddressZones(nofObj, nofAssertions, nofZones int) []*AddressZoneSection {
-	return []*AddressZoneSection{}
+func sortedAddressZones(nof int) []*AddressZoneSection {
+	if nof > 9 {
+		log.Error("nof must be smaller than 10", "nof", nof)
+		//otherwise subjectAddr first value is now 2 digit and in string comparison "10." sorts before "2.",
+		//which makes the test much more complicated
+		nof = 9
+	}
+	zones := []*AddressZoneSection{}
+	assertions := sortedAddressAssertions(3)
+	for i := 1; i < nof+1; i++ {
+		//We start from 1 as leading zero's are omitted in IPv6 format while there are present in ipv4.
+		//Thus leading zero is a special case. Where IPv6 are sorted before IPv4.
+		_, subjectAddress, _ := net.ParseCIDR(fmt.Sprintf("%d.0.0.1/32", i))
+		_, subjectAddress2, _ := net.ParseCIDR(fmt.Sprintf("%d::/64", i))
+		for j := 0; j < nof; j++ {
+			//TODO CFE extend this test when we support multiple types per assertion
+			for l := 0; l < 1405; l++ {
+				zones = append(zones, &AddressZoneSection{
+					SubjectAddr: subjectAddress,
+					Context:     strconv.Itoa(j),
+					Content:     []*AddressAssertionSection{assertions[l]},
+				})
+			}
+		}
+		for j := 0; j < nof; j++ {
+			//TODO CFE extend this test when we support multiple types per assertion
+			for l := 0; l < 1405; l++ {
+				zones = append(zones, &AddressZoneSection{
+					SubjectAddr: subjectAddress2,
+					Context:     strconv.Itoa(j),
+					Content:     []*AddressAssertionSection{assertions[l]},
+				})
+			}
+		}
+	}
+	zones = append(zones, zones[len(zones)-1]) //equals
+	return zones
 }
 
-func sortedAddressQueries(nofQueries, nofOptions int) []*AddressQuerySection {
-	return []*AddressQuerySection{}
+func sortedAddressQueries(nof int) []*AddressQuerySection {
+	if nof > 9 {
+		log.Error("nof must be smaller than 10", "nof", nof)
+		//otherwise subjectAddr first value is now 2 digit and in string comparison "10." sorts before "2.",
+		//which makes the test much more complicated
+		nof = 9
+	}
+	queries := []*AddressQuerySection{}
+	for i := 1; i < nof+1; i++ {
+		//We start from 1 as leading zero's are omitted in IPv6 format while there are present in ipv4.
+		//Thus leading zero is a special case. Where IPv6 are sorted before IPv4.
+		_, subjectAddress, _ := net.ParseCIDR(fmt.Sprintf("%d.0.0.1/32", i))
+		_, subjectAddress2, _ := net.ParseCIDR(fmt.Sprintf("%d::/64", i))
+		for j := 0; j < nof; j++ {
+			for k := 0; k < 13; k++ {
+				for l := 0; l < nof; l++ {
+					for m := 0; m < 8; m++ {
+						//TODO CFE extend this test when we support multiple types per assertion
+						queries = append(queries, &AddressQuerySection{
+							SubjectAddr: subjectAddress,
+							Context:     strconv.Itoa(j),
+							Type:        ObjectType(k),
+							Expires:     int64(l),
+							Options:     []QueryOption{QueryOption(m)},
+						})
+					}
+					for m := 0; m < 7; m++ {
+						for n := m + 1; n < 8; n++ {
+							//TODO CFE extend this test when we support multiple types per assertion
+							queries = append(queries, &AddressQuerySection{
+								SubjectAddr: subjectAddress,
+								Context:     strconv.Itoa(j),
+								Type:        ObjectType(k),
+								Expires:     int64(l),
+								Options:     []QueryOption{QueryOption(m), QueryOption(n)},
+							})
+						}
+					}
+				}
+			}
+		}
+		for j := 0; j < nof; j++ {
+			for k := 0; k < 13; k++ {
+				for l := 0; l < nof; l++ {
+					for m := 0; m < 8; m++ {
+						//TODO CFE extend this test when we support multiple types per assertion
+						queries = append(queries, &AddressQuerySection{
+							SubjectAddr: subjectAddress2,
+							Context:     strconv.Itoa(j),
+							Type:        ObjectType(k),
+							Expires:     int64(l),
+							Options:     []QueryOption{QueryOption(m)},
+						})
+					}
+				}
+			}
+		}
+	}
+	queries = append(queries, queries[len(queries)-1])
+	return queries
 }
 
 func sortedNotifications(nofNotifications int) []*NotificationSection {
 	notifications := []*NotificationSection{}
 	tokens := sortedTokens(nofNotifications)
+	typeNumbers := []int{100, 399, 400, 403, 404, 413, 500, 501, 504}
 	for i := 0; i < nofNotifications; i++ {
 		nofTypes := nofNotifications
 		if nofTypes > 9 {
@@ -220,7 +411,6 @@ func sortedNotifications(nofNotifications int) []*NotificationSection {
 		}
 		for j := 0; j < nofTypes; j++ {
 			for k := 0; k < nofNotifications; k++ {
-				typeNumbers := []int{100, 399, 400, 403, 404, 413, 500, 501, 504}
 				notifications = append(notifications, &NotificationSection{
 					Token: tokens[i],
 					Type:  NotificationType(typeNumbers[j]),

@@ -411,7 +411,7 @@ func TestNotificationCompareTo(t *testing.T) {
 }
 
 func TestAssertionCompareTo(t *testing.T) {
-	assertions := sortedAssertions(3)
+	assertions := sortedAssertions(10)
 	var shuffled []MessageSection
 	for _, a := range assertions {
 		shuffled = append(shuffled, a)
@@ -431,11 +431,10 @@ func TestAssertionCompareTo(t *testing.T) {
 	if a2.CompareTo(a1) != 1 {
 		t.Error("Different content length are not sorted correctly")
 	}
-
 }
 
 func TestShardCompareTo(t *testing.T) {
-	shards := sortedShards(2)
+	shards := sortedShards(5)
 	var shuffled []MessageSection
 	for _, s := range shards {
 		shuffled = append(shuffled, s)
@@ -455,7 +454,111 @@ func TestShardCompareTo(t *testing.T) {
 	if s2.CompareTo(s1) != 1 {
 		t.Error("Different content length are not sorted correctly")
 	}
+}
 
+func TestZoneCompareTo(t *testing.T) {
+	zones := sortedZones(3)
+	var shuffled []MessageSection
+	for _, z := range zones {
+		shuffled = append(shuffled, z)
+	}
+	shuffleSections(shuffled)
+	sort.Slice(shuffled, func(i, j int) bool {
+		return shuffled[i].(*ZoneSection).CompareTo(shuffled[j].(*ZoneSection)) < 0
+	})
+	for i, z := range zones {
+		CheckZone(z, shuffled[i].(*ZoneSection), t)
+	}
+	z1 := &ZoneSection{}
+	z2 := &ZoneSection{Content: []MessageSectionWithSigForward{&AssertionSection{}}}
+	if z1.CompareTo(z2) != -1 {
+		t.Error("Different content length are not sorted correctly")
+	}
+	if z2.CompareTo(z1) != 1 {
+		t.Error("Different content length are not sorted correctly")
+	}
+	z1 = &ZoneSection{Content: []MessageSectionWithSigForward{&AssertionSection{}}}
+	z2 = &ZoneSection{Content: []MessageSectionWithSigForward{&ZoneSection{}}} //invalid type within Content
+	if z2.CompareTo(z1) != 0 {
+		t.Error("Different content length are not sorted correctly")
+	}
+}
+func TestQueryCompareTo(t *testing.T) {
+	queries := sortedQueries(5)
+	var shuffled []MessageSection
+	for _, q := range queries {
+		shuffled = append(shuffled, q)
+	}
+	shuffleSections(shuffled)
+	sort.Slice(shuffled, func(i, j int) bool {
+		return shuffled[i].(*QuerySection).CompareTo(shuffled[j].(*QuerySection)) < 0
+	})
+	for i, q := range queries {
+		CheckQuery(q, shuffled[i].(*QuerySection), t)
+	}
+}
+
+func TestAddressAssertionCompareTo(t *testing.T) {
+	assertions := sortedAddressAssertions(9)
+	var shuffled []MessageSection
+	for _, a := range assertions {
+		shuffled = append(shuffled, a)
+	}
+	shuffleSections(shuffled)
+	sort.Slice(shuffled, func(i, j int) bool {
+		return shuffled[i].(*AddressAssertionSection).CompareTo(shuffled[j].(*AddressAssertionSection)) < 0
+	})
+	for i, a := range assertions {
+		CheckAddressAssertion(a, shuffled[i].(*AddressAssertionSection), t)
+	}
+	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR)
+	a1 := &AddressAssertionSection{SubjectAddr: subjectAddress}
+	a2 := &AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{}}}
+	if a1.CompareTo(a2) != -1 {
+		t.Error("Different content length are not sorted correctly")
+	}
+	if a2.CompareTo(a1) != 1 {
+		t.Error("Different content length are not sorted correctly")
+	}
+}
+
+func TestAddressZoneCompareTo(t *testing.T) {
+	zones := sortedAddressZones(4)
+	var shuffled []MessageSection
+	for _, z := range zones {
+		shuffled = append(shuffled, z)
+	}
+	shuffleSections(shuffled)
+	sort.Slice(shuffled, func(i, j int) bool {
+		return shuffled[i].(*AddressZoneSection).CompareTo(shuffled[j].(*AddressZoneSection)) < 0
+	})
+	for i, z := range zones {
+		CheckAddressZone(z, shuffled[i].(*AddressZoneSection), t)
+	}
+	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR)
+	z1 := &AddressZoneSection{SubjectAddr: subjectAddress}
+	z2 := &AddressZoneSection{SubjectAddr: subjectAddress, Content: []*AddressAssertionSection{&AddressAssertionSection{}}}
+	if z1.CompareTo(z2) != -1 {
+		t.Error("Different content length are not sorted correctly")
+	}
+	if z2.CompareTo(z1) != 1 {
+		t.Error("Different content length are not sorted correctly")
+	}
+}
+
+func TestAddressQueryCompareTo(t *testing.T) {
+	queries := sortedAddressQueries(2)
+	var shuffled []MessageSection
+	for _, q := range queries {
+		shuffled = append(shuffled, q)
+	}
+	shuffleSections(shuffled)
+	sort.Slice(shuffled, func(i, j int) bool {
+		return shuffled[i].(*AddressQuerySection).CompareTo(shuffled[j].(*AddressQuerySection)) < 0
+	})
+	for i, q := range queries {
+		CheckAddressQuery(q, shuffled[i].(*AddressQuerySection), t)
+	}
 }
 
 func shuffleSections(sections []MessageSection) {
