@@ -434,6 +434,30 @@ func TestAssertionCompareTo(t *testing.T) {
 
 }
 
+func TestShardCompareTo(t *testing.T) {
+	shards := sortedShards(2)
+	var shuffled []MessageSection
+	for _, s := range shards {
+		shuffled = append(shuffled, s)
+	}
+	shuffleSections(shuffled)
+	sort.Slice(shuffled, func(i, j int) bool {
+		return shuffled[i].(*ShardSection).CompareTo(shuffled[j].(*ShardSection)) < 0
+	})
+	for i, s := range shards {
+		CheckShard(s, shuffled[i].(*ShardSection), t)
+	}
+	s1 := &ShardSection{}
+	s2 := &ShardSection{Content: []*AssertionSection{&AssertionSection{}}}
+	if s1.CompareTo(s2) != -1 {
+		t.Error("Different content length are not sorted correctly")
+	}
+	if s2.CompareTo(s1) != 1 {
+		t.Error("Different content length are not sorted correctly")
+	}
+
+}
+
 func shuffleSections(sections []MessageSection) {
 	for i := len(sections) - 1; i > 0; i-- {
 		j := rand.Intn(i)

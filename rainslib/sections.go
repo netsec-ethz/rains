@@ -276,9 +276,9 @@ func (s *ShardSection) Sort() {
 //CompareTo compares two shards and returns 0 if they are equal, 1 if s is greater than shard and -1 if s is smaller than shard
 func (s *ShardSection) CompareTo(shard *ShardSection) int {
 	if s.SubjectZone < shard.SubjectZone {
-		return 1
-	} else if s.SubjectZone > shard.SubjectZone {
 		return -1
+	} else if s.SubjectZone > shard.SubjectZone {
+		return 1
 	} else if s.Context < shard.Context {
 		return -1
 	} else if s.Context > shard.Context {

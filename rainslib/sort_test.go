@@ -165,8 +165,29 @@ func sortedAssertions(nof int) []*AssertionSection {
 	return assertions
 }
 
-func sortedShards(nofObj, nofAssertions, nofShards int) []*ShardSection {
-	return []*ShardSection{}
+func sortedShards(nof int) []*ShardSection {
+	shards := []*ShardSection{}
+	for i := 0; i < nof; i++ {
+		for j := 0; j < nof; j++ {
+			for k := 0; k < nof; k++ {
+				for l := 0; l < nof; l++ {
+					assertions := sortedAssertions(2)
+					//TODO CFE extend this test when we support multiple types per assertion
+					for m := 0; m < 312; m++ {
+						shards = append(shards, &ShardSection{
+							SubjectZone: strconv.Itoa(i),
+							Context:     strconv.Itoa(j),
+							RangeFrom:   strconv.Itoa(k),
+							RangeTo:     strconv.Itoa(l),
+							Content:     []*AssertionSection{assertions[m]},
+						})
+					}
+				}
+			}
+		}
+	}
+	shards = append(shards, shards[len(shards)-1]) //equals
+	return shards
 }
 
 func sortedZones(nofObj, nofAssertions, nofShards, nofZones int) []*ZoneSection {
