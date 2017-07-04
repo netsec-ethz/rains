@@ -616,16 +616,90 @@ func TestZoneSort(t *testing.T) {
 				&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}}}},
 		{[]MessageSectionWithSigForward{&ShardSection{}, &AssertionSection{}}, //Assertion compared with Shard
 			[]MessageSectionWithSigForward{&AssertionSection{}, &ShardSection{}}},
+		{[]MessageSectionWithSigForward{&AssertionSection{}, &ShardSection{}}, //Assertion compared with Shard
+			[]MessageSectionWithSigForward{&AssertionSection{}, &ShardSection{}}},
 		{[]MessageSectionWithSigForward{&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "b"}, &AssertionSection{SubjectName: "d"}}}, //Shard compared with Shard
 			&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "c"}, &AssertionSection{SubjectName: "a"}}}},
 			[]MessageSectionWithSigForward{&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "a"}, &AssertionSection{SubjectName: "c"}}},
 				&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "b"}, &AssertionSection{SubjectName: "d"}}}}},
 	}
 	for i, test := range tests {
-		s := &ZoneSection{Content: test.input}
-		s.Sort()
-		if !reflect.DeepEqual(s.Content, test.sorted) {
-			t.Errorf("%d: Zone.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, s.Content)
+		z := &ZoneSection{Content: test.input}
+		z.Sort()
+		if !reflect.DeepEqual(z.Content, test.sorted) {
+			t.Errorf("%d: Zone.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, z.Content)
+		}
+	}
+	//no panic when invalid content
+	z := &ZoneSection{Content: []MessageSectionWithSigForward{&ZoneSection{}, &ZoneSection{}}}
+	z.Sort()
+}
+
+func TestQuerySort(t *testing.T) {
+	var tests = []struct {
+		input  []QueryOption
+		sorted []QueryOption
+	}{
+		{[]QueryOption{QueryOption(5), QueryOption(3)}, []QueryOption{QueryOption(3), QueryOption(5)}},
+	}
+	for i, test := range tests {
+		q := &QuerySection{Options: test.input}
+		q.Sort()
+		if !reflect.DeepEqual(q.Options, test.sorted) {
+			t.Errorf("%d: Query.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, q.Options)
+		}
+	}
+}
+
+func TestAddressAssertionSort(t *testing.T) {
+	var tests = []struct {
+		input  []Object
+		sorted []Object
+	}{
+		{[]Object{Object{Type: OTIP4Addr, Value: "192.0.2.0"}, Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTDelegation, OTName}}}},
+			[]Object{Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTName, OTDelegation}}}, Object{Type: OTIP4Addr, Value: "192.0.2.0"}}},
+	}
+	for i, test := range tests {
+		a := &AddressAssertionSection{Content: test.input}
+		a.Sort()
+		if !reflect.DeepEqual(a.Content, test.sorted) {
+			t.Errorf("%d: Assertion.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, a.Content)
+		}
+	}
+}
+
+func TestAddressZoneSort(t *testing.T) {
+	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR)
+	var tests = []struct {
+		input  []*AddressAssertionSection
+		sorted []*AddressAssertionSection
+	}{
+		{[]*AddressAssertionSection{&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+			&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}}},
+			[]*AddressAssertionSection{&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
+				&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}}}},
+	}
+	for i, test := range tests {
+		z := &AddressZoneSection{Content: test.input}
+		z.Sort()
+		if !reflect.DeepEqual(z.Content, test.sorted) {
+			t.Errorf("%d: Shard.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, z.Content)
+		}
+	}
+}
+
+func TestAddressQuerySort(t *testing.T) {
+	var tests = []struct {
+		input  []QueryOption
+		sorted []QueryOption
+	}{
+		{[]QueryOption{QueryOption(5), QueryOption(3)}, []QueryOption{QueryOption(3), QueryOption(5)}},
+	}
+	for i, test := range tests {
+		q := &AddressQuerySection{Options: test.input}
+		q.Sort()
+		if !reflect.DeepEqual(q.Options, test.sorted) {
+			t.Errorf("%d: Query.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, q.Options)
 		}
 	}
 }
