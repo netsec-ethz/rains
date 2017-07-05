@@ -7,9 +7,8 @@ import (
 	"rains/rainslib"
 	"strconv"
 
-	"golang.org/x/crypto/ed25519"
-
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 	capnp "zombiezen.com/go/capnproto2"
 )
 
@@ -141,8 +140,6 @@ func encodeQuery(q *rainslib.QuerySection, seg *capnp.Segment) (proto.MessageSec
 		return proto.MessageSection{}, err
 	}
 
-	tok := [16]byte(q.Token)
-	query.SetToken(tok[:])
 	query.SetName(q.Name)
 	query.SetContext(q.Context)
 	query.SetExpires(q.Expires)
@@ -267,8 +264,6 @@ func encodeAddressQuery(q *rainslib.AddressQuerySection, seg *capnp.Segment) (pr
 		return proto.MessageSection{}, err
 	}
 
-	tok := [16]byte(q.Token)
-	query.SetToken(tok[:])
 	query.SetContext(q.Context)
 	query.SetExpires(q.Expires)
 	query.SetTypes(int32(q.Type))

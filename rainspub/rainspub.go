@@ -5,74 +5,97 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"rains/rainsSiglib"
 	"rains/rainslib"
 	"rains/utils/protoParser"
 	"rains/utils/zoneFileParser"
+	"sort"
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	"golang.org/x/crypto/ed25519"
 )
 
 //InitRainspub initializes rainspub
-func InitRainspub() {
-	loadConfig()
-	loadPrivateKeys()
-	parser = zoneFileParser.Parser{}
+func InitRainspub(configPath string) error {
+	err := loadConfig(configPath)
+	if err != nil {
+		return err
+	}
+	err = loadPrivateKey(config.ZonePrivateKeyPath)
+	if err != nil {
+		return err
+	}
+	p := zoneFileParser.Parser{}
+	parser = p
+	signatureEncoder = p
 	msgParser = new(protoParser.ProtoParserAndFramer)
+	return nil
 }
 
-//PublishInformation sends a signed zone to a rains servers according the the rainspub config
-func PublishInformation() {
-	//FIXME CFE remove after we have a running basic environment.
-	//Delegation to the current zone must be handled before assertions to be able to verify them.
-	sendDelegations()
-	time.Sleep(time.Second)
-
-	//TODO make validSince a parameter. Right now we use current time: time.Now()
+//PublishInformation
+//1) loads all assertions from the rains zone file.
+//2) groups assertions into shards
+//3) signs the zone and all contained shards and assertions
+//4) create a message containing the zone
+//5) send the message to all rains servers specified in the config
+func PublishInformation() error {
 	assertions, err := loadAssertions()
 	if err != nil {
-		return
+		return err
 	}
-	//TODO add additional sharding parameters to config/allow for different sharding strategies
+
+	//TODO CFE add additional sharding parameters to config/allow for different sharding strategies
 	zone := groupAssertionsToShards(assertions)
 
 	//TODO implement signing with airgapping
-	signZone(zone, zonePrivateKey)
+	err = signZone(zone, rainslib.Ed25519, zonePrivateKey)
 	if err != nil {
 		log.Warn("Was not able to sign zone.", "error", err)
+		return err
 	}
 
-	//send signed zone to rains server
 	msg, err := createRainsMessage(zone)
 	if err != nil {
 		log.Warn("Was not able to parse the zone to a rains message.", "error", err)
+		return err
 	}
-	sendMsg(msg)
+
+	err = sendMsg(msg)
+	if err != nil {
+		log.Warn("Was not able to send signed zone.", "error", err)
+		return err
+	}
+	return nil
 }
 
+//loadAssertions returns all assertions contained in the rains zone file or an error.
 func loadAssertions() ([]*rainslib.AssertionSection, error) {
 	file, err := ioutil.ReadFile(config.ZoneFilePath)
 	if err != nil {
 		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
-		return []*rainslib.AssertionSection{}, err
+		return nil, err
 	}
 	assertions, err := parser.Decode(file, config.ZoneFilePath)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)
-		return []*rainslib.AssertionSection{}, err
+		return nil, err
 	}
 	return assertions, nil
 }
 
 //groupAssertionsToShards creates shards containing a fixed number of assertions according to the configuration (except the last one).
+//Before grouping the assertions, it sorts them.
+//It returns a zone section containing the created shards. The contained shards and assertions still have non empty subjectZone and context values
+//as these values are needed to generate a signatures
 func groupAssertionsToShards(assertions []*rainslib.AssertionSection) *rainslib.ZoneSection {
 	context := assertions[0].Context
 	zone := assertions[0].SubjectZone
-	shards := []rainslib.MessageSectionWithSig{}
+	//the assertion compareTo function sorts first by subjectName. Thus we can use it here.
+	sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
+	shards := []rainslib.MessageSectionWithSigForward{}
 	if len(assertions) <= int(config.MaxAssertionsPerShard) {
-		shards = []rainslib.MessageSectionWithSig{&rainslib.ShardSection{
+		shards = []rainslib.MessageSectionWithSigForward{&rainslib.ShardSection{
 			Context:     context,
 			SubjectZone: zone,
 			RangeFrom:   "",
@@ -119,76 +142,92 @@ func groupAssertionsToShards(assertions []*rainslib.AssertionSection) *rainslib.
 	return section
 }
 
-//signZone signs the zone and all contained shards with the context/zone's private key.
+//signZone signs the zone and all contained shards and assertions with the zone's private key.
 //TODO CFE we should use 2 valid signatures to avoid traffic bursts when a signature expires.
-//TODO CFE also support different signature methods
-func signZone(zone *rainslib.ZoneSection, privateKey ed25519.PrivateKey) error {
-	signature := rainslib.Signature{
-		Algorithm: rainslib.Ed25519,
-		KeySpace:  rainslib.RainsKeySpace,
-		//TODO What time should we choose for valid since?
-		ValidSince: time.Now().Unix(),
-		ValidUntil: time.Now().Add(config.ZoneValidity).Unix(),
+func signZone(zone *rainslib.ZoneSection, keyAlgo rainslib.SignatureAlgorithmType, privateKey interface{}) error {
+	if zone == nil {
+		return errors.New("zone is nil")
 	}
-	if ok := rainsSiglib.SignSection(zone, privateKey, signature, zoneFileParser.Parser{}); !ok {
+	signature := rainslib.Signature{
+		Algorithm:  keyAlgo,
+		KeySpace:   rainslib.RainsKeySpace,
+		ValidSince: time.Now().Add(config.ZoneValidSince).Unix(),
+		ValidUntil: time.Now().Add(config.ZoneValidUntil).Unix(),
+	}
+	if ok := rainsSiglib.SignSection(zone, privateKey, signature, signatureEncoder); !ok {
 		return errors.New("Was not able to sign and add the signature")
 	}
 	for _, sec := range zone.Content {
 		switch sec := sec.(type) {
 		case *rainslib.ShardSection:
-			err := signShard(sec, privateKey)
+			err := signShard(sec, keyAlgo, privateKey)
 			if err != nil {
 				return err
 			}
 		default:
-			log.Warn(fmt.Sprintf("Content of the zone section must be a shard. Got:%T", sec))
+			return fmt.Errorf("Zone contained unexpected type expected=*ShardSection actual=%T", sec)
 		}
 	}
 	return nil
 }
 
-//signShard signs the shard and all contained assertions with the context/zone's private key.
+//signShard signs the shard and all contained assertions with the zone's private key.
+//It removes the subjectZone and context after the signatures have been added.
+//It returns an error if it was unable to sign the shard.
 //TODO we should use 2 valid signatures to avoid traffic bursts when a signature expires.
-func signShard(s *rainslib.ShardSection, privateKey ed25519.PrivateKey) error {
+func signShard(s *rainslib.ShardSection, keyAlgo rainslib.SignatureAlgorithmType, privateKey interface{}) error {
+	if s == nil {
+		return errors.New("shard is nil")
+	}
 	signature := rainslib.Signature{
-		Algorithm: rainslib.Ed25519,
-		KeySpace:  rainslib.RainsKeySpace,
-		//TODO What time should we choose for valid since?
-		ValidSince: time.Now().Unix(),
-		ValidUntil: time.Now().Add(config.ShardValidity).Unix()}
-	if ok := rainsSiglib.SignSection(s, privateKey, signature, zoneFileParser.Parser{}); !ok {
+		Algorithm:  keyAlgo,
+		KeySpace:   rainslib.RainsKeySpace,
+		ValidSince: time.Now().Add(config.ShardValidSince).Unix(),
+		ValidUntil: time.Now().Add(config.ShardValidUntil).Unix(),
+	}
+	if ok := rainsSiglib.SignSection(s, privateKey, signature, signatureEncoder); !ok {
 		return errors.New("Was not able to sign and add the signature")
 	}
-	err := signAssertions(s.Content, privateKey)
+	s.Context = ""
+	s.SubjectZone = ""
+	err := signAssertions(s.Content, keyAlgo, privateKey)
 	return err
 }
 
-//signAssertions signs all assertions with the context/zone's private key.
+//signAssertions signs all assertions with the zone's private key.
+//It removes the subjectZone and context after the signatures have been added.
+//It returns an error if it was unable to sign the assertion.
 //TODO we should use 2 valid signatures to avoid traffic bursts when a signature expires.
-func signAssertions(assertions []*rainslib.AssertionSection, privateKey ed25519.PrivateKey) error {
+func signAssertions(assertions []*rainslib.AssertionSection, keyAlgo rainslib.SignatureAlgorithmType, privateKey interface{}) error {
 	for _, a := range assertions {
+		if a == nil {
+			return errors.New("assertion is nil")
+		}
 		//TODO CFE handle multiple types per assertion
 		signature := rainslib.Signature{
-			Algorithm: rainslib.Ed25519,
+			Algorithm: keyAlgo,
 			KeySpace:  rainslib.RainsKeySpace,
-			//TODO What time should we choose for valid since?
-			ValidSince: time.Now().Unix(),
 		}
 		if a.Content[0].Type == rainslib.OTDelegation {
-			signature.ValidUntil = time.Now().Add(config.DelegationValidity).Unix()
+			signature.ValidSince = time.Now().Add(config.DelegationValidSince).Unix()
+			signature.ValidUntil = time.Now().Add(config.DelegationValidUntil).Unix()
 		} else {
-			signature.ValidUntil = time.Now().Add(config.AssertionValidity).Unix()
+			signature.ValidSince = time.Now().Add(config.AssertionValidSince).Unix()
+			signature.ValidUntil = time.Now().Add(config.AssertionValidUntil).Unix()
 		}
 
-		if ok := rainsSiglib.SignSection(a, privateKey, signature, zoneFileParser.Parser{}); !ok {
+		if ok := rainsSiglib.SignSection(a, privateKey, signature, signatureEncoder); !ok {
 			return errors.New("Was not able to sign and add the signature")
 		}
+		a.Context = ""
+		a.SubjectZone = ""
 	}
 	return nil
 }
 
 //sendMsg sends the given zone to rains servers specified in the configuration
-func sendMsg(msg []byte) {
+func sendMsg(msg []byte) error {
+	connections := []net.Conn{}
 	//TODO CFE use certificate for tls
 	conf := &tls.Config{
 		InsecureSkipVerify: true,
@@ -201,16 +240,25 @@ func sendMsg(msg []byte) {
 				log.Error("Was not able to establish a connection.", "server", server, "error", err)
 				continue
 			}
+			connections = append(connections, conn)
 			var msgFramer rainslib.MsgFramer
 			msgFramer = new(protoParser.ProtoParserAndFramer)
 			msgFramer.InitStreams(nil, conn)
-			msgFramer.Frame(msg)
-			//conn.Close() When should I close this connection? If I do it here, then the destination cannot read the content because it gets an EOF
-			log.Info("Message sent", "destination", server.String())
+			err = msgFramer.Frame(msg)
+			if err != nil {
+				return err
+			}
+			log.Debug("Message sent", "destination", server.String())
 		default:
-			log.Warn("Connection Information type does not exist", "ConnInfo type", server.Type)
+			return fmt.Errorf("unsupported connection information type. actual=%v", server.Type)
 		}
 	}
+	//If the connections are directly closed the destination is not able to receive the information. Is this true?
+	time.Sleep(time.Second)
+	for _, conn := range connections {
+		conn.Close()
+	}
+	return nil
 }
 
 //createRainsMessage creates a rainsMessage containing the given zone and return the byte representation of this rainsMessage ready to send out.
@@ -221,34 +269,4 @@ func createRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
 		return []byte{}, err
 	}
 	return byteMsg, nil
-}
-
-//sendDelegations sends the delegations to this zone such that the receiving rains server can verify the signatures on this zone's assertions.
-func sendDelegations() {
-	//load delegations
-	file, err := ioutil.ReadFile(config.ZoneFileDelegationPath)
-	if err != nil {
-		log.Error("Was not able to read zone file", "path", config.ZoneFileDelegationPath)
-		return
-	}
-
-	//handle delegations
-	assertions, err := parser.Decode(file, config.ZoneFileDelegationPath)
-	if err != nil {
-		log.Error("Was not able to parse zone file.", "error", err)
-		return
-	}
-	zone := groupAssertionsToShards(assertions)
-
-	signZone(zone, rootPrivateKey)
-	if err != nil {
-		log.Warn("Was not able to sign zone.", "error", err)
-	}
-
-	//send signed zone with delegations to rains server
-	msg, err := createRainsMessage(zone)
-	if err != nil {
-		log.Warn("Was not able to parse the zone to a rains message.", "error", err)
-	}
-	sendMsg(msg)
 }

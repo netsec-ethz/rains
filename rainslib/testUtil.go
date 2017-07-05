@@ -1,14 +1,16 @@
-package testUtil
+package rainslib
 
 import (
 	"net"
-	"rains/rainslib"
 	"testing"
 
 	"golang.org/x/crypto/ed25519"
 )
 
-func CheckMessage(m1, m2 rainslib.RainsMessage, t *testing.T) {
+//CFE To compare recursively if two structs contain the same elements one can use reflect.DeepEqual(x,y interface{}) bool.
+//Unfortunately the function does not return which element(s) are not equal. We want this in a test scenario.
+
+func CheckMessage(m1, m2 RainsMessage, t *testing.T) {
 	if m1.Token != m2.Token {
 		t.Error("Token mismatch")
 	}
@@ -26,50 +28,50 @@ func CheckMessage(m1, m2 rainslib.RainsMessage, t *testing.T) {
 	}
 	for i, s1 := range m1.Content {
 		switch s1 := s1.(type) {
-		case *rainslib.AssertionSection:
-			if s2, ok := m2.Content[i].(*rainslib.AssertionSection); ok {
+		case *AssertionSection:
+			if s2, ok := m2.Content[i].(*AssertionSection); ok {
 				CheckAssertion(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *rainslib.ShardSection:
-			if s2, ok := m2.Content[i].(*rainslib.ShardSection); ok {
+		case *ShardSection:
+			if s2, ok := m2.Content[i].(*ShardSection); ok {
 				CheckShard(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *rainslib.ZoneSection:
-			if s2, ok := m2.Content[i].(*rainslib.ZoneSection); ok {
+		case *ZoneSection:
+			if s2, ok := m2.Content[i].(*ZoneSection); ok {
 				CheckZone(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *rainslib.QuerySection:
-			if s2, ok := m2.Content[i].(*rainslib.QuerySection); ok {
+		case *QuerySection:
+			if s2, ok := m2.Content[i].(*QuerySection); ok {
 				CheckQuery(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *rainslib.NotificationSection:
-			if s2, ok := m2.Content[i].(*rainslib.NotificationSection); ok {
+		case *NotificationSection:
+			if s2, ok := m2.Content[i].(*NotificationSection); ok {
 				CheckNotification(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *rainslib.AddressAssertionSection:
-			if s2, ok := m2.Content[i].(*rainslib.AddressAssertionSection); ok {
+		case *AddressAssertionSection:
+			if s2, ok := m2.Content[i].(*AddressAssertionSection); ok {
 				CheckAddressAssertion(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *rainslib.AddressZoneSection:
-			if s2, ok := m2.Content[i].(*rainslib.AddressZoneSection); ok {
+		case *AddressZoneSection:
+			if s2, ok := m2.Content[i].(*AddressZoneSection); ok {
 				CheckAddressZone(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *rainslib.AddressQuerySection:
-			if s2, ok := m2.Content[i].(*rainslib.AddressQuerySection); ok {
+		case *AddressQuerySection:
+			if s2, ok := m2.Content[i].(*AddressQuerySection); ok {
 				CheckAddressQuery(s1, s2, t)
 				continue
 			}
@@ -80,7 +82,7 @@ func CheckMessage(m1, m2 rainslib.RainsMessage, t *testing.T) {
 	}
 }
 
-func CheckSignatures(s1, s2 []rainslib.Signature, t *testing.T) {
+func CheckSignatures(s1, s2 []Signature, t *testing.T) {
 	if len(s1) != len(s2) {
 		t.Error("Signature count mismatch")
 		return
@@ -99,7 +101,7 @@ func CheckSignatures(s1, s2 []rainslib.Signature, t *testing.T) {
 			t.Errorf("Signature ValidUntil mismatch in %d. Signature", i)
 		}
 		switch s1[i].Algorithm {
-		case rainslib.Ed25519:
+		case Ed25519:
 			d1 := s1[i].Data.([]byte)
 			d2 := s2[i].Data.([]byte)
 			if len(d1) != len(d2) {
@@ -114,7 +116,7 @@ func CheckSignatures(s1, s2 []rainslib.Signature, t *testing.T) {
 	}
 }
 
-func CheckAssertion(a1, a2 *rainslib.AssertionSection, t *testing.T) {
+func CheckAssertion(a1, a2 *AssertionSection, t *testing.T) {
 	if a1.Context != a2.Context {
 		t.Errorf("Assertion Context mismatch a1.Context=%s a2.Context=%s", a1.Context, a2.Context)
 	}
@@ -128,7 +130,7 @@ func CheckAssertion(a1, a2 *rainslib.AssertionSection, t *testing.T) {
 	CheckObjects(a1.Content, a2.Content, t)
 }
 
-func CheckShard(s1, s2 *rainslib.ShardSection, t *testing.T) {
+func CheckShard(s1, s2 *ShardSection, t *testing.T) {
 	if s1.Context != s2.Context {
 		t.Error("Shard context mismatch")
 	}
@@ -150,7 +152,7 @@ func CheckShard(s1, s2 *rainslib.ShardSection, t *testing.T) {
 	}
 }
 
-func CheckZone(z1, z2 *rainslib.ZoneSection, t *testing.T) {
+func CheckZone(z1, z2 *ZoneSection, t *testing.T) {
 	if z1.Context != z2.Context {
 		t.Error("Zone context mismatch")
 	}
@@ -163,14 +165,14 @@ func CheckZone(z1, z2 *rainslib.ZoneSection, t *testing.T) {
 	}
 	for i, s1 := range z1.Content {
 		switch s1 := s1.(type) {
-		case *rainslib.AssertionSection:
-			if s2, ok := z2.Content[i].(*rainslib.AssertionSection); ok {
+		case *AssertionSection:
+			if s2, ok := z2.Content[i].(*AssertionSection); ok {
 				CheckAssertion(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *rainslib.ShardSection:
-			if s2, ok := z2.Content[i].(*rainslib.ShardSection); ok {
+		case *ShardSection:
+			if s2, ok := z2.Content[i].(*ShardSection); ok {
 				CheckShard(s1, s2, t)
 				continue
 			}
@@ -181,7 +183,7 @@ func CheckZone(z1, z2 *rainslib.ZoneSection, t *testing.T) {
 	}
 }
 
-func CheckQuery(q1, q2 *rainslib.QuerySection, t *testing.T) {
+func CheckQuery(q1, q2 *QuerySection, t *testing.T) {
 	if q1.Context != q2.Context {
 		t.Error("Query context mismatch")
 	}
@@ -190,9 +192,6 @@ func CheckQuery(q1, q2 *rainslib.QuerySection, t *testing.T) {
 	}
 	if q1.Name != q2.Name {
 		t.Error("Query Name mismatch")
-	}
-	if q1.Token != q2.Token {
-		t.Error("Query Token mismatch")
 	}
 	if q1.Type != q2.Type {
 		t.Error("Query Type mismatch")
@@ -207,7 +206,7 @@ func CheckQuery(q1, q2 *rainslib.QuerySection, t *testing.T) {
 	}
 }
 
-func CheckNotification(n1, n2 *rainslib.NotificationSection, t *testing.T) {
+func CheckNotification(n1, n2 *NotificationSection, t *testing.T) {
 	if n1.Type != n2.Type {
 		t.Error("Notification Type mismatch")
 	}
@@ -219,7 +218,7 @@ func CheckNotification(n1, n2 *rainslib.NotificationSection, t *testing.T) {
 	}
 }
 
-func CheckAddressAssertion(a1, a2 *rainslib.AddressAssertionSection, t *testing.T) {
+func CheckAddressAssertion(a1, a2 *AddressAssertionSection, t *testing.T) {
 	if a1.Context != a2.Context {
 		t.Error("AddressAssertion Context mismatch")
 	}
@@ -228,7 +227,7 @@ func CheckAddressAssertion(a1, a2 *rainslib.AddressAssertionSection, t *testing.
 	CheckObjects(a1.Content, a2.Content, t)
 }
 
-func CheckAddressZone(z1, z2 *rainslib.AddressZoneSection, t *testing.T) {
+func CheckAddressZone(z1, z2 *AddressZoneSection, t *testing.T) {
 	if z1.Context != z2.Context {
 		t.Error("AddressZone Context mismatch")
 	}
@@ -242,15 +241,12 @@ func CheckAddressZone(z1, z2 *rainslib.AddressZoneSection, t *testing.T) {
 	}
 }
 
-func CheckAddressQuery(q1, q2 *rainslib.AddressQuerySection, t *testing.T) {
+func CheckAddressQuery(q1, q2 *AddressQuerySection, t *testing.T) {
 	if q1.Context != q2.Context {
 		t.Error("AddressQuery context mismatch")
 	}
 	if q1.Expires != q2.Expires {
 		t.Error("AddressQuery Expires mismatch")
-	}
-	if q1.Token != q2.Token {
-		t.Error("AddressQuery Token mismatch")
 	}
 	if q1.Type != q2.Type {
 		t.Error("AddressQuery Type mismatch")
@@ -272,7 +268,7 @@ func CheckSubjectAddress(a1, a2 *net.IPNet, t *testing.T) {
 	}
 }
 
-func CheckObjects(objs1, objs2 []rainslib.Object, t *testing.T) {
+func CheckObjects(objs1, objs2 []Object, t *testing.T) {
 	if len(objs1) != len(objs2) {
 		t.Error("Objects length mismatch")
 	}
@@ -282,9 +278,9 @@ func CheckObjects(objs1, objs2 []rainslib.Object, t *testing.T) {
 			t.Errorf("Object Type mismatch at position %d", i)
 		}
 		switch o1.Type {
-		case rainslib.OTName:
-			n1 := o1.Value.(rainslib.NameObject)
-			n2 := o2.Value.(rainslib.NameObject)
+		case OTName:
+			n1 := o1.Value.(NameObject)
+			n2 := o2.Value.(NameObject)
 			if n1.Name != n2.Name {
 				t.Errorf("Object Value name Name mismatch at position %d", i)
 			}
@@ -296,27 +292,27 @@ func CheckObjects(objs1, objs2 []rainslib.Object, t *testing.T) {
 					t.Errorf("Object Value name type mismatch at byte %d of object %d", j, i)
 				}
 			}
-		case rainslib.OTIP6Addr:
+		case OTIP6Addr:
 			if o1.Value.(string) != o2.Value.(string) {
 				t.Errorf("Object Value IP6 mismatch at position %d", i)
 			}
-		case rainslib.OTIP4Addr:
+		case OTIP4Addr:
 			if o1.Value.(string) != o2.Value.(string) {
 				t.Errorf("Object Value IP4 mismatch at position %d", i)
 			}
-		case rainslib.OTRedirection:
+		case OTRedirection:
 			if o1.Value.(string) != o2.Value.(string) {
 				t.Errorf("Object Value redirection mismatch at position %d", i)
 			}
-		case rainslib.OTDelegation:
-			CheckPublicKey(o1.Value.(rainslib.PublicKey), o2.Value.(rainslib.PublicKey), t)
-		case rainslib.OTNameset:
-			if o1.Value.(rainslib.NamesetExpression) != o2.Value.(rainslib.NamesetExpression) {
+		case OTDelegation:
+			CheckPublicKey(o1.Value.(PublicKey), o2.Value.(PublicKey), t)
+		case OTNameset:
+			if o1.Value.(NamesetExpression) != o2.Value.(NamesetExpression) {
 				t.Errorf("Object Value nameSet mismatch at position %d  of content slice. v1=%s v2=%s", i, o1.Value, o2.Value)
 			}
-		case rainslib.OTCertInfo:
-			c1 := o1.Value.(rainslib.CertificateObject)
-			c2 := o2.Value.(rainslib.CertificateObject)
+		case OTCertInfo:
+			c1 := o1.Value.(CertificateObject)
+			c2 := o2.Value.(CertificateObject)
 			if c1.Type != c2.Type {
 				t.Errorf("Object Value CertificateInfo type mismatch at position %d", i)
 			}
@@ -334,9 +330,9 @@ func CheckObjects(objs1, objs2 []rainslib.Object, t *testing.T) {
 					t.Errorf("Object Value CertificateInfo data mismatch at byte %d of object %d", j, i)
 				}
 			}
-		case rainslib.OTServiceInfo:
-			s1 := o1.Value.(rainslib.ServiceInfo)
-			s2 := o2.Value.(rainslib.ServiceInfo)
+		case OTServiceInfo:
+			s1 := o1.Value.(ServiceInfo)
+			s2 := o2.Value.(ServiceInfo)
 			if s1.Name != s2.Name {
 				t.Errorf("Object Value service info name mismatch at position %d", i)
 			}
@@ -346,27 +342,27 @@ func CheckObjects(objs1, objs2 []rainslib.Object, t *testing.T) {
 			if s1.Priority != s2.Priority {
 				t.Errorf("Object Value service info Priority mismatch at position %d", i)
 			}
-		case rainslib.OTRegistrar:
+		case OTRegistrar:
 			if o1.Value.(string) != o2.Value.(string) {
 				t.Errorf("Object Value registrar mismatch at position %d of content slice. v1=%s v2=%s", i, o1.Value, o2.Value)
 			}
-		case rainslib.OTRegistrant:
+		case OTRegistrant:
 			if o1.Value.(string) != o2.Value.(string) {
 				t.Errorf("Object Value registrant mismatch at position %d of content slice. v1=%s v2=%s", i, o1.Value, o2.Value)
 			}
-		case rainslib.OTInfraKey:
-			CheckPublicKey(o1.Value.(rainslib.PublicKey), o2.Value.(rainslib.PublicKey), t)
-		case rainslib.OTExtraKey:
-			CheckPublicKey(o1.Value.(rainslib.PublicKey), o2.Value.(rainslib.PublicKey), t)
-		case rainslib.OTNextKey:
-			CheckPublicKey(o1.Value.(rainslib.PublicKey), o2.Value.(rainslib.PublicKey), t)
+		case OTInfraKey:
+			CheckPublicKey(o1.Value.(PublicKey), o2.Value.(PublicKey), t)
+		case OTExtraKey:
+			CheckPublicKey(o1.Value.(PublicKey), o2.Value.(PublicKey), t)
+		case OTNextKey:
+			CheckPublicKey(o1.Value.(PublicKey), o2.Value.(PublicKey), t)
 		default:
 			t.Errorf("Unsupported object type. got=%T", o1.Type)
 		}
 	}
 }
 
-func CheckPublicKey(p1, p2 rainslib.PublicKey, t *testing.T) {
+func CheckPublicKey(p1, p2 PublicKey, t *testing.T) {
 	if p1.KeySpace != p2.KeySpace {
 		t.Error("PublicKey KeySpace mismatch")
 	}

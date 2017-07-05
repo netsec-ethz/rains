@@ -2,12 +2,11 @@ package rainsd
 
 import (
 	"fmt"
+	"net"
 	"rains/rainslib"
 	"rains/utils/binaryTrie"
 	"strings"
 	"time"
-
-	"net"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -36,19 +35,19 @@ var addressCacheIPv6 map[string]addressSectionCache
 func initEngine() error {
 	//init Caches
 	var err error
-	pendingQueries, err = createPendingQueryCache(int(Config.PendingQueryCacheSize))
+	pendingQueries, err = createPendingQueryCache(Config.PendingQueryCacheSize)
 	if err != nil {
 		log.Error("Cannot create pending query Cache", "error", err)
 		return err
 	}
 
-	assertionsCache, err = createAssertionCache(int(Config.AssertionCacheSize))
+	assertionsCache, err = createAssertionCache(Config.AssertionCacheSize)
 	if err != nil {
 		log.Error("Cannot create assertion Cache", "error", err)
 		return err
 	}
 
-	negAssertionCache, err = createNegativeAssertionCache(int(Config.NegativeAssertionCacheSize))
+	negAssertionCache, err = createNegativeAssertionCache(Config.NegativeAssertionCacheSize)
 	if err != nil {
 		log.Error("Cannot create negative assertion Cache", "error", err)
 		return err
@@ -73,7 +72,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 		log.Debug("Start processing Assertion", "assertion", section)
 		if isAssertionConsistent(section) {
 			log.Debug("Assertion is consistent with cached elements.")
-			ok := assertAssertion(section.Context, section.SubjectZone, section, isAuthoritative, sectionWSSender.Token)
+			ok := assertAssertion(section, isAuthoritative, sectionWSSender.Token)
 			if ok {
 				handleAssertion(section, sectionWSSender.Token)
 			}
@@ -84,7 +83,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 		log.Debug("Start processing Shard", "shard", section)
 		if isShardConsistent(section) {
 			log.Debug("Shard is consistent with cached elements.")
-			ok := assertShard(section.Context, section.SubjectZone, section, isAuthoritative, sectionWSSender.Token)
+			ok := assertShard(section, isAuthoritative, sectionWSSender.Token)
 			if ok {
 				handlePendingQueries(section, sectionWSSender.Token)
 			}
@@ -132,42 +131,46 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 
 //assertAssertion adds an assertion to the assertion cache. The assertion's signatures MUST have already been verified.
 //TODO CFE only the first element of the assertion is processed
-//Returns true if the assertion can be further processed.
-func assertAssertion(context, subjectZone string, a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) bool {
+//Returns true if the assertion can be used to answer pending queries.
+func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) bool {
 	if shouldAssertionBeCached(a) {
 		value := assertionCacheValue{section: a, validSince: a.ValidSince(), validUntil: a.ValidUntil()}
-		assertionsCache.Add(context, subjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative, value)
+		assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative, value)
 		if a.Content[0].Type == rainslib.OTDelegation {
-			for _, sig := range a.Signatures {
-				if sig.KeySpace == rainslib.RainsKeySpace {
-					cacheKey := keyCacheKey{context: a.Context, zone: a.SubjectName, keyAlgo: rainslib.KeyAlgorithmType(sig.Algorithm)}
-					publicKey := a.Content[0].Value.(rainslib.PublicKey)
-					publicKey.ValidSince = sig.ValidSince
-					publicKey.ValidUntil = sig.ValidUntil
-					log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)
-					ok := zoneKeyCache.Add(cacheKey, publicKey, isAuthoritative)
-					if !ok {
-						log.Warn("Was not able to add entry to zone key cache", "cacheKey", cacheKey, "publicKey", publicKey)
-					}
+			if publicKey, ok := a.Content[0].Value.(rainslib.PublicKey); ok {
+				cacheKey := keyCacheKey{context: a.Context, zone: a.SubjectName, keyAlgo: publicKey.Type}
+				publicKey.ValidSince = a.ValidSince()
+				publicKey.ValidUntil = a.ValidUntil()
+				log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)
+				ok := zoneKeyCache.Add(cacheKey, publicKey, isAuthoritative)
+				if !ok {
+					log.Warn("Was not able to add entry to zone key cache", "cacheKey", cacheKey, "publicKey", publicKey)
+					pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
+					pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
+					return false
 				}
-
+			} else {
+				log.Warn("Type assertion failed expected a rainslib.PublicKey", "actual", a.Content[0].Value)
+				pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
+				pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
+				return false
 			}
 		}
 	}
 	if a.ValidSince() > time.Now().Unix() {
 		pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
+		pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
 		return false
 	}
 	return true
-
 }
 
 //handleAssertion triggers any pending queries answered by it.
 func handleAssertion(a *rainslib.AssertionSection, token rainslib.Token) {
 	//FIXME CFE multiple types per assertion is not handled
 	if a.Content[0].Type == rainslib.OTDelegation {
-		//Trigger elements from pendingSignatureCache
-		sections, ok := pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
+		sections, ok := pendingSignatures.GetAllAndDelete(a.Context, a.SubjectName)
+		log.Debug("handle sections from pending signature cache", "waitingSectionCount", len(sections), "subjectZone", a.SubjectName, "context", a.Context)
 		if ok {
 			for _, sectionSender := range sections {
 				normalChannel <- msgSectionSender{Section: sectionSender.Section, Sender: sectionSender.Sender, Token: sectionSender.Token}
@@ -179,8 +182,8 @@ func handleAssertion(a *rainslib.AssertionSection, token rainslib.Token) {
 
 //handlePendingQueries triggers any pending queries and send the response to it.
 func handlePendingQueries(section rainslib.MessageSectionWithSig, token rainslib.Token) {
-	//FIXME CFE also allow pending Queries to GetAllAndDelete(zone, type, name,context) because we might get the answer back indirectly.
 	values, ok := pendingQueries.GetAllAndDelete(token)
+	log.Debug("handle pending queries.", "waitingQueriesCount", len(values))
 	if ok {
 		for _, v := range values {
 			if v.validUntil > time.Now().Unix() {
@@ -202,17 +205,18 @@ func shouldAssertionBeCached(assertion *rainslib.AssertionSection) bool {
 //assertShard adds a shard to the negAssertion cache and all contained assertions to the asseriontsCache.
 //The shard's signatures and all contained assertion signatures MUST have already been verified
 //Returns true if the shard can be further processed.
-func assertShard(context, subjectZone string, shard *rainslib.ShardSection, isAuthoritative bool, token rainslib.Token) bool {
+func assertShard(shard *rainslib.ShardSection, isAuthoritative bool, token rainslib.Token) bool {
 	if shouldShardBeCached(shard) {
-		negAssertionCache.Add(context, subjectZone, isAuthoritative,
+		negAssertionCache.Add(shard.Context, shard.SubjectZone, isAuthoritative,
 			negativeAssertionCacheValue{
 				section:    shard,
 				validSince: shard.ValidSince(),
 				validUntil: shard.ValidUntil(),
 			})
 	}
-	for _, a := range shard.Content {
-		assertAssertion(context, subjectZone, a, isAuthoritative, [16]byte{})
+	for _, assertion := range shard.Content {
+		a := assertion.Copy(shard.Context, shard.SubjectZone)
+		assertAssertion(a, isAuthoritative, [16]byte{})
 	}
 	if shard.ValidSince() > time.Now().Unix() {
 		pendingQueries.GetAllAndDelete(token) //shard cannot be used to answer queries, delete all waiting elements for this shard.
@@ -239,14 +243,16 @@ func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool, token rainslib
 				validUntil: zone.ValidUntil(),
 			})
 	}
-	for _, v := range zone.Content {
-		switch v := v.(type) {
+	for _, section := range zone.Content {
+		switch section := section.(type) {
 		case *rainslib.AssertionSection:
-			assertAssertion(zone.Context, zone.SubjectZone, v, isAuthoritative, [16]byte{})
+			a := section.Copy(zone.Context, zone.SubjectZone)
+			assertAssertion(a, isAuthoritative, [16]byte{})
 		case *rainslib.ShardSection:
-			assertShard(zone.Context, zone.SubjectZone, v, isAuthoritative, [16]byte{})
+			s := section.Copy(zone.Context, zone.SubjectZone)
+			assertShard(s, isAuthoritative, [16]byte{})
 		default:
-			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", section))
 		}
 	}
 	if zone.ValidSince() > time.Now().Unix() {
@@ -326,17 +332,17 @@ func shouldAddressZoneBeCached(zone *rainslib.AddressZoneSection) bool {
 }
 
 //addressQuery directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
-func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo) {
+func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Start processing address query", "addressQuery", query)
 	assertion, zone, ok := getAddressCache(query.SubjectAddr, query.Context).Get(query.SubjectAddr, []rainslib.ObjectType{query.Type})
 	//TODO CFE add heuristic which assertion to return
 	if ok {
 		if assertion != nil {
-			sendQueryAnswer(assertion, sender, query.Token)
+			sendQueryAnswer(assertion, sender, token)
 			log.Debug("Finished handling query by sending address assertion from cache", "query", query)
 		}
 		if zone != nil {
-			sendQueryAnswer(zone, sender, query.Token)
+			sendQueryAnswer(zone, sender, token)
 			log.Debug("Finished handling query by sending address zone from cache", "query", query)
 		}
 		return
@@ -345,51 +351,52 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo)
 
 	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
 		log.Debug("Send a notification message back to the sender due to query option: 'Cached Answers only'")
-		sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
+		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail)
 		log.Debug("Finished handling query (unsuccessful) ", "query", query)
 		return
 	}
 
 	delegate := getDelegationAddress(query.Context, "")
 	if delegate.Equal(serverConnInfo) {
-		sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
+		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail)
 		log.Error("Stop processing query. I am authoritative and have no answer in cache")
 		return
 	}
 	//we have a valid delegation
-	token := query.Token
+	tok := token
 	if !query.ContainsOption(rainslib.QOTokenTracing) {
-		token = rainslib.GenerateToken()
+		tok = rainslib.GenerateToken()
 	}
 	validUntil := time.Now().Add(Config.AddressQueryValidity).Unix() //Upper bound for forwarded query expiration time
 	if query.Expires < validUntil {
 		validUntil = query.Expires
 	}
 	//FIXME CFE allow multiple types
-	pendingQueries.Add(query.Context, "", "", query.Type, pendingQuerySetValue{connInfo: sender, token: token, validUntil: validUntil})
+	pendingQueries.Add(query.Context, "", "", query.Type, pendingQuerySetValue{connInfo: sender, token: tok, validUntil: validUntil})
 	log.Debug("Added query into to pending query cache", "query", query)
-	sendAddressQuery(query.Context, query.SubjectAddr, validUntil, query.Type, token, delegate)
+	msg := rainslib.NewAddressQueryMessage(query.Context, query.SubjectAddr, validUntil, query.Type, nil, tok)
+	SendMessage(msg, delegate)
 }
 
 //query directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
-func query(query *rainslib.QuerySection, sender rainslib.ConnInfo) {
+func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Start processing query", "query", query)
 	zoneAndNames := getZoneAndName(query.Name)
 	for _, zAn := range zoneAndNames {
 		assertions, ok := assertionsCache.Get(query.Context, zAn.zone, zAn.name, query.Type, query.ContainsOption(rainslib.QOExpiredAssertionsOk))
 		//TODO CFE add heuristic which assertion to return
 		if ok {
-			sendQueryAnswer(assertions[0], sender, query.Token)
+			sendQueryAnswer(assertions[0], sender, token)
 			log.Debug("Finished handling query by sending assertion from cache", "query", query)
 			return
 		}
+		log.Debug("No entry found in assertion cache", "name", zAn.name, "zone", zAn.zone, "context", query.Context, "type", query.Type)
 	}
-	log.Debug("No entry found in assertion cache matching the query")
 
 	for _, zAn := range zoneAndNames {
 		negAssertion, ok := negAssertionCache.Get(query.Context, zAn.zone, rainslib.StringInterval{Name: zAn.name})
 		if ok {
-			sendQueryAnswer(negAssertion, sender, query.Token)
+			sendQueryAnswer(negAssertion, sender, token)
 			log.Debug("Finished handling query by sending shard or zone from cache", "query", query)
 			return
 		}
@@ -398,37 +405,42 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo) {
 
 	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
 		log.Debug("Send a notification message back to the sender due to query option: 'Cached Answers only'")
-		sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
+		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail)
 		log.Debug("Finished handling query (unsuccessful) ", "query", query)
 		return
 	}
 	for _, zAn := range zoneAndNames {
 		delegate := getDelegationAddress(query.Context, zAn.zone)
 		if delegate.Equal(serverConnInfo) {
-			sendNotificationMsg(query.Token, sender, rainslib.NoAssertionAvail)
+			sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail)
 			log.Error("Stop processing query. I am authoritative and have no answer in cache")
 			return
 		}
 		//we have a valid delegation
-		token := query.Token
+		tok := token
 		if !query.ContainsOption(rainslib.QOTokenTracing) {
-			token = rainslib.GenerateToken()
+			tok = rainslib.GenerateToken()
 		}
 		validUntil := time.Now().Add(Config.QueryValidity).Unix() //Upper bound for forwarded query expiration time
 		if query.Expires < validUntil {
 			validUntil = query.Expires
 		}
-		pendingQueries.Add(query.Context, zAn.zone, zAn.name, query.Type, pendingQuerySetValue{connInfo: sender, token: token, validUntil: validUntil})
+		pendingQueries.Add(query.Context, zAn.zone, zAn.name, query.Type, pendingQuerySetValue{connInfo: sender, token: tok, validUntil: validUntil})
 		log.Debug("Added query into to pending query cache", "query", query)
-		sendQuery(query.Context, zAn.zone, validUntil, query.Type, token, delegate)
+		msg := rainslib.NewQueryMessage(query.Context, zAn.zone, validUntil, query.Type, nil, tok)
+		SendMessage(msg, delegate)
 	}
 }
 
 //getZoneAndName tries to split a fully qualified name into zone and name
-func getZoneAndName(name string) []zoneAndName {
+func getZoneAndName(name string) (zoneAndNames []zoneAndName) {
 	//TODO CFE use also different heuristics
 	names := strings.Split(name, ".")
-	zoneAndNames := []zoneAndName{zoneAndName{zone: strings.Join(names[1:], "."), name: names[0]}}
+	if len(names) == 1 {
+		zoneAndNames = []zoneAndName{zoneAndName{zone: ".", name: names[0]}}
+	} else {
+		zoneAndNames = []zoneAndName{zoneAndName{zone: strings.Join(names[1:], "."), name: names[0]}}
+	}
 	log.Debug("Split into zone and name", "zone", zoneAndNames[0].zone, "name", zoneAndNames[0].name)
 	return zoneAndNames
 }

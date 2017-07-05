@@ -16,20 +16,16 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
-const (
-	configPath = "config/server.conf"
-)
-
 //InitServer initializes the server
-func InitServer() error {
+func InitServer(configPath string) error {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(h)
-	loadConfig()
+	loadConfig(configPath)
 	serverConnInfo = Config.ServerAddress
 	msgParser = new(protoParser.ProtoParserAndFramer)
 	sigEncoder = new(zoneFileParser.Parser)
-	loadAuthoritative()
-	if err := loadCert(); err != nil {
+	loadAuthoritative(Config.ContextAuthority)
+	if err := loadCert(Config.TLSCertificateFile); err != nil {
 		return err
 	}
 	log.Debug("Successfully loaded Certificate")
@@ -53,7 +49,8 @@ func InitServer() error {
 }
 
 //LoadConfig loads and stores server configuration
-func loadConfig() {
+//FIXME CFE do not load config directly into Config. But load it and then translate/cast elements to Config
+func loadConfig(configPath string) {
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Warn("Could not open config file...", "path", configPath, "error", err)
@@ -75,26 +72,28 @@ func loadConfig() {
 	Config.MaxCacheValidity.ZoneValidity *= time.Hour
 }
 
-func loadAuthoritative() {
+//loadAuthoritative stores to authoritative for which zone and context this server has authority.
+//Entries over which this server has authority will not be affected by the lru policy of the caches.
+func loadAuthoritative(contextAuthorities []string) {
 	authoritative = make(map[contextAndZone]bool)
-	for i, context := range Config.ContextAuthority {
+	for i, context := range contextAuthorities {
 		authoritative[contextAndZone{Context: context, Zone: Config.ZoneAuthority[i]}] = true
 	}
 }
 
 //loadRootZonePublicKey stores the root zone public key from disk into the zoneKeyCache.
-func loadRootZonePublicKey() error {
+func loadRootZonePublicKey(keyPath string) error {
 	a := new(rainslib.AssertionSection)
-	err := rainslib.Load(Config.RootZonePublicKeyPath, a)
+	err := rainslib.Load(keyPath, a)
 	if err == nil {
 		for _, c := range a.Content {
 			if c.Type == rainslib.OTDelegation {
 				if publicKey, ok := c.Value.(rainslib.PublicKey); ok {
-					keyMap := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
-					keyMap[rainslib.KeyAlgorithmType(a.Signatures[0].Algorithm)] = publicKey
+					keyMap := make(map[rainslib.SignatureAlgorithmType]rainslib.PublicKey)
+					keyMap[a.Signatures[0].Algorithm] = publicKey
 					if validateSignatures(a, keyMap) {
 						log.Info("Added root public key to zone key cache.", "context", a.Context, "zone", a.SubjectZone, "RootPublicKey", c.Value)
-						zoneKeyCache.Add(keyCacheKey{context: a.Context, zone: a.SubjectZone, keyAlgo: rainslib.KeyAlgorithmType(publicKey.Type)}, publicKey, true)
+						zoneKeyCache.Add(keyCacheKey{context: a.Context, zone: a.SubjectZone, keyAlgo: publicKey.Type}, publicKey, true)
 					}
 				} else {
 					log.Warn(fmt.Sprintf("Was not able to cast to rainslib.PublicKey Got Type:%T", c.Value))
@@ -105,9 +104,10 @@ func loadRootZonePublicKey() error {
 	return err
 }
 
-func loadCert() error {
+//loadCert load a tls certificate from certPath
+func loadCert(certPath string) error {
 	roots = x509.NewCertPool()
-	file, err := ioutil.ReadFile(Config.TLSCertificateFile)
+	file, err := ioutil.ReadFile(certPath)
 	if err != nil {
 		log.Error("error", err)
 		return err
@@ -120,63 +120,31 @@ func loadCert() error {
 	return nil
 }
 
-//CreateNotificationMsg creates a notification messages
-func CreateNotificationMsg(token rainslib.Token, notificationType rainslib.NotificationType, data string) ([]byte, error) {
-	content := []rainslib.MessageSection{&rainslib.NotificationSection{Type: rainslib.MsgTooLarge, Token: rainslib.GenerateToken(), Data: data}}
-	msg := rainslib.RainsMessage{Token: token, Content: content}
-	//TODO CFE add infrastructure signature to query message?
-	return msgParser.Encode(msg)
-}
-
-func sendQuery(context, zone string, expTime int64, objType rainslib.ObjectType, token rainslib.Token, sender rainslib.ConnInfo) {
-	querySection := rainslib.QuerySection{
-		Context: context,
-		Name:    zone,
-		Expires: expTime,
-		Token:   token,
-		Type:    objType,
-	}
-	query := rainslib.RainsMessage{Token: token, Content: []rainslib.MessageSection{&querySection}}
-	//TODO CFE add infrastructure signature to query message?
-	msg, err := msgParser.Encode(query)
+//SendMessage adds an infrastructure signature to message and encodes it. Then it is sent to addr.
+//In case of an encoder error, it logs message information and the error.
+func SendMessage(message rainslib.RainsMessage, dst rainslib.ConnInfo) {
+	//FIXME CFE add infrastructure signatured
+	msg, err := msgParser.Encode(message)
 	if err != nil {
-		log.Warn("Cannot encode the query", "query", query, "error", err)
+		log.Warn("Cannot encode message", "message", message, "error", err)
 		return
 	}
-	log.Info("Query sent", "query", querySection)
-	sendTo(msg, sender)
-}
+	log.Debug("Send message", "message", message)
+	sendTo(msg, dst)
 
-func sendAddressQuery(context string, ipNet *net.IPNet, expTime int64, objType rainslib.ObjectType, token rainslib.Token, sender rainslib.ConnInfo) {
-	querySection := rainslib.AddressQuerySection{
-		Context:     context,
-		SubjectAddr: ipNet,
-		Expires:     expTime,
-		Token:       token,
-		Type:        objType,
-	}
-	query := rainslib.RainsMessage{Token: token, Content: []rainslib.MessageSection{&querySection}}
-	//TODO CFE add infrastructure signature to query message?
-	msg, err := msgParser.Encode(query)
-	if err != nil {
-		log.Warn("Cannot parse a delegation Query", "query", query)
-		return
-	}
-	log.Info("Query sent", "query", querySection)
-	sendTo(msg, sender)
 }
 
 //getDelegationAddress returns the address of a server to which this server delegates a query if it has no answer in the cache.
 func getDelegationAddress(context, zone string) rainslib.ConnInfo {
 	//TODO CFE not yet implemented
-	log.Warn("Not yet implemented CFE. return hard coded delegation address")
 	delegAddr := Config.ServerAddress
 	delegAddr.TCPAddr.Port++
+	log.Warn("Not yet implemented CFE. return hard coded delegation address", "connInfo", delegAddr)
 	return delegAddr
 }
 
 //createConnectionCache returns a newly created connection cache
-func createConnectionCache(connCacheSize int) (connectionCache, error) {
+func createConnectionCache(connCacheSize uint) (connectionCache, error) {
 	c, err := cache.NewWithEvict(func(value interface{}, key ...string) {
 		if value, ok := value.(net.Conn); ok {
 			value.Close()
@@ -189,7 +157,7 @@ func createConnectionCache(connCacheSize int) (connectionCache, error) {
 }
 
 //createCapabilityCache returns a newly created capability cache
-func createCapabilityCache(hashToCapCacheSize, connectionToCapSize int) (capabilityCache, error) {
+func createCapabilityCache(hashToCapCacheSize, connectionToCapSize uint) (capabilityCache, error) {
 	hc, err := cache.New(hashToCapCacheSize, "noAnyContext")
 	if err != nil {
 		return nil, err
@@ -204,8 +172,8 @@ func createCapabilityCache(hashToCapCacheSize, connectionToCapSize int) (capabil
 	return &capabilityCacheImpl{hashToCap: hc, connInfoToCap: cc}, nil
 }
 
-//createKeyCache returns a newly key capability cache
-func createKeyCache(keyCacheSize int) (keyCache, error) {
+//createKeyCache returns a new key capability cache
+func createKeyCache(keyCacheSize uint) (keyCache, error) {
 	c, err := cache.New(keyCacheSize, "anyContext")
 	if err != nil {
 		return nil, err
@@ -213,7 +181,8 @@ func createKeyCache(keyCacheSize int) (keyCache, error) {
 	return &keyCacheImpl{cache: c}, nil
 }
 
-func createPendingSignatureCache(cacheSize int) (pendingSignatureCache, error) {
+//createPendingSignatureCache returns a new pending signature cache
+func createPendingSignatureCache(cacheSize uint) (pendingSignatureCache, error) {
 	c, err := cache.New(cacheSize, "noAnyContext")
 	if err != nil {
 		return nil, err
@@ -221,7 +190,8 @@ func createPendingSignatureCache(cacheSize int) (pendingSignatureCache, error) {
 	return &pendingSignatureCacheImpl{cache: c, maxElements: cacheSize, elementCount: 0}, nil
 }
 
-func createPendingQueryCache(cacheSize int) (pendingQueryCache, error) {
+//createPendingQueryCache returns a new pending query cache
+func createPendingQueryCache(cacheSize uint) (pendingQueryCache, error) {
 	c, err := cache.New(cacheSize, "noAnyContext")
 	if err != nil {
 		return nil, err
@@ -229,7 +199,8 @@ func createPendingQueryCache(cacheSize int) (pendingQueryCache, error) {
 	return &pendingQueryCacheImpl{callBackCache: c, maxElements: cacheSize, elementCount: 0, activeTokens: make(map[[16]byte]elemAndValidTo)}, nil
 }
 
-func createNegativeAssertionCache(cacheSize int) (negativeAssertionCache, error) {
+//createNegativeAssertionCache returns a new negative assertion cache
+func createNegativeAssertionCache(cacheSize uint) (negativeAssertionCache, error) {
 	c, err := cache.New(cacheSize, "anyContext")
 	if err != nil {
 		return nil, err
@@ -238,11 +209,21 @@ func createNegativeAssertionCache(cacheSize int) (negativeAssertionCache, error)
 
 }
 
-func createAssertionCache(cacheSize int) (assertionCache, error) {
+//createAssertionCache returns a new assertion cache
+func createAssertionCache(cacheSize uint) (assertionCache, error) {
 	c, err := cache.New(cacheSize, "anyContext")
 	if err != nil {
 		return nil, err
 	}
-	return &assertionCacheImpl{assertionCache: c, maxElements: cacheSize, elementCount: 0, rangeMap: make(map[contextAndZone]*sortedAssertionMetaData)}, nil
+	return &assertionCacheImpl{
+		assertionCache: c,
+		maxElements:    cacheSize,
+		elementCount:   0,
+		rangeMap:       make(map[contextAndZone]*sortedAssertionMetaData),
+	}, nil
+}
 
+//createActiveTokenCache returns a new active token cache
+func createActiveTokenCache(cacheSize uint) activeTokenCache {
+	return &activeTokenCacheImpl{maxElements: cacheSize, elementCount: 0, activeTokenCache: make(map[rainslib.Token]int64)}
 }

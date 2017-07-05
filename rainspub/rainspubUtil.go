@@ -3,67 +3,53 @@ package rainspub
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
-	"os"
 	"time"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
 )
 
-func loadConfig() {
+//loadConfig loads configuration information from configPath
+func loadConfig(configPath string) error {
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
-		log.Warn("Could not open config file...", "path", configPath, "error", err)
+		log.Error("Could not open config file...", "path", configPath, "error", err)
+		return err
 	}
 	if err = json.Unmarshal(file, &config); err != nil {
-		log.Warn("Could not unmarshal json format of config", "error", err)
+		log.Error("Could not unmarshal json format of config", "error", err)
+		return err
 	}
-	config.AssertionValidity *= time.Hour
-	config.ShardValidity *= time.Hour
-	config.ZoneValidity *= time.Hour
-	config.DelegationValidity *= time.Hour
+	config.AssertionValidSince *= time.Hour
+	config.ShardValidSince *= time.Hour
+	config.ZoneValidSince *= time.Hour
+	config.DelegationValidSince *= time.Hour
+	config.AssertionValidUntil *= time.Hour
+	config.ShardValidUntil *= time.Hour
+	config.ZoneValidUntil *= time.Hour
+	config.DelegationValidUntil *= time.Hour
+	return nil
 }
 
+//loadPrivateKey loads the zone private key
 //TODO CFE remove when we have air gapping
-func loadPrivateKeys() {
-	if _, err := os.Stat(config.ZonePrivateKeyPath); os.IsNotExist(err) {
-		var publicKey ed25519.PublicKey
-		publicKey, zonePrivateKey, err = ed25519.GenerateKey(nil)
-		if err != nil {
-			log.Error("Could not generate the zones private key", "error", err)
-			return
-		}
-		storeKeyPair(publicKey, zonePrivateKey)
-	} else {
-		zonePrivateKey = getEd25519PrivateKey(config.ZonePrivateKeyPath)
-	}
-	rootPrivateKey = getEd25519PrivateKey(config.RootPrivateKeyPath)
-}
-
-func getEd25519PrivateKey(path string) ed25519.PrivateKey {
-	privKey, err := ioutil.ReadFile(path)
+func loadPrivateKey(privateKeyPath string) error {
+	privKey, err := ioutil.ReadFile(privateKeyPath)
 	if err != nil {
-		log.Error("Was not able to read privateKey", "path", path, "error", err)
+		log.Error("Was not able to read privateKey", "path", privateKeyPath, "error", err)
+		return err
 	}
-	privateKey := make([]byte, hex.DecodedLen(len(privKey)))
-	i, err := hex.Decode(privateKey, privKey)
+	zonePrivateKey = make([]byte, hex.DecodedLen(len(privKey)))
+	i, err := hex.Decode(zonePrivateKey, privKey)
 	if err != nil {
-		log.Error("Was not able to decode privateKey", "path", path, "error", err)
+		log.Error("Was not able to decode privateKey", "path", privateKeyPath, "error", err)
+		return err
 	}
 	if i != ed25519.PrivateKeySize {
 		log.Error("Private key length is incorrect", "expected", ed25519.PrivateKeySize, "actual", i)
+		return errors.New("Private key length is incorrect")
 	}
-	return privateKey
-}
-
-func storeKeyPair(publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey) {
-	err := ioutil.WriteFile(config.ZonePrivateKeyPath, []byte(hex.EncodeToString(privateKey)), 0644)
-	if err != nil {
-		log.Error("Could not store the zones private key", "path", config.ZonePrivateKeyPath, "error", err)
-	}
-	err = ioutil.WriteFile(config.ZonePublicKeyPath, []byte(hex.EncodeToString(publicKey)), 0644)
-	if err != nil {
-		log.Error("Could not store the zones public key", "path", config.ZonePublicKeyPath, "error", err)
-	}
+	return nil
 }

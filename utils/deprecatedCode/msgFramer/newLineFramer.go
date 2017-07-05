@@ -1,6 +1,6 @@
 package msgFramer
 
-import (
+/*import (
 	"bufio"
 	"fmt"
 	"io"
@@ -38,4 +38,4 @@ func (f *NewLineFramer) Data() []byte {
 		return []byte{}
 	}
 	return f.scanner.Bytes()
-}
+}*/

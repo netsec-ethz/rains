@@ -31,13 +31,18 @@ _testmain.go
 *.key
 
 #server main() function binary
-/server/server
-/server/keys/
-/server/zoneFiles/
+/serverCH/serverCH
+/serverCH/keys/
+/serverCH/zoneFiles/
+/serverRoot/serverRoot
+/serverRoot/keys/
+/serverRoot/zoneFiles/
 
 #binary of rainsdig
 /rainsdig/rainsdig
 
-#test
-*.out
-test/
+#test coverage files
+coverage.out
+
+#test files
+/rainslib/test
