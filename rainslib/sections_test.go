@@ -574,8 +574,10 @@ func TestAssertionSort(t *testing.T) {
 		input  []Object
 		sorted []Object
 	}{
-		{[]Object{Object{Type: OTIP4Addr, Value: "192.0.2.0"}, Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTDelegation, OTName}}}},
-			[]Object{Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTName, OTDelegation}}}, Object{Type: OTIP4Addr, Value: "192.0.2.0"}}},
+		{
+			[]Object{Object{Type: OTIP4Addr, Value: "192.0.2.0"}, Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTDelegation, OTName}}}},
+			[]Object{Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTName, OTDelegation}}}, Object{Type: OTIP4Addr, Value: "192.0.2.0"}},
+		},
 	}
 	for i, test := range tests {
 		a := &AssertionSection{Content: test.input}
@@ -591,10 +593,16 @@ func TestShardSort(t *testing.T) {
 		input  []*AssertionSection
 		sorted []*AssertionSection
 	}{
-		{[]*AssertionSection{&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
-			&AssertionSection{Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}}},
-			[]*AssertionSection{&AssertionSection{Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
-				&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}}}},
+		{
+			[]*AssertionSection{
+				&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+				&AssertionSection{Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}},
+			},
+			[]*AssertionSection{
+				&AssertionSection{Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
+				&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+			},
+		},
 	}
 	for i, test := range tests {
 		s := &ShardSection{Content: test.input}
@@ -610,18 +618,34 @@ func TestZoneSort(t *testing.T) {
 		input  []MessageSectionWithSigForward
 		sorted []MessageSectionWithSigForward
 	}{
-		{[]MessageSectionWithSigForward{&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}}, //Assertion compared with Assertion
-			&AssertionSection{Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}}},
-			[]MessageSectionWithSigForward{&AssertionSection{Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
-				&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}}}},
-		{[]MessageSectionWithSigForward{&ShardSection{}, &AssertionSection{}}, //Assertion compared with Shard
-			[]MessageSectionWithSigForward{&AssertionSection{}, &ShardSection{}}},
-		{[]MessageSectionWithSigForward{&AssertionSection{}, &ShardSection{}}, //Assertion compared with Shard
-			[]MessageSectionWithSigForward{&AssertionSection{}, &ShardSection{}}},
-		{[]MessageSectionWithSigForward{&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "b"}, &AssertionSection{SubjectName: "d"}}}, //Shard compared with Shard
-			&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "c"}, &AssertionSection{SubjectName: "a"}}}},
-			[]MessageSectionWithSigForward{&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "a"}, &AssertionSection{SubjectName: "c"}}},
-				&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "b"}, &AssertionSection{SubjectName: "d"}}}}},
+		{
+			[]MessageSectionWithSigForward{
+				&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}}, //Assertion compared with Assertion
+				&AssertionSection{Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}},
+			},
+			[]MessageSectionWithSigForward{
+				&AssertionSection{Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
+				&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+			},
+		},
+		{
+			[]MessageSectionWithSigForward{&ShardSection{}, &AssertionSection{}}, //Assertion compared with Shard
+			[]MessageSectionWithSigForward{&AssertionSection{}, &ShardSection{}},
+		},
+		{
+			[]MessageSectionWithSigForward{&AssertionSection{}, &ShardSection{}}, //Assertion compared with Shard
+			[]MessageSectionWithSigForward{&AssertionSection{}, &ShardSection{}},
+		},
+		{
+			[]MessageSectionWithSigForward{ //Shard compared with Shard
+				&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "b"}, &AssertionSection{SubjectName: "d"}}},
+				&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "c"}, &AssertionSection{SubjectName: "a"}}},
+			},
+			[]MessageSectionWithSigForward{
+				&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "a"}, &AssertionSection{SubjectName: "c"}}},
+				&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "b"}, &AssertionSection{SubjectName: "d"}}},
+			},
+		},
 	}
 	for i, test := range tests {
 		z := &ZoneSection{Content: test.input}
@@ -674,10 +698,16 @@ func TestAddressZoneSort(t *testing.T) {
 		input  []*AddressAssertionSection
 		sorted []*AddressAssertionSection
 	}{
-		{[]*AddressAssertionSection{&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
-			&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}}},
-			[]*AddressAssertionSection{&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
-				&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}}}},
+		{
+			[]*AddressAssertionSection{
+				&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+				&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}},
+			},
+			[]*AddressAssertionSection{
+				&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
+				&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+			},
+		},
 	}
 	for i, test := range tests {
 		z := &AddressZoneSection{Content: test.input}

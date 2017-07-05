@@ -291,15 +291,217 @@ func TestConnInfoEqual(t *testing.T) {
 }
 
 func TestSort(t *testing.T) {
+	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR)
 	var tests = []struct {
 		input  []MessageSection
 		sorted []MessageSection
 	}{
-		{[]MessageSection{&NotificationSection{}, &QuerySection{}, &ZoneSection{}, &ShardSection{}, &AssertionSection{}, &AddressAssertionSection{},
-			&AddressZoneSection{}, &AddressQuerySection{}},
+		{
+			[]MessageSection{&NotificationSection{}, &QuerySection{}, &ZoneSection{}, &ShardSection{}, &AssertionSection{}, &AddressAssertionSection{}, //all sections
+				&AddressZoneSection{}, &AddressQuerySection{}},
 			[]MessageSection{&AddressQuerySection{}, &AddressZoneSection{}, &AddressAssertionSection{}, &AssertionSection{}, &ShardSection{},
-				&ZoneSection{}, &QuerySection{}, &NotificationSection{}}},
-		//TODO add test for each separate. meaning comparing shard with shard, then zone with zone etc.
+				&ZoneSection{}, &QuerySection{}, &NotificationSection{}},
+		},
+
+		{ //Assertion
+			[]MessageSection{
+				&AssertionSection{
+					Content: []Object{
+						Object{Type: OTIP6Addr, Value: ip6TestAddr},
+						Object{Type: OTIP4Addr, Value: ip4TestAddr},
+					},
+				},
+				&AssertionSection{
+					Content: []Object{
+						Object{Type: OTIP4Addr, Value: "192.0.2.0"},
+						Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTDelegation, OTName}}},
+					},
+				},
+			},
+			[]MessageSection{
+				&AssertionSection{
+					Content: []Object{
+						Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTName, OTDelegation}}},
+						Object{Type: OTIP4Addr, Value: "192.0.2.0"},
+					},
+				},
+				&AssertionSection{
+					Content: []Object{
+						Object{Type: OTIP6Addr, Value: ip6TestAddr},
+						Object{Type: OTIP4Addr, Value: ip4TestAddr},
+					},
+				},
+			},
+		},
+
+		{ //Shard
+			[]MessageSection{
+				&ShardSection{
+					Content: []*AssertionSection{
+						&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+						&AssertionSection{Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}},
+					},
+				},
+				&ShardSection{
+					Content: []*AssertionSection{
+						&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTCertInfo}}},
+						&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTName}}},
+					},
+				},
+			},
+			[]MessageSection{
+				&ShardSection{
+					Content: []*AssertionSection{
+						&AssertionSection{Content: []Object{Object{Type: OTName}, Object{Type: OTIP6Addr}}},
+						&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTCertInfo}}},
+					},
+				},
+				&ShardSection{
+					Content: []*AssertionSection{
+						&AssertionSection{Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
+						&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+					},
+				},
+			},
+		},
+
+		{ //Zone
+			[]MessageSection{
+				&ZoneSection{
+					Content: []MessageSectionWithSigForward{&ShardSection{SubjectZone: "a"}, &AssertionSection{SubjectZone: "b"}},
+				},
+				&ZoneSection{
+					Content: []MessageSectionWithSigForward{&ShardSection{SubjectZone: "b"}, &AssertionSection{SubjectZone: "a"}},
+				},
+			},
+			[]MessageSection{
+				&ZoneSection{
+					Content: []MessageSectionWithSigForward{&AssertionSection{SubjectZone: "a"}, &ShardSection{SubjectZone: "b"}},
+				},
+				&ZoneSection{
+					Content: []MessageSectionWithSigForward{&AssertionSection{SubjectZone: "b"}, &ShardSection{SubjectZone: "a"}},
+				},
+			},
+		},
+
+		{ //Query section
+			[]MessageSection{
+				&QuerySection{Options: []QueryOption{QueryOption(5), QueryOption(3)}},
+				&QuerySection{Options: []QueryOption{QueryOption(6), QueryOption(2)}},
+			},
+			[]MessageSection{
+				&QuerySection{Options: []QueryOption{QueryOption(2), QueryOption(6)}},
+				&QuerySection{Options: []QueryOption{QueryOption(3), QueryOption(5)}},
+			},
+		},
+
+		{ //AddressAssertion
+			[]MessageSection{
+				&AddressAssertionSection{
+					SubjectAddr: subjectAddress,
+					Content: []Object{
+						Object{Type: OTIP6Addr, Value: ip6TestAddr},
+						Object{Type: OTIP4Addr, Value: ip4TestAddr},
+					},
+				},
+				&AddressAssertionSection{
+					SubjectAddr: subjectAddress,
+					Content: []Object{
+						Object{Type: OTIP4Addr, Value: ip4TestAddr},
+						Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTDelegation, OTName}}},
+					},
+				},
+			},
+			[]MessageSection{
+				&AddressAssertionSection{
+					SubjectAddr: subjectAddress,
+					Content: []Object{
+						Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTName, OTDelegation}}},
+						Object{Type: OTIP4Addr, Value: "192.0.2.0"},
+					},
+				},
+				&AddressAssertionSection{
+					SubjectAddr: subjectAddress,
+					Content: []Object{
+						Object{Type: OTIP6Addr, Value: ip6TestAddr},
+						Object{Type: OTIP4Addr, Value: ip4TestAddr},
+					},
+				},
+			},
+		},
+
+		{ //AddressZone
+			[]MessageSection{
+				&AddressZoneSection{
+					SubjectAddr: subjectAddress,
+					Content: []*AddressAssertionSection{
+						&AddressAssertionSection{
+							SubjectAddr: subjectAddress,
+							Content:     []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}},
+						},
+						&AddressAssertionSection{
+							SubjectAddr: subjectAddress,
+							Content:     []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}},
+						},
+					},
+				},
+				&AddressZoneSection{
+					SubjectAddr: subjectAddress,
+					Content: []*AddressAssertionSection{
+						&AddressAssertionSection{
+							SubjectAddr: subjectAddress,
+							Content:     []Object{Object{Type: OTIP6Addr}, Object{Type: OTName}},
+						},
+						&AddressAssertionSection{
+							SubjectAddr: subjectAddress,
+							Content:     []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}},
+						},
+					},
+				},
+			},
+			[]MessageSection{
+				&AddressZoneSection{
+					SubjectAddr: subjectAddress,
+					Content: []*AddressAssertionSection{
+						&AddressAssertionSection{
+							SubjectAddr: subjectAddress,
+							Content:     []Object{Object{Type: OTName}, Object{Type: OTIP6Addr}},
+						},
+						&AddressAssertionSection{
+							SubjectAddr: subjectAddress,
+							Content:     []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}},
+						},
+					},
+				},
+				&AddressZoneSection{
+					SubjectAddr: subjectAddress,
+					Content: []*AddressAssertionSection{
+						&AddressAssertionSection{
+							SubjectAddr: subjectAddress,
+							Content:     []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}},
+						},
+						&AddressAssertionSection{
+							SubjectAddr: subjectAddress,
+							Content:     []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}},
+						},
+					},
+				},
+			},
+		},
+		{ //AddressQueries
+			[]MessageSection{
+				&AddressQuerySection{SubjectAddr: subjectAddress, Options: []QueryOption{QueryOption(5), QueryOption(3)}},
+				&AddressQuerySection{SubjectAddr: subjectAddress, Options: []QueryOption{QueryOption(6), QueryOption(2)}},
+			},
+			[]MessageSection{
+				&AddressQuerySection{SubjectAddr: subjectAddress, Options: []QueryOption{QueryOption(2), QueryOption(6)}},
+				&AddressQuerySection{SubjectAddr: subjectAddress, Options: []QueryOption{QueryOption(3), QueryOption(5)}},
+			},
+		},
+		{ //Notifications
+			[]MessageSection{&NotificationSection{Data: "2"}, &NotificationSection{Data: "1"}},
+			[]MessageSection{&NotificationSection{Data: "1"}, &NotificationSection{Data: "2"}},
+		},
 	}
 	for i, test := range tests {
 		m := &RainsMessage{Content: test.input}
