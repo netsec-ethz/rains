@@ -140,8 +140,6 @@ func encodeQuery(q *rainslib.QuerySection, seg *capnp.Segment) (proto.MessageSec
 		return proto.MessageSection{}, err
 	}
 
-	tok := [16]byte(q.Token)
-	query.SetToken(tok[:])
 	query.SetName(q.Name)
 	query.SetContext(q.Context)
 	query.SetExpires(q.Expires)
@@ -266,8 +264,6 @@ func encodeAddressQuery(q *rainslib.AddressQuerySection, seg *capnp.Segment) (pr
 		return proto.MessageSection{}, err
 	}
 
-	tok := [16]byte(q.Token)
-	query.SetToken(tok[:])
 	query.SetContext(q.Context)
 	query.SetExpires(q.Expires)
 	query.SetTypes(int32(q.Type))

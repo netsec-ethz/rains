@@ -14,11 +14,11 @@ import (
 
 //AssertionSection contains information about the assertion
 type AssertionSection struct {
-	SubjectName string
-	Content     []Object
 	Signatures  []Signature
+	SubjectName string
 	SubjectZone string
 	Context     string
+	Content     []Object
 	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
@@ -165,12 +165,12 @@ func (a *AssertionSection) String() string {
 
 //ShardSection contains information about the shard
 type ShardSection struct {
-	Content     []*AssertionSection
 	Signatures  []Signature
 	SubjectZone string
 	Context     string
 	RangeFrom   string
 	RangeTo     string
+	Content     []*AssertionSection
 	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
@@ -484,14 +484,10 @@ func (z *ZoneSection) String() string {
 
 //QuerySection contains information about the query
 type QuerySection struct {
-	//Mandatory
-	Token   Token
-	Name    string
 	Context string
+	Name    string
 	Type    ObjectType
 	Expires int64 //time when this query expires represented as the number of seconds elapsed since January 1, 1970 UTC
-
-	//Optional
 	Options []QueryOption
 }
 
@@ -553,15 +549,15 @@ func (q *QuerySection) String() string {
 	if q == nil {
 		return "Query:nil"
 	}
-	return fmt.Sprintf("Query:[TOK=%s CTX=%s NA=%s TYPE=%d EXP=%d OPT=%v]", hex.EncodeToString(q.Token[:]), q.Context, q.Name, q.Type, q.Expires, q.Options)
+	return fmt.Sprintf("Query:[CTX=%s NA=%s TYPE=%d EXP=%d OPT=%v]", q.Context, q.Name, q.Type, q.Expires, q.Options)
 }
 
 //AddressAssertionSection contains information about the address assertion
 type AddressAssertionSection struct {
-	SubjectAddr *net.IPNet
-	Content     []Object
 	Signatures  []Signature
+	SubjectAddr *net.IPNet
 	Context     string
+	Content     []Object
 	validSince  int64
 	validUntil  int64
 }
@@ -683,10 +679,10 @@ func (a *AddressAssertionSection) String() string {
 
 //AddressZoneSection contains information about the address zone
 type AddressZoneSection struct {
-	SubjectAddr *net.IPNet
-	Content     []*AddressAssertionSection
 	Signatures  []Signature
+	SubjectAddr *net.IPNet
 	Context     string
+	Content     []*AddressAssertionSection
 	validSince  int64
 	validUntil  int64
 }
@@ -812,12 +808,10 @@ func (z *AddressZoneSection) String() string {
 //AddressQuerySection contains information about the address query
 type AddressQuerySection struct {
 	SubjectAddr *net.IPNet
-	Token       Token
 	Context     string
 	Type        ObjectType
 	Expires     int64
-	//Optional
-	Options []QueryOption
+	Options     []QueryOption
 }
 
 //ContainsOption returns true if the address query contains the given query option.
@@ -868,16 +862,14 @@ func (q *AddressQuerySection) String() string {
 	if q == nil {
 		return "AddressQuery:nil"
 	}
-	return fmt.Sprintf("AddressQuery:[TOK=%s SA=%s CTX=%s TYPE=%d EXP=%d OPT=%v]", hex.EncodeToString(q.Token[:]), q.SubjectAddr, q.Context, q.Type, q.Expires, q.Options)
+	return fmt.Sprintf("AddressQuery:[SA=%s CTX=%s TYPE=%d EXP=%d OPT=%v]", q.SubjectAddr, q.Context, q.Type, q.Expires, q.Options)
 }
 
 //NotificationSection contains information about the notification
 type NotificationSection struct {
-	//Mandatory
 	Token Token
 	Type  NotificationType
-	//Optional
-	Data string
+	Data  string
 }
 
 //Sort sorts the content of the notification lexicographically.

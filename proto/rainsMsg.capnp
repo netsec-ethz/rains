@@ -5,42 +5,42 @@ $Go.import("rains/proto");
 
 struct RainsMessage  {
     #RainsMessage contains the data of a message
-	token           @0 :Data;
-	content         @1 :List(MessageSection);
-	signatures      @2 :List(Signature);
-	capabilities    @3 :List(Text);
+	signatures      @0 :List(Signature);
+	capabilities    @1 :List(Text);
+	token           @2 :Data;
+	content         @3 :List(MessageSection);
 }
 
 struct MessageSection  {
     union {
-		assertion           @0 :AssertionSection;
-		shard               @1 :ShardSection;
-		zone                @2 :ZoneSection;
-		query               @3 :QuerySection;
-		notification        @4 :NotificationSection;
-		addressQuery        @5 :AddressQuerySection;
-		addressAssertion    @6 :AddressAssertionSection;
-		addressZone         @7 :AddressZoneSection;
+		addressQuery        @0 :AddressQuerySection;
+		addressZone         @1 :AddressZoneSection;
+		addressAssertion    @2 :AddressAssertionSection;
+		assertion           @3 :AssertionSection;
+		shard               @4 :ShardSection;
+		zone                @5 :ZoneSection;
+		query               @6 :QuerySection;
+		notification        @7 :NotificationSection;
     }   
 }
 
 struct AssertionSection  {
     #AssertionSection contains information about the assertion
-	subjectName @0 :Text;
-	content     @1 :List(Obj);
-	signatures  @2 :List(Signature);
-	subjectZone @3 :Text;
-	context     @4 :Text;
+	signatures  @0 :List(Signature);
+	subjectName @1 :Text;
+	subjectZone @2 :Text;
+	context     @3 :Text;
+	content     @4 :List(Obj);
 }
 
 struct ShardSection  {
     #ShardSection contains information about the shard
-	content     @0 :List(AssertionSection);
-	signatures  @1 :List(Signature);
-	subjectZone @2 :Text;
-	context     @3 :Text;
-	rangeFrom   @4 :Text;
-	rangeTo     @5 :Text;
+	signatures  @0 :List(Signature);
+	subjectZone @1 :Text;
+	context     @2 :Text;
+	rangeFrom   @3 :Text;
+	rangeTo     @4 :Text;
+	content     @5 :List(AssertionSection);
 }
 
 
@@ -54,27 +54,26 @@ struct ZoneSection  {
 
 struct QuerySection  {
     #QuerySection contains information about the query
-	token   @0      :Data;
-	name    @1      :Text;
-	context @2      :Text;
-	type    @3      :Int32;
-	expires @4      :Int64; #time when this query expires represented as the number of seconds elapsed since January 1, 1970 UTC
-	options @5      :List(Int32);
+	context @1      :Text;
+	name    @0      :Text;
+	type    @2      :Int32;
+	expires @3      :Int64; #time when this query expires represented as the number of seconds elapsed since January 1, 1970 UTC
+	options @4      :List(Int32);
 }
 
 struct AddressAssertionSection  {
     #AddressAssertionSection contains information about the address assertion
-	subjectAddr @0  :Text;
-	content     @1  :List(Obj);
-	signatures  @2  :List(Signature);
-	context     @3  :Text;
+	signatures  @0  :List(Signature);
+	subjectAddr @1  :Text;
+	context     @2  :Text;
+	content     @3  :List(Obj);
 }
 
 
 struct AddressZoneSection  {
     #AddressZoneSection contains information about the address zone
-	subjectAddr @0  :Text;
-	signatures  @1  :List(Signature);
+	signatures  @0  :List(Signature);
+	subjectAddr @1  :Text;
 	context     @2  :Text;
 	content     @3  :List(AddressAssertionSection);
 }
@@ -82,11 +81,10 @@ struct AddressZoneSection  {
 struct AddressQuerySection  {
     #AddressQuerySection contains information about the address query
 	subjectAddr @0 :Text;
-	token       @1 :Data;
-	context     @2 :Text;
-	types       @3 :Int32;
-	expires     @4 :Int64;
-	options     @5 :List(Int32);
+	context     @1 :Text;
+	types       @2 :Int32;
+	expires     @3 :Int64;
+	options     @4 :List(Int32);
 }
 
 
@@ -100,8 +98,8 @@ struct NotificationSection  {
 
 struct Signature  {
     #Signature on a Rains message or section
-	keySpace   @0 :Int32;
-	algorithm  @1 :Int32;
+	algorithm  @0 :Int32;
+	keySpace   @1 :Int32;
 	validSince @2 :Int64;
 	validUntil @3 :Int64;
 	data       @4 :Data;
@@ -109,11 +107,11 @@ struct Signature  {
 
 struct PublicKey  {
     #PublicKey contains information about a public key
-	keySpace   @0 :Int32;
-	type       @1 :Int32;
-	key        @2 :Data;
-	validSince @3 :Int64;
-	validUntil @4 :Int64;
+	type       @0 :Int32;
+	keySpace   @1 :Int32;
+	validSince @2 :Int64;
+	validUntil @3 :Int64;
+	key        @4 :Data;
 }
 
 struct CertificateObject  {
@@ -150,5 +148,3 @@ struct Obj  {
 		next    @13 :PublicKey;
     }
 }
-
-

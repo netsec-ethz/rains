@@ -193,9 +193,6 @@ func CheckQuery(q1, q2 *QuerySection, t *testing.T) {
 	if q1.Name != q2.Name {
 		t.Error("Query Name mismatch")
 	}
-	if q1.Token != q2.Token {
-		t.Error("Query Token mismatch")
-	}
 	if q1.Type != q2.Type {
 		t.Error("Query Type mismatch")
 	}
@@ -250,9 +247,6 @@ func CheckAddressQuery(q1, q2 *AddressQuerySection, t *testing.T) {
 	}
 	if q1.Expires != q2.Expires {
 		t.Error("AddressQuery Expires mismatch")
-	}
-	if q1.Token != q2.Token {
-		t.Error("AddressQuery Token mismatch")
 	}
 	if q1.Type != q2.Type {
 		t.Error("AddressQuery Type mismatch")

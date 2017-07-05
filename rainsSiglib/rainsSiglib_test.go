@@ -77,7 +77,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	}
 
 	zone := &rainslib.ZoneSection{
-		Content:     []rainslib.MessageSectionWithSig{assertion, shard},
+		Content:     []rainslib.MessageSectionWithSigForward{assertion, shard},
 		Context:     ".",
 		SubjectZone: "ch",
 	}
@@ -87,7 +87,6 @@ func TestEncodeAndDecode(t *testing.T) {
 		Expires: 159159,
 		Name:    "ethz.ch",
 		Options: []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
-		Token:   rainslib.GenerateToken(),
 		Type:    rainslib.OTIP4Addr,
 	}
 
@@ -125,7 +124,6 @@ func TestEncodeAndDecode(t *testing.T) {
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Expires:     7564859,
-		Token:       rainslib.GenerateToken(),
 		Type:        rainslib.OTName,
 		Options:     []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
 	}
@@ -155,8 +153,8 @@ func TestEncodeAndDecode(t *testing.T) {
 		ValidUntil: time.Now().Add(24 * time.Hour).Unix(),
 		Key:        genPublicKey,
 	}
-	pKeys := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
-	pKeys[rainslib.KeyAlgorithmType(pKey.Type)] = pKey
+	pKeys := make(map[rainslib.SignatureAlgorithmType]rainslib.PublicKey)
+	pKeys[pKey.Type] = pKey
 	maxValidity := rainslib.MaxCacheValidity{
 		AssertionValidity:        30 * time.Hour,
 		ShardValidity:            30 * time.Hour,
@@ -240,12 +238,12 @@ func TestEncodeAndDecode(t *testing.T) {
 func TestCheckSectionSignaturesErrors(t *testing.T) {
 	encoder := new(zoneFileParser.Parser)
 	maxVal := rainslib.MaxCacheValidity{AddressAssertionValidity: time.Hour}
-	keys := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
-	keys1 := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
-	keys1[rainslib.KeyAlgorithmType(rainslib.Ed25519)] = rainslib.PublicKey{}
+	keys := make(map[rainslib.SignatureAlgorithmType]rainslib.PublicKey)
+	keys1 := make(map[rainslib.SignatureAlgorithmType]rainslib.PublicKey)
+	keys1[rainslib.Ed25519] = rainslib.PublicKey{}
 	var tests = []struct {
 		input           rainslib.MessageSectionWithSig
-		inputPublicKeys map[rainslib.KeyAlgorithmType]rainslib.PublicKey
+		inputPublicKeys map[rainslib.SignatureAlgorithmType]rainslib.PublicKey
 		want            bool
 	}{
 		{nil, nil, false},                                                                                                            //msg nil
@@ -387,7 +385,7 @@ func TestCheckStringFields(t *testing.T) {
 		{&rainslib.ShardSection{Content: []*rainslib.AssertionSection{&rainslib.AssertionSection{SubjectName: ":ip:"}}}, false},
 		{&rainslib.ZoneSection{SubjectZone: ":ip:"}, false},
 		{&rainslib.ZoneSection{Context: ":ip:"}, false},
-		{&rainslib.ZoneSection{Content: []rainslib.MessageSectionWithSig{&rainslib.AssertionSection{SubjectName: ":ip:"}}}, false},
+		{&rainslib.ZoneSection{Content: []rainslib.MessageSectionWithSigForward{&rainslib.AssertionSection{SubjectName: ":ip:"}}}, false},
 		{&rainslib.QuerySection{Context: ":ip:"}, false},
 		{&rainslib.QuerySection{Name: ":ip:"}, false},
 		{&rainslib.NotificationSection{Data: ":ip:"}, false},

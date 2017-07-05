@@ -34,13 +34,13 @@ func encodeAddressZone(z *rainslib.AddressZoneSection) string {
 
 //encodeAddressQuery returns an address query in signable format (which resembles the zone file format)
 func encodeAddressQuery(q *rainslib.AddressQuerySection) string {
-	return fmt.Sprintf(":AQ: %s %s %s %s %d %s", q.Token.String(), encodeSubjectAddress(q.SubjectAddr), q.Context,
+	return fmt.Sprintf(":AQ: %s %s %s %d %s", encodeSubjectAddress(q.SubjectAddr), q.Context,
 		encodeObjectTypes([]rainslib.ObjectType{q.Type}), q.Expires, encodeQueryOptions(q.Options))
 }
 
 //encodeQuery returns a query in signable format (which resembles the zone file format)
 func encodeQuery(q *rainslib.QuerySection) string {
-	return fmt.Sprintf(":Q: %s %s %s %s %d %s", q.Token.String(), q.Context, q.Name, encodeObjectTypes([]rainslib.ObjectType{q.Type}),
+	return fmt.Sprintf(":Q: %s %s %s %d %s", q.Context, q.Name, encodeObjectTypes([]rainslib.ObjectType{q.Type}),
 		q.Expires, encodeQueryOptions(q.Options))
 }
 

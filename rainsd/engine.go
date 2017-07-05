@@ -363,7 +363,7 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 		return
 	}
 	//we have a valid delegation
-	tok := query.Token
+	tok := token
 	if !query.ContainsOption(rainslib.QOTokenTracing) {
 		tok = rainslib.GenerateToken()
 	}

@@ -63,7 +63,6 @@ func GetMessage() RainsMessage {
 		Expires: 159159,
 		Name:    testDomain,
 		Options: []QueryOption{QOMinE2ELatency, QOMinInfoLeakage},
-		Token:   GenerateToken(),
 		Type:    OTIP4Addr,
 	}
 
@@ -105,7 +104,6 @@ func GetMessage() RainsMessage {
 		SubjectAddr: subjectAddress1,
 		Context:     globalContext,
 		Expires:     7564859,
-		Token:       GenerateToken(),
 		Type:        OTName,
 		Options:     []QueryOption{QOMinE2ELatency, QOMinInfoLeakage},
 	}

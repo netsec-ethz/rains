@@ -307,21 +307,18 @@ func getZonesAndEncodings() ([]*rainslib.ZoneSection, []string) {
 func getQueriesAndEncodings() ([]*rainslib.QuerySection, []string) {
 	//addressqueries
 	queries := []*rainslib.QuerySection{}
-	token := rainslib.GenerateToken()
-	encodedToken := hex.EncodeToString(token[:])
 	query := &rainslib.QuerySection{
 		Context: ".",
 		Expires: 159159,
 		Name:    "ethz.ch",
 		Options: []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
-		Token:   token,
 		Type:    rainslib.OTIP4Addr,
 	}
 	queries = append(queries, query)
 
 	//encodings
 	encodings := []string{}
-	encodings = append(encodings, fmt.Sprintf(":Q: %s . ethz.ch [ 3 ] 159159 [ 1 3 ]", encodedToken))
+	encodings = append(encodings, ":Q: . ethz.ch [ 3 ] 159159 [ 1 3 ]")
 
 	return queries, encodings
 }
@@ -413,13 +410,10 @@ func getAddressQueriesAndEncodings() ([]*rainslib.AddressQuerySection, []string)
 	//addressqueries
 	addressQueries := []*rainslib.AddressQuerySection{}
 	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
-	token := rainslib.GenerateToken()
-	encodedToken := hex.EncodeToString(token[:])
 	addressQuery := &rainslib.AddressQuerySection{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Expires:     7564859,
-		Token:       token,
 		Type:        rainslib.OTName,
 		Options:     []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
 	}
@@ -427,7 +421,7 @@ func getAddressQueriesAndEncodings() ([]*rainslib.AddressQuerySection, []string)
 
 	//encodings
 	encodings := []string{}
-	encodings = append(encodings, fmt.Sprintf(":AQ: %s ip4 127.0.0.1/32 . [ 1 ] 7564859 [ 1 3 ]", encodedToken))
+	encodings = append(encodings, ":AQ: ip4 127.0.0.1/32 . [ 1 ] 7564859 [ 1 3 ]")
 
 	return addressQueries, encodings
 }

@@ -311,15 +311,14 @@ func TestAddressZoneString(t *testing.T) {
 }
 
 func TestQueryString(t *testing.T) {
-	token := GenerateToken()
 	var tests = []struct {
 		input *QuerySection
 		want  string
 	}{
 		{nil, "Query:nil"},
-		{new(QuerySection), "Query:[TOK=00000000000000000000000000000000 CTX= NA= TYPE=0 EXP=0 OPT=[]]"},
-		{&QuerySection{Token: token, Context: "ctx", Name: "name", Type: OTName, Expires: 100, Options: []QueryOption{QOMinE2ELatency, QOMinInfoLeakage}},
-			fmt.Sprintf("Query:[TOK=%s CTX=ctx NA=name TYPE=1 EXP=100 OPT=[1 3]]", hex.EncodeToString(token[:]))},
+		{new(QuerySection), "Query:[CTX= NA= TYPE=0 EXP=0 OPT=[]]"},
+		{&QuerySection{Context: "ctx", Name: "name", Type: OTName, Expires: 100, Options: []QueryOption{QOMinE2ELatency, QOMinInfoLeakage}},
+			"Query:[CTX=ctx NA=name TYPE=1 EXP=100 OPT=[1 3]]"},
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {
@@ -331,19 +330,18 @@ func TestQueryString(t *testing.T) {
 func TestAddressQueryString(t *testing.T) {
 	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
 	_, subjectAddress2, _ := net.ParseCIDR(ip6TestAddrCIDR)
-	token := GenerateToken()
 	var tests = []struct {
 		input *AddressQuerySection
 		want  string
 	}{
 		{nil, "AddressQuery:nil"},
-		{new(AddressQuerySection), "AddressQuery:[TOK=00000000000000000000000000000000 SA=<nil> CTX= TYPE=0 EXP=0 OPT=[]]"},
-		{&AddressQuerySection{Token: token, SubjectAddr: subjectAddress1, Context: "ctx", Type: OTName, Expires: 100,
+		{new(AddressQuerySection), "AddressQuery:[SA=<nil> CTX= TYPE=0 EXP=0 OPT=[]]"},
+		{&AddressQuerySection{SubjectAddr: subjectAddress1, Context: "ctx", Type: OTName, Expires: 100,
 			Options: []QueryOption{QOMinE2ELatency, QOMinInfoLeakage}},
-			fmt.Sprintf("AddressQuery:[TOK=%s SA=127.0.0.1/32 CTX=ctx TYPE=1 EXP=100 OPT=[1 3]]", hex.EncodeToString(token[:]))},
-		{&AddressQuerySection{Token: token, SubjectAddr: subjectAddress2, Context: "ctx", Type: OTName, Expires: 100,
+			"AddressQuery:[SA=127.0.0.1/32 CTX=ctx TYPE=1 EXP=100 OPT=[1 3]]"},
+		{&AddressQuerySection{SubjectAddr: subjectAddress2, Context: "ctx", Type: OTName, Expires: 100,
 			Options: []QueryOption{QOMinE2ELatency, QOMinInfoLeakage}},
-			fmt.Sprintf("AddressQuery:[TOK=%s SA=2001:db8::/32 CTX=ctx TYPE=1 EXP=100 OPT=[1 3]]", hex.EncodeToString(token[:]))},
+			"AddressQuery:[SA=2001:db8::/32 CTX=ctx TYPE=1 EXP=100 OPT=[1 3]]"},
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {

@@ -1,12 +1,12 @@
 package protoParser
 
 import (
-	"rains/utils/testUtil"
+	"rains/rainslib"
 	"testing"
 )
 
 func TestEncodeAndDecode(t *testing.T) {
-	message := testUtil.GetMessage()
+	message := rainslib.GetMessage()
 	p := ProtoParserAndFramer{}
 
 	msg, err := p.Encode(message)
@@ -18,11 +18,11 @@ func TestEncodeAndDecode(t *testing.T) {
 		t.Error("Failed to decode the message")
 	}
 
-	testUtil.CheckMessage(m, message, t)
+	rainslib.CheckMessage(m, message, t)
 }
 
 func TestToken(t *testing.T) {
-	message := testUtil.GetMessage()
+	message := rainslib.GetMessage()
 	p := ProtoParserAndFramer{}
 
 	msg, err := p.Encode(message)

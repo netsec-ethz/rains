@@ -1,6 +1,6 @@
 package rainsMsgParser
 
-import (
+/*import (
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -712,4 +712,4 @@ func parseNotification(msg string) (*rainslib.NotificationSection, error) {
 		Type:  rainslib.NotificationType(ntype),
 		Data:  msg[nd+4:],
 	}, nil
-}
+}*/
