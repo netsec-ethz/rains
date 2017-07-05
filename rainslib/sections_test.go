@@ -130,7 +130,7 @@ func TestZoneHash(t *testing.T) {
 }
 
 func TestAddressAssertionHash(t *testing.T) {
-	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
+	_, subjectAddress1, _ := net.ParseCIDR(ip4TestAddrCIDR32)
 	_, subjectAddress2, _ := net.ParseCIDR(ip6TestAddrCIDR)
 	objects1 := append(GetAllValidObjects()[3:5], GetAllValidObjects()[9])
 	objects2 := []Object{GetAllValidObjects()[0]}
@@ -156,7 +156,7 @@ func TestAddressAssertionHash(t *testing.T) {
 }
 
 func TestAddressZoneHash(t *testing.T) {
-	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
+	_, subjectAddress1, _ := net.ParseCIDR(ip4TestAddrCIDR32)
 	_, subjectAddress2, _ := net.ParseCIDR(ip6TestAddrCIDR)
 	var tests = []struct {
 		input *AddressZoneSection
@@ -262,7 +262,7 @@ func TestZoneString(t *testing.T) {
 }
 
 func TestAddressAssertionString(t *testing.T) {
-	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
+	_, subjectAddress1, _ := net.ParseCIDR(ip4TestAddrCIDR32)
 	_, subjectAddress2, _ := net.ParseCIDR(ip6TestAddrCIDR)
 	objects1 := append(GetAllValidObjects()[3:5], GetAllValidObjects()[9])
 	objects2 := []Object{GetAllValidObjects()[0]}
@@ -288,7 +288,7 @@ func TestAddressAssertionString(t *testing.T) {
 }
 
 func TestAddressZoneString(t *testing.T) {
-	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
+	_, subjectAddress1, _ := net.ParseCIDR(ip4TestAddrCIDR32)
 	_, subjectAddress2, _ := net.ParseCIDR(ip6TestAddrCIDR)
 	var tests = []struct {
 		input *AddressZoneSection
@@ -328,7 +328,7 @@ func TestQueryString(t *testing.T) {
 }
 
 func TestAddressQueryString(t *testing.T) {
-	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
+	_, subjectAddress1, _ := net.ParseCIDR(ip4TestAddrCIDR32)
 	_, subjectAddress2, _ := net.ParseCIDR(ip6TestAddrCIDR)
 	var tests = []struct {
 		input *AddressQuerySection
@@ -510,7 +510,7 @@ func TestAddressAssertionCompareTo(t *testing.T) {
 	for i, a := range assertions {
 		CheckAddressAssertion(a, shuffled[i].(*AddressAssertionSection), t)
 	}
-	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR)
+	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR24)
 	a1 := &AddressAssertionSection{SubjectAddr: subjectAddress}
 	a2 := &AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{}}}
 	if a1.CompareTo(a2) != -1 {
@@ -534,7 +534,7 @@ func TestAddressZoneCompareTo(t *testing.T) {
 	for i, z := range zones {
 		CheckAddressZone(z, shuffled[i].(*AddressZoneSection), t)
 	}
-	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR)
+	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR24)
 	z1 := &AddressZoneSection{SubjectAddr: subjectAddress}
 	z2 := &AddressZoneSection{SubjectAddr: subjectAddress, Content: []*AddressAssertionSection{&AddressAssertionSection{}}}
 	if z1.CompareTo(z2) != -1 {
@@ -691,7 +691,7 @@ func TestAddressAssertionSort(t *testing.T) {
 }
 
 func TestAddressZoneSort(t *testing.T) {
-	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR)
+	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR24)
 	var tests = []struct {
 		input  []*AddressAssertionSection
 		sorted []*AddressAssertionSection

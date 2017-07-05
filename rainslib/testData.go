@@ -7,18 +7,19 @@ import (
 )
 
 const (
-	ip4TestAddr      = "192.0.2.0"
-	ip4TestAddr2     = "198.51.100.0"
-	ip4TestAddr3     = "203.0.113.0"
-	ip6TestAddr      = "2001:db8::"
-	ip4TestAddrCIDR  = "192.0.2.0/24"
-	ip4TestAddr2CIDR = "198.51.100.0/24"
-	ip4TestAddr3CIDR = "203.0.113.0/24"
-	ip6TestAddrCIDR  = "2001:db8::/32"
-	testDomain       = "example.com"
-	testZone         = "com"
-	testSubjectName  = "example"
-	globalContext    = "."
+	ip4TestAddr       = "192.0.2.0"
+	ip4TestAddr2      = "198.51.100.0"
+	ip4TestAddr3      = "203.0.113.0"
+	ip6TestAddr       = "2001:db8::"
+	ip4TestAddrCIDR24 = "192.0.2.0/24"
+	ip4TestAddrCIDR32 = "192.0.2.0/32"
+	ip4TestAddr2CIDR  = "198.51.100.0/24"
+	ip4TestAddr3CIDR  = "203.0.113.0/24"
+	ip6TestAddrCIDR   = "2001:db8::/32"
+	testDomain        = "example.com"
+	testZone          = "com"
+	testSubjectName   = "example"
+	globalContext     = "."
 )
 
 //GetMessage returns a messages containing all sections. The assertion contains an instance of every objectTypes
@@ -30,8 +31,8 @@ func GetMessage() RainsMessage {
 		ValidUntil: 2000,
 		Data:       []byte("SignatureData")}
 
-	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
-	_, subjectAddress2, _ := net.ParseCIDR(ip4TestAddrCIDR)
+	_, subjectAddress1, _ := net.ParseCIDR(ip4TestAddrCIDR32)
+	_, subjectAddress2, _ := net.ParseCIDR(ip4TestAddrCIDR24)
 	_, subjectAddress3, _ := net.ParseCIDR(ip6TestAddrCIDR)
 
 	assertion := &AssertionSection{

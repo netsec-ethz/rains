@@ -291,7 +291,7 @@ func TestConnInfoEqual(t *testing.T) {
 }
 
 func TestSort(t *testing.T) {
-	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR)
+	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR24)
 	var tests = []struct {
 		input  []MessageSection
 		sorted []MessageSection

@@ -41,6 +41,7 @@ func init() {
 	msgParser = parserAndFramer
 	msgFramer = parserAndFramer
 	zfParser = zoneFileParser.Parser{}
+	//TODO CFE this list should be generated from internal constants
 	flag.Var(&queryOptions, "qopt", `specifies which query options are added to the query. Several query options are allowed. The sequence in which they are given determines the priority in descending order. Supported values are:
 	1: Minimize end-to-end latency
 	2: Minimize last-hop answer size (bandwidth)

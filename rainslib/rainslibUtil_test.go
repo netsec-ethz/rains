@@ -129,7 +129,7 @@ func TestNewQueryMessage(t *testing.T) {
 
 func TestNewAddressQueryMessage(t *testing.T) {
 	token := GenerateToken()
-	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
+	_, subjectAddress1, _ := net.ParseCIDR(ip4TestAddrCIDR32)
 	_, subjectAddress2, _ := net.ParseCIDR(ip6TestAddrCIDR)
 	var tests = []struct {
 		context  string

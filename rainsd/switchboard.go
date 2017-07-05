@@ -102,7 +102,7 @@ func Listen() {
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				srvLogger.Error("lister could not accept connection", "error", err)
+				srvLogger.Error("listener could not accept connection", "error", err)
 				continue
 			}
 			connCache.Add(conn)

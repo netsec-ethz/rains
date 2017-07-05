@@ -8,8 +8,9 @@ import (
 	"strconv"
 
 	log "github.com/inconshreveable/log15"
-	"golang.org/x/crypto/ed25519"
 	capnp "zombiezen.com/go/capnproto2"
+
+	"golang.org/x/crypto/ed25519"
 )
 
 func encodeAssertion(a *rainslib.AssertionSection, seg *capnp.Segment) (proto.MessageSection, error) {

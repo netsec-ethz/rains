@@ -2,11 +2,10 @@ package rainslib
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"sort"
 	"strconv"
-
-	"encoding/hex"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
