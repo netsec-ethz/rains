@@ -518,6 +518,7 @@ func containedAssertionQueryResponse(assertions []*rainslib.AssertionSection, su
 			a.Context == context && a.Content[0].Type == queryType {
 			for _, sig := range a.Sigs() {
 				//TODO CFE Check if signature in correct keySpace
+				//TODO CFE only check for this condition when queryoption 5 is not set
 				if sig.ValidUntil > time.Now().Unix() {
 					sendQueryAnswer(a, sender, token)
 					return true, true
