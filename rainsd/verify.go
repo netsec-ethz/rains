@@ -75,7 +75,11 @@ func verify(msgSender msgSectionSender) {
 	log.Info(fmt.Sprintf("Verify %T", msgSender.Section), "msgSection", msgSender.Section)
 	switch section := msgSender.Section.(type) {
 	case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection:
-		sectionSender := sectionWithSigSender{Section: section.(rainslib.MessageSectionWithSig), Sender: msgSender.Sender, Token: msgSender.Token}
+		sectionSender := sectionWithSigSender{
+			Section: section.(rainslib.MessageSectionWithSig),
+			Sender:  msgSender.Sender,
+			Token:   msgSender.Token,
+		}
 		if containedSectionsInvalid(sectionSender) {
 			return //already logged, that contained section is invalid
 		}
@@ -87,10 +91,17 @@ func verify(msgSender msgSectionSender) {
 			return //already logged, that the zone is internally invalid
 		}
 		if verifySignatures(sectionSender) {
-			assert(sectionSender, authoritative[contextAndZone{Context: sectionSender.Section.GetContext(), Zone: sectionSender.Section.GetSubjectZone()}])
+			assert(sectionSender, authoritative[contextAndZone{
+				Context: sectionSender.Section.GetContext(),
+				Zone:    sectionSender.Section.GetSubjectZone(),
+			}])
 		}
 	case *rainslib.AddressAssertionSection, *rainslib.AddressZoneSection:
-		sectionSender := sectionWithSigSender{Section: section.(rainslib.MessageSectionWithSig), Sender: msgSender.Sender, Token: msgSender.Token}
+		sectionSender := sectionWithSigSender{
+			Section: section.(rainslib.MessageSectionWithSig),
+			Sender:  msgSender.Sender,
+			Token:   msgSender.Token,
+		}
 		if containedSectionsInvalid(sectionSender) {
 			return //already logged, that contained section is invalid
 		}
@@ -99,7 +110,10 @@ func verify(msgSender msgSectionSender) {
 			return //already logged, that context is invalid
 		}
 		if verifySignatures(sectionSender) {
-			assert(sectionSender, authoritative[contextAndZone{Context: sectionSender.Section.GetContext(), Zone: sectionSender.Section.GetSubjectZone()}])
+			assert(sectionSender, authoritative[contextAndZone{
+				Context: sectionSender.Section.GetContext(),
+				Zone:    sectionSender.Section.GetSubjectZone(),
+			}])
 		}
 	case *rainslib.AddressQuerySection:
 		if contextInvalid(section.Context) {
@@ -289,7 +303,8 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 	if ok {
 		delegate := getDelegationAddress(section.GetContext(), section.GetSubjectZone())
 		token := rainslib.GenerateToken()
-		msg := rainslib.NewQueryMessage(section.GetContext(), section.GetSubjectZone(), cacheValue.validUntil, rainslib.OTDelegation, nil, token)
+		msg := rainslib.NewQueryMessage(section.GetContext(), section.GetSubjectZone(),
+			cacheValue.validUntil, rainslib.OTDelegation, nil, token)
 		SendMessage(msg, delegate)
 		if !activeTokens.AddToken(token, cacheValue.validUntil) {
 			log.Warn("activeTokenCache is full. Delegation query cannot be handled over the priority queue")

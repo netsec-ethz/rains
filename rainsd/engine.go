@@ -331,7 +331,8 @@ func shouldAddressZoneBeCached(zone *rainslib.AddressZoneSection) bool {
 	return true
 }
 
-//addressQuery directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
+//addressQuery directly answers the query if the result is cached. Otherwise it issues a new query
+//and adds this query to the pendingQueries Cache.
 func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Start processing address query", "addressQuery", query)
 	assertion, zone, ok := getAddressCache(query.SubjectAddr, query.Context).Get(query.SubjectAddr, []rainslib.ObjectType{query.Type})
@@ -340,12 +341,13 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 		if assertion != nil {
 			sendQueryAnswer(assertion, sender, token)
 			log.Debug("Finished handling query by sending address assertion from cache", "query", query)
+			return
 		}
-		if zone != nil {
-			sendQueryAnswer(zone, sender, token)
+		if zone != nil && handleAddressZoneQueryResponse(zone, query.SubjectAddr, query.Context,
+			query.Type, sender, token) {
 			log.Debug("Finished handling query by sending address zone from cache", "query", query)
+			return
 		}
-		return
 	}
 	log.Debug("No entry found in address cache matching the query")
 
@@ -378,6 +380,29 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 	SendMessage(msg, delegate)
 }
 
+//addressZoneContainsAssertion checks if zone.Content contains an addressAssertion with subjectAddr
+//and context. If it does not find an entry it sends the addressZone back to the querier and returns
+//true. Otherwise it checks if the entry has an unexpired signature. In that case it sends the
+//addressAssertion back to the querier and returns true, otherwise it return false
+func handleAddressZoneQueryResponse(zone *rainslib.AddressZoneSection, subjectAddr *net.IPNet,
+	context string, queryType rainslib.ObjectType, sender rainslib.ConnInfo, token rainslib.Token) bool {
+	for _, a := range zone.Content {
+		//TODO CFE handle case where assertion can have multiple types
+		if a.SubjectAddr == subjectAddr && a.Context == context && a.Content[0].Type == queryType {
+			for _, sig := range a.Sigs() {
+				//TODO CFE Check if signature in correct keySpace
+				if sig.ValidUntil > time.Now().Unix() {
+					sendQueryAnswer(a, sender, token)
+					return true
+				}
+			}
+			return false
+		}
+	}
+	sendQueryAnswer(zone, sender, token)
+	return true
+}
+
 //query directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
 func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Start processing query", "query", query)
@@ -395,6 +420,9 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 
 	for _, zAn := range zoneAndNames {
 		negAssertion, ok := negAssertionCache.Get(query.Context, zAn.zone, rainslib.StringInterval{Name: zAn.name})
+		//FIXME CFE must additionally check that the queried domain is not part of the shard or zone
+		//because it might have been already evicted from the assertion cache. In this case send a
+		//query and put the current query again on the pending query cache
 		if ok {
 			sendQueryAnswer(negAssertion, sender, token)
 			log.Debug("Finished handling query by sending shard or zone from cache", "query", query)
@@ -443,6 +471,62 @@ func getZoneAndName(name string) (zoneAndNames []zoneAndName) {
 	}
 	log.Debug("Split into zone and name", "zone", zoneAndNames[0].zone, "name", zoneAndNames[0].name)
 	return zoneAndNames
+}
+
+//handleShardOrZoneQueryResponse checks if section.Content contains an assertion with subjectName,
+//subjectZone and context. If it does not find an entry it sends the section back to the querier and
+//returns true. Otherwise it checks if the entry has an unexpired signature. In that case it sends
+//the assertion back to the querier and returns true, otherwise it return false
+func handleShardOrZoneQueryResponse(section rainslib.MessageSectionWithSigForward, subjectName, subjectZone,
+	context string, queryType rainslib.ObjectType, sender rainslib.ConnInfo, token rainslib.Token) bool {
+	assertions := []*rainslib.AssertionSection{}
+	switch section := section.(type) {
+	case *rainslib.ShardSection:
+		assertions = section.Content
+	case *rainslib.ZoneSection:
+		for _, sec := range section.Content {
+			switch sec := sec.(type) {
+			case *rainslib.AssertionSection:
+				assertions = append(assertions, sec)
+			case *rainslib.ShardSection:
+				assertions = append(assertions, sec.Content...)
+			default:
+				log.Warn(fmt.Sprintf("Unsupported zone.Content Expected assertion or shard. actual=%T", section))
+			}
+		}
+	default:
+		log.Warn(fmt.Sprintf("Unexpected MessageSectionWithSigForward. Expected zone or shard. actual=%T", section))
+	}
+	if entryFound, hasSig := containedAssertionQueryResponse(assertions, subjectName,
+		subjectZone, context, queryType, sender, token); entryFound {
+		return hasSig
+	}
+	sendQueryAnswer(section, sender, token)
+	return true
+}
+
+//containedAssertionQueryResponse checks if assertions contains an assertion with subjectName,
+//subjectZone and context. If it does not find an entry it returns (false, false). Otherwise it
+//checks if the entry has an unexpired signature. In that case it sends the assertion back to the
+//querier and returns (true, true), otherwise it return (true, false)
+func containedAssertionQueryResponse(assertions []*rainslib.AssertionSection, subjectName, subjectZone,
+	context string, queryType rainslib.ObjectType, sender rainslib.ConnInfo, token rainslib.Token) (
+	entryFound bool, hasSig bool) {
+	for _, a := range assertions {
+		//TODO CFE handle case where assertion can have multiple types
+		if a.SubjectName == subjectName && a.SubjectZone == subjectZone &&
+			a.Context == context && a.Content[0].Type == queryType {
+			for _, sig := range a.Sigs() {
+				//TODO CFE Check if signature in correct keySpace
+				if sig.ValidUntil > time.Now().Unix() {
+					sendQueryAnswer(a, sender, token)
+					return true, true
+				}
+			}
+			return true, false
+		}
+	}
+	return false, false
 }
 
 //sendQueryAnswer sends a section with Signature back to the sender with the specified token
