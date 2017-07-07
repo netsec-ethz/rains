@@ -2,9 +2,10 @@ package binaryTrie
 
 import (
 	"net"
+	"testing"
+
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/set"
-	"testing"
 
 	log "github.com/inconshreveable/log15"
 )
