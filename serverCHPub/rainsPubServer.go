@@ -1,0 +1,29 @@
+package main
+
+import (
+	"rains/rainspub"
+	"time"
+
+	log "github.com/inconshreveable/log15"
+)
+
+const (
+	rainspubConfigPath = "config/rainspub.conf"
+)
+
+//This package initializes and starts the server
+
+func main() {
+	err := rainspub.InitRainspub(rainspubConfigPath)
+	if err != nil {
+		log.Error("Error on startup", "error", err)
+		panic(err)
+	}
+	for true {
+		err := rainspub.PublishInformation()
+		if err != nil {
+			log.Error("Was not able to publish information", "error", err)
+		}
+		time.Sleep(24 * time.Hour)
+	}
+}

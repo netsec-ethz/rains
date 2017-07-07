@@ -126,7 +126,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 	default:
 		log.Warn("Unknown message section", "messageSection", section)
 	}
-	log.Debug(fmt.Sprintf("Finished handling %T", sectionWSSender.Section), "section", sectionWSSender.Section)
+	log.Info(fmt.Sprintf("Finished handling %T", sectionWSSender.Section), "section", sectionWSSender.Section)
 }
 
 //assertAssertion adds an assertion to the assertion cache. The assertion's signatures MUST have already been verified.
@@ -387,7 +387,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		//TODO CFE add heuristic which assertion to return
 		if ok {
 			sendQueryAnswer(assertions[0], sender, token)
-			log.Debug("Finished handling query by sending assertion from cache", "query", query)
+			log.Info("Finished handling query by sending assertion from cache", "query", query)
 			return
 		}
 		log.Debug("No entry found in assertion cache", "name", zAn.name, "zone", zAn.zone, "context", query.Context, "type", query.Type)
@@ -397,14 +397,15 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		negAssertion, ok := negAssertionCache.Get(query.Context, zAn.zone, rainslib.StringInterval{Name: zAn.name})
 		if ok {
 			sendQueryAnswer(negAssertion, sender, token)
-			log.Debug("Finished handling query by sending shard or zone from cache", "query", query)
+			log.Info("Finished handling query by sending shard or zone from cache", "query", query)
 			return
 		}
 	}
 	log.Debug("No entry found in negAssertion cache matching the query")
 
 	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
-		log.Debug("Send a notification message back to the sender due to query option: 'Cached Answers only'")
+		log.Info("Send a notification message back due to query option: 'Cached Answers only'",
+			"destination", sender)
 		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail)
 		log.Debug("Finished handling query (unsuccessful) ", "query", query)
 		return
@@ -425,10 +426,22 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		if query.Expires < validUntil {
 			validUntil = query.Expires
 		}
-		pendingQueries.Add(query.Context, zAn.zone, zAn.name, query.Type, pendingQuerySetValue{connInfo: sender, token: tok, validUntil: validUntil})
-		log.Debug("Added query into to pending query cache", "query", query)
-		msg := rainslib.NewQueryMessage(query.Context, zAn.zone, validUntil, query.Type, nil, tok)
-		SendMessage(msg, delegate)
+		isNew, _ := pendingQueries.Add(query.Context, zAn.zone, zAn.name, query.Type,
+			pendingQuerySetValue{
+				connInfo:   sender,
+				token:      tok,
+				validUntil: validUntil,
+			})
+		log.Info("Added query into to pending query cache", "query", query)
+		if isNew {
+			msg := rainslib.NewQueryMessage(query.Context, fmt.Sprintf("%s.%s", zAn.name, zAn.zone),
+				validUntil, query.Type, nil, tok)
+			if err := SendMessage(msg, delegate); err == nil {
+				log.Info("Sent query.", "destination", delegate, "query", msg.Content[0])
+			}
+		} else {
+			log.Info("Query already sent.")
+		}
 	}
 }
 

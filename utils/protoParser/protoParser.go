@@ -20,8 +20,8 @@ type ProtoParserAndFramer struct {
 }
 
 func init() {
-	h := log.CallerFileHandler(log.StdoutHandler)
-	log.Root().SetHandler(h)
+	/*h := log.CallerFileHandler(log.StdoutHandler)
+	log.Root().SetHandler(h)*/
 }
 
 //InitStreams defines 2 streams. Deframe() and Data() are extracting the information from streamReader and Frame() is sending the data to streamWriter.

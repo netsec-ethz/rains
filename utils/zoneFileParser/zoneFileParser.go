@@ -55,8 +55,8 @@ const (
 )
 
 func init() {
-	h := log.CallerFileHandler(log.StdoutHandler)
-	log.Root().SetHandler(h)
+	/*h := log.CallerFileHandler(log.StdoutHandler)
+	log.Root().SetHandler(h)*/
 }
 
 //Parser can be used to parse RAINS zone files

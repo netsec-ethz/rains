@@ -18,6 +18,8 @@ import (
 
 //InitRainspub initializes rainspub
 func InitRainspub(configPath string) error {
+	h := log.CallerFileHandler(log.StdoutHandler)
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
 	err := loadConfig(configPath)
 	if err != nil {
 		return err
@@ -61,7 +63,7 @@ func PublishInformation() error {
 		return err
 	}
 
-	err = sendMsg(msg)
+	err = sendMsg(msg, len(assertions), len(zone.Content))
 	if err != nil {
 		log.Warn("Was not able to send signed zone.", "error", err)
 		return err
@@ -226,7 +228,7 @@ func signAssertions(assertions []*rainslib.AssertionSection, keyAlgo rainslib.Si
 }
 
 //sendMsg sends the given zone to rains servers specified in the configuration
-func sendMsg(msg []byte) error {
+func sendMsg(msg []byte, assertionCount, shardCount int) error {
 	connections := []net.Conn{}
 	//TODO CFE use certificate for tls
 	conf := &tls.Config{
@@ -248,7 +250,8 @@ func sendMsg(msg []byte) error {
 			if err != nil {
 				return err
 			}
-			log.Debug("Message sent", "destination", server.String())
+			log.Info("Published information.", "serverAddresses", server.String(), "#Assertions",
+				assertionCount, "#Shards", shardCount)
 		default:
 			return fmt.Errorf("unsupported connection information type. actual=%v", server.Type)
 		}

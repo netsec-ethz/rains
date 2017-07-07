@@ -295,7 +295,7 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 			log.Warn("activeTokenCache is full. Delegation query cannot be handled over the priority queue")
 		}
 	} else {
-		log.Info("already issued a delegation query for this context and zone.", "context", section.GetContext(), "zone", section.GetSubjectZone())
+		log.Info("Already issued a delegation query for this context and zone.", "context", section.GetContext(), "zone", section.GetSubjectZone())
 	}
 	return false
 }
