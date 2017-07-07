@@ -2,9 +2,10 @@ package set
 
 import (
 	"fmt"
-	"rains/rainslib"
 	"sync"
 	"testing"
+
+	"github.com/netsec-ethz/rainslib"
 )
 
 func TestNew(t *testing.T) {

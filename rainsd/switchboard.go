@@ -8,9 +8,10 @@ import (
 	"crypto/tls"
 	"errors"
 	"net"
-	"rains/rainslib"
-	"rains/utils/protoParser"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/protoParser"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -39,7 +40,7 @@ func initSwitchboard() error {
 }
 
 //sendTo sends message to the specified receiver.
-func sendTo(message []byte, receiver rainslib.ConnInfo) {
+func sendTo(message []byte, receiver rainslib.ConnInfo) error {
 	var framer rainslib.MsgFramer
 	var err error
 
@@ -50,7 +51,7 @@ func sendTo(message []byte, receiver rainslib.ConnInfo) {
 		conns = append(conns, conn)
 		if err != nil {
 			log.Warn("Could not establish connection", "error", err, "receiver", receiver)
-			return
+			return err
 		}
 		connCache.Add(conn)
 		//handle connection
@@ -66,9 +67,10 @@ func sendTo(message []byte, receiver rainslib.ConnInfo) {
 	err = framer.Frame(message)
 	if err != nil {
 		log.Error("Was not able to frame or send the message", "Error", err, "connections", conns, "receiver", receiver)
-		return
+		return err
 	}
 	log.Debug("Send successful", "receiver", receiver)
+	return nil
 }
 
 //createConnection establishes a connection with receiver

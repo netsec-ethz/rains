@@ -3,18 +3,18 @@ package main
 import (
 	"crypto/tls"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
 	"os"
-	"rains/rainslib"
-	"rains/utils/protoParser"
-	"rains/utils/zoneFileParser"
 	"strconv"
 	"strings"
 	"time"
 
-	"errors"
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/protoParser"
+	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 
 	log "github.com/inconshreveable/log15"
 )

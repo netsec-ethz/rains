@@ -3,8 +3,9 @@ package zoneFileParser
 import (
 	"encoding/hex"
 	"fmt"
-	"rains/rainslib"
 	"testing"
+
+	"github.com/netsec-ethz/rains/rainslib"
 
 	"golang.org/x/crypto/ed25519"
 )

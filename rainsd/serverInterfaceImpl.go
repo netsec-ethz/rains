@@ -4,12 +4,13 @@ import (
 	"container/list"
 	"fmt"
 	"net"
-	"rains/rainslib"
-	"rains/utils/cache"
-	setDataStruct "rains/utils/set"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/cache"
+	setDataStruct "github.com/netsec-ethz/rains/utils/set"
 
 	log "github.com/inconshreveable/log15"
 )

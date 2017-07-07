@@ -3,8 +3,9 @@ package zoneFileParser
 import (
 	"encoding/hex"
 	"fmt"
-	"rains/rainslib"
 	"testing"
+
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 func TestEncodeDecode(t *testing.T) {

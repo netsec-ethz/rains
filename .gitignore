@@ -27,16 +27,18 @@ _testmain.go
 *.prof
 
 #Key, cert
-*.crt
-*.key
+#*.crt
+#*.key
 
 #server main() function binary
 /serverCH/serverCH
-/serverCH/keys/
-/serverCH/zoneFiles/
+#/serverCH/keys/
+#/serverCH/zoneFiles/
 /serverRoot/serverRoot
-/serverRoot/keys/
-/serverRoot/zoneFiles/
+#/serverRoot/keys/
+#/serverRoot/zoneFiles/
+/serverCHPub/serverCHPub
+/serverRootPub/serverRootPub
 
 #binary of rainsdig
 /rainsdig/rainsdig

@@ -1,7 +1,7 @@
 package protoParser
 
 import (
-	"rains/rainslib"
+	"github.com/netsec-ethz/rains/rainslib"
 	"testing"
 )
 

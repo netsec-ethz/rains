@@ -2,8 +2,9 @@ package rainsd
 
 import (
 	"fmt"
-	"rains/rainsSiglib"
-	"rains/rainslib"
+
+	"github.com/netsec-ethz/rains/rainsSiglib"
+	"github.com/netsec-ethz/rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -68,7 +69,7 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 		sendNotificationMsg(msg.Token, sender, rainslib.NTBadMessage)
 		return
 	}
-	log.Info("Parsed Message", "msg", msg)
+	log.Debug("Parsed Message", "msg", msg)
 
 	processCapability(msg.Capabilities, sender, msg.Token)
 
@@ -161,7 +162,7 @@ func addQueryToQueue(queryToken, msgToken rainslib.Token, section rainslib.Messa
 
 //addNotificationToQueue adds a notification section to the notification queue
 func addNotificationToQueue(msg *rainslib.NotificationSection, tok rainslib.Token, sender rainslib.ConnInfo) {
-	log.Info("Add notification to notification queue", "token", tok)
+	log.Debug("Add notification to notification queue", "token", tok)
 	notificationChannel <- msgSectionSender{Sender: sender, Section: msg, Token: msg.Token}
 }
 

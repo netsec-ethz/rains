@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"rains/rainslib"
-	"rains/utils/cache"
-	"rains/utils/protoParser"
-	"rains/utils/zoneFileParser"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/cache"
+	"github.com/netsec-ethz/rains/utils/protoParser"
+	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -19,7 +20,7 @@ import (
 //InitServer initializes the server
 func InitServer(configPath string) error {
 	h := log.CallerFileHandler(log.StdoutHandler)
-	log.Root().SetHandler(h)
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
 	loadConfig(configPath)
 	serverConnInfo = Config.ServerAddress
 	msgParser = new(protoParser.ProtoParserAndFramer)
@@ -122,23 +123,23 @@ func loadCert(certPath string) error {
 
 //SendMessage adds an infrastructure signature to message and encodes it. Then it is sent to addr.
 //In case of an encoder error, it logs message information and the error.
-func SendMessage(message rainslib.RainsMessage, dst rainslib.ConnInfo) {
+func SendMessage(message rainslib.RainsMessage, dst rainslib.ConnInfo) error {
 	//FIXME CFE add infrastructure signatured
 	msg, err := msgParser.Encode(message)
 	if err != nil {
 		log.Warn("Cannot encode message", "message", message, "error", err)
-		return
+		return err
 	}
 	log.Debug("Send message", "message", message)
-	sendTo(msg, dst)
-
+	return sendTo(msg, dst)
 }
 
 //getDelegationAddress returns the address of a server to which this server delegates a query if it has no answer in the cache.
 func getDelegationAddress(context, zone string) rainslib.ConnInfo {
 	//TODO CFE not yet implemented
-	delegAddr := Config.ServerAddress
-	delegAddr.TCPAddr.Port++
+	tcpAddr := *Config.ServerAddress.TCPAddr
+	tcpAddr.Port++
+	delegAddr := rainslib.ConnInfo{Type: Config.ServerAddress.Type, TCPAddr: &tcpAddr}
 	log.Warn("Not yet implemented CFE. return hard coded delegation address", "connInfo", delegAddr)
 	return delegAddr
 }

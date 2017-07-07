@@ -1,11 +1,12 @@
 package rainspub
 
 import (
-	"rains/rainsd"
-	"rains/rainslib"
-	"rains/utils/zoneFileParser"
 	"testing"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainsd"
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 
 	"golang.org/x/crypto/ed25519"
 )

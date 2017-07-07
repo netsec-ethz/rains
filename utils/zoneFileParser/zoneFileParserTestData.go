@@ -4,7 +4,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
-	"rains/rainslib"
+
+	"github.com/netsec-ethz/rains/rainslib"
 
 	"golang.org/x/crypto/ed25519"
 )
