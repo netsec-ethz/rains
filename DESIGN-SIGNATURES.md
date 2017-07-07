@@ -72,7 +72,7 @@ section.
 
 # Signature cache design and implementation
 
-## zone key cache requirements for proposal 1
+## zone key cache requirements for proposal 2
 - cache has a fixed size which is configurable (to avoid memory exhaustion of the server in case of
   an attack)
 - public keys issued by the authority of the zone running the server will only be removed from the
