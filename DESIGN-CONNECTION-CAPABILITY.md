@@ -19,6 +19,7 @@
 - A pointer to a whole capability list is stored together with each connection such that even when 
   a hash to capability mapping is removed from the cache, it is still clear what the capabilities
   are. We store a pointer to reduce storage overhead.
+- The capability list of the own server and the hash thereof are loaded from the config file.
 
 ## capability cache requirements
 - cache has a fixed size which is configurable (to avoid memory exhaustion of the server in case of
