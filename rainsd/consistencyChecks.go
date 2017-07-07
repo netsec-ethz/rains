@@ -2,11 +2,12 @@ package rainsd
 
 import (
 	"fmt"
-	"rains/rainslib"
 	"sort"
 	"sync"
 
 	log "github.com/inconshreveable/log15"
+
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 //isAssertionConsistent checks if the incoming assertion is consistent with the elements in the cache.

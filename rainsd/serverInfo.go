@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"rains/rainslib"
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 var serverConnInfo rainslib.ConnInfo

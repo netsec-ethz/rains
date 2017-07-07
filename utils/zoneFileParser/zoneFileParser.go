@@ -3,8 +3,9 @@ package zoneFileParser
 import (
 	"bufio"
 	"fmt"
-	"rains/rainslib"
 	"strings"
+
+	"github.com/netsec-ethz/rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
 )

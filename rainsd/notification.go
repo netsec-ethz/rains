@@ -1,7 +1,7 @@
 package rainsd
 
 import (
-	"rains/rainslib"
+	"github.com/netsec-ethz/rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
 )

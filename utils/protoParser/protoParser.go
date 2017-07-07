@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"rains/proto"
-	"rains/rainslib"
 	"time"
+
+	"github.com/netsec-ethz/rains/proto"
+	"github.com/netsec-ethz/rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
 	capnp "zombiezen.com/go/capnproto2"

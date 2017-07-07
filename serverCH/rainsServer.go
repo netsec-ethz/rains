@@ -1,9 +1,9 @@
 package main
 
 import (
-	"rains/rainsd"
-
 	log "github.com/inconshreveable/log15"
+
+	"github.com/netsec-ethz/rains/rainsd"
 )
 
 const (

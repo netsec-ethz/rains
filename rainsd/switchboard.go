@@ -8,9 +8,10 @@ import (
 	"crypto/tls"
 	"errors"
 	"net"
-	"rains/rainslib"
-	"rains/utils/protoParser"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/protoParser"
 
 	log "github.com/inconshreveable/log15"
 )

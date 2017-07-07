@@ -1,8 +1,9 @@
 package main
 
 import (
-	"rains/rainspub"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainspub"
 
 	log "github.com/inconshreveable/log15"
 )

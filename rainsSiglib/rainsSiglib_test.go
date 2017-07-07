@@ -2,10 +2,11 @@ package rainsSiglib
 
 import (
 	"net"
-	"rains/rainslib"
-	"rains/utils/zoneFileParser"
 	"testing"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 
 	"golang.org/x/crypto/ed25519"
 )

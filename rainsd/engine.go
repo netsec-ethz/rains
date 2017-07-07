@@ -3,10 +3,11 @@ package rainsd
 import (
 	"fmt"
 	"net"
-	"rains/rainslib"
-	"rains/utils/binaryTrie"
 	"strings"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/binaryTrie"
 
 	log "github.com/inconshreveable/log15"
 )

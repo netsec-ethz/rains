@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"rains/proto"
-	"rains/rainslib"
 	"strconv"
+
+	"github.com/netsec-ethz/rains/proto"
+	"github.com/netsec-ethz/rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"

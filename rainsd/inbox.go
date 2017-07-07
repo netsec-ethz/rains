@@ -2,8 +2,9 @@ package rainsd
 
 import (
 	"fmt"
-	"rains/rainsSiglib"
-	"rains/rainslib"
+
+	"github.com/netsec-ethz/rains/rainsSiglib"
+	"github.com/netsec-ethz/rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
 )

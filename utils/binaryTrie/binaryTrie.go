@@ -3,10 +3,11 @@ package binaryTrie
 import (
 	"errors"
 	"net"
-	"rains/rainslib"
-	"rains/utils/set"
 	"sync"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/set"
 
 	log "github.com/inconshreveable/log15"
 )

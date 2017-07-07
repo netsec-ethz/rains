@@ -3,8 +3,8 @@ package protoParser
 import (
 	"errors"
 	"fmt"
-	"rains/proto"
-	"rains/rainslib"
+	"github.com/netsec-ethz/rains/proto"
+	"github.com/netsec-ethz/rains/rainslib"
 	"strconv"
 
 	log "github.com/inconshreveable/log15"

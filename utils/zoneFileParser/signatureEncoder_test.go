@@ -1,8 +1,9 @@
 package zoneFileParser
 
 import (
-	"rains/rainslib"
 	"testing"
+
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 func TestEncodeAddressAssertion(t *testing.T) {

@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"rains/rainslib"
-	"rains/utils/cache"
-	"rains/utils/protoParser"
-	"rains/utils/zoneFileParser"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/cache"
+	"github.com/netsec-ethz/rains/utils/protoParser"
+	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 
 	log "github.com/inconshreveable/log15"
 )

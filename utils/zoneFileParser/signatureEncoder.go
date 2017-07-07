@@ -4,9 +4,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
-	"rains/rainslib"
 	"strconv"
 	"strings"
+
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 //encodeMessage returns a rains message as a string in signable format (which resembles the zone file format)

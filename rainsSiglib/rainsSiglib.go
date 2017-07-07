@@ -5,7 +5,7 @@ package rainsSiglib
 
 import (
 	"fmt"
-	"rains/rainslib"
+	"github.com/netsec-ethz/rains/rainslib"
 	"regexp"
 	"time"
 

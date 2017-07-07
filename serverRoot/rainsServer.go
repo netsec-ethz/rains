@@ -1,7 +1,7 @@
 package main
 
 import (
-	"rains/rainsd"
+	"github.com/netsec-ethz/rains/rainsd"
 
 	log "github.com/inconshreveable/log15"
 )

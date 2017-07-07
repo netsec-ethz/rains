@@ -3,10 +3,11 @@ package rainspub
 import (
 	"encoding/hex"
 	"net"
-	"rains/rainslib"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainslib"
 
 	"golang.org/x/crypto/ed25519"
 )

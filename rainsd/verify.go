@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"rains/rainsSiglib"
-	"rains/rainslib"
 	"strings"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainsSiglib"
+	"github.com/netsec-ethz/rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
 )
