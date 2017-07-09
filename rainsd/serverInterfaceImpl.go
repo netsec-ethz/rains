@@ -4,12 +4,13 @@ import (
 	"container/list"
 	"fmt"
 	"net"
-	"rains/rainslib"
-	"rains/utils/cache"
-	setDataStruct "rains/utils/set"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/cache"
+	setDataStruct "github.com/netsec-ethz/rains/utils/set"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -21,18 +22,34 @@ type connectionCacheImpl struct {
 	cache *cache.Cache
 }
 
-func (c *connectionCacheImpl) Add(addrPair AddressPair, conn net.Conn) bool {
-	return c.cache.Add(conn, false, "", addrPair.String())
+//Add adds conn to the cache. If the cache is full the least recently used connection is removed.
+//TODO CFE currently this cache only supports one connection per destination
+func (c *connectionCacheImpl) Add(conn net.Conn) bool {
+	return c.cache.Add(conn, false, "", conn.RemoteAddr().Network(), conn.RemoteAddr().String())
 }
 
-func (c *connectionCacheImpl) Get(addrPair AddressPair) (net.Conn, bool) {
-	if v, ok := c.cache.Get("", addrPair.String()); ok {
-		if val, ok := v.(net.Conn); ok {
-			return val, true
+//Get returns all cached connections to dstAddr
+//TODO CFE currently this cache only supports one connection per destination
+func (c *connectionCacheImpl) Get(dstAddr rainslib.ConnInfo) ([]net.Conn, bool) {
+	switch dstAddr.Type {
+	case rainslib.TCP:
+		if v, ok := c.cache.Get("", dstAddr.TCPAddr.Network(), dstAddr.TCPAddr.String()); ok {
+			if val, ok := v.(net.Conn); ok {
+				return []net.Conn{val}, true
+			}
+			log.Warn("Cache entry is not of type net.Conn", "type", fmt.Sprintf("%T", v))
 		}
-		log.Warn("Cache entry is not of type net.Conn", "type", fmt.Sprintf("%T", v))
+	default:
+		log.Warn("Unsupported network address type", "type", dstAddr.Type)
 	}
 	return nil, false
+}
+
+//Delete closes the connection and removes it from the cache
+//TODO CFE currently this cache only supports one connection per destination
+func (c *connectionCacheImpl) Delete(conn net.Conn) bool {
+	conn.Close()
+	return c.cache.Remove("", conn.RemoteAddr().Network(), conn.RemoteAddr().String())
 }
 
 func (c *connectionCacheImpl) Len() int {
@@ -184,8 +201,8 @@ func (l *pubKeyList) RemoveExpiredKeys() {
  */
 type pendingSignatureCacheImpl struct {
 	cache        *cache.Cache
-	maxElements  int
-	elementCount int
+	maxElements  uint
+	elementCount uint
 	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
 	//TODO CFE take both mutex together, here and cache
 	elemCountLock sync.RWMutex
@@ -245,14 +262,14 @@ func handleCacheSize(c *pendingSignatureCacheImpl) {
 //then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
 func (c *pendingSignatureCacheImpl) GetAllAndDelete(context, zone string) ([]sectionWithSigSender, bool) {
 	sections := []sectionWithSigSender{}
-	deleteCount := 0
+	deleteCount := uint(0)
 	v, ok := c.cache.Get(context, zone)
 	if !ok {
 		return sections, false
 	}
 	if set, ok := v.(setContainer); ok {
 		secs := set.GetAllAndDelete()
-		deleteCount = len(secs)
+		deleteCount = uint(len(secs))
 		c.cache.Remove(context, zone)
 		for _, section := range secs {
 			if s, ok := section.(pendingSignatureCacheValue); ok {
@@ -278,7 +295,7 @@ func (c *pendingSignatureCacheImpl) GetAllAndDelete(context, zone string) ([]sec
 //RemoveExpiredSections goes through the cache and removes all expired sections. If for a given context and zone there is no section left it removes the entry from cache.
 func (c *pendingSignatureCacheImpl) RemoveExpiredSections() {
 	keys := c.cache.Keys()
-	deleteCount := 0
+	deleteCount := uint(0)
 	for _, key := range keys {
 		v, ok := c.cache.Get(key[0], key[1])
 		if ok { //check if element is still contained
@@ -331,7 +348,7 @@ func (c *pendingSignatureCacheImpl) RemoveExpiredSections() {
 func (c *pendingSignatureCacheImpl) Len() int {
 	c.elemCountLock.RLock()
 	defer c.elemCountLock.RUnlock()
-	return c.elementCount
+	return int(c.elementCount)
 }
 
 type elemAndValidTo struct {
@@ -355,8 +372,8 @@ type pendingQueryCacheImpl struct {
 	//callBackCache stores to a given <context,zone,name,type> the query validity and connection information of the querier waiting for the answer.
 	//It is used to avoid sending the same query multiple times to obtain the same information.
 	callBackCache *cache.Cache
-	maxElements   int
-	elementCount  int
+	maxElements   uint
+	elementCount  uint
 	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
 	elemCountLock sync.RWMutex
 
@@ -439,12 +456,12 @@ func handlePendingQueryCacheSize(c *pendingQueryCacheImpl) {
 //If in the meantime an Add operation happened, then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
 func (c *pendingQueryCacheImpl) GetAllAndDelete(token rainslib.Token) ([]pendingQuerySetValue, bool) {
 	sendInfos := []pendingQuerySetValue{}
-	deleteCount := 0
+	deleteCount := uint(0)
 	c.activeTokenLock.RLock()
 	v, ok := c.activeTokens[token]
 	c.activeTokenLock.RUnlock()
 	if !ok || v.validUntil < time.Now().Unix() {
-		log.Info("Token not anymore in the active Token cache or expired", "token", token, "Now", time.Now(), "ValidUntil", time.Unix(v.validUntil, 0))
+		log.Debug("Token not in cache or expired", "token", token, "Now", time.Now(), "ValidUntil", time.Unix(v.validUntil, 0))
 		return sendInfos, false
 	}
 	val, ok := c.callBackCache.Get(v.context, v.zone, v.name, v.objType.String())
@@ -458,7 +475,7 @@ func (c *pendingQueryCacheImpl) GetAllAndDelete(token rainslib.Token) ([]pending
 		delete(c.activeTokens, token)
 		c.activeTokenLock.RUnlock()
 		queriers := cval.set.GetAllAndDelete()
-		deleteCount = len(queriers)
+		deleteCount = uint(len(queriers))
 		for _, querier := range queriers {
 			if q, ok := querier.(pendingQuerySetValue); ok {
 				if q.validUntil > time.Now().Unix() {
@@ -493,7 +510,7 @@ func (c *pendingQueryCacheImpl) RemoveExpiredValues() {
 	c.activeTokenLock.Unlock()
 	//Delete expired received queries.
 	keys := c.callBackCache.Keys()
-	deleteCount := 0
+	deleteCount := uint(0)
 	for _, key := range keys {
 		v, ok := c.callBackCache.Get(key[0], key[1])
 		if ok { //check if element is still contained
@@ -549,7 +566,7 @@ func (c *pendingQueryCacheImpl) RemoveExpiredValues() {
 func (c *pendingQueryCacheImpl) Len() int {
 	c.elemCountLock.RLock()
 	defer c.elemCountLock.RUnlock()
-	return c.elementCount
+	return int(c.elementCount)
 }
 
 /*
@@ -563,8 +580,8 @@ func (c *pendingQueryCacheImpl) Len() int {
  */
 type negativeAssertionCacheImpl struct {
 	cache        *cache.Cache
-	maxElements  int
-	elementCount int
+	maxElements  uint
+	elementCount uint
 	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the underlying data structure.
 	elemCountLock sync.RWMutex
 }
@@ -620,7 +637,7 @@ func handleNegElementCacheSize(c *negativeAssertionCacheImpl) {
 			c.cache.Remove(key[0], key[1])
 			v, _ := v.(rangeQueryDataStruct).Get(rainslib.TotalInterval{})
 			c.elemCountLock.Lock()
-			c.elementCount -= len(v)
+			c.elementCount -= uint(len(v))
 			c.elemCountLock.Unlock()
 		}
 	}
@@ -665,13 +682,13 @@ func (c *negativeAssertionCacheImpl) GetAll(context, zone string, interval rains
 func (c *negativeAssertionCacheImpl) Len() int {
 	c.elemCountLock.RLock()
 	defer c.elemCountLock.RUnlock()
-	return c.elementCount
+	return int(c.elementCount)
 }
 
 //RemoveExpiredValues goes through the cache and removes all expired values. If for a given context and zone there is no value left it removes the entry from cache.
 func (c *negativeAssertionCacheImpl) RemoveExpiredValues() {
 	keys := c.cache.Keys()
-	deleteCount := 0
+	deleteCount := uint(0)
 	for _, key := range keys {
 		v, ok := c.cache.Get(key[0], key[1])
 		if ok { //check if element is still contained
@@ -719,7 +736,7 @@ func (c *negativeAssertionCacheImpl) Remove(context, zone string) bool {
 		rq, ok := v.(rangeQueryDataStruct)
 		if ok {
 			c.elemCountLock.Lock()
-			c.elementCount -= rq.Len()
+			c.elementCount -= uint(rq.Len())
 			c.elemCountLock.Unlock()
 		} else {
 			log.Error(fmt.Sprintf("Cache element was not of type rangeQueryDataStruct. Got:%T", v))
@@ -863,8 +880,8 @@ func (s *sortedAssertionMetaData) Get(interval rainslib.Interval) []elemAndValid
 type assertionCacheImpl struct {
 	//assertionCache stores to a given <context,zone,name,type> a set of assertions
 	assertionCache *cache.Cache
-	maxElements    int
-	elementCount   int
+	maxElements    uint
+	elementCount   uint
 	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
 	elemCountLock sync.RWMutex
 
@@ -1027,7 +1044,7 @@ func (c *assertionCacheImpl) GetInRange(context, zone string, interval rainslib.
 func (c *assertionCacheImpl) Len() int {
 	c.elemCountLock.RLock()
 	defer c.elemCountLock.RUnlock()
-	return c.elementCount
+	return int(c.elementCount)
 }
 
 //RemoveExpiredValues goes through the cache and removes all expired assertions. If for a given context and zone there is no assertion left it removes the entry from cache.
@@ -1044,8 +1061,8 @@ func (c *assertionCacheImpl) RemoveExpiredValues() {
 //deleteAssertions removes assertions from the cache and the rangeMap matching the given parameter. It does not update the cache structure.
 //if forceDelete is true then all matching assertions are deleted. Otherwise only expired once.
 //Returns the number of deleted elements
-func deleteAssertions(c *assertionCacheImpl, forceDelete bool, context string, keys ...string) int {
-	deleteCount := 0
+func deleteAssertions(c *assertionCacheImpl, forceDelete bool, context string, keys ...string) uint {
+	deleteCount := uint(0)
 	set, ok := getAssertionSet(c, context, keys...)
 	if ok {
 		vals := set.GetAll()
@@ -1130,4 +1147,73 @@ func updateAssertionCacheRangeMapping(c *assertionCacheImpl) {
 func (c *assertionCacheImpl) Remove(assertion *rainslib.AssertionSection) bool {
 	//CFE FIXME This does not work if we have several types per assertion
 	return deleteAssertions(c, true, assertion.Context, assertion.SubjectZone, assertion.SubjectName, assertion.Content[0].Type.String()) > 0
+}
+
+/*
+ * active token cache implementation
+ */
+type activeTokenCacheImpl struct {
+	//assertionCache stores to a given <context,zone,name,type> a set of assertions
+	activeTokenCache map[rainslib.Token]int64
+	maxElements      uint
+	elementCount     uint
+	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
+	elemCountLock sync.RWMutex
+
+	//cacheLock is used to protect activeTokenCache from simultaneous access.
+	cacheLock sync.RWMutex
+}
+
+//isPriority returns true and removes token from the cache if the section containing token has high priority and is not yet expired
+func (c *activeTokenCacheImpl) IsPriority(token rainslib.Token) bool {
+	c.cacheLock.RLock()
+	if exp, ok := c.activeTokenCache[token]; ok {
+		c.cacheLock.RUnlock()
+		if exp < time.Now().Unix() {
+			return false
+		}
+		c.elemCountLock.Lock()
+		c.cacheLock.Lock()
+		c.elementCount--
+		delete(c.activeTokenCache, token)
+		c.cacheLock.Unlock()
+		c.elemCountLock.Unlock()
+		return true
+	}
+	c.cacheLock.RUnlock()
+	return false
+}
+
+//AddToken adds token to the datastructure. The first incoming section with the same token will be processed with high priority
+//expiration is the query expiration time which determines how long the token is treated with high priority.
+//It returns false if the cache is full and the token is not added to the cache.
+func (c *activeTokenCacheImpl) AddToken(token rainslib.Token, expiration int64) bool {
+	c.elemCountLock.Lock()
+	defer c.elemCountLock.Unlock()
+	if c.elementCount < c.maxElements {
+		c.cacheLock.Lock()
+		defer c.cacheLock.Unlock()
+		c.elementCount++
+		c.activeTokenCache[token] = expiration
+		return true
+	}
+	return false
+}
+
+//DeleteExpiredElements removes all expired tokens from the data structure and logs their information
+//Returns all expired tokens
+func (c *activeTokenCacheImpl) DeleteExpiredElements() []rainslib.Token {
+	tokens := []rainslib.Token{}
+	c.elemCountLock.Lock()
+	c.cacheLock.Lock()
+	defer c.elemCountLock.Unlock()
+	defer c.cacheLock.Unlock()
+	for token, exp := range c.activeTokenCache {
+		if exp < time.Now().Unix() {
+			c.elementCount--
+			delete(c.activeTokenCache, token)
+			tokens = append(tokens, token)
+		}
+	}
+	return tokens
 }

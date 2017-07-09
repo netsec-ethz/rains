@@ -4,48 +4,27 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
-	"rains/rainslib"
 	"strconv"
 	"strings"
 
-	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
-//encodeMessage transforms a rains message into a signable format
+//encodeMessage returns a rains message as a string in signable format (which resembles the zone file format)
 func encodeMessage(m *rainslib.RainsMessage) string {
-	encoding := fmt.Sprintf(":M: %s %s ", encodeCapabilities(m.Capabilities), m.Token.String())
+	content := []string{}
 	for _, section := range m.Content {
-		switch s := section.(type) {
-		case *rainslib.AssertionSection:
-			encoding += encodeAssertion(s, s.Context, s.SubjectZone, "") + " "
-		case *rainslib.ShardSection:
-			encoding += encodeShard(s, s.Context, s.SubjectZone, true) + " "
-		case *rainslib.ZoneSection:
-			encoding += encodeZone(s, true) + " "
-		case *rainslib.QuerySection:
-			encoding += encodeQuery(s) + " "
-		case *rainslib.NotificationSection:
-			encoding += encodeNotification(s) + " "
-		case *rainslib.AddressAssertionSection:
-			encoding += encodeAddressAssertion(s) + " "
-		case *rainslib.AddressZoneSection:
-			encoding += encodeAddressZone(s) + " "
-		case *rainslib.AddressQuerySection:
-			encoding += encodeAddressQuery(s) + " "
-		default:
-			log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))
-			return ""
-		}
+		content = append(content, getEncoding(section, true))
 	}
-	return encoding
+	return fmt.Sprintf(":M: %s %s [\n%s\n]", encodeCapabilities(m.Capabilities), m.Token.String(), strings.Join(content, "\n"))
 }
 
-//encodeAddressAssertion transforms an address assertion into a signable format
+//encodeAddressAssertion returns an address assertion in signable format (which resembles the zone file format)
 func encodeAddressAssertion(a *rainslib.AddressAssertionSection) string {
 	return fmt.Sprintf(":AA: %s %s [ %s ]", encodeSubjectAddress(a.SubjectAddr), a.Context, encodeObjects(a.Content, ""))
 }
 
-//encodeAddressZone transforms an address zone into a signable format
+//encodeAddressZone returns an address zone in signable format (which resembles the zone file format)
 func encodeAddressZone(z *rainslib.AddressZoneSection) string {
 	assertions := make([]string, len(z.Content))
 	for i, a := range z.Content {
@@ -54,20 +33,24 @@ func encodeAddressZone(z *rainslib.AddressZoneSection) string {
 	return fmt.Sprintf(":AZ: %s %s [ %s ]", encodeSubjectAddress(z.SubjectAddr), z.Context, strings.Join(assertions, " "))
 }
 
+//encodeAddressQuery returns an address query in signable format (which resembles the zone file format)
 func encodeAddressQuery(q *rainslib.AddressQuerySection) string {
-	return fmt.Sprintf(":AQ: %s %s %s %s %d %s", q.Token.String(), encodeSubjectAddress(q.SubjectAddr), q.Context,
+	return fmt.Sprintf(":AQ: %s %s %s %d %s", encodeSubjectAddress(q.SubjectAddr), q.Context,
 		encodeObjectTypes([]rainslib.ObjectType{q.Type}), q.Expires, encodeQueryOptions(q.Options))
 }
 
+//encodeQuery returns a query in signable format (which resembles the zone file format)
 func encodeQuery(q *rainslib.QuerySection) string {
-	return fmt.Sprintf(":Q: %s %s %s %s %d %s", q.Token.String(), q.Context, q.Name, encodeObjectTypes([]rainslib.ObjectType{q.Type}),
+	return fmt.Sprintf(":Q: %s %s %s %d %s", q.Context, q.Name, encodeObjectTypes([]rainslib.ObjectType{q.Type}),
 		q.Expires, encodeQueryOptions(q.Options))
 }
 
+//encodeNotification returns a notification in signable format (which resembles the zone file format)
 func encodeNotification(n *rainslib.NotificationSection) string {
 	return fmt.Sprintf(":N: %s %s %s", n.Token.String(), strconv.Itoa(int(n.Type)), n.Data)
 }
 
+//encodeCapabilities returns capabilities separated by space in signable format (which resembles the zone file format)
 func encodeCapabilities(caps []rainslib.Capability) string {
 	encodedCaps := make([]string, len(caps))
 	for i, capa := range caps {
@@ -76,6 +59,7 @@ func encodeCapabilities(caps []rainslib.Capability) string {
 	return fmt.Sprintf("[ %s ]", strings.Join(encodedCaps, " "))
 }
 
+//encodeQueryOptions returns query options separated by space in signable format (which resembles the zone file format)
 func encodeQueryOptions(qopts []rainslib.QueryOption) string {
 	encodedQO := make([]string, len(qopts))
 	for i, qopt := range qopts {
@@ -84,6 +68,7 @@ func encodeQueryOptions(qopts []rainslib.QueryOption) string {
 	return fmt.Sprintf("[ %s ]", strings.Join(encodedQO, " "))
 }
 
+//encodeObjectTypes returns query types separated by space in signable format (which resembles the zone file format)
 func encodeObjectTypes(objs []rainslib.ObjectType) string {
 	encodedOT := make([]string, len(objs))
 	for i, objType := range objs {
@@ -92,6 +77,7 @@ func encodeObjectTypes(objs []rainslib.ObjectType) string {
 	return fmt.Sprintf("[ %s ]", strings.Join(encodedOT, " "))
 }
 
+//encodeSubjectAddress returns a subjectAddress in signable format (which resembles the zone file format)
 func encodeSubjectAddress(addr *net.IPNet) string {
 	if addr.IP.To4() != nil {
 		//IP4

@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"rains/proto"
-	"rains/rainslib"
 	"strconv"
+
+	"github.com/netsec-ethz/rains/proto"
+	"github.com/netsec-ethz/rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
@@ -178,20 +179,10 @@ func decodeZone(z proto.ZoneSection) (*rainslib.ZoneSection, error) {
 
 func decodeQuery(q proto.QuerySection) (*rainslib.QuerySection, error) {
 	query := rainslib.QuerySection{}
+	var err error
 
 	query.Expires = q.Expires()
 	query.Type = rainslib.ObjectType(q.Type())
-
-	tok, err := q.Token()
-	if err != nil {
-		log.Warn("Could not decode token", "error", err)
-		return nil, err
-	}
-	length := 16
-	if len(tok) < 16 {
-		length = len(tok)
-	}
-	copy(query.Token[:], tok[:length])
 
 	query.Context, err = q.Context()
 	if err != nil {
@@ -346,17 +337,6 @@ func decodeAddressQuery(q proto.AddressQuerySection) (*rainslib.AddressQuerySect
 		log.Warn("Could not parse IP in CIDR notation to *net.IPNet", "address", ipCIDR, "error", err)
 		return nil, err
 	}
-
-	tok, err := q.Token()
-	if err != nil {
-		log.Warn("Could not decode token", "error", err)
-		return nil, err
-	}
-	length := 16
-	if len(tok) < 16 {
-		length = len(tok)
-	}
-	copy(query.Token[:], tok[:length])
 
 	query.Context, err = q.Context()
 	if err != nil {

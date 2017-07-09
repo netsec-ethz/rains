@@ -34,57 +34,18 @@ func (s RainsMessage) String() string {
 	return str
 }
 
-func (s RainsMessage) Token() ([]byte, error) {
-	p, err := s.Struct.Ptr(0)
-	return []byte(p.Data()), err
-}
-
-func (s RainsMessage) HasToken() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s RainsMessage) SetToken(v []byte) error {
-	return s.Struct.SetData(0, v)
-}
-
-func (s RainsMessage) Content() (MessageSection_List, error) {
-	p, err := s.Struct.Ptr(1)
-	return MessageSection_List{List: p.List()}, err
-}
-
-func (s RainsMessage) HasContent() bool {
-	p, err := s.Struct.Ptr(1)
-	return p.IsValid() || err != nil
-}
-
-func (s RainsMessage) SetContent(v MessageSection_List) error {
-	return s.Struct.SetPtr(1, v.List.ToPtr())
-}
-
-// NewContent sets the content field to a newly
-// allocated MessageSection_List, preferring placement in s's segment.
-func (s RainsMessage) NewContent(n int32) (MessageSection_List, error) {
-	l, err := NewMessageSection_List(s.Struct.Segment(), n)
-	if err != nil {
-		return MessageSection_List{}, err
-	}
-	err = s.Struct.SetPtr(1, l.List.ToPtr())
-	return l, err
-}
-
 func (s RainsMessage) Signatures() (Signature_List, error) {
-	p, err := s.Struct.Ptr(2)
+	p, err := s.Struct.Ptr(0)
 	return Signature_List{List: p.List()}, err
 }
 
 func (s RainsMessage) HasSignatures() bool {
-	p, err := s.Struct.Ptr(2)
+	p, err := s.Struct.Ptr(0)
 	return p.IsValid() || err != nil
 }
 
 func (s RainsMessage) SetSignatures(v Signature_List) error {
-	return s.Struct.SetPtr(2, v.List.ToPtr())
+	return s.Struct.SetPtr(0, v.List.ToPtr())
 }
 
 // NewSignatures sets the signatures field to a newly
@@ -94,22 +55,22 @@ func (s RainsMessage) NewSignatures(n int32) (Signature_List, error) {
 	if err != nil {
 		return Signature_List{}, err
 	}
-	err = s.Struct.SetPtr(2, l.List.ToPtr())
+	err = s.Struct.SetPtr(0, l.List.ToPtr())
 	return l, err
 }
 
 func (s RainsMessage) Capabilities() (capnp.TextList, error) {
-	p, err := s.Struct.Ptr(3)
+	p, err := s.Struct.Ptr(1)
 	return capnp.TextList{List: p.List()}, err
 }
 
 func (s RainsMessage) HasCapabilities() bool {
-	p, err := s.Struct.Ptr(3)
+	p, err := s.Struct.Ptr(1)
 	return p.IsValid() || err != nil
 }
 
 func (s RainsMessage) SetCapabilities(v capnp.TextList) error {
-	return s.Struct.SetPtr(3, v.List.ToPtr())
+	return s.Struct.SetPtr(1, v.List.ToPtr())
 }
 
 // NewCapabilities sets the capabilities field to a newly
@@ -118,6 +79,45 @@ func (s RainsMessage) NewCapabilities(n int32) (capnp.TextList, error) {
 	l, err := capnp.NewTextList(s.Struct.Segment(), n)
 	if err != nil {
 		return capnp.TextList{}, err
+	}
+	err = s.Struct.SetPtr(1, l.List.ToPtr())
+	return l, err
+}
+
+func (s RainsMessage) Token() ([]byte, error) {
+	p, err := s.Struct.Ptr(2)
+	return []byte(p.Data()), err
+}
+
+func (s RainsMessage) HasToken() bool {
+	p, err := s.Struct.Ptr(2)
+	return p.IsValid() || err != nil
+}
+
+func (s RainsMessage) SetToken(v []byte) error {
+	return s.Struct.SetData(2, v)
+}
+
+func (s RainsMessage) Content() (MessageSection_List, error) {
+	p, err := s.Struct.Ptr(3)
+	return MessageSection_List{List: p.List()}, err
+}
+
+func (s RainsMessage) HasContent() bool {
+	p, err := s.Struct.Ptr(3)
+	return p.IsValid() || err != nil
+}
+
+func (s RainsMessage) SetContent(v MessageSection_List) error {
+	return s.Struct.SetPtr(3, v.List.ToPtr())
+}
+
+// NewContent sets the content field to a newly
+// allocated MessageSection_List, preferring placement in s's segment.
+func (s RainsMessage) NewContent(n int32) (MessageSection_List, error) {
+	l, err := NewMessageSection_List(s.Struct.Segment(), n)
+	if err != nil {
+		return MessageSection_List{}, err
 	}
 	err = s.Struct.SetPtr(3, l.List.ToPtr())
 	return l, err
@@ -148,35 +148,35 @@ type MessageSection struct{ capnp.Struct }
 type MessageSection_Which uint16
 
 const (
-	MessageSection_Which_assertion        MessageSection_Which = 0
-	MessageSection_Which_shard            MessageSection_Which = 1
-	MessageSection_Which_zone             MessageSection_Which = 2
-	MessageSection_Which_query            MessageSection_Which = 3
-	MessageSection_Which_notification     MessageSection_Which = 4
-	MessageSection_Which_addressQuery     MessageSection_Which = 5
-	MessageSection_Which_addressAssertion MessageSection_Which = 6
-	MessageSection_Which_addressZone      MessageSection_Which = 7
+	MessageSection_Which_addressQuery     MessageSection_Which = 0
+	MessageSection_Which_addressZone      MessageSection_Which = 1
+	MessageSection_Which_addressAssertion MessageSection_Which = 2
+	MessageSection_Which_assertion        MessageSection_Which = 3
+	MessageSection_Which_shard            MessageSection_Which = 4
+	MessageSection_Which_zone             MessageSection_Which = 5
+	MessageSection_Which_query            MessageSection_Which = 6
+	MessageSection_Which_notification     MessageSection_Which = 7
 )
 
 func (w MessageSection_Which) String() string {
-	const s = "assertionshardzonequerynotificationaddressQueryaddressAssertionaddressZone"
+	const s = "addressQueryaddressZoneaddressAssertionassertionshardzonequerynotification"
 	switch w {
-	case MessageSection_Which_assertion:
-		return s[0:9]
-	case MessageSection_Which_shard:
-		return s[9:14]
-	case MessageSection_Which_zone:
-		return s[14:18]
-	case MessageSection_Which_query:
-		return s[18:23]
-	case MessageSection_Which_notification:
-		return s[23:35]
 	case MessageSection_Which_addressQuery:
-		return s[35:47]
-	case MessageSection_Which_addressAssertion:
-		return s[47:63]
+		return s[0:12]
 	case MessageSection_Which_addressZone:
-		return s[63:74]
+		return s[12:23]
+	case MessageSection_Which_addressAssertion:
+		return s[23:39]
+	case MessageSection_Which_assertion:
+		return s[39:48]
+	case MessageSection_Which_shard:
+		return s[48:53]
+	case MessageSection_Which_zone:
+		return s[53:57]
+	case MessageSection_Which_query:
+		return s[57:62]
+	case MessageSection_Which_notification:
+		return s[62:74]
 
 	}
 	return "MessageSection_Which(" + strconv.FormatUint(uint64(w), 10) + ")"
@@ -208,12 +208,12 @@ func (s MessageSection) String() string {
 func (s MessageSection) Which() MessageSection_Which {
 	return MessageSection_Which(s.Struct.Uint16(0))
 }
-func (s MessageSection) Assertion() (AssertionSection, error) {
+func (s MessageSection) AddressQuery() (AddressQuerySection, error) {
 	p, err := s.Struct.Ptr(0)
-	return AssertionSection{Struct: p.Struct()}, err
+	return AddressQuerySection{Struct: p.Struct()}, err
 }
 
-func (s MessageSection) HasAssertion() bool {
+func (s MessageSection) HasAddressQuery() bool {
 	if s.Struct.Uint16(0) != 0 {
 		return false
 	}
@@ -221,15 +221,105 @@ func (s MessageSection) HasAssertion() bool {
 	return p.IsValid() || err != nil
 }
 
-func (s MessageSection) SetAssertion(v AssertionSection) error {
+func (s MessageSection) SetAddressQuery(v AddressQuerySection) error {
 	s.Struct.SetUint16(0, 0)
+	return s.Struct.SetPtr(0, v.Struct.ToPtr())
+}
+
+// NewAddressQuery sets the addressQuery field to a newly
+// allocated AddressQuerySection struct, preferring placement in s's segment.
+func (s MessageSection) NewAddressQuery() (AddressQuerySection, error) {
+	s.Struct.SetUint16(0, 0)
+	ss, err := NewAddressQuerySection(s.Struct.Segment())
+	if err != nil {
+		return AddressQuerySection{}, err
+	}
+	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
+	return ss, err
+}
+
+func (s MessageSection) AddressZone() (AddressZoneSection, error) {
+	p, err := s.Struct.Ptr(0)
+	return AddressZoneSection{Struct: p.Struct()}, err
+}
+
+func (s MessageSection) HasAddressZone() bool {
+	if s.Struct.Uint16(0) != 1 {
+		return false
+	}
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s MessageSection) SetAddressZone(v AddressZoneSection) error {
+	s.Struct.SetUint16(0, 1)
+	return s.Struct.SetPtr(0, v.Struct.ToPtr())
+}
+
+// NewAddressZone sets the addressZone field to a newly
+// allocated AddressZoneSection struct, preferring placement in s's segment.
+func (s MessageSection) NewAddressZone() (AddressZoneSection, error) {
+	s.Struct.SetUint16(0, 1)
+	ss, err := NewAddressZoneSection(s.Struct.Segment())
+	if err != nil {
+		return AddressZoneSection{}, err
+	}
+	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
+	return ss, err
+}
+
+func (s MessageSection) AddressAssertion() (AddressAssertionSection, error) {
+	p, err := s.Struct.Ptr(0)
+	return AddressAssertionSection{Struct: p.Struct()}, err
+}
+
+func (s MessageSection) HasAddressAssertion() bool {
+	if s.Struct.Uint16(0) != 2 {
+		return false
+	}
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s MessageSection) SetAddressAssertion(v AddressAssertionSection) error {
+	s.Struct.SetUint16(0, 2)
+	return s.Struct.SetPtr(0, v.Struct.ToPtr())
+}
+
+// NewAddressAssertion sets the addressAssertion field to a newly
+// allocated AddressAssertionSection struct, preferring placement in s's segment.
+func (s MessageSection) NewAddressAssertion() (AddressAssertionSection, error) {
+	s.Struct.SetUint16(0, 2)
+	ss, err := NewAddressAssertionSection(s.Struct.Segment())
+	if err != nil {
+		return AddressAssertionSection{}, err
+	}
+	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
+	return ss, err
+}
+
+func (s MessageSection) Assertion() (AssertionSection, error) {
+	p, err := s.Struct.Ptr(0)
+	return AssertionSection{Struct: p.Struct()}, err
+}
+
+func (s MessageSection) HasAssertion() bool {
+	if s.Struct.Uint16(0) != 3 {
+		return false
+	}
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s MessageSection) SetAssertion(v AssertionSection) error {
+	s.Struct.SetUint16(0, 3)
 	return s.Struct.SetPtr(0, v.Struct.ToPtr())
 }
 
 // NewAssertion sets the assertion field to a newly
 // allocated AssertionSection struct, preferring placement in s's segment.
 func (s MessageSection) NewAssertion() (AssertionSection, error) {
-	s.Struct.SetUint16(0, 0)
+	s.Struct.SetUint16(0, 3)
 	ss, err := NewAssertionSection(s.Struct.Segment())
 	if err != nil {
 		return AssertionSection{}, err
@@ -244,7 +334,7 @@ func (s MessageSection) Shard() (ShardSection, error) {
 }
 
 func (s MessageSection) HasShard() bool {
-	if s.Struct.Uint16(0) != 1 {
+	if s.Struct.Uint16(0) != 4 {
 		return false
 	}
 	p, err := s.Struct.Ptr(0)
@@ -252,14 +342,14 @@ func (s MessageSection) HasShard() bool {
 }
 
 func (s MessageSection) SetShard(v ShardSection) error {
-	s.Struct.SetUint16(0, 1)
+	s.Struct.SetUint16(0, 4)
 	return s.Struct.SetPtr(0, v.Struct.ToPtr())
 }
 
 // NewShard sets the shard field to a newly
 // allocated ShardSection struct, preferring placement in s's segment.
 func (s MessageSection) NewShard() (ShardSection, error) {
-	s.Struct.SetUint16(0, 1)
+	s.Struct.SetUint16(0, 4)
 	ss, err := NewShardSection(s.Struct.Segment())
 	if err != nil {
 		return ShardSection{}, err
@@ -274,7 +364,7 @@ func (s MessageSection) Zone() (ZoneSection, error) {
 }
 
 func (s MessageSection) HasZone() bool {
-	if s.Struct.Uint16(0) != 2 {
+	if s.Struct.Uint16(0) != 5 {
 		return false
 	}
 	p, err := s.Struct.Ptr(0)
@@ -282,14 +372,14 @@ func (s MessageSection) HasZone() bool {
 }
 
 func (s MessageSection) SetZone(v ZoneSection) error {
-	s.Struct.SetUint16(0, 2)
+	s.Struct.SetUint16(0, 5)
 	return s.Struct.SetPtr(0, v.Struct.ToPtr())
 }
 
 // NewZone sets the zone field to a newly
 // allocated ZoneSection struct, preferring placement in s's segment.
 func (s MessageSection) NewZone() (ZoneSection, error) {
-	s.Struct.SetUint16(0, 2)
+	s.Struct.SetUint16(0, 5)
 	ss, err := NewZoneSection(s.Struct.Segment())
 	if err != nil {
 		return ZoneSection{}, err
@@ -304,7 +394,7 @@ func (s MessageSection) Query() (QuerySection, error) {
 }
 
 func (s MessageSection) HasQuery() bool {
-	if s.Struct.Uint16(0) != 3 {
+	if s.Struct.Uint16(0) != 6 {
 		return false
 	}
 	p, err := s.Struct.Ptr(0)
@@ -312,14 +402,14 @@ func (s MessageSection) HasQuery() bool {
 }
 
 func (s MessageSection) SetQuery(v QuerySection) error {
-	s.Struct.SetUint16(0, 3)
+	s.Struct.SetUint16(0, 6)
 	return s.Struct.SetPtr(0, v.Struct.ToPtr())
 }
 
 // NewQuery sets the query field to a newly
 // allocated QuerySection struct, preferring placement in s's segment.
 func (s MessageSection) NewQuery() (QuerySection, error) {
-	s.Struct.SetUint16(0, 3)
+	s.Struct.SetUint16(0, 6)
 	ss, err := NewQuerySection(s.Struct.Segment())
 	if err != nil {
 		return QuerySection{}, err
@@ -334,96 +424,6 @@ func (s MessageSection) Notification() (NotificationSection, error) {
 }
 
 func (s MessageSection) HasNotification() bool {
-	if s.Struct.Uint16(0) != 4 {
-		return false
-	}
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s MessageSection) SetNotification(v NotificationSection) error {
-	s.Struct.SetUint16(0, 4)
-	return s.Struct.SetPtr(0, v.Struct.ToPtr())
-}
-
-// NewNotification sets the notification field to a newly
-// allocated NotificationSection struct, preferring placement in s's segment.
-func (s MessageSection) NewNotification() (NotificationSection, error) {
-	s.Struct.SetUint16(0, 4)
-	ss, err := NewNotificationSection(s.Struct.Segment())
-	if err != nil {
-		return NotificationSection{}, err
-	}
-	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
-	return ss, err
-}
-
-func (s MessageSection) AddressQuery() (AddressQuerySection, error) {
-	p, err := s.Struct.Ptr(0)
-	return AddressQuerySection{Struct: p.Struct()}, err
-}
-
-func (s MessageSection) HasAddressQuery() bool {
-	if s.Struct.Uint16(0) != 5 {
-		return false
-	}
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s MessageSection) SetAddressQuery(v AddressQuerySection) error {
-	s.Struct.SetUint16(0, 5)
-	return s.Struct.SetPtr(0, v.Struct.ToPtr())
-}
-
-// NewAddressQuery sets the addressQuery field to a newly
-// allocated AddressQuerySection struct, preferring placement in s's segment.
-func (s MessageSection) NewAddressQuery() (AddressQuerySection, error) {
-	s.Struct.SetUint16(0, 5)
-	ss, err := NewAddressQuerySection(s.Struct.Segment())
-	if err != nil {
-		return AddressQuerySection{}, err
-	}
-	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
-	return ss, err
-}
-
-func (s MessageSection) AddressAssertion() (AddressAssertionSection, error) {
-	p, err := s.Struct.Ptr(0)
-	return AddressAssertionSection{Struct: p.Struct()}, err
-}
-
-func (s MessageSection) HasAddressAssertion() bool {
-	if s.Struct.Uint16(0) != 6 {
-		return false
-	}
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s MessageSection) SetAddressAssertion(v AddressAssertionSection) error {
-	s.Struct.SetUint16(0, 6)
-	return s.Struct.SetPtr(0, v.Struct.ToPtr())
-}
-
-// NewAddressAssertion sets the addressAssertion field to a newly
-// allocated AddressAssertionSection struct, preferring placement in s's segment.
-func (s MessageSection) NewAddressAssertion() (AddressAssertionSection, error) {
-	s.Struct.SetUint16(0, 6)
-	ss, err := NewAddressAssertionSection(s.Struct.Segment())
-	if err != nil {
-		return AddressAssertionSection{}, err
-	}
-	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
-	return ss, err
-}
-
-func (s MessageSection) AddressZone() (AddressZoneSection, error) {
-	p, err := s.Struct.Ptr(0)
-	return AddressZoneSection{Struct: p.Struct()}, err
-}
-
-func (s MessageSection) HasAddressZone() bool {
 	if s.Struct.Uint16(0) != 7 {
 		return false
 	}
@@ -431,18 +431,18 @@ func (s MessageSection) HasAddressZone() bool {
 	return p.IsValid() || err != nil
 }
 
-func (s MessageSection) SetAddressZone(v AddressZoneSection) error {
+func (s MessageSection) SetNotification(v NotificationSection) error {
 	s.Struct.SetUint16(0, 7)
 	return s.Struct.SetPtr(0, v.Struct.ToPtr())
 }
 
-// NewAddressZone sets the addressZone field to a newly
-// allocated AddressZoneSection struct, preferring placement in s's segment.
-func (s MessageSection) NewAddressZone() (AddressZoneSection, error) {
+// NewNotification sets the notification field to a newly
+// allocated NotificationSection struct, preferring placement in s's segment.
+func (s MessageSection) NewNotification() (NotificationSection, error) {
 	s.Struct.SetUint16(0, 7)
-	ss, err := NewAddressZoneSection(s.Struct.Segment())
+	ss, err := NewNotificationSection(s.Struct.Segment())
 	if err != nil {
-		return AddressZoneSection{}, err
+		return NotificationSection{}, err
 	}
 	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
 	return ss, err
@@ -469,6 +469,18 @@ func (p MessageSection_Promise) Struct() (MessageSection, error) {
 	return MessageSection{s}, err
 }
 
+func (p MessageSection_Promise) AddressQuery() AddressQuerySection_Promise {
+	return AddressQuerySection_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
+}
+
+func (p MessageSection_Promise) AddressZone() AddressZoneSection_Promise {
+	return AddressZoneSection_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
+}
+
+func (p MessageSection_Promise) AddressAssertion() AddressAssertionSection_Promise {
+	return AddressAssertionSection_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
+}
+
 func (p MessageSection_Promise) Assertion() AssertionSection_Promise {
 	return AssertionSection_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
 }
@@ -487,18 +499,6 @@ func (p MessageSection_Promise) Query() QuerySection_Promise {
 
 func (p MessageSection_Promise) Notification() NotificationSection_Promise {
 	return NotificationSection_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
-}
-
-func (p MessageSection_Promise) AddressQuery() AddressQuerySection_Promise {
-	return AddressQuerySection_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
-}
-
-func (p MessageSection_Promise) AddressAssertion() AddressAssertionSection_Promise {
-	return AddressAssertionSection_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
-}
-
-func (p MessageSection_Promise) AddressZone() AddressZoneSection_Promise {
-	return AddressZoneSection_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
 }
 
 type AssertionSection struct{ capnp.Struct }
@@ -526,62 +526,18 @@ func (s AssertionSection) String() string {
 	return str
 }
 
-func (s AssertionSection) SubjectName() (string, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.Text(), err
-}
-
-func (s AssertionSection) HasSubjectName() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s AssertionSection) SubjectNameBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.TextBytes(), err
-}
-
-func (s AssertionSection) SetSubjectName(v string) error {
-	return s.Struct.SetText(0, v)
-}
-
-func (s AssertionSection) Content() (Obj_List, error) {
-	p, err := s.Struct.Ptr(1)
-	return Obj_List{List: p.List()}, err
-}
-
-func (s AssertionSection) HasContent() bool {
-	p, err := s.Struct.Ptr(1)
-	return p.IsValid() || err != nil
-}
-
-func (s AssertionSection) SetContent(v Obj_List) error {
-	return s.Struct.SetPtr(1, v.List.ToPtr())
-}
-
-// NewContent sets the content field to a newly
-// allocated Obj_List, preferring placement in s's segment.
-func (s AssertionSection) NewContent(n int32) (Obj_List, error) {
-	l, err := NewObj_List(s.Struct.Segment(), n)
-	if err != nil {
-		return Obj_List{}, err
-	}
-	err = s.Struct.SetPtr(1, l.List.ToPtr())
-	return l, err
-}
-
 func (s AssertionSection) Signatures() (Signature_List, error) {
-	p, err := s.Struct.Ptr(2)
+	p, err := s.Struct.Ptr(0)
 	return Signature_List{List: p.List()}, err
 }
 
 func (s AssertionSection) HasSignatures() bool {
-	p, err := s.Struct.Ptr(2)
+	p, err := s.Struct.Ptr(0)
 	return p.IsValid() || err != nil
 }
 
 func (s AssertionSection) SetSignatures(v Signature_List) error {
-	return s.Struct.SetPtr(2, v.List.ToPtr())
+	return s.Struct.SetPtr(0, v.List.ToPtr())
 }
 
 // NewSignatures sets the signatures field to a newly
@@ -591,46 +547,90 @@ func (s AssertionSection) NewSignatures(n int32) (Signature_List, error) {
 	if err != nil {
 		return Signature_List{}, err
 	}
-	err = s.Struct.SetPtr(2, l.List.ToPtr())
+	err = s.Struct.SetPtr(0, l.List.ToPtr())
 	return l, err
 }
 
+func (s AssertionSection) SubjectName() (string, error) {
+	p, err := s.Struct.Ptr(1)
+	return p.Text(), err
+}
+
+func (s AssertionSection) HasSubjectName() bool {
+	p, err := s.Struct.Ptr(1)
+	return p.IsValid() || err != nil
+}
+
+func (s AssertionSection) SubjectNameBytes() ([]byte, error) {
+	p, err := s.Struct.Ptr(1)
+	return p.TextBytes(), err
+}
+
+func (s AssertionSection) SetSubjectName(v string) error {
+	return s.Struct.SetText(1, v)
+}
+
 func (s AssertionSection) SubjectZone() (string, error) {
-	p, err := s.Struct.Ptr(3)
+	p, err := s.Struct.Ptr(2)
 	return p.Text(), err
 }
 
 func (s AssertionSection) HasSubjectZone() bool {
-	p, err := s.Struct.Ptr(3)
+	p, err := s.Struct.Ptr(2)
 	return p.IsValid() || err != nil
 }
 
 func (s AssertionSection) SubjectZoneBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(3)
+	p, err := s.Struct.Ptr(2)
 	return p.TextBytes(), err
 }
 
 func (s AssertionSection) SetSubjectZone(v string) error {
-	return s.Struct.SetText(3, v)
+	return s.Struct.SetText(2, v)
 }
 
 func (s AssertionSection) Context() (string, error) {
-	p, err := s.Struct.Ptr(4)
+	p, err := s.Struct.Ptr(3)
 	return p.Text(), err
 }
 
 func (s AssertionSection) HasContext() bool {
-	p, err := s.Struct.Ptr(4)
+	p, err := s.Struct.Ptr(3)
 	return p.IsValid() || err != nil
 }
 
 func (s AssertionSection) ContextBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(4)
+	p, err := s.Struct.Ptr(3)
 	return p.TextBytes(), err
 }
 
 func (s AssertionSection) SetContext(v string) error {
-	return s.Struct.SetText(4, v)
+	return s.Struct.SetText(3, v)
+}
+
+func (s AssertionSection) Content() (Obj_List, error) {
+	p, err := s.Struct.Ptr(4)
+	return Obj_List{List: p.List()}, err
+}
+
+func (s AssertionSection) HasContent() bool {
+	p, err := s.Struct.Ptr(4)
+	return p.IsValid() || err != nil
+}
+
+func (s AssertionSection) SetContent(v Obj_List) error {
+	return s.Struct.SetPtr(4, v.List.ToPtr())
+}
+
+// NewContent sets the content field to a newly
+// allocated Obj_List, preferring placement in s's segment.
+func (s AssertionSection) NewContent(n int32) (Obj_List, error) {
+	l, err := NewObj_List(s.Struct.Segment(), n)
+	if err != nil {
+		return Obj_List{}, err
+	}
+	err = s.Struct.SetPtr(4, l.List.ToPtr())
+	return l, err
 }
 
 // AssertionSection_List is a list of AssertionSection.
@@ -681,43 +681,18 @@ func (s ShardSection) String() string {
 	return str
 }
 
-func (s ShardSection) Content() (AssertionSection_List, error) {
-	p, err := s.Struct.Ptr(0)
-	return AssertionSection_List{List: p.List()}, err
-}
-
-func (s ShardSection) HasContent() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s ShardSection) SetContent(v AssertionSection_List) error {
-	return s.Struct.SetPtr(0, v.List.ToPtr())
-}
-
-// NewContent sets the content field to a newly
-// allocated AssertionSection_List, preferring placement in s's segment.
-func (s ShardSection) NewContent(n int32) (AssertionSection_List, error) {
-	l, err := NewAssertionSection_List(s.Struct.Segment(), n)
-	if err != nil {
-		return AssertionSection_List{}, err
-	}
-	err = s.Struct.SetPtr(0, l.List.ToPtr())
-	return l, err
-}
-
 func (s ShardSection) Signatures() (Signature_List, error) {
-	p, err := s.Struct.Ptr(1)
+	p, err := s.Struct.Ptr(0)
 	return Signature_List{List: p.List()}, err
 }
 
 func (s ShardSection) HasSignatures() bool {
-	p, err := s.Struct.Ptr(1)
+	p, err := s.Struct.Ptr(0)
 	return p.IsValid() || err != nil
 }
 
 func (s ShardSection) SetSignatures(v Signature_List) error {
-	return s.Struct.SetPtr(1, v.List.ToPtr())
+	return s.Struct.SetPtr(0, v.List.ToPtr())
 }
 
 // NewSignatures sets the signatures field to a newly
@@ -727,84 +702,109 @@ func (s ShardSection) NewSignatures(n int32) (Signature_List, error) {
 	if err != nil {
 		return Signature_List{}, err
 	}
-	err = s.Struct.SetPtr(1, l.List.ToPtr())
+	err = s.Struct.SetPtr(0, l.List.ToPtr())
 	return l, err
 }
 
 func (s ShardSection) SubjectZone() (string, error) {
-	p, err := s.Struct.Ptr(2)
+	p, err := s.Struct.Ptr(1)
 	return p.Text(), err
 }
 
 func (s ShardSection) HasSubjectZone() bool {
-	p, err := s.Struct.Ptr(2)
+	p, err := s.Struct.Ptr(1)
 	return p.IsValid() || err != nil
 }
 
 func (s ShardSection) SubjectZoneBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(2)
+	p, err := s.Struct.Ptr(1)
 	return p.TextBytes(), err
 }
 
 func (s ShardSection) SetSubjectZone(v string) error {
-	return s.Struct.SetText(2, v)
+	return s.Struct.SetText(1, v)
 }
 
 func (s ShardSection) Context() (string, error) {
-	p, err := s.Struct.Ptr(3)
+	p, err := s.Struct.Ptr(2)
 	return p.Text(), err
 }
 
 func (s ShardSection) HasContext() bool {
-	p, err := s.Struct.Ptr(3)
+	p, err := s.Struct.Ptr(2)
 	return p.IsValid() || err != nil
 }
 
 func (s ShardSection) ContextBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(3)
+	p, err := s.Struct.Ptr(2)
 	return p.TextBytes(), err
 }
 
 func (s ShardSection) SetContext(v string) error {
-	return s.Struct.SetText(3, v)
+	return s.Struct.SetText(2, v)
 }
 
 func (s ShardSection) RangeFrom() (string, error) {
-	p, err := s.Struct.Ptr(4)
+	p, err := s.Struct.Ptr(3)
 	return p.Text(), err
 }
 
 func (s ShardSection) HasRangeFrom() bool {
-	p, err := s.Struct.Ptr(4)
+	p, err := s.Struct.Ptr(3)
 	return p.IsValid() || err != nil
 }
 
 func (s ShardSection) RangeFromBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(4)
+	p, err := s.Struct.Ptr(3)
 	return p.TextBytes(), err
 }
 
 func (s ShardSection) SetRangeFrom(v string) error {
-	return s.Struct.SetText(4, v)
+	return s.Struct.SetText(3, v)
 }
 
 func (s ShardSection) RangeTo() (string, error) {
-	p, err := s.Struct.Ptr(5)
+	p, err := s.Struct.Ptr(4)
 	return p.Text(), err
 }
 
 func (s ShardSection) HasRangeTo() bool {
-	p, err := s.Struct.Ptr(5)
+	p, err := s.Struct.Ptr(4)
 	return p.IsValid() || err != nil
 }
 
 func (s ShardSection) RangeToBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(5)
+	p, err := s.Struct.Ptr(4)
 	return p.TextBytes(), err
 }
 
 func (s ShardSection) SetRangeTo(v string) error {
-	return s.Struct.SetText(5, v)
+	return s.Struct.SetText(4, v)
+}
+
+func (s ShardSection) Content() (AssertionSection_List, error) {
+	p, err := s.Struct.Ptr(5)
+	return AssertionSection_List{List: p.List()}, err
+}
+
+func (s ShardSection) HasContent() bool {
+	p, err := s.Struct.Ptr(5)
+	return p.IsValid() || err != nil
+}
+
+func (s ShardSection) SetContent(v AssertionSection_List) error {
+	return s.Struct.SetPtr(5, v.List.ToPtr())
+}
+
+// NewContent sets the content field to a newly
+// allocated AssertionSection_List, preferring placement in s's segment.
+func (s ShardSection) NewContent(n int32) (AssertionSection_List, error) {
+	l, err := NewAssertionSection_List(s.Struct.Segment(), n)
+	if err != nil {
+		return AssertionSection_List{}, err
+	}
+	err = s.Struct.SetPtr(5, l.List.ToPtr())
+	return l, err
 }
 
 // ShardSection_List is a list of ShardSection.
@@ -968,12 +968,12 @@ type QuerySection struct{ capnp.Struct }
 const QuerySection_TypeID = 0xcc368c426d5175df
 
 func NewQuerySection(s *capnp.Segment) (QuerySection, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 16, PointerCount: 4})
+	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 16, PointerCount: 3})
 	return QuerySection{st}, err
 }
 
 func NewRootQuerySection(s *capnp.Segment) (QuerySection, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 16, PointerCount: 4})
+	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 16, PointerCount: 3})
 	return QuerySection{st}, err
 }
 
@@ -987,56 +987,42 @@ func (s QuerySection) String() string {
 	return str
 }
 
-func (s QuerySection) Token() ([]byte, error) {
-	p, err := s.Struct.Ptr(0)
-	return []byte(p.Data()), err
-}
-
-func (s QuerySection) HasToken() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s QuerySection) SetToken(v []byte) error {
-	return s.Struct.SetData(0, v)
-}
-
-func (s QuerySection) Name() (string, error) {
-	p, err := s.Struct.Ptr(1)
-	return p.Text(), err
-}
-
-func (s QuerySection) HasName() bool {
-	p, err := s.Struct.Ptr(1)
-	return p.IsValid() || err != nil
-}
-
-func (s QuerySection) NameBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(1)
-	return p.TextBytes(), err
-}
-
-func (s QuerySection) SetName(v string) error {
-	return s.Struct.SetText(1, v)
-}
-
 func (s QuerySection) Context() (string, error) {
-	p, err := s.Struct.Ptr(2)
+	p, err := s.Struct.Ptr(1)
 	return p.Text(), err
 }
 
 func (s QuerySection) HasContext() bool {
-	p, err := s.Struct.Ptr(2)
+	p, err := s.Struct.Ptr(1)
 	return p.IsValid() || err != nil
 }
 
 func (s QuerySection) ContextBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(2)
+	p, err := s.Struct.Ptr(1)
 	return p.TextBytes(), err
 }
 
 func (s QuerySection) SetContext(v string) error {
-	return s.Struct.SetText(2, v)
+	return s.Struct.SetText(1, v)
+}
+
+func (s QuerySection) Name() (string, error) {
+	p, err := s.Struct.Ptr(0)
+	return p.Text(), err
+}
+
+func (s QuerySection) HasName() bool {
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s QuerySection) NameBytes() ([]byte, error) {
+	p, err := s.Struct.Ptr(0)
+	return p.TextBytes(), err
+}
+
+func (s QuerySection) SetName(v string) error {
+	return s.Struct.SetText(0, v)
 }
 
 func (s QuerySection) Type() int32 {
@@ -1056,17 +1042,17 @@ func (s QuerySection) SetExpires(v int64) {
 }
 
 func (s QuerySection) Options() (capnp.Int32List, error) {
-	p, err := s.Struct.Ptr(3)
+	p, err := s.Struct.Ptr(2)
 	return capnp.Int32List{List: p.List()}, err
 }
 
 func (s QuerySection) HasOptions() bool {
-	p, err := s.Struct.Ptr(3)
+	p, err := s.Struct.Ptr(2)
 	return p.IsValid() || err != nil
 }
 
 func (s QuerySection) SetOptions(v capnp.Int32List) error {
-	return s.Struct.SetPtr(3, v.List.ToPtr())
+	return s.Struct.SetPtr(2, v.List.ToPtr())
 }
 
 // NewOptions sets the options field to a newly
@@ -1076,7 +1062,7 @@ func (s QuerySection) NewOptions(n int32) (capnp.Int32List, error) {
 	if err != nil {
 		return capnp.Int32List{}, err
 	}
-	err = s.Struct.SetPtr(3, l.List.ToPtr())
+	err = s.Struct.SetPtr(2, l.List.ToPtr())
 	return l, err
 }
 
@@ -1085,7 +1071,7 @@ type QuerySection_List struct{ capnp.List }
 
 // NewQuerySection creates a new list of QuerySection.
 func NewQuerySection_List(s *capnp.Segment, sz int32) (QuerySection_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 16, PointerCount: 4}, sz)
+	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 16, PointerCount: 3}, sz)
 	return QuerySection_List{l}, err
 }
 
@@ -1126,62 +1112,18 @@ func (s AddressAssertionSection) String() string {
 	return str
 }
 
-func (s AddressAssertionSection) SubjectAddr() (string, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.Text(), err
-}
-
-func (s AddressAssertionSection) HasSubjectAddr() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s AddressAssertionSection) SubjectAddrBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.TextBytes(), err
-}
-
-func (s AddressAssertionSection) SetSubjectAddr(v string) error {
-	return s.Struct.SetText(0, v)
-}
-
-func (s AddressAssertionSection) Content() (Obj_List, error) {
-	p, err := s.Struct.Ptr(1)
-	return Obj_List{List: p.List()}, err
-}
-
-func (s AddressAssertionSection) HasContent() bool {
-	p, err := s.Struct.Ptr(1)
-	return p.IsValid() || err != nil
-}
-
-func (s AddressAssertionSection) SetContent(v Obj_List) error {
-	return s.Struct.SetPtr(1, v.List.ToPtr())
-}
-
-// NewContent sets the content field to a newly
-// allocated Obj_List, preferring placement in s's segment.
-func (s AddressAssertionSection) NewContent(n int32) (Obj_List, error) {
-	l, err := NewObj_List(s.Struct.Segment(), n)
-	if err != nil {
-		return Obj_List{}, err
-	}
-	err = s.Struct.SetPtr(1, l.List.ToPtr())
-	return l, err
-}
-
 func (s AddressAssertionSection) Signatures() (Signature_List, error) {
-	p, err := s.Struct.Ptr(2)
+	p, err := s.Struct.Ptr(0)
 	return Signature_List{List: p.List()}, err
 }
 
 func (s AddressAssertionSection) HasSignatures() bool {
-	p, err := s.Struct.Ptr(2)
+	p, err := s.Struct.Ptr(0)
 	return p.IsValid() || err != nil
 }
 
 func (s AddressAssertionSection) SetSignatures(v Signature_List) error {
-	return s.Struct.SetPtr(2, v.List.ToPtr())
+	return s.Struct.SetPtr(0, v.List.ToPtr())
 }
 
 // NewSignatures sets the signatures field to a newly
@@ -1191,27 +1133,71 @@ func (s AddressAssertionSection) NewSignatures(n int32) (Signature_List, error) 
 	if err != nil {
 		return Signature_List{}, err
 	}
-	err = s.Struct.SetPtr(2, l.List.ToPtr())
+	err = s.Struct.SetPtr(0, l.List.ToPtr())
 	return l, err
 }
 
+func (s AddressAssertionSection) SubjectAddr() (string, error) {
+	p, err := s.Struct.Ptr(1)
+	return p.Text(), err
+}
+
+func (s AddressAssertionSection) HasSubjectAddr() bool {
+	p, err := s.Struct.Ptr(1)
+	return p.IsValid() || err != nil
+}
+
+func (s AddressAssertionSection) SubjectAddrBytes() ([]byte, error) {
+	p, err := s.Struct.Ptr(1)
+	return p.TextBytes(), err
+}
+
+func (s AddressAssertionSection) SetSubjectAddr(v string) error {
+	return s.Struct.SetText(1, v)
+}
+
 func (s AddressAssertionSection) Context() (string, error) {
-	p, err := s.Struct.Ptr(3)
+	p, err := s.Struct.Ptr(2)
 	return p.Text(), err
 }
 
 func (s AddressAssertionSection) HasContext() bool {
-	p, err := s.Struct.Ptr(3)
+	p, err := s.Struct.Ptr(2)
 	return p.IsValid() || err != nil
 }
 
 func (s AddressAssertionSection) ContextBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(3)
+	p, err := s.Struct.Ptr(2)
 	return p.TextBytes(), err
 }
 
 func (s AddressAssertionSection) SetContext(v string) error {
-	return s.Struct.SetText(3, v)
+	return s.Struct.SetText(2, v)
+}
+
+func (s AddressAssertionSection) Content() (Obj_List, error) {
+	p, err := s.Struct.Ptr(3)
+	return Obj_List{List: p.List()}, err
+}
+
+func (s AddressAssertionSection) HasContent() bool {
+	p, err := s.Struct.Ptr(3)
+	return p.IsValid() || err != nil
+}
+
+func (s AddressAssertionSection) SetContent(v Obj_List) error {
+	return s.Struct.SetPtr(3, v.List.ToPtr())
+}
+
+// NewContent sets the content field to a newly
+// allocated Obj_List, preferring placement in s's segment.
+func (s AddressAssertionSection) NewContent(n int32) (Obj_List, error) {
+	l, err := NewObj_List(s.Struct.Segment(), n)
+	if err != nil {
+		return Obj_List{}, err
+	}
+	err = s.Struct.SetPtr(3, l.List.ToPtr())
+	return l, err
 }
 
 // AddressAssertionSection_List is a list of AddressAssertionSection.
@@ -1264,37 +1250,18 @@ func (s AddressZoneSection) String() string {
 	return str
 }
 
-func (s AddressZoneSection) SubjectAddr() (string, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.Text(), err
-}
-
-func (s AddressZoneSection) HasSubjectAddr() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s AddressZoneSection) SubjectAddrBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(0)
-	return p.TextBytes(), err
-}
-
-func (s AddressZoneSection) SetSubjectAddr(v string) error {
-	return s.Struct.SetText(0, v)
-}
-
 func (s AddressZoneSection) Signatures() (Signature_List, error) {
-	p, err := s.Struct.Ptr(1)
+	p, err := s.Struct.Ptr(0)
 	return Signature_List{List: p.List()}, err
 }
 
 func (s AddressZoneSection) HasSignatures() bool {
-	p, err := s.Struct.Ptr(1)
+	p, err := s.Struct.Ptr(0)
 	return p.IsValid() || err != nil
 }
 
 func (s AddressZoneSection) SetSignatures(v Signature_List) error {
-	return s.Struct.SetPtr(1, v.List.ToPtr())
+	return s.Struct.SetPtr(0, v.List.ToPtr())
 }
 
 // NewSignatures sets the signatures field to a newly
@@ -1304,8 +1271,27 @@ func (s AddressZoneSection) NewSignatures(n int32) (Signature_List, error) {
 	if err != nil {
 		return Signature_List{}, err
 	}
-	err = s.Struct.SetPtr(1, l.List.ToPtr())
+	err = s.Struct.SetPtr(0, l.List.ToPtr())
 	return l, err
+}
+
+func (s AddressZoneSection) SubjectAddr() (string, error) {
+	p, err := s.Struct.Ptr(1)
+	return p.Text(), err
+}
+
+func (s AddressZoneSection) HasSubjectAddr() bool {
+	p, err := s.Struct.Ptr(1)
+	return p.IsValid() || err != nil
+}
+
+func (s AddressZoneSection) SubjectAddrBytes() ([]byte, error) {
+	p, err := s.Struct.Ptr(1)
+	return p.TextBytes(), err
+}
+
+func (s AddressZoneSection) SetSubjectAddr(v string) error {
+	return s.Struct.SetText(1, v)
 }
 
 func (s AddressZoneSection) Context() (string, error) {
@@ -1383,12 +1369,12 @@ type AddressQuerySection struct{ capnp.Struct }
 const AddressQuerySection_TypeID = 0xaa95f2c2154f801a
 
 func NewAddressQuerySection(s *capnp.Segment) (AddressQuerySection, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 16, PointerCount: 4})
+	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 16, PointerCount: 3})
 	return AddressQuerySection{st}, err
 }
 
 func NewRootAddressQuerySection(s *capnp.Segment) (AddressQuerySection, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 16, PointerCount: 4})
+	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 16, PointerCount: 3})
 	return AddressQuerySection{st}, err
 }
 
@@ -1421,37 +1407,23 @@ func (s AddressQuerySection) SetSubjectAddr(v string) error {
 	return s.Struct.SetText(0, v)
 }
 
-func (s AddressQuerySection) Token() ([]byte, error) {
-	p, err := s.Struct.Ptr(1)
-	return []byte(p.Data()), err
-}
-
-func (s AddressQuerySection) HasToken() bool {
-	p, err := s.Struct.Ptr(1)
-	return p.IsValid() || err != nil
-}
-
-func (s AddressQuerySection) SetToken(v []byte) error {
-	return s.Struct.SetData(1, v)
-}
-
 func (s AddressQuerySection) Context() (string, error) {
-	p, err := s.Struct.Ptr(2)
+	p, err := s.Struct.Ptr(1)
 	return p.Text(), err
 }
 
 func (s AddressQuerySection) HasContext() bool {
-	p, err := s.Struct.Ptr(2)
+	p, err := s.Struct.Ptr(1)
 	return p.IsValid() || err != nil
 }
 
 func (s AddressQuerySection) ContextBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(2)
+	p, err := s.Struct.Ptr(1)
 	return p.TextBytes(), err
 }
 
 func (s AddressQuerySection) SetContext(v string) error {
-	return s.Struct.SetText(2, v)
+	return s.Struct.SetText(1, v)
 }
 
 func (s AddressQuerySection) Types() int32 {
@@ -1471,17 +1443,17 @@ func (s AddressQuerySection) SetExpires(v int64) {
 }
 
 func (s AddressQuerySection) Options() (capnp.Int32List, error) {
-	p, err := s.Struct.Ptr(3)
+	p, err := s.Struct.Ptr(2)
 	return capnp.Int32List{List: p.List()}, err
 }
 
 func (s AddressQuerySection) HasOptions() bool {
-	p, err := s.Struct.Ptr(3)
+	p, err := s.Struct.Ptr(2)
 	return p.IsValid() || err != nil
 }
 
 func (s AddressQuerySection) SetOptions(v capnp.Int32List) error {
-	return s.Struct.SetPtr(3, v.List.ToPtr())
+	return s.Struct.SetPtr(2, v.List.ToPtr())
 }
 
 // NewOptions sets the options field to a newly
@@ -1491,7 +1463,7 @@ func (s AddressQuerySection) NewOptions(n int32) (capnp.Int32List, error) {
 	if err != nil {
 		return capnp.Int32List{}, err
 	}
-	err = s.Struct.SetPtr(3, l.List.ToPtr())
+	err = s.Struct.SetPtr(2, l.List.ToPtr())
 	return l, err
 }
 
@@ -1500,7 +1472,7 @@ type AddressQuerySection_List struct{ capnp.List }
 
 // NewAddressQuerySection creates a new list of AddressQuerySection.
 func NewAddressQuerySection_List(s *capnp.Segment, sz int32) (AddressQuerySection_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 16, PointerCount: 4}, sz)
+	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 16, PointerCount: 3}, sz)
 	return AddressQuerySection_List{l}, err
 }
 
@@ -1636,19 +1608,19 @@ func (s Signature) String() string {
 	return str
 }
 
-func (s Signature) KeySpace() int32 {
+func (s Signature) Algorithm() int32 {
 	return int32(s.Struct.Uint32(0))
 }
 
-func (s Signature) SetKeySpace(v int32) {
+func (s Signature) SetAlgorithm(v int32) {
 	s.Struct.SetUint32(0, uint32(v))
 }
 
-func (s Signature) Algorithm() int32 {
+func (s Signature) KeySpace() int32 {
 	return int32(s.Struct.Uint32(4))
 }
 
-func (s Signature) SetAlgorithm(v int32) {
+func (s Signature) SetKeySpace(v int32) {
 	s.Struct.SetUint32(4, uint32(v))
 }
 
@@ -1728,34 +1700,20 @@ func (s PublicKey) String() string {
 	return str
 }
 
-func (s PublicKey) KeySpace() int32 {
+func (s PublicKey) Type() int32 {
 	return int32(s.Struct.Uint32(0))
 }
 
-func (s PublicKey) SetKeySpace(v int32) {
+func (s PublicKey) SetType(v int32) {
 	s.Struct.SetUint32(0, uint32(v))
 }
 
-func (s PublicKey) Type() int32 {
+func (s PublicKey) KeySpace() int32 {
 	return int32(s.Struct.Uint32(4))
 }
 
-func (s PublicKey) SetType(v int32) {
+func (s PublicKey) SetKeySpace(v int32) {
 	s.Struct.SetUint32(4, uint32(v))
-}
-
-func (s PublicKey) Key() ([]byte, error) {
-	p, err := s.Struct.Ptr(0)
-	return []byte(p.Data()), err
-}
-
-func (s PublicKey) HasKey() bool {
-	p, err := s.Struct.Ptr(0)
-	return p.IsValid() || err != nil
-}
-
-func (s PublicKey) SetKey(v []byte) error {
-	return s.Struct.SetData(0, v)
 }
 
 func (s PublicKey) ValidSince() int64 {
@@ -1772,6 +1730,20 @@ func (s PublicKey) ValidUntil() int64 {
 
 func (s PublicKey) SetValidUntil(v int64) {
 	s.Struct.SetUint64(16, uint64(v))
+}
+
+func (s PublicKey) Key() ([]byte, error) {
+	p, err := s.Struct.Ptr(0)
+	return []byte(p.Data()), err
+}
+
+func (s PublicKey) HasKey() bool {
+	p, err := s.Struct.Ptr(0)
+	return p.IsValid() || err != nil
+}
+
+func (s PublicKey) SetKey(v []byte) error {
+	return s.Struct.SetData(0, v)
 }
 
 // PublicKey_List is a list of PublicKey.
@@ -2457,134 +2429,129 @@ func (p Obj_value_Promise) Next() PublicKey_Promise {
 	return PublicKey_Promise{Pipeline: p.Pipeline.GetPipeline(0)}
 }
 
-const schema_fb2d77234707241e = "x\xda\xacXml\x14\xd7\xd5>g\xee\xaeg\xb1w" +
-	"\xf1\xaeg\x8c\xde\xbc?\xea\x8a\x10\xa9X\"Im\x1a" +
-	")\xf9C\xbc\xad\xdb`\x92\xe0\xcb\x12\x95Z\x8d\x94\xf1" +
-	"\xee\xc5\x1e\xb3\xcc.3c\xe2\x8d@\x18\xc9\xa8\xa6r" +
-	"T\xd2\xe0\xca\xa8 \x81\x04Q\x88\x82JZ\xfa\x81J" +
-	"UZ%j\x1a\xa5\"D\xe9\x07-4\xb5\x02\xa2j" +
-	"\x89J\xd2\xd0R\xd3v\xaa3;_\xbb^\x13\xa3\xf6" +
-	"\x97\xd7\xf7\x9c;s\x9e\xe7\x9c\xfb\x9cs\xe7~\xab\xe9" +
-	"a\xe9\xd3\xf1\xabM\x00\xbc?\xde\xe4<\xf2a\xff\x99" +
-	"\xb3\xd9\xde\x09\xe0\xed\x88\xce'V\xc8_\xb8\xfb\xe9U" +
-	"\xb7 .\xc9\x00\xdd_b}\xa8le2\x80\xa2\xb3" +
-	"o\x01:\xad\xa7\x0e\xf5~\xe7\xf2\xdc\x14y\xb3\x887" +
-	"\x92\x0b\xc6\xe6\x94T\x8c\xf6-\x89u \xa0\xf3\xff\xe3" +
-	"\xeb\xdb\x7f\xfa\xe1\xf4K\xe4-E\xbc]\x9f{\xe2}" +
-	"\xa8<\x18\xa7\x9f\x9f\x89\x7f\x91\xdc_xS]\xf9\xd4" +
-	"\x0f\xde\xfb\x1ed\xda\xb1\xde{\xba)\x8b\xca\xb1&z" +
-	"\xcd\x91\xa6\xab\x80\xce\xaa\xf6s\x93\xbf}\xa6\xfdG\x8d" +
-	"\x9c\x0f\xc9m\xa8\x9c\x90\xc9\xf9\xb8L\xce\x7fI\xfc\xea" +
-	"\xf9\x9ek\xbf>[\xe7L\x8f\xeb\xfen\xa2\x0d\x95\xd7" +
-	"\x12\xf4\xf3'\x097\x8ewG\xf9\xd6\xec\xd4\x03o6" +
-	"\x0c\xfb\xc1\xe66T\xd66\xd3\xcf\xdef\xd7\xfd\xcc\xa7" +
-	"\xbe\xb2\\\x9c\xd3\xce5\xe4\xe4H\xcb\x9cr\xa2\x85\xbc" +
-	"\x8f\xb7\xb8\x9c|\xed\xf4\x8du=w\xbfw\xaeQ\xdc" +
-	"?O6\xa3r!I\xfb~\x99\xa4\xb8?\x88mz" +
-	";\xf9\xfd\xeb\xbfk\xe4|>5\x82\xca\x95\x149\xcf" +
-	"\xa6\xc8\xb9\xf9\x87\x1b\x9f|\xfe\xdb\xbf\xbf\x02\xfc.D" +
-	"\xe7\xa5\xc2\xde\x15co\xdf\xf7gx\x02eL\xa1\xa4" +
-	"\\Z:\x07\xd8=\xbb\xf4]\x09\xd0\xf9\xa6.\xef~" +
-	"\xa3\xfd\xe4\x9f\xea\xb3N1w\xcff\x9aQ\xf9 C" +
-	"O~?CY\x0f\x9e\xd5\xc0[\xd9\xdb\xf6\x862\xdd" +
-	"F\xbf\x9ek{\x1a\xd0\xe9\xfbq\xe7\xdau\x07O_" +
-	"\xab\x8b\xd9M\xf4\xf9\xb6.Tf\xc9\xb9\xfbR\x9bK" +
-	"\xc7\xc5K#/\xc8\xdf\xb8\xfeQ\xdd\xa3{QN\x00" +
-	"t\xdf\xa5.Ge\xa5\xea\x96\x8b\xfa3\xf2\xbf\xc7\x9a" +
-	"4W\xf3\xaf\xdf\xaa\xcf\x8d\x1b8.{\x08\x95\xcc2" +
-	"\x8a%\xb5\xec*\xacr\xcaf\xc9.\xddgj1\xdd" +
-	"\xb0\x1e\xb3\x86\xee\xcdke\xa3\xfc\xd0\xe3%[\xdf\xac" +
-	"\xe75[/\x199\x91\xa7?\x00\xfd\x88<\xc9b\x00" +
-	"1\x04\xc8\xf4v\x01\xf0\x87\x19\xf2G%DT\x91\xd6" +
-	"\xd6v\x02\xf0\xcf1\xe4\xfd\x12f$TQ\x02\xc8<" +
-	"F\x8b\x8f0\xe4\x1b%\xec\xb0K[\x84\x81)\x900" +
-	"\x05\xd8jW\xca\x02c a\x0c\xb0\xb5\xa0\xd9\x1a&" +
-	"A\xc2$`\x10\x96T\x13V\xff\xe8\xe0\x9a\xa2\x9e_" +
-	"'*\x14\x8b\x1a\xc4\xb2\xb3\x0f\x80\xef`\xc8'%\xcc" +
-	"\xf8\xc1\xec\xa1\xf7\x8e3\xe4S\x12\xa2T\x8de\xefr" +
-	"\x00>\xc1\x90\xef\x930\xc3PE\x06\x90yv\x00\x80" +
-	"O1\xe43\x12fb\x92\x8a1\x80\xcc4-\xeeg" +
-	"\xc8\x0fK\xe8l\x11\x95\\Y\xcb\x0b\x00\x08\xc2\x8d\xc6" +
-	".o\x11\x15\x1f\x94\xb3]+\xea\x85\x9cn\x00\xcb\x0b" +
-	"\x8c\x83\x84q\x7f\xf1\x09\xc3\x06\xa6\x17\x83\xc5\xc6\xdc\xf7" +
-	"\x14\x0a\xa6\xb0,>*\xccJ\x0d\xf7\xff\x17\xe0=0" +
-	"\x08\xc0g\x18\xf2\xa3\x11\xbcG(!\x07\x19\xf2\x17\x89" +
-	"|\x0f\xf0\xb1,\x00?\xcc\x90\xbf,!\xb2*\xde\xe3" +
-	"\xe4x\x94!?Ix\xb1\x8a\xf7\x049\xbe\xc8\x90\x9f" +
-	"\x920\x13g*\xc6\x012\xaf\xd0\xe2\xcb\x0c\xf9\xeb\x12" +
-	":\xd6\xe8\xe0\x88\xc8\xdb= \x17\x0a\xa6\x9f\xa8\xda\x84" +
-	"\xee\xca\x97\x0c[\x8c\xd9\xa1\xb5R\x16\x96\xcf\xd2.1" +
-	"V\xd6Ma\xf9\xf8w\x95\xca\x04\xce\xc2\xa5\x80\xfd\x0c" +
-	"]\xb7\xa5\x1fG\xcb@\xc9\x10>+DJ: E" +
-	"#R\x9eb\xc8\x8b\x11RtJ\xe30C>\x11!" +
-	"ew6R.\xccceO\xd6+\x97\x83\x0bau" +
-	",}\xc8\xd0\xecQ\x13\x98\x08\x82N\x87\xe2\x06H\x8b" +
-	"\xf5\x1cT\xff7\xecpC Y\xd5\x0d\x01^V\x83" +
-	"w\x83F\xff\x0a\xcb\xd2\x86P\xd4!\xa5\x04~\x99!" +
-	"\x1f\x8e \x15Y\x0f\xfe\x8e\x08\xd2\x0a\xc1\x1fc\xc8\xf7" +
-	"G\x90>7\x02\xc0\xf7Uk\xa2Q\xfe\xa2\xb1\x06\xe2" +
-	"\xe3\xc5\xba(\x0a\x9c\xbcV\xd6\x06\xf5\xa2\x0e\xad\xb6\x1e" +
-	"\xfa%\xeb\xf2[\x8b77\xac\x99\x85jf\xd1\xa8+" +
-	"\xf7\xacw\x16OF\xf0\x9e\x18\x08k3\xc0\xfb\x1a\xd5" +
-	"\xc0\xab\x0c\xf9[\x11\xbc\xbf\xa0\xed\xaf3\xe4\xefP\xbd" +
-	"\xc7\xaa\xf5~~\x03\x00\x7f\x8b!\xbfH\xf5\x1e\xaf\xd6" +
-	"\xfb\x05\xf2|\x87!\xff\x83\xd4\x80\x8b@\xb6\xef\x88\x0b" +
-	"\xaf\x94\x06@.\x19\xa2\xb6(\xc2\"qL\xcd\x18\x12" +
-	"\x9f7K\x80[\x03\x1fwmci\x9e&\xd6\xf2\x16" +
-	"\xd1\x89y\xbcu\x85\x1a\x16\xf0v\xa83\xa2\x1d>o" +
-	"G\xb2\xa1v\xf82q\xac3\x94\x8e@&\x8eg#" +
-	"\xda\xe1\xcbD\xa0\x1d\xaf\xceSxC\xdb\xba \xe8\x1a" +
-	"\x09\xbdSq\xa8m\x0c9}h\x8d\x9b\x0b\xb1\x98\xc6" +
-	"\xb0!\xd2\x04\xfc.U\xd3\x04\x98T\xa5 \xda\x04\xd0" +
-	"+\x9c(\x7f\x8d\x1a\x83\xa3\x15\x87J\xa6n\x0fS*" +
-	"\xfd\xb5E\xf7\x84j\x17\xf4[I\xe3\x8cG%\xb0^" +
-	"\x03\x07\"\"\xe0\xe3\xad\x0cz\"p\x87\x1a\xf8\xbf+" +
-	"\xef\x8f\xd7\x95\xdbj~\x8fe\x09\xd3\x1bEZ\xe9\xef" +
-	"b\x84\x9f\xa0\x14\x18\xf2\xf1\x08\xe8\x9d\x03\x1e\xe8\x99\x08" +
-	"\xe8\xe9\xac'\x87\x0b\x0a\xff\xfc\xf0\x83q\xefN\xa4`" +
-	"\xde\xa1o\\\xcb\xeb\x07G\xd6\xdc\xbb]+\x8e\x0a\xbe" +
-	"\x9a\xc5\x92\x8e\xe3\x02R\x9e\xc4N\x80\xdc&d\x98\xb3" +
-	"Q\xc2\x14\xfe\xdbqA)\xdbp9@\xaeH\x861" +
-	"2H\xffr\\`\xca\xa8k(\x93a\x07\x19\xd8?" +
-	"\x1d\xb7\x84\x95\x0av\x01\xe4l2\x8c\x93!v\xcbq" +
-	"\x0f\xb2\xb2\xd35\x8c\x91a\x82\x0c\xf19G\xc5&\x00" +
-	"e7f\x01r;\xc80I\x86\xa6\x7f8\xaa;\xda" +
-	"\xeeq\xa3\x1a'\xc3\x14\x19\xe4\x9b\x8e\x8a\x09\x9ay\xdd" +
-	"\x1d\x13d\xd8G\x86\xc4\xdf\x1d\x15\x97\x00(\xcf\xba;" +
-	"&\xc9\xb0\x9f\x0cK\xfe\xe6\xa8\xd8L\xb3\xb1k\x98\"" +
-	"\xc3\x0c\x19\x9ao8*\xb6\x00(\xd3nT\xfb\xc8p" +
-	"\x90\x0c-\x1f9*&\x01\x94\x03\xaea?\x19\x0e\x93" +
-	"!\xf9WG\xc5\x14\x80r\xc8}\xd4\x0c\x19\x8e\xa2\xe4" +
-	"\xa9Pm\x17\x92\xf5\xf2\x03~\"d\xbd\xbc:\x18Y" +
-	"LQ\xd0\xc3\xf1\xa6 \x8ab\x08\xd3\xe1\xad\x0e\x10\xd3" +
-	"\x80\xbb\xe8\x89\x96\x08\xa5,/L\x1b\xd3\xe1\xec\xed\xb9" +
-	"Y\xc2\xdc\xae\xe7\x05\xa6\xc3\xebD\xd5\xd2j\x8a\xa1\xe0" +
-	"-\xf4O83\xe9\xc6fS\x9b\xff\xca\x0e1f7" +
-	"Zo5\xa8\xa4\xe6-/\xd4e\xab\x01\xad56\x97" +
-	"\xe6\x0d\xf4\x9d\x8b\x1d\xe8IT\x1fe\xc87I\xb5\x02" +
-	"\xdfZ.\x996\xca \xa1\xec\x06\xa0\x93\x0eVH\x1b" +
-	"\x13 a\xe2v\x15_\x0d&\x11\x04\xb3\x92^\xbc\x82" +
-	"!\xbf\x9f\x82\xc1\xc8\xd5-\xb3\xaa\x0b\xa4\x9a\xd6\xd1\xe1" +
-	"\x1e\x96\x05\x00G\xb4\xa3#\xefkG\xa4A\x0c6j" +
-	"\x10\x11\x19\x0c\xb4\xe3\xc0\x80\xa7\xfb\xa7\"\xda\xf1\x0am" +
-	"?\xc9\x90\x9f\x89\x8c\x16\xa7i\xfb)\x86\xfcl((" +
-	"\x8f\x83<\xaf\x13\xfe\xd7\x82\xb2\xc8\xd9\xa211\xd5\xd1" +
-	"\xd2m$\xb2G\xcb']\xb9qy\x89\x8eGU\xa9" +
-	"\xa1\xd5\x0b]\xe1|T\xd5\x19b\xe6\x12\xe5\xea7\x0c" +
-	"\xf9e_d\x88\x9aY\xf2\xbd\xc8\x90\xff\xd1W\x18\xe2" +
-	"\xe6\x0a\xcd\x9e\x97\x19\xf2\xeb\xbe\xbc\xd0\x00\xf1>\xad^" +
-	"c\xc8o\xfa\xda\xd2\x04\x90\xb9\xf1U\x00~\x93a." +
-	"\x16(\x8b\xfb\x0d\x05\x07\x016\xd0\xd9N\xa2\x84\x8e\xe6" +
-	"%\x18\xd0\xa8\x9b\xd1\xe8\xd0X4Ub:\xfc\xbc\xe1" +
-	"\x1d\x9ag\x88\xb0t\xf8\xa9\xc1s\xdfF\xc3\x14\xa6\xc3" +
-	"\xef\x1b\xdea2\xbc\xfb0\xb8\xed\x07\xd3\xe17!\xcf" +
-	"A\xf3.m\xd0\xea=!\xf8\xb0S\xeb\xd0\x83~=" +
-	"\x02\xd4]\x05\"^^B\xd3\xe1\xf7\x9e\xdb\x1e\xea\xcf" +
-	"\xd2\x13\xdd\xeb\xbaX\xb3\xde\xad\x88\xba\x06\xd9\xd9\xe8\xbe" +
-	"\xd0\x15\xe9\x9a~\x91\xeb}\xdeu\xc9\x0e\xe7\xc0m\xb4" +
-	"\xbb\xc8\x90\x8fI\xb5#[\xc7(\x15P0\xe3\x0ck" +
-	"\xd6pOq\xa8\x14\xbd$G\xa7\x99\xff\x04\x00\x00\xff" +
-	"\xff%\xc2\x83\x84"
+const schema_fb2d77234707241e = "x\xda\xd4X\x7fl\x1bg\xf9\x7f\x9e{\xed\x9c\x9b\xd8" +
+	"\xb5\x9d\xb3\xa5\xef\xbe\x12\x04u\x9dD#u?\x92n" +
+	"\x12\xfb\xa7\x8b\xa1\xb0\xa6\xdb\x9a7nE\x1bQi\x17" +
+	"\xfb\xads\xa9sv\xcf\xe7.\x9e:\xb5\x95R\x91\xa0" +
+	"T\xb4,A\xa9H\xa5\"\x95\x09&\x10\x1bT@E" +
+	"'*\x04\x02\xa6J\x85\xfd\xc1\xcf\xc1@+\xaa\x04E" +
+	"\x94\xd1B\x97\xae\x1cz^\xdf\x9d\xcf\x8e\x13R\xc4\x1f" +
+	"\xf0\x97}\xcf\xf3\xdc{\x9f\xcf\xf3<\xef\xe7}\xee\x1e" +
+	"\xde\xdd\xf1\x84\xf2H\xf8Z\x07\x00\x1f\x0aw8O\xbe" +
+	"3t\xf1Rf\xdb\x14\xf04\xa2\xf3\xfe\x8d\xea\xc7\xee" +
+	"\x7fn\xf3\x1d\x08+*@\xff^6\x88\xda\x04S\x01" +
+	"4\x83}\x15\xd0\x89\x9f?\xb3\xed\xebW\x97f)\x9a" +
+	"\x05\xa2\x91B0\xb4\xa4\xc5Bt\xdf\xbaP\x0f\x02:" +
+	"\xff\x7ftg\xfa\xbb\xef\xcc\xbfL\xd1J \x9a\x16\xec" +
+	"\x7f <\x88\xda\x87\xc2\xf4\xf7\xd1\xb0\x0c\x7f\xe9rj" +
+	"\xd3\xb3\xdfz\xfb\x1b\x90L\x07\x91\xc8\x15\xf7vdP" +
+	"3:\xe81\xa2\xe3\x1a\xa0\xb39}e\xfa\x97\xcf\xa7" +
+	"_k\x17\xac\xab\xdd\xa8\x1dT)xB\xa5\xe0?G" +
+	"~\xfa\xe2\xc0\xf5\x9f]j\x09\xa6\xe5\xfak\x91n\xd4" +
+	"f\"\xf4\xf7x\xe4\xe3\x84\xe3\xad*\x9f\xc8\xcc>v" +
+	"\xb9-\xec\xbb\xeb\xbaQ\x8buJ\x96\x9d\x12\xf6\xc5\x0f" +
+	"~r\x83\xb8\xa2_i\x9b\x93M]K\xda\xa3]\x14" +
+	"\xfdH\x97\x8c\xfe\xf4\x85[;\x06\xee\x7f\xfbJ;\xdc" +
+	"<\xda\x89\x9a\x1e\xa5\xfb\xf6E\x09\xf7_B{\xde\x88" +
+	"~\xf3\xc6\xaf\xdaf$6\x8e\xdaDL\xd6&F\xc1" +
+	"\x9d\xdf\xde\xb5\xef\xc5\xaf\xfd\xe6\xf7\xc0\xefCt^\xce" +
+	"\xcfl\x9c|\xe3\xa1?\xc2nT1\x86\x8a&\xd6/" +
+	"\x01\xf6\x1b\xeb\xdfR\x00\x9d\xcf\x19\xea\xb1\xd7\xd3\xaf\xfc" +
+	"\xa1\xb5\xea\x84\xb9\xdfHv\xa2VK\xd2\xca\xd5$U" +
+	"\xdd_\xabM\xb4\x96\xec~]{_7\xfd\xbb\xaf\xfb" +
+	"9@g\xf0;\xbd\xdbw,^\xb8\xde\x82Y\x16z" +
+	"ow\x1fj\x06\x05\xf7\x8bn\x99\x8e7\x7f=\xfe\x92" +
+	"\xfa\xd9\x1b7[\x96\xde\x86j\x04\xa0\xff\xf3\xda\x06\xd4" +
+	"^\xd5(\xfe+\xda\x0f(\xfe\x81\xca\xb4\xb5\x85\x7f\xe6" +
+	"Nkm$\xf0\x99\xf4\xe3\xa8\x9dN\x13\x96\xf9\xf45" +
+	"\xd8\xec\x94\xad\x92]z\xc8\xd2C\x86Yy\xbaRx" +
+	"0\xa7\x97\xcd\xf2\xe3\xcf\x94lc\xbf\x91\xd3m\xa3d" +
+	"fE\x8e~\x00\x86\x10y\x94\x85\x00B\x08\x90\xdc\xd6" +
+	"\x07\xc0\x9f`\xc8\x9fR\x101\x85d\xdb\xde\x0b\xc0?" +
+	"\xc2\x90\x0f)\x98T0\x85\x0a@\xf2i2>\xc9\x90" +
+	"\xefR\xb0\xc7.\x1d\x10&\xc6@\xc1\x18`\xdc\xae\x95" +
+	"\x05\x86@\xc1\x10`<\xaf\xdb:FA\xc1(\xa0\x0f" +
+	"Ki\x825T\x1d\xddZ4r;D\x8d\xb0\xa4|" +
+	",/\xd0#&\x19\xf2)\x05\x93\x1e\x98c\x83\x00\xfc" +
+	"(C>\x1b\x0033\x02\xc0\xa7\x19\xf29\x05\x93L" +
+	"I!\x03H\x9e\"\xe3I\x86|QA\x0c\xa50\x04" +
+	"\x90<\xbd\x01\x80\xcf1\xe4g\x95f\x9c\xce\x01Q\xcb" +
+	"\x96\xf5\x9c\x00\x00\xdfvH/\x1a\xf9\xaca\x02\xcb\x09" +
+	"\x0c\x83\x82a\xcf\xb8\xdb\xb4\x81\x19E\xcf\xa8\x1e\x105" +
+	"\x8f\xfe\x0a\xb9\x1f\xc8\xe7-Q\xa9\xf0\xaa\xb0jM\xb9" +
+	"\x0f\xf0\x1d\x05\xe0\x87\x19\xf2\xe9\x00\xdf\xe3\x99\x06_T" +
+	"\\\xbaT\xa4)\x86\xfc$\xd1\xc5:\xdd\x13\x99@\x0e" +
+	"BJ\x9d\xef)2\xce2\xe4_T\xd0\xa9TG\xc7" +
+	"E\xce\x1e\x005\x9f\xb7\xbc\x9a\x1c\xc9\x95L[L\xda" +
+	"\xdeu\x0fe\xa5\xe2\xa5\xe0\x88\x98,\x1b\x96\xa8xD" +
+	"\x8f\x94\xca\x84\xbc\x82\xeb\x01\x87\x18\xca\xb0\xf5\xff\x8a\xf3" +
+	"H\xc9\x14\x1eeb\x9c\xf0\x19\xebT\xa2g\x19\xf2\xc3" +
+	"\x01\xc6\xb5\xd1@\xd9\x15\x97\xf2\xb1L 7\x8c\xd5)" +
+	"\xfb\xb9Y$vF\xc1\xd4\xed\xaa\x05L\xf8\xf0\x12\x0d" +
+	"\x8d\x02\x94@\xd7\x94\x83\xfa\xb5i7\x96\xf1\xf5\xc8]" +
+	"\xc6\xe3\xcb\x9a\xf8\x0e\xebt)*\x15\xbd\x80b-L" +
+	"\xc7]\xa6s\x01\xa6\xa7\xfa\xdc\x92-\x04\x98\xceg\xdc" +
+	"^\xfe\xf2\x9a\x99\xe6\xf4\xb2>j\x14\x0d\x88\xdbF#" +
+	".Z/X\xf3\x8e]\xce\xd7W\xa7U\xf9f\xc7t" +
+	"+_\xaf,\x9a\xc4\xf7\xff|\xbe\xa7\x89\xef\x02C~" +
+	">\xc0\xf7U\xaa\xec+\x0c\xf9\xc5\x00\xdf\x0bD\xed<" +
+	"C~)\xc0\xf7\xb5a\x00~\x91!\xff!5\xb3\xbb" +
+	"y\xbfO\x91\x97\x18\xf2\xcb\x0a&\xc3\xe1\x14\x86\x01\x92" +
+	"?\"\xe3\xf7\x18\xf2\xdf\xdek\x0f\x8c\x80Z2\xc5J" +
+	"=\xe0X\xbaY\x10\x1f\xb5J\x80\x13~\x8c\xb4\xed*" +
+	"\xad\xdc'\xfe\x19\xb0j\xde\x02\"P\xcf[\x8a\x85\x10" +
+	"\x97i^\xc2\x93\xbc@\xef{\x12p\xbc7 \x83\x9e" +
+	"\x04\xccd\x02\xba\xe0I\x80\xaf\x0b\xe7\x14\x8c\x9b\xfa\xc4" +
+	"\x8a\x8c\x9b\xf4\xf0^7~\xb3\xa2g\x8d\xc2VY\x08" +
+	"\xd1\xa2p\xc3\xed\x14n0\x80\xdaS\xf4\x13#\xc1]" +
+	"\xe0*\xfa\xfcHC\xbd=E?\xd3\xeb6\xda9\x05" +
+	"\x1d\xbdX(Y\x86=F5\xfb\x8f\x08{\xfd\xf8j" +
+	"U\xf6\xe6j\x06\xe5\xed\xbfE\xdfV\xef\xed\xb5\xef\xf7" +
+	"\xb6z>P\xa9\x08\xcb\x9d!\xe2\xf4\xfb?*\xea\xfe" +
+	"t\xd7B\xba\xb9\x97w\x8e\x8eo}\xf0\x90^\xac\x0a" +
+	"\xbe\x85\x85\xa2\x8e#\x09i\xfb\xb0\x17 \xbb\x07\x19f" +
+	"mT0\x86\xffp$)\xed n\x00\xc8\x16\xc91" +
+	"I\x0e\xe5\xae#\x89iU\xe9(\x93\xe309\xd8{" +
+	"\x8ela\xad\x86}\x00Y\x9b\x1cG\xc9\x11\xba\xe3H" +
+	"m\xd3^\x90\x8eIrL\x91#\xbc\xe4\xa4\xb0\x03@" +
+	";\x86\x19\x80\xecarL\x93\xa3\xe3]'%g\xd2" +
+	"\xe3\x12\xd5Qr\xcc\x92C\xbd\xed\xa40\x02\xa0\xcd\xc8" +
+	";\xa6\xc8q\x92\x1c\x91\xbf;)\\\x07\xa0\x9d\x90w" +
+	"L\x93c\x8e\x1c\xeb\xfe\xe6\xa4\xb0\x13@;%\x1d\xb3" +
+	"\xe4X G\xe7-'\x85]4aJT'\xc9\xb1" +
+	"H\x8e\xae\x9bN\x0a\xa3\x00\xdai\xe9\x98#\xc7Yr" +
+	"D\xff\xea\xa40\x06\xa0\x9d\x91K-\x90\xe3\x1cz*" +
+	"\xd4| \xa9F\xf91\xafR\xaaQ\xde\xe2\x8f#\x96" +
+	"\xc8\x1b~M{\xf2\xa2(\x0a\x98h\xbc\x8e\x01b\x02" +
+	"\xf0\x08\xadX\x11\x0d)\xcb\x09\xcb\xc6Dchv\xc3" +
+	"*\xc2:d\xe4\x04&\x1a\xef\x01uO\xdc\x12\x05\xff" +
+	")t\xd1\x98\x87\x0cs\xbf\xa5/\x7fd\x8f\x98\xb4\xdb" +
+	"\xd9\xe3&\xf5\xdc2\xf3J'h\x1d\xd0vs\x7fi" +
+	"\xd9$\xde\xbb\xd6I\x9c\xf4\xf3)\x86|O\x8b\xc0\xc7" +
+	"\xcb%\xcbF\x15\x14T%\x00\x83\xb4\xb1F:\x18\x01" +
+	"\x05#\xabu|\x1dL\xc4\x07\xb3\x89\x1e\xbc\x91!\x7f" +
+	"\x98\xc0`\xe0\x9d+\xb9\xb9\x0f\x94\xa6\xa3\xa3Gn\x96" +
+	"\x15\x08\x07\xb4\xa3'\xe7iG\xe0\x80\x18q\x15a!" +
+	"\xa0\x1d\xf3\xa3\x0d\xd9\xf7\xb5\xe3\x0c\x19\x17\xeb\x93\xad\xaf" +
+	"\x1d_ \xed8[\x1f\x93\xfc\xb1\xe1Kd<W\x1f" +
+	"0\xeeMP\x9e\x015\x90\xce\x7fW[W\x92\x99\xe6" +
+	"\xc4\xd4\xc7Fy\x90\xa8nZ> \xe5F\xe6\xe5'" +
+	"4)\xfe\x98!\x7f\xd3\x93\x1a\xb2\xfe\x82r\xf0s\x86" +
+	"\xfc\xaa\xa73\x94\x99\xdf}\x0a\x80_e\xc8ox\"" +
+	"C\xa9\xf9\x13\x1d\xbd\xd7\x19\xf2\xdb\x9e\xc2Pnn\xd1" +
+	"\xb0y\x83!\x7f\xcf\x93\x17\x9a\xa9\xde\xa5j\xdfd8" +
+	"\xeckK\x07@\xf2.\xc5\xdef\x98\x0d\xf9\xca\"?" +
+	"~\xe08\xc00\xed\xed(\xd2\x11\xec\xbe\xe7@\x9c\x86" +
+	"\x1cL4\xbe\x85\xb8\x1b\xc1\x0dp\xb3\x98h|\xfch" +
+	"\xf6\x0f\xa0\xd7)\x00-\x03\xb8\x8cr\xbd\x80f\xcb\xd8" +
+	"E{\xb3B\x83)&\x1a\x9f?\xdc\xbd\xf9|\xfd\x91" +
+	"\xfe\xa7\x087\xfc\xa0\x0b\xd5\xff\xfe\xe1>\xc4t\xdf\x97" +
+	"A\x9er\x98h|3ZuS\x7f\x98\x90\xc9\xf7l" +
+	"\xb1u\xa7l\x99\x96\x03\x92\xd2\xfb\x09\x86|,\xd0\xe4" +
+	"\xa2\xcf=5\x8b\x81&7hk\x8f1\xe4\xb6\x82\xe8" +
+	"\xf6\xf8A\xba\xbb\xc8\x90O\xb6\xbc\xc2\xf6T\xa9\x81\xfc" +
+	"\x19gL\xaf\x8c\x0d\x14\x0b\xa5\xc0\xdc\xd34\xcd\xfc3" +
+	"\x00\x00\xff\xff&\x90lE"
 
 func init() {
 	schemas.Register(schema_fb2d77234707241e,

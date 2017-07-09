@@ -3,14 +3,14 @@ package protoParser
 import (
 	"errors"
 	"fmt"
-	"rains/proto"
-	"rains/rainslib"
+	"github.com/netsec-ethz/rains/proto"
+	"github.com/netsec-ethz/rains/rainslib"
 	"strconv"
-
-	"golang.org/x/crypto/ed25519"
 
 	log "github.com/inconshreveable/log15"
 	capnp "zombiezen.com/go/capnproto2"
+
+	"golang.org/x/crypto/ed25519"
 )
 
 func encodeAssertion(a *rainslib.AssertionSection, seg *capnp.Segment) (proto.MessageSection, error) {
@@ -141,8 +141,6 @@ func encodeQuery(q *rainslib.QuerySection, seg *capnp.Segment) (proto.MessageSec
 		return proto.MessageSection{}, err
 	}
 
-	tok := [16]byte(q.Token)
-	query.SetToken(tok[:])
 	query.SetName(q.Name)
 	query.SetContext(q.Context)
 	query.SetExpires(q.Expires)
@@ -267,8 +265,6 @@ func encodeAddressQuery(q *rainslib.AddressQuerySection, seg *capnp.Segment) (pr
 		return proto.MessageSection{}, err
 	}
 
-	tok := [16]byte(q.Token)
-	query.SetToken(tok[:])
 	query.SetContext(q.Context)
 	query.SetExpires(q.Expires)
 	query.SetTypes(int32(q.Type))

@@ -2,8 +2,8 @@ package binaryTrie
 
 import (
 	"net"
-	"rains/rainslib"
-	"rains/utils/set"
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/set"
 	"testing"
 
 	log "github.com/inconshreveable/log15"
@@ -19,8 +19,6 @@ func TestAddAndFind(t *testing.T) {
 	}
 
 	nameObject := rainslib.Object{Type: rainslib.OTName, Value: "ethz2.ch"}
-	//ip6Object := rainslib.Object{Type: rainslib.OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"}
-	//ip4Object := rainslib.Object{Type: rainslib.OTIP4Addr, Value: "127.0.0.1"}
 	redirObject := rainslib.Object{Type: rainslib.OTRedirection, Value: "ns.ethz.ch"}
 	delegObject := rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}
 	registrantObject := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}

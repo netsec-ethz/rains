@@ -1,8 +1,9 @@
 package set
 
 import (
-	"rains/rainslib"
 	"sync"
+
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 //Set contains a collection of data elements stored in a hash set. All exported methods manipulating the hash set in Set are concurrency safe.

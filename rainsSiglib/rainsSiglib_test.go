@@ -2,10 +2,11 @@ package rainsSiglib
 
 import (
 	"net"
-	"rains/rainslib"
-	"rains/utils/zoneFileParser"
 	"testing"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 
 	"golang.org/x/crypto/ed25519"
 )
@@ -77,7 +78,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	}
 
 	zone := &rainslib.ZoneSection{
-		Content:     []rainslib.MessageSectionWithSig{assertion, shard},
+		Content:     []rainslib.MessageSectionWithSigForward{assertion, shard},
 		Context:     ".",
 		SubjectZone: "ch",
 	}
@@ -87,13 +88,12 @@ func TestEncodeAndDecode(t *testing.T) {
 		Expires: 159159,
 		Name:    "ethz.ch",
 		Options: []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
-		Token:   rainslib.GenerateToken(),
 		Type:    rainslib.OTIP4Addr,
 	}
 
 	notification := &rainslib.NotificationSection{
 		Token: rainslib.GenerateToken(),
-		Type:  rainslib.NoAssertionsExist,
+		Type:  rainslib.NTNoAssertionsExist,
 		Data:  "Notification information",
 	}
 
@@ -125,7 +125,6 @@ func TestEncodeAndDecode(t *testing.T) {
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Expires:     7564859,
-		Token:       rainslib.GenerateToken(),
 		Type:        rainslib.OTName,
 		Options:     []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
 	}
@@ -155,8 +154,8 @@ func TestEncodeAndDecode(t *testing.T) {
 		ValidUntil: time.Now().Add(24 * time.Hour).Unix(),
 		Key:        genPublicKey,
 	}
-	pKeys := make(map[rainslib.KeyAlgorithmType]rainslib.PublicKey)
-	pKeys[rainslib.KeyAlgorithmType(pKey.Type)] = pKey
+	pKeys := make(map[rainslib.SignatureAlgorithmType]rainslib.PublicKey)
+	pKeys[pKey.Type] = pKey
 	maxValidity := rainslib.MaxCacheValidity{
 		AssertionValidity:        30 * time.Hour,
 		ShardValidity:            30 * time.Hour,
@@ -168,7 +167,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	if !ok {
 		t.Error("Was not able to generate and add a signature to the message")
 	}
-	ok = CheckMessageSignatures(&message, pKey, zoneFileParser.Parser{}, maxValidity)
+	ok = CheckMessageSignatures(&message, pKey, zoneFileParser.Parser{})
 	if !ok {
 		t.Error("Verification of message signature failed")
 	}
@@ -234,5 +233,256 @@ func TestEncodeAndDecode(t *testing.T) {
 	ok = CheckSectionSignatures(addressZone, pKeys, zoneFileParser.Parser{}, maxValidity)
 	if !ok {
 		t.Error("Verification of addressZone signature failed")
+	}
+}
+
+func TestCheckSectionSignaturesErrors(t *testing.T) {
+	encoder := new(zoneFileParser.Parser)
+	maxVal := rainslib.MaxCacheValidity{AddressAssertionValidity: time.Hour}
+	keys := make(map[rainslib.SignatureAlgorithmType]rainslib.PublicKey)
+	keys1 := make(map[rainslib.SignatureAlgorithmType]rainslib.PublicKey)
+	keys1[rainslib.Ed25519] = rainslib.PublicKey{}
+	var tests = []struct {
+		input           rainslib.MessageSectionWithSig
+		inputPublicKeys map[rainslib.SignatureAlgorithmType]rainslib.PublicKey
+		want            bool
+	}{
+		{nil, nil, false},                                                                                                            //msg nil
+		{&rainslib.AssertionSection{}, nil, false},                                                                                   //pkeys nil
+		{&rainslib.AssertionSection{}, keys, true},                                                                                   //no signatures
+		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{}}, SubjectName: ":ip55:"}, keys, false},     //checkStringField false
+		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{}}}, keys, false},                            //no matching algotype in keys
+		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{Algorithm: rainslib.Ed25519}}}, keys1, true}, //sig expired
+		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{Algorithm: rainslib.Ed25519,
+			ValidUntil: time.Now().Add(time.Second).Unix()}}}, keys1, false}, //VerifySignature invalid
+	}
+	for _, test := range tests {
+		if CheckSectionSignatures(test.input, test.inputPublicKeys, encoder, maxVal) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, CheckSectionSignatures(test.input, test.inputPublicKeys, encoder, maxVal), test.input)
+		}
+	}
+}
+
+func TestCheckMessageSignaturesErrors(t *testing.T) {
+	encoder := new(zoneFileParser.Parser)
+	message := rainslib.GetMessage()
+	message2 := rainslib.GetMessage()
+	message2.Capabilities = []rainslib.Capability{rainslib.Capability(":ip:")}
+	message3 := rainslib.GetMessage()
+	message3.Signatures = []rainslib.Signature{rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}}
+	var tests = []struct {
+		input          *rainslib.RainsMessage
+		inputPublicKey rainslib.PublicKey
+		want           bool
+	}{
+		{nil, rainslib.PublicKey{}, false},                      //msg nil
+		{&message, rainslib.PublicKey{}, false},                 //sig expired
+		{&rainslib.RainsMessage{}, rainslib.PublicKey{}, false}, //no sig
+		{&message2, rainslib.PublicKey{}, false},                //TextField of Content invalid
+		{&message3, rainslib.PublicKey{}, false},                //signature invalid
+	}
+	for _, test := range tests {
+		if CheckMessageSignatures(test.input, test.inputPublicKey, encoder) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, CheckMessageSignatures(test.input, test.inputPublicKey, encoder), test.input)
+		}
+	}
+}
+
+func TestSignSection(t *testing.T) {
+	encoder := new(zoneFileParser.Parser)
+	sections := rainslib.GetMessage().Content
+	_, pkey, _ := ed25519.GenerateKey(nil)
+	var tests = []struct {
+		input           rainslib.MessageSectionWithSig
+		inputPrivateKey interface{}
+		inputSig        rainslib.Signature
+		want            bool
+	}{
+		{nil, nil, rainslib.Signature{}, false},
+		{sections[0].(rainslib.MessageSectionWithSig), pkey, rainslib.Signature{Algorithm: rainslib.Ed25519, ValidUntil: time.Now().Add(time.Second).Unix()}, true},
+		{sections[0].(rainslib.MessageSectionWithSig), pkey, rainslib.Signature{ValidUntil: time.Now().Unix() - 100}, false},
+		{&rainslib.AssertionSection{SubjectName: ":ip:"}, pkey, rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+		{sections[0].(rainslib.MessageSectionWithSig), nil, rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+	}
+	for _, test := range tests {
+		if SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder), test.input)
+		}
+		if test.want && test.input.Sigs()[0].Data == nil {
+			t.Error("msg.Signature does not contain generated signature data")
+		}
+	}
+}
+
+func TestSignMessage(t *testing.T) {
+	encoder := new(zoneFileParser.Parser)
+	message := rainslib.GetMessage()
+	_, pkey, _ := ed25519.GenerateKey(nil)
+	var tests = []struct {
+		input           *rainslib.RainsMessage
+		inputPrivateKey interface{}
+		inputSig        rainslib.Signature
+		want            bool
+	}{
+		{nil, nil, rainslib.Signature{}, false},
+		{&message, pkey, rainslib.Signature{Algorithm: rainslib.Ed25519, ValidUntil: time.Now().Add(time.Second).Unix()}, true},
+		{&message, pkey, rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix() - 100}, false},
+		{&rainslib.RainsMessage{Capabilities: []rainslib.Capability{rainslib.Capability(":ip:")}}, pkey,
+			rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+		{&rainslib.RainsMessage{}, nil, rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+	}
+	for _, test := range tests {
+		if SignMessage(test.input, test.inputPrivateKey, test.inputSig, encoder) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, SignMessage(test.input, test.inputPrivateKey, test.inputSig, encoder), test.input)
+		}
+		if test.want && test.input.Signatures[0].Data == nil {
+			t.Error("msg.Signature does not contain generated signature data")
+		}
+	}
+}
+
+func TestCheckMessageStringFields(t *testing.T) {
+	message := rainslib.GetMessage()
+	var tests = []struct {
+		input *rainslib.RainsMessage
+		want  bool
+	}{
+		{nil, false},
+		{&message, true},
+		{&rainslib.RainsMessage{Capabilities: []rainslib.Capability{rainslib.Capability(":ip:")}}, false},
+		{&rainslib.RainsMessage{Content: []rainslib.MessageSection{&rainslib.AssertionSection{SubjectName: ":ip:"}}}, false},
+	}
+	for _, test := range tests {
+		if checkMessageStringFields(test.input) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, checkMessageStringFields(test.input), test.input)
+		}
+	}
+}
+
+func TestCheckStringFields(t *testing.T) {
+	sections := rainslib.GetMessage().Content
+	var tests = []struct {
+		input rainslib.MessageSection
+		want  bool
+	}{
+		{nil, false},
+		{sections[0], true},
+		{sections[1], true},
+		{sections[2], true},
+		{sections[3], true},
+		{sections[4], true},
+		{sections[5], true},
+		{sections[6], true},
+		{sections[8], true},
+		{sections[9], true},
+		{&rainslib.AssertionSection{SubjectName: ":ip:"}, false},
+		{&rainslib.AssertionSection{Context: ":ip:"}, false},
+		{&rainslib.AssertionSection{SubjectZone: ":ip:"}, false},
+		{&rainslib.AssertionSection{Content: []rainslib.Object{rainslib.Object{Type: rainslib.OTRegistrar, Value: ":ip55:"}}}, false},
+		{&rainslib.ShardSection{Context: ":ip:"}, false},
+		{&rainslib.ShardSection{SubjectZone: ":ip:"}, false},
+		{&rainslib.ShardSection{RangeFrom: ":ip:"}, false},
+		{&rainslib.ShardSection{RangeTo: ":ip:"}, false},
+		{&rainslib.ShardSection{Content: []*rainslib.AssertionSection{&rainslib.AssertionSection{SubjectName: ":ip:"}}}, false},
+		{&rainslib.ZoneSection{SubjectZone: ":ip:"}, false},
+		{&rainslib.ZoneSection{Context: ":ip:"}, false},
+		{&rainslib.ZoneSection{Content: []rainslib.MessageSectionWithSigForward{&rainslib.AssertionSection{SubjectName: ":ip:"}}}, false},
+		{&rainslib.QuerySection{Context: ":ip:"}, false},
+		{&rainslib.QuerySection{Name: ":ip:"}, false},
+		{&rainslib.NotificationSection{Data: ":ip:"}, false},
+		{&rainslib.AddressQuerySection{Context: ":ip:"}, false},
+		{&rainslib.AddressAssertionSection{Context: ":ip:"}, false},
+		{&rainslib.AddressAssertionSection{Content: []rainslib.Object{rainslib.Object{Type: rainslib.OTRegistrant, Value: ":ip55:"}}}, false},
+		{&rainslib.AddressZoneSection{Context: ":ip:"}, false},
+		{&rainslib.AddressZoneSection{Content: []*rainslib.AddressAssertionSection{&rainslib.AddressAssertionSection{Context: ":ip:"}}}, false},
+	}
+	for _, test := range tests {
+		if checkStringFields(test.input) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, checkStringFields(test.input), test.input)
+		}
+	}
+}
+
+func TestCheckObjectFields(t *testing.T) {
+	var tests = []struct {
+		input []rainslib.Object
+		want  bool
+	}{
+		{nil, true},
+		{[]rainslib.Object{}, true},
+		{rainslib.GetAllValidObjects(), true},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTName, Value: rainslib.NameObject{Name: ":ip55:"}}}, false},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTRedirection, Value: ":ip55:"}}, false},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTNameset, Value: rainslib.NamesetExpression(":ip55:")}}, false},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTServiceInfo, Value: rainslib.ServiceInfo{Name: ":ip55:"}}}, false},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTRegistrar, Value: ":ip55:"}}, false},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTRegistrant, Value: ":ip55:"}}, false},
+		{[]rainslib.Object{rainslib.Object{Type: rainslib.ObjectType(-1), Value: nil}}, false},
+	}
+	for _, test := range tests {
+		if checkObjectFields(test.input) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, checkObjectFields(test.input), test.input)
+		}
+	}
+}
+
+func TestCheckCapabilites(t *testing.T) {
+	var tests = []struct {
+		input []rainslib.Capability
+		want  bool
+	}{
+		{nil, true},
+		{[]rainslib.Capability{}, true},
+		{[]rainslib.Capability{rainslib.Capability("")}, true},
+		{[]rainslib.Capability{rainslib.Capability("Good")}, true},
+		{[]rainslib.Capability{rainslib.Capability(":ip: bad")}, false},
+		{[]rainslib.Capability{rainslib.Capability(":ip:")}, false},
+		{[]rainslib.Capability{rainslib.Capability("bad :ip: test")}, false},
+		{[]rainslib.Capability{rainslib.Capability("bad\t:ip:\ttest")}, false},
+		{[]rainslib.Capability{rainslib.Capability("bad\n:ip:\ntest")}, false},
+		{[]rainslib.Capability{rainslib.Capability("bad\n:ip:\ttest")}, false},
+		{[]rainslib.Capability{rainslib.Capability("bad test :ip:")}, false},
+		{[]rainslib.Capability{rainslib.Capability("bad test\n\n :ip:")}, false},
+		{[]rainslib.Capability{rainslib.Capability("as:Good:dh")}, true},
+		{[]rainslib.Capability{rainslib.Capability("as:Good: dh")}, true},
+		{[]rainslib.Capability{rainslib.Capability("as :Good:dh")}, true},
+		{[]rainslib.Capability{rainslib.Capability(" :: ")}, true},
+		{[]rainslib.Capability{rainslib.Capability("::")}, true},
+		{[]rainslib.Capability{rainslib.Capability("::"), rainslib.Capability(":ip4:Good")}, true},
+		{[]rainslib.Capability{rainslib.Capability("::"), rainslib.Capability(":ip4: Good")}, false},
+	}
+	for _, test := range tests {
+		if checkCapabilites(test.input) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, checkCapabilites(test.input), test.input)
+		}
+	}
+}
+
+func TestContainsZoneFileType(t *testing.T) {
+	var tests = []struct {
+		input string
+		want  bool
+	}{
+		{"", false},
+		{"Good", false},
+		{":ip:", true},
+		{":ip: bad", true},
+		{"bad test\n\n :ip:", true},
+		{"bad :ip: test", true},
+		{"bad\t:ip:\ttest", true},
+		{"bad\n:ip:\ntest", true},
+		{"bad\n:ip:\ttest", true},
+		{"bad test :ip:", true},
+		{"as:Good:dh", false},
+		{"as:Good: dh", false},
+		{"as :Good:dh", false},
+		{":ip:d", false},
+		{" :: ", false},
+		{"::", false},
+	}
+	for _, test := range tests {
+		if containsZoneFileType(test.input) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, containsZoneFileType(test.input), test.input)
+		}
 	}
 }

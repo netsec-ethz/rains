@@ -3,25 +3,27 @@ package zoneFileParser
 import (
 	"encoding/hex"
 	"fmt"
-	"rains/rainslib"
 	"strings"
 
-	"golang.org/x/crypto/ed25519"
+	"github.com/netsec-ethz/rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 )
 
-//encodeZone transforms a shard into a signable format. It is also represented this way in a zone file
+//encodeZone return z as a string. If toSign is true, the return value is in signable format
+//i.e. that the context and subject zone are present also for all contained sections
+//Otherwise the output is a string representation of the zone file generated from z.
 func encodeZone(z *rainslib.ZoneSection, toSign bool) string {
 	zone := fmt.Sprintf(":Z: %s %s [\n", z.SubjectZone, z.Context)
 	for _, section := range z.Content {
 		switch section := section.(type) {
 		case *rainslib.AssertionSection:
 			context, subjectZone := getContextAndZone(z.Context, z.SubjectZone, section, toSign)
-			zone += fmt.Sprintf("    %s\n", encodeAssertion(section, context, subjectZone, indent4))
+			zone += fmt.Sprintf("%s%s\n", indent4, encodeAssertion(section, context, subjectZone, indent4))
 		case *rainslib.ShardSection:
 			context, subjectZone := getContextAndZone(z.Context, z.SubjectZone, section, toSign)
-			zone += fmt.Sprintf("    %s\n", encodeShard(section, context, subjectZone, toSign))
+			zone += fmt.Sprintf("%s%s\n", indent4, encodeShard(section, context, subjectZone, toSign))
 		default:
 			log.Warn("Unsupported message section type", "msgSection", section)
 		}
@@ -29,8 +31,10 @@ func encodeZone(z *rainslib.ZoneSection, toSign bool) string {
 	return fmt.Sprintf("%s]", zone)
 }
 
-//encodeShard transforms a shard into a signable format. It is also represented this way in a zone file
-func encodeShard(s *rainslib.ShardSection, context, zone string, toSign bool) string {
+//encodeShard returns s as a string. If toSign is true, the return value is in signable format
+//i.e. that the context and subject zone are present also for all contained assertions
+//Otherwise the output is a string representation of s in zone file format.
+func encodeShard(s *rainslib.ShardSection, context, subjectZone string, toSign bool) string {
 	rangeFrom := s.RangeFrom
 	rangeTo := s.RangeTo
 	if rangeFrom == "" {
@@ -39,23 +43,26 @@ func encodeShard(s *rainslib.ShardSection, context, zone string, toSign bool) st
 	if rangeTo == "" {
 		rangeTo = ">"
 	}
-	shard := fmt.Sprintf(":S: %s %s %s %s [\n", zone, context, rangeFrom, rangeTo)
+	shard := fmt.Sprintf(":S: %s %s %s %s [\n", subjectZone, context, rangeFrom, rangeTo)
 	for _, assertion := range s.Content {
-		ctx, subjectZone := getContextAndZone(context, zone, assertion, toSign)
-		shard += fmt.Sprintf("        %s\n", encodeAssertion(assertion, ctx, subjectZone, indent8))
+		ctx, zone := getContextAndZone(context, subjectZone, assertion, toSign)
+		shard += fmt.Sprintf("%s%s\n", indent8, encodeAssertion(assertion, ctx, zone, indent8))
 	}
-	return fmt.Sprintf("%s    ]", shard)
+	return fmt.Sprintf("%s%s]", shard, indent4)
 }
 
-//encodeAssertion transforms an assertion into a signable format. It is also represented this way in a zone file
+//encodeAssertion returns a as a string. If toSign is true, the return value is in signable format
+//i.e. that the context and subject zone are present also for all contained assertions
+//Otherwise the output is a string representation of s in zone file format.
 func encodeAssertion(a *rainslib.AssertionSection, context, zone, indent string) string {
 	assertion := fmt.Sprintf(":A: %s %s %s [ ", a.SubjectName, zone, context)
 	if len(a.Content) > 1 {
 		return fmt.Sprintf("%s\n%s\n%s]", assertion, encodeObjects(a.Content, indent12), indent)
 	}
-	return fmt.Sprintf("%s %s ]", assertion, encodeObjects(a.Content, ""))
+	return fmt.Sprintf("%s%s ]", assertion, encodeObjects(a.Content, ""))
 }
 
+//encodeObjects returns o represented as a string in zone file format where indent determines the indent added before the each object
 func encodeObjects(o []rainslib.Object, indent string) string {
 	objects := ""
 	for _, obj := range o {
@@ -67,6 +74,7 @@ func encodeObjects(o []rainslib.Object, indent string) string {
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.NameObject", "actualType", fmt.Sprintf("%T", obj.Value))
+			return ""
 		case rainslib.OTIP6Addr:
 			objects += fmt.Sprintf("%s      %s\n", typeIP6, obj.Value)
 		case rainslib.OTIP4Addr:
@@ -79,6 +87,7 @@ func encodeObjects(o []rainslib.Object, indent string) string {
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+			return ""
 		case rainslib.OTNameset:
 			objects += fmt.Sprintf("%s  %s\n", typeNameSet, obj.Value)
 		case rainslib.OTCertInfo:
@@ -87,12 +96,14 @@ func encodeObjects(o []rainslib.Object, indent string) string {
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.CertificateObject", "actualType", fmt.Sprintf("%T", obj.Value))
+			return ""
 		case rainslib.OTServiceInfo:
 			if srvInfo, ok := obj.Value.(rainslib.ServiceInfo); ok {
 				objects += fmt.Sprintf("%s      %s %d %d\n", typeServiceInfo, srvInfo.Name, srvInfo.Port, srvInfo.Priority)
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.ServiceInfo", "actualType", fmt.Sprintf("%T", obj.Value))
+			return ""
 		case rainslib.OTRegistrar:
 			objects += fmt.Sprintf("%s     %s\n", typeRegistrar, obj.Value)
 		case rainslib.OTRegistrant:
@@ -103,20 +114,24 @@ func encodeObjects(o []rainslib.Object, indent string) string {
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+			return ""
 		case rainslib.OTExtraKey:
 			if pkey, ok := obj.Value.(rainslib.PublicKey); ok {
 				objects += fmt.Sprintf("%s    %s %s\n", typeExternalKey, encodeKeySpace(pkey.KeySpace), encodePublicKey(pkey))
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+			return ""
 		case rainslib.OTNextKey:
 			if pkey, ok := obj.Value.(rainslib.PublicKey); ok {
 				objects += fmt.Sprintf("%s     %s %d %d\n", typeNextKey, encodePublicKey(pkey), pkey.ValidSince, pkey.ValidUntil)
 				continue
 			}
 			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+			return ""
 		default:
 			log.Warn("Unsupported obj type", "type", fmt.Sprintf("%T", obj.Type))
+			return ""
 		}
 	}
 	if len(o) > 0 {
@@ -125,6 +140,7 @@ func encodeObjects(o []rainslib.Object, indent string) string {
 	return objects
 }
 
+//encodeNameObject returns no represented as a string in zone file format.
 func encodeNameObject(no rainslib.NameObject) string {
 	nameObject := []string{}
 	for _, oType := range no.Types {
@@ -153,25 +169,26 @@ func encodeNameObject(no rainslib.NameObject) string {
 			nameObject = append(nameObject, otInfraKey)
 		case rainslib.OTExtraKey:
 			nameObject = append(nameObject, otExternalKey)
+		case rainslib.OTNextKey:
+			nameObject = append(nameObject, otNextKey)
 		default:
-
+			log.Warn("Unsupported object type in nameObject", "actualType", oType, "nameObject", no)
 		}
 	}
 	return fmt.Sprintf("%s [ %s ]", no.Name, strings.Join(nameObject, " "))
 }
 
+//encodePublicKey returns pkey represented as a string in zone file format.
 func encodePublicKey(pkey rainslib.PublicKey) string {
 	switch pkey.Type {
 	case rainslib.Ed25519:
 		if key, ok := pkey.Key.(ed25519.PublicKey); ok {
 			return fmt.Sprintf("%s %s", keyAlgoed25519, hex.EncodeToString(key))
 		}
-		log.Warn("Type assertion failed. ExpsOTServiceInfoected rainslib.Ed25519PublicKey", "actualType", fmt.Sprintf("%T", pkey.Key))
+		log.Warn("Type assertion failed. Expected rainslib.Ed25519PublicKey", "actualType", fmt.Sprintf("%T", pkey.Key))
 	case rainslib.Ed448:
-		if key, ok := pkey.Key.(rainslib.Ed448PublicKey); ok {
-			return fmt.Sprintf("%s %s", keyAlgoed448, hex.EncodeToString(key[:]))
-		}
-		log.Warn("Type assertion failed. Expected rainslib.Ed448PublicKey", "type", fmt.Sprintf("%T", pkey.Key))
+		log.Warn("Not yet implemented")
+		return ""
 	case rainslib.Ecdsa256:
 		log.Warn("Not yet implemented")
 		return ""
@@ -185,6 +202,7 @@ func encodePublicKey(pkey rainslib.PublicKey) string {
 	return ""
 }
 
+//encodeKeySpace returns keySpace represented as a string in zone file format.
 func encodeKeySpace(keySpace rainslib.KeySpaceID) string {
 	switch keySpace {
 	case rainslib.RainsKeySpace:
@@ -195,6 +213,7 @@ func encodeKeySpace(keySpace rainslib.KeySpaceID) string {
 	return ""
 }
 
+//encodeCertificate returns cert represented as a string in zone file format.
 func encodeCertificate(cert rainslib.CertificateObject) string {
 	var pt, cu, ca string
 	switch cert.Type {
@@ -231,12 +250,11 @@ func encodeCertificate(cert rainslib.CertificateObject) string {
 	return fmt.Sprintf("%s %s %s %s", pt, cu, ca, hex.EncodeToString(cert.Data))
 }
 
+//getContextAndZone return the context and subjectZone to be used in contained assertions or shards.
+//if toSign is true it returns the context and subjectZone from the outer section.
 func getContextAndZone(outerContext, outerZone string, containedSection rainslib.MessageSectionWithSigForward, toSign bool) (string, string) {
-	context := containedSection.GetContext()
-	subjectZone := containedSection.GetSubjectZone()
-	if toSign && (context == "" || subjectZone == "") {
-		context = outerContext
-		subjectZone = outerZone
+	if toSign {
+		return outerContext, outerZone
 	}
-	return context, subjectZone
+	return containedSection.GetContext(), containedSection.GetSubjectZone()
 }

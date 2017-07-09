@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"rains/proto"
-	"rains/rainslib"
+	"time"
+
+	"github.com/netsec-ethz/rains/proto"
+	"github.com/netsec-ethz/rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
 	capnp "zombiezen.com/go/capnproto2"
@@ -19,8 +21,8 @@ type ProtoParserAndFramer struct {
 }
 
 func init() {
-	h := log.CallerFileHandler(log.StdoutHandler)
-	log.Root().SetHandler(h)
+	/*h := log.CallerFileHandler(log.StdoutHandler)
+	log.Root().SetHandler(h)*/
 }
 
 //InitStreams defines 2 streams. Deframe() and Data() are extracting the information from streamReader and Frame() is sending the data to streamWriter.
@@ -36,26 +38,31 @@ func (p *ProtoParserAndFramer) Frame(msg []byte) error {
 	if err != nil {
 		return err
 	}
+
 	err = p.encoder.Encode(message)
 	return err
 }
 
 //DeFrame extracts the next frame from the streamReader defined in InitStream().
 //It blocks until it encounters the delimiter.
-//It returns false when the stream is already closed.
+//It returns false when the stream was not initialized, an error occurred while reading or is already closed.
 //The data is available through Data
 func (p *ProtoParserAndFramer) DeFrame() bool {
-	msg, err := p.decoder.Decode()
-	if err != nil {
-		if err == io.EOF {
-			log.Debug("Connection has been closed.")
+	for {
+		var err error
+		p.data, err = p.decoder.Decode()
+		if err != nil {
+			if err == io.EOF {
+				//FIXME determine when a connection is closed and then break out of this loop
+				//polling without backoff is probably too aggressive. CPU load is very high if we do not sleep here
+				time.Sleep(50 * time.Millisecond)
+				continue
+			}
+			log.Warn("Was not able to decode msg", "error", err)
 			return false
 		}
-		log.Warn("Was not able to decode msg", "error", err)
 		return true
 	}
-	p.data = msg
-	return true
 }
 
 //Data contains the frame read from the stream by Deframe
