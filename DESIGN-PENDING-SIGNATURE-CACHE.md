@@ -18,13 +18,15 @@
   aware that the maximum size of the active Token cache sets the upper bound on how many queries for
   public keys can simultaneously be issued by this server. If the active Token cache is full and the
   section needs a not yet queried public key it gets dropped even when there is space in the pending
-  signature cache. 
+  signature cache.
+- Sections issued by rainsPub (over which the server has authority) are not removed from the cache.
+  The query is reissued after expiration until an answer is received or the section is expired.
   
 ## Pending signature cache requirements
 - cache has a fixed size which is configurable (to avoid memory exhaustion of the server in case of
   an attack).
 - In case the cache is full all queries waiting for the least recently queried public key are
-  removed from the cache.
+  removed from the cache except for sections published by the own zone (via rainsPub).
 - it must provide an insertion function which stores a section together with the expiration time and
   token of the sent query to the cache. It must return if there is already a section in the cache
   waiting for the same public key and if the sent query is not yet expired. (Then the calling function can
@@ -49,4 +51,6 @@
   corresponding list node.
 - a list node contains a set (safe for concurrent accesses) of sections waiting for the public key,
   an expiration time, and a token. (the token is needed to remove the entry from the second hashmap
-  in case of removal) 
+  in case of removal)
+- sections over which this server has authority are not subject to lru removal. They are stored in a
+  separate list.
