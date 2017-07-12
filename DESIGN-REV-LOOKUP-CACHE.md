@@ -1,30 +1,39 @@
 # Reverse lookup cache
 
-## Cache design decisions
-- There are 2 binary trie per context (IP4 and IP6, one hashmap keyed by context, the value points
-  to these two trie roots) and each existing node of a trie stores a set of addressAssertions and
-  addressZones
-- Alternative: There are 2 binary tries and at each node there is a hashmap keyed by context and the
-  value points to an object containing a set of addressAssertions and addressZones
+## reverse lookup cache requirements
+- cache has a fixed size which is configurable (to avoid memory exhaustion of the server in case of
+  an attack). The size is counted over all binary tries.
+- In case the cache is full the least recently used trie node is removed (over all tries).
+- it must provide an insertion function which stores to a given context an addressAssertion or 
+  addressZone.
+- it must provide a fast reverse (name) lookup given an IP4 or IP6 address in CIDR format.
+- in case of an inconsistent section, it must be possible to delete all entries with the same
+  authoritative zone from the cache. (or less strict to only delete sections of the same
+  authoritative zone and context?)
+- it must provide a cleanup function that removes expired entries.
+- all cache operations must be safe for concurrent access
+
+## reverse lookup cache implementation proposal
+1. There are two binary tries per context (one for IP4 and the other for IP6 reverse (name) lookup).
+   We then also need a map keyed by context, where the value points to two trie roots. Each existing
+   node of a trie stores a set of addressAssertions and addressZones.
+2. There are two binary tries (one for IP4 and the other for IP6 reverse (name) lookup). At each
+   existing trie node we need a map keyed by context. The map value points to an object containing a
+   set of addressAssertions and addressZones issued for the given context.
+
+## reverse lookup cache implementation decisions
 - We decided to use the first proposal. Why? So that we can answer queries for different context in
   parallel? Is there a relatively easy way to not always lock the whole trie? (I think there is if
   removal of parts of the trie structure is forbidden, otherwise it should also be not that hard
   because the trie entries are not rearranged so if you lock a node and all nodes in the subtree are
   not locked by an other process one can safely delete or modify anything in the subtree by only
-  holding the lock on the root.)
-- For each context we have a different binary trie to quickly find the longest prefix match. 
-- How can we set an upper bound on the maximum number of entries. There should be a maximum number
-  of entries over all binary tries as otherwise an attacker could just make up a lot of different
-  contexts. To achieve an overall maximum number with lru strategy in case it gets full, one could
-  add to each existing trie entry a pointer to a lru list node. A lru list node contains a set of
-  addressAssertions and addressZones. This approach enables to delete the least recently used entry
-  over all tries. 
-- The tries are built dynamically to safe space (it is not possible to store a full ipv6
-  trie. In a real setting it is sparse)
-- 
-
-
-## reverse lookup cache requirements
-
+  holding the lock on the root.) 
 
 ## reverse lookup cache implementation
+- To achieve an overall maximum number with lru strategy, a pointer to a lru list node is stored at
+  each existing trie entry. The lru list node contains a set of addressAssertions and addressZones.
+  This approach enables to delete the least recently used entry over all tries. Depending on which
+  design proposal we choose, this might become more involved. 
+- Binary tries are used to quickly find the longest prefix match.
+- The tries are built dynamically (a full ipv6 trie is too large to be stored. It has more than
+  2^128 entries. In a real setting it is sparse though).
