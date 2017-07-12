@@ -125,7 +125,8 @@ type MessageSection interface {
 //MessageSectionWithSig can be either an Assertion, Shard, Zone, AddressAssertion, AddressZone
 type MessageSectionWithSig interface {
 	MessageSection
-	Sigs() []Signature
+	AllSigs() []Signature
+	Sigs(keyspace KeySpaceID) []Signature
 	AddSig(sig Signature)
 	DeleteSig(index int)
 	GetContext() string

@@ -5,9 +5,10 @@ package rainsSiglib
 
 import (
 	"fmt"
-	"github.com/netsec-ethz/rains/rainslib"
 	"regexp"
 	"time"
+
+	"github.com/netsec-ethz/rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -33,7 +34,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 		log.Warn("pkeys map is nil")
 		return false
 	}
-	if len(s.Sigs()) == 0 {
+	if len(s.Sigs(rainslib.RainsKeySpace)) == 0 {
 		log.Debug("Section contain no signatures")
 		return true
 	}
@@ -42,7 +43,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 	}
 	s.Sort()
 	encodedSection := encoder.EncodeSection(s)
-	for i, sig := range s.Sigs() {
+	for i, sig := range s.Sigs(rainslib.RainsKeySpace) {
 		if pkey, ok := pkeys[sig.Algorithm]; ok {
 			if int64(sig.ValidUntil) < time.Now().Unix() {
 				log.Debug("signature is expired", "signature", sig)

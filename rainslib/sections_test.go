@@ -142,7 +142,7 @@ func TestAddressAssertionHash(t *testing.T) {
 		{new(AddressAssertionSection), "AA_<nil>__[]_[]"},
 		{&AddressAssertionSection{SubjectAddr: subjectAddress1, Context: "ctx", Content: objects2,
 			Signatures: []Signature{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
-			"AA_127.0.0.1/32_ctx_[OT:1 OV:{example.com [3 2]}]_[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]"},
+			"AA_192.0.2.0/32_ctx_[OT:1 OV:{example.com [3 2]}]_[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]"},
 		{&AddressAssertionSection{SubjectAddr: subjectAddress2, Context: "ctx", Content: objects1,
 			Signatures: []Signature{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
 			fmt.Sprintf("AA_2001:db8::/32_ctx_[OT:4 OV:example.com OT:5 OV:%s OT:10 OV:Registrant information]_[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]",
@@ -166,7 +166,7 @@ func TestAddressZoneHash(t *testing.T) {
 		{new(AddressZoneSection), "AZ_<nil>__[]_[]"},
 		{&AddressZoneSection{SubjectAddr: subjectAddress1, Context: "ctx", Content: []*AddressAssertionSection{new(AddressAssertionSection), new(AddressAssertionSection)},
 			Signatures: []Signature{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
-			"AZ_127.0.0.1/32_ctx_[AA_<nil>__[]_[] AA_<nil>__[]_[]]_[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]"},
+			"AZ_192.0.2.0/32_ctx_[AA_<nil>__[]_[] AA_<nil>__[]_[]]_[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]"},
 		{&AddressZoneSection{SubjectAddr: subjectAddress2, Context: "ctx", Content: []*AddressAssertionSection{new(AddressAssertionSection), new(AddressAssertionSection)},
 			Signatures: []Signature{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
 			"AZ_2001:db8::/32_ctx_[AA_<nil>__[]_[] AA_<nil>__[]_[]]_[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]"},
@@ -274,7 +274,7 @@ func TestAddressAssertionString(t *testing.T) {
 		{new(AddressAssertionSection), "AddressAssertion:[SA=<nil> CTX= CONTENT=[] SIG=[]]"},
 		{&AddressAssertionSection{SubjectAddr: subjectAddress1, Context: "ctx", Content: objects2,
 			Signatures: []Signature{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
-			"AddressAssertion:[SA=127.0.0.1/32 CTX=ctx CONTENT=[OT:1 OV:{example.com [3 2]}] SIG=[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]]"},
+			"AddressAssertion:[SA=192.0.2.0/32 CTX=ctx CONTENT=[OT:1 OV:{example.com [3 2]}] SIG=[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]]"},
 		{&AddressAssertionSection{SubjectAddr: subjectAddress2, Context: "ctx", Content: objects1,
 			Signatures: []Signature{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
 			fmt.Sprintf("AddressAssertion:[SA=2001:db8::/32 CTX=ctx CONTENT=[OT:4 OV:example.com OT:5 OV:%s OT:10 OV:Registrant information] SIG=[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]]",
@@ -296,9 +296,22 @@ func TestAddressZoneString(t *testing.T) {
 	}{
 		{nil, "AddressZone:nil"},
 		{new(AddressZoneSection), "AddressZone:[SA=<nil> CTX= CONTENT=[] SIG=[]]"},
-		{&AddressZoneSection{SubjectAddr: subjectAddress1, Context: "ctx", Content: []*AddressAssertionSection{new(AddressAssertionSection), new(AddressAssertionSection)},
-			Signatures: []Signature{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
-			"AddressZone:[SA=127.0.0.1/32 CTX=ctx CONTENT=[AddressAssertion:[SA=<nil> CTX= CONTENT=[] SIG=[]] AddressAssertion:[SA=<nil> CTX= CONTENT=[] SIG=[]]] SIG=[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]]"},
+		{&AddressZoneSection{
+			SubjectAddr: subjectAddress1,
+			Context:     "ctx",
+			Content: []*AddressAssertionSection{
+				new(AddressAssertionSection),
+				new(AddressAssertionSection),
+			},
+			Signatures: []Signature{Signature{
+				KeySpace:   RainsKeySpace,
+				Algorithm:  Ed25519,
+				ValidSince: 1000,
+				ValidUntil: 2000,
+				Data:       []byte("SigData"),
+			}},
+		},
+			"AddressZone:[SA=192.0.2.0/32 CTX=ctx CONTENT=[AddressAssertion:[SA=<nil> CTX= CONTENT=[] SIG=[]] AddressAssertion:[SA=<nil> CTX= CONTENT=[] SIG=[]]] SIG=[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]]"},
 		{&AddressZoneSection{SubjectAddr: subjectAddress2, Context: "ctx", Content: []*AddressAssertionSection{new(AddressAssertionSection), new(AddressAssertionSection)},
 			Signatures: []Signature{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
 			"AddressZone:[SA=2001:db8::/32 CTX=ctx CONTENT=[AddressAssertion:[SA=<nil> CTX= CONTENT=[] SIG=[]] AddressAssertion:[SA=<nil> CTX= CONTENT=[] SIG=[]]] SIG=[{KS=0 AT=1 VS=1000 VU=2000 data=53696744617461}]]"},
@@ -338,7 +351,7 @@ func TestAddressQueryString(t *testing.T) {
 		{new(AddressQuerySection), "AddressQuery:[SA=<nil> CTX= TYPE=0 EXP=0 OPT=[]]"},
 		{&AddressQuerySection{SubjectAddr: subjectAddress1, Context: "ctx", Type: OTName, Expires: 100,
 			Options: []QueryOption{QOMinE2ELatency, QOMinInfoLeakage}},
-			"AddressQuery:[SA=127.0.0.1/32 CTX=ctx TYPE=1 EXP=100 OPT=[1 3]]"},
+			"AddressQuery:[SA=192.0.2.0/32 CTX=ctx TYPE=1 EXP=100 OPT=[1 3]]"},
 		{&AddressQuerySection{SubjectAddr: subjectAddress2, Context: "ctx", Type: OTName, Expires: 100,
 			Options: []QueryOption{QOMinE2ELatency, QOMinInfoLeakage}},
 			"AddressQuery:[SA=2001:db8::/32 CTX=ctx TYPE=1 EXP=100 OPT=[1 3]]"},
@@ -728,6 +741,44 @@ func TestAddressQuerySort(t *testing.T) {
 		q.Sort()
 		if !reflect.DeepEqual(q.Options, test.sorted) {
 			t.Errorf("%d: Query.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, q.Options)
+		}
+	}
+}
+
+func TestSigs(t *testing.T) {
+	var tests = []struct {
+		input  []Signature
+		param  KeySpaceID
+		output []Signature
+	}{
+		{[]Signature{Signature{KeySpace: KeySpaceID(-1)}, Signature{}}, RainsKeySpace, []Signature{Signature{}}},
+	}
+	for i, test := range tests {
+		var s MessageSectionWithSig
+		s = &AssertionSection{Signatures: test.input}
+		sigs := s.Sigs(test.param)
+		if !reflect.DeepEqual(sigs, test.output) {
+			t.Errorf("%d: assertion.Sigs() does not return the expected signatures expected=%v actual=%v", i, test.output, sigs)
+		}
+		s = &ShardSection{Signatures: test.input}
+		sigs = s.Sigs(test.param)
+		if !reflect.DeepEqual(sigs, test.output) {
+			t.Errorf("%d: shard.Sigs() does not return the expected signatures expected=%v actual=%v", i, test.output, sigs)
+		}
+		s = &ZoneSection{Signatures: test.input}
+		sigs = s.Sigs(test.param)
+		if !reflect.DeepEqual(sigs, test.output) {
+			t.Errorf("%d: zone.Sigs() does not return the expected signatures expected=%v actual=%v", i, test.output, sigs)
+		}
+		s = &AddressAssertionSection{Signatures: test.input}
+		sigs = s.Sigs(test.param)
+		if !reflect.DeepEqual(sigs, test.output) {
+			t.Errorf("%d: addressAssertion.Sigs() does not return the expected signatures expected=%v actual=%v", i, test.output, sigs)
+		}
+		s = &AddressZoneSection{Signatures: test.input}
+		sigs = s.Sigs(test.param)
+		if !reflect.DeepEqual(sigs, test.output) {
+			t.Errorf("%d: addressZone.Sigs() does not return the expected signatures expected=%v actual=%v", i, test.output, sigs)
 		}
 	}
 }

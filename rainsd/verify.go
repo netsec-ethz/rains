@@ -297,7 +297,10 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 	}
 	log.Info("Some public keys are missing", "#missingKeys", len(missingKeys))
 	//Add section to the pendingSignatureCache.
-	cacheValue := pendingSignatureCacheValue{sectionWSSender: sectionSender, validUntil: getQueryValidity(section.Sigs())}
+	cacheValue := pendingSignatureCacheValue{
+		sectionWSSender: sectionSender,
+		validUntil:      getQueryValidity(section.Sigs(rainslib.RainsKeySpace)),
+	}
 	ok = pendingSignatures.Add(section.GetContext(), section.GetSubjectZone(), cacheValue)
 	log.Info("Section added to the pending signature cache", "section", section)
 	//FIXME CFE distinguish between update add and error in cache. We currently only have one boolean return value...
@@ -359,7 +362,7 @@ func neededKeys(section rainslib.MessageSectionWithSig) (map[keyCacheKey]bool, e
 
 //extractNeededKeys adds all key metadata to keys which are necessary to verify all section's signatures
 func extractNeededKeys(subjectZone, context string, section rainslib.MessageSectionWithSig, keys map[keyCacheKey]bool) {
-	for _, sig := range section.Sigs() {
+	for _, sig := range section.Sigs(rainslib.RainsKeySpace) {
 		if sig.KeySpace != rainslib.RainsKeySpace {
 			log.Debug("external keyspace", "keySpaceID", sig.KeySpace)
 			continue
@@ -540,7 +543,7 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainsli
 		log.Warn("No signature is valid before the MaxValidity date in the future.")
 		return false
 	}
-	return len(section.Sigs()) > 0
+	return len(section.Sigs(rainslib.RainsKeySpace)) > 0
 }
 
 //reapVerify deletes expired keys from the key caches and expired sections from the pendingSignature cache in intervals according to the config

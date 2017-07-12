@@ -25,23 +25,23 @@ func TestMessageSectionWithSigSignatures(t *testing.T) {
 	}
 	for i, test := range tests {
 		test.input.AddSig(sig1)
-		if len(test.input.Sigs()) != 1 {
-			t.Errorf("%d: Added signature does not match stored count. expected=%v, actual=%v", i, sig1, test.input.Sigs()[0])
+		if len(test.input.AllSigs()) != 1 {
+			t.Errorf("%d: Added signature does not match stored count. expected=%v, actual=%v", i, sig1, test.input.AllSigs()[0])
 		}
-		CheckSignatures(test.input.Sigs(), []Signature{sig1}, t)
+		CheckSignatures(test.input.AllSigs(), []Signature{sig1}, t)
 		test.input.AddSig(sig2)
-		if len(test.input.Sigs()) != 2 {
-			t.Errorf("%d: Added signature does not match stored count. expected=%v, actual=%v", i, sig2, test.input.Sigs()[0])
+		if len(test.input.AllSigs()) != 2 {
+			t.Errorf("%d: Added signature does not match stored count. expected=%v, actual=%v", i, sig2, test.input.AllSigs()[0])
 		}
-		CheckSignatures(test.input.Sigs(), []Signature{sig1, sig2}, t)
+		CheckSignatures(test.input.AllSigs(), []Signature{sig1, sig2}, t)
 		test.input.DeleteSig(1)
-		if len(test.input.Sigs()) != 1 {
-			t.Errorf("%d: Not the specified signature was deleted. expectedToStay=%v, actualStayed=%v", i, sig1, test.input.Sigs()[0])
+		if len(test.input.AllSigs()) != 1 {
+			t.Errorf("%d: Not the specified signature was deleted. expectedToStay=%v, actualStayed=%v", i, sig1, test.input.AllSigs()[0])
 		}
-		CheckSignatures(test.input.Sigs(), []Signature{sig1}, t)
+		CheckSignatures(test.input.AllSigs(), []Signature{sig1}, t)
 		test.input.DeleteSig(0)
-		if len(test.input.Sigs()) != 0 {
-			t.Errorf("%d: Added signature does not match stored one. expected=%v, actual=%v", i, sig1, test.input.Sigs()[0])
+		if len(test.input.AllSigs()) != 0 {
+			t.Errorf("%d: Added signature does not match stored one. expected=%v, actual=%v", i, sig1, test.input.AllSigs()[0])
 		}
 	}
 }

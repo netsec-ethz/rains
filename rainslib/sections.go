@@ -23,9 +23,14 @@ type AssertionSection struct {
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
-//Sigs return the assertion's signatures
-func (a *AssertionSection) Sigs() []Signature {
+//AllSigs returns all assertion's signatures
+func (a *AssertionSection) AllSigs() []Signature {
 	return a.Signatures
+}
+
+//Sigs returns a's signatures in keyspace
+func (a *AssertionSection) Sigs(keySpace KeySpaceID) []Signature {
+	return filterSigs(a.Signatures, keySpace)
 }
 
 //AddSig adds the given signature
@@ -175,9 +180,14 @@ type ShardSection struct {
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
-//Sigs return the shard's signatures
-func (s *ShardSection) Sigs() []Signature {
+//AllSigs returns the shard's signatures
+func (s *ShardSection) AllSigs() []Signature {
 	return s.Signatures
+}
+
+//Sigs returns s's signatures in keyspace
+func (s *ShardSection) Sigs(keySpace KeySpaceID) []Signature {
+	return filterSigs(s.Signatures, keySpace)
 }
 
 //AddSig adds the given signature
@@ -323,9 +333,14 @@ type ZoneSection struct {
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
-//Sigs return the zone's signatures
-func (z *ZoneSection) Sigs() []Signature {
+//AllSigs returns the zone's signatures
+func (z *ZoneSection) AllSigs() []Signature {
 	return z.Signatures
+}
+
+//Sigs returns z's signatures in keyspace
+func (z *ZoneSection) Sigs(keySpace KeySpaceID) []Signature {
+	return filterSigs(z.Signatures, keySpace)
 }
 
 //AddSig adds the given signature
@@ -562,9 +577,14 @@ type AddressAssertionSection struct {
 	validUntil  int64
 }
 
-//Sigs return the assertion's signatures
-func (a *AddressAssertionSection) Sigs() []Signature {
+//AllSigs return the assertion's signatures
+func (a *AddressAssertionSection) AllSigs() []Signature {
 	return a.Signatures
+}
+
+//Sigs returns a's signatures in keyspace
+func (a *AddressAssertionSection) Sigs(keySpace KeySpaceID) []Signature {
+	return filterSigs(a.Signatures, keySpace)
 }
 
 //AddSig adds the given signature
@@ -687,9 +707,14 @@ type AddressZoneSection struct {
 	validUntil  int64
 }
 
-//Sigs return the zone's signatures
-func (z *AddressZoneSection) Sigs() []Signature {
+//AllSigs return the zone's signatures
+func (z *AddressZoneSection) AllSigs() []Signature {
 	return z.Signatures
+}
+
+//Sigs returns z's signatures in keyspace
+func (z *AddressZoneSection) Sigs(keySpace KeySpaceID) []Signature {
+	return filterSigs(z.Signatures, keySpace)
 }
 
 //AddSig adds the given signature
@@ -907,4 +932,15 @@ func (n *NotificationSection) String() string {
 		return "Notification:nil"
 	}
 	return fmt.Sprintf("Notification:[TOK=%s TYPE=%d DATA=%s]", hex.EncodeToString(n.Token[:]), n.Type, n.Data)
+}
+
+//filterSigs returns only those signatures which are in the given keySpace
+func filterSigs(signatures []Signature, keySpace KeySpaceID) []Signature {
+	sigs := []Signature{}
+	for _, sig := range signatures {
+		if sig.KeySpace == keySpace {
+			sigs = append(sigs, sig)
+		}
+	}
+	return sigs
 }

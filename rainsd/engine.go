@@ -390,8 +390,7 @@ func handleAddressZoneQueryResponse(zone *rainslib.AddressZoneSection, subjectAd
 	for _, a := range zone.Content {
 		//TODO CFE handle case where assertion can have multiple types
 		if a.SubjectAddr == subjectAddr && a.Context == context && a.Content[0].Type == queryType {
-			for _, sig := range a.Sigs() {
-				//TODO CFE Check if signature in correct keySpace
+			for _, sig := range a.Sigs(rainslib.RainsKeySpace) {
 				//TODO CFE only check for this condition when queryoption 5 is not set
 				if sig.ValidUntil > time.Now().Unix() {
 					sendQueryAnswer(a, sender, token)
@@ -531,8 +530,7 @@ func containedAssertionQueryResponse(assertions []*rainslib.AssertionSection, su
 		//TODO CFE handle case where assertion can have multiple types
 		if a.SubjectName == subjectName && a.SubjectZone == subjectZone &&
 			a.Context == context && a.Content[0].Type == queryType {
-			for _, sig := range a.Sigs() {
-				//TODO CFE Check if signature in correct keySpace
+			for _, sig := range a.Sigs(rainslib.RainsKeySpace) {
 				//TODO CFE only check for this condition when queryoption 5 is not set
 				if sig.ValidUntil > time.Now().Unix() {
 					sendQueryAnswer(a, sender, token)

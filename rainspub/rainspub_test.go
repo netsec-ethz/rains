@@ -145,7 +145,7 @@ func TestSignZone(t *testing.T) {
 		if err != nil && err.Error() != test.errMsg {
 			t.Errorf("%d: signZone() wrong error message. expected=%s, actual=%s", i, test.errMsg, err.Error())
 		}
-		if err == nil && (test.input.Signatures[0].Data == nil || test.input.Content[0].Sigs()[0].Data == nil ||
+		if err == nil && (test.input.Signatures[0].Data == nil || test.input.Content[0].Sigs(rainslib.RainsKeySpace)[0].Data == nil ||
 			test.input.Content[0].(*rainslib.ShardSection).Content[0].Signatures[0].Data == nil) {
 			t.Errorf("%d: signZone() did not add signature to all sections.", i)
 		}
@@ -171,7 +171,7 @@ func TestSignShard(t *testing.T) {
 		if err != nil && err.Error() != test.errMsg {
 			t.Errorf("%d: signZone() wrong error message. expected=%s, actual=%s", i, test.errMsg, err.Error())
 		}
-		if err == nil && (test.input.Content[0].Sigs()[0].Data == nil ||
+		if err == nil && (test.input.Content[0].Sigs(rainslib.RainsKeySpace)[0].Data == nil ||
 			test.input.Content[0].Signatures[0].Data == nil) {
 			t.Errorf("%d: signZone() did not add signature to all sections.", i)
 		}
@@ -260,7 +260,7 @@ func TestSendMessage(t *testing.T) {
 	}
 	for i, test := range tests {
 		config.ServerAddresses = test.conns
-		err := sendMsg(test.input)
+		err := sendMsg(test.input, 0, 0)
 		if err != nil && err.Error() != test.errMsg {
 			t.Errorf("%d: signZone() wrong error message. expected=%s, actual=%s", i, test.errMsg, err.Error())
 		}

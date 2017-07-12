@@ -308,7 +308,7 @@ func TestSignSection(t *testing.T) {
 		if SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder) != test.want {
 			t.Errorf("expected=%v, actual=%v, value=%v", test.want, SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder), test.input)
 		}
-		if test.want && test.input.Sigs()[0].Data == nil {
+		if test.want && test.input.Sigs(rainslib.RainsKeySpace)[0].Data == nil {
 			t.Error("msg.Signature does not contain generated signature data")
 		}
 	}
