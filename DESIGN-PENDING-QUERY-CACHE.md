@@ -1,4 +1,4 @@
-# Reverse lookup cache
+# Pending query cache
 
 ## Cache design decisions
 - This cache is used in case the server does not have a cached answer in response to a query. It 
@@ -10,8 +10,10 @@
   not yet gotten an answer so far for the same information, then the current query is added to the cache
   together with the token of the already sent query. No new query is sent again to the other server
   except the previous query has already expired.
+- How do we handle a query which accepts as a response any context? If there is already a query in
+  the cache for a specific context, should we send a new query or put it to the existing one 
   
-## reverse lookup cache implementation proposal
+## Pending query cache implementation proposal
 1. We only remove an element from the cache after we have received an answer or the query has
    expired. In this case the server must be able to decide the query expiration time it sends to not
    have elements in the cache for extended periods of time. In case the original query is still
@@ -31,10 +33,10 @@
    the pending query cache in which case this server will send a lot of messages but is never able
    to send a useful response (this can occur in a normal scenario as well as in an attack). 
 
-## reverse lookup cache implementation decisions
+## Pending query cache implementation decisions
 - 
 
-## reverse lookup cache requirements
+## Pending query cache requirements
 - cache has a fixed size which is configurable (to avoid memory exhaustion of the server in case of
   an attack).
 - In case the cache is full [depends on chosen proposal]
@@ -50,5 +52,5 @@
 - it must provide a cleanup function that removes expired entries.
 - all cache operations must be safe for concurrent access
 
-## reverse lookup cache implementation
+## Pending query cache implementation
 - largely depends on which proposal we take
