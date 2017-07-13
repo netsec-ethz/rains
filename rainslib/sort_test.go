@@ -233,7 +233,7 @@ func sortedQueries(nof int) []*QuerySection {
 						queries = append(queries, &QuerySection{
 							Context: strconv.Itoa(i),
 							Name:    strconv.Itoa(j),
-							Type:    ObjectType(k),
+							Types:   []ObjectType{ObjectType(k)},
 							Expires: int64(l),
 							Options: []QueryOption{QueryOption(m)},
 						})
@@ -244,7 +244,7 @@ func sortedQueries(nof int) []*QuerySection {
 							queries = append(queries, &QuerySection{
 								Context: strconv.Itoa(i),
 								Name:    strconv.Itoa(j),
-								Type:    ObjectType(k),
+								Types:   []ObjectType{ObjectType(k)},
 								Expires: int64(l),
 								Options: []QueryOption{QueryOption(m), QueryOption(n)},
 							})
@@ -359,7 +359,7 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 						queries = append(queries, &AddressQuerySection{
 							SubjectAddr: subjectAddress,
 							Context:     strconv.Itoa(j),
-							Type:        ObjectType(k),
+							Types:       []ObjectType{ObjectType(k)},
 							Expires:     int64(l),
 							Options:     []QueryOption{QueryOption(m)},
 						})
@@ -370,7 +370,7 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 							queries = append(queries, &AddressQuerySection{
 								SubjectAddr: subjectAddress,
 								Context:     strconv.Itoa(j),
-								Type:        ObjectType(k),
+								Types:       []ObjectType{ObjectType(k)},
 								Expires:     int64(l),
 								Options:     []QueryOption{QueryOption(m), QueryOption(n)},
 							})
@@ -387,7 +387,7 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 						queries = append(queries, &AddressQuerySection{
 							SubjectAddr: subjectAddress2,
 							Context:     strconv.Itoa(j),
-							Type:        ObjectType(k),
+							Types:       []ObjectType{ObjectType(k)},
 							Expires:     int64(l),
 							Options:     []QueryOption{QueryOption(m)},
 						})

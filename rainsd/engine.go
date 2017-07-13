@@ -188,7 +188,7 @@ func handlePendingQueries(section rainslib.MessageSectionWithSig, token rainslib
 	if ok {
 		for _, v := range values {
 			if v.validUntil > time.Now().Unix() {
-				sendQueryAnswer(section, v.connInfo, v.token)
+				sendOneQueryAnswer(section, v.connInfo, v.token)
 			} else {
 				log.Info("Query expired in pendingQuery queue.", "expirationTime", v.validUntil)
 			}
@@ -336,16 +336,16 @@ func shouldAddressZoneBeCached(zone *rainslib.AddressZoneSection) bool {
 //and adds this query to the pendingQueries Cache.
 func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Start processing address query", "addressQuery", query)
-	assertion, zone, ok := getAddressCache(query.SubjectAddr, query.Context).Get(query.SubjectAddr, []rainslib.ObjectType{query.Type})
+	assertion, zone, ok := getAddressCache(query.SubjectAddr, query.Context).Get(query.SubjectAddr, query.Types)
 	//TODO CFE add heuristic which assertion to return
 	if ok {
 		if assertion != nil {
-			sendQueryAnswer(assertion, sender, token)
+			sendOneQueryAnswer(assertion, sender, token)
 			log.Debug("Finished handling query by sending address assertion from cache", "query", query)
 			return
 		}
 		if zone != nil && handleAddressZoneQueryResponse(zone, query.SubjectAddr, query.Context,
-			query.Type, sender, token) {
+			query.Types, sender, token) {
 			log.Debug("Finished handling query by sending address zone from cache", "query", query)
 			return
 		}
@@ -375,9 +375,9 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 		validUntil = query.Expires
 	}
 	//FIXME CFE allow multiple types
-	pendingQueries.Add(query.Context, "", "", query.Type, pendingQuerySetValue{connInfo: sender, token: tok, validUntil: validUntil})
+	pendingQueries.Add(query.Context, "", "", query.Types, pendingQuerySetValue{connInfo: sender, token: tok, validUntil: validUntil})
 	log.Debug("Added query into to pending query cache", "query", query)
-	msg := rainslib.NewAddressQueryMessage(query.Context, query.SubjectAddr, validUntil, query.Type, nil, tok)
+	msg := rainslib.NewAddressQueryMessage(query.Context, query.SubjectAddr, validUntil, query.Types, nil, tok)
 	SendMessage(msg, delegate)
 }
 
@@ -386,21 +386,21 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 //true. Otherwise it checks if the entry has an unexpired signature. In that case it sends the
 //addressAssertion back to the querier and returns true, otherwise it return false
 func handleAddressZoneQueryResponse(zone *rainslib.AddressZoneSection, subjectAddr *net.IPNet,
-	context string, queryType rainslib.ObjectType, sender rainslib.ConnInfo, token rainslib.Token) bool {
+	context string, queryType []rainslib.ObjectType, sender rainslib.ConnInfo, token rainslib.Token) bool {
 	for _, a := range zone.Content {
 		//TODO CFE handle case where assertion can have multiple types
-		if a.SubjectAddr == subjectAddr && a.Context == context && a.Content[0].Type == queryType {
+		if a.SubjectAddr == subjectAddr && a.Context == context && a.Content[0].Type == queryType[0] {
 			for _, sig := range a.Sigs(rainslib.RainsKeySpace) {
 				//TODO CFE only check for this condition when queryoption 5 is not set
 				if sig.ValidUntil > time.Now().Unix() {
-					sendQueryAnswer(a, sender, token)
+					sendOneQueryAnswer(a, sender, token)
 					return true
 				}
 			}
 			return false
 		}
 	}
-	sendQueryAnswer(zone, sender, token)
+	sendOneQueryAnswer(zone, sender, token)
 	return true
 }
 
@@ -409,14 +409,20 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 	log.Debug("Start processing query", "query", query)
 	zoneAndNames := getZoneAndName(query.Name)
 	for _, zAn := range zoneAndNames {
-		assertions, ok := assertionsCache.Get(query.Context, zAn.zone, zAn.name, query.Type, query.ContainsOption(rainslib.QOExpiredAssertionsOk))
+		assertions := []*rainslib.AssertionSection{}
+		for _, t := range query.Types {
+			asserts, ok := assertionsCache.Get(query.Context, zAn.zone, zAn.name, t, query.ContainsOption(rainslib.QOExpiredAssertionsOk))
+			if ok {
+				assertions = append(assertions, asserts...)
+			}
+		}
 		//TODO CFE add heuristic which assertion to return
-		if ok {
-			sendQueryAnswer(assertions[0], sender, token)
+		if len(assertions) > 0 {
+			sendOneQueryAnswer(assertions[0], sender, token)
 			log.Info("Finished handling query by sending assertion from cache", "query", query)
 			return
 		}
-		log.Debug("No entry found in assertion cache", "name", zAn.name, "zone", zAn.zone, "context", query.Context, "type", query.Type)
+		log.Debug("No entry found in assertion cache", "name", zAn.name, "zone", zAn.zone, "context", query.Context, "type", query.Types)
 	}
 
 	for _, zAn := range zoneAndNames {
@@ -425,7 +431,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		//because it might have been already evicted from the assertion cache. In this case send a
 		//query and put the current query again on the pending query cache
 		if ok {
-			sendQueryAnswer(negAssertion, sender, token)
+			sendOneQueryAnswer(negAssertion, sender, token)
 			log.Info("Finished handling query by sending shard or zone from cache", "query", query)
 			return
 		}
@@ -455,7 +461,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		if query.Expires < validUntil {
 			validUntil = query.Expires
 		}
-		isNew, _ := pendingQueries.Add(query.Context, zAn.zone, zAn.name, query.Type,
+		isNew, _ := pendingQueries.Add(query.Context, zAn.zone, zAn.name, query.Types,
 			pendingQuerySetValue{
 				connInfo:   sender,
 				token:      tok,
@@ -464,7 +470,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		log.Info("Added query into to pending query cache", "query", query)
 		if isNew {
 			msg := rainslib.NewQueryMessage(query.Context, fmt.Sprintf("%s.%s", zAn.name, zAn.zone),
-				validUntil, query.Type, nil, tok)
+				validUntil, query.Types, nil, tok)
 			if err := SendMessage(msg, delegate); err == nil {
 				log.Info("Sent query.", "destination", delegate, "query", msg.Content[0])
 			}
@@ -515,7 +521,7 @@ func handleShardOrZoneQueryResponse(section rainslib.MessageSectionWithSigForwar
 		subjectZone, context, queryType, sender, token); entryFound {
 		return hasSig
 	}
-	sendQueryAnswer(section, sender, token)
+	sendOneQueryAnswer(section, sender, token)
 	return true
 }
 
@@ -533,7 +539,7 @@ func containedAssertionQueryResponse(assertions []*rainslib.AssertionSection, su
 			for _, sig := range a.Sigs(rainslib.RainsKeySpace) {
 				//TODO CFE only check for this condition when queryoption 5 is not set
 				if sig.ValidUntil > time.Now().Unix() {
-					sendQueryAnswer(a, sender, token)
+					sendOneQueryAnswer(a, sender, token)
 					return true, true
 				}
 			}
@@ -543,16 +549,21 @@ func containedAssertionQueryResponse(assertions []*rainslib.AssertionSection, su
 	return false, false
 }
 
-//sendQueryAnswer sends a section with Signature back to the sender with the specified token
-func sendQueryAnswer(section rainslib.MessageSectionWithSig, sender rainslib.ConnInfo, token rainslib.Token) {
+//sendQueryAnswer sends a slice of sections with Signatures back to the sender with the specified token
+func sendQueryAnswer(sections []rainslib.MessageSection, sender rainslib.ConnInfo, token rainslib.Token) {
 	//TODO CFE add signature on message?
-	msg := rainslib.RainsMessage{Content: []rainslib.MessageSection{section}, Token: token}
+	msg := rainslib.RainsMessage{Content: sections, Token: token}
 	byteMsg, err := msgParser.Encode(msg)
 	if err != nil {
 		log.Error("Was not able to parse message", "message", msg, "error", err)
 		return
 	}
 	sendTo(byteMsg, sender, 1, 1)
+}
+
+//sendOneQueryAnswer sends a section with Signature back to the sender with the specified token
+func sendOneQueryAnswer(section rainslib.MessageSectionWithSig, sender rainslib.ConnInfo, token rainslib.Token) {
+	sendQueryAnswer([]rainslib.MessageSection{section}, sender, token)
 }
 
 //reapEngine deletes expired elements in the following caches: assertionCache, negAssertionCache, pendingQueries

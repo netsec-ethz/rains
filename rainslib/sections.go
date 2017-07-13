@@ -501,7 +501,7 @@ func (z *ZoneSection) String() string {
 type QuerySection struct {
 	Context string
 	Name    string
-	Type    ObjectType
+	Types   []ObjectType
 	Expires int64 //time when this query expires represented as the number of seconds elapsed since January 1, 1970 UTC
 	Options []QueryOption
 }
@@ -536,11 +536,19 @@ func (q *QuerySection) CompareTo(query *QuerySection) int {
 		return -1
 	} else if q.Name > query.Name {
 		return 1
-	} else if q.Type < query.Type {
+	} else if len(q.Types) < len(query.Types) {
 		return -1
-	} else if q.Type > query.Type {
+	} else if len(q.Types) > len(query.Types) {
 		return 1
-	} else if q.Expires < query.Expires {
+	}
+	for i, o := range q.Types {
+		if o < query.Types[i] {
+			return -1
+		} else if o > query.Types[i] {
+			return 1
+		}
+	}
+	if q.Expires < query.Expires {
 		return -1
 	} else if q.Expires > query.Expires {
 		return 1
@@ -564,7 +572,7 @@ func (q *QuerySection) String() string {
 	if q == nil {
 		return "Query:nil"
 	}
-	return fmt.Sprintf("Query:[CTX=%s NA=%s TYPE=%d EXP=%d OPT=%v]", q.Context, q.Name, q.Type, q.Expires, q.Options)
+	return fmt.Sprintf("Query:[CTX=%s NA=%s TYPE=%v EXP=%d OPT=%v]", q.Context, q.Name, q.Types, q.Expires, q.Options)
 }
 
 //AddressAssertionSection contains information about the address assertion
@@ -834,7 +842,7 @@ func (z *AddressZoneSection) String() string {
 type AddressQuerySection struct {
 	SubjectAddr *net.IPNet
 	Context     string
-	Type        ObjectType
+	Types       []ObjectType
 	Expires     int64
 	Options     []QueryOption
 }
@@ -859,11 +867,19 @@ func (q *AddressQuerySection) CompareTo(query *AddressQuerySection) int {
 		return -1
 	} else if q.Context > query.Context {
 		return 1
-	} else if q.Type < query.Type {
+	} else if len(q.Types) < len(query.Types) {
 		return -1
-	} else if q.Type > query.Type {
+	} else if len(q.Types) > len(query.Types) {
 		return 1
-	} else if q.Expires < query.Expires {
+	}
+	for i, o := range q.Types {
+		if o < query.Types[i] {
+			return -1
+		} else if o > query.Types[i] {
+			return 1
+		}
+	}
+	if q.Expires < query.Expires {
 		return -1
 	} else if q.Expires > query.Expires {
 		return 1
@@ -887,7 +903,7 @@ func (q *AddressQuerySection) String() string {
 	if q == nil {
 		return "AddressQuery:nil"
 	}
-	return fmt.Sprintf("AddressQuery:[SA=%s CTX=%s TYPE=%d EXP=%d OPT=%v]", q.SubjectAddr, q.Context, q.Type, q.Expires, q.Options)
+	return fmt.Sprintf("AddressQuery:[SA=%s CTX=%s TYPE=%v EXP=%d OPT=%v]", q.SubjectAddr, q.Context, q.Types, q.Expires, q.Options)
 }
 
 //NotificationSection contains information about the notification

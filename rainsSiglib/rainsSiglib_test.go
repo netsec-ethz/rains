@@ -88,7 +88,7 @@ func TestEncodeAndDecode(t *testing.T) {
 		Expires: 159159,
 		Name:    "ethz.ch",
 		Options: []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
-		Type:    rainslib.OTIP4Addr,
+		Types:   []rainslib.ObjectType{rainslib.OTIP4Addr},
 	}
 
 	notification := &rainslib.NotificationSection{
@@ -125,7 +125,7 @@ func TestEncodeAndDecode(t *testing.T) {
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Expires:     7564859,
-		Type:        rainslib.OTName,
+		Types:       []rainslib.ObjectType{rainslib.OTName},
 		Options:     []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
 	}
 

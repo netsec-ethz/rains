@@ -91,11 +91,19 @@ func TestGetSignatureMetaData(t *testing.T) {
 		input Signature
 		want  string
 	}{
-		{Signature{}, "0 0 0 0"},
-		{Signature{Algorithm: Ed448}, "0 2 0 0"},
-		{Signature{Algorithm: Ecdsa256}, "0 3 0 0"},
-		{Signature{Algorithm: Ecdsa384}, "0 4 0 0"},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2, Data: []byte("testData")}, "0 1 1 2"},
+		{Signature{}, "0 0 0 0 0"},
+		{Signature{Algorithm: Ed448}, "0 2 0 0 0"},
+		{Signature{Algorithm: Ecdsa256}, "0 3 0 0 0"},
+		{Signature{Algorithm: Ecdsa384}, "0 4 0 0 0"},
+		{
+			Signature{
+				KeySpace:   RainsKeySpace,
+				Algorithm:  Ed25519,
+				ValidSince: 1,
+				ValidUntil: 2,
+				KeyPhase:   1,
+				Data:       []byte("testData")},
+			"0 1 1 2 1"},
 	}
 	for i, test := range tests {
 		if test.input.GetSignatureMetaData() != test.want {
@@ -109,12 +117,30 @@ func TestSignatureString(t *testing.T) {
 		input Signature
 		want  string
 	}{
-		{Signature{}, "{KS=0 AT=0 VS=0 VU=0 data=notYetImplementedInStringMethod}"},
-		{Signature{Algorithm: Ed448}, "{KS=0 AT=2 VS=0 VU=0 data=notYetImplementedInStringMethod}"},
-		{Signature{Algorithm: Ecdsa256}, "{KS=0 AT=3 VS=0 VU=0 data=notYetImplementedInStringMethod}"},
-		{Signature{Algorithm: Ecdsa384}, "{KS=0 AT=4 VS=0 VU=0 data=notYetImplementedInStringMethod}"},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2, Data: []byte("testData")}, "{KS=0 AT=1 VS=1 VU=2 data=7465737444617461}"},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2}, "{KS=0 AT=1 VS=1 VU=2 data=nil}"},
+		{Signature{}, "{KS=0 AT=0 VS=0 VU=0 KP=0 data=notYetImplementedInStringMethod}"},
+		{Signature{Algorithm: Ed448}, "{KS=0 AT=2 VS=0 VU=0 KP=0 data=notYetImplementedInStringMethod}"},
+		{Signature{Algorithm: Ecdsa256}, "{KS=0 AT=3 VS=0 VU=0 KP=0 data=notYetImplementedInStringMethod}"},
+		{Signature{Algorithm: Ecdsa384}, "{KS=0 AT=4 VS=0 VU=0 KP=0 data=notYetImplementedInStringMethod}"},
+		{
+			Signature{
+				KeySpace:   RainsKeySpace,
+				Algorithm:  Ed25519,
+				ValidSince: 1,
+				ValidUntil: 2,
+				KeyPhase:   2,
+				Data:       []byte("testData")},
+			"{KS=0 AT=1 VS=1 VU=2 KP=2 data=7465737444617461}",
+		},
+		{
+			Signature{
+				KeySpace:   RainsKeySpace,
+				Algorithm:  Ed25519,
+				ValidSince: 1,
+				ValidUntil: 2,
+				KeyPhase:   1,
+			},
+			"{KS=0 AT=1 VS=1 VU=2 KP=1 data=nil}",
+		},
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {

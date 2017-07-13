@@ -313,7 +313,7 @@ func getQueriesAndEncodings() ([]*rainslib.QuerySection, []string) {
 		Expires: 159159,
 		Name:    "ethz.ch",
 		Options: []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
-		Type:    rainslib.OTIP4Addr,
+		Types:   []rainslib.ObjectType{rainslib.OTIP4Addr},
 	}
 	queries = append(queries, query)
 
@@ -415,7 +415,7 @@ func getAddressQueriesAndEncodings() ([]*rainslib.AddressQuerySection, []string)
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Expires:     7564859,
-		Type:        rainslib.OTName,
+		Types:       []rainslib.ObjectType{rainslib.OTName},
 		Options:     []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
 	}
 	addressQueries = append(addressQueries, addressQuery)

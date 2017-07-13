@@ -92,24 +92,26 @@ func UpdateSectionValidity(section MessageSectionWithSig, pkeyValidSince, pkeyVa
 }
 
 //NewQueryMessage creates a new message containing a query body with values obtained from the input parameter
-func NewQueryMessage(context, name string, expTime int64, objType ObjectType, queryOptions []QueryOption, token Token) RainsMessage {
+func NewQueryMessage(context, name string, expTime int64, objType []ObjectType,
+	queryOptions []QueryOption, token Token) RainsMessage {
 	query := QuerySection{
 		Context: context,
 		Name:    name,
 		Expires: expTime,
-		Type:    objType,
+		Types:   objType,
 		Options: queryOptions,
 	}
 	return RainsMessage{Token: token, Content: []MessageSection{&query}}
 }
 
 //NewAddressQueryMessage creates a new message containing an addressQuery body with values obtained from the input parameter
-func NewAddressQueryMessage(context string, ipNet *net.IPNet, expTime int64, objType ObjectType, queryOptions []QueryOption, token Token) RainsMessage {
+func NewAddressQueryMessage(context string, ipNet *net.IPNet, expTime int64, objType []ObjectType,
+	queryOptions []QueryOption, token Token) RainsMessage {
 	addressQuery := AddressQuerySection{
 		Context:     context,
 		SubjectAddr: ipNet,
 		Expires:     expTime,
-		Type:        objType,
+		Types:       objType,
 		Options:     queryOptions,
 	}
 	return RainsMessage{Token: token, Content: []MessageSection{&addressQuery}}

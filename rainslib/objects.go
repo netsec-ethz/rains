@@ -181,6 +181,7 @@ type PublicKey struct {
 	KeySpace   KeySpaceID
 	ValidSince int64
 	ValidUntil int64
+	KeyPhase   int
 	Key        interface{}
 }
 
@@ -201,6 +202,10 @@ func (p PublicKey) CompareTo(pkey PublicKey) int {
 	} else if p.ValidUntil < pkey.ValidUntil {
 		return -1
 	} else if p.ValidUntil > pkey.ValidUntil {
+		return 1
+	} else if p.KeyPhase < pkey.KeyPhase {
+		return -1
+	} else if p.KeyPhase > pkey.KeyPhase {
 		return 1
 	}
 	switch k1 := p.Key.(type) {
@@ -224,7 +229,8 @@ func (p PublicKey) String() string {
 	default:
 		log.Warn("Unsupported public key type", "type", fmt.Sprintf("%T", p.Key))
 	}
-	return fmt.Sprintf("{%d %d %d %d %s}", p.Type, p.KeySpace, p.ValidSince, p.ValidUntil, keyString)
+	return fmt.Sprintf("{%d %d %d %d %d %s}",
+		p.Type, p.KeySpace, p.ValidSince, p.ValidUntil, p.KeyPhase, keyString)
 }
 
 //NamesetExpression encodes a modified POSIX Extended Regular Expression format

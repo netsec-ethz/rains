@@ -51,9 +51,17 @@ func TestPublicKeyString(t *testing.T) {
 		input PublicKey
 		want  string
 	}{
-		{PublicKey{}, "{0 0 0 0 }"},
-		{PublicKey{Type: Ed25519, KeySpace: RainsKeySpace, ValidSince: 1, ValidUntil: 2, Key: ed25519.PublicKey([]byte("PublicKeyData"))},
-			"{1 0 1 2 5075626c69634b657944617461}"},
+		{PublicKey{}, "{0 0 0 0 0 }"},
+		{
+			PublicKey{
+				Type:       Ed25519,
+				KeySpace:   RainsKeySpace,
+				ValidSince: 1,
+				ValidUntil: 2,
+				KeyPhase:   1,
+				Key:        ed25519.PublicKey([]byte("PublicKeyData"))},
+			"{1 0 1 2 1 5075626c69634b657944617461}",
+		},
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {

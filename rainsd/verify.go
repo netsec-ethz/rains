@@ -308,7 +308,7 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 		delegate := getDelegationAddress(section.GetContext(), section.GetSubjectZone())
 		token := rainslib.GenerateToken()
 		msg := rainslib.NewQueryMessage(section.GetContext(), section.GetSubjectZone(),
-			cacheValue.validUntil, rainslib.OTDelegation, nil, token)
+			cacheValue.validUntil, []rainslib.ObjectType{rainslib.OTDelegation}, nil, token)
 		SendMessage(msg, delegate)
 		if !activeTokens.AddToken(token, cacheValue.validUntil) {
 			log.Warn("activeTokenCache is full. Delegation query cannot be handled over the priority queue")
