@@ -75,14 +75,15 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 
 	//FIXME CFE get infrastructure key from cache and if not present send a infra query, add a new cache for whole messages to wait for missing public keys
 	if !rainsSiglib.CheckMessageSignatures(&msg, rainslib.PublicKey{}, sigEncoder) {
-		//return TODO CFE uncomment when we can obtain a public key
 	}
 
 	//handle message content
 	for _, m := range msg.Content {
 		switch m := m.(type) {
 		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.AddressAssertionSection, *rainslib.AddressZoneSection:
-			addMsgSectionToQueue(m, msg.Token, sender)
+			if !isZoneBlacklisted(m.(rainslib.MessageSectionWithSig).GetSubjectZone()) {
+				addMsgSectionToQueue(m, msg.Token, sender)
+			}
 		case *rainslib.QuerySection, *rainslib.AddressQuerySection:
 			log.Debug(fmt.Sprintf("add %T to normal queue", m))
 			normalChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
@@ -147,6 +148,12 @@ func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token
 		log.Debug("add section with signature to normal queue", "token", tok)
 		normalChannel <- msgSectionSender{Sender: sender, Section: msgSection, Token: tok}
 	}
+}
+
+//isZoneBlacklisted returns true if zone is blacklisted
+func isZoneBlacklisted(zone string) bool {
+	log.Warn("TODO CFE zone blacklist not yet implemented")
+	return false
 }
 
 //addQueryToQueue checks that the token of the message and of the query section are the same and if so adds it to a queue

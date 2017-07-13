@@ -114,6 +114,9 @@ func Listen() {
 				srvLogger.Error("listener could not accept connection", "error", err)
 				continue
 			}
+			if isIPBlacklisted(conn.RemoteAddr()) {
+				continue
+			}
 			connCache.Add(conn)
 			if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
 				go handleConnection(conn, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
@@ -139,4 +142,10 @@ func handleConnection(conn net.Conn, dstAddr rainslib.ConnInfo) {
 	connCache.Delete(conn)
 	conn.Close()
 	log.Debug("connection removed from cache", "remoteAddr", conn.RemoteAddr())
+}
+
+//isIPBlacklisted returns true if addr is blacklisted
+func isIPBlacklisted(addr net.Addr) bool {
+	log.Warn("TODO CFE ip blacklist not yet implemented")
+	return false
 }
