@@ -552,7 +552,7 @@ func sendQueryAnswer(section rainslib.MessageSectionWithSig, sender rainslib.Con
 		log.Error("Was not able to parse message", "message", msg, "error", err)
 		return
 	}
-	sendTo(byteMsg, sender)
+	sendTo(byteMsg, sender, 1, 1)
 }
 
 //reapEngine deletes expired elements in the following caches: assertionCache, negAssertionCache, pendingQueries

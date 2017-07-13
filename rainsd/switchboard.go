@@ -40,9 +40,8 @@ func initSwitchboard() error {
 }
 
 //sendTo sends message to the specified receiver.
-func sendTo(message []byte, receiver rainslib.ConnInfo) error {
+func sendTo(message []byte, receiver rainslib.ConnInfo, retries, backoffMilliSeconds int) (err error) {
 	var framer rainslib.MsgFramer
-	var err error
 
 	conns, ok := connCache.Get(receiver)
 	if !ok {
@@ -55,22 +54,30 @@ func sendTo(message []byte, receiver rainslib.ConnInfo) error {
 		}
 		connCache.Add(conn)
 		//handle connection
-		if tcpAddr, ok := conns[0].RemoteAddr().(*net.TCPAddr); ok {
-			go handleConnection(conns[0], rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
+		if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+			go handleConnection(conn, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
 		} else {
-			log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conns[0].RemoteAddr())
+			log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 		}
 	}
 	framer = new(protoParser.ProtoParserAndFramer)
-	//FIXME CFE currently we only support one connection per destination addr
-	framer.InitStreams(nil, conns[0])
-	err = framer.Frame(message)
-	if err != nil {
-		log.Error("Was not able to frame or send the message", "Error", err, "connections", conns, "receiver", receiver)
-		return err
+	for _, conn := range conns {
+		framer.InitStreams(nil, conn)
+		err = framer.Frame(message)
+		if err != nil {
+			log.Warn("Was not able to frame or send the message", "Error", err, "connections", conns, "receiver", receiver)
+			connCache.Delete(conn)
+			continue
+		}
+		log.Debug("Send successful", "receiver", receiver)
+		return nil
 	}
-	log.Debug("Send successful", "receiver", receiver)
-	return nil
+	if retries > 0 {
+		time.Sleep(time.Duration(backoffMilliSeconds) * time.Millisecond)
+		return sendTo(message, receiver, retries-1, 2*backoffMilliSeconds)
+	}
+	log.Error("Was not able to send the message. No retries left.", "receiver", receiver)
+	return errors.New("Was not able to send the mesage. No retries left")
 }
 
 //createConnection establishes a connection with receiver
