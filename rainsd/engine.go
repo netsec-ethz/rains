@@ -79,6 +79,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 			}
 		} else {
 			log.Debug("Assertion is inconsistent with cached elements.")
+			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage)
 		}
 	case *rainslib.ShardSection:
 		log.Debug("Start processing Shard", "shard", section)
@@ -90,6 +91,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 			}
 		} else {
 			log.Debug("Shard is inconsistent with cached elements.")
+			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage)
 		}
 	case *rainslib.ZoneSection:
 		log.Debug("Start processing zone", "zone", section)
@@ -101,6 +103,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 			}
 		} else {
 			log.Debug("Zone is inconsistent with cached elements.")
+			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage)
 		}
 	case *rainslib.AddressAssertionSection:
 		log.Debug("Start processing address assertion", "assertion", section)
@@ -112,6 +115,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 			}
 		} else {
 			log.Debug("Address Assertion is inconsistent with cached elements.")
+			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage)
 		}
 	case *rainslib.AddressZoneSection:
 		log.Debug("Start processing address zone", "zone", section)
@@ -123,9 +127,11 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 			}
 		} else {
 			log.Debug("Address zone is inconsistent with cached elements.")
+			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage)
 		}
 	default:
 		log.Warn("Unknown message section", "messageSection", section)
+		sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage)
 	}
 	log.Info(fmt.Sprintf("Finished handling %T", sectionWSSender.Section), "section", sectionWSSender.Section)
 }
@@ -203,7 +209,7 @@ func shouldAssertionBeCached(assertion *rainslib.AssertionSection) bool {
 	return true
 }
 
-//assertShard adds a shard to the negAssertion cache and all contained assertions to the asseriontsCache.
+//assertShard adds a shard to the negAssertion cache and all contained assertions to the assertionsCache.
 //The shard's signatures and all contained assertion signatures MUST have already been verified
 //Returns true if the shard can be further processed.
 func assertShard(shard *rainslib.ShardSection, isAuthoritative bool, token rainslib.Token) bool {
@@ -375,6 +381,7 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 		validUntil = query.Expires
 	}
 	//FIXME CFE allow multiple types
+	//FIXME CFE only send query if not already in cache.
 	pendingQueries.Add(query.Context, "", "", query.Types, pendingQuerySetValue{connInfo: sender, token: tok, validUntil: validUntil})
 	log.Debug("Added query into to pending query cache", "query", query)
 	msg := rainslib.NewAddressQueryMessage(query.Context, query.SubjectAddr, validUntil, query.Types, nil, tok)

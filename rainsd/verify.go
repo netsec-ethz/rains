@@ -82,6 +82,7 @@ func verify(msgSender msgSectionSender) {
 			Token:   msgSender.Token,
 		}
 		if containedSectionsInvalid(sectionSender) {
+			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg)
 			return //already logged, that contained section is invalid
 		}
 		if contextInvalid(sectionSender.Section.GetContext()) {
@@ -89,6 +90,7 @@ func verify(msgSender msgSectionSender) {
 			return //already logged, that context is invalid
 		}
 		if zone, ok := section.(*rainslib.ZoneSection); ok && !containedShardsAreConsistent(zone) {
+			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg)
 			return //already logged, that the zone is internally invalid
 		}
 		if verifySignatures(sectionSender) {
@@ -104,6 +106,7 @@ func verify(msgSender msgSectionSender) {
 			Token:   msgSender.Token,
 		}
 		if containedSectionsInvalid(sectionSender) {
+			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg)
 			return //already logged, that contained section is invalid
 		}
 		if contextInvalid(sectionSender.Section.GetContext()) {

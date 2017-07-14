@@ -19,7 +19,11 @@ import (
 //connCache stores connections of this server. It is not guaranteed that a returned connection is still active.
 var connCache connectionCache
 
+//cert holds the tls certificate of this server
 var cert tls.Certificate
+
+//capabilityHash contains the sha256 hash of this server's capability list
+var capabilityHash string
 
 //InitSwitchboard initializes the switchboard
 func initSwitchboard() error {
@@ -36,6 +40,7 @@ func initSwitchboard() error {
 			"KeyPath", Config.TLSPrivateKeyFile, "error", err)
 		return err
 	}
+	capabilityHash = generateCapabilityHash(Config.Capabilities)
 	return nil
 }
 
@@ -148,4 +153,12 @@ func handleConnection(conn net.Conn, dstAddr rainslib.ConnInfo) {
 func isIPBlacklisted(addr net.Addr) bool {
 	log.Warn("TODO CFE ip blacklist not yet implemented")
 	return false
+}
+
+//generateCapabilityHash sorts capabilities in lexicographically increasing order.
+//It returns the hex encoded sha256 hash of the sorted capabilities
+func generateCapabilityHash(capabilities []rainslib.Capability) string {
+	//FIXME CFE when we have CBOR use it to normalize&serialize the array before hashing it.
+	//Currently we use the hard coded version from the draft.
+	return "e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745"
 }
