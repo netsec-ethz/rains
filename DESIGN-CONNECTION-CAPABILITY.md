@@ -4,8 +4,8 @@
 - Servers keep long lived TLS over TCP connections with each other to reduce connection creation and
   teardown overhead. Thus it is essential to have a fast lookup of a connection and if there is none
   to establish a new one.
-- Servers exchange their capabilities after establishing a connection. The capabilities
-  of a server are stored in the same cache entry as the connection with it. The reasons for that are:
+- Servers exchange their capabilities after establishing a connection. The capabilities of a server
+  are stored in the same cache entry as the connection with it. The reasons for that are:
   - For a server to change its capabilities it must be restarted. As a result all connections are 
     torn down and after the restart every other server again connecting to it directly gets the new 
     capability list.
@@ -19,18 +19,18 @@
 - A pointer to a whole capability list is stored together with each connection such that even when 
   a hash to capability mapping is removed from the cache, it is still clear what the capabilities
   are. We store a pointer to reduce storage overhead.
-- The capability list of the own server and the hash thereof are loaded from the config file.
+- The capability list of the own server is loaded from the config file.
 
 ## capability cache requirements
 - cache has a fixed size which is configurable (to avoid memory exhaustion of the server in case of
-  an attack).
+  an attack). The information is static no benefit to remove an entry except when it is full.
 - the least recently used hash to capability mapping must be removed from the cache when it is full.
 - it must provide an insertion function.
 - it must provide fast lookup of a pointer to a capability list based on the hash of the capability
   list
 - all cache operations must be safe for concurrent access
 
-## zone key cache implementation
+## capability cache implementation
 - lru strategy is implemented as a linked list where pointers to the head and tail of the list are
   accessible.
 - on insertion or lookup of a key it is moved to the head of the list
@@ -47,8 +47,7 @@
 - it must provide an insertion function.
 - it must provide fast lookup to connections and pointers to capability lists based on the
   connection's type and addr. If there are several connections stored, it returns all of them.
-- it must provide a mechanism to detect and delete closed connections.
-- it must also provide a delete method which closes the connection and deletes the entry based on the
+- it must provide a delete method which closes the connection and deletes the entry based on the
   connection's type and address (in case a server actively wants to terminate a connection).
 - all cache operations must be safe for concurrent access
 

@@ -7,8 +7,9 @@
   query option 5 (expired assertions are acceptable) set. 
   
 ## Negative assertion requirements
-- cache has a fixed size which is configurable (to avoid memory exhaustion of the server in case of
-  an attack).
+- cache has a maximum size which is configurable (to avoid memory exhaustion of the server in case
+  of an attack). It is not fix size to reduce the number of comparisons needed for checking that the
+  new assertion is consistent with all already cached entries.
 - In case the cache is full the least recently used shard or zone over which the server has no
   authority is removed from the cache.
 - it must provide an insertion function which stores a shard or zone together with an expiration
@@ -20,7 +21,7 @@
   consistency checks between a new shard and all overlapping cached shards and zones. A set is
   returned such that the calling function can decide which entry it wants to send back according to
   a policy
-- it must provide a cleanup function that removes expired entries.
+- it must provide a reap function that removes expired entries.
 - all cache operations must be safe for concurrent access
 
 ## Negative assertion implementation

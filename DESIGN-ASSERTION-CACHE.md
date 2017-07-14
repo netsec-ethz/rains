@@ -7,10 +7,12 @@
   query option 5 (expired assertions are acceptable) set. 
   
 ## Assertion requirements
-- cache has a fixed size which is configurable (to avoid memory exhaustion of the server in case of
-  an attack).
-- In case the cache is full the least recently used assertion over which the server has no
-  authority is removed from the cache.
+- cache has a maximum size which is configurable (to avoid memory exhaustion of the server in case
+  of an attack). It is not fix size to reduce the number of comparisons needed for checking that the
+  new assertion is consistent with all already cached entries.
+- In case the cache is full the least recently used assertion over which the server has no authority
+  is removed from the cache. In case the authoritative assertions fill up the cache an error msg
+  must be logged such that an operator can change the configuration.
 - it must provide an insertion function which stores an assertion together with an expiration time
   to the cache (expiration time is necessary as we might want to store them for a shorter amount of
   time as they are valid. It is not possible to change the value directly as it is protected by the
@@ -20,7 +22,7 @@
   can decide which entry it wants to send back according to a policy.
 - it must provide fast lookup of a set of assertions based on a zone, context and name interval.
   This is necessary to check if a new shard or zone is consistent with the cached assertions. 
-- it must provide a cleanup function that removes expired assertions.
+- it must provide a reap function that removes expired assertions.
 - all cache operations must be safe for concurrent access
 
 ## Assertion implementation

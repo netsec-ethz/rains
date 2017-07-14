@@ -18,13 +18,15 @@
   aware that the maximum size of the active Token cache sets the upper bound on how many queries for
   public keys can simultaneously be issued by this server. If the active Token cache is full and the
   section needs a not yet queried public key it gets dropped even when there is space in the pending
-  signature cache.
+  signature cache. An alarm is raised when this cache reaches its capacity.
 - Sections issued by rainsPub (over which the server has authority) are not removed from the cache.
   The query is reissued after expiration until an answer is received or the section is expired.
   
 ## Pending signature cache requirements
-- cache has a fixed size which is configurable (to avoid memory exhaustion of the server in case of
-  an attack).
+- cache has a maximum size which is configurable (to avoid memory exhaustion of the server in case of
+  an attack). It is not fix size because it is operationally important that this cache has enough
+  capacity. In case this cache is full an alarm must go off. To prevent false alarms, we remove
+  expired elements.
 - In case the cache is full all queries waiting for the least recently queried public key are
   removed from the cache except for sections published by the own zone (via rainsPub).
 - it must provide an insertion function which stores a section together with the expiration time and

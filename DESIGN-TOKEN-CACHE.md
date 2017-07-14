@@ -5,18 +5,20 @@
   signatures on previously received sections. This reduces the amount of time a section stays in a
   pending cache and hence, the response time is lower. 
 - In case the cache is full new sections with signatures are dropped until it is not full anymore.
+  An alarm is raised in case this cache is full.
 - An external mechanism is necessary to monitor the incoming delegation assertions and if it detects
   a DOS attack it blacklists the source of it. 
 
 ## token cache requirements
-- cache has a fixed size which is configurable (to avoid memory exhaustion of the server in case of
-  an attack).
+- cache has a maximum size which is configurable (to avoid memory exhaustion of the server in case
+  of an attack). Cache is maximum size because it must periodically go through its entries and
+  delete and report back all expired elements to e.g. allow an external service doing blacklisting.
 - entries must be actively removed. 
 - it must provide an insertion function which stores the query expiration and information about the
   entity to which the query was sent.
 - it must provide a fast response to the question if a token is contained in the cache.
-- it must provide a cleanup function that removes expired entries and logs information about the
-  entity which did not respond (What information should we log such that we blame the right entity?)
+- it must provide a reap/alarm function that removes expired entries and logs the destination addr
+  to which the query was sent and from which we did not get a response.
 - all cache operations must be safe for concurrent access
 
 ## token cache implementation
