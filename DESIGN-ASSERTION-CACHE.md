@@ -3,8 +3,6 @@
 ## Cache design decisions
 - Assertions over which the server has authority are only removed when they expire. All other
   assertions are subject to a least recently used policy.
-- Expired assertions are also returned such that it is possible to answer a query which has
-  query option 5 (expired assertions are acceptable) set. 
   
 ## Assertion requirements
 - cache has a maximum size which is configurable (to avoid memory exhaustion of the server in case
@@ -19,10 +17,11 @@
   signature).
 - it must provide fast lookup of a set of assertions based on name, type, and zone (if any context
   is allowed) or a name, type, zone, and context. A set is returned such that the calling function
-  can decide which entry it wants to send back according to a policy.
-- it must provide fast lookup of a set of assertions based on a zone, context and name interval.
-  This is necessary to check if a new shard or zone is consistent with the cached assertions. 
-- it must provide a reap function that removes expired assertions.
+  can decide which entry it wants to send back according to a policy. Depending on a parameter flag
+  it also returns expired assertions as part of the returned set (to allow answering queries with
+  option 5 set).
+- it must provide a reap function that removes expired assertions. This function must also remove
+  the corresponding element in the consistency cache.
 - all cache operations must be safe for concurrent access
 
 ## Assertion implementation
@@ -33,9 +32,6 @@
 - to allow fast lookups of assertions, two hash maps are used. The first hashmap is keyed by zone,
   name, and type. The value is a pointer to the second hashmap which is keyed by the context. The
   value points to a lru list node.
-- a list node contains a set (safe for concurrent accesses) of objects containing an assertion and a
+- a list node contains a set (safe for concurrent accesses) of objects containing an assertion and
   expiration time. Each object in the set must have the same zone, name, type, and context.
-- to allow fast lookups of assertions for consistency checks. There is an additional hashmap keyed
-  by zone and context. The value points to a list of assertions ordered according to their name.
-  (Instead of an order list we could use a segment or interval tree) 
 - sections over which this server has authority are not subject to lru removal.

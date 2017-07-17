@@ -73,30 +73,38 @@ section.
 # Signature cache design and implementation
 
 ## zone key cache requirements for proposal 2
-- cache has a fixed size which is configurable (to avoid memory exhaustion of the server in case of
-  an attack)
+- cache has a maximum size which is configurable (to avoid memory exhaustion of the server in case of
+  an attack). It is not fix size because it is operationally important that this cache has enough
+  capacity. In case this cache is full an alarm must go off. To prevent false alarms, we remove
+  expired elements.
 - public keys issued by the authority of the zone running the server will only be removed from the
-  cache when they are expired.
+  cache when they are expired. In case the authoritative delegation assertions fill up the cache an
+  error msg must be logged such that an operator can change the configuration.
 - all public keys from other zones are either removed because they are the least recently used in
-  case the cache is full or are expired. 
-- it must provide an insertion function.
+  case the cache is full or are expired.
+- it must provide an insertion function which stores a public key together with its zone and a
+  pointer to the delegation assertion from which the public key was extracted. The pointer to the
+  delegation assertion is necessary to answer delegation assertions.
 - it must provide fast lookup of a zone key based on subjectZone and algorithm type and phase id. It
   only returns valid public keys.
-- it must provide a mechanism to delete expired elements or in case the cache is full the least
-  recently used public key.
+- it must provide a reap function to delete expired elements or in case the cache is full all public
+  keys of the least recently used zone are removed. The reason why we remove all public keys of a
+  zone is that a delegation query should be answered by all valid delegation keys of that zone (key
+  phase is not part of the query). 
 - all cache operations must be safe for concurrent access
 
 
 ## zone key cache implementation
 - lru strategy is implemented as a linked list where pointers to the head and tail of the list are
   accessible.
-- on insertion or lookup of a key it is moved to the head of the list
-- in case the cache is full the public key at the tail of the list is removed.
-- to allow fast lookup a hash map is used. It is keyed by the tuple subjectZone, signature algorithm
-  type, and phase identifier. The value is a pointer to the corresponding list node.
-- a list node contains a set (safe for concurrent accesses) of public keys, the subjectZone and
-  phase identifier for which these keys are used for. (the latter two are needed to remove the entry
-  from the hashmap in case of removal) 
+- on insertion or lookup of a zone it is moved to the head of the list
+- in case the cache is full all public keys of the zone at the tail of the list is removed.
+- to allow fast lookup several hash maps are used. The first hash map is keyed by the subjectZone.
+  The value points to a lru list node.
+- a list node contains a hash map keyed by signature algorithm type, and phase identifier. The value
+  is an object containing a set of public keys matching the hash maps' keys, the zone and a pointer
+  to the delegation assertion. (The zone value is necessary to update both hash maps when an entry
+  is removed)
 
 ## extra key cache requirement and implementation
 - similar to the zone key cache with the only difference that instead of the phase identifier, an
