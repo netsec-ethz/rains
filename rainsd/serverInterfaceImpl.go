@@ -2,6 +2,7 @@ package rainsd
 
 import (
 	"container/list"
+	"crypto/sha256"
 	"fmt"
 	"net"
 	"sort"
@@ -15,22 +16,50 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
+type connAndCapabilitList struct {
+	Connections    []net.Conn
+	CapabilityList *[]rainslib.Capability
+}
+
 /*
  *	Connection cache implementation
+ *  FIXME CFE currently this cache only supports one connection per destination
+ *  Otherwise we would have a race condition and delete statement would be more complicated
  */
 type connectionCacheImpl struct {
 	cache *cache.Cache
 }
 
-//Add adds conn to the cache. If the cache is full the least recently used connection is removed.
-//TODO CFE currently this cache only supports one connection per destination
-func (c *connectionCacheImpl) Add(conn net.Conn) bool {
-	return c.cache.Add(conn, false, "", conn.RemoteAddr().Network(), conn.RemoteAddr().String())
+//AddConnection adds conn to the cache. If the cache is full the least recently used connection is removed.
+func (c *connectionCacheImpl) AddConnection(conn net.Conn) bool {
+	entry := connAndCapabilitList{Connections: []net.Conn{conn}}
+	return c.cache.Add(&entry, false, "", conn.RemoteAddr().Network(), conn.RemoteAddr().String())
 }
 
-//Get returns all cached connections to dstAddr
-//TODO CFE currently this cache only supports one connection per destination
-func (c *connectionCacheImpl) Get(dstAddr rainslib.ConnInfo) ([]net.Conn, bool) {
+//AddCapability adds capabilities to the destAddr entry. It returns false if there is no entry
+//in the cache for dstAddr
+func (c *connectionCacheImpl) AddCapabilityList(dstAddr rainslib.ConnInfo, capabilities *[]rainslib.Capability) bool {
+	network := ""
+	switch dstAddr.Type {
+	case rainslib.TCP:
+		network = dstAddr.TCPAddr.Network()
+	default:
+		log.Warn("Unsupported network address type", "type", dstAddr.Type)
+		return false
+	}
+	if entry, ok := c.cache.Get("", network, dstAddr.String()); ok {
+		if entry, ok := entry.(*connAndCapabilitList); ok {
+			entry.CapabilityList = capabilities
+			return true
+		}
+		log.Warn("connectionCache contained element of wrong type. expected=*connAndCapabilitList",
+			"actual", fmt.Sprintf("%T", entry))
+	}
+	return false
+}
+
+//GetConnection returns one cached connection to dstAddr
+func (c *connectionCacheImpl) GetConnection(dstAddr rainslib.ConnInfo) ([]net.Conn, bool) {
 	switch dstAddr.Type {
 	case rainslib.TCP:
 		if v, ok := c.cache.Get("", dstAddr.TCPAddr.Network(), dstAddr.TCPAddr.String()); ok {
@@ -45,9 +74,8 @@ func (c *connectionCacheImpl) Get(dstAddr rainslib.ConnInfo) ([]net.Conn, bool) 
 	return nil, false
 }
 
-//Delete closes the connection and removes it from the cache
-//TODO CFE currently this cache only supports one connection per destination
-func (c *connectionCacheImpl) Delete(conn net.Conn) bool {
+//Delete closes conn and removes it from the cache
+func (c *connectionCacheImpl) CloseAndRemoveConnection(conn net.Conn) bool {
 	conn.Close()
 	return c.cache.Remove("", conn.RemoteAddr().Network(), conn.RemoteAddr().String())
 }
@@ -60,34 +88,34 @@ func (c *connectionCacheImpl) Len() int {
  *	Capability cache implementation
  */
 type capabilityCacheImpl struct {
-	connInfoToCap *cache.Cache
-	hashToCap     *cache.Cache
+	capabilityMap *cache.Cache
 }
 
-func (c *capabilityCacheImpl) Add(connInfo rainslib.ConnInfo, capabilities []rainslib.Capability) bool {
+func (c *capabilityCacheImpl) Add(capabilities []rainslib.Capability) {
 	//FIXME CFE take a SHA-256 hash of the CBOR byte stream derived from normalizing such an array by sorting it in lexicographically increasing order,
 	//then serializing it and add it to the cache
-	return c.connInfoToCap.Add(capabilities, false, "", connInfo.String())
+	sort.Slice(capabilities, func(i, j int) bool { return capabilities[i] < capabilities[j] })
+	cs := []byte{}
+	for _, c := range capabilities {
+		cs = append(cs, []byte(c)...)
+	}
+	hash := sha256.Sum256(cs)
+	c.capabilityMap.Add(&capabilities, false, "", string(hash[:]))
 }
 
-func (c *capabilityCacheImpl) Get(connInfo rainslib.ConnInfo) ([]rainslib.Capability, bool) {
-	if v, ok := c.connInfoToCap.Get("", connInfo.String()); ok {
-		if val, ok := v.([]rainslib.Capability); ok {
+func (c *capabilityCacheImpl) Get(hash []byte) (*[]rainslib.Capability, bool) {
+	if v, ok := c.capabilityMap.Get("", string(hash)); ok {
+		if val, ok := v.(*[]rainslib.Capability); ok {
 			return val, true
 		}
-		log.Warn("Cache entry is not of type []rainslib.Capability", "type", fmt.Sprintf("%T", v))
+		log.Warn("Cache entry is not of type *[]rainslib.Capability",
+			"actualType", fmt.Sprintf("%T", v))
 	}
 	return nil, false
 }
 
-func (c *capabilityCacheImpl) GetFromHash(hash []byte) ([]rainslib.Capability, bool) {
-	if v, ok := c.hashToCap.Get("", string(hash)); ok {
-		if val, ok := v.([]rainslib.Capability); ok {
-			return val, true
-		}
-		log.Warn("Cache entry is not of type []rainslib.Capability", "type", fmt.Sprintf("%T", v))
-	}
-	return nil, false
+func (c *capabilityCacheImpl) Len() int {
+	return c.Len()
 }
 
 /*

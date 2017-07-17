@@ -105,21 +105,21 @@ func processCapability(caps []rainslib.Capability, sender rainslib.ConnInfo, tok
 	if len(caps) > 0 {
 		isHash := !strings.HasPrefix(string(caps[0]), "urn:")
 		if isHash {
-			if caps, ok := capabilities.GetFromHash([]byte(caps[0])); !ok {
-				capabilities.Add(sender, caps)
+			if caps, ok := capabilities.Get([]byte(caps[0])); !ok {
+				//capabilities.Add(sender, caps)
 				handleCapabilities(caps)
 			} else {
 				sendNotificationMsg(token, sender, rainslib.NTCapHashNotKnown)
 			}
 		} else {
-			capabilities.Add(sender, caps)
-			handleCapabilities(caps)
+			//capabilities.Add(sender, caps)
+			handleCapabilities(&caps)
 		}
 	}
 }
 
 //handleCapabilities takes appropriate actions depending on the capability of the communication partner
-func handleCapabilities(caps []rainslib.Capability) {
+func handleCapabilities(caps *[]rainslib.Capability) {
 	log.Warn("Capability handling is not yet implemented")
 	/*for _, capa := range caps {
 		switch capa {

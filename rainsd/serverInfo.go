@@ -106,37 +106,36 @@ const (
 )
 
 //connectionCache stores persistent stream-oriented network connections.
-//It must support adding new connection objects.
-//It must support multiple connections between two communication partners.
-//It must support fast retrieval of all connection objects based on network address type and destination address. The connections are not guaranteed to be active.
-//It must support deletion of a connection object. The connection will be closed before it is removed from the cache.
-//During initialization the capacity of the cache must be specified.
 type connectionCache interface {
-	//Add adds conn to the cache. If there is already a connection in the cache for the localAddr-remoteAddr tuple, then this connection gets closed and replaced.
-	//Add returns true if it was able to add the connection to the cache.
-	//If the cache capacity is reached, a connection from the cache will be chosen by some metric, closed and removed.
-	Add(conn net.Conn) bool
-	//Get returns all cached connection objects to dstAddr.
+	//Add adds conn to the cache. If there is already a connection in the cache for the remoteAddr,
+	//then this connection gets closed and replaced. Add returns true if it was able to add the
+	//connection to the cache. If the cache capacity is reached, a connection from the cache will be
+	//chosen by some metric, closed and removed.
+	AddConnection(conn net.Conn) bool
+	//AddCapability adds capabilities to the destAddr entry. It returns false if there is no entry
+	//in the cache for dstAddr
+	AddCapabilityList(dstAddr rainslib.ConnInfo, capabilities *[]rainslib.Capability) bool
+	//Get returns true and all cached connection objects to dstAddr.
 	//Get returns false if there is no cached connection to dstAddr.
-	Get(dstAddr rainslib.ConnInfo) ([]net.Conn, bool)
-	//Delete closes conn and removes it from the cache.
-	//True is returned if conn was successfully removed from the cache
-	Delete(conn net.Conn) bool
+	GetConnection(dstAddr rainslib.ConnInfo) ([]net.Conn, bool)
+	//CloseAndRemoveConnection closes conn and removes it from the cache.
+	//True is returned if conn was successfully removed from the cache.
+	CloseAndRemoveConnection(conn net.Conn) bool
 	//Len returns the number of connections currently in the cache.
 	Len() int
 }
 
-//capabilityCache contains known capabilities
+//capabilityCache stores a mapping from a hash of a capability list to a pointer of the list.
 type capabilityCache interface {
-	//Add adds the capabilities to the cache and creates or updates a mapping between the capabilities and the hash thereof.
-	//Returns true if the given rainslib.ConnInfo was not yet in the cache and false if it updated the capabilities and the recentness of the entry for rainslib.ConnInfo.
+	//Add normalizes and serializes capabilities and then calculates a sha256 hash over it. It then
+	//stores the mapping from the hash to a pointer of the list.
 	//If the cache is full it removes a capability according to some metric
-	Add(ConnInfo rainslib.ConnInfo, capabilities []rainslib.Capability) bool
-	//Get returns all capabilities associated with the given rainslib.ConnInfo and updates the recentness of the entry.
-	//It returns false if there exists no entry for rainslib.ConnInfo
-	Get(ConnInfo rainslib.ConnInfo) ([]rainslib.Capability, bool)
-	//GetFromHash returns true and the capabilities from which the hash was taken if present, otherwise false
-	GetFromHash(hash []byte) ([]rainslib.Capability, bool)
+	Add(capabilities []rainslib.Capability)
+	//Get returns true and a pointer to the capability list from which the hash was taken if
+	//present, otherwise false and nil.
+	Get(hash []byte) (*[]rainslib.Capability, bool)
+	//Len returns the number of elements currently in the cache.
+	Len() int
 }
 
 type keyCacheKey struct {
