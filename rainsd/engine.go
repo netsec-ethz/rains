@@ -79,7 +79,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 			}
 		} else {
 			log.Debug("Assertion is inconsistent with cached elements.")
-			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage)
+			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
 		}
 	case *rainslib.ShardSection:
 		log.Debug("Start processing Shard", "shard", section)
@@ -91,7 +91,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 			}
 		} else {
 			log.Debug("Shard is inconsistent with cached elements.")
-			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage)
+			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
 		}
 	case *rainslib.ZoneSection:
 		log.Debug("Start processing zone", "zone", section)
@@ -103,7 +103,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 			}
 		} else {
 			log.Debug("Zone is inconsistent with cached elements.")
-			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage)
+			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
 		}
 	case *rainslib.AddressAssertionSection:
 		log.Debug("Start processing address assertion", "assertion", section)
@@ -115,7 +115,7 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 			}
 		} else {
 			log.Debug("Address Assertion is inconsistent with cached elements.")
-			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage)
+			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
 		}
 	case *rainslib.AddressZoneSection:
 		log.Debug("Start processing address zone", "zone", section)
@@ -127,11 +127,11 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 			}
 		} else {
 			log.Debug("Address zone is inconsistent with cached elements.")
-			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage)
+			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
 		}
 	default:
 		log.Warn("Unknown message section", "messageSection", section)
-		sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage)
+		sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
 	}
 	log.Info(fmt.Sprintf("Finished handling %T", sectionWSSender.Section), "section", sectionWSSender.Section)
 }
@@ -360,14 +360,14 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 
 	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
 		log.Debug("Send a notification message back to the sender due to query option: 'Cached Answers only'")
-		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail)
+		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
 		log.Debug("Finished handling query (unsuccessful) ", "query", query)
 		return
 	}
 
 	delegate := getDelegationAddress(query.Context, "")
 	if delegate.Equal(serverConnInfo) {
-		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail)
+		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
 		log.Error("Stop processing query. I am authoritative and have no answer in cache")
 		return
 	}
@@ -448,14 +448,14 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
 		log.Info("Send a notification message back due to query option: 'Cached Answers only'",
 			"destination", sender)
-		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail)
+		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
 		log.Debug("Finished handling query (unsuccessful) ", "query", query)
 		return
 	}
 	for _, zAn := range zoneAndNames {
 		delegate := getDelegationAddress(query.Context, zAn.zone)
 		if delegate.Equal(serverConnInfo) {
-			sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail)
+			sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
 			log.Error("Stop processing query. I am authoritative and have no answer in cache")
 			return
 		}
@@ -558,14 +558,7 @@ func containedAssertionQueryResponse(assertions []*rainslib.AssertionSection, su
 
 //sendQueryAnswer sends a slice of sections with Signatures back to the sender with the specified token
 func sendQueryAnswer(sections []rainslib.MessageSection, sender rainslib.ConnInfo, token rainslib.Token) {
-	//TODO CFE add signature on message?
-	msg := rainslib.RainsMessage{Content: sections, Token: token}
-	byteMsg, err := msgParser.Encode(msg)
-	if err != nil {
-		log.Error("Was not able to parse message", "message", msg, "error", err)
-		return
-	}
-	sendTo(byteMsg, sender, 1, 1)
+	SendMessage(rainslib.RainsMessage{Content: sections, Token: token}, sender)
 }
 
 //sendOneQueryAnswer sends a section with Signature back to the sender with the specified token

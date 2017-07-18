@@ -105,7 +105,7 @@ type Capability string
 
 const (
 	//NoCapability is used when the server does not listen for any connections
-	NoCapability Capability = ""
+	NoCapability Capability = "urn:x-rains:nocapability"
 	//TLSOverTCP is used when the server listens for tls over tcp connections
 	TLSOverTCP Capability = "urn:x-rains:tlssrv"
 )
@@ -330,6 +330,7 @@ type NotificationType int
 
 const (
 	NTHeartbeat          NotificationType = 100
+	NTCapabilityAnswer   NotificationType = 398
 	NTCapHashNotKnown    NotificationType = 399
 	NTBadMessage         NotificationType = 400
 	NTRcvInconsistentMsg NotificationType = 403

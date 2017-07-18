@@ -14,6 +14,8 @@ import (
 	"github.com/netsec-ethz/rains/utils/protoParser"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 
+	"strings"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -29,6 +31,7 @@ func InitServer(configPath string) error {
 	if err := loadCert(Config.TLSCertificateFile); err != nil {
 		return err
 	}
+	initOwnCapabilities(Config.Capabilities)
 	log.Debug("Successfully loaded Certificate")
 	if err := initSwitchboard(); err != nil {
 		return err
@@ -121,17 +124,26 @@ func loadCert(certPath string) error {
 	return nil
 }
 
+//initOwnCapabilities sorts capabilities in lexicographically increasing order.
+//It stores the hex encoded sha256 hash of the sorted capabilities to capabilityHash
+//and a string representation of the capability list to capabilityList
+func initOwnCapabilities(capabilities []rainslib.Capability) {
+	//FIXME CFE when we have CBOR use it to normalize&serialize the array before hashing it.
+	//Currently we use the hard coded version from the draft.
+	capabilityHash = "e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745"
+	cs := make([]string, len(capabilities))
+	for i, c := range capabilities {
+		cs[i] = string(c)
+	}
+	capabilityList = strings.Join(cs, " ")
+}
+
 //SendMessage adds an infrastructure signature to message and encodes it. Then it is sent to addr.
 //In case of an encoder error, it logs message information and the error.
 func SendMessage(message rainslib.RainsMessage, dst rainslib.ConnInfo) error {
 	//FIXME CFE add infrastructure signatured
-	msg, err := msgParser.Encode(message)
-	if err != nil {
-		log.Warn("Cannot encode message", "message", message, "error", err)
-		return err
-	}
-	log.Debug("Send message", "message", message)
-	return sendTo(msg, dst, 1, 1)
+	//TODO CFE maybe remove?
+	return sendTo(message, dst, 1, 1)
 }
 
 //getDelegationAddress returns the address of a server to which this server delegates a query if it has no answer in the cache.

@@ -1,6 +1,8 @@
 package rainsd
 
 import (
+	"strings"
+
 	"github.com/netsec-ethz/rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
@@ -9,12 +11,48 @@ import (
 //notify handles incoming notification messages
 func notify(msgSender msgSectionSender) {
 	notifLog := log.New("notificationMsgSection", msgSender.Section)
-	switch msgSender.Section.(*rainslib.NotificationSection).Type {
+	section := msgSender.Section.(*rainslib.NotificationSection)
+	switch section.Type {
+	case rainslib.NTHeartbeat:
+	//nop
+	case rainslib.NTCapabilityAnswer:
+		if len(section.Data) == 0 {
+			log.Error("Received NTCapabilityAnswer without data")
+			return
+		}
+		if capabilityIsHash(section.Data) {
+			if caps, ok := capabilities.Get([]byte(section.Data)); ok {
+				connCache.AddCapabilityList(msgSender.Sender, caps)
+			} else {
+				sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTCapHashNotKnown, "")
+			}
+		} else {
+			cList := []rainslib.Capability{}
+			for _, c := range strings.Split(section.Data, " ") {
+				cList = append(cList, rainslib.Capability(c))
+			}
+			connCache.AddCapabilityList(msgSender.Sender, &cList)
+		}
 	case rainslib.NTCapHashNotKnown:
-		notifLog.Info("Capability Hash was not understood")
-		//TODO CFE send a full capabilities list on the next message it sends to the peer (own capability are stored in config)
-		//Change value in connection cache to also hold a list of capabilities. Then in SendTo() it gets connInfo and a list of capabilities. If caps not empty send them along
-		//and set the value in the cache to conn, empty list
+		if len(section.Data) == 0 {
+			sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTCapabilityAnswer, capabilityList)
+		} else {
+			if capabilityIsHash(section.Data) {
+				if caps, ok := capabilities.Get([]byte(section.Data)); ok {
+					connCache.AddCapabilityList(msgSender.Sender, caps)
+					sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTCapabilityAnswer, capabilityList)
+				} else {
+					sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTCapHashNotKnown, capabilityList)
+				}
+			} else {
+				cList := []rainslib.Capability{}
+				for _, c := range strings.Split(section.Data, " ") {
+					cList = append(cList, rainslib.Capability(c))
+				}
+				connCache.AddCapabilityList(msgSender.Sender, &cList)
+				sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTCapabilityAnswer, capabilityList)
+			}
+		}
 	case rainslib.NTBadMessage:
 		notifLog.Error("Sent msg was malformed")
 	case rainslib.NTRcvInconsistentMsg:
@@ -37,4 +75,9 @@ func notify(msgSender msgSectionSender) {
 		msg := rainslib.NewNotificationMessage(msgSender.Token, rainslib.NTBadMessage, "No matching notification type")
 		SendMessage(msg, msgSender.Sender)
 	}
+}
+
+//capabilityIsHash returns true if capabilities are represented as a hash.
+func capabilityIsHash(capabilities string) bool {
+	return !strings.HasPrefix(capabilities, "urn:")
 }

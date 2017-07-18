@@ -14,6 +14,12 @@ var authoritative map[contextAndZone]bool
 var roots *x509.CertPool
 var msgParser rainslib.RainsMsgParser
 
+//capabilityHash contains the sha256 hash of this server's capability list
+var capabilityHash string
+
+//capabilityList contains the string representation of this server's capability list.
+var capabilityList string
+
 //Config contains configurations for this server
 var Config rainsdConfig
 

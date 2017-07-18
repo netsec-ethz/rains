@@ -62,13 +62,12 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 	//check message length
 	if uint(len(message)) > Config.MaxMsgByteLength {
 		token, _ := msgParser.Token(message)
-		sendNotificationMsg(token, sender, rainslib.NTMsgTooLarge)
+		sendNotificationMsg(token, sender, rainslib.NTMsgTooLarge, "")
 		return
 	}
-	//FIXME CFE first extract only SubjectZone to determine if zone is on blacklist and if so drop it instantly
 	msg, err := msgParser.Decode(message)
 	if err != nil {
-		sendNotificationMsg(msg.Token, sender, rainslib.NTBadMessage)
+		sendNotificationMsg(msg.Token, sender, rainslib.NTBadMessage, "")
 		return
 	}
 	log.Debug("Parsed Message", "msg", msg)
@@ -105,38 +104,25 @@ func processCapability(caps []rainslib.Capability, sender rainslib.ConnInfo, tok
 	if len(caps) > 0 {
 		isHash := !strings.HasPrefix(string(caps[0]), "urn:")
 		if isHash {
-			if caps, ok := capabilities.Get([]byte(caps[0])); !ok {
-				//capabilities.Add(sender, caps)
-				handleCapabilities(caps)
+			if caps, ok := capabilities.Get([]byte(caps[0])); ok {
+				connCache.AddCapabilityList(sender, caps)
+				sendNotificationMsg(token, sender, rainslib.NTCapabilityAnswer, capabilityHash)
 			} else {
-				sendNotificationMsg(token, sender, rainslib.NTCapHashNotKnown)
+				sendNotificationMsg(token, sender, rainslib.NTCapHashNotKnown, capabilityHash)
 			}
 		} else {
-			//capabilities.Add(sender, caps)
-			handleCapabilities(&caps)
+			connCache.AddCapabilityList(sender, &caps)
+			sendNotificationMsg(token, sender, rainslib.NTCapabilityAnswer, capabilityHash)
 		}
 	}
 }
 
-//handleCapabilities takes appropriate actions depending on the capability of the communication partner
-func handleCapabilities(caps *[]rainslib.Capability) {
-	log.Warn("Capability handling is not yet implemented")
-	/*for _, capa := range caps {
-		switch capa {
-		case rainslib.TLSOverTCP:
-			//TODO CFE impl
-		case rainslib.NoCapability:
-			//Do nothing
-		default:
-			log.Warn("Sent capability value does not match know capability", "rcvCaps", capa)
-		}
-	}*/
-}
-
-//sendNotificationMsg sends a notification message to dst with the given notificationType.
-//If an error occurs during parsing no message is sent and the error is logged.
-func sendNotificationMsg(token rainslib.Token, dst rainslib.ConnInfo, notificationType rainslib.NotificationType) {
-	msg := rainslib.NewNotificationMessage(token, notificationType, "")
+//sendNotificationMsg sends a notification message to dst with the given notificationType and capabilityList
+func sendNotificationMsg(token rainslib.Token, dst rainslib.ConnInfo,
+	notificationType rainslib.NotificationType, capabilityList string) {
+	//FIXME CFE when we have CBOR use it to normalize&serialize the array before hashing it.
+	//Currently we use the hard coded version from the draft.
+	msg := rainslib.NewNotificationMessage(token, notificationType, capabilityList)
 	SendMessage(msg, dst)
 }
 
