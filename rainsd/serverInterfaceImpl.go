@@ -133,8 +133,8 @@ type keyCacheImpl struct {
 func (c *keyCacheImpl) Add(key keyCacheKey, value rainslib.PublicKey, internal bool) bool {
 	//TODO add an getOrAdd method to the cache (locking must then be changed.)
 	list := &pubKeyList{maxElements: 3, keys: list.New()}
-	c.cache.Add(list, internal, "", key.zone, key.keyAlgo.String())
-	v, ok := c.cache.Get("", key.zone, key.keyAlgo.String())
+	c.cache.Add(list, internal, "", key.zone, key.Algorithm.String())
+	v, ok := c.cache.Get("", key.zone, key.Algorithm.String())
 	if !ok {
 		return false
 	}
@@ -148,7 +148,7 @@ func (c *keyCacheImpl) Add(key keyCacheKey, value rainslib.PublicKey, internal b
 
 //Get returns a valid public key matching the given keyCacheKey. It returns false if there exists no valid public key in the cache.
 func (c *keyCacheImpl) Get(key keyCacheKey) (rainslib.PublicKey, bool) {
-	v, ok := c.cache.Get("", key.zone, key.keyAlgo.String())
+	v, ok := c.cache.Get("", key.zone, key.Algorithm.String())
 	if !ok {
 		return rainslib.PublicKey{}, false
 	}

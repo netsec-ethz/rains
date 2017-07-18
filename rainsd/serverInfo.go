@@ -145,13 +145,12 @@ type capabilityCache interface {
 }
 
 type keyCacheKey struct {
-	zone     string
-	keyAlgo  rainslib.SignatureAlgorithmType
-	keyPhase int
+	zone string
+	rainslib.PublicKeyID
 }
 
 func (k keyCacheKey) Hash() string {
-	return fmt.Sprintf("%s_%d_%d", k.zone, k.keyAlgo, k.keyPhase)
+	return fmt.Sprintf("%s_%d_%d", k.zone, k.Algorithm, k.KeyPhase)
 }
 
 //keyCache is the Interface which must be implemented by all caches for keys.

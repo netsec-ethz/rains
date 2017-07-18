@@ -305,17 +305,18 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 	log.Info("Section added to the pending signature cache", "section", section)
 	//FIXME CFE distinguish between update add and error in cache. We currently only have one boolean return value...
 	if ok {
-		delegate := getDelegationAddress(section.GetContext(), section.GetSubjectZone())
 		token := rainslib.GenerateToken()
 		msg := rainslib.NewQueryMessage(section.GetContext(), section.GetSubjectZone(),
 			cacheValue.validUntil, []rainslib.ObjectType{rainslib.OTDelegation}, nil, token)
-		SendMessage(msg, delegate)
+		SendMessage(msg, sectionSender.Sender)
 		if !activeTokens.AddToken(token, cacheValue.validUntil) {
 			log.Warn("activeTokenCache is full. Delegation query cannot be handled over the priority queue")
 		}
 	} else {
 		log.Info("Already issued a delegation query for this context and zone.", "context", section.GetContext(), "zone", section.GetSubjectZone())
 	}
+	//FIXME CFE should we have a counter where we send a redirect query directly to the root after
+	//a configurable amount of false delegation assertions? is such behavior considered as blacklistable?
 	return false
 }
 
@@ -362,7 +363,7 @@ func publicKeysPresent(zone string, keysNeeded map[rainslib.PublicKeyID]bool) (m
 	missingKeys := make(map[rainslib.PublicKeyID]bool)
 
 	for keyID := range keysNeeded {
-		if key, ok := zoneKeyCache.Get(keyCacheKey{keyAlgo: keyID.Algorithm, keyPhase: keyID.KeyPhase, zone: zone}); ok {
+		if key, ok := zoneKeyCache.Get(keyCacheKey{zone: zone, PublicKeyID: keyID}); ok {
 			//returned public key is guaranteed to be valid
 			log.Debug("Corresponding Public key in cache.", "cacheKey", keyID, "publicKey", key)
 			keys[keyID] = key

@@ -55,6 +55,8 @@
   Token associated with the new query. It must return if there is already a query in the
   cache for the same information and the sent query is not yet expired. (Then the calling function
   can decide if it should resend a query). The return value must be computed fast.
+- it must provide a Token update function to handle the case when it receives a redirect such that 
+  it can issue a new query to the redirection and leave the section in the cache.
 - it must provide a fast lookup of the query based on query name or address, context and type.
 - it must provide a fast lookup of all queries waiting for the answer of a query with Token t. (In
   case we get a notification message as a response we are then able to remove these entries from the

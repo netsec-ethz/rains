@@ -33,6 +33,8 @@
   token of the sent query to the cache. It must return if there is already a section in the cache
   waiting for the same public key and if the sent query is not yet expired. (Then the calling function can
   decide if it should resend a query). The return value must be computed fast.
+- it must provide a Token update function to handle the case when it receives a redirect such that 
+  it can issue a new query to the redirection and leave the section in the cache.
 - it must provide a fast lookup of the sections which wait for a public key from a given zone,
   context, algorithm identifier, and key phase. (the last two are only necessary if we can specify
   it in a query)

@@ -103,9 +103,11 @@ func loadRootZonePublicKey(keyPath string) error {
 						)
 						zoneKeyCache.Add(
 							keyCacheKey{
-								zone:     a.SubjectZone,
-								keyAlgo:  publicKey.Algorithm,
-								keyPhase: publicKey.KeyPhase,
+								zone: a.SubjectZone,
+								PublicKeyID: rainslib.PublicKeyID{
+									Algorithm: publicKey.Algorithm,
+									KeyPhase:  publicKey.KeyPhase,
+								},
 							},
 							publicKey, true)
 					}
@@ -156,14 +158,14 @@ func SendMessage(message rainslib.RainsMessage, dst rainslib.ConnInfo) error {
 	return sendTo(message, dst, 1, 1)
 }
 
-//getDelegationAddress returns the address of a server to which this server delegates a query if it has no answer in the cache.
-func getDelegationAddress(context, zone string) rainslib.ConnInfo {
-	//TODO CFE not yet implemented
+//getRootAddr returns an addr to a root server.
+//FIXME CFE load root addr from config, or are they hardcoded?
+func getRootAddr() rainslib.ConnInfo {
 	tcpAddr := *Config.ServerAddress.TCPAddr
 	tcpAddr.Port++
-	delegAddr := rainslib.ConnInfo{Type: Config.ServerAddress.Type, TCPAddr: &tcpAddr}
-	log.Warn("Not yet implemented CFE. return hard coded delegation address", "connInfo", delegAddr)
-	return delegAddr
+	rootAddr := rainslib.ConnInfo{Type: Config.ServerAddress.Type, TCPAddr: &tcpAddr}
+	log.Warn("Not yet implemented CFE. return hard coded delegation address", "connInfo", rootAddr)
+	return rootAddr
 }
 
 //createConnectionCache returns a newly created connection cache

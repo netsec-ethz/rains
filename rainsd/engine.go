@@ -145,7 +145,10 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 		assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative, value)
 		if a.Content[0].Type == rainslib.OTDelegation {
 			if publicKey, ok := a.Content[0].Value.(rainslib.PublicKey); ok {
-				cacheKey := keyCacheKey{zone: a.SubjectName, keyAlgo: publicKey.Algorithm, keyPhase: publicKey.KeyPhase}
+				cacheKey := keyCacheKey{
+					zone:        a.SubjectName,
+					PublicKeyID: rainslib.PublicKeyID{Algorithm: publicKey.Algorithm, KeyPhase: publicKey.KeyPhase},
+				}
 				publicKey.ValidSince = a.ValidSince()
 				publicKey.ValidUntil = a.ValidUntil()
 				log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)
@@ -365,7 +368,7 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 		return
 	}
 
-	delegate := getDelegationAddress(query.Context, "")
+	delegate := getRootAddr()
 	if delegate.Equal(serverConnInfo) {
 		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
 		log.Error("Stop processing query. I am authoritative and have no answer in cache")
@@ -453,7 +456,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		return
 	}
 	for _, zAn := range zoneAndNames {
-		delegate := getDelegationAddress(query.Context, zAn.zone)
+		delegate := getRootAddr()
 		if delegate.Equal(serverConnInfo) {
 			sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
 			log.Error("Stop processing query. I am authoritative and have no answer in cache")
