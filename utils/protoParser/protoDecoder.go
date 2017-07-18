@@ -554,8 +554,10 @@ func decodeSignatures(sigList proto.Signature_List) ([]rainslib.Signature, error
 	for i := 0; i < sigList.Len(); i++ {
 		sig := sigList.At(i)
 		signature := rainslib.Signature{
-			KeySpace:   rainslib.KeySpaceID(sig.KeySpace()),
-			Algorithm:  rainslib.SignatureAlgorithmType(sig.Algorithm()),
+			PublicKeyID: rainslib.PublicKeyID{
+				KeySpace:  rainslib.KeySpaceID(sig.KeySpace()),
+				Algorithm: rainslib.SignatureAlgorithmType(sig.Algorithm()),
+			},
 			ValidSince: sig.ValidSince(),
 			ValidUntil: sig.ValidUntil()}
 		data, err := sig.Data()
@@ -680,12 +682,14 @@ func decodeContent(contentList proto.MessageSection_List) ([]rainslib.MessageSec
 
 func decodePublicKey(pkey proto.PublicKey) (rainslib.PublicKey, error) {
 	publicKey := rainslib.PublicKey{
-		KeySpace:   rainslib.KeySpaceID(pkey.KeySpace()),
-		Type:       rainslib.SignatureAlgorithmType(pkey.Type()),
+		PublicKeyID: rainslib.PublicKeyID{
+			KeySpace:  rainslib.KeySpaceID(pkey.KeySpace()),
+			Algorithm: rainslib.SignatureAlgorithmType(pkey.Type()),
+		},
 		ValidSince: pkey.ValidSince(),
 		ValidUntil: pkey.ValidUntil(),
 	}
-	switch publicKey.Type {
+	switch publicKey.Algorithm {
 	case rainslib.Ed25519:
 		pubKey, err := pkey.Key()
 		publicKey.Key = ed25519.PublicKey(pubKey)
@@ -700,7 +704,7 @@ func decodePublicKey(pkey proto.PublicKey) (rainslib.PublicKey, error) {
 	case rainslib.Ecdsa384:
 		log.Warn("Not yet supported")
 	default:
-		log.Warn("Unsupported public key type", "type", fmt.Sprintf("%T", publicKey.Type))
+		log.Warn("Unsupported public key type", "type", fmt.Sprintf("%T", publicKey.Algorithm))
 		return rainslib.PublicKey{}, errors.New("Unsupported public key type")
 	}
 	return publicKey, nil

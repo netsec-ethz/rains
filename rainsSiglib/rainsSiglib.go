@@ -23,7 +23,7 @@ import (
 //4) encode section
 //5) sign the encoding and compare the resulting signature data with the signature data received with the section. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib.SignatureAlgorithmType]rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder,
+func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib.PublicKeyID]rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder,
 	maxVal rainslib.MaxCacheValidity) bool {
 	log.Debug(fmt.Sprintf("Check %T signature", s), "section", s)
 	if s == nil {
@@ -44,7 +44,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 	s.Sort()
 	encodedSection := encoder.EncodeSection(s)
 	for i, sig := range s.Sigs(rainslib.RainsKeySpace) {
-		if pkey, ok := pkeys[sig.Algorithm]; ok {
+		if pkey, ok := pkeys[sig.PublicKeyID]; ok {
 			if int64(sig.ValidUntil) < time.Now().Unix() {
 				log.Debug("signature is expired", "signature", sig)
 				s.DeleteSig(i)

@@ -152,8 +152,10 @@ func signZone(zone *rainslib.ZoneSection, keyAlgo rainslib.SignatureAlgorithmTyp
 		return errors.New("zone is nil")
 	}
 	signature := rainslib.Signature{
-		Algorithm:  keyAlgo,
-		KeySpace:   rainslib.RainsKeySpace,
+		PublicKeyID: rainslib.PublicKeyID{
+			Algorithm: keyAlgo,
+			KeySpace:  rainslib.RainsKeySpace,
+		},
 		ValidSince: time.Now().Add(config.ZoneValidSince).Unix(),
 		ValidUntil: time.Now().Add(config.ZoneValidUntil).Unix(),
 	}
@@ -183,8 +185,10 @@ func signShard(s *rainslib.ShardSection, keyAlgo rainslib.SignatureAlgorithmType
 		return errors.New("shard is nil")
 	}
 	signature := rainslib.Signature{
-		Algorithm:  keyAlgo,
-		KeySpace:   rainslib.RainsKeySpace,
+		PublicKeyID: rainslib.PublicKeyID{
+			Algorithm: keyAlgo,
+			KeySpace:  rainslib.RainsKeySpace,
+		},
 		ValidSince: time.Now().Add(config.ShardValidSince).Unix(),
 		ValidUntil: time.Now().Add(config.ShardValidUntil).Unix(),
 	}
@@ -208,8 +212,10 @@ func signAssertions(assertions []*rainslib.AssertionSection, keyAlgo rainslib.Si
 		}
 		//TODO CFE handle multiple types per assertion
 		signature := rainslib.Signature{
-			Algorithm: keyAlgo,
-			KeySpace:  rainslib.RainsKeySpace,
+			PublicKeyID: rainslib.PublicKeyID{
+				Algorithm: keyAlgo,
+				KeySpace:  rainslib.RainsKeySpace,
+			},
 		}
 		if a.Content[0].Type == rainslib.OTDelegation {
 			signature.ValidSince = time.Now().Add(config.DelegationValidSince).Unix()

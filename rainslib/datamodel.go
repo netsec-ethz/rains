@@ -191,16 +191,11 @@ type Hashable interface {
 
 //Signature contains meta data of the signature and the signature data itself.
 type Signature struct {
-	//KeySpace is an identifier of a key space
-	KeySpace KeySpaceID
-	//Algorithm determines the signature algorithm to be used for signing and verification
-	Algorithm SignatureAlgorithmType
+	PublicKeyID
 	//ValidSince defines the time from which on this signature is valid. ValidSince is represented as seconds since the UNIX epoch UTC.
 	ValidSince int64
 	//ValidUntil defines the time after which this signature is not valid anymore. ValidUntil is represented as seconds since the UNIX epoch UTC.
 	ValidUntil int64
-	//KeyPhase defines the keyPhase in which this signature was signed.
-	KeyPhase int
 	//Data holds the signature data
 	Data interface{}
 }

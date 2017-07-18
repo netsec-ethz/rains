@@ -54,11 +54,13 @@ func TestPublicKeyString(t *testing.T) {
 		{PublicKey{}, "{0 0 0 0 0 }"},
 		{
 			PublicKey{
-				Type:       Ed25519,
-				KeySpace:   RainsKeySpace,
+				PublicKeyID: PublicKeyID{
+					Algorithm: Ed25519,
+					KeySpace:  RainsKeySpace,
+					KeyPhase:  1,
+				},
 				ValidSince: 1,
 				ValidUntil: 2,
-				KeyPhase:   1,
 				Key:        ed25519.PublicKey([]byte("PublicKeyData"))},
 			"{1 0 1 2 1 5075626c69634b657944617461}",
 		},

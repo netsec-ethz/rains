@@ -42,8 +42,10 @@ func sortedPublicKeys(nof int) []PublicKey {
 				for l := 0; l < nof; l++ {
 					for m := 0; m < nof; m++ {
 						pkeys = append(pkeys, PublicKey{
-							Type:       SignatureAlgorithmType(i),
-							KeySpace:   KeySpaceID(j),
+							PublicKeyID: PublicKeyID{
+								Algorithm: SignatureAlgorithmType(i),
+								KeySpace:  KeySpaceID(j),
+							},
 							ValidSince: int64(k),
 							ValidUntil: int64(l),
 							Key:        ed25519.PublicKey([]byte{byte(m)}),

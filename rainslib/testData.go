@@ -25,8 +25,10 @@ const (
 //GetMessage returns a messages containing all sections. The assertion contains an instance of every objectTypes
 func GetMessage() RainsMessage {
 	signature := Signature{
-		KeySpace:   RainsKeySpace,
-		Algorithm:  Ed25519,
+		PublicKeyID: PublicKeyID{
+			KeySpace:  RainsKeySpace,
+			Algorithm: Ed25519,
+		},
 		ValidSince: 1000,
 		ValidUntil: 2000,
 		Data:       []byte("SignatureData")}
@@ -134,11 +136,13 @@ func GetAllValidObjects() []Object {
 
 	pubKey, _, _ := ed25519.GenerateKey(nil)
 	publicKey := PublicKey{
-		KeySpace:   RainsKeySpace,
-		Type:       Ed25519,
-		Key:        pubKey,
+		PublicKeyID: PublicKeyID{
+			KeySpace:  RainsKeySpace,
+			Algorithm: Ed25519,
+		},
 		ValidSince: 10000,
 		ValidUntil: 50000,
+		Key:        pubKey,
 	}
 	certificate := CertificateObject{
 		Type:     PTTLS,
@@ -182,8 +186,10 @@ func GetValidNameObject() Object {
 func GetAllowedNetworkObjects() []Object {
 	pubKey, _, _ := ed25519.GenerateKey(nil)
 	publicKey := PublicKey{
-		KeySpace:   RainsKeySpace,
-		Type:       Ed25519,
+		PublicKeyID: PublicKeyID{
+			KeySpace:  RainsKeySpace,
+			Algorithm: Ed25519,
+		},
 		Key:        pubKey,
 		ValidSince: 10000,
 		ValidUntil: 50000,

@@ -145,7 +145,7 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 		assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative, value)
 		if a.Content[0].Type == rainslib.OTDelegation {
 			if publicKey, ok := a.Content[0].Value.(rainslib.PublicKey); ok {
-				cacheKey := keyCacheKey{context: a.Context, zone: a.SubjectName, keyAlgo: publicKey.Type}
+				cacheKey := keyCacheKey{zone: a.SubjectName, keyAlgo: publicKey.Algorithm, keyPhase: publicKey.KeyPhase}
 				publicKey.ValidSince = a.ValidSince()
 				publicKey.ValidUntil = a.ValidUntil()
 				log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)

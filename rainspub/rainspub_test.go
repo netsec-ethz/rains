@@ -182,7 +182,7 @@ func TestSignAssertion(t *testing.T) {
 	InitRainspub("test/rainspub.conf")
 	a1 := getAssertionWithTwoIPObjects()
 	pubKey, _, _ := ed25519.GenerateKey(nil)
-	publicKey := rainslib.PublicKey{KeySpace: rainslib.RainsKeySpace, Type: rainslib.Ed25519, Key: pubKey}
+	publicKey := rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{KeySpace: rainslib.RainsKeySpace, Algorithm: rainslib.Ed25519}, Key: pubKey}
 	a2 := &rainslib.AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".",
 		Content: []rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}}}
 	var tests = []struct {

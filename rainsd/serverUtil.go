@@ -93,11 +93,21 @@ func loadRootZonePublicKey(keyPath string) error {
 		for _, c := range a.Content {
 			if c.Type == rainslib.OTDelegation {
 				if publicKey, ok := c.Value.(rainslib.PublicKey); ok {
-					keyMap := make(map[rainslib.SignatureAlgorithmType]rainslib.PublicKey)
-					keyMap[a.Signatures[0].Algorithm] = publicKey
+					keyMap := make(map[rainslib.PublicKeyID]rainslib.PublicKey)
+					keyMap[a.Signatures[0].PublicKeyID] = publicKey
 					if validateSignatures(a, keyMap) {
-						log.Info("Added root public key to zone key cache.", "context", a.Context, "zone", a.SubjectZone, "RootPublicKey", c.Value)
-						zoneKeyCache.Add(keyCacheKey{context: a.Context, zone: a.SubjectZone, keyAlgo: publicKey.Type}, publicKey, true)
+						log.Info("Added root public key to zone key cache.",
+							"context", a.Context,
+							"zone", a.SubjectZone,
+							"RootPublicKey", c.Value,
+						)
+						zoneKeyCache.Add(
+							keyCacheKey{
+								zone:     a.SubjectZone,
+								keyAlgo:  publicKey.Algorithm,
+								keyPhase: publicKey.KeyPhase,
+							},
+							publicKey, true)
 					}
 				} else {
 					log.Warn(fmt.Sprintf("Was not able to cast to rainslib.PublicKey Got Type:%T", c.Value))

@@ -437,9 +437,9 @@ func encodePublicKey(publicKey rainslib.PublicKey, pubKey proto.PublicKey) error
 	pubKey.SetValidSince(publicKey.ValidSince)
 	pubKey.SetValidUntil(publicKey.ValidUntil)
 	pubKey.SetKeySpace(int32(publicKey.KeySpace))
-	pubKey.SetType(int32(publicKey.Type))
+	pubKey.SetType(int32(publicKey.Algorithm))
 
-	switch publicKey.Type {
+	switch publicKey.Algorithm {
 	case rainslib.Ed25519:
 		pubKey.SetKey(publicKey.Key.(ed25519.PublicKey))
 	case rainslib.Ed448:
@@ -449,7 +449,7 @@ func encodePublicKey(publicKey rainslib.PublicKey, pubKey proto.PublicKey) error
 	case rainslib.Ecdsa384:
 		log.Warn("Not yet supported")
 	default:
-		log.Warn("Unsupported public key type", "type", fmt.Sprintf("%T", publicKey.Type))
+		log.Warn("Unsupported public key type", "type", fmt.Sprintf("%T", publicKey.Algorithm))
 		return errors.New("Unsupported public key type")
 	}
 

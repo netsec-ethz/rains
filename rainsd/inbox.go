@@ -175,7 +175,8 @@ func normalWorkerHandler(msg msgSectionSender) {
 //The prio channel is necessary to avoid a blocking of the server. e.g. in the following unrealistic scenario
 //1) normal queue fills up with non delegation queries which all are missing a public key
 //2) The non-delegation queries get processed by the normalWorkers and added to the pendingSignature cache
-//3) For each non-delegation query that gets taken off the queue a new non-delegation query or expired delegation query wins against all waiting valid delegation-queries.
+//3) For each non-delegation query that gets taken off the queue a new non-delegation query or expired
+//   delegation query wins against all waiting valid delegation-queries.
 //4) Then although the server is working all the time, no section is added to the caches.
 func workPrio() {
 	for {

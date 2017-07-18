@@ -12,8 +12,18 @@ import (
 )
 
 func TestMessageSectionWithSigSignatures(t *testing.T) {
-	sig1 := Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("testData")}
-	sig2 := Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 3000, ValidUntil: 4500, Data: []byte("testData2")}
+	sig1 := Signature{
+		PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519},
+		ValidSince:  1000,
+		ValidUntil:  2000,
+		Data:        []byte("testData"),
+	}
+	sig2 := Signature{
+		PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519},
+		ValidSince:  3000,
+		ValidUntil:  4500,
+		Data:        []byte("testData2"),
+	}
 	var tests = []struct {
 		input MessageSectionWithSig
 	}{
@@ -92,16 +102,18 @@ func TestGetSignatureMetaData(t *testing.T) {
 		want  string
 	}{
 		{Signature{}, "0 0 0 0 0"},
-		{Signature{Algorithm: Ed448}, "0 2 0 0 0"},
-		{Signature{Algorithm: Ecdsa256}, "0 3 0 0 0"},
-		{Signature{Algorithm: Ecdsa384}, "0 4 0 0 0"},
+		{Signature{PublicKeyID: PublicKeyID{Algorithm: Ed448}}, "0 2 0 0 0"},
+		{Signature{PublicKeyID: PublicKeyID{Algorithm: Ecdsa256}}, "0 3 0 0 0"},
+		{Signature{PublicKeyID: PublicKeyID{Algorithm: Ecdsa384}}, "0 4 0 0 0"},
 		{
 			Signature{
-				KeySpace:   RainsKeySpace,
-				Algorithm:  Ed25519,
+				PublicKeyID: PublicKeyID{
+					KeySpace:  RainsKeySpace,
+					Algorithm: Ed25519,
+					KeyPhase:  1,
+				},
 				ValidSince: 1,
 				ValidUntil: 2,
-				KeyPhase:   1,
 				Data:       []byte("testData")},
 			"0 1 1 2 1"},
 	}
@@ -118,26 +130,30 @@ func TestSignatureString(t *testing.T) {
 		want  string
 	}{
 		{Signature{}, "{KS=0 AT=0 VS=0 VU=0 KP=0 data=notYetImplementedInStringMethod}"},
-		{Signature{Algorithm: Ed448}, "{KS=0 AT=2 VS=0 VU=0 KP=0 data=notYetImplementedInStringMethod}"},
-		{Signature{Algorithm: Ecdsa256}, "{KS=0 AT=3 VS=0 VU=0 KP=0 data=notYetImplementedInStringMethod}"},
-		{Signature{Algorithm: Ecdsa384}, "{KS=0 AT=4 VS=0 VU=0 KP=0 data=notYetImplementedInStringMethod}"},
+		{Signature{PublicKeyID: PublicKeyID{Algorithm: Ed448}}, "{KS=0 AT=2 VS=0 VU=0 KP=0 data=notYetImplementedInStringMethod}"},
+		{Signature{PublicKeyID: PublicKeyID{Algorithm: Ecdsa256}}, "{KS=0 AT=3 VS=0 VU=0 KP=0 data=notYetImplementedInStringMethod}"},
+		{Signature{PublicKeyID: PublicKeyID{Algorithm: Ecdsa384}}, "{KS=0 AT=4 VS=0 VU=0 KP=0 data=notYetImplementedInStringMethod}"},
 		{
 			Signature{
-				KeySpace:   RainsKeySpace,
-				Algorithm:  Ed25519,
+				PublicKeyID: PublicKeyID{
+					KeySpace:  RainsKeySpace,
+					Algorithm: Ed25519,
+					KeyPhase:  2,
+				},
 				ValidSince: 1,
 				ValidUntil: 2,
-				KeyPhase:   2,
 				Data:       []byte("testData")},
 			"{KS=0 AT=1 VS=1 VU=2 KP=2 data=7465737444617461}",
 		},
 		{
 			Signature{
-				KeySpace:   RainsKeySpace,
-				Algorithm:  Ed25519,
+				PublicKeyID: PublicKeyID{
+					KeySpace:  RainsKeySpace,
+					Algorithm: Ed25519,
+					KeyPhase:  1,
+				},
 				ValidSince: 1,
 				ValidUntil: 2,
-				KeyPhase:   1,
 			},
 			"{KS=0 AT=1 VS=1 VU=2 KP=1 data=nil}",
 		},
@@ -163,30 +179,30 @@ func TestSignAndVerify(t *testing.T) {
 		inputVerifyEncoding string
 		want                bool
 	}{
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", ed25519PrivateKey,
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519}, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", ed25519PrivateKey,
 			ed25519PublicKey, "SomeEncoding", true},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ecdsa256, ValidSince: 1, ValidUntil: 2}, "Some encoding", ecdsaPrivateKey,
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ecdsa256}, ValidSince: 1, ValidUntil: 2}, "Some encoding", ecdsaPrivateKey,
 			ecdsaPrivateKey.Public(), "Some encoding", true},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ecdsa384, ValidSince: 1, ValidUntil: 2}, "This is a test", ecdsaPrivateKey,
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ecdsa384}, ValidSince: 1, ValidUntil: 2}, "This is a test", ecdsaPrivateKey,
 			ecdsaPrivateKey.Public(), "This is a test", true},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ecdsa384, ValidSince: 1, ValidUntil: 2}, "", ecdsaPrivateKey, ecdsaPrivateKey.Public(), "", true},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", ed25519PrivateKey,
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ecdsa384}, ValidSince: 1, ValidUntil: 2}, "", ecdsaPrivateKey, ecdsaPrivateKey.Public(), "", true},
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519}, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", ed25519PrivateKey,
 			ed25519PublicKey, "DifferentEncoding", false}, //encoding not matching
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ecdsa256, ValidSince: 1, ValidUntil: 2}, "Some encoding", ecdsaPrivateKey,
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ecdsa256}, ValidSince: 1, ValidUntil: 2}, "Some encoding", ecdsaPrivateKey,
 			ecdsaPrivateKey.Public(), "DifferentEncoding", false}, //encoding not matching
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ecdsa384, ValidSince: 1, ValidUntil: 2}, "This is a test", ecdsaPrivateKey,
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ecdsa384}, ValidSince: 1, ValidUntil: 2}, "This is a test", ecdsaPrivateKey,
 			ecdsaPrivateKey.Public(), "DifferentEncoding", false}, //encoding not matching
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", ed25519PrivateKey2,
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519}, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", ed25519PrivateKey2,
 			ed25519PublicKey, "SomeEncoding", false}, //public and private keys do not match
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", ed25519PrivateKey,
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519}, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", ed25519PrivateKey,
 			ed25519PublicKey2, "SomeEncoding", false}, //public and private keys do not match
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ecdsa256, ValidSince: 1, ValidUntil: 2}, "Some encoding", ecdsaPrivateKey2,
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ecdsa256}, ValidSince: 1, ValidUntil: 2}, "Some encoding", ecdsaPrivateKey2,
 			ecdsaPrivateKey.Public(), "DifferentEncoding", false}, //public and private keys do not match
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ecdsa256, ValidSince: 1, ValidUntil: 2}, "Some encoding", ecdsaPrivateKey,
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ecdsa256}, ValidSince: 1, ValidUntil: 2}, "Some encoding", ecdsaPrivateKey,
 			ecdsaPrivateKey2.Public(), "DifferentEncoding", false}, //public and private keys do not match
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ecdsa384, ValidSince: 1, ValidUntil: 2}, "This is a test", ecdsaPrivateKey2,
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ecdsa384}, ValidSince: 1, ValidUntil: 2}, "This is a test", ecdsaPrivateKey2,
 			ecdsaPrivateKey.Public(), "DifferentEncoding", false}, //public and private keys do not match
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ecdsa384, ValidSince: 1, ValidUntil: 2}, "This is a test", ecdsaPrivateKey,
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ecdsa384}, ValidSince: 1, ValidUntil: 2}, "This is a test", ecdsaPrivateKey,
 			ecdsaPrivateKey2.Public(), "DifferentEncoding", false}, //public and private keys do not match
 	}
 	for i, test := range tests {
@@ -207,11 +223,11 @@ func TestSignDataErrors(t *testing.T) {
 		errMsg        string
 	}{
 		{Signature{}, "SomeEncoding", nil, "privateKey is nil"}, //private key nil
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", 5, "could not assert type ed25519.PrivateKey"},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed448, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", 5, "ed448 not yet supported in SignData()"},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ecdsa256, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", 5, "could not assert type ecdsa.PrivateKey"},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ecdsa384, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", 5, "could not assert type ecdsa.PrivateKey"},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: SignatureAlgorithmType(-1), ValidSince: 1, ValidUntil: 2}, "SomeEncoding", 5, "signature algorithm type not supported"},
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519}, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", 5, "could not assert type ed25519.PrivateKey"},
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed448}, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", 5, "ed448 not yet supported in SignData()"},
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ecdsa256}, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", 5, "could not assert type ecdsa.PrivateKey"},
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ecdsa384}, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", 5, "could not assert type ecdsa.PrivateKey"},
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: SignatureAlgorithmType(-1)}, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", 5, "signature algorithm type not supported"},
 	}
 	for i, test := range tests {
 		err := test.input.SignData(test.privateKey, test.inputEncoding)
@@ -231,15 +247,15 @@ func TestVerifySignatureErrors(t *testing.T) {
 		inputEncoding string
 		publicKey     interface{}
 	}{
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", nil},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", nil},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", 5},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed448, ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", 5},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ecdsa256, ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", 5},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ecdsa384, ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", 5},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: SignatureAlgorithmType(-1), ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", 5},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ecdsa256, ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", ecdsaPrivateKey.Public()},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ecdsa384, ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", ecdsaPrivateKey.Public()},
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519}, ValidSince: 1, ValidUntil: 2}, "SomeEncoding", nil},
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519}, ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", nil},
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519}, ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", 5},
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed448}, ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", 5},
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ecdsa256}, ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", 5},
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ecdsa384}, ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", 5},
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: SignatureAlgorithmType(-1)}, ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", 5},
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ecdsa256}, ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", ecdsaPrivateKey.Public()},
+		{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ecdsa384}, ValidSince: 1, ValidUntil: 2, Data: "notNil"}, "SomeEncoding", ecdsaPrivateKey.Public()},
 	}
 	for i, test := range tests {
 		if test.input.VerifySignature(test.publicKey, test.inputEncoding) {

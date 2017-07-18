@@ -376,7 +376,7 @@ func CheckPublicKey(p1, p2 PublicKey, t *testing.T) {
 	if p1.KeySpace != p2.KeySpace {
 		t.Error("PublicKey KeySpace mismatch")
 	}
-	if p1.Type != p2.Type {
+	if p1.Algorithm != p2.Algorithm {
 		t.Error("PublicKey Type mismatch")
 	}
 	if p1.ValidSince != p2.ValidSince {

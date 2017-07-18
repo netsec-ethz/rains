@@ -90,7 +90,7 @@ section.
 - it must provide a reap function to delete expired elements or in case the cache is full all public
   keys of the least recently used zone are removed. The reason why we remove all public keys of a
   zone is that a delegation query should be answered by all valid delegation keys of that zone (key
-  phase is not part of the query). 
+  phase and algorithm type is not part of the query). 
 - all cache operations must be safe for concurrent access
 
 
