@@ -8,6 +8,7 @@ import (
 
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/binaryTrie"
+	"github.com/shirou/gopsutil/cpu"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -31,6 +32,9 @@ var addressCacheIPv4 map[string]addressSectionCache
 //addressCache contains a set of valid IPv6 address assertions and address zones where some of them might be expired per context.
 var addressCacheIPv6 map[string]addressSectionCache
 
+//enoughSystemRessources returns true if the server has enough resources to make consistency checks
+var enoughSystemRessources bool
+
 //initEngine initialized the engine, which processes valid sections and queries.
 //It spawns a goroutine which periodically goes through the cache and removes outdated entries, see reapEngine()
 func initEngine() error {
@@ -53,138 +57,165 @@ func initEngine() error {
 		log.Error("Cannot create negative assertion Cache", "error", err)
 		return err
 	}
+	//FIXME CFE implement cache according to design document
 	addressCacheIPv4 = make(map[string]addressSectionCache)
 	addressCacheIPv4["."] = new(binaryTrie.TrieNode)
 	addressCacheIPv6 = make(map[string]addressSectionCache)
 	addressCacheIPv6["."] = new(binaryTrie.TrieNode)
 
 	go reapEngine()
+	go measureSystemRessources()
 
 	return nil
 }
 
 //assert checks the consistency of the incoming section with sections in the cache.
 //it adds a section with valid signatures to the assertion/shard/zone cache. Triggers any pending queries answered by it.
-//The section's signatures MUST have already been verified
+//The section's signatures MUST have already been verified and there MUST be at least one valid
+//rains signature on the message
 func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 	switch section := sectionWSSender.Section.(type) {
 	case *rainslib.AssertionSection:
-		//TODO CFE according to draft consistency checks are only done when server has enough resources. How to measure that?
 		log.Debug("Start processing Assertion", "assertion", section)
-		if isAssertionConsistent(section) {
-			log.Debug("Assertion is consistent with cached elements.")
-			ok := assertAssertion(section, isAuthoritative, sectionWSSender.Token)
-			if ok {
-				handleAssertion(section, sectionWSSender.Token)
+		if enoughSystemRessources {
+			if !isAssertionConsistent(section) {
+				log.Warn("Assertion is inconsistent with cached elements.")
+				sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
+				return
 			}
-		} else {
-			log.Debug("Assertion is inconsistent with cached elements.")
-			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
+		}
+		log.Debug("Assertion is consistent with cached elements.")
+		ok := assertAssertion(section, isAuthoritative, sectionWSSender.Token)
+		if ok {
+			handleAssertion(section, sectionWSSender.Token)
 		}
 	case *rainslib.ShardSection:
 		log.Debug("Start processing Shard", "shard", section)
-		if isShardConsistent(section) {
-			log.Debug("Shard is consistent with cached elements.")
-			ok := assertShard(section, isAuthoritative, sectionWSSender.Token)
-			if ok {
-				handlePendingQueries(section, sectionWSSender.Token)
+		if enoughSystemRessources {
+			if !isShardConsistent(section) {
+				log.Debug("Shard is inconsistent with cached elements.")
+				sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
+				return
 			}
-		} else {
-			log.Debug("Shard is inconsistent with cached elements.")
-			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
+		}
+		log.Debug("Shard is consistent with cached elements.")
+		ok := assertShard(section, isAuthoritative, sectionWSSender.Token)
+		if ok {
+			handlePendingQueries(section, sectionWSSender.Token)
 		}
 	case *rainslib.ZoneSection:
 		log.Debug("Start processing zone", "zone", section)
-		if isZoneConsistent(section) {
-			log.Debug("Zone is consistent with cached elements.")
-			ok := assertZone(section, isAuthoritative, sectionWSSender.Token)
-			if ok {
-				handlePendingQueries(section, sectionWSSender.Token)
+		if enoughSystemRessources {
+			if !isZoneConsistent(section) {
+				log.Debug("Zone is inconsistent with cached elements.")
+				sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
+				return
 			}
-		} else {
-			log.Debug("Zone is inconsistent with cached elements.")
-			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
+		}
+		log.Debug("Zone is consistent with cached elements.")
+		ok := assertZone(section, isAuthoritative, sectionWSSender.Token)
+		if ok {
+			handlePendingQueries(section, sectionWSSender.Token)
 		}
 	case *rainslib.AddressAssertionSection:
 		log.Debug("Start processing address assertion", "assertion", section)
-		if isAddressAssertionConsistent(section) {
-			log.Debug("Address Assertion is consistent with cached elements.")
-			ok := assertAddressAssertion(section.Context, section, sectionWSSender.Token)
-			if ok {
-				handlePendingQueries(section, sectionWSSender.Token)
+		if enoughSystemRessources {
+			if !isAddressAssertionConsistent(section) {
+				log.Debug("Address Assertion is inconsistent with cached elements.")
+				sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
+				return
 			}
-		} else {
-			log.Debug("Address Assertion is inconsistent with cached elements.")
-			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
+		}
+		log.Debug("Address Assertion is consistent with cached elements.")
+		ok := assertAddressAssertion(section.Context, section, sectionWSSender.Token)
+		if ok {
+			handlePendingQueries(section, sectionWSSender.Token)
 		}
 	case *rainslib.AddressZoneSection:
 		log.Debug("Start processing address zone", "zone", section)
-		if isAddressZoneConsistent(section) {
-			log.Debug("Address zone is consistent with cached elements.")
-			ok := assertAddressZone(section, sectionWSSender.Token)
-			if ok {
-				handlePendingQueries(section, sectionWSSender.Token)
+		if enoughSystemRessources {
+			if !isAddressZoneConsistent(section) {
+				log.Debug("Address zone is inconsistent with cached elements.")
+				sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
+				return
 			}
-		} else {
-			log.Debug("Address zone is inconsistent with cached elements.")
-			sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
+		}
+		log.Debug("Address zone is consistent with cached elements.")
+		ok := assertAddressZone(section, sectionWSSender.Token)
+		if ok {
+			handlePendingQueries(section, sectionWSSender.Token)
 		}
 	default:
-		log.Warn("Unknown message section", "messageSection", section)
-		sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
+		log.Error("Not supported message section with sig. This case must be prevented beforehand")
 	}
 	log.Info(fmt.Sprintf("Finished handling %T", sectionWSSender.Section), "section", sectionWSSender.Section)
 }
 
 //assertAssertion adds an assertion to the assertion cache. The assertion's signatures MUST have already been verified.
-//TODO CFE only the first element of the assertion is processed
 //Returns true if the assertion can be used to answer pending queries.
 func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) bool {
 	if shouldAssertionBeCached(a) {
 		value := assertionCacheValue{section: a, validSince: a.ValidSince(), validUntil: a.ValidUntil()}
-		assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[0].Type, isAuthoritative, value)
-		if a.Content[0].Type == rainslib.OTDelegation {
-			if publicKey, ok := a.Content[0].Value.(rainslib.PublicKey); ok {
-				cacheKey := keyCacheKey{
-					zone:        a.SubjectName,
-					PublicKeyID: rainslib.PublicKeyID{Algorithm: publicKey.Algorithm, KeyPhase: publicKey.KeyPhase},
-				}
-				publicKey.ValidSince = a.ValidSince()
-				publicKey.ValidUntil = a.ValidUntil()
-				log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)
-				ok := zoneKeyCache.Add(cacheKey, publicKey, isAuthoritative)
-				if !ok {
-					log.Warn("Was not able to add entry to zone key cache", "cacheKey", cacheKey, "publicKey", publicKey)
-					pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
-					pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
+		for i := range a.Content {
+			assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[i].Type, isAuthoritative, value)
+			if a.Content[i].Type == rainslib.OTDelegation {
+				if publicKey, ok := a.Content[i].Value.(rainslib.PublicKey); ok {
+					cacheKey := keyCacheKey{
+						zone:        a.SubjectName,
+						PublicKeyID: publicKey.PublicKeyID,
+					}
+					publicKey.ValidSince = a.ValidSince()
+					publicKey.ValidUntil = a.ValidUntil()
+					ok := zoneKeyCache.Add(cacheKey, publicKey, isAuthoritative)
+					if !ok {
+						//TODO CFE complain loudly such that an external element can update config, mitigate DDOS, etc.
+						log.Warn("Was not able to add entry to zone key cache", "cacheKey", cacheKey, "publicKey", publicKey)
+						//delegation assertion cannot be used to answer queries, because cannot store public key. Is this possible in the new cache design?
+						pendingQueries.GetAllAndDelete(token)
+						pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
+						return false
+					}
+					log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)
+				} else {
+					log.Error("Object type and value type mismatch. This case must be prevented beforehand")
 					return false
 				}
-			} else {
-				log.Warn("Type assertion failed expected a rainslib.PublicKey", "actual", a.Content[0].Value)
-				pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
-				pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
+			} else if a.Content[i].Type == rainslib.OTRedirection {
+				//TODO CFE update Token in cache.
+				//special case
 				return false
+			} else {
+				//determine if the response is an answer for the query or an answer to a redirect.
+				//return accordingly
 			}
 		}
 	}
 	if a.ValidSince() > time.Now().Unix() {
-		pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
+		//assertion cannot be used to answer queries, delete all waiting for this assertion. How should we handle this case.
+		//send a redirect to root?
+		pendingQueries.GetAllAndDelete(token)
 		pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
 		return false
 	}
 	return true
 }
 
-//handleAssertion triggers any pending queries answered by it.
+//handleAssertion triggers any pending queries answered by it. a is already in the cache
 func handleAssertion(a *rainslib.AssertionSection, token rainslib.Token) {
-	//FIXME CFE multiple types per assertion is not handled
-	if a.Content[0].Type == rainslib.OTDelegation {
-		sections, ok := pendingSignatures.GetAllAndDelete(a.Context, a.SubjectName)
-		log.Debug("handle sections from pending signature cache", "waitingSectionCount", len(sections), "subjectZone", a.SubjectName, "context", a.Context)
-		if ok {
-			for _, sectionSender := range sections {
-				normalChannel <- msgSectionSender{Section: sectionSender.Section, Sender: sectionSender.Sender, Token: sectionSender.Token}
+	//FIXME CFE new cache should allow to get pending signatures by token. Makes things easier.
+	for _, obj := range a.Content {
+		if obj.Type == rainslib.OTDelegation {
+			sectionSenders, ok := pendingSignatures.GetAllAndDelete(a.Context, a.SubjectName)
+			log.Debug("handle sections from pending signature cache",
+				"waitingSectionCount", len(sectionSenders),
+				"subjectZone", a.SubjectName,
+				"context", a.Context)
+			if ok {
+				for _, sectionSender := range sectionSenders {
+					normalChannel <- msgSectionSender{Section: sectionSender.Section, Sender: sectionSender.Sender, Token: sectionSender.Token}
+				}
 			}
+			break
 		}
 	}
 	handlePendingQueries(a, token)
@@ -226,10 +257,14 @@ func assertShard(shard *rainslib.ShardSection, isAuthoritative bool, token rains
 	}
 	for _, assertion := range shard.Content {
 		a := assertion.Copy(shard.Context, shard.SubjectZone)
+		//TODO CFE how to handle redir assertion in shard which is there for completeness vs redir meant to get further information.
+		//also call handleAssertion on all the contained assertions. (in case they are not signed, the server must answer with the whole shard)
 		assertAssertion(a, isAuthoritative, [16]byte{})
 	}
+	//shard cannot be used to answer queries if it and all contained assertions are currently not valid
+	//FIXME CFE how to handle this case? 1) delete all waiting elements for this token, 2) send a redirect? 3) redir and blacklist for sender?
 	if shard.ValidSince() > time.Now().Unix() {
-		pendingQueries.GetAllAndDelete(token) //shard cannot be used to answer queries, delete all waiting elements for this shard.
+		pendingQueries.GetAllAndDelete(token)
 		return false
 	}
 	return true
@@ -257,8 +292,12 @@ func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool, token rainslib
 		switch section := section.(type) {
 		case *rainslib.AssertionSection:
 			a := section.Copy(zone.Context, zone.SubjectZone)
+			//TODO CFE how to handle redir assertion in shard which is there for completeness vs redir meant to get further information.
+			//also call handleAssertion on all the contained assertions. (in case they are not signed, the server must answer with the whole shard)
 			assertAssertion(a, isAuthoritative, [16]byte{})
 		case *rainslib.ShardSection:
+			//TODO CFE how to handle redir assertion in shard which is there for completeness vs redir meant to get further information.
+			//also call handleAssertion on all the contained assertions. (in case they are not signed, the server must answer with the whole shard)
 			s := section.Copy(zone.Context, zone.SubjectZone)
 			assertShard(s, isAuthoritative, [16]byte{})
 		default:
@@ -266,7 +305,9 @@ func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool, token rainslib
 		}
 	}
 	if zone.ValidSince() > time.Now().Unix() {
-		pendingQueries.GetAllAndDelete(token) //zone cannot be used to answer queries, delete all waiting elements for this shard.
+		//zone cannot be used to answer queries if it and all contained assertion and shards are currently not valid
+		//FIXME CFE how to handle this case? 1) delete all waiting elements for this token, 2) send a redirect? 3) redir and blacklist for sender?
+		pendingQueries.GetAllAndDelete(token)
 		return false
 	}
 	return true
@@ -282,6 +323,7 @@ func shouldZoneBeCached(zone *rainslib.ZoneSection) bool {
 //Returns true if the address assertion can be further processed.
 func assertAddressAssertion(context string, a *rainslib.AddressAssertionSection, token rainslib.Token) bool {
 	if a.ValidSince() > time.Now().Unix() {
+		//TODO CFE similar concerns to the questions for assertions
 		pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
 		return false
 	}
@@ -322,6 +364,7 @@ func shouldAddressAssertionBeCached(assertion *rainslib.AddressAssertionSection)
 //Returns true if the zone can be further processed.
 func assertAddressZone(zone *rainslib.AddressZoneSection, token rainslib.Token) bool {
 	if zone.ValidSince() > time.Now().Unix() {
+		//TODO CFE similar concerns to the questions for shards
 		pendingQueries.GetAllAndDelete(token) //address zone cannot be used to answer queries, delete all waiting for this zone.
 		return false
 	}
@@ -426,7 +469,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 				assertions = append(assertions, asserts...)
 			}
 		}
-		//TODO CFE add heuristic which assertion to return
+		//TODO CFE add heuristic which assertion(s) to return
 		if len(assertions) > 0 {
 			sendOneQueryAnswer(assertions[0], sender, token)
 			log.Info("Finished handling query by sending assertion from cache", "query", query)
@@ -436,11 +479,12 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 	}
 
 	for _, zAn := range zoneAndNames {
+		//FIXME CFE this cache should return all shards and zones in the queried interval
 		negAssertion, ok := negAssertionCache.Get(query.Context, zAn.zone, rainslib.StringInterval{Name: zAn.name})
-		//FIXME CFE must additionally check that the queried domain is not part of the shard or zone
-		//because it might have been already evicted from the assertion cache. In this case send a
-		//query and put the current query again on the pending query cache
 		if ok {
+			//For each type check if one of the zone or shards contain the queried assertion. If there is at least one assertion answer with it.
+			//If no assertion is contained in a zone or shard for any of the queried types, answer with the shortest element. shortest according to what?
+			//size in bytes? how to efficiently determine that. e.g. using gob encoding. alternatively we could also count the number of contained elements.
 			sendOneQueryAnswer(negAssertion, sender, token)
 			log.Info("Finished handling query by sending shard or zone from cache", "query", query)
 			return
@@ -456,6 +500,8 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		return
 	}
 	for _, zAn := range zoneAndNames {
+		//TODO CFE determine if we do the lookup ourselves or if we send a redir assertion back. how
+		//to choose redir, just root or more involved strategy? avoid amplification vector. especially if you manage to receive zones. Can saturate a whole link...
 		delegate := getRootAddr()
 		if delegate.Equal(serverConnInfo) {
 			sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
@@ -576,5 +622,18 @@ func reapEngine() {
 		negAssertionCache.RemoveExpiredValues()
 		pendingQueries.RemoveExpiredValues()
 		time.Sleep(Config.ReapEngineTimeout)
+	}
+}
+
+//measureSystemRessources measures current cpu usage and updates enoughSystemRessources
+//TODO CFE make it configurable, experiment with different sampling rates
+func measureSystemRessources() {
+	for {
+		cpuStat, _ := cpu.Percent(time.Second/10, false)
+		enoughSystemRessources = cpuStat[0] < 75
+		if !enoughSystemRessources {
+			log.Warn("Not enough system resources to check for consistency")
+		}
+		time.Sleep(time.Second * 10)
 	}
 }
