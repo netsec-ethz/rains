@@ -39,6 +39,15 @@
   is a pointer to the corresponding list node.
 - a list node contains a pointer to a capability list.
 
+  ## capability cache locking
+- we use one read/write mutex lock and one normal mutex lock for the element counter.
+  1. is used to protect the first hashmap keyed by capability hash and the lru list accesses.
+  2. is used to protect the element counter
+- On insertion the first lock is obtained and after insertion freed and the second lock is requested
+  to update the counter. In case the cache is full the first lock is requested again and the least
+  recently used capability hash is removed from the hash map and the lru list (the object will later
+  be garbage collected). 
+
 ## connection cache requirements
 - cache has a fixed size which is configurable (to avoid memory exhaustion of the server in case of
   an attack).
@@ -60,3 +69,22 @@
   value is a pointer to the corresponding list node.
 - a list node contains a list of objects which consists of a pointer to a capability list and a 
   connection object.
+
+  ## connection cache locking
+- we use read/write mutex locks on two different levels. We chose r/w locks over normal locks as
+  most accesses are reads. The third is a normal lock.
+  1. is used to protect the first hashmap keyed by zone and the lru list accesses.
+  2. is used to protect the data object itself containing a capability list and a set of connections
+  3. is used to protect the connection count
+- on lookup and insert the first two locks are called one after another while the first lock is
+  freed before the second is obtained. At the end of an insertion the lock on the connection count
+  is used to increase the counter.
+- to delete an entry it must first be looked up top down and then will be deleted bottom up. In case
+  the least recently used element is removed a deleted flag is set on the object and the lock of the
+  hash map pointing to it is obtained (notice that we still hold the lock on the object). We do not
+  run into a deadlock because every lookup process releases the lock on the hash map before it
+  obtains the lock on the object. The deleted flag is necessary such that a process waiting on the
+  object's lock does not add a connection to it after the previous process removed the pointer to
+  this object from the hash map (which makes it unaccessible). In case a connection is explicitly 
+  removed only the object is modified. No changes are made to the hash map.
+- Never delete an entry top down otherwise we could run into a deadlock.
