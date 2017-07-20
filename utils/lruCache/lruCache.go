@@ -78,6 +78,17 @@ func (c *Cache) Get(key string) (interface{}, bool) {
 	return nil, false
 }
 
+//GetAll returns all contained values. It does not affect lru list order.
+func (c *Cache) GetAll() []interface{} {
+	c.mux.RLock()
+	defer c.mux.RUnlock()
+	values := []interface{}{}
+	for _, v := range c.hashMap {
+		values = append(values, v)
+	}
+	return values
+}
+
 //Remove deletes the key value pair from the map.
 //It returns true if an element was deleted
 func (c *Cache) Remove(key string) bool {

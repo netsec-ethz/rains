@@ -197,6 +197,7 @@ type zoneKeyCacheImpl struct {
 
 type keyIDMapValue struct {
 	keyIDHashMap map[rainslib.PublicKeyID]zoneKeyCacheValue
+	zone         string
 	//mux is used to protect keyIDHashMap from simultaneous access
 	//TODO most access are reads, but do we have a lot of parallel access to the same
 	//connCacheValue? If not replace with sync.Mutex.
@@ -227,7 +228,7 @@ type publicKeyAssertion struct {
 //public keys. An external service can then decide if it want to blacklist the given zone. If
 //the internal flag is set, publicKey will only be removed after it expired.
 func (c *zoneKeyCacheImpl) Add(assertion *rainslib.AssertionSection, publicKey rainslib.PublicKey, internal bool) bool {
-	hashMap := keyIDMapValue{keyIDHashMap: make(map[rainslib.PublicKeyID]zoneKeyCacheValue)}
+	hashMap := keyIDMapValue{keyIDHashMap: make(map[rainslib.PublicKeyID]zoneKeyCacheValue), zone: assertion.SubjectName}
 	e, _ := c.zoneHashMap.GetOrAdd(assertion.SubjectName, hashMap, internal)
 	v := e.(keyIDMapValue)
 	v.mux.Lock()
@@ -324,7 +325,39 @@ func (c *zoneKeyCacheImpl) Get(zone string, publicKeyID rainslib.PublicKeyID) ([
 
 //RemoveExpiredKeys deletes all expired public keys from the cache.
 func (c *zoneKeyCacheImpl) RemoveExpiredKeys() {
-
+	vals := c.zoneHashMap.GetAll()
+	for _, e := range vals {
+		v := e.(keyIDMapValue)
+		v.mux.RLock()
+		if v.deleted {
+			v.mux.RUnlock()
+			continue
+		}
+		v.mux.RUnlock()
+		for hashKey, val := range v.keyIDHashMap {
+			keys := val.publicKeys.GetAllKeys()
+			for _, key := range keys {
+				if k, ok := val.publicKeys.Get(key); ok && k.(publicKeyAssertion).publicKey.ValidUntil < time.Now().Unix() {
+					if val.publicKeys.Remove(key) {
+						c.counter.Dec()
+					}
+				}
+			}
+			val.mux.Lock() //This lock makes sure that no add methods are interfering while deleting
+			//the pointer to this entry.
+			if !val.deleted && val.publicKeys.Len() == 0 {
+				val.deleted = true
+				delete(v.keyIDHashMap, hashKey)
+			}
+			val.mux.Unlock()
+		}
+		v.mux.Lock()
+		if !v.deleted && len(v.keyIDHashMap) == 0 {
+			v.deleted = true
+			c.zoneHashMap.Remove(v.zone)
+		}
+		v.mux.Unlock()
+	}
 }
 
 //Len returns the number of public keys currently in the cache.
