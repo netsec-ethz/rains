@@ -40,12 +40,7 @@ func initInbox() error {
 	notificationWorkers = make(chan struct{}, Config.NotificationWorkerCount)
 
 	//init Capability Cache
-	var err error
-	capabilities, err = createCapabilityCache(Config.CapabilitiesCacheSize, Config.PeerToCapCacheSize)
-	if err != nil {
-		log.Error("Cannot create connCache", "error", err)
-		return err
-	}
+	capabilities = createCapabilityCache(Config.CapabilitiesCacheSize)
 
 	activeTokens = createActiveTokenCache(Config.ActiveTokenCacheSize)
 
@@ -128,6 +123,10 @@ func sendNotificationMsg(token rainslib.Token, dst rainslib.ConnInfo,
 
 //addMsgSectionToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg section to the prio cache, otherwise to the normal cache.
 func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token, sender rainslib.ConnInfo) {
+	//FIXME CFE if contains deleg and is prio put deleg to prio cache.
+	//if contains redir and is prio put redir to prio cache
+	//check if prio if true log that we did not get a requested answer else put on normal cache
+	//How to handle multiple delegations in different assertions where some of them are only valid in the future...
 	if activeTokens.IsPriority(tok) {
 		log.Debug("add section with signature to priority queue", "token", tok)
 		prioChannel <- msgSectionSender{Sender: sender, Section: msgSection, Token: tok}

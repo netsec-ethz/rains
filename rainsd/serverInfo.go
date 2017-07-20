@@ -44,7 +44,7 @@ type rainsdConfig struct {
 	PrioWorkerCount         uint
 	NormalWorkerCount       uint
 	NotificationWorkerCount uint
-	CapabilitiesCacheSize   uint
+	CapabilitiesCacheSize   int
 	PeerToCapCacheSize      uint
 	ActiveTokenCacheSize    uint
 	Capabilities            []rainslib.Capability
@@ -69,22 +69,6 @@ type rainsdConfig struct {
 	ReapEngineTimeout          time.Duration             //in seconds
 }
 
-//AddressPair contains address information about both peers of a connection
-type AddressPair struct {
-	local  rainslib.ConnInfo
-	remote rainslib.ConnInfo
-}
-
-//String returns the string representation of both connection information separated with a underscore
-func (a AddressPair) String() string {
-	return fmt.Sprintf("%#v_%#v", a.local, a.remote)
-}
-
-//Hash returns a string containing all information uniquely identifying an AddressPair.
-func (a AddressPair) Hash() string {
-	return fmt.Sprintf("%s_%s", a.local.Hash(), a.remote.Hash())
-}
-
 //msgSectionSender contains the message section section and connection infos about the sender
 type msgSectionSender struct {
 	Sender  rainslib.ConnInfo
@@ -103,30 +87,20 @@ func (s *sectionWithSigSender) Hash() string {
 	return fmt.Sprintf("%s_%s_%v", s.Sender.Hash(), s.Section.Hash(), s.Token)
 }
 
-//Capability is a type which defines what a server or client is capable of
-type Capability string
-
-const (
-	NoCapability Capability = ""
-	TLSOverTCP   Capability = "urn:x-rains:tlssrv"
-)
-
 //connectionCache stores persistent stream-oriented network connections.
 type connectionCache interface {
-	//Add adds conn to the cache. If there is already a connection in the cache for the remoteAddr,
-	//then this connection gets closed and replaced. Add returns true if it was able to add the
-	//connection to the cache. If the cache capacity is reached, a connection from the cache will be
+	//AddConnection adds conn to the cache. If the cache capacity is reached, a connection from the cache will be
 	//chosen by some metric, closed and removed.
-	AddConnection(conn net.Conn) bool
+	AddConnection(conn net.Conn)
 	//AddCapability adds capabilities to the destAddr entry. It returns false if there is no entry
-	//in the cache for dstAddr
+	//in the cache for dstAddr. If there is already a capability list associated with destAddr, it
+	//will be overwritten.
 	AddCapabilityList(dstAddr rainslib.ConnInfo, capabilities *[]rainslib.Capability) bool
 	//Get returns true and all cached connection objects to dstAddr.
 	//Get returns false if there is no cached connection to dstAddr.
 	GetConnection(dstAddr rainslib.ConnInfo) ([]net.Conn, bool)
 	//CloseAndRemoveConnection closes conn and removes it from the cache.
-	//True is returned if conn was successfully removed from the cache.
-	CloseAndRemoveConnection(conn net.Conn) bool
+	CloseAndRemoveConnection(conn net.Conn)
 	//Len returns the number of connections currently in the cache.
 	Len() int
 }
@@ -375,6 +349,6 @@ type activeTokenCache interface {
 	//It returns false if the cache is full and the token is not added to the cache.
 	AddToken(token rainslib.Token, expiration int64) bool
 	//DeleteExpiredElements removes all expired tokens from the data structure and logs their information
-	//IT returns all expired tokens
+	//It returns all expired tokens
 	DeleteExpiredElements() []rainslib.Token
 }

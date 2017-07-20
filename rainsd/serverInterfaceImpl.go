@@ -9,86 +9,140 @@ import (
 	"sync"
 	"time"
 
-	"github.com/netsec-ethz/rains/rainslib"
-	"github.com/netsec-ethz/rains/utils/cache"
+	log "github.com/inconshreveable/log15"
 	setDataStruct "github.com/netsec-ethz/rains/utils/set"
 
-	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/cache"
+	"github.com/netsec-ethz/rains/utils/lruCache"
+	"github.com/netsec-ethz/rains/utils/safeCounter"
 )
 
-type connAndCapabilitList struct {
-	Connections    []net.Conn
-	CapabilityList *[]rainslib.Capability
+//connCacheValue is the value pointed to by the hash map in the connectionCacheImpl
+type connCacheValue struct {
+	connections  *[]net.Conn
+	capabilities *[]rainslib.Capability
+	//mux is used to protect connections from simultaneous access
+	//TODO most access are reads, but do we have a lot of parallel access to the same
+	//connCacheValue? If not replace with sync.Mutex.
+	mux *sync.RWMutex
+	//set to true if the pointer to this element is removed from the hash map
+	deleted bool
 }
 
 /*
  *	Connection cache implementation
- *  FIXME CFE currently this cache only supports one connection per destination
- *  Otherwise we would have a race condition and delete statement would be more complicated
  */
 type connectionCacheImpl struct {
-	cache *cache.Cache
+	cache   *lruCache.Cache
+	counter *safeCounter.Counter
+}
+
+func getNetworkAndAddr(conn net.Conn) string {
+	return fmt.Sprintf("%s %s", conn.RemoteAddr().Network(), conn.RemoteAddr())
 }
 
 //AddConnection adds conn to the cache. If the cache is full the least recently used connection is removed.
-func (c *connectionCacheImpl) AddConnection(conn net.Conn) bool {
-	entry := connAndCapabilitList{Connections: []net.Conn{conn}}
-	return c.cache.Add(&entry, false, "", conn.RemoteAddr().Network(), conn.RemoteAddr().String())
+func (c *connectionCacheImpl) AddConnection(conn net.Conn) {
+	v := connCacheValue{connections: &[]net.Conn{conn}}
+	e, _ := c.cache.GetOrAdd(getNetworkAndAddr(conn), v, false)
+	value := e.(connCacheValue)
+	value.mux.Lock()
+	*value.connections = append(*value.connections, conn)
+	value.mux.Unlock()
+	if c.counter.Inc() {
+		//cache is full, remove all connections from the least recently used destination
+		for {
+			if !c.counter.IsFull() {
+				break
+			}
+			k, v := c.cache.GetLeastRecentlyUsed()
+			value := e.(connCacheValue)
+			value.mux.Lock()
+			if value.deleted {
+				value.mux.Unlock()
+				continue
+			}
+			value.deleted = true
+			for _, conn := range *value.connections {
+				conn.Close()
+				c.counter.Dec()
+			}
+			c.cache.Remove(getNetworkAndAddr((*value.connections)[0]))
+			value.mux.Unlock()
+			break
+		}
+	}
 }
 
-//AddCapability adds capabilities to the destAddr entry. It returns false if there is no entry
-//in the cache for dstAddr
+//AddCapability adds capabilities to the destAddr entry. It returns false if there is no entry in
+//the cache for dstAddr. If there is already a capability list associated with destAddr, it will be
+//overwritten.
 func (c *connectionCacheImpl) AddCapabilityList(dstAddr rainslib.ConnInfo, capabilities *[]rainslib.Capability) bool {
-	network := ""
-	switch dstAddr.Type {
-	case rainslib.TCP:
-		network = dstAddr.TCPAddr.Network()
-	default:
-		log.Warn("Unsupported network address type", "type", dstAddr.Type)
-		return false
-	}
-	if entry, ok := c.cache.Get("", network, dstAddr.String()); ok {
-		if entry, ok := entry.(*connAndCapabilitList); ok {
-			entry.CapabilityList = capabilities
-			return true
+	if e, ok := c.cache.Get(dstAddr.NetworkAndAddr()); ok {
+		v := e.(connCacheValue)
+		v.mux.Lock()
+		defer v.mux.Unlock()
+		if v.deleted {
+			return false
 		}
-		log.Warn("connectionCache contained element of wrong type. expected=*connAndCapabilitList",
-			"actual", fmt.Sprintf("%T", entry))
+		v.capabilities = capabilities
+		return true
 	}
 	return false
 }
 
-//GetConnection returns one cached connection to dstAddr
+//Get returns true and all cached connection objects to dstAddr.
+//Get returns false if there is no cached connection to dstAddr.
 func (c *connectionCacheImpl) GetConnection(dstAddr rainslib.ConnInfo) ([]net.Conn, bool) {
-	switch dstAddr.Type {
-	case rainslib.TCP:
-		if v, ok := c.cache.Get("", dstAddr.TCPAddr.Network(), dstAddr.TCPAddr.String()); ok {
-			if val, ok := v.(net.Conn); ok {
-				return []net.Conn{val}, true
-			}
-			log.Warn("Cache entry is not of type net.Conn", "type", fmt.Sprintf("%T", v))
+	if e, ok := c.cache.Get(dstAddr.NetworkAndAddr()); ok {
+		v := e.(connCacheValue)
+		v.mux.RLock()
+		defer v.mux.RUnlock()
+		if v.deleted {
+			return nil, false
 		}
-	default:
-		log.Warn("Unsupported network address type", "type", dstAddr.Type)
+		return *v.connections, true
 	}
 	return nil, false
 }
 
 //Delete closes conn and removes it from the cache
-func (c *connectionCacheImpl) CloseAndRemoveConnection(conn net.Conn) bool {
+func (c *connectionCacheImpl) CloseAndRemoveConnection(conn net.Conn) {
 	conn.Close()
-	return c.cache.Remove("", conn.RemoteAddr().Network(), conn.RemoteAddr().String())
+	if e, ok := c.cache.Get(getNetworkAndAddr(conn)); ok {
+		v := e.(connCacheValue)
+		v.mux.Lock()
+		defer v.mux.Unlock()
+		if !v.deleted {
+			if len(*v.connections) > 1 {
+				for i, connection := range *v.connections {
+					//TODO CFE not sure if this comparison works
+					if connection == conn {
+						*v.connections = append((*v.connections)[:i], (*v.connections)[i+1:]...)
+						c.counter.Dec()
+					}
+				}
+			} else {
+				v.deleted = true
+				c.cache.Remove(getNetworkAndAddr(conn))
+				c.counter.Dec()
+			}
+		}
+	}
 }
 
 func (c *connectionCacheImpl) Len() int {
-	return c.cache.Len()
+	counter, _ := c.counter.Value()
+	return counter
 }
 
 /*
  *	Capability cache implementation
  */
 type capabilityCacheImpl struct {
-	capabilityMap *cache.Cache
+	capabilityMap *lruCache.Cache
+	counter       *safeCounter.Counter
 }
 
 func (c *capabilityCacheImpl) Add(capabilities []rainslib.Capability) {
@@ -100,11 +154,21 @@ func (c *capabilityCacheImpl) Add(capabilities []rainslib.Capability) {
 		cs = append(cs, []byte(c)...)
 	}
 	hash := sha256.Sum256(cs)
-	c.capabilityMap.Add(&capabilities, false, "", string(hash[:]))
+	_, ok := c.capabilityMap.GetOrAdd(string(hash[:]), &capabilities, false)
+	//handle full cache
+	if ok && c.counter.Inc() {
+		for {
+			k, _ := c.capabilityMap.GetLeastRecentlyUsed()
+			if c.capabilityMap.Remove(k) {
+				c.counter.Dec()
+				break
+			}
+		}
+	}
 }
 
 func (c *capabilityCacheImpl) Get(hash []byte) (*[]rainslib.Capability, bool) {
-	if v, ok := c.capabilityMap.Get("", string(hash)); ok {
+	if v, ok := c.capabilityMap.Get(string(hash)); ok {
 		if val, ok := v.(*[]rainslib.Capability); ok {
 			return val, true
 		}
@@ -115,7 +179,8 @@ func (c *capabilityCacheImpl) Get(hash []byte) (*[]rainslib.Capability, bool) {
 }
 
 func (c *capabilityCacheImpl) Len() int {
-	return c.Len()
+	count, _ := c.counter.Value()
+	return count
 }
 
 /*
@@ -1182,7 +1247,7 @@ func (c *assertionCacheImpl) Remove(assertion *rainslib.AssertionSection) bool {
  * active token cache implementation
  */
 type activeTokenCacheImpl struct {
-	//assertionCache stores to a given <context,zone,name,type> a set of assertions
+	//activeTokenCache maps tokens to their expiration time
 	activeTokenCache map[rainslib.Token]int64
 	maxElements      uint
 	elementCount     uint

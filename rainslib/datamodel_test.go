@@ -283,6 +283,25 @@ func TestConnInfoString(t *testing.T) {
 	}
 }
 
+func TestConnInfoNetworkAndAddr(t *testing.T) {
+	tcpAddrIP4, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:80")
+	tcpAddrIP6, _ := net.ResolveTCPAddr("tcp", "[2001:db8::68]:80")
+	var tests = []struct {
+		input ConnInfo
+		want  string
+	}{
+		{ConnInfo{}, ""},
+		{ConnInfo{Type: NetworkAddrType(-1)}, ""},
+		{ConnInfo{Type: TCP, TCPAddr: tcpAddrIP4}, "tcp 127.0.0.1:80"},
+		{ConnInfo{Type: TCP, TCPAddr: tcpAddrIP6}, "tcp [2001:db8::68]:80"},
+	}
+	for i, test := range tests {
+		if test.input.NetworkAndAddr() != test.want {
+			t.Errorf("%d: Wrong Signature meta data. expected=%v, actual=%v", i, test.want, test.input.NetworkAndAddr())
+		}
+	}
+}
+
 func TestConnInfoHash(t *testing.T) {
 	tcpAddrIP4, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:80")
 	tcpAddrIP6, _ := net.ResolveTCPAddr("tcp", "[2001:db8::68]:80")

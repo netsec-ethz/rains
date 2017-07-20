@@ -11,12 +11,14 @@ import (
 
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/cache"
+	"github.com/netsec-ethz/rains/utils/lruCache"
 	"github.com/netsec-ethz/rains/utils/protoParser"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 
 	"strings"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/utils/safeCounter"
 )
 
 //InitServer initializes the server
@@ -182,15 +184,12 @@ func createConnectionCache(connCacheSize uint) (connectionCache, error) {
 }
 
 //createCapabilityCache returns a newly created capability cache
-func createCapabilityCache(hashToCapCacheSize, connectionToCapSize uint) (capabilityCache, error) {
-	hc, err := cache.New(hashToCapCacheSize, "noAnyContext")
-	if err != nil {
-		return nil, err
-	}
-	//FIXME move adding this values to verify.init() after cache was adopted
-	hc.Add([]Capability{TLSOverTCP}, false, "", "e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745")
-	hc.Add([]Capability{NoCapability}, false, "", "76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71")
-	return &capabilityCacheImpl{capabilityMap: hc}, nil
+func createCapabilityCache(hashToCapCacheSize int) capabilityCache {
+	cache := lruCache.New()
+	//TODO CFE after there are more capabilities do not use hardcoded value
+	cache.GetOrAdd("e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745", &[]Capability{TLSOverTCP}, true)
+	cache.GetOrAdd("76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71", &[]Capability{NoCapability}, false)
+	return &capabilityCacheImpl{capabilityMap: cache, counter: safeCounter.New(hashToCapCacheSize)}
 }
 
 //createKeyCache returns a new key capability cache

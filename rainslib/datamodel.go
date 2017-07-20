@@ -369,6 +369,17 @@ func (c ConnInfo) String() string {
 	}
 }
 
+//NetworkAndAddr returns the network name and addr of the connection separated by space
+func (c ConnInfo) NetworkAndAddr() string {
+	switch c.Type {
+	case TCP:
+		return fmt.Sprintf("%s %s", c.TCPAddr.Network(), c.String())
+	default:
+		log.Warn("Unsupported network address type", "type", c.Type)
+		return ""
+	}
+}
+
 //Hash returns a string containing all information uniquely identifying a ConnInfo.
 func (c ConnInfo) Hash() string {
 	return fmt.Sprintf("%v_%s", c.Type, c.String())
