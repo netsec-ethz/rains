@@ -142,6 +142,24 @@ type keyCache interface {
 	RemoveExpiredKeys()
 }
 
+//zoneKeyCache is used to store public keys of zones and a pointer to assertions containing them.
+type zoneKeyCache interface {
+	//Add adds publicKey together with the assertion containing it to the cache. Returns true if the
+	//cache exceeds a configured (during initialization of the cache) amount of entries. If the
+	//cache is full it removes all public keys from a zone according to some metric. The cache logs
+	//a message when a zone has more than a certain configurable (at initialization) amount of
+	//public keys. An external service can then decide if it want to blacklist the given zone. If
+	//the internal flag is set, publicKey will only be removed after it expired.
+	Add(assertion *rainslib.AssertionSection, publicKey rainslib.PublicKey, internal bool) bool
+	//Get returns true and all non expired public keys matching zone and publicKeyID. It returns false if
+	//there exists no valid public key in the cache.
+	Get(zone string, publicKeyID rainslib.PublicKeyID) ([]rainslib.PublicKey, bool)
+	//RemoveExpiredKeys deletes all expired public keys from the cache.
+	RemoveExpiredKeys()
+	//Len returns the number of public keys currently in the cache.
+	Len() int
+}
+
 //publicKeyList provides some operation on a list of public keys.
 type publicKeyList interface {
 	//Add adds a public key to the list. If specified maximal list length is reached it removes the least recently used element.

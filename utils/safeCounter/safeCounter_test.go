@@ -135,11 +135,23 @@ func sub(counter *Counter, wg *sync.WaitGroup) {
 func TestValue(t *testing.T) {
 	counter := New(5)
 	counter.count = 3
-	if count, maxCount := counter.Value(); count != 3 || maxCount != 5 {
+	if count := counter.Value(); count != 3 {
 		t.Errorf("response of the counter's value wrong. %v", counter)
 	}
 	counter.count = 6
-	if count, maxCount := counter.Value(); count != 6 || maxCount != 5 {
+	if count := counter.Value(); count != 6 {
+		t.Errorf("response of the counter's value wrong. %v", counter)
+	}
+}
+
+func TestInfo(t *testing.T) {
+	counter := New(5)
+	counter.count = 3
+	if count, maxCount := counter.Info(); count != 3 || maxCount != 5 {
+		t.Errorf("response of the counter's value wrong. %v", counter)
+	}
+	counter.count = 6
+	if count, maxCount := counter.Info(); count != 6 || maxCount != 5 {
 		t.Errorf("response of the counter's value wrong. %v", counter)
 	}
 }
@@ -147,11 +159,11 @@ func TestValue(t *testing.T) {
 func TestIsFull(t *testing.T) {
 	counter := New(5)
 	counter.count = 3
-	if counter.isFull() {
+	if counter.IsFull() {
 		t.Errorf("counter is not full. %v", counter)
 	}
 	counter.count = 6
-	if !counter.isFull() {
+	if !counter.IsFull() {
 		t.Errorf("counter is full. %v", counter)
 	}
 }

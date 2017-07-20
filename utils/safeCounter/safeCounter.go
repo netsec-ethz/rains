@@ -55,8 +55,15 @@ func (m *Counter) Sub(i int) {
 	}
 }
 
-//Value returns the current value of the counter and the maxCount
-func (m *Counter) Value() (int, int) {
+//Value returns the current value of the counter
+func (m *Counter) Value() int {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	return m.count
+}
+
+//Info returns the current value of the counter and the maxCount
+func (m *Counter) Info() (int, int) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	return m.count, m.maxCount

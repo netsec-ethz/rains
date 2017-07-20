@@ -46,6 +46,28 @@ func (m *Map) Get(key string) (interface{}, bool) {
 	return v, ok
 }
 
+//GetAll returns all contained values
+func (m *Map) GetAll() []interface{} {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
+	values := []interface{}{}
+	for _, v := range m.hashMap {
+		values = append(values, v)
+	}
+	return values
+}
+
+//GetAllKeys returns all keys
+func (m *Map) GetAllKeys() []string {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
+	keys := []string{}
+	for k := range m.hashMap {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 //Remove deletes the key value pair from the map.
 //It returns true if an element was deleted
 func (m *Map) Remove(key string) bool {

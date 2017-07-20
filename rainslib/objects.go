@@ -186,6 +186,10 @@ type PublicKeyID struct {
 	KeyPhase int
 }
 
+func (p PublicKeyID) String() string {
+	return fmt.Sprintf("%s %v %d", p.Algorithm, p.KeySpace, p.KeyPhase)
+}
+
 //PublicKey contains information about a public key
 type PublicKey struct {
 	PublicKeyID

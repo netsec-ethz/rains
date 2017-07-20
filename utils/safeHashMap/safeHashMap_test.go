@@ -109,6 +109,56 @@ func getValue(i int, hashMap *Map, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
+func TestAllGet(t *testing.T) {
+	//test if added value is stored correctly in the map
+	hashMap := New()
+	v := hashMap.GetAll()
+	if len(v) != 0 {
+		t.Errorf("return value is not correct for a value that is not in the map. %v", v)
+	}
+	hashMap.hashMap["v"] = 5
+	hashMap.hashMap["v2"] = 6
+	v = hashMap.GetAll()
+	if len(v) != 2 {
+		t.Errorf("returned list of values has wrong length. value=%v", v)
+	}
+	if v[0] == 5 {
+		if v[1] != 6 {
+			t.Errorf("returned values are false. value=%v", v)
+		}
+	}
+	if v[0] == 6 {
+		if v[1] != 5 {
+			t.Errorf("returned values are false. value=%v", v)
+		}
+	}
+}
+
+func TestAllGetKeys(t *testing.T) {
+	//test if added value is stored correctly in the map
+	hashMap := New()
+	v := hashMap.GetAllKeys()
+	if len(v) != 0 {
+		t.Errorf("return value is not correct for a value that is not in the map. %v", v)
+	}
+	hashMap.hashMap["v"] = 5
+	hashMap.hashMap["v2"] = 6
+	v = hashMap.GetAllKeys()
+	if len(v) != 2 {
+		t.Errorf("returned list of values has wrong length. value=%v", v)
+	}
+	if v[0] == "v" {
+		if v[1] != "v2" {
+			t.Errorf("returned values are false. value=%v", v)
+		}
+	}
+	if v[0] == "v2" {
+		if v[1] != "v" {
+			t.Errorf("returned values are false. value=%v", v)
+		}
+	}
+}
+
 func TestRemove(t *testing.T) {
 	//test if added value is stored correctly in the map
 	hashMap := New()

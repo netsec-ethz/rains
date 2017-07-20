@@ -46,6 +46,21 @@ func TestSignatureAlgorithmTypeString(t *testing.T) {
 	}
 }
 
+func TestPublicKeyIDString(t *testing.T) {
+	var tests = []struct {
+		input PublicKeyID
+		want  string
+	}{
+		{PublicKeyID{}, "0 0 0"},
+		{PublicKeyID{Algorithm: Ed25519, KeySpace: RainsKeySpace, KeyPhase: 2}, "1 0 2"},
+	}
+	for i, test := range tests {
+		if test.input.String() != test.want {
+			t.Errorf("%d: Wrong Signature algorithm String value. expected=%v, actual=%v", i, test.want, test.input.String())
+		}
+	}
+}
+
 func TestPublicKeyString(t *testing.T) {
 	var tests = []struct {
 		input PublicKey
