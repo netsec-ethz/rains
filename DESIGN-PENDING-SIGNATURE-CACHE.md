@@ -1,8 +1,8 @@
 # Pending signature cache
 
 ## Cache design decisions
-- This cache is used in case the server does not have a cached public key to check a signature. It 
-  allows to buffer the section so that the processing go routine can handle another section from the 
+- This cache is used in case the server does not have a cached public key to check a signature. It
+  allows to buffer the section so that the processing go routine can handle another section from the
   queue and does not have to wait until the answer arrives.
 - When a new delegation assertion arrives, then the server checks for sections in the cache waiting
   for this public key and starts processing them. In case a shard or zone arrives, the server looks
@@ -12,8 +12,7 @@
   yet asserted by the super-ordinate zone)
 - If this server has already sent a query to obtain the needed public key but has not yet gotten an
   answer, then the current query is added to the cache together with the token of the already sent
-  query. No new query is sent again to the other server except the sent query has already
-  expired.
+  query. No new query is sent again to the other server except the sent query has already expired.
 - The maximum cache size sets an upper bound for the number of sections waiting for a public key. Be
   aware that the maximum size of the active Token cache sets the upper bound on how many queries for
   public keys can simultaneously be issued by this server. If the active Token cache is full and the
@@ -21,19 +20,19 @@
   signature cache. An alarm is raised when this cache reaches its capacity.
 - Sections issued by rainsPub (over which the server has authority) are not removed from the cache.
   The query is reissued after expiration until an answer is received or the section is expired.
-  
+
 ## Pending signature cache requirements
-- cache has a maximum size which is configurable (to avoid memory exhaustion of the server in case of
-  an attack). It is not fix size because it is operationally important that this cache has enough
+- cache has a maximum size which is configurable (to avoid memory exhaustion of the server in case
+  of an attack). It is not fix size because it is operationally important that this cache has enough
   capacity. In case this cache is full an alarm must go off. To prevent false alarms, we remove
   expired elements.
 - In case the cache is full all queries waiting for the least recently queried public key are
   removed from the cache except for sections published by the own zone (via rainsPub).
 - it must provide an insertion function which stores a section together with the expiration time and
   token of the sent query to the cache. It must return if there is already a section in the cache
-  waiting for the same public key and if the sent query is not yet expired. (Then the calling function can
-  decide if it should resend a query). The return value must be computed fast.
-- it must provide a Token update function to handle the case when it receives a redirect such that 
+  waiting for the same public key and if the sent query is not yet expired. (Then the calling
+  function can decide if it should resend a query). The return value must be computed fast.
+- it must provide a Token update function to handle the case when it receives a redirect such that
   it can issue a new query to the redirection and leave the section in the cache.
 - it must provide a fast lookup of the sections which wait for a public key from a given zone,
   context, algorithm identifier, and key phase. (the last two are only necessary if we can specify

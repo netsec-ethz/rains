@@ -5,7 +5,7 @@
   shards and zones are subject to a least recently used policy.
 - Expired shards and zones are also returned such that it is possible to answer a query which has
   query option 5 (expired assertions are acceptable) set. 
-  
+
 ## Negative assertion requirements
 - cache has a maximum size which is configurable (to avoid memory exhaustion of the server in case
   of an attack). It is not fix size to reduce the number of comparisons needed for checking that a
@@ -22,7 +22,7 @@
   returned such that the calling function can decide which entry it wants to send back according to
   a policy. Depending on a parameter flag it also returns expired shards or zones as part of the
   returned set (to allow answering queries with option 5 set).
-- it must provide a reap function that removes expired entries. This function must also remove the 
+- it must provide a reap function that removes expired entries. This function must also remove the
   corresponding element in the consistency cache.
 - all cache operations must be safe for concurrent access
 
