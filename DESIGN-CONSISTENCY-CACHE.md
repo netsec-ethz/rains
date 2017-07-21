@@ -5,19 +5,19 @@
   complexity of the assertion and negative assertion cache design. It allows to make consistency
   checks in parallel to answering queries as the write lock is not on the assertion or negative
   assertion cache (which increases efficiency).
-  
+
 ## Consistency cache requirements
 - cache has a maximum size which is the sum of the maximum size of the assertion and the negative
   assertion cache (to avoid memory exhaustion of the server in case of an attack). It is not fix
-  size to reduce the number of comparisons needed for checking that a new section is consistent
-  with all already cached entries.
+  size to reduce the number of comparisons needed for checking that a new section is consistent with
+  all already cached entries.
 - Every element in the assertion and negative assertion cache must also be present in the
   consistency cache and vice versa. The assertion and negative assertion caches are responsible to
-  remove the corresponding entry from the consistency cache if they evict an entry in their cache.  
+  remove the corresponding entry from the consistency cache if they evict an entry in their cache.
 - it must provide an insertion function which stores an assertion, shard or zone.
 - it must provide fast lookup of a set of assertions, shards and zones based on a subjectZone,
   context and name interval. This is necessary to check if a new assertion, shard or zone is
-  consistent with cached entries. 
+  consistent with cached entries.
 - it must provide a delete function that allows the assertion and negative assertion cache to also
   delete a corresponding entry in the consistency cache.
 - all cache operations must be safe for concurrent access

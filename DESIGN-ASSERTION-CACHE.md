@@ -3,7 +3,7 @@
 ## Cache design decisions
 - Assertions over which the server has authority are only removed when they expire. All other
   assertions are subject to a least recently used policy.
-  
+
 ## Assertion requirements
 - cache has a maximum size which is configurable (to avoid memory exhaustion of the server in case
   of an attack). It is not fix size to reduce the number of comparisons needed for checking that the

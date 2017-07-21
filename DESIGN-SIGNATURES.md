@@ -11,15 +11,15 @@
   signature algorithm tuple.
 
 ## Basic facts
-- A signature is valid from the validSince to the validUntil time specified in the signature meta 
-  data. The validity time of a signature is further restricted by the validity period of the public 
+- A signature is valid from the validSince to the validUntil time specified in the signature meta
+  data. The validity time of a signature is further restricted by the validity period of the public
   key corresponding to the private key used to generate this signature. 
 - If there is no revocation mechanism then adding multiple signatures to a section does not increase
   security (because one signature is sufficient for a section to be accepted. Although it might be
   suspicious depending on the setting).
-- With a revocation mechanism, an authority can add to each section k simultaneously valid 
-  signatures. A section can be used without being reissued as long as there are not all k private 
-  keys compromised used to sign this section. The overhead of validating such a section increases 
+- With a revocation mechanism, an authority can add to each section k simultaneously valid
+  signatures. A section can be used without being reissued as long as there are not all k private
+  keys compromised used to sign this section. The overhead of validating such a section increases
   linear with the number of signatures.
 
 ## Current state
@@ -45,7 +45,6 @@
   key expires, the authority can send a nextKey request to its super ordinate zone which can then
   issue a new delegation assertion for the first key before the second key expires. This process can
   then be repeated. This way the authority has always at least one valid key to sign sections.
-  
 
 ## Conclusion
 The second proposal is a generalization of the first proposal (i.e. that the second proposal can be
@@ -72,7 +71,7 @@ section.
 
 # Signature cache design and implementation
 
-## zone key cache requirements for proposal 2
+## Zone key cache requirements for proposal 2
 - cache has a maximum size which is configurable (to avoid memory exhaustion of the server in case
   of an attack). It is not fix size because it is operationally important that this cache has enough
   capacity. In case the number of cache entries exceeds a configurable threshold an alarm must go
@@ -89,14 +88,14 @@ section.
   delegation assertion is necessary to answer delegation assertions.
 - it must provide fast lookup of a zone key based on subjectZone and algorithm type and phase id. It
   only returns valid public keys.
+- it must provide fast lookup of all delegation assertions of a subjectZone.
 - it must provide a reap function to delete expired elements or in case the cache is full all public
   keys of the least recently used zone are removed. The reason why we remove all public keys of a
   zone is that a delegation query should be answered by all valid delegation keys of that zone (key
   phase is not part of the query). 
 - all cache operations must be safe for concurrent access
 
-
-## zone key cache implementation
+## Zone key cache implementation
 - lru strategy is implemented as a linked list where pointers to the head and tail of the list are
   accessible.
 - on insertion or lookup of a zone it is moved to the head of the list
@@ -108,7 +107,7 @@ section.
   to the delegation assertion. (The zone value is necessary to update both hash maps when an entry
   is removed)
 
-## zone key cache locking
+## Zone key cache locking
 - we use read/write mutex locks on three different levels. We chose r/w locks over normal locks as
   most accesses are reads. The fourth is a normal lock (there are only writes when the update
   function returns if the cache reached its maximum size).
@@ -128,9 +127,9 @@ section.
   from the hash map (which makes it unaccessible)
 - Never delete an entry top down otherwise we could run into a deadlock.
 
-## extra key cache requirement and implementation
+## Extra key cache requirement and implementation
 - similar to the zone key cache with the only difference that instead of the phase identifier, an
   extra key has a key space identifier.
 
-## infrastructure key cache requirement and implementation
-- depends on how infrastructure keys are used. This is not yet specified. 
+## Infrastructure key cache requirement and implementation
+- depends on how infrastructure keys are used. This is not yet specified.
