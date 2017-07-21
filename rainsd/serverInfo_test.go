@@ -146,3 +146,70 @@ func handleConn(c net.Conn) {
 	}
 	c.Close()
 }
+
+func TestZoneKeyCache(t *testing.T) {
+	var tests = []struct {
+		input zonePublicKeyCache
+	}{
+		{&zoneKeyCacheImpl{zoneHashMap: lruCache.New(), counter: safeCounter.New(4), warnSize: 3, maxPublicKeysPerZone: 2}},
+	}
+	for i, test := range tests {
+		c := test.input
+		if c.Len() != 0 {
+			t.Errorf("%d:init size is incorrect actual=%d", i, c.Len())
+		}
+		//Add delegationAssertions
+	}
+}
+
+func getExampleCOM() []*rainslib.AssertionSection {
+	a1 := &rainslib.AssertionSection{
+		SubjectName: "example",
+		SubjectZone: "com",
+		Context:     ".",
+		Content: []rainslib.Object{
+			rainslib.Object{
+				Type: rainslib.OTDelegation,
+				Value: rainslib.PublicKey{
+					PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519},
+					ValidSince:  1000,
+					ValidUntil:  2000,
+					Key:         []byte("TestKey"),
+				},
+			},
+		},
+	}
+	a2 := &rainslib.AssertionSection{ //different key, everything else the same as a1
+		SubjectName: "example",
+		SubjectZone: "com",
+		Context:     ".",
+		Content: []rainslib.Object{
+			rainslib.Object{
+				Type: rainslib.OTDelegation,
+				Value: rainslib.PublicKey{
+					PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519},
+					ValidSince:  1000,
+					ValidUntil:  2000,
+					Key:         []byte("TestKey2"),
+				},
+			},
+		},
+	}
+	a3 := &rainslib.AssertionSection{ //different keyphase, everything else the same as a1
+		SubjectName: "example",
+		SubjectZone: "com",
+		Context:     ".",
+		Content: []rainslib.Object{
+			rainslib.Object{
+				Type: rainslib.OTDelegation,
+				Value: rainslib.PublicKey{
+					PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519, KeyPhase: 1},
+					ValidSince:  1000,
+					ValidUntil:  2000,
+					Key:         []byte("TestKey"),
+				},
+			},
+		},
+	}
+	return []*rainslib.AssertionSection{a1, a2, a3}
+}

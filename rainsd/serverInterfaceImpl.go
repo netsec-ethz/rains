@@ -211,12 +211,12 @@ type zoneKeyCacheImpl struct {
 }
 
 type keyIDMapValue struct {
-	keyIDHashMap map[rainslib.PublicKeyID]zoneKeyCacheValue
+	keyIDHashMap map[rainslib.PublicKeyID]*zoneKeyCacheValue
 	zone         string
 	//mux is used to protect keyIDHashMap from simultaneous access
 	//TODO most access are reads, but do we have a lot of parallel access to the same
 	//connCacheValue? If not replace with sync.Mutex.
-	mux *sync.RWMutex
+	mux sync.RWMutex
 	//set to true if the pointer to this element is removed from the hash map
 	deleted bool
 }
@@ -226,7 +226,7 @@ type zoneKeyCacheValue struct {
 	//key is contained
 	publicKeys *safeHashMap.Map
 	//mux is used to protect deleted from simultaneous access
-	mux *sync.Mutex
+	mux sync.Mutex
 	//set to true if the pointer to this element is removed from the hash map
 	deleted bool
 }
@@ -243,9 +243,9 @@ type publicKeyAssertion struct {
 //public keys. An external service can then decide if it want to blacklist the given zone. If
 //the internal flag is set, publicKey will only be removed after it expired.
 func (c *zoneKeyCacheImpl) Add(assertion *rainslib.AssertionSection, publicKey rainslib.PublicKey, internal bool) bool {
-	hashMap := keyIDMapValue{keyIDHashMap: make(map[rainslib.PublicKeyID]zoneKeyCacheValue), zone: assertion.SubjectName}
+	hashMap := &keyIDMapValue{keyIDHashMap: make(map[rainslib.PublicKeyID]*zoneKeyCacheValue), zone: assertion.SubjectName}
 	e, _ := c.zoneHashMap.GetOrAdd(assertion.SubjectName, hashMap, internal)
-	v := e.(keyIDMapValue)
+	v := e.(*keyIDMapValue)
 	v.mux.Lock()
 	if v.deleted {
 		v.mux.Unlock()
@@ -253,7 +253,7 @@ func (c *zoneKeyCacheImpl) Add(assertion *rainslib.AssertionSection, publicKey r
 	}
 	val, ok := v.keyIDHashMap[publicKey.PublicKeyID]
 	if !ok {
-		val = zoneKeyCacheValue{publicKeys: safeHashMap.New()}
+		val = &zoneKeyCacheValue{publicKeys: safeHashMap.New()}
 		v.keyIDHashMap[publicKey.PublicKeyID] = val
 	}
 	v.mux.Unlock()
@@ -279,7 +279,7 @@ func (c *zoneKeyCacheImpl) Add(assertion *rainslib.AssertionSection, publicKey r
 				break
 			}
 			zone, e := c.zoneHashMap.GetLeastRecentlyUsed()
-			value := e.(keyIDMapValue)
+			value := e.(*keyIDMapValue)
 			value.mux.Lock()
 			if value.deleted {
 				value.mux.Unlock()
@@ -315,7 +315,7 @@ func (c *zoneKeyCacheImpl) Get(zone string, sigMetaData rainslib.SignatureMetaDa
 	if !ok {
 		return rainslib.PublicKey{}, false
 	}
-	v := e.(keyIDMapValue)
+	v := e.(*keyIDMapValue)
 	v.mux.RLock()
 	if v.deleted {
 		v.mux.RUnlock()
@@ -347,7 +347,7 @@ func (c *zoneKeyCacheImpl) GetAllDelegations(zone string) ([]*rainslib.Assertion
 	if !ok {
 		return nil, false
 	}
-	v := e.(keyIDMapValue)
+	v := e.(*keyIDMapValue)
 	v.mux.RLock()
 	if v.deleted {
 		v.mux.RUnlock()
@@ -371,9 +371,9 @@ func (c *zoneKeyCacheImpl) GetAllDelegations(zone string) ([]*rainslib.Assertion
 
 //RemoveExpiredKeys deletes all expired public keys from the cache.
 func (c *zoneKeyCacheImpl) RemoveExpiredKeys() {
-	vals := c.zoneHashMap.GetAll()
-	for _, e := range vals {
-		v := e.(keyIDMapValue)
+	values := c.zoneHashMap.GetAll()
+	for _, e := range values {
+		v := e.(*keyIDMapValue)
 		v.mux.RLock()
 		if v.deleted {
 			v.mux.RUnlock()
