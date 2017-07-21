@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"time"
 
 	"github.com/netsec-ethz/rains/rainslib"
@@ -95,23 +94,17 @@ func loadRootZonePublicKey(keyPath string) error {
 		for _, c := range a.Content {
 			if c.Type == rainslib.OTDelegation {
 				if publicKey, ok := c.Value.(rainslib.PublicKey); ok {
-					keyMap := make(map[rainslib.PublicKeyID]rainslib.PublicKey)
-					keyMap[a.Signatures[0].PublicKeyID] = publicKey
+					keyMap := make(map[rainslib.PublicKeyID][]rainslib.PublicKey)
+					keyMap[a.Signatures[0].PublicKeyID] = []rainslib.PublicKey{publicKey}
 					if validateSignatures(a, keyMap) {
 						log.Info("Added root public key to zone key cache.",
 							"context", a.Context,
 							"zone", a.SubjectZone,
 							"RootPublicKey", c.Value,
 						)
-						zoneKeyCache.Add(
-							keyCacheKey{
-								zone: a.SubjectZone,
-								PublicKeyID: rainslib.PublicKeyID{
-									Algorithm: publicKey.Algorithm,
-									KeyPhase:  publicKey.KeyPhase,
-								},
-							},
-							publicKey, true)
+						if ok := zoneKeyCache.Add(a, publicKey, true); !ok {
+							return errors.New("Cache is smaller than the amount of root public keys")
+						}
 					}
 				} else {
 					log.Warn(fmt.Sprintf("Was not able to cast to rainslib.PublicKey Got Type:%T", c.Value))
@@ -170,26 +163,17 @@ func getRootAddr() rainslib.ConnInfo {
 	return rootAddr
 }
 
-//createConnectionCache returns a newly created connection cache
-func createConnectionCache(connCacheSize uint) (connectionCache, error) {
-	c, err := cache.NewWithEvict(func(value interface{}, key ...string) {
-		if value, ok := value.(net.Conn); ok {
-			value.Close()
-		}
-	}, connCacheSize, "noAnyContext")
-	if err != nil {
-		return nil, err
-	}
-	return &connectionCacheImpl{cache: c}, nil
-}
-
 //createCapabilityCache returns a newly created capability cache
 func createCapabilityCache(hashToCapCacheSize int) capabilityCache {
 	cache := lruCache.New()
 	//TODO CFE after there are more capabilities do not use hardcoded value
-	cache.GetOrAdd("e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745", &[]Capability{TLSOverTCP}, true)
-	cache.GetOrAdd("76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71", &[]Capability{NoCapability}, false)
-	return &capabilityCacheImpl{capabilityMap: cache, counter: safeCounter.New(hashToCapCacheSize)}
+	cache.GetOrAdd("e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745",
+		&[]rainslib.Capability{rainslib.TLSOverTCP}, true)
+	cache.GetOrAdd("76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71",
+		&[]rainslib.Capability{rainslib.NoCapability}, false)
+	counter := safeCounter.New(hashToCapCacheSize)
+	counter.Add(2)
+	return &capabilityCacheImpl{capabilityMap: cache, counter: counter}
 }
 
 //createKeyCache returns a new key capability cache

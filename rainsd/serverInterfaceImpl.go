@@ -26,7 +26,7 @@ type connCacheValue struct {
 	//mux is used to protect connections from simultaneous access
 	//TODO most access are reads, but do we have a lot of parallel access to the same
 	//connCacheValue? If not replace with sync.Mutex.
-	mux *sync.RWMutex
+	mux sync.RWMutex
 	//set to true if the pointer to this element is removed from the hash map
 	deleted bool
 }
@@ -45,9 +45,9 @@ func getNetworkAndAddr(conn net.Conn) string {
 
 //AddConnection adds conn to the cache. If the cache is full the least recently used connection is removed.
 func (c *connectionCacheImpl) AddConnection(conn net.Conn) {
-	v := connCacheValue{connections: &[]net.Conn{conn}}
+	v := &connCacheValue{connections: &[]net.Conn{}}
 	e, _ := c.cache.GetOrAdd(getNetworkAndAddr(conn), v, false)
-	value := e.(connCacheValue)
+	value := e.(*connCacheValue)
 	value.mux.Lock()
 	*value.connections = append(*value.connections, conn)
 	value.mux.Unlock()
@@ -57,8 +57,8 @@ func (c *connectionCacheImpl) AddConnection(conn net.Conn) {
 			if !c.counter.IsFull() {
 				break
 			}
-			k, v := c.cache.GetLeastRecentlyUsed()
-			value := e.(connCacheValue)
+			key, e := c.cache.GetLeastRecentlyUsed()
+			value := e.(*connCacheValue)
 			value.mux.Lock()
 			if value.deleted {
 				value.mux.Unlock()
@@ -69,7 +69,7 @@ func (c *connectionCacheImpl) AddConnection(conn net.Conn) {
 				conn.Close()
 				c.counter.Dec()
 			}
-			c.cache.Remove(getNetworkAndAddr((*value.connections)[0]))
+			c.cache.Remove(key)
 			value.mux.Unlock()
 			break
 		}
@@ -81,7 +81,7 @@ func (c *connectionCacheImpl) AddConnection(conn net.Conn) {
 //overwritten.
 func (c *connectionCacheImpl) AddCapabilityList(dstAddr rainslib.ConnInfo, capabilities *[]rainslib.Capability) bool {
 	if e, ok := c.cache.Get(dstAddr.NetworkAndAddr()); ok {
-		v := e.(connCacheValue)
+		v := e.(*connCacheValue)
 		v.mux.Lock()
 		defer v.mux.Unlock()
 		if v.deleted {
@@ -93,11 +93,11 @@ func (c *connectionCacheImpl) AddCapabilityList(dstAddr rainslib.ConnInfo, capab
 	return false
 }
 
-//Get returns true and all cached connection objects to dstAddr.
-//Get returns false if there is no cached connection to dstAddr.
+//GetConnection returns true and all cached connection objects to dstAddr.
+//GetConnection returns false if there is no cached connection to dstAddr.
 func (c *connectionCacheImpl) GetConnection(dstAddr rainslib.ConnInfo) ([]net.Conn, bool) {
 	if e, ok := c.cache.Get(dstAddr.NetworkAndAddr()); ok {
-		v := e.(connCacheValue)
+		v := e.(*connCacheValue)
 		v.mux.RLock()
 		defer v.mux.RUnlock()
 		if v.deleted {
@@ -108,11 +108,26 @@ func (c *connectionCacheImpl) GetConnection(dstAddr rainslib.ConnInfo) ([]net.Co
 	return nil, false
 }
 
+//Get returns true and the capability list of dstAddr.
+//Get returns false if there is no capability list of dstAddr.
+func (c *connectionCacheImpl) GetCapabilityList(dstAddr rainslib.ConnInfo) ([]rainslib.Capability, bool) {
+	if e, ok := c.cache.Get(dstAddr.NetworkAndAddr()); ok {
+		v := e.(*connCacheValue)
+		v.mux.RLock()
+		defer v.mux.RUnlock()
+		if v.deleted {
+			return nil, false
+		}
+		return *v.capabilities, true
+	}
+	return nil, false
+}
+
 //Delete closes conn and removes it from the cache
 func (c *connectionCacheImpl) CloseAndRemoveConnection(conn net.Conn) {
 	conn.Close()
 	if e, ok := c.cache.Get(getNetworkAndAddr(conn)); ok {
-		v := e.(connCacheValue)
+		v := e.(*connCacheValue)
 		v.mux.Lock()
 		defer v.mux.Unlock()
 		if !v.deleted {
@@ -290,12 +305,44 @@ func (c *zoneKeyCacheImpl) Add(assertion *rainslib.AssertionSection, publicKey r
 			break
 		}
 	}
-	return c.counter.Value() > c.warnSize
+	return c.counter.Value() < c.warnSize
 }
 
 //Get returns true and a valid public key matching zone and publicKeyID. It returns false if
 //there exists no valid public key in the cache.
-func (c *zoneKeyCacheImpl) Get(zone string, publicKeyID rainslib.PublicKeyID) ([]rainslib.PublicKey, bool) {
+func (c *zoneKeyCacheImpl) Get(zone string, sigMetaData rainslib.SignatureMetaData) (rainslib.PublicKey, bool) {
+	e, ok := c.zoneHashMap.Get(zone)
+	if !ok {
+		return rainslib.PublicKey{}, false
+	}
+	v := e.(keyIDMapValue)
+	v.mux.RLock()
+	if v.deleted {
+		v.mux.RUnlock()
+		return rainslib.PublicKey{}, false
+	}
+	val, ok := v.keyIDHashMap[sigMetaData.PublicKeyID]
+	if !ok {
+		v.mux.RUnlock()
+		return rainslib.PublicKey{}, false
+	}
+	v.mux.RUnlock()
+	values := val.publicKeys.GetAll()
+	for _, v := range values {
+		key := v.(publicKeyAssertion).publicKey
+		if key.ValidUntil > time.Now().Unix() {
+			//key is valid
+			if key.ValidSince <= sigMetaData.ValidUntil && key.ValidUntil >= sigMetaData.ValidSince {
+				return key, true
+			}
+		}
+	}
+	return rainslib.PublicKey{}, false
+}
+
+//GetAllDelegations returns true and all valid cached delegation assertions for zone. It returns
+//false if there are no valid delegation assertions in the cache
+func (c *zoneKeyCacheImpl) GetAllDelegations(zone string) ([]*rainslib.AssertionSection, bool) {
 	e, ok := c.zoneHashMap.Get(zone)
 	if !ok {
 		return nil, false
@@ -306,21 +353,20 @@ func (c *zoneKeyCacheImpl) Get(zone string, publicKeyID rainslib.PublicKeyID) ([
 		v.mux.RUnlock()
 		return nil, false
 	}
-	val, ok := v.keyIDHashMap[publicKeyID]
-	if !ok {
+	delegations := []*rainslib.AssertionSection{}
+	for _, val := range v.keyIDHashMap {
 		v.mux.RUnlock()
-		return nil, false
+		values := val.publicKeys.GetAll()
+		for _, v := range values {
+			assertion := v.(publicKeyAssertion).assertion
+			if assertion.ValidUntil() > time.Now().Unix() {
+				delegations = append(delegations, assertion)
+			}
+		}
+		v.mux.RLock()
 	}
 	v.mux.RUnlock()
-	values := val.publicKeys.GetAll()
-	keys := []rainslib.PublicKey{}
-	for _, v := range values {
-		key := v.(publicKeyAssertion).publicKey
-		if key.ValidUntil > time.Now().Unix() {
-			keys = append(keys, key)
-		}
-	}
-	return keys, len(keys) > 0
+	return delegations, len(delegations) > 0
 }
 
 //RemoveExpiredKeys deletes all expired public keys from the cache.

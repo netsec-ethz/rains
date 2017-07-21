@@ -189,6 +189,20 @@ type Hashable interface {
 	Hash() string
 }
 
+//SignatureMetaData contains meta data of the signature
+type SignatureMetaData struct {
+	PublicKeyID
+	//ValidSince defines the time from which on this signature is valid. ValidSince is represented as seconds since the UNIX epoch UTC.
+	ValidSince int64
+	//ValidUntil defines the time after which this signature is not valid anymore. ValidUntil is represented as seconds since the UNIX epoch UTC.
+	ValidUntil int64
+}
+
+func (sig SignatureMetaData) String() string {
+	return fmt.Sprintf("%d %d %d %d %d",
+		sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, sig.KeyPhase)
+}
+
 //Signature contains meta data of the signature and the signature data itself.
 type Signature struct {
 	PublicKeyID
@@ -200,11 +214,13 @@ type Signature struct {
 	Data interface{}
 }
 
-//GetSignatureMetaData returns a string containing the signature's metadata
-//(keyspace, algorithm type, validSince and validUntil, keyPhase) in signable format
-func (sig Signature) GetSignatureMetaData() string {
-	return fmt.Sprintf("%d %d %d %d %d",
-		sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, sig.KeyPhase)
+//GetSignatureMetaData returns the signatures metaData
+func (sig Signature) GetSignatureMetaData() SignatureMetaData {
+	return SignatureMetaData{
+		PublicKeyID: sig.PublicKeyID,
+		ValidSince:  sig.ValidSince,
+		ValidUntil:  sig.ValidUntil,
+	}
 }
 
 //String implements Stringer interface
@@ -228,7 +244,7 @@ func (sig *Signature) SignData(privateKey interface{}, encoding string) error {
 		log.Warn("PrivateKey is nil")
 		return errors.New("privateKey is nil")
 	}
-	encoding += sig.GetSignatureMetaData()
+	encoding += sig.GetSignatureMetaData().String()
 	data := []byte(encoding)
 	switch sig.Algorithm {
 	case Ed25519:
@@ -284,7 +300,7 @@ func (sig *Signature) VerifySignature(publicKey interface{}, encoding string) bo
 		log.Warn("PublicKey is nil")
 		return false
 	}
-	encoding += sig.GetSignatureMetaData()
+	encoding += sig.GetSignatureMetaData().String()
 	data := []byte(encoding)
 	switch sig.Algorithm {
 	case Ed25519:

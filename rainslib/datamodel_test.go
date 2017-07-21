@@ -96,15 +96,52 @@ func TestInterval(t *testing.T) {
 	}
 }
 
+func TestSignatureMetaDataString(t *testing.T) {
+	var tests = []struct {
+		input SignatureMetaData
+		want  string
+	}{
+		{SignatureMetaData{}, "0 0 0 0 0"},
+		{SignatureMetaData{PublicKeyID: PublicKeyID{Algorithm: Ed448}}, "0 2 0 0 0"},
+		{SignatureMetaData{PublicKeyID: PublicKeyID{Algorithm: Ecdsa256}}, "0 3 0 0 0"},
+		{SignatureMetaData{PublicKeyID: PublicKeyID{Algorithm: Ecdsa384}}, "0 4 0 0 0"},
+		{
+			SignatureMetaData{
+				PublicKeyID: PublicKeyID{
+					KeySpace:  RainsKeySpace,
+					Algorithm: Ed25519,
+					KeyPhase:  1,
+				},
+				ValidSince: 1,
+				ValidUntil: 2,
+			},
+			"0 1 1 2 1"},
+	}
+	for i, test := range tests {
+		if test.input.String() != test.want {
+			t.Errorf("%d: Wrong Signature meta data. expected=%v, actual=%v", i, test.want, test.input.String())
+		}
+	}
+}
+
 func TestGetSignatureMetaData(t *testing.T) {
 	var tests = []struct {
 		input Signature
-		want  string
+		want  SignatureMetaData
 	}{
-		{Signature{}, "0 0 0 0 0"},
-		{Signature{PublicKeyID: PublicKeyID{Algorithm: Ed448}}, "0 2 0 0 0"},
-		{Signature{PublicKeyID: PublicKeyID{Algorithm: Ecdsa256}}, "0 3 0 0 0"},
-		{Signature{PublicKeyID: PublicKeyID{Algorithm: Ecdsa384}}, "0 4 0 0 0"},
+		{Signature{}, SignatureMetaData{}},
+		{
+			Signature{PublicKeyID: PublicKeyID{Algorithm: Ed448}},
+			SignatureMetaData{PublicKeyID: PublicKeyID{Algorithm: Ed448}},
+		},
+		{
+			Signature{PublicKeyID: PublicKeyID{Algorithm: Ecdsa256}},
+			SignatureMetaData{PublicKeyID: PublicKeyID{Algorithm: Ecdsa256}},
+		},
+		{
+			Signature{PublicKeyID: PublicKeyID{Algorithm: Ecdsa384}},
+			SignatureMetaData{PublicKeyID: PublicKeyID{Algorithm: Ecdsa384}},
+		},
 		{
 			Signature{
 				PublicKeyID: PublicKeyID{
@@ -114,8 +151,18 @@ func TestGetSignatureMetaData(t *testing.T) {
 				},
 				ValidSince: 1,
 				ValidUntil: 2,
-				Data:       []byte("testData")},
-			"0 1 1 2 1"},
+				Data:       []byte("testData"),
+			},
+			SignatureMetaData{
+				PublicKeyID: PublicKeyID{
+					KeySpace:  RainsKeySpace,
+					Algorithm: Ed25519,
+					KeyPhase:  1,
+				},
+				ValidSince: 1,
+				ValidUntil: 2,
+			},
+		},
 	}
 	for i, test := range tests {
 		if test.input.GetSignatureMetaData() != test.want {

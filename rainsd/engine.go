@@ -160,22 +160,13 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 			assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[i].Type, isAuthoritative, value)
 			if a.Content[i].Type == rainslib.OTDelegation {
 				if publicKey, ok := a.Content[i].Value.(rainslib.PublicKey); ok {
-					cacheKey := keyCacheKey{
-						zone:        a.SubjectName,
-						PublicKeyID: publicKey.PublicKeyID,
-					}
 					publicKey.ValidSince = a.ValidSince()
 					publicKey.ValidUntil = a.ValidUntil()
-					ok := zoneKeyCache.Add(cacheKey, publicKey, isAuthoritative)
+					ok := zoneKeyCache.Add(a, publicKey, isAuthoritative)
 					if !ok {
-						//TODO CFE complain loudly such that an external element can update config, mitigate DDOS, etc.
-						log.Warn("Was not able to add entry to zone key cache", "cacheKey", cacheKey, "publicKey", publicKey)
-						//delegation assertion cannot be used to answer queries, because cannot store public key. Is this possible in the new cache design?
-						pendingQueries.GetAllAndDelete(token)
-						pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
-						return false
+						log.Warn("zoneKeyCache is getting full")
 					}
-					log.Debug("Added delegation to cache", "chacheKey", cacheKey, "publicKey", publicKey)
+					log.Debug("Added publicKey to cache", "publicKey", publicKey)
 				} else {
 					log.Error("Object type and value type mismatch. This case must be prevented beforehand")
 					return false

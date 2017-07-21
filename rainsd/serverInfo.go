@@ -30,7 +30,7 @@ type rainsdConfig struct {
 
 	//switchboard
 	ServerAddress      rainslib.ConnInfo
-	MaxConnections     uint
+	MaxConnections     int
 	KeepAlivePeriod    time.Duration //in seconds
 	TCPTimeout         time.Duration //in seconds
 	TLSCertificateFile string
@@ -50,7 +50,9 @@ type rainsdConfig struct {
 	Capabilities            []rainslib.Capability
 
 	//verify
-	ZoneKeyCacheSize           uint
+	ZoneKeyCacheSize           int
+	ZoneKeyCacheWarnSize       int
+	MaxPublicKeysPerZone       int
 	PendingSignatureCacheSize  uint
 	InfrastructureKeyCacheSize uint
 	ExternalKeyCacheSize       uint
@@ -96,9 +98,12 @@ type connectionCache interface {
 	//in the cache for dstAddr. If there is already a capability list associated with destAddr, it
 	//will be overwritten.
 	AddCapabilityList(dstAddr rainslib.ConnInfo, capabilities *[]rainslib.Capability) bool
-	//Get returns true and all cached connection objects to dstAddr.
-	//Get returns false if there is no cached connection to dstAddr.
+	//GetConnection returns true and all cached connections to dstAddr.
+	//GetConnection returns false if there is no cached connection to dstAddr.
 	GetConnection(dstAddr rainslib.ConnInfo) ([]net.Conn, bool)
+	//Get returns true and the capability list of dstAddr.
+	//Get returns false if there is no capability list of dstAddr.
+	GetCapabilityList(dstAddr rainslib.ConnInfo) ([]rainslib.Capability, bool)
 	//CloseAndRemoveConnection closes conn and removes it from the cache.
 	CloseAndRemoveConnection(conn net.Conn)
 	//Len returns the number of connections currently in the cache.
@@ -129,31 +134,35 @@ func (k keyCacheKey) Hash() string {
 
 //keyCache is the Interface which must be implemented by all caches for keys.
 type keyCache interface {
-	//Add adds the public key to the cache.
-	//Returns true if the given public key was successfully added. If it was not possible to add the key it return false.
-	//If the cache is full it removes all public keys from a keyCacheKey entry according to some metric
-	//The cache makes sure that only a small limited amount of public keys (e.g. 3) can be stored associated with a keyCacheKey
-	//If the internal flag is set, this key will only be removed after it expired.
+	//Add adds the public key to the cache. Returns true if the given public key was successfully
+	//added. If it was not possible to add the key it return false. If the cache is full it removes
+	//all public keys from a keyCacheKey entry according to some metric The cache makes sure that
+	//only a small limited amount of public keys (e.g. 3) can be stored associated with a
+	//keyCacheKey If the internal flag is set, this key will only be removed after it expired.
 	Add(key keyCacheKey, value rainslib.PublicKey, internal bool) bool
-	//Get returns a valid public key matching the given keyCacheKey. It returns false if there exists no valid public key in the cache.
-	//Get must always check the validity period of the public key before returning.
+	//Get returns a valid public key matching the given keyCacheKey. It returns false if there
+	//exists no valid public key in the cache. Get must always check the validity period of the
+	//public key before returning.
 	Get(key keyCacheKey) (rainslib.PublicKey, bool)
 	//RemoveExpiredKeys deletes a public key from the cache if it is expired
 	RemoveExpiredKeys()
 }
 
-//zoneKeyCache is used to store public keys of zones and a pointer to assertions containing them.
-type zoneKeyCache interface {
-	//Add adds publicKey together with the assertion containing it to the cache. Returns true if the
-	//cache exceeds a configured (during initialization of the cache) amount of entries. If the
+//zonePublicKeyCache is used to store public keys of zones and a pointer to assertions containing them.
+type zonePublicKeyCache interface {
+	//Add adds publicKey together with the assertion containing it to the cache. Returns false if
+	//the cache exceeds a configured (during initialization of the cache) amount of entries. If the
 	//cache is full it removes all public keys from a zone according to some metric. The cache logs
 	//a message when a zone has more than a certain configurable (at initialization) amount of
 	//public keys. An external service can then decide if it want to blacklist the given zone. If
 	//the internal flag is set, publicKey will only be removed after it expired.
 	Add(assertion *rainslib.AssertionSection, publicKey rainslib.PublicKey, internal bool) bool
-	//Get returns true and all non expired public keys matching zone and publicKeyID. It returns false if
-	//there exists no valid public key in the cache.
-	Get(zone string, publicKeyID rainslib.PublicKeyID) ([]rainslib.PublicKey, bool)
+	//Get returns true and a non expired public key which can be used to verify a signature with
+	//sigMetaData. It returns false if there is no valid matching public key in the cache.
+	Get(zone string, sigMetaData rainslib.SignatureMetaData) (rainslib.PublicKey, bool)
+	//GetAllDelegations returns true and all valid cached delegation assertions for zone. It returns
+	//false if there are no valid delegation assertions in the cache
+	GetAllDelegations(zone string) ([]*rainslib.AssertionSection, bool)
 	//RemoveExpiredKeys deletes all expired public keys from the cache.
 	RemoveExpiredKeys()
 	//Len returns the number of public keys currently in the cache.

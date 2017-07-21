@@ -160,8 +160,8 @@ func TestEncodeAndDecode(t *testing.T) {
 		ValidUntil: time.Now().Add(24 * time.Hour).Unix(),
 		Key:        genPublicKey,
 	}
-	pKeys := make(map[rainslib.PublicKeyID]rainslib.PublicKey)
-	pKeys[rainslib.PublicKeyID{Algorithm: pKey.Algorithm}] = pKey
+	pKeys := make(map[rainslib.PublicKeyID][]rainslib.PublicKey)
+	pKeys[rainslib.PublicKeyID{Algorithm: pKey.Algorithm}] = []rainslib.PublicKey{pKey}
 	maxValidity := rainslib.MaxCacheValidity{
 		AssertionValidity:        30 * time.Hour,
 		ShardValidity:            30 * time.Hour,
@@ -245,12 +245,12 @@ func TestEncodeAndDecode(t *testing.T) {
 func TestCheckSectionSignaturesErrors(t *testing.T) {
 	encoder := new(zoneFileParser.Parser)
 	maxVal := rainslib.MaxCacheValidity{AddressAssertionValidity: time.Hour}
-	keys := make(map[rainslib.PublicKeyID]rainslib.PublicKey)
-	keys1 := make(map[rainslib.PublicKeyID]rainslib.PublicKey)
-	keys1[rainslib.PublicKeyID{Algorithm: rainslib.Ed25519}] = rainslib.PublicKey{}
+	keys := make(map[rainslib.PublicKeyID][]rainslib.PublicKey)
+	keys1 := make(map[rainslib.PublicKeyID][]rainslib.PublicKey)
+	keys1[rainslib.PublicKeyID{Algorithm: rainslib.Ed25519}] = []rainslib.PublicKey{}
 	var tests = []struct {
 		input           rainslib.MessageSectionWithSig
-		inputPublicKeys map[rainslib.PublicKeyID]rainslib.PublicKey
+		inputPublicKeys map[rainslib.PublicKeyID][]rainslib.PublicKey
 		want            bool
 	}{
 		{nil, nil, false},                                                                                                                                               //msg nil
