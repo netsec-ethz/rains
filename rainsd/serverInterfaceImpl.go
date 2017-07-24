@@ -304,6 +304,7 @@ func (c *zoneKeyCacheImpl) Add(assertion *rainslib.AssertionSection, publicKey r
 			}
 			break
 		}
+		return false
 	}
 	return c.counter.Value() < c.warnSize
 }

@@ -84,7 +84,7 @@ func (c *Cache) GetAll() []interface{} {
 	defer c.mux.RUnlock()
 	values := []interface{}{}
 	for _, v := range c.hashMap {
-		values = append(values, v)
+		values = append(values, v.Value.(*entry).value)
 	}
 	return values
 }

@@ -20,26 +20,26 @@ func TestGetOrAdd(t *testing.T) {
 	//test if added value is stored correctly in the cache
 	cache := New()
 	v, ok := cache.GetOrAdd("v", 5, true)
-	if !ok || v != 5 {
+	if !ok || v.(int) != 5 {
 		t.Errorf("Inserted value not contained or wrong. %v", cache.hashMap)
 	}
 	v, ok = cache.GetOrAdd("v2", 4, false)
-	if !ok || v != 4 {
+	if !ok || v.(int) != 4 {
 		t.Errorf("Inserted value not contained or wrong. %v", cache.hashMap)
 	}
 	v, ok = cache.GetOrAdd("v", 6, true)
-	if ok || v != 5 {
+	if ok || v.(int) != 5 {
 		t.Errorf("If element is already contained new values are ignored. %v", cache.hashMap)
 	}
 	v, ok = cache.GetOrAdd("v3", 4, false)
-	if !ok || v != 4 {
+	if !ok || v.(int) != 4 {
 		t.Errorf("Inserted value not contained or wrong. %v", cache.hashMap)
 	}
 	if cache.lruList.Back().Value.(*entry).key != "v2" {
 		t.Error("Wrong element at the back of the list")
 	}
 	v, ok = cache.GetOrAdd("v2", 6, false)
-	if ok || v != 4 {
+	if ok || v.(int) != 4 {
 		t.Errorf("If element is already contained new values are ignored. %v", cache.hashMap)
 	}
 	if cache.lruList.Back().Value.(*entry).key != "v3" {
@@ -77,7 +77,7 @@ func TestGet(t *testing.T) {
 		t.Error("Wrong element at the back of the list")
 	}
 	v, ok = cache.Get("v")
-	if !ok || v != 5 {
+	if !ok || v.(int) != 5 {
 		t.Errorf("returned existing value is false. value=%v newValue=%v", v, ok)
 	}
 	if cache.internalList.Back().Value.(*entry).key != "v3" {
@@ -90,7 +90,7 @@ func TestGet(t *testing.T) {
 		t.Error("Wrong element at the back of the list")
 	}
 	v, ok = cache.Get("v2")
-	if !ok || v != 4 {
+	if !ok || v.(int) != 4 {
 		t.Errorf("returned existing value is false. value=%v newValue=%v", v, ok)
 	}
 	if cache.lruList.Back().Value.(*entry).key != "v4" {
@@ -116,6 +116,26 @@ func TestGet(t *testing.T) {
 func getValue(i int, cache *Cache, wg *sync.WaitGroup) {
 	cache.Get(strconv.Itoa(i))
 	wg.Done()
+}
+
+func TestGetAll(t *testing.T) {
+	cache := New()
+	v := cache.GetAll()
+	if len(v) != 0 {
+		t.Errorf("return value is not correct when cache is empty. %v", cache.hashMap)
+	}
+	cache.GetOrAdd("v2", 4, false)
+	cache.GetOrAdd("v4", 7, false)
+	v = cache.GetAll()
+	if len(v) != 2 {
+		t.Errorf("return value is not correct. %v", cache.hashMap)
+	}
+	if v[0].(int) == 4 && v[1].(int) != 7 {
+		t.Errorf("returned values are not correct. %v", cache.hashMap)
+	}
+	if v[0].(int) == 7 && v[1].(int) != 4 {
+		t.Errorf("returned values are not correct. %v", cache.hashMap)
+	}
 }
 
 func TestRemove(t *testing.T) {
@@ -166,16 +186,16 @@ func TestGetLeastRecentlyUsed(t *testing.T) {
 	cache.GetOrAdd("v", 5, false)
 	cache.GetOrAdd("v2", 4, false)
 	k, v = cache.GetLeastRecentlyUsed()
-	if k != "v" || v != 5 {
+	if k != "v" || v.(int) != 5 {
 		t.Errorf("Wrong least recently used value returned expected=(v,5) actual=(%s,%v)", k, v)
 	}
 	k, v = cache.GetLeastRecentlyUsed()
-	if k != "v" || v != 5 { //GetLeastRecentlyUsed must not update lru list
+	if k != "v" || v.(int) != 5 { //GetLeastRecentlyUsed must not update lru list
 		t.Errorf("Wrong least recently used value returned expected=(v,5) actual=(%s,%v)", k, v)
 	}
 	cache.Get("v")
 	k, v = cache.GetLeastRecentlyUsed()
-	if k != "v2" || v != 4 {
+	if k != "v2" || v.(int) != 4 {
 		t.Errorf("Wrong least recently used value returned expected=(v2,4) actual=(%s,%v)", k, v)
 	}
 
