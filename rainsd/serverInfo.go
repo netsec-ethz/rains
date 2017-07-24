@@ -123,31 +123,6 @@ type capabilityCache interface {
 	Len() int
 }
 
-type keyCacheKey struct {
-	zone string
-	rainslib.PublicKeyID
-}
-
-func (k keyCacheKey) Hash() string {
-	return fmt.Sprintf("%s_%d_%d", k.zone, k.Algorithm, k.KeyPhase)
-}
-
-//keyCache is the Interface which must be implemented by all caches for keys.
-type keyCache interface {
-	//Add adds the public key to the cache. Returns true if the given public key was successfully
-	//added. If it was not possible to add the key it return false. If the cache is full it removes
-	//all public keys from a keyCacheKey entry according to some metric The cache makes sure that
-	//only a small limited amount of public keys (e.g. 3) can be stored associated with a
-	//keyCacheKey If the internal flag is set, this key will only be removed after it expired.
-	Add(key keyCacheKey, value rainslib.PublicKey, internal bool) bool
-	//Get returns a valid public key matching the given keyCacheKey. It returns false if there
-	//exists no valid public key in the cache. Get must always check the validity period of the
-	//public key before returning.
-	Get(key keyCacheKey) (rainslib.PublicKey, bool)
-	//RemoveExpiredKeys deletes a public key from the cache if it is expired
-	RemoveExpiredKeys()
-}
-
 //zonePublicKeyCache is used to store public keys of zones and a pointer to assertions containing them.
 type zonePublicKeyCache interface {
 	//Add adds publicKey together with the assertion containing it to the cache. Returns false if
@@ -169,26 +144,6 @@ type zonePublicKeyCache interface {
 	Len() int
 }
 
-//publicKeyList provides some operation on a list of public keys.
-type publicKeyList interface {
-	//Add adds a public key to the list. If specified maximal list length is reached it removes the least recently used element.
-	Add(key rainslib.PublicKey)
-	//Get returns the first valid public key in the list. Returns false if there is no valid public key.
-	Get() (rainslib.PublicKey, bool)
-	//RemoveExpiredKeys deletes all expired keys from the list.
-	RemoveExpiredKeys()
-}
-
-//pendingSignatureCacheValue is the value received from the pendingQuery cache
-type pendingSignatureCacheValue struct {
-	sectionWSSender sectionWithSigSender
-	validUntil      int64
-}
-
-func (p pendingSignatureCacheValue) Hash() string {
-	return fmt.Sprintf("%s_%d", p.sectionWSSender.Hash(), p.validUntil)
-}
-
 //pendingSignatureCache stores all sections with a signature waiting for a public key to arrive so they can be verified
 type pendingSignatureCache interface {
 	//Add adds a section together with a validity to the cache. Returns true if there is not yet a pending query for this context and zone
@@ -202,23 +157,6 @@ type pendingSignatureCache interface {
 	RemoveExpiredSections()
 	//Len returns the number of sections in the cache.
 	Len() int
-}
-
-//pendingSignatureCacheValue is the value received from the pendingQuery cache
-type pendingQuerySetValue struct {
-	connInfo   rainslib.ConnInfo
-	token      rainslib.Token //Token from the received query
-	validUntil int64
-}
-
-func (p pendingQuerySetValue) Hash() string {
-	return fmt.Sprintf("%s_%v_%d", p.connInfo.Hash(), p.token, p.validUntil)
-}
-
-//pendingSignatureCacheValue is the value received from the pendingQuery cache
-type pendingQueryCacheValue struct {
-	set   setContainer
-	token rainslib.Token //Token of this servers query
 }
 
 //pendingQueryCache stores connection information about queriers which are waiting for an assertion to arrive
@@ -237,34 +175,22 @@ type pendingQueryCache interface {
 	Len() int
 }
 
-//assertionCacheValue is the value stored in the assertionCacheValue
-type assertionCacheValue struct {
-	section    *rainslib.AssertionSection
-	validSince int64
-	validUntil int64
-}
-
-func (a assertionCacheValue) Hash() string {
-	return fmt.Sprintf("%s_%d_%d", a.section.Hash(), a.validSince, a.validUntil)
-}
-
 //assertionCache is used to store and efficiently lookup assertions
 type assertionCache interface {
-	//Add adds an assertion together with a validity to the cache.
-	//Returns true if cache did not already contain an entry for the given context,zone, name and objType
-	//If the cache is full it removes an external assertionCacheValue according to some metric.
-	Add(context, zone, name string, objType rainslib.ObjectType, internal bool, value assertionCacheValue) bool
-	//Get returns true and a set of assertions matching the given key if there exists some. Otherwise false is returned
-	//If expiredAllowed is false, then no expired assertions will be returned
-	Get(context, zone, name string, objType rainslib.ObjectType, expiredAllowed bool) ([]*rainslib.AssertionSection, bool)
-	//GetInRange returns true and a set of valid assertions in the given interval matching the given context and zone if there are any. Otherwise false is returned
-	GetInRange(context, zone string, interval rainslib.Interval) ([]*rainslib.AssertionSection, bool)
+	//Add adds an assertion together with an expiration time (number of seconds since 01.01.1970) to
+	//the cache. It returns false if the cache is full and a non internal element has been removed
+	//according to some strategy.
+	Add(assertion *rainslib.AssertionSection, expiration int64, isInternal bool) bool
+	//Get returns true and a set of assertions matching the given key if there exist some. Otherwise
+	//nil and false is returned. If expiredAllowed is false, then no expired assertions will be
+	//returned.
+	Get(name, zone, context, string, objType rainslib.ObjectType, expiredAllowed bool) ([]*rainslib.AssertionSection, bool)
+	//RemoveExpiredValues goes through the cache and removes all expired assertions.
+	RemoveExpiredValues()
+	//RemoveZone deletes all assertions in the cache of the given zone.
+	RemoveZone(zone string)
 	//Len returns the number of elements in the cache.
 	Len() int
-	//RemoveExpiredValues goes through the cache and removes all expired assertions. If for a given context and zone there is no assertion left it removes the entry from cache.
-	RemoveExpiredValues()
-	//Remove deletes the given assertion from the cache. Returns true if it was able to remove at least one
-	Remove(assertion *rainslib.AssertionSection) bool
 }
 
 //negativeAssertionCacheValue is the value stored in the negativeAssertionCache

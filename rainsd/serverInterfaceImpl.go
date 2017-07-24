@@ -174,7 +174,7 @@ func (c *capabilityCacheImpl) Add(capabilities []rainslib.Capability) {
 	if ok && c.counter.Inc() {
 		for {
 			k, _ := c.capabilityMap.GetLeastRecentlyUsed()
-			if c.capabilityMap.Remove(k) {
+			if _, ok := c.capabilityMap.Remove(k); ok {
 				c.counter.Dec()
 				break
 			}
@@ -412,104 +412,14 @@ func (c *zoneKeyCacheImpl) Len() int {
 	return c.counter.Value()
 }
 
-/*
- * Key cache implementation
- */
-type keyCacheImpl struct {
-	cache *cache.Cache
+//pendingSignatureCacheValue is the value received from the pendingQuery cache
+type pendingSignatureCacheValue struct {
+	sectionWSSender sectionWithSigSender
+	validUntil      int64
 }
 
-//Add adds the public key to the cash.
-//Returns true if the given public key was successfully added. If it was not possible to add the key it return false.
-//If the cache is full it removes all public keys from a keyCacheKey entry according to least recently used
-//The cache makes sure that only a small limited amount of public keys (e.g. 3) can be stored associated with a keyCacheKey
-//If the internal flag is set, this key will only be removed after it expired.
-func (c *keyCacheImpl) Add(key keyCacheKey, value rainslib.PublicKey, internal bool) bool {
-	//TODO add an getOrAdd method to the cache (locking must then be changed.)
-	list := &pubKeyList{maxElements: 3, keys: list.New()}
-	c.cache.Add(list, internal, "", key.zone, key.Algorithm.String())
-	v, ok := c.cache.Get("", key.zone, key.Algorithm.String())
-	if !ok {
-		return false
-	}
-	if list, ok := v.(*pubKeyList); ok {
-		list.Add(value)
-		return true
-	}
-	log.Error(fmt.Sprintf("Element in cache is not of type *pubKeyList. Got type=%T", v))
-	return false
-}
-
-//Get returns a valid public key matching the given keyCacheKey. It returns false if there exists no valid public key in the cache.
-func (c *keyCacheImpl) Get(key keyCacheKey) (rainslib.PublicKey, bool) {
-	v, ok := c.cache.Get("", key.zone, key.Algorithm.String())
-	if !ok {
-		return rainslib.PublicKey{}, false
-	}
-	list := v.(publicKeyList)
-	k, ok := list.Get() //The returned key is guaranteed to be valid
-	if !ok {
-		return rainslib.PublicKey{}, false
-	}
-	return k, true
-}
-
-//RemoveExpiredKeys deletes a public key value pair from the cache if it is expired
-func (c *keyCacheImpl) RemoveExpiredKeys() {
-	keys := c.cache.Keys()
-	for _, key := range keys {
-		v, ok := c.cache.Get(key[0], key[1])
-		if ok {
-			list := v.(publicKeyList)
-			list.RemoveExpiredKeys()
-		}
-	}
-}
-
-//pubKeyList contains some public keys which can be modified concurrently. There are at most maxElements in the list.
-type pubKeyList struct {
-	//maxElements are the maximal number of elements in the list
-	maxElements int
-	//mux must always be called when accessing keys list.
-	mux sync.RWMutex
-	//keys contains public keys
-	keys *list.List
-}
-
-//Add adds a public key to the list. If specified maximal list length is reached it removes the least recently used element.
-func (l *pubKeyList) Add(key rainslib.PublicKey) {
-	l.mux.Lock()
-	defer l.mux.Unlock()
-	l.keys.PushFront(key)
-	if l.keys.Len() > l.maxElements {
-		l.keys.Remove(l.keys.Back())
-	}
-}
-
-//Get returns the first valid public key in the list. Returns false if there is no valid public key.
-func (l *pubKeyList) Get() (rainslib.PublicKey, bool) {
-	l.mux.RLock()
-	defer l.mux.RUnlock()
-	for e := l.keys.Front(); e != nil; e = e.Next() {
-		key := e.Value.(rainslib.PublicKey)
-		if key.ValidSince <= time.Now().Unix() && key.ValidUntil > time.Now().Unix() {
-			l.keys.MoveToFront(e)
-			return key, true
-		}
-	}
-	return rainslib.PublicKey{}, false
-}
-
-//RemoveExpiredKeys deletes all expired keys from the list.
-func (l *pubKeyList) RemoveExpiredKeys() {
-	l.mux.Lock()
-	defer l.mux.Unlock()
-	for e := l.keys.Front(); e != nil; e = e.Next() {
-		key := e.Value.(rainslib.PublicKey)
-		if key.ValidUntil < time.Now().Unix() {
-			l.keys.Remove(e)
-		}
-	}
+func (p pendingSignatureCacheValue) Hash() string {
+	return fmt.Sprintf("%s_%d", p.sectionWSSender.Hash(), p.validUntil)
 }
 
 /*
@@ -679,6 +589,23 @@ type elemAndValidTo struct {
 	zone       string
 	name       string
 	objType    rainslib.ObjectType
+}
+
+//pendingSignatureCacheValue is the value received from the pendingQuery cache
+type pendingQuerySetValue struct {
+	connInfo   rainslib.ConnInfo
+	token      rainslib.Token //Token from the received query
+	validUntil int64
+}
+
+func (p pendingQuerySetValue) Hash() string {
+	return fmt.Sprintf("%s_%v_%d", p.connInfo.Hash(), p.token, p.validUntil)
+}
+
+//pendingSignatureCacheValue is the value received from the pendingQuery cache
+type pendingQueryCacheValue struct {
+	set   setContainer
+	token rainslib.Token //Token of this servers query
 }
 
 /*
@@ -1200,7 +1127,7 @@ func (s *sortedAssertionMetaData) Get(interval rainslib.Interval) []elemAndValid
  * It can happen that some sections get dropped. This is the case when the cache is full or when we add a section to the set while another go routine deletes the pointer to that
  * set as it was empty before. The second case is expected to occur rarely.
  */
-type assertionCacheImpl struct {
+/*type assertionCacheImpl struct {
 	//assertionCache stores to a given <context,zone,name,type> a set of assertions
 	assertionCache *cache.Cache
 	maxElements    uint
@@ -1470,6 +1397,132 @@ func updateAssertionCacheRangeMapping(c *assertionCacheImpl) {
 func (c *assertionCacheImpl) Remove(assertion *rainslib.AssertionSection) bool {
 	//CFE FIXME This does not work if we have several types per assertion
 	return deleteAssertions(c, true, assertion.Context, assertion.SubjectZone, assertion.SubjectName, assertion.Content[0].Type.String()) > 0
+}*/
+
+//assertionCacheValue is the value stored in the assertionCacheImpl.cache
+type assertionCacheValue struct {
+	assertions map[string]assertionExpiration //assertion.Hash -> assertionExpiration
+	cacheKey   string
+	deleted    bool
+	//mux protects deleted and assertions from simultaneous access.
+	mux sync.RWMutex
+}
+
+type assertionExpiration struct {
+	assertion  *rainslib.AssertionSection
+	expiration int64
+}
+
+/*
+ * active token cache implementation
+ */
+type assertionCacheImpl struct {
+	cache   *lruCache.Cache
+	counter *safeCounter.Counter
+	zoneMap *safeHashMap.Map
+}
+
+//Add adds an assertion together with an expiration time (number of seconds since 01.01.1970) to
+//the cache. It returns false if the cache is full and an element was removed according to some
+//strategy.
+//FIXME CFE better description!!!!
+func (c *assertionCacheImpl) Add(a *rainslib.AssertionSection, expiration int64, isInternal bool) bool {
+	isFull := false
+	for _, o := range a.Content {
+		key := fmt.Sprintf("%s %s %s %d", a.SubjectName, a.SubjectZone, a.Context, o.Type)
+		v, new := c.cache.GetOrAdd(key,
+			&assertionCacheValue{assertions: make(map[string]assertionExpiration), cacheKey: key}, isInternal)
+		value := v.(*assertionCacheValue)
+		value.mux.Lock()
+		if value.deleted {
+			value.mux.Unlock()
+			c.Add(a, expiration, isInternal)
+		}
+		val, _ := c.zoneMap.GetOrAdd(a.SubjectZone, safeHashMap.New())
+		val.(*safeHashMap.Map).Add(key, true)
+		if _, ok := value.assertions[a.Hash()]; !ok {
+			value.assertions[a.Hash()] = assertionExpiration{assertion: a, expiration: expiration}
+			isFull = c.counter.Inc()
+		}
+		value.mux.Unlock()
+	}
+	return !isFull
+}
+
+//Get returns true and a set of assertions matching the given key if there exist some. Otherwise
+//nil and false is returned. If expiredAllowed is false, then no expired assertions will be
+//returned.
+func (c *assertionCacheImpl) Get(name, zone, context, string, objType rainslib.ObjectType, expiredAllowed bool) ([]*rainslib.AssertionSection, bool) {
+	key := fmt.Sprintf("%s %s %s %d", name, zone, context, objType)
+	v, ok := c.cache.Get(key)
+	if !ok {
+		return nil, false
+	}
+	value := v.(*assertionCacheValue)
+	value.mux.RLock()
+	defer value.mux.RUnlock()
+	if value.deleted {
+		return nil, false
+	}
+	var assertions []*rainslib.AssertionSection
+	for _, av := range value.assertions {
+		if !expiredAllowed && av.expiration < time.Now().Unix() {
+			continue
+		}
+		assertions = append(assertions, av.assertion)
+	}
+	return assertions, len(assertions) > 0
+}
+
+//RemoveExpiredValues goes through the cache and removes all expired assertions.
+func (c *assertionCacheImpl) RemoveExpiredValues() {
+	for _, v := range c.cache.GetAll() {
+		value := v.(*assertionCacheValue)
+		deleteCount := 0
+		value.mux.Lock()
+		if value.deleted {
+			value.mux.Unlock()
+			continue
+		}
+		for key, va := range value.assertions {
+			if va.expiration < time.Now().Unix() {
+				delete(value.assertions, key)
+				deleteCount++
+			}
+		}
+		if len(value.assertions) == 0 {
+			value.deleted = true
+			c.cache.Remove(value.cacheKey)
+		}
+		value.mux.Unlock()
+		c.counter.Sub(deleteCount)
+	}
+}
+
+//RemoveZone deletes all assertions in the cache of the given zone.
+func (c *assertionCacheImpl) RemoveZone(zone string) {
+	if set, ok := c.zoneMap.Get(zone); ok {
+		c.zoneMap.Remove(zone)
+		for _, key := range set.(*safeHashMap.Map).GetAllKeys() {
+			v, ok := c.cache.Remove(key)
+			if ok {
+				value := v.(*assertionCacheValue)
+				value.mux.Lock()
+				if value.deleted {
+					value.mux.Unlock()
+					continue
+				}
+				value.deleted = true
+				c.counter.Sub(len(value.assertions))
+				value.mux.Unlock()
+			}
+		}
+	}
+}
+
+//Len returns the number of elements in the cache.
+func (c *assertionCacheImpl) Len() int {
+	return c.counter.Value()
 }
 
 /*

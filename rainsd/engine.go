@@ -456,10 +456,12 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		assertions := []*rainslib.AssertionSection{}
 		for _, t := range query.Types {
 			if t == rainslib.OTDelegation {
-				//TODO check zone key cache and load it from there.
+				if delegations, ok := zoneKeyCache.GetAllDelegations(zAn.zone); ok {
+					assertions = append(assertions, delegations...)
+				}
 			} else {
-				asserts, ok := assertionsCache.Get(query.Context, zAn.zone, zAn.name, t, query.ContainsOption(rainslib.QOExpiredAssertionsOk))
-				if ok {
+				if asserts, ok := assertionsCache.Get(query.Context, zAn.zone, zAn.name, t,
+					query.ContainsOption(rainslib.QOExpiredAssertionsOk)); ok {
 					assertions = append(assertions, asserts...)
 				}
 			}

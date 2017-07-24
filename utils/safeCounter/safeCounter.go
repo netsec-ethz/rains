@@ -32,6 +32,9 @@ func (m *Counter) Add(i int) bool {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	m.count += i
+	if m.count < 0 {
+		log.Error("counter should never be negative", "counter", m.count)
+	}
 	return m.count >= m.maxCount
 }
 
@@ -47,12 +50,7 @@ func (m *Counter) Dec() {
 
 //Sub decreases the count by i.
 func (m *Counter) Sub(i int) {
-	m.mux.Lock()
-	defer m.mux.Unlock()
-	m.count -= i
-	if m.count < 0 {
-		log.Error("counter should never be negative", "counter", m.count)
-	}
+	m.Add(-i)
 }
 
 //Value returns the current value of the counter

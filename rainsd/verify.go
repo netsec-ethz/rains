@@ -18,12 +18,6 @@ import (
 //zoneKeyCache is used to store public keys of zones and a pointer to assertions containing them
 var zoneKeyCache zonePublicKeyCache
 
-//infrastructureKeyCache contains a set of infrastructure public keys
-var infrastructureKeyCache keyCache
-
-//externalKeyCache contains a set of external public keys
-var externalKeyCache keyCache
-
 //pendingSignatures contains all sections that are waiting for a delegation query to arrive such that their signatures can be verified.
 var pendingSignatures pendingSignatureCache
 
@@ -43,18 +37,6 @@ func initVerify() error {
 
 	err := loadRootZonePublicKey(Config.RootZonePublicKeyPath)
 	if err != nil {
-		return err
-	}
-
-	infrastructureKeyCache, err = createKeyCache(Config.InfrastructureKeyCacheSize)
-	if err != nil {
-		log.Error("Cannot create infrastructure key cache", "error", err)
-		return err
-	}
-
-	externalKeyCache, err = createKeyCache(Config.ExternalKeyCacheSize)
-	if err != nil {
-		log.Error("Cannot create external key cache", "error", err)
 		return err
 	}
 
@@ -530,8 +512,6 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainsli
 func reapVerify() {
 	for {
 		zoneKeyCache.RemoveExpiredKeys()
-		infrastructureKeyCache.RemoveExpiredKeys()
-		externalKeyCache.RemoveExpiredKeys()
 		pendingSignatures.RemoveExpiredSections()
 		time.Sleep(Config.ReapVerifyTimeout)
 	}

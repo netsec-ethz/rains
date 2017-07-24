@@ -90,13 +90,13 @@ func (c *Cache) GetAll() []interface{} {
 }
 
 //Remove deletes the key value pair from the map.
-//It returns true if an element was deleted
-func (c *Cache) Remove(key string) bool {
+//It returns the value and true if an element was deleted. Otherwise the value and false.
+func (c *Cache) Remove(key string) (interface{}, bool) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	e, ok := c.hashMap[key]
 	if !ok {
-		return false
+		return nil, false
 	}
 	delete(c.hashMap, key)
 	v := e.Value.(*entry)
@@ -105,7 +105,7 @@ func (c *Cache) Remove(key string) bool {
 	} else {
 		c.lruList.Remove(e)
 	}
-	return true
+	return v.value, true
 }
 
 //GetLeastRecentlyUsed returns the least recently used key value pair. It does not update the

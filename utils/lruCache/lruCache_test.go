@@ -142,17 +142,17 @@ func TestRemove(t *testing.T) {
 	//test if added value is stored correctly in the cache
 	cache := New()
 	cache.GetOrAdd("v", 5, true)
-	ok := cache.Remove("v")
-	if !ok || len(cache.hashMap) != 0 || cache.internalList.Len() != 0 || cache.lruList.Len() != 0 {
+	v, ok := cache.Remove("v")
+	if !ok || len(cache.hashMap) != 0 || cache.internalList.Len() != 0 || cache.lruList.Len() != 0 || v.(int) != 5 {
 		t.Errorf("value was not deleted. %v", cache.hashMap)
 	}
 	cache.GetOrAdd("v", 5, false)
-	ok = cache.Remove("v")
-	if !ok || len(cache.hashMap) != 0 || cache.internalList.Len() != 0 || cache.lruList.Len() != 0 {
+	v, ok = cache.Remove("v")
+	if !ok || len(cache.hashMap) != 0 || cache.internalList.Len() != 0 || cache.lruList.Len() != 0 || v.(int) != 5 {
 		t.Errorf("value was not deleted. %v", cache.hashMap)
 	}
-	ok = cache.Remove("v")
-	if ok || len(cache.hashMap) != 0 || cache.internalList.Len() != 0 || cache.lruList.Len() != 0 {
+	v, ok = cache.Remove("v")
+	if ok || len(cache.hashMap) != 0 || cache.internalList.Len() != 0 || cache.lruList.Len() != 0 || v != nil {
 		t.Errorf("no value was deleted wrong return value. %v", cache.hashMap)
 	}
 	//"concurrency test"
