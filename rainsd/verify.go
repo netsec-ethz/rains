@@ -76,8 +76,13 @@ func verify(msgSender msgSectionSender) {
 	log.Info(fmt.Sprintf("Verify %T", msgSender.Section), "msgSection", msgSender.Section)
 	switch section := msgSender.Section.(type) {
 	case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection:
-		sectionSender := sectionWithSigSender{Section: section.(rainslib.MessageSectionWithSig), Sender: msgSender.Sender, Token: msgSender.Token}
+		sectionSender := sectionWithSigSender{
+			Section: section.(rainslib.MessageSectionWithSig),
+			Sender:  msgSender.Sender,
+			Token:   msgSender.Token,
+		}
 		if containedSectionsInvalid(sectionSender) {
+			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg)
 			return //already logged, that contained section is invalid
 		}
 		if contextInvalid(sectionSender.Section.GetContext()) {
@@ -85,14 +90,23 @@ func verify(msgSender msgSectionSender) {
 			return //already logged, that context is invalid
 		}
 		if zone, ok := section.(*rainslib.ZoneSection); ok && !containedShardsAreConsistent(zone) {
+			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg)
 			return //already logged, that the zone is internally invalid
 		}
 		if verifySignatures(sectionSender) {
-			assert(sectionSender, authoritative[contextAndZone{Context: sectionSender.Section.GetContext(), Zone: sectionSender.Section.GetSubjectZone()}])
+			assert(sectionSender, authoritative[contextAndZone{
+				Context: sectionSender.Section.GetContext(),
+				Zone:    sectionSender.Section.GetSubjectZone(),
+			}])
 		}
 	case *rainslib.AddressAssertionSection, *rainslib.AddressZoneSection:
-		sectionSender := sectionWithSigSender{Section: section.(rainslib.MessageSectionWithSig), Sender: msgSender.Sender, Token: msgSender.Token}
+		sectionSender := sectionWithSigSender{
+			Section: section.(rainslib.MessageSectionWithSig),
+			Sender:  msgSender.Sender,
+			Token:   msgSender.Token,
+		}
 		if containedSectionsInvalid(sectionSender) {
+			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg)
 			return //already logged, that contained section is invalid
 		}
 		if contextInvalid(sectionSender.Section.GetContext()) {
@@ -100,7 +114,10 @@ func verify(msgSender msgSectionSender) {
 			return //already logged, that context is invalid
 		}
 		if verifySignatures(sectionSender) {
-			assert(sectionSender, authoritative[contextAndZone{Context: sectionSender.Section.GetContext(), Zone: sectionSender.Section.GetSubjectZone()}])
+			assert(sectionSender, authoritative[contextAndZone{
+				Context: sectionSender.Section.GetContext(),
+				Zone:    sectionSender.Section.GetSubjectZone(),
+			}])
 		}
 	case *rainslib.AddressQuerySection:
 		if contextInvalid(section.Context) {
@@ -283,14 +300,18 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 	}
 	log.Info("Some public keys are missing", "#missingKeys", len(missingKeys))
 	//Add section to the pendingSignatureCache.
-	cacheValue := pendingSignatureCacheValue{sectionWSSender: sectionSender, validUntil: getQueryValidity(section.Sigs())}
+	cacheValue := pendingSignatureCacheValue{
+		sectionWSSender: sectionSender,
+		validUntil:      getQueryValidity(section.Sigs(rainslib.RainsKeySpace)),
+	}
 	ok = pendingSignatures.Add(section.GetContext(), section.GetSubjectZone(), cacheValue)
 	log.Info("Section added to the pending signature cache", "section", section)
 	//FIXME CFE distinguish between update add and error in cache. We currently only have one boolean return value...
 	if ok {
 		delegate := getDelegationAddress(section.GetContext(), section.GetSubjectZone())
 		token := rainslib.GenerateToken()
-		msg := rainslib.NewQueryMessage(section.GetContext(), section.GetSubjectZone(), cacheValue.validUntil, rainslib.OTDelegation, nil, token)
+		msg := rainslib.NewQueryMessage(section.GetContext(), section.GetSubjectZone(),
+			cacheValue.validUntil, []rainslib.ObjectType{rainslib.OTDelegation}, nil, token)
 		SendMessage(msg, delegate)
 		if !activeTokens.AddToken(token, cacheValue.validUntil) {
 			log.Warn("activeTokenCache is full. Delegation query cannot be handled over the priority queue")
@@ -344,7 +365,7 @@ func neededKeys(section rainslib.MessageSectionWithSig) (map[keyCacheKey]bool, e
 
 //extractNeededKeys adds all key metadata to keys which are necessary to verify all section's signatures
 func extractNeededKeys(subjectZone, context string, section rainslib.MessageSectionWithSig, keys map[keyCacheKey]bool) {
-	for _, sig := range section.Sigs() {
+	for _, sig := range section.Sigs(rainslib.RainsKeySpace) {
 		if sig.KeySpace != rainslib.RainsKeySpace {
 			log.Debug("external keyspace", "keySpaceID", sig.KeySpace)
 			continue
@@ -525,7 +546,7 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainsli
 		log.Warn("No signature is valid before the MaxValidity date in the future.")
 		return false
 	}
-	return len(section.Sigs()) > 0
+	return len(section.Sigs(rainslib.RainsKeySpace)) > 0
 }
 
 //reapVerify deletes expired keys from the key caches and expired sections from the pendingSignature cache in intervals according to the config

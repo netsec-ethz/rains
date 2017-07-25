@@ -131,7 +131,7 @@ func SendMessage(message rainslib.RainsMessage, dst rainslib.ConnInfo) error {
 		return err
 	}
 	log.Debug("Send message", "message", message)
-	return sendTo(msg, dst)
+	return sendTo(msg, dst, 1, 1)
 }
 
 //getDelegationAddress returns the address of a server to which this server delegates a query if it has no answer in the cache.

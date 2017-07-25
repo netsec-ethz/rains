@@ -23,9 +23,14 @@ type AssertionSection struct {
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
-//Sigs return the assertion's signatures
-func (a *AssertionSection) Sigs() []Signature {
+//AllSigs returns all assertion's signatures
+func (a *AssertionSection) AllSigs() []Signature {
 	return a.Signatures
+}
+
+//Sigs returns a's signatures in keyspace
+func (a *AssertionSection) Sigs(keySpace KeySpaceID) []Signature {
+	return filterSigs(a.Signatures, keySpace)
 }
 
 //AddSig adds the given signature
@@ -175,9 +180,14 @@ type ShardSection struct {
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
-//Sigs return the shard's signatures
-func (s *ShardSection) Sigs() []Signature {
+//AllSigs returns the shard's signatures
+func (s *ShardSection) AllSigs() []Signature {
 	return s.Signatures
+}
+
+//Sigs returns s's signatures in keyspace
+func (s *ShardSection) Sigs(keySpace KeySpaceID) []Signature {
+	return filterSigs(s.Signatures, keySpace)
 }
 
 //AddSig adds the given signature
@@ -323,9 +333,14 @@ type ZoneSection struct {
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
-//Sigs return the zone's signatures
-func (z *ZoneSection) Sigs() []Signature {
+//AllSigs returns the zone's signatures
+func (z *ZoneSection) AllSigs() []Signature {
 	return z.Signatures
+}
+
+//Sigs returns z's signatures in keyspace
+func (z *ZoneSection) Sigs(keySpace KeySpaceID) []Signature {
+	return filterSigs(z.Signatures, keySpace)
 }
 
 //AddSig adds the given signature
@@ -486,7 +501,7 @@ func (z *ZoneSection) String() string {
 type QuerySection struct {
 	Context string
 	Name    string
-	Type    ObjectType
+	Types   []ObjectType
 	Expires int64 //time when this query expires represented as the number of seconds elapsed since January 1, 1970 UTC
 	Options []QueryOption
 }
@@ -521,11 +536,19 @@ func (q *QuerySection) CompareTo(query *QuerySection) int {
 		return -1
 	} else if q.Name > query.Name {
 		return 1
-	} else if q.Type < query.Type {
+	} else if len(q.Types) < len(query.Types) {
 		return -1
-	} else if q.Type > query.Type {
+	} else if len(q.Types) > len(query.Types) {
 		return 1
-	} else if q.Expires < query.Expires {
+	}
+	for i, o := range q.Types {
+		if o < query.Types[i] {
+			return -1
+		} else if o > query.Types[i] {
+			return 1
+		}
+	}
+	if q.Expires < query.Expires {
 		return -1
 	} else if q.Expires > query.Expires {
 		return 1
@@ -549,7 +572,7 @@ func (q *QuerySection) String() string {
 	if q == nil {
 		return "Query:nil"
 	}
-	return fmt.Sprintf("Query:[CTX=%s NA=%s TYPE=%d EXP=%d OPT=%v]", q.Context, q.Name, q.Type, q.Expires, q.Options)
+	return fmt.Sprintf("Query:[CTX=%s NA=%s TYPE=%v EXP=%d OPT=%v]", q.Context, q.Name, q.Types, q.Expires, q.Options)
 }
 
 //AddressAssertionSection contains information about the address assertion
@@ -562,9 +585,14 @@ type AddressAssertionSection struct {
 	validUntil  int64
 }
 
-//Sigs return the assertion's signatures
-func (a *AddressAssertionSection) Sigs() []Signature {
+//AllSigs return the assertion's signatures
+func (a *AddressAssertionSection) AllSigs() []Signature {
 	return a.Signatures
+}
+
+//Sigs returns a's signatures in keyspace
+func (a *AddressAssertionSection) Sigs(keySpace KeySpaceID) []Signature {
+	return filterSigs(a.Signatures, keySpace)
 }
 
 //AddSig adds the given signature
@@ -687,9 +715,14 @@ type AddressZoneSection struct {
 	validUntil  int64
 }
 
-//Sigs return the zone's signatures
-func (z *AddressZoneSection) Sigs() []Signature {
+//AllSigs return the zone's signatures
+func (z *AddressZoneSection) AllSigs() []Signature {
 	return z.Signatures
+}
+
+//Sigs returns z's signatures in keyspace
+func (z *AddressZoneSection) Sigs(keySpace KeySpaceID) []Signature {
+	return filterSigs(z.Signatures, keySpace)
 }
 
 //AddSig adds the given signature
@@ -809,7 +842,7 @@ func (z *AddressZoneSection) String() string {
 type AddressQuerySection struct {
 	SubjectAddr *net.IPNet
 	Context     string
-	Type        ObjectType
+	Types       []ObjectType
 	Expires     int64
 	Options     []QueryOption
 }
@@ -834,11 +867,19 @@ func (q *AddressQuerySection) CompareTo(query *AddressQuerySection) int {
 		return -1
 	} else if q.Context > query.Context {
 		return 1
-	} else if q.Type < query.Type {
+	} else if len(q.Types) < len(query.Types) {
 		return -1
-	} else if q.Type > query.Type {
+	} else if len(q.Types) > len(query.Types) {
 		return 1
-	} else if q.Expires < query.Expires {
+	}
+	for i, o := range q.Types {
+		if o < query.Types[i] {
+			return -1
+		} else if o > query.Types[i] {
+			return 1
+		}
+	}
+	if q.Expires < query.Expires {
 		return -1
 	} else if q.Expires > query.Expires {
 		return 1
@@ -862,7 +903,7 @@ func (q *AddressQuerySection) String() string {
 	if q == nil {
 		return "AddressQuery:nil"
 	}
-	return fmt.Sprintf("AddressQuery:[SA=%s CTX=%s TYPE=%d EXP=%d OPT=%v]", q.SubjectAddr, q.Context, q.Type, q.Expires, q.Options)
+	return fmt.Sprintf("AddressQuery:[SA=%s CTX=%s TYPE=%v EXP=%d OPT=%v]", q.SubjectAddr, q.Context, q.Types, q.Expires, q.Options)
 }
 
 //NotificationSection contains information about the notification
@@ -907,4 +948,15 @@ func (n *NotificationSection) String() string {
 		return "Notification:nil"
 	}
 	return fmt.Sprintf("Notification:[TOK=%s TYPE=%d DATA=%s]", hex.EncodeToString(n.Token[:]), n.Type, n.Data)
+}
+
+//filterSigs returns only those signatures which are in the given keySpace
+func filterSigs(signatures []Signature, keySpace KeySpaceID) []Signature {
+	sigs := []Signature{}
+	for _, sig := range signatures {
+		if sig.KeySpace == keySpace {
+			sigs = append(sigs, sig)
+		}
+	}
+	return sigs
 }

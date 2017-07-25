@@ -88,7 +88,7 @@ func TestEncodeAndDecode(t *testing.T) {
 		Expires: 159159,
 		Name:    "ethz.ch",
 		Options: []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
-		Type:    rainslib.OTIP4Addr,
+		Types:   []rainslib.ObjectType{rainslib.OTIP4Addr},
 	}
 
 	notification := &rainslib.NotificationSection{
@@ -125,7 +125,7 @@ func TestEncodeAndDecode(t *testing.T) {
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Expires:     7564859,
-		Type:        rainslib.OTName,
+		Types:       []rainslib.ObjectType{rainslib.OTName},
 		Options:     []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
 	}
 
@@ -308,7 +308,7 @@ func TestSignSection(t *testing.T) {
 		if SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder) != test.want {
 			t.Errorf("expected=%v, actual=%v, value=%v", test.want, SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder), test.input)
 		}
-		if test.want && test.input.Sigs()[0].Data == nil {
+		if test.want && test.input.Sigs(rainslib.RainsKeySpace)[0].Data == nil {
 			t.Error("msg.Signature does not contain generated signature data")
 		}
 	}

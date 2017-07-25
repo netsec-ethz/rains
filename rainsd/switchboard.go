@@ -19,7 +19,11 @@ import (
 //connCache stores connections of this server. It is not guaranteed that a returned connection is still active.
 var connCache connectionCache
 
+//cert holds the tls certificate of this server
 var cert tls.Certificate
+
+//capabilityHash contains the sha256 hash of this server's capability list
+var capabilityHash string
 
 //InitSwitchboard initializes the switchboard
 func initSwitchboard() error {
@@ -36,13 +40,13 @@ func initSwitchboard() error {
 			"KeyPath", Config.TLSPrivateKeyFile, "error", err)
 		return err
 	}
+	capabilityHash = generateCapabilityHash(Config.Capabilities)
 	return nil
 }
 
 //sendTo sends message to the specified receiver.
-func sendTo(message []byte, receiver rainslib.ConnInfo) error {
+func sendTo(message []byte, receiver rainslib.ConnInfo, retries, backoffMilliSeconds int) (err error) {
 	var framer rainslib.MsgFramer
-	var err error
 
 	conns, ok := connCache.Get(receiver)
 	if !ok {
@@ -55,22 +59,30 @@ func sendTo(message []byte, receiver rainslib.ConnInfo) error {
 		}
 		connCache.Add(conn)
 		//handle connection
-		if tcpAddr, ok := conns[0].RemoteAddr().(*net.TCPAddr); ok {
-			go handleConnection(conns[0], rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
+		if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+			go handleConnection(conn, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
 		} else {
-			log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conns[0].RemoteAddr())
+			log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 		}
 	}
 	framer = new(protoParser.ProtoParserAndFramer)
-	//FIXME CFE currently we only support one connection per destination addr
-	framer.InitStreams(nil, conns[0])
-	err = framer.Frame(message)
-	if err != nil {
-		log.Error("Was not able to frame or send the message", "Error", err, "connections", conns, "receiver", receiver)
-		return err
+	for _, conn := range conns {
+		framer.InitStreams(nil, conn)
+		err = framer.Frame(message)
+		if err != nil {
+			log.Warn("Was not able to frame or send the message", "Error", err, "connections", conns, "receiver", receiver)
+			connCache.Delete(conn)
+			continue
+		}
+		log.Debug("Send successful", "receiver", receiver)
+		return nil
 	}
-	log.Debug("Send successful", "receiver", receiver)
-	return nil
+	if retries > 0 {
+		time.Sleep(time.Duration(backoffMilliSeconds) * time.Millisecond)
+		return sendTo(message, receiver, retries-1, 2*backoffMilliSeconds)
+	}
+	log.Error("Was not able to send the message. No retries left.", "receiver", receiver)
+	return errors.New("Was not able to send the mesage. No retries left")
 }
 
 //createConnection establishes a connection with receiver
@@ -107,6 +119,9 @@ func Listen() {
 				srvLogger.Error("listener could not accept connection", "error", err)
 				continue
 			}
+			if isIPBlacklisted(conn.RemoteAddr()) {
+				continue
+			}
 			connCache.Add(conn)
 			if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
 				go handleConnection(conn, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
@@ -132,4 +147,18 @@ func handleConnection(conn net.Conn, dstAddr rainslib.ConnInfo) {
 	connCache.Delete(conn)
 	conn.Close()
 	log.Debug("connection removed from cache", "remoteAddr", conn.RemoteAddr())
+}
+
+//isIPBlacklisted returns true if addr is blacklisted
+func isIPBlacklisted(addr net.Addr) bool {
+	log.Warn("TODO CFE ip blacklist not yet implemented")
+	return false
+}
+
+//generateCapabilityHash sorts capabilities in lexicographically increasing order.
+//It returns the hex encoded sha256 hash of the sorted capabilities
+func generateCapabilityHash(capabilities []rainslib.Capability) string {
+	//FIXME CFE when we have CBOR use it to normalize&serialize the array before hashing it.
+	//Currently we use the hard coded version from the draft.
+	return "e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745"
 }

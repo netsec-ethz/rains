@@ -25,23 +25,23 @@ func TestMessageSectionWithSigSignatures(t *testing.T) {
 	}
 	for i, test := range tests {
 		test.input.AddSig(sig1)
-		if len(test.input.Sigs()) != 1 {
-			t.Errorf("%d: Added signature does not match stored count. expected=%v, actual=%v", i, sig1, test.input.Sigs()[0])
+		if len(test.input.AllSigs()) != 1 {
+			t.Errorf("%d: Added signature does not match stored count. expected=%v, actual=%v", i, sig1, test.input.AllSigs()[0])
 		}
-		CheckSignatures(test.input.Sigs(), []Signature{sig1}, t)
+		CheckSignatures(test.input.AllSigs(), []Signature{sig1}, t)
 		test.input.AddSig(sig2)
-		if len(test.input.Sigs()) != 2 {
-			t.Errorf("%d: Added signature does not match stored count. expected=%v, actual=%v", i, sig2, test.input.Sigs()[0])
+		if len(test.input.AllSigs()) != 2 {
+			t.Errorf("%d: Added signature does not match stored count. expected=%v, actual=%v", i, sig2, test.input.AllSigs()[0])
 		}
-		CheckSignatures(test.input.Sigs(), []Signature{sig1, sig2}, t)
+		CheckSignatures(test.input.AllSigs(), []Signature{sig1, sig2}, t)
 		test.input.DeleteSig(1)
-		if len(test.input.Sigs()) != 1 {
-			t.Errorf("%d: Not the specified signature was deleted. expectedToStay=%v, actualStayed=%v", i, sig1, test.input.Sigs()[0])
+		if len(test.input.AllSigs()) != 1 {
+			t.Errorf("%d: Not the specified signature was deleted. expectedToStay=%v, actualStayed=%v", i, sig1, test.input.AllSigs()[0])
 		}
-		CheckSignatures(test.input.Sigs(), []Signature{sig1}, t)
+		CheckSignatures(test.input.AllSigs(), []Signature{sig1}, t)
 		test.input.DeleteSig(0)
-		if len(test.input.Sigs()) != 0 {
-			t.Errorf("%d: Added signature does not match stored one. expected=%v, actual=%v", i, sig1, test.input.Sigs()[0])
+		if len(test.input.AllSigs()) != 0 {
+			t.Errorf("%d: Added signature does not match stored one. expected=%v, actual=%v", i, sig1, test.input.AllSigs()[0])
 		}
 	}
 }
@@ -91,11 +91,19 @@ func TestGetSignatureMetaData(t *testing.T) {
 		input Signature
 		want  string
 	}{
-		{Signature{}, "0 0 0 0"},
-		{Signature{Algorithm: Ed448}, "0 2 0 0"},
-		{Signature{Algorithm: Ecdsa256}, "0 3 0 0"},
-		{Signature{Algorithm: Ecdsa384}, "0 4 0 0"},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2, Data: []byte("testData")}, "0 1 1 2"},
+		{Signature{}, "0 0 0 0 0"},
+		{Signature{Algorithm: Ed448}, "0 2 0 0 0"},
+		{Signature{Algorithm: Ecdsa256}, "0 3 0 0 0"},
+		{Signature{Algorithm: Ecdsa384}, "0 4 0 0 0"},
+		{
+			Signature{
+				KeySpace:   RainsKeySpace,
+				Algorithm:  Ed25519,
+				ValidSince: 1,
+				ValidUntil: 2,
+				KeyPhase:   1,
+				Data:       []byte("testData")},
+			"0 1 1 2 1"},
 	}
 	for i, test := range tests {
 		if test.input.GetSignatureMetaData() != test.want {
@@ -109,12 +117,30 @@ func TestSignatureString(t *testing.T) {
 		input Signature
 		want  string
 	}{
-		{Signature{}, "{KS=0 AT=0 VS=0 VU=0 data=notYetImplementedInStringMethod}"},
-		{Signature{Algorithm: Ed448}, "{KS=0 AT=2 VS=0 VU=0 data=notYetImplementedInStringMethod}"},
-		{Signature{Algorithm: Ecdsa256}, "{KS=0 AT=3 VS=0 VU=0 data=notYetImplementedInStringMethod}"},
-		{Signature{Algorithm: Ecdsa384}, "{KS=0 AT=4 VS=0 VU=0 data=notYetImplementedInStringMethod}"},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2, Data: []byte("testData")}, "{KS=0 AT=1 VS=1 VU=2 data=7465737444617461}"},
-		{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1, ValidUntil: 2}, "{KS=0 AT=1 VS=1 VU=2 data=nil}"},
+		{Signature{}, "{KS=0 AT=0 VS=0 VU=0 KP=0 data=notYetImplementedInStringMethod}"},
+		{Signature{Algorithm: Ed448}, "{KS=0 AT=2 VS=0 VU=0 KP=0 data=notYetImplementedInStringMethod}"},
+		{Signature{Algorithm: Ecdsa256}, "{KS=0 AT=3 VS=0 VU=0 KP=0 data=notYetImplementedInStringMethod}"},
+		{Signature{Algorithm: Ecdsa384}, "{KS=0 AT=4 VS=0 VU=0 KP=0 data=notYetImplementedInStringMethod}"},
+		{
+			Signature{
+				KeySpace:   RainsKeySpace,
+				Algorithm:  Ed25519,
+				ValidSince: 1,
+				ValidUntil: 2,
+				KeyPhase:   2,
+				Data:       []byte("testData")},
+			"{KS=0 AT=1 VS=1 VU=2 KP=2 data=7465737444617461}",
+		},
+		{
+			Signature{
+				KeySpace:   RainsKeySpace,
+				Algorithm:  Ed25519,
+				ValidSince: 1,
+				ValidUntil: 2,
+				KeyPhase:   1,
+			},
+			"{KS=0 AT=1 VS=1 VU=2 KP=1 data=nil}",
+		},
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {

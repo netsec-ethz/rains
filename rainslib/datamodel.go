@@ -104,8 +104,10 @@ func (m *RainsMessage) Sort() {
 type Capability string
 
 const (
+	//NoCapability is used when the server does not listen for any connections
 	NoCapability Capability = ""
-	TLSOverTCP   Capability = "urn:x-rains:tlssrv"
+	//TLSOverTCP is used when the server listens for tls over tcp connections
+	TLSOverTCP Capability = "urn:x-rains:tlssrv"
 )
 
 //Token identifies a message
@@ -125,7 +127,8 @@ type MessageSection interface {
 //MessageSectionWithSig can be either an Assertion, Shard, Zone, AddressAssertion, AddressZone
 type MessageSectionWithSig interface {
 	MessageSection
-	Sigs() []Signature
+	AllSigs() []Signature
+	Sigs(keyspace KeySpaceID) []Signature
 	AddSig(sig Signature)
 	DeleteSig(index int)
 	GetContext() string
@@ -196,13 +199,17 @@ type Signature struct {
 	ValidSince int64
 	//ValidUntil defines the time after which this signature is not valid anymore. ValidUntil is represented as seconds since the UNIX epoch UTC.
 	ValidUntil int64
+	//KeyPhase defines the keyPhase in which this signature was signed.
+	KeyPhase int
 	//Data holds the signature data
 	Data interface{}
 }
 
-//GetSignatureMetaData returns a string containing the signature's metadata (keyspace, algorithm type, validSince and validUntil) in signable format
+//GetSignatureMetaData returns a string containing the signature's metadata
+//(keyspace, algorithm type, validSince and validUntil, keyPhase) in signable format
 func (sig Signature) GetSignatureMetaData() string {
-	return fmt.Sprintf("%d %d %d %d", sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil)
+	return fmt.Sprintf("%d %d %d %d %d",
+		sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, sig.KeyPhase)
 }
 
 //String implements Stringer interface
@@ -215,7 +222,8 @@ func (sig Signature) String() string {
 			data = hex.EncodeToString(sig.Data.([]byte))
 		}
 	}
-	return fmt.Sprintf("{KS=%d AT=%d VS=%d VU=%d data=%s}", sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, data)
+	return fmt.Sprintf("{KS=%d AT=%d VS=%d VU=%d KP=%d data=%s}",
+		sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, sig.KeyPhase, data)
 }
 
 //SignData adds signature meta data to encoding. It then signs the encoding with privateKey and updates sig.Data field with the generated signature

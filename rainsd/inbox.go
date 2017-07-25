@@ -6,6 +6,8 @@ import (
 	"github.com/netsec-ethz/rains/rainsSiglib"
 	"github.com/netsec-ethz/rains/rainslib"
 
+	"strings"
+
 	log "github.com/inconshreveable/log15"
 )
 
@@ -71,23 +73,25 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 	}
 	log.Debug("Parsed Message", "msg", msg)
 
-	processCapability(msg.Capabilities, sender, msg.Token)
-
 	//FIXME CFE get infrastructure key from cache and if not present send a infra query, add a new cache for whole messages to wait for missing public keys
 	if !rainsSiglib.CheckMessageSignatures(&msg, rainslib.PublicKey{}, sigEncoder) {
-		//return TODO CFE uncomment when we can obtain a public key
 	}
+
+	processCapability(msg.Capabilities, sender, msg.Token)
 
 	//handle message content
 	for _, m := range msg.Content {
 		switch m := m.(type) {
 		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.AddressAssertionSection, *rainslib.AddressZoneSection:
-			addMsgSectionToQueue(m, msg.Token, sender)
+			if !isZoneBlacklisted(m.(rainslib.MessageSectionWithSig).GetSubjectZone()) {
+				addMsgSectionToQueue(m, msg.Token, sender)
+			}
 		case *rainslib.QuerySection, *rainslib.AddressQuerySection:
 			log.Debug(fmt.Sprintf("add %T to normal queue", m))
 			normalChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
 		case *rainslib.NotificationSection:
-			addNotificationToQueue(m, msg.Token, sender)
+			log.Debug("Add notification to notification queue", "token", msg.Token)
+			notificationChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
 		default:
 			log.Warn(fmt.Sprintf("unsupported message section type %T", m))
 			return
@@ -99,11 +103,9 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 func processCapability(caps []rainslib.Capability, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Process capabilities", "capabilities", caps)
 	if len(caps) > 0 {
-		//TODO CFE determine when an incoming capability is represented as a hash
-		log.Error("Not yet implemented")
-		isHash := false
+		isHash := !strings.HasPrefix(string(caps[0]), "urn:")
 		if isHash {
-			if caps, ok := capabilities.GetFromHash([]byte(caps[0])); ok {
+			if caps, ok := capabilities.GetFromHash([]byte(caps[0])); !ok {
 				capabilities.Add(sender, caps)
 				handleCapabilities(caps)
 			} else {
@@ -149,21 +151,10 @@ func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token
 	}
 }
 
-//addQueryToQueue checks that the token of the message and of the query section are the same and if so adds it to a queue
-func addQueryToQueue(queryToken, msgToken rainslib.Token, section rainslib.MessageSection, sender rainslib.ConnInfo) {
-	if msgToken == queryToken {
-
-	} else {
-		log.Warn("Token of message and query section do not match.", "msgToken", msgToken, "querySectionToken", queryToken)
-		sendNotificationMsg(msgToken, sender, rainslib.NTBadMessage)
-		sendNotificationMsg(queryToken, sender, rainslib.NTBadMessage)
-	}
-}
-
-//addNotificationToQueue adds a notification section to the notification queue
-func addNotificationToQueue(msg *rainslib.NotificationSection, tok rainslib.Token, sender rainslib.ConnInfo) {
-	log.Debug("Add notification to notification queue", "token", tok)
-	notificationChannel <- msgSectionSender{Sender: sender, Section: msg, Token: msg.Token}
+//isZoneBlacklisted returns true if zone is blacklisted
+func isZoneBlacklisted(zone string) bool {
+	log.Warn("TODO CFE zone blacklist not yet implemented")
+	return false
 }
 
 //workBoth works on the prioChannel and on the normalChannel. A worker only fetches a message from the normalChannel if the prioChannel is empty.

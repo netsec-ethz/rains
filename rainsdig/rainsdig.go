@@ -88,7 +88,8 @@ func main() {
 		}
 		connInfo := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr}
 
-		message := rainslib.NewQueryMessage(*context, *name, *expires, rainslib.ObjectType(*queryType), queryOptions, rainslib.GenerateToken())
+		message := rainslib.NewQueryMessage(*context, *name, *expires,
+			[]rainslib.ObjectType{rainslib.ObjectType(*queryType)}, queryOptions, rainslib.GenerateToken())
 		msg, err := msgParser.Encode(message)
 		if err != nil {
 			fmt.Printf("could not encode the query, error=%s\n", err)

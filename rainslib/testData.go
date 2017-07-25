@@ -64,7 +64,7 @@ func GetMessage() RainsMessage {
 		Expires: 159159,
 		Name:    testDomain,
 		Options: []QueryOption{QOMinE2ELatency, QOMinInfoLeakage},
-		Type:    OTIP4Addr,
+		Types:   []ObjectType{OTIP4Addr},
 	}
 
 	notification := &NotificationSection{
@@ -105,7 +105,7 @@ func GetMessage() RainsMessage {
 		SubjectAddr: subjectAddress1,
 		Context:     globalContext,
 		Expires:     7564859,
-		Type:        OTName,
+		Types:       []ObjectType{OTName},
 		Options:     []QueryOption{QOMinE2ELatency, QOMinInfoLeakage},
 	}
 

@@ -56,7 +56,7 @@ struct QuerySection  {
     #QuerySection contains information about the query
     context @1      :Text;
     name    @0      :Text;
-    type    @2      :Int32;
+    types   @2      :List(Int32);
     expires @3      :Int64; #time when this query expires represented as the number of seconds elapsed since January 1, 1970 UTC
     options @4      :List(Int32);
 }
@@ -82,7 +82,7 @@ struct AddressQuerySection  {
     #AddressQuerySection contains information about the address query
     subjectAddr @0 :Text;
     context     @1 :Text;
-    types       @2 :Int32;
+    types       @2 :List(Int32);
     expires     @3 :Int64;
     options     @4 :List(Int32);
 }
@@ -102,7 +102,8 @@ struct Signature  {
     keySpace   @1 :Int32;
     validSince @2 :Int64;
     validUntil @3 :Int64;
-    data       @4 :Data;
+    keyPhase   @4 :Int32;
+    data       @5 :Data;
 }
 
 struct PublicKey  {
@@ -111,7 +112,8 @@ struct PublicKey  {
     keySpace   @1 :Int32;
     validSince @2 :Int64;
     validUntil @3 :Int64;
-    key        @4 :Data;
+    keyPhase   @4 :Int32;
+    key        @5 :Data;
 }
 
 struct CertificateObject  {

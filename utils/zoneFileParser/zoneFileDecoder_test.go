@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/netsec-ethz/rains/rains/rainslib"
+	"github.com/netsec-ethz/rains/rainslib"
 
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"

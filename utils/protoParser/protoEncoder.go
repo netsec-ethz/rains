@@ -3,9 +3,10 @@ package protoParser
 import (
 	"errors"
 	"fmt"
+	"strconv"
+
 	"github.com/netsec-ethz/rains/proto"
 	"github.com/netsec-ethz/rains/rainslib"
-	"strconv"
 
 	log "github.com/inconshreveable/log15"
 	capnp "zombiezen.com/go/capnproto2"
@@ -144,7 +145,15 @@ func encodeQuery(q *rainslib.QuerySection, seg *capnp.Segment) (proto.MessageSec
 	query.SetName(q.Name)
 	query.SetContext(q.Context)
 	query.SetExpires(q.Expires)
-	query.SetType(int32(q.Type))
+
+	qtList, err := capnp.NewInt32List(seg, int32(len(q.Types)))
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	for i, t := range q.Types {
+		qtList.Set(i, int32(t))
+	}
+	query.SetTypes(qtList)
 
 	qoList, err := capnp.NewInt32List(seg, int32(len(q.Options)))
 	if err != nil {
@@ -267,7 +276,15 @@ func encodeAddressQuery(q *rainslib.AddressQuerySection, seg *capnp.Segment) (pr
 
 	query.SetContext(q.Context)
 	query.SetExpires(q.Expires)
-	query.SetTypes(int32(q.Type))
+
+	qtList, err := capnp.NewInt32List(seg, int32(len(q.Types)))
+	if err != nil {
+		return proto.MessageSection{}, err
+	}
+	for i, t := range q.Types {
+		qtList.Set(i, int32(t))
+	}
+	query.SetTypes(qtList)
 
 	qoList, err := capnp.NewInt32List(seg, int32(len(q.Options)))
 	if err != nil {

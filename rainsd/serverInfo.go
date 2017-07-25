@@ -221,7 +221,7 @@ type pendingQueryCache interface {
 	//Add adds connection information together with a token and a validity to the cache.
 	//Returns true and a newly generated token for the query to be sent out if cache does not contain a valid entry for context,zone,name,objType.Otherwise false is returned
 	//If the cache is full it removes a pendingQueryCacheValue according to some metric.
-	Add(context, zone, name string, objType rainslib.ObjectType, value pendingQuerySetValue) (bool, rainslib.Token)
+	Add(context, zone, name string, objType []rainslib.ObjectType, value pendingQuerySetValue) (bool, rainslib.Token)
 	//GetAllAndDelete returns true and all valid pendingQuerySetValues associated with the given token if there are any. Otherwise false
 	//We simultaneously obtained all elements and close the set data structure. Then we remove the entry from the cache. If in the meantime an Add operation happened,
 	//then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.

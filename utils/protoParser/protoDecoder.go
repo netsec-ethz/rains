@@ -182,7 +182,6 @@ func decodeQuery(q proto.QuerySection) (*rainslib.QuerySection, error) {
 	var err error
 
 	query.Expires = q.Expires()
-	query.Type = rainslib.ObjectType(q.Type())
 
 	query.Context, err = q.Context()
 	if err != nil {
@@ -194,6 +193,15 @@ func decodeQuery(q proto.QuerySection) (*rainslib.QuerySection, error) {
 	if err != nil {
 		log.Warn("Was not able to decode name", "error", err)
 		return nil, err
+	}
+
+	typeList, err := q.Types()
+	if err != nil {
+		log.Warn("Was not able to decode query types", "error", err)
+		return nil, err
+	}
+	for i := 0; i < typeList.Len(); i++ {
+		query.Types = append(query.Types, rainslib.ObjectType(typeList.At(i)))
 	}
 
 	optList, err := q.Options()
@@ -325,7 +333,6 @@ func decodeAddressQuery(q proto.AddressQuerySection) (*rainslib.AddressQuerySect
 	query := rainslib.AddressQuerySection{}
 
 	query.Expires = q.Expires()
-	query.Type = rainslib.ObjectType(q.Types())
 
 	ipCIDR, err := q.SubjectAddr()
 	if err != nil {
@@ -342,6 +349,15 @@ func decodeAddressQuery(q proto.AddressQuerySection) (*rainslib.AddressQuerySect
 	if err != nil {
 		log.Warn("Was not able to decode context", "error", err)
 		return nil, err
+	}
+
+	typeList, err := q.Types()
+	if err != nil {
+		log.Warn("Was not able to decode query types", "error", err)
+		return nil, err
+	}
+	for i := 0; i < typeList.Len(); i++ {
+		query.Types = append(query.Types, rainslib.ObjectType(typeList.At(i)))
 	}
 
 	optList, err := q.Options()

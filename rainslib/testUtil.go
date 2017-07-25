@@ -193,8 +193,13 @@ func CheckQuery(q1, q2 *QuerySection, t *testing.T) {
 	if q1.Name != q2.Name {
 		t.Error("Query Name mismatch")
 	}
-	if q1.Type != q2.Type {
-		t.Error("Query Type mismatch")
+	if len(q1.Types) != len(q2.Types) {
+		t.Error("Query Type length mismatch")
+	}
+	for i, o1 := range q1.Types {
+		if o1 != q2.Types[i] {
+			t.Errorf("Query Type at position %d mismatch", i)
+		}
 	}
 	if len(q1.Options) != len(q2.Options) {
 		t.Error("Query Option length mismatch")
@@ -248,8 +253,13 @@ func CheckAddressQuery(q1, q2 *AddressQuerySection, t *testing.T) {
 	if q1.Expires != q2.Expires {
 		t.Error("AddressQuery Expires mismatch")
 	}
-	if q1.Type != q2.Type {
-		t.Error("AddressQuery Type mismatch")
+	if len(q1.Types) != len(q2.Types) {
+		t.Error("Query Type length mismatch")
+	}
+	for i, o1 := range q1.Types {
+		if o1 != q2.Types[i] {
+			t.Errorf("Query Type at position %d mismatch", i)
+		}
 	}
 	if len(q1.Options) != len(q2.Options) {
 		t.Error("AddressQuery Option length mismatch")

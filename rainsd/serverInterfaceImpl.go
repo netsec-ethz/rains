@@ -385,19 +385,20 @@ type pendingQueryCacheImpl struct {
 //Add adds connection information together with a token and a validity to the cache.
 //Returns true if cache does not contain a valid entry for context,zone,name,objType else return false
 //If the cache is full it removes a pendingQueryCacheValue according to some metric.
-func (c *pendingQueryCacheImpl) Add(context, zone, name string, objType rainslib.ObjectType, value pendingQuerySetValue) (bool, rainslib.Token) {
+func (c *pendingQueryCacheImpl) Add(context, zone, name string, objType []rainslib.ObjectType, value pendingQuerySetValue) (bool, rainslib.Token) {
 	set := setDataStruct.New()
 	set.Add(value)
 	token := rainslib.GenerateToken()
 	cacheValue := pendingQueryCacheValue{set: set, token: token}
-	ok := c.callBackCache.Add(cacheValue, false, context, zone, name, objType.String())
+	ok := c.callBackCache.Add(cacheValue, false, context, zone, name, fmt.Sprintf("%v", objType))
 	if ok {
 		c.activeTokenLock.Lock()
 		c.activeTokens[token] = elemAndValidTo{
-			context:    context,
-			zone:       zone,
-			name:       name,
-			objType:    objType,
+			context: context,
+			zone:    zone,
+			name:    name,
+			//FIXME CFE allow multiple types
+			objType:    objType[0],
 			validUntil: value.validUntil,
 		}
 		c.activeTokenLock.Unlock()
@@ -406,7 +407,7 @@ func (c *pendingQueryCacheImpl) Add(context, zone, name string, objType rainslib
 		return true, token
 	}
 	//there is already a set in the cache, get it and add value.
-	v, ok := c.callBackCache.Get(context, zone, name, objType.String())
+	v, ok := c.callBackCache.Get(context, zone, name, fmt.Sprintf("%v", objType))
 	if ok {
 		val, ok := v.(pendingQueryCacheValue)
 		if ok {
