@@ -8,6 +8,9 @@ import (
 
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/binaryTrie"
+	"github.com/netsec-ethz/rains/utils/lruCache"
+	"github.com/netsec-ethz/rains/utils/safeCounter"
+	"github.com/netsec-ethz/rains/utils/safeHashMap"
 	"github.com/shirou/gopsutil/cpu"
 
 	log "github.com/inconshreveable/log15"
@@ -46,13 +49,18 @@ func initEngine() error {
 		return err
 	}
 
-	assertionsCache = createAssertionCache(Config.AssertionCacheSize)
-
-	negAssertionCache, err = createNegativeAssertionCache(Config.NegativeAssertionCacheSize)
-	if err != nil {
-		log.Error("Cannot create negative assertion Cache", "error", err)
-		return err
+	assertionsCache = &assertionCacheImpl{
+		cache:   lruCache.New(),
+		counter: safeCounter.New(Config.AssertionCacheSize),
+		zoneMap: safeHashMap.New(),
 	}
+
+	negAssertionCache = &negativeAssertionCacheImpl{
+		cache:   lruCache.New(),
+		counter: safeCounter.New(Config.NegativeAssertionCacheSize),
+		zoneMap: safeHashMap.New(),
+	}
+
 	//FIXME CFE implement cache according to design document
 	addressCacheIPv4 = make(map[string]addressSectionCache)
 	addressCacheIPv4["."] = new(binaryTrie.TrieNode)
@@ -234,12 +242,7 @@ func shouldAssertionBeCached(assertion *rainslib.AssertionSection) bool {
 //Returns true if the shard can be further processed.
 func assertShard(shard *rainslib.ShardSection, isAuthoritative bool, token rainslib.Token) bool {
 	if shouldShardBeCached(shard) {
-		negAssertionCache.Add(shard.Context, shard.SubjectZone, isAuthoritative,
-			negativeAssertionCacheValue{
-				section:    shard,
-				validSince: shard.ValidSince(),
-				validUntil: shard.ValidUntil(),
-			})
+		negAssertionCache.AddShard(shard, shard.ValidUntil(), isAuthoritative)
 	}
 	for _, assertion := range shard.Content {
 		a := assertion.Copy(shard.Context, shard.SubjectZone)
@@ -267,12 +270,7 @@ func shouldShardBeCached(shard *rainslib.ShardSection) bool {
 //Returns true if the zone can be further processed.
 func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool, token rainslib.Token) bool {
 	if shouldZoneBeCached(zone) {
-		negAssertionCache.Add(zone.Context, zone.SubjectZone, isAuthoritative,
-			negativeAssertionCacheValue{
-				section:    zone,
-				validSince: zone.ValidSince(),
-				validUntil: zone.ValidUntil(),
-			})
+		negAssertionCache.AddZone(zone, zone.ValidUntil(), isAuthoritative)
 	}
 	for _, section := range zone.Content {
 		switch section := section.(type) {
@@ -476,7 +474,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 			//For each type check if one of the zone or shards contain the queried assertion. If there is at least one assertion answer with it.
 			//If no assertion is contained in a zone or shard for any of the queried types, answer with the shortest element. shortest according to what?
 			//size in bytes? how to efficiently determine that. e.g. using gob encoding. alternatively we could also count the number of contained elements.
-			sendOneQueryAnswer(negAssertion, sender, token)
+			sendOneQueryAnswer(negAssertion[0], sender, token)
 			log.Info("Finished handling query by sending shard or zone from cache", "query", query)
 			return
 		}

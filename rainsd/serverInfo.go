@@ -61,7 +61,7 @@ type rainsdConfig struct {
 
 	//engine
 	AssertionCacheSize         int
-	NegativeAssertionCacheSize uint
+	NegativeAssertionCacheSize int
 	PendingQueryCacheSize      uint
 	QueryValidity              time.Duration //in seconds
 	AddressQueryValidity       time.Duration //in seconds
@@ -192,37 +192,25 @@ type assertionCache interface {
 	Len() int
 }
 
-//negativeAssertionCacheValue is the value stored in the negativeAssertionCache
-type negativeAssertionCacheValue struct {
-	section    rainslib.MessageSectionWithSigForward
-	validSince int64
-	validUntil int64
-}
-
-func (v negativeAssertionCacheValue) Begin() string {
-	return v.section.Begin()
-}
-
-func (v negativeAssertionCacheValue) End() string {
-	return v.section.End()
-}
-
 type negativeAssertionCache interface {
-	//Add adds a shard or zone together with a validity to the cache.
-	//Returns true if value was added to the cache.
-	//If the cache is full it removes an external negativeAssertionCacheValue according to some metric.
-	Add(context, zone string, internal bool, value negativeAssertionCacheValue) bool
-	//Get returns true and the shortest valid shard/zone with the longest validity in range of the interval if there exists one. Otherwise false is returned
-	//Must check that assertion is not contained in the given shard or zone
-	Get(context, zone string, interval rainslib.Interval) (rainslib.MessageSectionWithSig, bool)
-	//GetAll returns true and all valid sections of a given context and zone which intersect with the given interval if there is at least one. Otherwise false is returned
-	GetAll(context, zone string, interval rainslib.Interval) ([]rainslib.MessageSectionWithSig, bool)
+	//Add adds shard together with an expiration time (number of seconds since 01.01.1970) to
+	//the cache. It returns false if the cache is full and a non internal element has been removed
+	//according to some strategy.
+	AddShard(shard *rainslib.ShardSection, expiration int64, isInternal bool) bool
+	//Add adds zone together with an expiration time (number of seconds since 01.01.1970) to
+	//the cache. It returns false if the cache is full and a non internal element has been removed
+	//according to some strategy.
+	AddZone(zone *rainslib.ZoneSection, expiration int64, isInternal bool) bool
+	//Get returns true and a set of shards and zones matching subjectZone and context and overlap
+	//with interval if there exist some. When context is the empty string, a random context is
+	//chosen. Otherwise nil and false is returned.
+	Get(subjectZone, context string, interval rainslib.Interval) ([]rainslib.MessageSectionWithSigForward, bool)
+	//RemoveExpiredValues goes through the cache and removes all expired shards and zones.
+	RemoveExpiredValues()
+	//RemoveZone deletes all shards and zones in the cache of the given subjectZone.
+	RemoveZone(subjectZone string)
 	//Len returns the number of elements in the cache.
 	Len() int
-	//RemoveExpiredValues goes through the cache and removes all expired values. If for a given context and zone there is no value left it removes the entry from cache.
-	RemoveExpiredValues()
-	//Remove deletes the cache entry for context and zone. Returns true if it was able to delete the entry
-	Remove(context, zone string) bool
 }
 
 //contextAndZone stores a context and a zone

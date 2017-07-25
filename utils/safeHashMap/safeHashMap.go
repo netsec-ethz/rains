@@ -69,13 +69,14 @@ func (m *Map) GetAllKeys() []string {
 }
 
 //Remove deletes the key value pair from the map.
-//It returns true if an element was deleted
-func (m *Map) Remove(key string) bool {
+//It returns the value and true if an element was deleted. Otherwise nil and false
+func (m *Map) Remove(key string) (interface{}, bool) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	size := len(m.hashMap)
+	value := m.hashMap[key]
 	delete(m.hashMap, key)
-	return len(m.hashMap) < size
+	return value, len(m.hashMap) < size
 }
 
 //Len returns the number of elements in the map

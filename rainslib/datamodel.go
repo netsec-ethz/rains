@@ -153,6 +153,23 @@ type Interval interface {
 	End() string
 }
 
+//Intersect returns true if a and b are overlapping
+func Intersect(a, b Interval) bool {
+	if a.Begin() == "" {
+		return b.Begin() == "" || a.End() == "" || a.End() > b.Begin()
+	}
+	if a.End() == "" {
+		return b.End() == "" || a.Begin() < b.End()
+	}
+	if b.Begin() == "" {
+		return b.End() == "" || b.End() > a.Begin()
+	}
+	if b.End() == "" {
+		return b.Begin() < a.End()
+	}
+	return a.Begin() < b.End() && a.End() > b.Begin()
+}
+
 //TotalInterval is an interval over the whole namespace
 type TotalInterval struct{}
 

@@ -163,12 +163,12 @@ func TestRemove(t *testing.T) {
 	//test if added value is stored correctly in the map
 	hashMap := New()
 	hashMap.hashMap["v"] = 5
-	ok := hashMap.Remove("v")
-	if !ok || len(hashMap.hashMap) != 0 {
+	v, ok := hashMap.Remove("v")
+	if !ok || len(hashMap.hashMap) != 0 || v.(int) != 5 {
 		t.Errorf("value was not deleted. %v", hashMap.hashMap)
 	}
-	ok = hashMap.Remove("v")
-	if ok || len(hashMap.hashMap) != 0 {
+	v, ok = hashMap.Remove("v")
+	if ok || len(hashMap.hashMap) != 0 || v != nil {
 		t.Errorf("no value was deleted wrong return value. %v", hashMap.hashMap)
 	}
 	//"concurrency test"

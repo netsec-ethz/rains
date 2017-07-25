@@ -18,7 +18,6 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/utils/safeCounter"
-	"github.com/netsec-ethz/rains/utils/safeHashMap"
 )
 
 //InitServer initializes the server
@@ -193,25 +192,6 @@ func createPendingQueryCache(cacheSize uint) (pendingQueryCache, error) {
 		return nil, err
 	}
 	return &pendingQueryCacheImpl{callBackCache: c, maxElements: cacheSize, elementCount: 0, activeTokens: make(map[[16]byte]elemAndValidTo)}, nil
-}
-
-//createNegativeAssertionCache returns a new negative assertion cache
-func createNegativeAssertionCache(cacheSize uint) (negativeAssertionCache, error) {
-	c, err := cache.New(cacheSize, "anyContext")
-	if err != nil {
-		return nil, err
-	}
-	return &negativeAssertionCacheImpl{cache: c, maxElements: cacheSize, elementCount: 0}, nil
-
-}
-
-//createAssertionCache returns a new assertion cache
-func createAssertionCache(cacheSize int) assertionCache {
-	return &assertionCacheImpl{
-		cache:   lruCache.New(),
-		counter: safeCounter.New(cacheSize),
-		zoneMap: safeHashMap.New(),
-	}
 }
 
 //createActiveTokenCache returns a new active token cache
