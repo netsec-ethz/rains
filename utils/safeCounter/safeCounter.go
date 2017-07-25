@@ -24,7 +24,7 @@ func (m *Counter) Inc() bool {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	m.count++
-	return m.count > m.maxCount
+	return m.count >= m.maxCount
 }
 
 //Add increases the count by i. it returns false if count < maxCount

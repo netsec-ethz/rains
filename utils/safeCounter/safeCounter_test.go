@@ -23,7 +23,7 @@ func TestInc(t *testing.T) {
 		t.Errorf("counter value after increment wrong. %v", counter)
 	}
 	ok = counter.Inc()
-	if ok || counter.count != 2 {
+	if !ok || counter.count != 2 {
 		t.Errorf("counter value after increment wrong. %v", counter)
 	}
 	ok = counter.Inc()

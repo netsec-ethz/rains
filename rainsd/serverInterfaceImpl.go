@@ -1454,6 +1454,26 @@ func (c *assertionCacheImpl) Add(a *rainslib.AssertionSection, expiration int64,
 		}
 		value.mux.Unlock()
 	}
+	//Remove elements according to lru strategy
+	for c.counter.IsFull() {
+		key, value := c.cache.GetLeastRecentlyUsed()
+		if value == nil {
+			break
+		}
+		v := value.(*assertionCacheValue)
+		v.mux.Lock()
+		if v.deleted {
+			v.mux.Unlock()
+			continue
+		}
+		v.deleted = true
+		c.cache.Remove(key)
+		if val, ok := c.zoneMap.Get(v.zone); ok {
+			val.(*safeHashMap.Map).Remove(v.cacheKey)
+		}
+		v.mux.Unlock()
+		c.counter.Sub(len(v.assertions))
+	}
 	//FIXME CFE add assertion to consistency cache
 	return !isFull
 }

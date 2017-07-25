@@ -455,8 +455,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 					assertions = append(assertions, delegations...)
 				}
 			} else {
-				if asserts, ok := assertionsCache.Get(query.Context, zAn.zone, zAn.name, t,
-					query.ContainsOption(rainslib.QOExpiredAssertionsOk)); ok {
+				if asserts, ok := assertionsCache.Get(query.Context, zAn.zone, zAn.name, t); ok {
 					assertions = append(assertions, asserts...)
 				}
 			}

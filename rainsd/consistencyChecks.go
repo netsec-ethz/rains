@@ -39,7 +39,7 @@ func isAssertionConsistent(assertion *rainslib.AssertionSection) bool {
 func isShardConsistent(shard *rainslib.ShardSection) bool {
 	//check against cached assertions
 	//FIXME CFE use consistency cache
-	assertions, ok := assertionsCache.Get("", "", "", rainslib.OTDelegation, false)
+	assertions, ok := assertionsCache.Get("", "", "", rainslib.OTDelegation)
 	if ok {
 		for _, a := range assertions {
 			if togetherValid(shard, a) && !shardContainsAssertion(a, shard) {
@@ -76,7 +76,7 @@ func isShardConsistent(shard *rainslib.ShardSection) bool {
 func isZoneConsistent(zone *rainslib.ZoneSection) bool {
 	//check against cached assertions
 	//FIXME CFE use consistency cache
-	assertions, ok := assertionsCache.Get("", "", "", rainslib.OTDelegation, false)
+	assertions, ok := assertionsCache.Get("", "", "", rainslib.OTDelegation)
 	for _, a := range assertions {
 		if togetherValid(zone, a) && !zoneContainsAssertion(a, zone) {
 			dropAllWithContextZone(zone.Context, zone.SubjectZone)
