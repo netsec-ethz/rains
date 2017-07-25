@@ -46,11 +46,7 @@ func initEngine() error {
 		return err
 	}
 
-	assertionsCache, err = createAssertionCache(Config.AssertionCacheSize)
-	if err != nil {
-		log.Error("Cannot create assertion Cache", "error", err)
-		return err
-	}
+	assertionsCache = createAssertionCache(Config.AssertionCacheSize)
 
 	negAssertionCache, err = createNegativeAssertionCache(Config.NegativeAssertionCacheSize)
 	if err != nil {
@@ -155,9 +151,8 @@ func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 //Returns true if the assertion can be used to answer pending queries.
 func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) bool {
 	if shouldAssertionBeCached(a) {
-		value := assertionCacheValue{section: a, validSince: a.ValidSince(), validUntil: a.ValidUntil()}
+		assertionsCache.Add(a, a.ValidUntil(), isAuthoritative)
 		for i := range a.Content {
-			assertionsCache.Add(a.Context, a.SubjectZone, a.SubjectName, a.Content[i].Type, isAuthoritative, value)
 			if a.Content[i].Type == rainslib.OTDelegation {
 				if publicKey, ok := a.Content[i].Value.(rainslib.PublicKey); ok {
 					publicKey.ValidSince = a.ValidSince()

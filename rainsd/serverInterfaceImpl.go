@@ -1403,6 +1403,7 @@ func (c *assertionCacheImpl) Remove(assertion *rainslib.AssertionSection) bool {
 type assertionCacheValue struct {
 	assertions map[string]assertionExpiration //assertion.Hash -> assertionExpiration
 	cacheKey   string
+	zone       string
 	deleted    bool
 	//mux protects deleted and assertions from simultaneous access.
 	mux sync.RWMutex
@@ -1415,6 +1416,8 @@ type assertionExpiration struct {
 
 /*
  * active token cache implementation
+ * It keeps track of all assertionCacheValues of a zone in zoneMap (besides the cache)
+ * such that we can remove all entries of a zone in case of misbehavior or inconsistencies.
  */
 type assertionCacheImpl struct {
 	cache   *lruCache.Cache
@@ -1423,36 +1426,41 @@ type assertionCacheImpl struct {
 }
 
 //Add adds an assertion together with an expiration time (number of seconds since 01.01.1970) to
-//the cache. It returns false if the cache is full and an element was removed according to some
-//strategy.
-//FIXME CFE better description!!!!
+//the cache. It returns false if the cache is full and an element was removed according to least
+//recently used strategy.
 func (c *assertionCacheImpl) Add(a *rainslib.AssertionSection, expiration int64, isInternal bool) bool {
 	isFull := false
 	for _, o := range a.Content {
 		key := fmt.Sprintf("%s %s %s %d", a.SubjectName, a.SubjectZone, a.Context, o.Type)
-		v, new := c.cache.GetOrAdd(key,
-			&assertionCacheValue{assertions: make(map[string]assertionExpiration), cacheKey: key}, isInternal)
+		cacheValue := assertionCacheValue{
+			assertions: make(map[string]assertionExpiration),
+			cacheKey:   key,
+			zone:       a.SubjectZone,
+		}
+		v, new := c.cache.GetOrAdd(key, &cacheValue, isInternal)
 		value := v.(*assertionCacheValue)
 		value.mux.Lock()
 		if value.deleted {
 			value.mux.Unlock()
 			c.Add(a, expiration, isInternal)
 		}
-		val, _ := c.zoneMap.GetOrAdd(a.SubjectZone, safeHashMap.New())
-		val.(*safeHashMap.Map).Add(key, true)
+		if new {
+			val, _ := c.zoneMap.GetOrAdd(a.SubjectZone, safeHashMap.New())
+			val.(*safeHashMap.Map).Add(key, true)
+		}
 		if _, ok := value.assertions[a.Hash()]; !ok {
 			value.assertions[a.Hash()] = assertionExpiration{assertion: a, expiration: expiration}
 			isFull = c.counter.Inc()
 		}
 		value.mux.Unlock()
 	}
+	//FIXME CFE add assertion to consistency cache
 	return !isFull
 }
 
 //Get returns true and a set of assertions matching the given key if there exist some. Otherwise
-//nil and false is returned. If expiredAllowed is false, then no expired assertions will be
-//returned.
-func (c *assertionCacheImpl) Get(name, zone, context, string, objType rainslib.ObjectType, expiredAllowed bool) ([]*rainslib.AssertionSection, bool) {
+//nil and false is returned.
+func (c *assertionCacheImpl) Get(name, zone, context string, objType rainslib.ObjectType) ([]*rainslib.AssertionSection, bool) {
 	key := fmt.Sprintf("%s %s %s %d", name, zone, context, objType)
 	v, ok := c.cache.Get(key)
 	if !ok {
@@ -1466,9 +1474,6 @@ func (c *assertionCacheImpl) Get(name, zone, context, string, objType rainslib.O
 	}
 	var assertions []*rainslib.AssertionSection
 	for _, av := range value.assertions {
-		if !expiredAllowed && av.expiration < time.Now().Unix() {
-			continue
-		}
 		assertions = append(assertions, av.assertion)
 	}
 	return assertions, len(assertions) > 0
@@ -1493,10 +1498,14 @@ func (c *assertionCacheImpl) RemoveExpiredValues() {
 		if len(value.assertions) == 0 {
 			value.deleted = true
 			c.cache.Remove(value.cacheKey)
+			if set, ok := c.zoneMap.Get(value.zone); ok {
+				set.(*safeHashMap.Map).Remove(value.cacheKey)
+			}
 		}
 		value.mux.Unlock()
 		c.counter.Sub(deleteCount)
 	}
+	//FIXME CFE remove assertion from consistency cache
 }
 
 //RemoveZone deletes all assertions in the cache of the given zone.
@@ -1518,6 +1527,7 @@ func (c *assertionCacheImpl) RemoveZone(zone string) {
 			}
 		}
 	}
+	//FIXME CFE remove assertion from consistency cache
 }
 
 //Len returns the number of elements in the cache.

@@ -38,7 +38,8 @@ func isAssertionConsistent(assertion *rainslib.AssertionSection) bool {
 //If not every element of this zone is dropped and it return false
 func isShardConsistent(shard *rainslib.ShardSection) bool {
 	//check against cached assertions
-	assertions, ok := assertionsCache.GetInRange(shard.Context, shard.SubjectZone, shard)
+	//FIXME CFE use consistency cache
+	assertions, ok := assertionsCache.Get("", "", "", rainslib.OTDelegation, false)
 	if ok {
 		for _, a := range assertions {
 			if togetherValid(shard, a) && !shardContainsAssertion(a, shard) {
@@ -74,7 +75,8 @@ func isShardConsistent(shard *rainslib.ShardSection) bool {
 //If not every element of this zone is dropped and it return false
 func isZoneConsistent(zone *rainslib.ZoneSection) bool {
 	//check against cached assertions
-	assertions, _ := assertionsCache.GetInRange(zone.Context, zone.SubjectZone, zone)
+	//FIXME CFE use consistency cache
+	assertions, ok := assertionsCache.Get("", "", "", rainslib.OTDelegation, false)
 	for _, a := range assertions {
 		if togetherValid(zone, a) && !zoneContainsAssertion(a, zone) {
 			dropAllWithContextZone(zone.Context, zone.SubjectZone)
@@ -125,10 +127,7 @@ func togetherValid(s1, s2 rainslib.MessageSectionWithSig) bool {
 
 //dropAllWithContextZone deletes all assertions, shards and zones in the cache with the given context and zone
 func dropAllWithContextZone(context, zone string) {
-	assertions, _ := assertionsCache.GetInRange(context, zone, rainslib.TotalInterval{})
-	for _, a := range assertions {
-		assertionsCache.Remove(a)
-	}
+	assertionsCache.RemoveZone(zone)
 	negAssertionCache.Remove(context, zone)
 }
 

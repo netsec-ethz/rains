@@ -60,7 +60,7 @@ type rainsdConfig struct {
 	ReapVerifyTimeout          time.Duration //in seconds
 
 	//engine
-	AssertionCacheSize         uint
+	AssertionCacheSize         int
 	NegativeAssertionCacheSize uint
 	PendingQueryCacheSize      uint
 	QueryValidity              time.Duration //in seconds
@@ -182,9 +182,8 @@ type assertionCache interface {
 	//according to some strategy.
 	Add(assertion *rainslib.AssertionSection, expiration int64, isInternal bool) bool
 	//Get returns true and a set of assertions matching the given key if there exist some. Otherwise
-	//nil and false is returned. If expiredAllowed is false, then no expired assertions will be
-	//returned.
-	Get(name, zone, context, string, objType rainslib.ObjectType, expiredAllowed bool) ([]*rainslib.AssertionSection, bool)
+	//nil and false is returned.
+	Get(name, zone, context string, objType rainslib.ObjectType) ([]*rainslib.AssertionSection, bool)
 	//RemoveExpiredValues goes through the cache and removes all expired assertions.
 	RemoveExpiredValues()
 	//RemoveZone deletes all assertions in the cache of the given zone.

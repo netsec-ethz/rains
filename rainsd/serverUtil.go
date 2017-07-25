@@ -18,6 +18,7 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/utils/safeCounter"
+	"github.com/netsec-ethz/rains/utils/safeHashMap"
 )
 
 //InitServer initializes the server
@@ -205,17 +206,12 @@ func createNegativeAssertionCache(cacheSize uint) (negativeAssertionCache, error
 }
 
 //createAssertionCache returns a new assertion cache
-func createAssertionCache(cacheSize uint) (assertionCache, error) {
-	c, err := cache.New(cacheSize, "anyContext")
-	if err != nil {
-		return nil, err
-	}
+func createAssertionCache(cacheSize int) assertionCache {
 	return &assertionCacheImpl{
-		assertionCache: c,
-		maxElements:    cacheSize,
-		elementCount:   0,
-		rangeMap:       make(map[contextAndZone]*sortedAssertionMetaData),
-	}, nil
+		cache:   lruCache.New(),
+		counter: safeCounter.New(cacheSize),
+		zoneMap: safeHashMap.New(),
+	}
 }
 
 //createActiveTokenCache returns a new active token cache

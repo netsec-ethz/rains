@@ -17,9 +17,8 @@
   signature). It must also add this entry to the consistency cache.
 - it must provide fast lookup of a set of assertions based on name, type, and zone (if any context
   is allowed) or a name, type, zone, and context. A set is returned such that the calling function
-  can decide which entry it wants to send back according to a policy. Depending on a parameter flag
-  it also returns expired assertions as part of the returned set (to allow answering queries with
-  option 5 set).
+  can decide which entry it wants to send back according to a policy. Be aware that also expired,
+  but not yet reaped values are returned in the set.
 - it must provide a reap function that removes expired assertions. This function must also remove
   the corresponding element in the consistency cache.
 - it must provide a removal function which removes all assertions of a specific zone in case this
