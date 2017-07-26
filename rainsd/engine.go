@@ -475,7 +475,6 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 	}
 
 	for _, zAn := range zoneAndNames {
-		//FIXME CFE this cache should return all shards and zones in the queried interval
 		negAssertion, ok := negAssertionCache.Get(query.Context, zAn.zone, rainslib.StringInterval{Name: zAn.name})
 		if ok {
 			//For each type check if one of the zone or shards contain the queried assertion. If there is at least one assertion answer with it.
