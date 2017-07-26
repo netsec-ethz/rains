@@ -16,6 +16,8 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
+var consistCache consistencyCache
+
 //assertionCache contains a set of valid assertions where some of them might be expired.
 //An entry is marked as extrenal if it might be evicted by a LRU caching strategy.
 var assertionsCache assertionCache
@@ -47,6 +49,10 @@ func initEngine() error {
 	if err != nil {
 		log.Error("Cannot create pending query Cache", "error", err)
 		return err
+	}
+
+	consistCache = &consistencyCacheImpl{
+		ctxZoneMap: make(map[string]*consistencyCacheValue),
 	}
 
 	assertionsCache = &assertionCacheImpl{

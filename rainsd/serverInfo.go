@@ -241,17 +241,14 @@ type setContainer interface {
 	Len() int
 }
 
-//rangeQueryDataStruct is a data structure which contains intervals and allows for interval intersection queries.
-//All operations must be concurrency safe.
-type rangeQueryDataStruct interface {
-	//Add inserts item into the data structure
-	Add(item rainslib.Interval) bool
-	//Delete deletes item from the data structure
-	Delete(item rainslib.Interval) bool
-	//Get returns true and all intervals which intersect with item if there are any. Otherwise false is returned
-	Get(item rainslib.Interval) ([]rainslib.Interval, bool)
-	//returns the number of elements in the data structure
-	Len() int
+type consistencyCache interface {
+	//Add adds section to the consistency cache.
+	Add(section rainslib.MessageSectionWithSigForward)
+	//Get returns all sections from the cache with the given zone and context that are overlapping
+	//with interval.
+	Get(subjectZone, context string, interval rainslib.Interval) []rainslib.MessageSectionWithSigForward
+	//Remove deletes section from the consistency cache
+	Remove(section rainslib.MessageSectionWithSigForward)
 }
 
 //zoneAndName contains zone and name which together constitute a fully qualified name

@@ -882,6 +882,7 @@ func add(c *negativeAssertionCacheImpl, s rainslib.MessageSectionWithSigForward,
 		val.(*safeHashMap.Map).Add(key, true)
 	}
 	if _, ok := value.sections[s.Hash()]; !ok {
+		consistCache.Add(s)
 		value.sections[s.Hash()] = sectionExpiration{section: s, expiration: expiration}
 		isFull = c.counter.Inc()
 	}
@@ -903,8 +904,11 @@ func add(c *negativeAssertionCacheImpl, s rainslib.MessageSectionWithSigForward,
 		if val, ok := c.zoneMap.Get(v.zone); ok {
 			val.(*safeHashMap.Map).Remove(v.cacheKey)
 		}
-		v.mux.Unlock()
+		for _, val := range v.sections {
+			consistCache.Remove(val.section)
+		}
 		c.counter.Sub(len(v.sections))
+		v.mux.Unlock()
 	}
 	//FIXME CFE add shard/zone to consistency cache
 	return !isFull
@@ -945,6 +949,7 @@ func (c *negativeAssertionCacheImpl) RemoveExpiredValues() {
 		}
 		for key, sec := range value.sections {
 			if sec.expiration < time.Now().Unix() {
+				consistCache.Remove(sec.section)
 				delete(value.sections, key)
 				deleteCount++
 			}
@@ -975,6 +980,9 @@ func (c *negativeAssertionCacheImpl) RemoveZone(zone string) {
 					continue
 				}
 				value.deleted = true
+				for _, val := range value.sections {
+					consistCache.Remove(val.section)
+				}
 				c.counter.Sub(len(value.sections))
 				value.mux.Unlock()
 			}
@@ -1020,6 +1028,7 @@ type assertionCacheImpl struct {
 //recently used strategy.
 func (c *assertionCacheImpl) Add(a *rainslib.AssertionSection, expiration int64, isInternal bool) bool {
 	isFull := false
+	consistCache.Add(a)
 	for _, o := range a.Content {
 		key := fmt.Sprintf("%s %s %s %d", a.SubjectName, a.SubjectZone, a.Context, o.Type)
 		cacheValue := assertionCacheValue{
@@ -1061,8 +1070,11 @@ func (c *assertionCacheImpl) Add(a *rainslib.AssertionSection, expiration int64,
 		if val, ok := c.zoneMap.Get(v.zone); ok {
 			val.(*safeHashMap.Map).Remove(v.cacheKey)
 		}
-		v.mux.Unlock()
+		for _, val := range v.assertions {
+			consistCache.Remove(val.assertion)
+		}
 		c.counter.Sub(len(v.assertions))
+		v.mux.Unlock()
 	}
 	//FIXME CFE add assertion to consistency cache
 	return !isFull
@@ -1101,6 +1113,7 @@ func (c *assertionCacheImpl) RemoveExpiredValues() {
 		}
 		for key, va := range value.assertions {
 			if va.expiration < time.Now().Unix() {
+				consistCache.Remove(va.assertion)
 				delete(value.assertions, key)
 				deleteCount++
 			}
@@ -1131,6 +1144,9 @@ func (c *assertionCacheImpl) RemoveZone(zone string) {
 					continue
 				}
 				value.deleted = true
+				for _, val := range value.assertions {
+					consistCache.Remove(val.assertion)
+				}
 				c.counter.Sub(len(value.assertions))
 				value.mux.Unlock()
 			}
@@ -1142,6 +1158,99 @@ func (c *assertionCacheImpl) RemoveZone(zone string) {
 //Len returns the number of elements in the cache.
 func (c *assertionCacheImpl) Len() int {
 	return c.counter.Value()
+}
+
+type consistencyCacheValue struct {
+	sections map[string]rainslib.MessageSectionWithSigForward
+	mux      sync.RWMutex
+	deleted  bool
+}
+
+/*
+ * consistency cache implementation
+ * TODO CFE use interval trees to efficiently find overlapping intervals
+ */
+type consistencyCacheImpl struct {
+	ctxZoneMap map[string]*consistencyCacheValue
+	mux        sync.RWMutex
+}
+
+//Add adds section to the consistency cache.
+func (c *consistencyCacheImpl) Add(section rainslib.MessageSectionWithSigForward) {
+	ctxZoneMapKey := fmt.Sprintf("%s %s", section.GetSubjectZone(), section.GetContext())
+	c.mux.Lock()
+	v, ok := c.ctxZoneMap[ctxZoneMapKey]
+	if !ok {
+		v = &consistencyCacheValue{sections: make(map[string]rainslib.MessageSectionWithSigForward)}
+		c.ctxZoneMap[ctxZoneMapKey] = v
+	}
+	c.mux.Unlock()
+	v.mux.Lock()
+	if v.deleted {
+		v.mux.Unlock()
+		c.Add(section)
+	}
+	v.sections[section.Hash()] = section
+	v.mux.Unlock()
+}
+
+//Get returns all sections from the cache with the given zone and context that are overlapping
+//with interval.
+func (c *consistencyCacheImpl) Get(subjectZone, context string, interval rainslib.Interval) []rainslib.MessageSectionWithSigForward {
+	ctxZoneMapKey := fmt.Sprintf("%s %s", subjectZone, context)
+	c.mux.RLock()
+	v, ok := c.ctxZoneMap[ctxZoneMapKey]
+	if !ok {
+		return nil
+	}
+	c.mux.RUnlock()
+	v.mux.RLock()
+	defer v.mux.RUnlock()
+	if v.deleted {
+		return nil
+	}
+	var sections []rainslib.MessageSectionWithSigForward
+	for _, section := range v.sections {
+		if rainslib.Intersect(section, interval) {
+			sections = append(sections, section)
+		}
+	}
+	return sections
+}
+
+//Remove deletes section from the consistency cache
+func (c *consistencyCacheImpl) Remove(section rainslib.MessageSectionWithSigForward) {
+	ctxZoneMapKey := fmt.Sprintf("%s %s", section.GetSubjectZone(), section.GetContext())
+	c.mux.Lock()
+	if v, ok := c.ctxZoneMap[ctxZoneMapKey]; ok {
+		c.mux.Unlock()
+		v.mux.Lock()
+		if v.deleted {
+			v.mux.Unlock()
+			log.Error("Value already removed or not yet stored. This case should never happen.")
+			//See long comment below
+			return
+		}
+		delete(v.sections, section.Hash())
+		if len(v.sections) == 0 {
+			v.deleted = true
+			c.mux.Lock()
+			delete(c.ctxZoneMap, ctxZoneMapKey)
+			c.mux.Unlock()
+		}
+		v.mux.Unlock()
+	} else {
+		c.mux.Unlock()
+		log.Error("Value already removed or not yet stored. This case should never happen.")
+		//This case could happen if the assertion cache would create go routines (for efficiency
+		//reasons) to add and remove entries of the consistency cache. When two go routines are
+		//almost simultaneously created, the first to add and the second to remove the same entry,
+		//and the remove go routine is faster in obtaining the lock we are in this case and will
+		//never remove the later added value from the consistency cache. Such a scenario can likely
+		//occur in the event of a DOS attack and mitigation. Thus, we either wait in the other cache
+		//until the operation on this cache is done or the remove function spins on this value with
+		//exponential backoff.
+	}
 }
 
 /*
