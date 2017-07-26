@@ -56,9 +56,10 @@ func initEngine() error {
 	}
 
 	assertionsCache = &assertionCacheImpl{
-		cache:   lruCache.New(),
-		counter: safeCounter.New(Config.AssertionCacheSize),
-		zoneMap: safeHashMap.New(),
+		cache:                  lruCache.New(),
+		counter:                safeCounter.New(Config.AssertionCacheSize),
+		zoneMap:                safeHashMap.New(),
+		entriesPerAssertionMap: make(map[string]int),
 	}
 
 	negAssertionCache = &negativeAssertionCacheImpl{

@@ -179,14 +179,16 @@ type pendingQueryCache interface {
 type assertionCache interface {
 	//Add adds an assertion together with an expiration time (number of seconds since 01.01.1970) to
 	//the cache. It returns false if the cache is full and a non internal element has been removed
-	//according to some strategy.
+	//according to some strategy. It also adds assertion to the consistency cache.
 	Add(assertion *rainslib.AssertionSection, expiration int64, isInternal bool) bool
 	//Get returns true and a set of assertions matching the given key if there exist some. Otherwise
 	//nil and false is returned.
 	Get(name, zone, context string, objType rainslib.ObjectType) ([]*rainslib.AssertionSection, bool)
-	//RemoveExpiredValues goes through the cache and removes all expired assertions.
+	//RemoveExpiredValues goes through the cache and removes all expired assertions from the
+	//assertionCache and the consistency cache.
 	RemoveExpiredValues()
-	//RemoveZone deletes all assertions in the cache of the given zone.
+	//RemoveZone deletes all assertions in the assertionCache and consistencyCache of the given
+	//zone.
 	RemoveZone(zone string)
 	//Len returns the number of elements in the cache.
 	Len() int
@@ -195,19 +197,21 @@ type assertionCache interface {
 type negativeAssertionCache interface {
 	//Add adds shard together with an expiration time (number of seconds since 01.01.1970) to
 	//the cache. It returns false if the cache is full and a non internal element has been removed
-	//according to some strategy.
+	//according to some strategy. It also adds shard to the consistency cache.
 	AddShard(shard *rainslib.ShardSection, expiration int64, isInternal bool) bool
 	//Add adds zone together with an expiration time (number of seconds since 01.01.1970) to
 	//the cache. It returns false if the cache is full and a non internal element has been removed
-	//according to some strategy.
+	//according to some strategy. It also adds zone to the consistency cache.
 	AddZone(zone *rainslib.ZoneSection, expiration int64, isInternal bool) bool
 	//Get returns true and a set of shards and zones matching subjectZone and context and overlap
 	//with interval if there exist some. When context is the empty string, a random context is
 	//chosen. Otherwise nil and false is returned.
 	Get(subjectZone, context string, interval rainslib.Interval) ([]rainslib.MessageSectionWithSigForward, bool)
-	//RemoveExpiredValues goes through the cache and removes all expired shards and zones.
+	//RemoveExpiredValues goes through the cache and removes all expired shards and zones from the
+	//assertionCache and the consistency cache.
 	RemoveExpiredValues()
-	//RemoveZone deletes all shards and zones in the cache of the given subjectZone.
+	//RemoveZone deletes all shards and zones in the assertionCache and consistencyCache of the
+	//given subjectZone.
 	RemoveZone(subjectZone string)
 	//Len returns the number of elements in the cache.
 	Len() int

@@ -155,6 +155,11 @@ type Interval interface {
 
 //Intersect returns true if a and b are overlapping
 func Intersect(a, b Interval) bool {
+	//case1: both intervals are points => compare with equality
+	if a.Begin() == a.End() && b.Begin() == b.End() && a.Begin() != "" && b.Begin() != "" {
+		return a.Begin() == b.Begin()
+	}
+	//case2: at least one of them is an interval
 	if a.Begin() == "" {
 		return b.Begin() == "" || a.End() == "" || a.End() > b.Begin()
 	}
