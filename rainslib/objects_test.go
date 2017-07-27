@@ -51,8 +51,8 @@ func TestPublicKeyIDString(t *testing.T) {
 		input PublicKeyID
 		want  string
 	}{
-		{PublicKeyID{}, "0 0 0"},
-		{PublicKeyID{Algorithm: Ed25519, KeySpace: RainsKeySpace, KeyPhase: 2}, "1 0 2"},
+		{PublicKeyID{}, "AT=0 KS=0 KP=0"},
+		{PublicKeyID{Algorithm: Ed25519, KeySpace: RainsKeySpace, KeyPhase: 2}, "AT=1 KS=0 KP=2"},
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {
@@ -66,7 +66,7 @@ func TestPublicKeyString(t *testing.T) {
 		input PublicKey
 		want  string
 	}{
-		{PublicKey{}, "{0 0 0 0 0 }"},
+		{PublicKey{}, "{AT=0 KS=0 KP=0 VS=0 VU=0 data=}"},
 		{
 			PublicKey{
 				PublicKeyID: PublicKeyID{
@@ -77,7 +77,7 @@ func TestPublicKeyString(t *testing.T) {
 				ValidSince: 1,
 				ValidUntil: 2,
 				Key:        ed25519.PublicKey([]byte("PublicKeyData"))},
-			"{1 0 1 2 1 5075626c69634b657944617461}",
+			"{AT=1 KS=0 KP=1 VS=1 VU=2 data=5075626c69634b657944617461}",
 		},
 	}
 	for i, test := range tests {

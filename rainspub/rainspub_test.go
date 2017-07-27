@@ -4,10 +4,11 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/inconshreveable/log15"
+
 	"github.com/netsec-ethz/rains/rainsd"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
-
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -242,7 +243,7 @@ func TestCreateRainsMessage(t *testing.T) {
 
 func TestSendMessage(t *testing.T) {
 	InitRainspub("test/rainspub.conf")
-	rainsd.InitServer("test/server.conf")
+	rainsd.InitServer("test/server.conf", int(log.LvlInfo))
 	go rainsd.Listen()
 	time.Sleep(time.Second / 10)
 	a := getAssertionWithTwoIPObjects()

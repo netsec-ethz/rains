@@ -232,6 +232,15 @@ func TestZoneKeyCache(t *testing.T) {
 		if ok || len(delegCH) != 0 {
 			t.Errorf("%d: not all ch delegations have been removed", i)
 		}
+		//Test selfsigned root delegation
+		ok = c.Add(delegationsORG[4], delegationsORG[4].Content[0].Value.(rainslib.PublicKey), false)
+		if c.Len() != 3 {
+			t.Errorf("%d:Delegation was not added to cache expected=%d actual=%d", i, 3, c.Len())
+		}
+		pkey, ok = c.Get(".", signatures[0])
+		if !ok || pkey.CompareTo(delegationsORG[4].Content[0].Value.(rainslib.PublicKey)) != 0 {
+			t.Errorf("%d:Get returned unexpected value actual=(%v,%v)", i, pkey, ok)
+		}
 	}
 }
 
@@ -610,11 +619,28 @@ func getExampleDelgations(tld string) []*rainslib.AssertionSection {
 			},
 		},
 	}
+	a5 := &rainslib.AssertionSection{ //different keyphase, everything else the same as a1
+		SubjectName: "@",
+		SubjectZone: ".",
+		Context:     ".",
+		Content: []rainslib.Object{
+			rainslib.Object{
+				Type: rainslib.OTDelegation,
+				Value: rainslib.PublicKey{
+					PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519, KeyPhase: 0},
+					ValidSince:  time.Now().Unix(),
+					ValidUntil:  time.Now().Add(24 * time.Hour).Unix(),
+					Key:         ed25519.PublicKey([]byte("TestKey")),
+				},
+			},
+		},
+	}
 	a1.UpdateValidity(time.Now().Unix(), time.Now().Add(24*time.Hour).Unix(), 24*time.Hour)
 	a2.UpdateValidity(time.Now().Unix(), time.Now().Add(48*time.Hour).Unix(), 48*time.Hour)
 	a3.UpdateValidity(time.Now().Unix(), time.Now().Add(24*time.Hour).Unix(), 24*time.Hour)
 	a4.UpdateValidity(time.Now().Add(-2*time.Hour).Unix(), time.Now().Add(-1*time.Hour).Unix(), time.Hour)
-	return []*rainslib.AssertionSection{a1, a2, a3, a4}
+	a5.UpdateValidity(time.Now().Unix(), time.Now().Add(24*time.Hour).Unix(), 24*time.Hour)
+	return []*rainslib.AssertionSection{a1, a2, a3, a4, a5}
 }
 
 func getSignatureMetaData() []rainslib.SignatureMetaData {

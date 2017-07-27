@@ -242,8 +242,12 @@ type publicKeyAssertion struct {
 //public keys. An external service can then decide if it want to blacklist the given zone. If
 //the internal flag is set, publicKey will only be removed after it expired.
 func (c *zoneKeyCacheImpl) Add(assertion *rainslib.AssertionSection, publicKey rainslib.PublicKey, internal bool) bool {
-	hashMap := &keyIDMapValue{keyIDHashMap: make(map[rainslib.PublicKeyID]*zoneKeyCacheValue), zone: assertion.SubjectName}
-	e, _ := c.zoneHashMap.GetOrAdd(assertion.SubjectName, hashMap, internal)
+	subjectName := assertion.SubjectName
+	if assertion.SubjectName == "@" {
+		subjectName = assertion.SubjectZone
+	}
+	hashMap := &keyIDMapValue{keyIDHashMap: make(map[rainslib.PublicKeyID]*zoneKeyCacheValue), zone: subjectName}
+	e, _ := c.zoneHashMap.GetOrAdd(subjectName, hashMap, internal)
 	v := e.(*keyIDMapValue)
 	v.mux.Lock()
 	if v.deleted {
@@ -266,7 +270,7 @@ func (c *zoneKeyCacheImpl) Add(assertion *rainslib.AssertionSection, publicKey r
 		publicKeyAssertion{publicKey: publicKey, assertion: assertion})
 	if ok {
 		if val.publicKeys.Len() > c.maxPublicKeysPerZone {
-			log.Warn("There are too many publicKeys for a zone", "zone", assertion.SubjectName,
+			log.Warn("There are too many publicKeys for a zone", "zone", subjectName,
 				"allowed", c.maxPublicKeysPerZone, "count", val.publicKeys.Len())
 		}
 	}

@@ -187,7 +187,7 @@ type PublicKeyID struct {
 }
 
 func (p PublicKeyID) String() string {
-	return fmt.Sprintf("%s %v %d", p.Algorithm, p.KeySpace, p.KeyPhase)
+	return fmt.Sprintf("AT=%s KS=%v KP=%d", p.Algorithm, p.KeySpace, p.KeyPhase)
 }
 
 //PublicKey contains information about a public key
@@ -242,8 +242,7 @@ func (p PublicKey) String() string {
 	default:
 		log.Warn("Unsupported public key type", "type", fmt.Sprintf("%T", p.Key))
 	}
-	return fmt.Sprintf("{%d %d %d %d %d %s}",
-		p.Algorithm, p.KeySpace, p.ValidSince, p.ValidUntil, p.KeyPhase, keyString)
+	return fmt.Sprintf("{%s VS=%d VU=%d data=%s}", p.PublicKeyID, p.ValidSince, p.ValidUntil, keyString)
 }
 
 //NamesetExpression encodes a modified POSIX Extended Regular Expression format

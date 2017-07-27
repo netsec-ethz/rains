@@ -21,9 +21,9 @@ import (
 )
 
 //InitServer initializes the server
-func InitServer(configPath string) error {
+func InitServer(configPath string, logLevel int) error {
 	h := log.CallerFileHandler(log.StdoutHandler)
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
+	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(logLevel), h))
 	loadConfig(configPath)
 	serverConnInfo = Config.ServerAddress
 	msgParser = new(protoParser.ProtoParserAndFramer)

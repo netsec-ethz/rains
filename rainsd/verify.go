@@ -347,10 +347,10 @@ func publicKeysPresent(zone string, sigMetaData map[rainslib.SignatureMetaData]b
 	for sigData := range sigMetaData {
 		if key, ok := zoneKeyCache.Get(zone, sigData); ok {
 			//returned public key is guaranteed to be valid
-			log.Debug("Corresponding Public key in cache.", "cacheKey", sigData, "publicKey", key)
+			log.Debug("Corresponding Public key in cache.", "cacheKey=sigMetaData", sigData, "publicKey", key)
 			keys[sigData.PublicKeyID] = append(keys[sigData.PublicKeyID], key)
 		} else {
-			log.Debug("Public key not in zoneKeyCache", "cacheKey", sigData)
+			log.Debug("Public key not in zoneKeyCache", "zone", zone, "cacheKey=sigMetaData", sigData)
 			missingKeys[sigData] = true
 		}
 	}
