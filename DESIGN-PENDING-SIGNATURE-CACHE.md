@@ -28,18 +28,14 @@
   expired elements.
 - In case the cache is full all queries waiting for the least recently queried public key are
   removed from the cache except for sections published by the own zone (via rainsPub).
-- it must provide an insertion function which stores a section together with the expiration time and
-  token of the sent query to the cache. It must return if there is already a section in the cache
-  waiting for the same public key and if the sent query is not yet expired. (Then the calling
-  function can decide if it should resend a query). The return value must be computed fast.
+- it must provide an insertion function which stores a section together with the expiration time,
+  token of the sent query and the address of the server to which the query will be sent. It must
+  return if there is already a section in the cache waiting for the same public key and if the sent
+  query is not yet expired. (Then the calling function can decide if it should resend a query). The
+  return value must be computed fast.
 - it must provide a Token update function to handle the case when it receives a redirect such that
   it can issue a new query to the redirection and leave the section in the cache.
-- it must provide a fast lookup of the sections which wait for a public key from a given zone,
-  context, algorithm identifier, and key phase. (the last two are only necessary if we can specify
-  it in a query)
 - it must provide a fast lookup of the sections which wait for the answer of a query with Token t.
-  (In case we get a notification message as a response we are then able to remove these entries from
-  the cache)
 - it must provide a cleanup function that removes expired entries.
 - all cache operations must be safe for concurrent access
 
@@ -48,12 +44,11 @@
   accessible.
 - on insertion or lookup of a public key it is moved to the head of the list
 - in case the cache is full the public key at the tail of the list is removed.
-- to allow fast lookup two hash maps are used. The first is keyed by the tuple subjectZone, context,
-  signature algorithm type, and key phase. (the last two are only necessary if we can specify it in
-  a query). The second is keyed by the token used in the sent query. The value is a pointer to the
+- to allow fast lookup a hash maps keyed by token is used. The value is a pointer to the
   corresponding list node.
 - a list node contains a set (safe for concurrent accesses) of sections waiting for the public key,
-  an expiration time, and a token. (the token is needed to remove the entry from the second hashmap
-  in case of removal)
+  an expiration time, a token, and the destination server's address (the token is needed to remove
+  the entry from the hashmap in case of removal. The destination server's address can be used for
+  an external service to do blacklisting of misbehaving servers)
 - sections over which this server has authority are not subject to lru removal. They are stored in a
   separate list.
