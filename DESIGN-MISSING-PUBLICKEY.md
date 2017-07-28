@@ -1,4 +1,40 @@
-# Handling of a missing public key
+# Missing public key
+
+## Design decisions
+- The callback function for the pending sections is not triggered by delegation assertions which can
+  be used to verify the signature but are not a response to the query issued for this information.
+  The event that another server pushes such a delegation assertion exactly in the moment where this
+  server is waiting for this delegation assertion is negligible. But we would have to check each
+  incoming section if it matches any of the sections in the pending caches which incurs unnecessary
+  overhead.
+- We do not keep state how many times we issued a query for a given zone. We repeat it until the
+  query expires (which is configurable). A malicious entity could send alternating redirects from
+  two of its servers and without an expiration for the query the server would ask them infinitely.
+- To be able to blacklist malicious servers which do not respond to delegation queries or with
+  incorrect answers we log the connection information of them. An external service can then decide
+  if a server or zone should be blacklisted. To make this approach work, a server should not start a
+  lookup for another server but either directly respond with a cached result or send a redirect. (
+  If the server which the second server uses for its lookup does not respond, then it seems for the
+  first server that the second server is the malicious one and not the third one) However, if one
+  has two or several rains servers, it is still possible to configure them such that only some of
+  them are doing recursive lookup. Those servers doing recursive lookup must be white-listed in the
+  local blacklisting service.
+- The communication partner is either an other rains server or rainspub. If the public key is
+  missing the server first has to determine where it should send a delegation query to. One approach
+  is to always send the delegation query to the entity that has sent the section. For a rains server
+  this should in most cases result in a positive answer as the previous server also had to verify
+  the signatures. But if the section has come from rainspub then the server will get no answer or
+  maybe a notification message (501 server not capable or maybe a new notification type. Should it
+  even send? Because if the expiration time is chosen small enough it does not add much latency
+  (assuming the reap function is also going through the server frequently). If we choose the
+  expiration approach then we need to change the cache such that the reap function returns
+  information what and where we have to send the delegation query). [I would prefer the explicit
+  approach where rainspub sends a notification message back. Because it keeps the cache simple and
+  it is easier to reason when an error occurs because it does not depend on multiple configurations]
+  When the server receives the above mentioned notification message or if the query expired the
+  server will send a new delegation query to a root rains server.
+
+## Handling of a missing public key
 When a rains server receives a section it MUST verify all non expired signatures on it. In case the
 server does not have the public key to verify the signature in the cache, it proceeds as follows:
 1. Sends a delegation query to the server from which it has received the section. (Because the
@@ -57,23 +93,5 @@ server does not have the public key to verify the signature in the cache, it pro
   Choose one redirect at random and do the same as above for one redirect.
 
 
-## Design decisions
-- The callback function for the pending sections is not triggered by delegation assertions which can
-  be used to verify the signature but are not a response to the query issued for this information.
-  The event that another server pushes such a delegation assertion exactly in the moment where this
-  server is waiting for this delegation assertion is negligible. But we would have to check each
-  incoming section if it matches any of the sections in the pending caches which incurs unnecessary
-  overhead.
-- We do not keep state how many times we issued a query for a given zone. We repeat it until the
-  query expires (which is configurable). A malicious entity could send alternating redirects from
-  two of its servers and without an expiration for the query the server would ask them infinitely.
-- To be able to blacklist malicious servers which do not respond to delegation queries or with
-  incorrect answers we log the connection information of them. An external service can then decide
-  if a server or zone should be blacklisted. To make this approach work, a server should not start a
-  lookup for another server but either directly respond with a cached result or send a redirect. (
-  If the server which the second server uses for its lookup does not respond, then it seems for the
-  first server that the second server is the malicious one and not the third one) However, if one
-  has two or several rains servers, it is still possible to configure them such that only some of
-  them are doing recursive lookup. Those servers doing recursive lookup must be white-listed in the
-  local blacklisting service.
+
 
