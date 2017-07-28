@@ -49,7 +49,7 @@ func PublishInformation() error {
 	}
 
 	//TODO CFE add additional sharding parameters to config/allow for different sharding strategies
-	zone := groupAssertionsToShards(assertions)
+	zone := groupAssertionsToShards(assertions[0].SubjectZone, assertions[0].Context, assertions)
 
 	//TODO implement signing with airgapping
 	err = signZone(zone, rainslib.Ed25519, zonePrivateKey)
@@ -87,62 +87,54 @@ func loadAssertions() ([]*rainslib.AssertionSection, error) {
 	return assertions, nil
 }
 
-//groupAssertionsToShards creates shards containing a fixed number of assertions according to the configuration (except the last one).
-//Before grouping the assertions, it sorts them.
-//It returns a zone section containing the created shards. The contained shards and assertions still have non empty subjectZone and context values
-//as these values are needed to generate a signatures
-func groupAssertionsToShards(assertions []*rainslib.AssertionSection) *rainslib.ZoneSection {
-	context := assertions[0].Context
-	zone := assertions[0].SubjectZone
+//groupAssertionsToShards creates shards containing a maximum number of different assertion names
+//according to the configuration. Before grouping the assertions, it sorts them. It returns a zone
+//section containing the created shards. The contained shards and assertions still have non empty
+//subjectZone and context values as these values are needed to generate a signatures
+func groupAssertionsToShards(subjectZone, context string, assertions []*rainslib.AssertionSection) *rainslib.ZoneSection {
 	//the assertion compareTo function sorts first by subjectName. Thus we can use it here.
 	sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
 	shards := []rainslib.MessageSectionWithSigForward{}
-	if len(assertions) <= int(config.MaxAssertionsPerShard) {
-		shards = []rainslib.MessageSectionWithSigForward{&rainslib.ShardSection{
-			Context:     context,
-			SubjectZone: zone,
-			RangeFrom:   "",
-			RangeTo:     "",
-			Content:     assertions,
-		}}
-	} else {
-		firstShard := &rainslib.ShardSection{
-			Context:     context,
-			SubjectZone: zone,
-			RangeFrom:   "",
-			RangeTo:     assertions[config.MaxAssertionsPerShard].SubjectName,
-			Content:     assertions[:config.MaxAssertionsPerShard],
+	nameCount := 0
+	prevAssertionSubjectName := ""
+	prevShardAssertionSubjectName := ""
+	shard := newShard(subjectZone, context)
+	for i, a := range assertions {
+		if a.SubjectZone != subjectZone || a.Context != context {
+			log.Error("assertion's subjectZone or context does not match with the zone's", "assertion", a)
 		}
-		shards = append(shards, firstShard)
-		previousRangeEnd := assertions[config.MaxAssertionsPerShard-1].SubjectName
-		assertions = assertions[config.MaxAssertionsPerShard:]
-		for len(assertions) > int(config.MaxAssertionsPerShard) {
-			shard := &rainslib.ShardSection{
-				Context:     context,
-				SubjectZone: zone,
-				RangeFrom:   previousRangeEnd,
-				RangeTo:     assertions[config.MaxAssertionsPerShard].SubjectName,
-				Content:     assertions[:config.MaxAssertionsPerShard],
-			}
+		if prevAssertionSubjectName != a.SubjectName {
+			nameCount++
+			prevAssertionSubjectName = a.SubjectName
+		}
+		if nameCount > config.MaxAssertionsPerShard {
+			shard.RangeFrom = prevShardAssertionSubjectName
+			shard.RangeTo = a.SubjectName
 			shards = append(shards, shard)
-			previousRangeEnd = assertions[config.MaxAssertionsPerShard-1].SubjectName
-			assertions = assertions[config.MaxAssertionsPerShard:]
+			nameCount = 1
+			shard = newShard(subjectZone, context)
+			prevShardAssertionSubjectName = assertions[i-1].SubjectName
 		}
-		lastShard := &rainslib.ShardSection{
-			Context:     context,
-			SubjectZone: zone,
-			RangeFrom:   previousRangeEnd,
-			RangeTo:     "",
-			Content:     assertions,
-		}
-		shards = append(shards, lastShard)
+		shard.Content = append(shard.Content, a)
 	}
+	shard.RangeFrom = prevShardAssertionSubjectName
+	shard.RangeTo = ""
+	shards = append(shards, shard)
+
 	section := &rainslib.ZoneSection{
 		Context:     context,
-		SubjectZone: zone,
+		SubjectZone: subjectZone,
 		Content:     shards,
 	}
 	return section
+}
+
+func newShard(subjectZone, context string) *rainslib.ShardSection {
+	return &rainslib.ShardSection{
+		SubjectZone: subjectZone,
+		Context:     context,
+		Content:     []*rainslib.AssertionSection{},
+	}
 }
 
 //signZone signs the zone and all contained shards and assertions with the zone's private key.

@@ -91,7 +91,7 @@ func TestGroupAssertionsToShards(t *testing.T) {
 		Content: []rainslib.Object{rainslib.Object{Type: rainslib.OTIP4Addr, Value: "130.60.184.132"}}}
 	var tests = []struct {
 		input              []*rainslib.AssertionSection
-		assertionsPerShard uint
+		assertionsPerShard int
 		output             *rainslib.ZoneSection
 	}{
 		{[]*rainslib.AssertionSection{a1, a2}, 2,
@@ -119,7 +119,8 @@ func TestGroupAssertionsToShards(t *testing.T) {
 	}
 	for _, test := range tests {
 		config.MaxAssertionsPerShard = test.assertionsPerShard
-		rainslib.CheckZone(groupAssertionsToShards(test.input), test.output, t)
+		rainslib.CheckZone(groupAssertionsToShards(test.input[0].SubjectZone,
+			test.input[0].Context, test.input), test.output, t)
 	}
 }
 
