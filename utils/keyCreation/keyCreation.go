@@ -7,11 +7,11 @@ import (
 	"os"
 	"time"
 
+	log "github.com/inconshreveable/log15"
+
 	"github.com/netsec-ethz/rains/rainsSiglib"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
-
-	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
 )
 
