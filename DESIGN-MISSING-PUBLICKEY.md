@@ -34,7 +34,7 @@
   When the server receives the above mentioned notification message or if the query expired the
   server will send a new delegation query to a root rains server.
 
-## Handling of a missing public key
+## Handle a missing public key
 When a rains server receives a section it MUST verify all non expired signatures on it. In case the
 server does not have the public key to verify the signature in the cache, it proceeds as follows:
 1. Sends a delegation query to the server from which it has received the section. (Because the
@@ -43,10 +43,12 @@ server does not have the public key to verify the signature in the cache, it pro
 2. Adds the section together with the token used on the previously sent delegation query and the
    destination address to the pending signature cache. This step allows the handling go routine to
    process another section and it does not have to wait until the answer arrives.
-3. Depending on the answer the server receives as a response to the query it handles the pending
-   section differently. It first removes the token from the active token cache. It then checks if
-   the sections are still valid. If that the case, it processes the section according to the
-   following cases where the token on the msg matches the one of the sent query:
+
+## Pending signature callback function
+Depending on the answer the server receives as a response to the query it handles the pending
+section differently. It first removes the token from the active token cache. It then checks if the
+sections are still valid. If that the case, it processes the section according to the following
+cases where the token on the msg matches the one of the sent query:
 - Assertion with one or several objects, containing the key(s):
   1. Add all pending sections to the normal queue.
     \+ Use the same process, no special case, less complexity
@@ -91,7 +93,3 @@ server does not have the public key to verify the signature in the cache, it pro
      send an IP4/IP6 query for the redirected name to the server from which it received the redirect
 - Assertion contains several redirects or several assertions containing redirects
   Choose one redirect at random and do the same as above for one redirect.
-
-
-
-
