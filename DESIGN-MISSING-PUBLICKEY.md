@@ -46,9 +46,10 @@ server does not have the public key to verify the signature in the cache, it pro
 
 ## Pending signature callback function
 Depending on the answer the server receives as a response to the query it handles the pending
-section differently. It first removes the token from the active token cache. It then checks if the
-sections are still valid. If that the case, it processes the section according to the following
-cases where the token on the msg matches the one of the sent query:
+section differently. It first removes the token from the active token cache and sets the value of a
+map which is keyed by the token to the number of assertions containing a delegation object. It then
+checks if the sections are still valid. If that the case, it processes the section according to the
+following cases where the token on the msg matches the one of the sent query:
 - Assertion with one or several objects, containing the key(s):
   1. Add all pending sections to the normal queue.
     \+ Use the same process, no special case, less complexity
@@ -61,8 +62,7 @@ cases where the token on the msg matches the one of the sent query:
     \- this approach would circumvent the maximum configured number of active go routines. It
        enables DOS attacks (resource exhaustion)
 - Several assertions which have different needed public keys:
-  Set the value of a map which is keyed by the token to the number of assertions containing a
-  delegation object. After the assertion is added to the zoneKeyCache, decrease the map count and in
+  After the assertion is added to the zoneKeyCache, decrease the map count and in
   case the count is 0 add all pending sections to the normal queue. (This makes sure that all public
   keys are in the cache when we handle the pending sections again. We assume that servers always
   respond with all delegations they have for a given zone.)
