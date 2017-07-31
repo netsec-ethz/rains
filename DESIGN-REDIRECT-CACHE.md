@@ -1,5 +1,9 @@
 # Redirect Cache
 
+## Design Decisions
+- There must be a global configuration (policy) which determines when the server is following a
+  redirect and when it forwards the redirect.
+
 ## Redirect cache requirements
 - cache has a maximum size which is configurable (to avoid memory exhaustion of the server in case
   of an attack). It is not fix size because it is operationally important that this cache has enough
