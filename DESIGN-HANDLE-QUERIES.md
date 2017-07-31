@@ -2,19 +2,29 @@
 
 ## Design decisions
 - Delegation queries are handled slightly differently because they are important for the system to
-  run with less disruption.
+  run with few disruption.
 - To avoid large memory consumption we do not enter shards and zones in the zoneKeyCache but instead
   only add the public key. There must be an incomplete counter for each zone such that we only use
   the delegation entries of this zone in a query response if all are present. The incomplete counter
   is increased every time we store a public key without a section (when the section is a zone or
-  shard where the contained assertion is not signed). [editors note: update missing public key and
-  cache design in case we decide to do this case. If not, update this document]
+  shard where the contained assertion is not signed). When a public key without a section expires,
+  then the reap function must decreases the incomplete counter. This approach assumes that a
+  delegation query is sent back to the server from which it received the section. Otherwise it might
+  be the case that a new delegation assertion has been issued but has not yet been received by the
+  queried server. In contrast, the sender of the section must have had all keys necessary to do the
+  verification. [editors note: update missing public key and cache design in case we decide to do
+  this case. If not, update this document]
 - Note that if a rains server decides to do the lookup by himself for a delegation query it might be
   blacklisted in case the server to which it starts the lookup is not responding and thus, it can
   also not respond in time.
-- If a server receives more than one identical query, it does not send for each a query forward in
-  case it has not the answer in the cache. Instead it sends just one and adds the others to the same
-  entry in the pending query cache.
+- If a server forwards a query (answer is not cached), it does not forward subsequent queries asking
+  for the same information. Instead it adds them to the entry of the first query (asking for the
+  same information) in the pending query cache. In case the contained entry has expired, all waiting
+  queries are removed from the cache and a new entry is made for the new query after it has been
+  forwarded.
+- If there is a positive answer for at least one of the queried types then this answer is returned
+  i.e. a shard or zone is only returned if no assertion can be used as a full or partial answer to
+  the query.
 
 ## Handle queries
 The following two descriptions of how queries are handled are considering the case where only one
