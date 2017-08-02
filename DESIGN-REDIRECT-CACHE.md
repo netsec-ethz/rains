@@ -36,24 +36,3 @@
   of IP addresses associated with the hash maps' keys, the zone and pointers to assertions from
   which this information was taken from. (The zone value is necessary to update both hash maps when
   an entry is removed)
-
-## Redirect cache locking
-- we use read/write mutex locks on three different levels. We chose r/w locks over normal locks as
-  most accesses are reads. The fourth is a normal lock (there are only writes when the update
-  function returns if the cache reached its maximum size).
-  1. is used to protect the first hashmap keyed by zone and the lru list accesses.
-  2. is used to protect the second hashmap keyed by redirection names.
-  3. is used to protect the data object itself containing the zone, expiration time, and a set of IP
-     addresses.
-  4. is used to protect the entry count
-- on lookup and insertion the first three locks are called one after another while the current lock
-  is freed before the next is obtained. At the end of an insertion the lock on the entry count is
-  used to increase the counter.
-- to delete an entry it must first be looked up top down and then will be deleted bottom up. If e.g.
-  the last IP address is removed then a deleted flag is set on the object and the lock of the hash
-  map pointing to it is obtained (notice that we still hold the lock on the object). We do not run
-  into a deadlock because every lookup process releases the lock on the hash map before it obtains
-  the lock on the object. The deleted flag is necessary such that a process waiting on the object's
-  lock does not add a IP address to it after the previous process removed the pointer to this object
-  from the hash map (which makes it unaccessible)
-- Never delete an entry top down otherwise we could run into a deadlock.

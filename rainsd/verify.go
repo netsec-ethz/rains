@@ -272,6 +272,8 @@ func invalidObjectType(subjectAddr *net.IPNet, objectType rainslib.ObjectType) b
 func verifySignatures(sectionSender sectionWithSigSender) bool {
 	section := sectionSender.Section
 	keysNeeded := make(map[rainslib.SignatureMetaData]bool)
+	//FIXME CFE differentiate between zone public keys and rev zone public keys. Load from different
+	//caches, different behavior on first signature check not successful.
 	neededKeys(section, keysNeeded)
 	publicKeys, missingKeys, ok := publicKeysPresent(section.GetSubjectZone(), keysNeeded)
 	if ok {

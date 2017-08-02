@@ -3,17 +3,20 @@
 ## Design decision
 - The token cache is intended to prioritize delegation assertions which are necessary to verify
   signatures on previously received sections. This reduces the amount of time a section stays in a
-  pending cache and hence, the response time is lower. 
+  pending cache and hence, the response time is lower.
+- A Token is removed from the cache when the first message with this token arrives. In case several
+  messages are sent in response to a delegation query only the sections of the first message are put
+  on the priority queue.
 - In case the cache is full new sections with signatures are dropped until it is not full anymore.
   An alarm is raised in case this cache is full.
 - An external mechanism is necessary to monitor the incoming delegation assertions and if it detects
-  a DOS attack it blacklists the source of it. 
+  a DOS attack it blacklists the source of it.
 
 ## Token cache requirements
 - cache has a maximum size which is configurable (to avoid memory exhaustion of the server in case
   of an attack). Cache is maximum size because it must periodically go through its entries and
   delete and report back all expired elements to e.g. allow an external service doing blacklisting.
-- entries must be actively removed. 
+- entries must be actively removed.
 - it must provide an insertion function which stores the query expiration and information about the
   entity to which the query was sent.
 - it must provide a fast response to the question if a token is contained in the cache.
