@@ -353,6 +353,7 @@ func (s *sortedAssertions) Get(interval rainslib.Interval) ([]*rainslib.Assertio
 	i := sort.Search(len(s.assertions), func(i int) bool {
 		return s.assertions[i].SubjectName >= interval.Begin()
 	})
+	//FIXME can be out of bound when no entry is found, it sort.Search returns n
 	if s.assertions[i].SubjectName < interval.Begin() {
 		return elements, false
 	}

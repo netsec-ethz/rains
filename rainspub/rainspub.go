@@ -2,25 +2,29 @@ package rainspub
 
 import (
 	"crypto/tls"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"sort"
+	"strings"
 	"time"
+
+	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/rainsSiglib"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/protoParser"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
-
-	log "github.com/inconshreveable/log15"
 )
+
+var msgFramer rainslib.MsgFramer
 
 //InitRainspub initializes rainspub
 func InitRainspub(configPath string) error {
 	h := log.CallerFileHandler(log.StdoutHandler)
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, h))
 	err := loadConfig(configPath)
 	if err != nil {
 		return err
@@ -36,7 +40,7 @@ func InitRainspub(configPath string) error {
 	return nil
 }
 
-//PublishInformation
+//PublishInformation does:
 //1) loads all assertions from the rains zone file.
 //2) groups assertions into shards
 //3) signs the zone and all contained shards and assertions
@@ -230,8 +234,8 @@ func signAssertions(assertions []*rainslib.AssertionSection, keyAlgo rainslib.Si
 
 //sendMsg sends the given zone to rains servers specified in the configuration
 func sendMsg(msg []byte, assertionCount, shardCount int) error {
-	connections := []net.Conn{}
 	//TODO CFE use certificate for tls
+	var conns []net.Conn
 	conf := &tls.Config{
 		InsecureSkipVerify: true,
 	}
@@ -243,12 +247,14 @@ func sendMsg(msg []byte, assertionCount, shardCount int) error {
 				log.Error("Was not able to establish a connection.", "server", server, "error", err)
 				continue
 			}
-			connections = append(connections, conn)
-			var msgFramer rainslib.MsgFramer
+			conns = append(conns, conn)
 			msgFramer = new(protoParser.ProtoParserAndFramer)
-			msgFramer.InitStreams(nil, conn)
+			msgFramer.InitStreams(conn, conn)
+			token, _ := msgParser.Token(msg)
+			go listen(conn, token)
 			err = msgFramer.Frame(msg)
 			if err != nil {
+				conn.Close()
 				return err
 			}
 			log.Info("Published information.", "serverAddresses", server.String(), "#Assertions",
@@ -257,12 +263,79 @@ func sendMsg(msg []byte, assertionCount, shardCount int) error {
 			return fmt.Errorf("unsupported connection information type. actual=%v", server.Type)
 		}
 	}
-	//If the connections are directly closed the destination is not able to receive the information. Is this true?
-	time.Sleep(time.Second)
-	for _, conn := range connections {
+	time.Sleep(2 * time.Second)
+	for _, conn := range conns {
 		conn.Close()
+		log.Debug("connection closed")
 	}
 	return nil
+}
+
+//listen receives incoming messages. If the message's token matches the query's token, it handles
+//the response.
+func listen(conn net.Conn, token rainslib.Token) {
+	for msgFramer.DeFrame() {
+		_, err := msgParser.Token(msgFramer.Data())
+		if err != nil {
+			log.Warn("Was not able to extract the token", "message", hex.EncodeToString(msgFramer.Data()), "error", err)
+			continue
+		}
+		msg, err := msgParser.Decode(msgFramer.Data())
+		if err != nil {
+			log.Warn("Was not able to decode received message", "message", hex.EncodeToString(msgFramer.Data()), "error", err)
+			continue
+		}
+		//Rainspub only accepts notification messages in response to published information.
+		if n, ok := msg.Content[0].(*rainslib.NotificationSection); ok && n.Token == token {
+			if handleResponse(conn, msg.Content[0].(*rainslib.NotificationSection)) {
+				conn.Close()
+				return
+			}
+			continue
+		}
+		log.Debug("Token of sent message does not match the token of the received message",
+			"messageToken", token, "recvToken", msg.Token)
+	}
+}
+
+//handleResponse handles the received notification message and returns true if the connection can
+//be closed.
+func handleResponse(conn net.Conn, n *rainslib.NotificationSection) bool {
+	switch n.Type {
+	case rainslib.NTHeartbeat, rainslib.NTNoAssertionsExist, rainslib.NTNoAssertionAvail:
+	//nop
+	case rainslib.NTCapabilityAnswer:
+		handleCapabilities(n.Data)
+	case rainslib.NTCapHashNotKnown:
+	//TODO CFE send back the whole capability list in an empty message
+	case rainslib.NTBadMessage:
+		log.Error("Sent msg was malformed", "data", n.Data)
+	case rainslib.NTRcvInconsistentMsg:
+		log.Error("Sent msg was inconsistent", "data", n.Data)
+	case rainslib.NTMsgTooLarge:
+		log.Error("Sent msg was too large", "data", n.Data)
+		//What should we do in this case. apparently it is not possible to send a zone because
+		//it is too large. send shards instead?
+	case rainslib.NTUnspecServerErr:
+		log.Error("Unspecified error of other server", "data", n.Data)
+		//TODO CFE resend?
+	case rainslib.NTServerNotCapable:
+		log.Error("Other server was not capable", "data", n.Data)
+		//TODO CFE when can this occur?
+	default:
+		log.Error("Received non existing notification type")
+	}
+	return false
+}
+
+//capabilityIsHash returns true if capabilities are represented as a hash.
+func capabilityIsHash(capabilities string) bool {
+	return !strings.HasPrefix(capabilities, "urn:")
+}
+
+//handleCapabilities changes the way rainspub is communicating with the given server
+func handleCapabilities(capabilities string) {
+	//No capabilities so far to handle
 }
 
 //createRainsMessage creates a rainsMessage containing the given zone and return the byte representation of this rainsMessage ready to send out.

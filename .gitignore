@@ -27,10 +27,10 @@ _testmain.go
 *.prof
 
 #server main() function binary
-/examples/serverCH/serverCH
-/examples/serverRoot/serverRoot
-/examples/serverCHPub/serverCHPub
-/examples/serverRootPub/serverRootPub
+/example/serverCH/serverCH
+/example/serverRoot/serverRoot
+/example/serverCHPub/serverCHPub
+/example/serverRootPub/serverRootPub
 
 #binary of rainsdig
 /rainsdig/rainsdig

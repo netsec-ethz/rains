@@ -1,8 +1,6 @@
 package main
 
 import (
-	"time"
-
 	"github.com/netsec-ethz/rains/rainspub"
 
 	log "github.com/inconshreveable/log15"
@@ -20,11 +18,8 @@ func main() {
 		log.Error("Error on startup", "error", err)
 		panic(err)
 	}
-	for true {
-		err := rainspub.PublishInformation()
-		if err != nil {
-			log.Error("Was not able to publish information", "error", err)
-		}
-		time.Sleep(24 * time.Hour)
+	err = rainspub.PublishInformation()
+	if err != nil {
+		log.Error("Was not able to publish information", "error", err)
 	}
 }
