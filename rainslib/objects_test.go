@@ -56,7 +56,7 @@ func TestPublicKeyIDString(t *testing.T) {
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {
-			t.Errorf("%d: Wrong Signature algorithm String value. expected=%v, actual=%v", i, test.want, test.input.String())
+			t.Errorf("%d: Wrong public key id String value. expected=%v, actual=%v", i, test.want, test.input.String())
 		}
 	}
 }
@@ -82,7 +82,7 @@ func TestPublicKeyString(t *testing.T) {
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {
-			t.Errorf("%d: Wrong Signature algorithm String value. expected=%v, actual=%v", i, test.want, test.input.String())
+			t.Errorf("%d: Wrong public key String value. expected=%v, actual=%v", i, test.want, test.input.String())
 		}
 	}
 }
@@ -97,7 +97,48 @@ func TestCertTypeString(t *testing.T) {
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {
-			t.Errorf("%d: Wrong Signature algorithm String value. expected=%v, actual=%v", i, test.want, test.input.String())
+			t.Errorf("%d: Wrong cert type String value. expected=%v, actual=%v", i, test.want, test.input.String())
+		}
+	}
+}
+
+func TestPublicKeyIDHash(t *testing.T) {
+	var tests = []struct {
+		input PublicKeyID
+		want  string
+	}{
+		{PublicKeyID{}, "0,0,0"},
+		{PublicKeyID{Algorithm: Ed25519, KeySpace: RainsKeySpace, KeyPhase: 2}, "1,0,2"},
+	}
+	for i, test := range tests {
+		if test.input.Hash() != test.want {
+			t.Errorf("%d: Wrong Public key id Hash value. expected=%v, actual=%v", i, test.want, test.input.Hash())
+		}
+	}
+}
+
+func TestPublicKeyHash(t *testing.T) {
+	var tests = []struct {
+		input PublicKey
+		want  string
+	}{
+		{PublicKey{}, "0,0,0,0,0,"},
+		{
+			PublicKey{
+				PublicKeyID: PublicKeyID{
+					Algorithm: Ed25519,
+					KeySpace:  RainsKeySpace,
+					KeyPhase:  1,
+				},
+				ValidSince: 1,
+				ValidUntil: 2,
+				Key:        ed25519.PublicKey([]byte("PublicKeyData"))},
+			"1,0,1,1,2,5075626c69634b657944617461",
+		},
+	}
+	for i, test := range tests {
+		if test.input.Hash() != test.want {
+			t.Errorf("%d: Wrong public key String value. expected=%v, actual=%v", i, test.want, test.input.Hash())
 		}
 	}
 }
