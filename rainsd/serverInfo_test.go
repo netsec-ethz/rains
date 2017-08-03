@@ -157,7 +157,9 @@ func TestZoneKeyCache(t *testing.T) {
 		input zonePublicKeyCache
 	}{
 		//Warn when there are 4 entries in the cache. Replace one/some if there is a 5th added.
-		{&zoneKeyCacheImpl{zoneHashMap: lruCache.New(), counter: safeCounter.New(5), warnSize: 4, maxPublicKeysPerZone: 2}},
+		{&zoneKeyCacheImpl{cache: lruCache.New(), counter: safeCounter.New(5), warnSize: 4,
+			maxPublicKeysPerZone: 2, keysPerContextZone: make(map[string]int)},
+		},
 	}
 	for i, test := range tests {
 		delegationsCH := getExampleDelgations("ch")
@@ -186,59 +188,52 @@ func TestZoneKeyCache(t *testing.T) {
 		//Obtain previously added public keys
 		signatures := getSignatureMetaData()
 		for j := 0; j < 3; j++ {
-			pkey, ok := c.Get("ch", signatures[j])
-			if !ok || pkey.CompareTo(delegationsCH[j].Content[0].Value.(rainslib.PublicKey)) != 0 {
+			pkey, a, ok := c.Get("ch", ".", signatures[j])
+			if !ok || pkey.CompareTo(delegationsCH[j].Content[0].Value.(rainslib.PublicKey)) != 0 ||
+				!reflect.DeepEqual(a, delegationsCH[j]) {
 				t.Errorf("%d:Get returned unexpected value actual=(%v,%v)", i, pkey, ok)
 			}
 		}
-		pkey, ok := c.Get("org", signatures[0])
-		if !ok || pkey.CompareTo(delegationsORG[0].Content[0].Value.(rainslib.PublicKey)) != 0 {
+		pkey, a, ok := c.Get("org", ".", signatures[0])
+		if !ok || pkey.CompareTo(delegationsORG[0].Content[0].Value.(rainslib.PublicKey)) != 0 ||
+			!reflect.DeepEqual(a, delegationsORG[0]) {
 			t.Errorf("%d:Get returned unexpected value actual=(%v,%v)", i, pkey, ok)
 		}
 		for j := 3; j < 3; j++ {
-			pkey, ok = c.Get("ch", signatures[j])
-			if ok || pkey.CompareTo(rainslib.PublicKey{}) != 0 {
+			pkey, a, ok = c.Get("ch", ".", signatures[j])
+			if ok || pkey.CompareTo(rainslib.PublicKey{}) != 0 || a != nil {
 				t.Errorf("%d:Get should not return public key actual=(%v,%v)", i, pkey, ok)
 			}
 		}
-		//obtain all delegations
-		delegCH, ok := c.GetAllDelegations("ch")
-		if !ok || len(delegCH) != 3 || delegCH[0].SubjectName != "ch" ||
-			delegCH[1].SubjectName != "ch" || delegCH[2].SubjectName != "ch" {
-			t.Errorf("%d:obtained delegation are wrong expected=(%v,%v) actual=(%v,%v)", i, delegationsCH, true, delegCH, ok)
-		}
 		//lru removal
 		ok = c.Add(delegationsORG[1], delegationsORG[1].Content[0].Value.(rainslib.PublicKey), false)
-		if c.Len() != 2 {
+		if c.Len() != 3 {
 			t.Errorf("%d:lru removal deleted not enough keys expected=%d actual=%d", i, 2, c.Len())
 		}
 		if ok {
 			t.Errorf("%d:Wrong return value expected=false actual=%v", i, ok)
 		}
-		_, ok = c.Get("ch", signatures[0])
+		_, _, ok = c.Get("ch", ".", signatures[0])
 		if ok {
 			t.Errorf("%d:Wrong entries where removed", i)
 		}
 		//Removal of expired keys
 		c.Add(delegationsCH[3], delegationsCH[3].Content[0].Value.(rainslib.PublicKey), false)
-		if c.Len() != 3 {
+		if c.Len() != 4 {
 			t.Errorf("%d:Was not able to add expired delegation. expected=%d actual=%d", i, 3, c.Len())
 		}
 		c.RemoveExpiredKeys()
-		if c.Len() != 2 {
+		if c.Len() != 3 {
 			t.Errorf("%d:Was not able to remove expired delegation. expected=%d actual=%d", i, 2, c.Len())
-		}
-		delegCH, ok = c.GetAllDelegations("ch")
-		if ok || len(delegCH) != 0 {
-			t.Errorf("%d: not all ch delegations have been removed", i)
 		}
 		//Test selfsigned root delegation
 		ok = c.Add(delegationsORG[4], delegationsORG[4].Content[0].Value.(rainslib.PublicKey), false)
-		if c.Len() != 3 {
+		if c.Len() != 4 {
 			t.Errorf("%d:Delegation was not added to cache expected=%d actual=%d", i, 3, c.Len())
 		}
-		pkey, ok = c.Get(".", signatures[0])
-		if !ok || pkey.CompareTo(delegationsORG[4].Content[0].Value.(rainslib.PublicKey)) != 0 {
+		pkey, a, ok = c.Get(".", ".", signatures[0])
+		if !ok || pkey.CompareTo(delegationsORG[4].Content[0].Value.(rainslib.PublicKey)) != 0 ||
+			!reflect.DeepEqual(a, delegationsORG[4]) {
 			t.Errorf("%d:Get returned unexpected value actual=(%v,%v)", i, pkey, ok)
 		}
 	}

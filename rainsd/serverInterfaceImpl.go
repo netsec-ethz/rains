@@ -200,34 +200,39 @@ func (c *capabilityCacheImpl) Len() int {
  * Zone key cache implementation
  */
 type zoneKeyCacheImpl struct {
-	zoneHashMap *lruCache.Cache
-	counter     *safeCounter.Counter
+	cache   *lruCache.Cache //key=zone,context,algorithmType,phaseID
+	counter *safeCounter.Counter
 	//warnSize defines the number of public keys after which the add function returns true
 	warnSize int
 	//maxPublicKeysPerZone defines the number of keys per zone after which a message is logged that
 	//this zone uses too many public keys.
 	maxPublicKeysPerZone int
-}
 
-type keyIDMapValue struct {
-	keyIDHashMap map[rainslib.PublicKeyID]*zoneKeyCacheValue
-	zone         string
-	//mux is used to protect keyIDHashMap from simultaneous access
-	//TODO most access are reads, but do we have a lot of parallel access to the same
-	//connCacheValue? If not replace with sync.Mutex.
-	mux sync.RWMutex
-	//set to true if the pointer to this element is removed from the hash map
-	deleted bool
+	mux sync.Mutex
+	//keysPerContextZone counts the number of public keys stored per zone and context
+	keysPerContextZone map[string]int //key=zone,context
 }
 
 type zoneKeyCacheValue struct {
 	//publicKeys is a hash map from publicKey.Hash to the publicKey and the assertion in which the
 	//key is contained
-	publicKeys *safeHashMap.Map
-	//mux is used to protect deleted from simultaneous access
+	publicKeys    *safeHashMap.Map
+	zone          string
+	context       string
+	algorithmType rainslib.SignatureAlgorithmType
+	keyPhase      int
+
 	mux sync.Mutex
 	//set to true if the pointer to this element is removed from the hash map
 	deleted bool
+}
+
+func (v *zoneKeyCacheValue) getCacheKey() string {
+	return fmt.Sprintf("%s,%s,%d,%d", v.zone, v.context, v.algorithmType, v.keyPhase)
+}
+
+func (v *zoneKeyCacheValue) getContextZone() string {
+	return fmt.Sprintf("%s,%s", v.zone, v.context)
 }
 
 type publicKeyAssertion struct {
@@ -235,178 +240,116 @@ type publicKeyAssertion struct {
 	assertion *rainslib.AssertionSection
 }
 
-//Add adds publicKey together with the assertion containing it to the cache. Returns true if the
-//cache exceeds a configured (during initialization of the cache) amount of entries. If the
-//cache is full it removes all public keys from a zone according to some metric. The cache logs
-//a message when a zone has more than a certain configurable (at initialization) amount of
-//public keys. An external service can then decide if it want to blacklist the given zone. If
-//the internal flag is set, publicKey will only be removed after it expired.
+//Add adds publicKey together with the assertion containing it to the cache. Returns false if
+//the cache exceeds a configured (during initialization of the cache) amount of entries. If the
+//cache is full it removes a public key according to some metric. The cache logs a message when
+//a zone has more than a certain (configurable) amount of public keys. (An external service can
+//then decide if it wants to blacklist a given zone). If the internal flag is set, the publicKey
+//will only be removed after it expired.
 func (c *zoneKeyCacheImpl) Add(assertion *rainslib.AssertionSection, publicKey rainslib.PublicKey, internal bool) bool {
 	subjectName := assertion.SubjectName
 	if assertion.SubjectName == "@" {
 		subjectName = assertion.SubjectZone
 	}
-	hashMap := &keyIDMapValue{keyIDHashMap: make(map[rainslib.PublicKeyID]*zoneKeyCacheValue), zone: subjectName}
-	e, _ := c.zoneHashMap.GetOrAdd(subjectName, hashMap, internal)
-	v := e.(*keyIDMapValue)
-	v.mux.Lock()
+	cacheValue := &zoneKeyCacheValue{publicKeys: safeHashMap.New(), zone: subjectName,
+		context: assertion.Context, algorithmType: publicKey.Algorithm, keyPhase: publicKey.KeyPhase}
+	e, _ := c.cache.GetOrAdd(cacheValue.getCacheKey(), cacheValue, internal)
+	v := e.(*zoneKeyCacheValue)
+	v.mux.Lock() //This lock assures that the lru removal of another add method or the reap
+	//function do not remove a pointer to this zoneKeyCacheValue.
 	if v.deleted {
 		v.mux.Unlock()
 		return c.Add(assertion, publicKey, internal)
 	}
-	val, ok := v.keyIDHashMap[publicKey.PublicKeyID]
-	if !ok {
-		val = &zoneKeyCacheValue{publicKeys: safeHashMap.New()}
-		v.keyIDHashMap[publicKey.PublicKeyID] = val
-	}
-	v.mux.Unlock()
-	val.mux.Lock() //This lock assures that the lru removal of another add method or the reap
-	//function do not remove a pointer to this zoneKeyCacheValue.
-	if val.deleted {
-		val.mux.Unlock()
-		return c.Add(assertion, publicKey, internal)
-	}
-	_, ok = val.publicKeys.GetOrAdd(publicKey.String(),
+	_, ok := v.publicKeys.GetOrAdd(publicKey.Hash(),
 		publicKeyAssertion{publicKey: publicKey, assertion: assertion})
 	if ok {
-		if val.publicKeys.Len() > c.maxPublicKeysPerZone {
-			log.Warn("There are too many publicKeys for a zone", "zone", subjectName,
-				"allowed", c.maxPublicKeysPerZone, "count", val.publicKeys.Len())
+		c.mux.Lock()
+		c.keysPerContextZone[v.getContextZone()]++
+		if c.keysPerContextZone[v.getContextZone()] > c.maxPublicKeysPerZone {
+			log.Warn("There are too many publicKeys for a zone and context", "zone", subjectName,
+				"context", assertion.Context, "allowed", c.maxPublicKeysPerZone, "actual",
+				c.keysPerContextZone[v.getContextZone()])
 		}
-	}
-	val.mux.Unlock()
-	if c.counter.Inc() {
-		//cache is full, remove all public keys from the least recently used zone
-		for {
-			if !c.counter.IsFull() {
-				break
-			}
-			zone, e := c.zoneHashMap.GetLeastRecentlyUsed()
-			value := e.(*keyIDMapValue)
-			value.mux.Lock()
-			if value.deleted {
-				value.mux.Unlock()
-				continue
-			}
-			value.deleted = true
-			c.zoneHashMap.Remove(zone)
-			value.mux.Unlock()
-			for _, val := range value.keyIDHashMap {
+		c.mux.Unlock()
+		v.mux.Unlock()
+		if c.counter.Inc() {
+			//cache is full, remove least recently used public key.
+			for {
+				if !c.counter.IsFull() {
+					return false
+				}
+				_, e := c.cache.GetLeastRecentlyUsed()
+				val := e.(*zoneKeyCacheValue)
 				val.mux.Lock() //This lock makes sure that no other add method can insert a new
 				//entry to this zoneKeyCacheValue publicKeys. Thus, it is safe to first get all keys
 				//and then remove one after an other from publicKeys.
-				if !val.deleted {
-					val.deleted = true
-					for _, key := range val.publicKeys.GetAllKeys() {
-						if _, ok := val.publicKeys.Remove(key); ok {
-							c.counter.Dec()
-						}
+				if val.deleted {
+					val.mux.Unlock()
+					continue
+				}
+				val.deleted = true
+				for _, key := range val.publicKeys.GetAllKeys() {
+					if _, ok := val.publicKeys.Remove(key); ok {
+						c.counter.Dec()
+						c.mux.Lock()
+						c.keysPerContextZone[val.getContextZone()]--
+						c.mux.Unlock()
 					}
 				}
+				c.cache.Remove(val.getCacheKey())
 				val.mux.Unlock()
+				return false
 			}
-			break
 		}
-		return false
 	}
 	return c.counter.Value() < c.warnSize
 }
 
 //Get returns true and a valid public key matching zone and publicKeyID. It returns false if
 //there exists no valid public key in the cache.
-func (c *zoneKeyCacheImpl) Get(zone string, sigMetaData rainslib.SignatureMetaData) (rainslib.PublicKey, bool) {
-	e, ok := c.zoneHashMap.Get(zone)
+func (c *zoneKeyCacheImpl) Get(zone, context string, sigMetaData rainslib.SignatureMetaData) (
+	rainslib.PublicKey, *rainslib.AssertionSection, bool) {
+	e, ok := c.cache.Get(fmt.Sprintf("%s,%s,%d,%d", zone, context, sigMetaData.Algorithm, sigMetaData.KeyPhase))
 	if !ok {
-		return rainslib.PublicKey{}, false
+		return rainslib.PublicKey{}, nil, false
 	}
-	v := e.(*keyIDMapValue)
-	v.mux.RLock()
-	if v.deleted {
-		v.mux.RUnlock()
-		return rainslib.PublicKey{}, false
-	}
-	val, ok := v.keyIDHashMap[sigMetaData.PublicKeyID]
-	if !ok {
-		v.mux.RUnlock()
-		return rainslib.PublicKey{}, false
-	}
-	v.mux.RUnlock()
-	values := val.publicKeys.GetAll()
+	values := e.(*zoneKeyCacheValue).publicKeys.GetAll()
 	for _, v := range values {
 		key := v.(publicKeyAssertion).publicKey
 		if key.ValidUntil > time.Now().Unix() {
-			//key is valid
+			//key is non expired and valid
 			if key.ValidSince <= sigMetaData.ValidUntil && key.ValidUntil >= sigMetaData.ValidSince {
-				return key, true
+				return key, v.(publicKeyAssertion).assertion, true
 			}
 		}
 	}
-	return rainslib.PublicKey{}, false
-}
-
-//GetAllDelegations returns true and all valid cached delegation assertions for zone. It returns
-//false if there are no valid delegation assertions in the cache
-func (c *zoneKeyCacheImpl) GetAllDelegations(zone string) ([]*rainslib.AssertionSection, bool) {
-	e, ok := c.zoneHashMap.Get(zone)
-	if !ok {
-		return nil, false
-	}
-	v := e.(*keyIDMapValue)
-	v.mux.RLock()
-	if v.deleted {
-		v.mux.RUnlock()
-		return nil, false
-	}
-	delegations := []*rainslib.AssertionSection{}
-	for _, val := range v.keyIDHashMap {
-		v.mux.RUnlock()
-		values := val.publicKeys.GetAll()
-		for _, v := range values {
-			assertion := v.(publicKeyAssertion).assertion
-			if assertion.ValidUntil() > time.Now().Unix() {
-				delegations = append(delegations, assertion)
-			}
-		}
-		v.mux.RLock()
-	}
-	v.mux.RUnlock()
-	return delegations, len(delegations) > 0
+	return rainslib.PublicKey{}, nil, false
 }
 
 //RemoveExpiredKeys deletes all expired public keys from the cache.
 func (c *zoneKeyCacheImpl) RemoveExpiredKeys() {
-	values := c.zoneHashMap.GetAll()
-	for _, e := range values {
-		v := e.(*keyIDMapValue)
-		v.mux.RLock()
-		if v.deleted {
-			v.mux.RUnlock()
-			continue
-		}
-		v.mux.RUnlock()
-		for hashKey, val := range v.keyIDHashMap {
-			keys := val.publicKeys.GetAllKeys()
-			for _, key := range keys {
-				if k, ok := val.publicKeys.Get(key); ok && k.(publicKeyAssertion).publicKey.ValidUntil < time.Now().Unix() {
-					if _, ok := val.publicKeys.Remove(key); ok {
-						c.counter.Dec()
-					}
+	values := c.cache.GetAll()
+	for _, value := range values {
+		val := value.(*zoneKeyCacheValue)
+		keys := val.publicKeys.GetAllKeys()
+		for _, key := range keys {
+			if k, ok := val.publicKeys.Get(key); ok && k.(publicKeyAssertion).publicKey.ValidUntil < time.Now().Unix() {
+				if _, ok := val.publicKeys.Remove(key); ok {
+					c.counter.Dec()
+					c.mux.Lock()
+					c.keysPerContextZone[val.getContextZone()]--
+					c.mux.Unlock()
 				}
 			}
-			val.mux.Lock() //This lock makes sure that no add methods are interfering while deleting
-			//the pointer to this entry.
-			if !val.deleted && val.publicKeys.Len() == 0 {
-				val.deleted = true
-				delete(v.keyIDHashMap, hashKey)
-			}
-			val.mux.Unlock()
 		}
-		v.mux.Lock()
-		if !v.deleted && len(v.keyIDHashMap) == 0 {
-			v.deleted = true
-			c.zoneHashMap.Remove(v.zone)
+		val.mux.Lock() //This lock makes sure that no add methods are interfering while deleting
+		//the pointer to this entry.
+		if !val.deleted && val.publicKeys.Len() == 0 {
+			val.deleted = true
+			c.cache.Remove(val.getCacheKey())
 		}
-		v.mux.Unlock()
+		val.mux.Unlock()
 	}
 }
 

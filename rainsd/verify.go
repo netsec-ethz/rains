@@ -29,10 +29,11 @@ var sigEncoder rainslib.SignatureFormatEncoder
 func initVerify() error {
 	//init cache
 	zoneKeyCache = &zoneKeyCacheImpl{
-		zoneHashMap:          lruCache.New(),
+		cache:                lruCache.New(),
 		counter:              safeCounter.New(Config.ZoneKeyCacheSize),
 		warnSize:             Config.ZoneKeyCacheWarnSize,
 		maxPublicKeysPerZone: Config.MaxPublicKeysPerZone,
+		keysPerContextZone:   make(map[string]int),
 	}
 
 	err := loadRootZonePublicKey(Config.RootZonePublicKeyPath)
@@ -275,7 +276,7 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 	//FIXME CFE differentiate between zone public keys and rev zone public keys. Load from different
 	//caches, different behavior on first signature check not successful.
 	neededKeys(section, keysNeeded)
-	publicKeys, missingKeys, ok := publicKeysPresent(section.GetSubjectZone(), keysNeeded)
+	publicKeys, missingKeys, ok := publicKeysPresent(section.GetSubjectZone(), section.GetContext(), keysNeeded)
 	if ok {
 		log.Info("All public keys are present.", "msgSectionWithSig", section)
 		addZoneAndContextToContainedSections(section)
@@ -340,14 +341,14 @@ func extractNeededKeys(subjectZone string, section rainslib.MessageSectionWithSi
 
 //publicKeysPresent returns true if all public keys are already cached for sigs.
 //It also returns the set of cached publicKeys and a set of the missing publicKey identifiers
-func publicKeysPresent(zone string, sigMetaData map[rainslib.SignatureMetaData]bool) (
+func publicKeysPresent(zone, context string, sigMetaData map[rainslib.SignatureMetaData]bool) (
 	map[rainslib.PublicKeyID][]rainslib.PublicKey, map[rainslib.SignatureMetaData]bool, bool) {
 
 	keys := make(map[rainslib.PublicKeyID][]rainslib.PublicKey)
 	missingKeys := make(map[rainslib.SignatureMetaData]bool)
 
 	for sigData := range sigMetaData {
-		if key, ok := zoneKeyCache.Get(zone, sigData); ok {
+		if key, _, ok := zoneKeyCache.Get(zone, context, sigData); ok {
 			//returned public key is guaranteed to be valid
 			log.Debug("Corresponding Public key in cache.", "cacheKey=sigMetaData", sigData, "publicKey", key)
 			keys[sigData.PublicKeyID] = append(keys[sigData.PublicKeyID], key)

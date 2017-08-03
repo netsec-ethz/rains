@@ -127,17 +127,16 @@ type capabilityCache interface {
 type zonePublicKeyCache interface {
 	//Add adds publicKey together with the assertion containing it to the cache. Returns false if
 	//the cache exceeds a configured (during initialization of the cache) amount of entries. If the
-	//cache is full it removes all public keys from a zone according to some metric. The cache logs
-	//a message when a zone has more than a certain configurable (at initialization) amount of
-	//public keys. An external service can then decide if it want to blacklist the given zone. If
-	//the internal flag is set, publicKey will only be removed after it expired.
+	//cache is full it removes a public key according to some metric. The cache logs a message when
+	//a zone has more than a certain (configurable) amount of public keys. (An external service can
+	//then decide if it wants to blacklist a given zone). If the internal flag is set, the publicKey
+	//will only be removed after it expired.
 	Add(assertion *rainslib.AssertionSection, publicKey rainslib.PublicKey, internal bool) bool
-	//Get returns true and a non expired public key which can be used to verify a signature with
-	//sigMetaData. It returns false if there is no valid matching public key in the cache.
-	Get(zone string, sigMetaData rainslib.SignatureMetaData) (rainslib.PublicKey, bool)
-	//GetAllDelegations returns true and all valid cached delegation assertions for zone. It returns
-	//false if there are no valid delegation assertions in the cache
-	GetAllDelegations(zone string) ([]*rainslib.AssertionSection, bool)
+	//Get returns true, the assertion holding the returned public key, and a non expired public key
+	//which can be used to verify a signature with sigMetaData. It returns false if there is no
+	//valid matching public key in the cache.
+	Get(zone, context string, sigMetaData rainslib.SignatureMetaData) (
+		rainslib.PublicKey, *rainslib.AssertionSection, bool)
 	//RemoveExpiredKeys deletes all expired public keys from the cache.
 	RemoveExpiredKeys()
 	//Len returns the number of public keys currently in the cache.

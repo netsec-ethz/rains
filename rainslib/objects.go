@@ -190,6 +190,11 @@ func (p PublicKeyID) String() string {
 	return fmt.Sprintf("AT=%s KS=%v KP=%d", p.Algorithm, p.KeySpace, p.KeyPhase)
 }
 
+//Hash returns a string containing all information uniquely identifying a public key ID.
+func (p PublicKeyID) Hash() string {
+	return fmt.Sprintf("%d,%d,%d", p.Algorithm, p.KeySpace, p.KeyPhase)
+}
+
 //PublicKey contains information about a public key
 type PublicKey struct {
 	PublicKeyID
@@ -243,6 +248,18 @@ func (p PublicKey) String() string {
 		log.Warn("Unsupported public key type", "type", fmt.Sprintf("%T", p.Key))
 	}
 	return fmt.Sprintf("{%s VS=%d VU=%d data=%s}", p.PublicKeyID, p.ValidSince, p.ValidUntil, keyString)
+}
+
+//Hash returns a string containing all information uniquely identifying a public key.
+func (p PublicKey) Hash() string {
+	keyString := ""
+	switch k1 := p.Key.(type) {
+	case ed25519.PublicKey:
+		keyString = hex.EncodeToString(k1)
+	default:
+		log.Warn("Unsupported public key type", "type", fmt.Sprintf("%T", p.Key))
+	}
+	return fmt.Sprintf("%s,%d,%d,%s", p.PublicKeyID.Hash(), p.ValidSince, p.ValidUntil, keyString)
 }
 
 //NamesetExpression encodes a modified POSIX Extended Regular Expression format

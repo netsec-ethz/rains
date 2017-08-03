@@ -455,14 +455,8 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 	for _, zAn := range zoneAndNames {
 		assertions := []*rainslib.AssertionSection{}
 		for _, t := range query.Types {
-			if t == rainslib.OTDelegation {
-				if delegations, ok := zoneKeyCache.GetAllDelegations(zAn.zone); ok {
-					assertions = append(assertions, delegations...)
-				}
-			} else {
-				if asserts, ok := assertionsCache.Get(query.Context, zAn.zone, zAn.name, t); ok {
-					assertions = append(assertions, asserts...)
-				}
+			if asserts, ok := assertionsCache.Get(query.Context, zAn.zone, zAn.name, t); ok {
+				assertions = append(assertions, asserts...)
 			}
 		}
 		//TODO CFE add heuristic which assertion(s) to return
