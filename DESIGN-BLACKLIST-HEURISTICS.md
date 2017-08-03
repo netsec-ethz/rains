@@ -9,3 +9,4 @@ Future work. Still, some thoughts that popped up in discussion are mentioned her
   blacklisted. We do not want to allow normal assertion(s) to take the path over the priority queue
   although they are not. (An assertion containing one of the four object types and several more is
   fine). The same applies for shards where the queried name is not in the shard range.
+- Blacklist policy depends on the RAINS server topology.

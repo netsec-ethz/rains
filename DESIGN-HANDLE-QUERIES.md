@@ -3,7 +3,7 @@
 ## Design decisions
 - Delegation queries are handled slightly differently because they are important for the system to
   run with minimal disruption.
-- Note that if a rains server decides to do the lookup by himself for a delegation query it might be
+- Note that if a rains server decides to do the lookup itself for a delegation query it might be
   blacklisted in case the server to which it starts the lookup is not responding and thus, it can
   also not respond in time.
 - If a server forwards a query (answer is not cached), it does not forward subsequent queries asking
@@ -86,4 +86,3 @@ an answer to the query. It checks all answers to delegation queries. It then pro
   in the pending query cache or return to all pending queries the assertion containing a redirect.
   The same applies in the case of several sections per message if the last processed section is an
   assertion not answering the query and containing a redirect.
-
