@@ -15,7 +15,7 @@
 - Pointers to delegation assertions are stored in the assertion cache to answer received delegation
   queries as well as in the zone key cache which is internally used to lookup public keys.
 - It must be possible to update peer and zone blacklists at runtime such that an external service or
-  coprocess analyzing rainsd's logging in real time can defend DoS attacks.
+  coprocess analyzing rainsd's logging in real time can defend misbehavior and attacks (e.g. DoS)
 - It must be possible to configure a server such that it does only iterative lookups for a specified
   list of addresses.
 - It must be possible to configure a server to which other server address(es) it sends recursive
@@ -26,6 +26,41 @@
   itself it directly drops the redirect assertion (and in case of a delegation query, the section(s)
   waiting for the public key)
 
+# Coalescing and/or splitting of incoming messages
+- An answer to a query can arrive as a whole or in a fragmented way. Possible scenarios are:
+  1. one message, one section
+  2. one message, multiple section
+  3. several messages, each with one section
+  4. several messages with several section
+  The server must be able to handle all these cases in a meaningful way. It should be possible to
+  configure the server to react in different ways to them.
+
+## Proposals
+1. The server processes all incoming information directly and solely on a per section basis, i.e. if
+   a message contains several sections it splits them up and handles each of them separately and in
+   parallel.
+- Pending query cache:
+  1. As soon as the server processes the first section which is an answer to a query it forwards the
+     section and removes the entry from the pending query cache. (Disadvantages: If a server/client
+     is interested in several information it should issue for each of them a separate query
+     otherwise it might get always the same answer. Delegation must be handled as a special case)
+  2. When an answer to a pending query arrives (either by token or by name, ctx and type) it is
+     stored to the entry in the pending query cache and a configurable wait-time is set/reset after
+     which all so far gathered sections are sent back together as the response and the entry is
+     removed from the pending query cache. (Disadvantage: complicated pending query cache)
+  3. The entry in the pending query cache is only removed when expired. All answers arriving before
+     the expiration are cached and then sent back to the sender. (Disadvantages: high delay and if
+     the server decides to not cache a section then it can also not be used as an answer except if
+     we would store each answering section to the pending query cache)
+- Pending key cache:
+  - The server does not send a delegation query if one has already been sent but no answer has
+    arrived so far.
+  1. All arriving delegation assertions are checked if they answers any of the sections in the
+     pending key cache (hashmap lookup by zone, context, algorithm type and phase ID). If the
+     token on a message matches one in the pending key cache the entry is removed such that again
+     a delegation query can be sent to the same destination.
+
+2. TODO take lower design into the above one.
 ## Section and Message processing proposal
 - The number of concurrently active goroutines working on messages are restricted to a configurable
   amount. To avoid a deadlock of the system (e.g. when the maximum number of message goroutines are
@@ -40,7 +75,7 @@
   appropriate pending cache and blocks on it. When an answer arrived the pending cache signals the
   goroutine that it can continue its processing.
 - Message goroutines work as follows:
-  1. The engine coalesces incoming response messages with the same token until some configurable
+  1. The server coalesces incoming response messages with the same token until some configurable
     wait-time has passed (e.g. 10ms). Each time a message with the same token arrives the countdown
     is reset to the configured wait-time. In case the incoming message is not a response to a query
     it goes straight to step 3.
@@ -55,14 +90,14 @@
       sections to terminate and decreases the message goroutine counter.
     - Some behavior in between the above 2 according to some policy
 
-### Implementation proposal
+## Implementation proposal
 - Message goroutines create a waitgroup to determine when all go routines are done.
 - The active token cache must return if a token belongs to a delegation query response such that
   it is always directly processed.
 
-## Signatures
+# Signatures
 
-### Basic facts
+## Basic facts
 - A signature is valid from the validSince to the validUntil time specified in the signature meta
   data. The validity time of a signature is further restricted by the validity period of the public
   key's delegation assertion, where the public key corresponds to the private key used to generate
@@ -75,7 +110,7 @@
   keys compromised used to sign this section. The overhead of validating such a section increases
   linear with the number of signatures.
 
-### Signature design decisions
+## Signature design decisions
 - Based on the signature meta data, it must be clear which public key was used to sign a section.
   This is required because we drop the whole section if not all non-expired signatures on and within
   a section are correct. Thus, it might be possible that the section is not dropped although it
@@ -85,11 +120,11 @@
   also more efficient).
 - If all signatures on a section are expired we do not cache it or use it to answer queries.
 
-### Current state
+## Current state
 - There is no specific revocation mechanism. Revocation is implicitly done via the validation period
   of the added signature by the authority.
 
-### Simultaneous valid public keys proposals:
+## Simultaneous valid public keys proposals:
 1. If we require that there is at most one public key valid at the same point in time we can fulfill
    the two requirements. In case the section is valid during a key rollover then the authority must
    add two signatures signed by different private keys such that publicKey1.validUntil + epsilon =
@@ -102,14 +137,14 @@
    expiration time because there are no guarantees to which of the published public keys are in the
    cache of another RAINS server.
 
-### Key rollover strategy
+## Key rollover strategy
 - It is sufficient for an authority to have two key pairs to provide contiguous validity of
   sections. The validity periods of the key pairs are alternating. After the currently valid (first)
   key expires, the authority can send a nextKey request to its super ordinate zone which can then
   issue a new delegation assertion for the first key before the second key expires. This process can
   then be repeated. This way the authority has always at least one valid key to sign sections.
 
-### Conclusion
+## Conclusion
 The second proposal is a generalization of the first proposal (i.e. that the second proposal can be
 used by an authority as the first one but also gives more freedom to abuse it). The second proposal
 enables to support future improvements with minimal effort. The second proposal is more complex to
