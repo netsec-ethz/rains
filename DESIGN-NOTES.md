@@ -47,8 +47,10 @@
      otherwise it might get always the same answer. Delegation must be handled as a special case)
   2. When an answer to a pending query arrives (either by token or by name, ctx and type) it is
      stored to the entry in the pending query cache and a configurable wait-time is set/reset after
-     which all so far gathered sections are sent back together as the response and the entry is
-     removed from the pending query cache. (Disadvantage: complicated pending query cache)
+     which all so far gathered sections are either sent back together as a response and the entry is
+     removed from the pending query cache or if the server is allowed to do iterative lookup and the
+     response is a delegation or a redirect send the query again to the new destination and update
+     the token. (Disadvantage: complicated pending query cache)
   3. The entry in the pending query cache is only removed when expired. All answers arriving before
      the expiration are cached and then sent back to the sender. (Disadvantages: high delay and if
      the server decides to not cache a section then it can also not be used as an answer except if
