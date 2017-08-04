@@ -54,12 +54,23 @@
      the server decides to not cache a section then it can also not be used as an answer except if
      we would store each answering section to the pending query cache)
 - Pending key cache:
-  - The server does not send a delegation query if one has already been sent but no answer has
-    arrived so far.
-  1. All arriving delegation assertions are checked if they answers any of the sections in the
-     pending key cache (hashmap lookup by zone, context, algorithm type and phase ID). If the
-     token on a message matches one in the pending key cache the entry is removed such that again
-     a delegation query can be sent to the same destination.
+  - A server can only resend a delegation query when the previous one has expired. This assures that
+    a server does not get flooded with delegation queries after it rolled over a key.
+  - All arriving delegation assertions are checked if they answers any of the sections in the
+    pending key cache (hashmap lookup by zone, context, algorithm type and phase ID).
+  - If the token on a message matches one in the pending key cache then the sections of this message
+    are handled with priority (if not disabled in configuration).
+  - There is a hashmap in the cache which is keyed by the token and the value is an object
+    containing an expiration time and a pointer to an object containing all sections waiting for a
+    public key. An entry is only removed from this hashmap if it has expired (a reap function takes
+    care of this). This ensures that all messages in response to a delegation query are handled with
+    priority.
+  - Active Token cache is now part of the pending key cache because it is necessary to have a
+    pointer from the token to the pending sections to remove them without raising an alarm in case
+    the other server has sent a notification in response to the delegation query.
+  - The server must log every section that gets dropped together with the destination which failed
+    to send a delegation assertion in time.
+
 
 2. The server processes incoming information on a per message basis, i.e. for each incoming message
    a goroutine is created (referred to as message goroutine in the reminder of this section) which
