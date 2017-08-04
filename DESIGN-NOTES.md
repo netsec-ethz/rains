@@ -1,6 +1,6 @@
 # General Design decisions
 - Queries are answered as soon as any queried information is available, i.e. a server does not wait
-  until it can fully answer a query but already responds with partial information.
+  until it can completely answer a query but already responds with partial information.
 - A server should keep all public keys necessary to validate the signatures on all its cached
   sections. This allows the server to answer all delegation queries about sections it has sent out.
 - A server should respond to a delegation query with all matching public keys it believes the
@@ -38,8 +38,9 @@
 ## Proposals
 1. The server processes all incoming information directly and solely on a per section basis, i.e. if
    a message contains several sections it splits them up and handles each of them separately and in
-   parallel.
-- Pending query cache:
+   parallel. The number of simultaneously active goroutines is upper bounded. Assertions in response
+   to a delegation queries can be configured to be handled with priority.
+- Pending query cache designs:
   1. As soon as the server processes the first section which is an answer to a query it forwards the
      section and removes the entry from the pending query cache. (Disadvantages: If a server/client
      is interested in several information it should issue for each of them a separate query
@@ -60,40 +61,47 @@
      token on a message matches one in the pending key cache the entry is removed such that again
      a delegation query can be sent to the same destination.
 
-2. TODO take lower design into the above one.
-## Section and Message processing proposal
-- The number of concurrently active goroutines working on messages are restricted to a configurable
-  amount. To avoid a deadlock of the system (e.g. when the maximum number of message goroutines are
-  all waiting for a delegation assertion to arrive but it cannot be handled at its arrival because
-  no message goroutine is free to process it) a goroutine spawned to work an a contained section
-  signals the message goroutine over a channel in case it has to wait such that the message
-  goroutine counter can be decreased.
-- Goroutines working on sections maintain two channels to the goroutine of the message, one to
-  signal back when it is done and the other to signal back when it has to wait for an
-  answer.
-- In case a section goroutine has to wait for a query's response, it adds a channel to the
-  appropriate pending cache and blocks on it. When an answer arrived the pending cache signals the
-  goroutine that it can continue its processing.
-- Message goroutines work as follows:
-  1. The server coalesces incoming response messages with the same token until some configurable
-    wait-time has passed (e.g. 10ms). Each time a message with the same token arrives the countdown
-    is reset to the configured wait-time. In case the incoming message is not a response to a query
-    it goes straight to step 3.
-  2. When the wait-time is over, the server removes the token from the active token cache.
-  3. The message goroutine creates for each contained section(s) a new goroutine
-  4. Depending on the configuration one of the following processing steps is performed.
-    - The message goroutine waits until all sections are successfully processed. It then checks if
-      the token is stored in one of the pending caches and invokes the waiting goroutines. At last,
-      it decreases the message goroutine counter.
-    - The message goroutine directly forwards the message to all pending queries or waits until the
-      first section is done to invoke the goroutines waiting for a public key. Then it waits for all
-      sections to terminate and decreases the message goroutine counter.
-    - Some behavior in between the above 2 according to some policy
+2. The server processes incoming information on a per message basis, i.e. for each incoming message
+   a goroutine is created (referred to as message goroutine in the reminder of this section) which
+   is responsible for the appropriate handling of the message and its content as well as answering
+   matching entries in the pending caches. The number of concurrently active message goroutines is
+   restricted to a configurable amount (message goroutine counter). To account for case 3 and 4, the
+   server coalesces messages with the same token if messages following the first one arrive within a
+   configurable deadline (e.g. 10ms). This deadline is reset each time a message with the same token
+   arrives. This is a tradeoff between sending directly partial (or complete in case 1 and 2)
+   information with small delay and having more delay but be able to send mostly complete answers. A
+   message goroutine works as follows:
+   1. It removes the token from the active token cache.
+   2. It creates for each contained section a new goroutine (referred to as section goroutine in the
+      reminder of this section) which processes the section.
+   3. Depending on a server configuration it performs one of the following steps:
+    - It waits until all section goroutines are terminated. It then checks if the token is stored in
+      one of the pending caches and invokes the waiting goroutines over a shared channel. (In this
+      setting it would need considerable more complexity to also allow sections not intended as an
+      answer to a query to be use as the answer)
+    - It directly forwards the message to all pending queries or waits until the
+      first section is done to invoke the goroutines waiting for a public key. (It is faster but the
+      signatures on the message are not checked which I think is bad).
+    - Some behavior in between the above 2 according to some policy (Disadvantage: added complexity)
 
-## Implementation proposal
-- Message goroutines create a waitgroup to determine when all go routines are done.
-- The active token cache must return if a token belongs to a delegation query response such that
-  it is always directly processed.
+   It is possible to forward the message without caching the sections. To avoid a deadlock of the
+   system (e.g. when the maximum number of message goroutines are all waiting for a delegation
+   assertion to arrive but it cannot be handled at its arrival because no message goroutine is free
+   to process it) a section goroutine signals the message goroutine over a channel in case it has to
+   wait such that the message goroutine counter can be decreased. Section goroutines maintain two
+   channels to the message goroutine, one to signal back when it is done and the other to signal
+   back when it has to wait for an answer. In case a section goroutine has to wait for a query's
+   response, it adds a channel to the appropriate pending cache and blocks on it. When an answer
+   arrived the pending cache signals the goroutine that it can continue its processing. Responses
+   to delegations can be configured to be processes with high priority.
+
+##Conclusion
+
+I prefer the first proposal as sections are independent of each other and it leverages this
+property. Goroutines do not have to communicate with each other and it is easier to add server
+specific configurations because of that. The coalescing of information is in the pending query cache
+by section instead of in the server's engine by message. In both approaches it is not necessary to
+cache an answer to be able to respond to pending queries.
 
 # Signatures
 
