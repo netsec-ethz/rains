@@ -56,8 +56,12 @@
 - Pending key cache:
   - A server can only resend a delegation query when the previous one has expired. This assures that
     a server does not get flooded with delegation queries after it rolled over a key.
-  - All arriving delegation assertions are checked if they answers any of the sections in the
-    pending key cache (hashmap lookup by zone, context, algorithm type and phase ID).
+  - The server checks if the token of an arriving section is stored in the cache and updates the
+    cache accordingly. (In case the response is a redirect, iterative, recursive or no lookup. In
+    case of negative proof remove sections and log it)
+  - All arriving delegation assertions without a matching token are checked if they answers any of
+    the sections in the pending key cache (hashmap lookup by zone, context, algorithm type and phase
+    ID). All answered sections are added to the processing queue.
   - If the token on a message matches one in the pending key cache then the sections of this message
     are handled with priority (if not disabled in configuration).
   - There is a hashmap in the cache which is keyed by the token and the value is an object
