@@ -145,11 +145,12 @@ type zonePublicKeyCache interface {
 
 type pendingKeyCache interface {
 	//Add adds sectionSender to the cache and returns true if a new delegation should be sent.
-	Add(sectionSender msgSectionSender) bool
+	Add(sectionSender msgSectionSender, algoType rainslib.SignatureAlgorithmType, phase int) bool
 	//AddToken adds token to the token map where the value of the map corresponds to the cache entry
-	//matching the given zone and cotext. Token is only added to the map if a matching cache entry
-	//exists. False is returned if no matching cache entry exists.
-	AddToken(token rainslib.Token, zone, context string) bool
+	//matching the given zone and cotext. Token is added to the map and the cache entry's token,
+	//expiration and sendTo fields are updated only if a matching cache entry exists. False is
+	//returned if no matching cache entry exists.
+	AddToken(token rainslib.Token, expiration int64, sendTo rainslib.ConnInfo, zone, context string) bool
 	//GetAndRemove returns all sections who contain a signature matching the given parameter and
 	//deletes them from the cache. It returns true if at least one section is returned. The token
 	//map is updated if necessary.

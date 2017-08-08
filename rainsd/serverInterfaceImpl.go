@@ -359,8 +359,10 @@ func (c *zoneKeyCacheImpl) Len() int {
 }
 
 type pendingKeyCacheValue struct {
-	//sections is a hash map from section.Hash to the sectionSender in which section is contained
-	sections *safeHashMap.Map
+	mux sync.Mutex
+	//sections is a hash map from algoType and phase to a hash map keyed by section.Hash and
+	//pointing to sectionSender in which section is contained
+	sections map[string]map[string]msgSectionSender
 	//zoneCtx is zoneCtxMap's key
 	zoneCtx string
 	//token is tokenMap's key
@@ -369,14 +371,16 @@ type pendingKeyCacheValue struct {
 	sendTo rainslib.ConnInfo
 	//expiration is the time when the delegation query expires in unix time
 	expiration int64
-
-	mux sync.Mutex
 	//set to true if the pointer to this element is removed from both hash maps
 	deleted bool
 }
 
 func zoneCtxKey(zone, context string) string {
 	return fmt.Sprintf("%s %s", zone, context)
+}
+
+func algoPhaseKey(algoType rainslib.SignatureAlgorithmType, phase int) string {
+	return fmt.Sprintf("%s %d", algoType, phase)
 }
 
 type pendingKeyCacheImpl struct {
@@ -389,21 +393,59 @@ type pendingKeyCacheImpl struct {
 }
 
 //Add adds sectionSender to the cache and returns true if a new delegation should be sent.
-func (c *pendingKeyCacheImpl) Add(sectionSender msgSectionSender) bool {}
+func (c *pendingKeyCacheImpl) Add(sectionSender msgSectionSender,
+	algoType rainslib.SignatureAlgorithmType, phase int) bool {
+	section := sectionSender.Section.(rainslib.MessageSectionWithSig)
+	entry := &pendingKeyCacheValue{
+		zoneCtx:    zoneCtxKey(section.GetSubjectZone(), section.GetContext()),
+		sections:   make(map[string]map[string]msgSectionSender),
+		expiration: time.Now().Add(time.Second).Unix(),
+	}
+	newSet := make(map[string]msgSectionSender)
+	newSet[section.Hash()] = sectionSender
+	entry.sections[algoPhaseKey(algoType, phase)] = newSet
+	if entry, ok := c.zoneCtxMap.GetOrAdd(entry.zoneCtx, entry); !ok {
+		value := entry.(*pendingKeyCacheValue)
+		value.mux.Lock()
+		if value.deleted {
+			value.mux.Unlock()
+			return c.Add(sectionSender, algoType, phase)
+		}
+		defer value.mux.Unlock()
+		if set, ok := value.sections[algoPhaseKey(algoType, phase)]; !ok {
+			value.sections[algoPhaseKey(algoType, phase)] = newSet
+		} else {
+			set[section.Hash()] = sectionSender
+		}
+		if value.expiration < time.Now().Unix() {
+			value.expiration = time.Now().Add(time.Second).Unix()
+			log.Warn("pending key cache entry has expired", "sections", value.sections,
+				"sendTo", value.sendTo, "token", value.token, "expiration", value.expiration)
+		}
+		return value.expiration < time.Now().Unix()
+	}
+	return true
+}
 
 //AddToken adds token to the token map where the value of the map corresponds to the cache entry
 //matching the given zone and context. Token is only added to the map if a matching cache entry
 //exists without a token. False is returned if no matching cache entry exists or it already contains
 //a token
-func (c *pendingKeyCacheImpl) AddToken(token rainslib.Token, zone, context string) bool {
+func (c *pendingKeyCacheImpl) AddToken(token rainslib.Token, expiration int64,
+	sendTo rainslib.ConnInfo, zone, context string) bool {
 	entry, ok := c.zoneCtxMap.Get(zoneCtxKey(zone, context))
 	value := entry.(*pendingKeyCacheValue)
+	value.mux.Lock()
+	defer value.mux.Unlock()
 	if ok && value.token != [16]byte{} {
 		value.token = token
-		if !c.tokenMap.Add(token.String(), value) {
+		value.expiration = expiration
+		value.sendTo = sendTo
+		_, ok := c.tokenMap.GetOrAdd(token.String(), value)
+		if !ok {
 			log.Error("token already in cache. Token was reused too early", "token", token)
 		}
-		return true
+		return ok
 	}
 	return false
 }
@@ -412,6 +454,27 @@ func (c *pendingKeyCacheImpl) AddToken(token rainslib.Token, zone, context strin
 //deletes them from the cache. It returns true if at least one section is returned. The token
 //map is updated if necessary.
 func (c *pendingKeyCacheImpl) GetAndRemove(zone, context string, algoType rainslib.SignatureAlgorithmType, phase int) ([]msgSectionSender, bool) {
+	if entry, ok := c.zoneCtxMap.Get(zoneCtxKey(zone, context)); ok {
+		value := entry.(*pendingKeyCacheValue)
+		value.mux.Lock()
+		defer value.mux.Unlock()
+		if value.deleted {
+			return nil, false
+		}
+		if set, ok := value.sections[algoPhaseKey(algoType, phase)]; ok {
+			if len(value.sections) == 1 {
+				value.deleted = true
+				e, _ := c.zoneCtxMap.Remove(zoneCtxKey(zone, context))
+				c.tokenMap.Remove(e.(*pendingKeyCacheValue).token.String())
+			}
+			sectionSenders := make([]msgSectionSender, len(set))
+			for _, v := range set {
+				sectionSenders = append(sectionSenders, v)
+			}
+			return sectionSenders, len(sectionSenders) > 0
+		}
+	}
+	return nil, false
 }
 
 //GetAndRemoveByToken returns all sections who correspond to token and deletes them from the
@@ -420,11 +483,19 @@ func (c *pendingKeyCacheImpl) GetAndRemove(zone, context string, algoType rainsl
 func (c *pendingKeyCacheImpl) GetAndRemoveByToken(token rainslib.Token) ([]msgSectionSender, bool) {
 	if entry, ok := c.tokenMap.Remove(token.String()); ok {
 		value := entry.(*pendingKeyCacheValue)
+		value.mux.Lock()
+		if value.deleted {
+			value.mux.Unlock()
+			return nil, false
+		}
+		value.deleted = true
 		c.zoneCtxMap.Remove(value.zoneCtx)
-		values := value.sections.GetAll()
-		sectionSenders := make([]msgSectionSender, len(values))
-		for i, v := range values {
-			sectionSenders[i] = v.(msgSectionSender)
+		value.mux.Unlock()
+		sectionSenders := []msgSectionSender{}
+		for _, set := range value.sections {
+			for _, sectionSender := range set {
+				sectionSenders = append(sectionSenders, sectionSender)
+			}
 		}
 		return sectionSenders, len(sectionSenders) > 0
 	}
@@ -440,13 +511,36 @@ func (c *pendingKeyCacheImpl) ContainsToken(token rainslib.Token) bool {
 //Remove deletes the cache entry corresponding to token (and with it all contained sections)
 func (c *pendingKeyCacheImpl) Remove(token rainslib.Token) {
 	if entry, ok := c.tokenMap.Remove(token.String()); ok {
-		c.zoneCtxMap.Remove(entry.(*pendingKeyCacheValue).zoneCtx)
+		value := entry.(*pendingKeyCacheValue)
+		value.mux.Lock()
+		if !value.deleted {
+			value.deleted = true
+			c.zoneCtxMap.Remove(value.zoneCtx)
+		}
+		value.mux.Unlock()
 	}
 }
 
 //RemoveExpiredValues deletes all sections of an expired entry and updates the token map if
 //necessary. It logs which sections are removed and to which server the query has been sent.
-func (c *pendingKeyCacheImpl) RemoveExpiredValues() {}
+func (c *pendingKeyCacheImpl) RemoveExpiredValues() {
+	for _, value := range c.zoneCtxMap.GetAll() {
+		v := value.(*pendingKeyCacheValue)
+		v.mux.Lock()
+		if v.deleted {
+			v.mux.Unlock()
+			continue
+		}
+		if v.expiration < time.Now().Unix() {
+			v.deleted = true
+			c.tokenMap.Remove(v.token.String())
+			c.zoneCtxMap.Remove(v.zoneCtx)
+			log.Warn("pending key cache entry has expired", "sections", v.sections,
+				"sendTo", v.sendTo, "token", v.token, "expiration", v.expiration)
+		}
+		v.mux.Unlock()
+	}
+}
 
 //Len returns the number of sections in the cache
 func (c *pendingKeyCacheImpl) Len() int {
