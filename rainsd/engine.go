@@ -195,7 +195,7 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 		//assertion cannot be used to answer queries, delete all waiting for this assertion. How should we handle this case.
 		//send a redirect to root?
 		pendingQueries.GetAllAndDelete(token)
-		pendingSignatures.GetAllAndDelete(a.Context, a.SubjectZone)
+		pendingKeys.Remove(token)
 		return false
 	}
 	return true
@@ -206,7 +206,7 @@ func handleAssertion(a *rainslib.AssertionSection, token rainslib.Token) {
 	//FIXME CFE new cache should allow to get pending signatures by token. Makes things easier.
 	for _, obj := range a.Content {
 		if obj.Type == rainslib.OTDelegation {
-			sectionSenders, ok := pendingSignatures.GetAllAndDelete(a.Context, a.SubjectName)
+			sectionSenders, ok := pendingKeys.GetAndRemoveByToken(token)
 			log.Debug("handle sections from pending signature cache",
 				"waitingSectionCount", len(sectionSenders),
 				"subjectZone", a.SubjectName,

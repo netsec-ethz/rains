@@ -10,7 +10,7 @@ import (
 )
 
 var serverConnInfo rainslib.ConnInfo
-var authoritative map[contextAndZone]bool
+var authoritative map[zoneContext]bool
 var roots *x509.CertPool
 var msgParser rainslib.RainsMsgParser
 
@@ -143,6 +143,32 @@ type zonePublicKeyCache interface {
 	Len() int
 }
 
+type pendingKeyCache interface {
+	//Add adds sectionSender to the cache and returns true if a new delegation should be sent.
+	Add(sectionSender msgSectionSender) bool
+	//AddToken adds token to the token map where the value of the map corresponds to the cache entry
+	//matching the given zone and cotext. Token is only added to the map if a matching cache entry
+	//exists. False is returned if no matching cache entry exists.
+	AddToken(token rainslib.Token, zone, context string) bool
+	//GetAndRemove returns all sections who contain a signature matching the given parameter and
+	//deletes them from the cache. It returns true if at least one section is returned. The token
+	//map is updated if necessary.
+	GetAndRemove(zone, context string, algoType rainslib.SignatureAlgorithmType, phase int) ([]msgSectionSender, bool)
+	//GetAndRemoveByToken returns all sections who correspond to token and deletes them from the
+	//cache. It returns true if at least one section is returned. Token is removed from the token
+	//map.
+	GetAndRemoveByToken(token rainslib.Token) ([]msgSectionSender, bool)
+	//ContainsToken returns true if token is in the token map.
+	ContainsToken(token rainslib.Token) bool
+	//Remove deletes the cache entry corresponding to token (and with it all contained sections)
+	Remove(token rainslib.Token)
+	//RemoveExpiredValues deletes all sections of an expired entry and updates the token map if
+	//necessary. It logs which sections are removed and to which server the query has been sent.
+	RemoveExpiredValues()
+	//Len returns the number of sections in the cache
+	Len() int
+}
+
 //pendingSignatureCache stores all sections with a signature waiting for a public key to arrive so they can be verified
 type pendingSignatureCache interface {
 	//Add adds a section together with a validity to the cache. Returns true if there is not yet a pending query for this context and zone
@@ -216,16 +242,17 @@ type negativeAssertionCache interface {
 	Len() int
 }
 
-//contextAndZone stores a context and a zone
-type contextAndZone struct {
-	Context string
+//zoneContext stores a context and a zone
+type zoneContext struct {
 	Zone    string
+	Context string
 }
 
 //setContainer is an interface for a set data structure where all operations are concurrency safe
 type setContainer interface {
 	//Add appends item to the current set if not already contained.
-	//It returns false if it was not able to add the element because the underlying datastructure was deleted in the meantime
+	//It returns false if it was not able to add the element because the underlying datastructure
+	//was deleted in the meantime
 	Add(item rainslib.Hashable) bool
 
 	//Delete removes item from the set.
@@ -274,21 +301,4 @@ type addressSectionCache interface {
 	Get(netAddr *net.IPNet, types []rainslib.ObjectType) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool)
 	//DeleteExpiredElements removes all expired elements from the data structure.
 	DeleteExpiredElements()
-}
-
-//activeTokenCache implements a data structure to quickly determine if an incoming section will be processed with priority.
-//All operations must be concurrency safe
-//This cache keeps state of all active delegation queries. The return values can be used to log information about expired queries
-//Based on the logs a higher level service can then decide to put a zone on a blacklist
-//It also reduces the time sections have to stay in the pendingSignatureCache in times of high load
-type activeTokenCache interface {
-	//isPriority returns true and removes token from the cache if the section containing token has high priority
-	IsPriority(token rainslib.Token) bool
-	//AddToken adds token to the datastructure. The first incoming section with the same token will be processed with high priority
-	//expiration is the query expiration time which determines how long the token is treated with high priority.
-	//It returns false if the cache is full and the token is not added to the cache.
-	AddToken(token rainslib.Token, expiration int64) bool
-	//DeleteExpiredElements removes all expired tokens from the data structure and logs their information
-	//It returns all expired tokens
-	DeleteExpiredElements() []rainslib.Token
 }

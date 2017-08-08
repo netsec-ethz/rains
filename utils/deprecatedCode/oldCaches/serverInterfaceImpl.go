@@ -1,5 +1,91 @@
 package oldCaches
 
+//activeTokenCache implements a data structure to quickly determine if an incoming section will be processed with priority.
+//All operations must be concurrency safe
+//This cache keeps state of all active delegation queries. The return values can be used to log information about expired queries
+//Based on the logs a higher level service can then decide to put a zone on a blacklist
+//It also reduces the time sections have to stay in the pendingSignatureCache in times of high load
+/*type activeTokenCache interface {
+	//isPriority returns true and removes token from the cache if the section containing token has high priority
+	IsPriority(token rainslib.Token) bool
+	//AddToken adds token to the datastructure. The first incoming section with the same token will be processed with high priority
+	//expiration is the query expiration time which determines how long the token is treated with high priority.
+	//It returns false if the cache is full and the token is not added to the cache.
+	AddToken(token rainslib.Token, expiration int64) bool
+	//DeleteExpiredElements removes all expired tokens from the data structure and logs their information
+	//It returns all expired tokens
+	DeleteExpiredElements() []rainslib.Token
+}
+
+//
+// active token cache implementation
+//
+type activeTokenCacheImpl struct {
+	//activeTokenCache maps tokens to their expiration time
+	activeTokenCache map[rainslib.Token]int64
+	maxElements      uint
+	elementCount     uint
+	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
+	elemCountLock sync.RWMutex
+
+	//cacheLock is used to protect activeTokenCache from simultaneous access.
+	cacheLock sync.RWMutex
+}
+
+//isPriority returns true and removes token from the cache if the section containing token has high priority and is not yet expired
+func (c *activeTokenCacheImpl) IsPriority(token rainslib.Token) bool {
+	c.cacheLock.RLock()
+	if exp, ok := c.activeTokenCache[token]; ok {
+		c.cacheLock.RUnlock()
+		if exp < time.Now().Unix() {
+			return false
+		}
+		c.elemCountLock.Lock()
+		c.cacheLock.Lock()
+		c.elementCount--
+		delete(c.activeTokenCache, token)
+		c.cacheLock.Unlock()
+		c.elemCountLock.Unlock()
+		return true
+	}
+	c.cacheLock.RUnlock()
+	return false
+}
+
+//AddToken adds token to the datastructure. The first incoming section with the same token will be processed with high priority
+//expiration is the query expiration time which determines how long the token is treated with high priority.
+//It returns false if the cache is full and the token is not added to the cache.
+func (c *activeTokenCacheImpl) AddToken(token rainslib.Token, expiration int64) bool {
+	c.elemCountLock.Lock()
+	defer c.elemCountLock.Unlock()
+	if c.elementCount < c.maxElements {
+		c.cacheLock.Lock()
+		defer c.cacheLock.Unlock()
+		c.elementCount++
+		c.activeTokenCache[token] = expiration
+		return true
+	}
+	return false
+}
+
+//DeleteExpiredElements removes all expired tokens from the data structure and logs their information
+//Returns all expired tokens
+func (c *activeTokenCacheImpl) DeleteExpiredElements() []rainslib.Token {
+	tokens := []rainslib.Token{}
+	c.elemCountLock.Lock()
+	c.cacheLock.Lock()
+	defer c.elemCountLock.Unlock()
+	defer c.cacheLock.Unlock()
+	for token, exp := range c.activeTokenCache {
+		if exp < time.Now().Unix() {
+			c.elementCount--
+			delete(c.activeTokenCache, token)
+			tokens = append(tokens, token)
+		}
+	}
+	return tokens
+}
+*/
 /*
  * assertion cache implementation
  * We have a hierarchical locking system. We first lock the cache to get a pointer to a set data structure. Then we release the lock on the cache and for

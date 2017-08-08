@@ -2,13 +2,12 @@ package rainsd
 
 import (
 	"fmt"
-
-	"github.com/netsec-ethz/rains/rainsSiglib"
-	"github.com/netsec-ethz/rains/rainslib"
-
 	"strings"
 
 	log "github.com/inconshreveable/log15"
+
+	"github.com/netsec-ethz/rains/rainsSiglib"
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 //incoming messages are buffered in one of these channels until they get processed by a worker go routine
@@ -21,9 +20,6 @@ var notificationChannel chan msgSectionSender
 var prioWorkers chan struct{}
 var normalWorkers chan struct{}
 var notificationWorkers chan struct{}
-
-//activeTokens stores the tokens of active delegation queries.
-var activeTokens activeTokenCache
 
 //capabilities stores known hashes of capabilities and for each connInfo what capability the communication partner has.
 var capabilities capabilityCache
@@ -42,12 +38,9 @@ func initInbox() error {
 	//init Capability Cache
 	capabilities = createCapabilityCache(Config.CapabilitiesCacheSize)
 
-	activeTokens = createActiveTokenCache(Config.ActiveTokenCacheSize)
-
 	go workPrio()
 	go workNotification()
 	go workBoth()
-
 	return nil
 }
 
@@ -123,11 +116,7 @@ func sendNotificationMsg(token rainslib.Token, dst rainslib.ConnInfo,
 
 //addMsgSectionToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg section to the prio cache, otherwise to the normal cache.
 func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token, sender rainslib.ConnInfo) {
-	//FIXME CFE if contains deleg and is prio put deleg to prio cache.
-	//if contains redir and is prio put redir to prio cache
-	//check if prio if true log that we did not get a requested answer else put on normal cache
-	//How to handle multiple delegations in different assertions where some of them are only valid in the future...
-	if activeTokens.IsPriority(tok) {
+	if pendingKeys.ContainsToken(tok) {
 		log.Debug("add section with signature to priority queue", "token", tok)
 		prioChannel <- msgSectionSender{Sender: sender, Section: msgSection, Token: tok}
 	} else {

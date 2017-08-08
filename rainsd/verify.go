@@ -19,7 +19,7 @@ import (
 var zoneKeyCache zonePublicKeyCache
 
 //pendingSignatures contains all sections that are waiting for a delegation query to arrive such that their signatures can be verified.
-var pendingSignatures pendingSignatureCache
+var pendingKeys pendingKeyCache
 
 //sigEncoder is used to translate a message or section into a signable format
 var sigEncoder rainslib.SignatureFormatEncoder
@@ -38,12 +38,6 @@ func initVerify() error {
 
 	err := loadRootZonePublicKey(Config.RootZonePublicKeyPath)
 	if err != nil {
-		return err
-	}
-
-	pendingSignatures, err = createPendingSignatureCache(Config.PendingSignatureCacheSize)
-	if err != nil {
-		log.Error("Cannot create pending signature cache", "error", err)
 		return err
 	}
 
@@ -78,9 +72,9 @@ func verify(msgSender msgSectionSender) {
 			return //already logged, that the zone is internally invalid
 		}
 		if verifySignatures(sectionSender) {
-			assert(sectionSender, authoritative[contextAndZone{
-				Context: sectionSender.Section.GetContext(),
+			assert(sectionSender, authoritative[zoneContext{
 				Zone:    sectionSender.Section.GetSubjectZone(),
+				Context: sectionSender.Section.GetContext(),
 			}])
 		}
 	case *rainslib.AddressAssertionSection, *rainslib.AddressZoneSection:
@@ -98,9 +92,9 @@ func verify(msgSender msgSectionSender) {
 			return //already logged, that context is invalid
 		}
 		if verifySignatures(sectionSender) {
-			assert(sectionSender, authoritative[contextAndZone{
-				Context: sectionSender.Section.GetContext(),
+			assert(sectionSender, authoritative[zoneContext{
 				Zone:    sectionSender.Section.GetSubjectZone(),
+				Context: sectionSender.Section.GetContext(),
 			}])
 		}
 	case *rainslib.AddressQuerySection:
@@ -283,8 +277,9 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 		return validSignature(section, publicKeys)
 	}
 	log.Info("Some public keys are missing", "#missingKeys", len(missingKeys))
+	//FIXME CFE use new cache.
 	//Add section to the pendingSignatureCache.
-	cacheValue := pendingSignatureCacheValue{
+	/*cacheValue := pendingSignatureCacheValue{
 		sectionWSSender: sectionSender,
 		validUntil:      getQueryValidity(section.Sigs(rainslib.RainsKeySpace)),
 	}
@@ -301,7 +296,7 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 		}
 	} else {
 		log.Info("Already issued a delegation query for this context and zone.", "context", section.GetContext(), "zone", section.GetSubjectZone())
-	}
+	}*/
 	//FIXME CFE should we have a counter where we send a redirect query directly to the root after
 	//a configurable amount of false delegation assertions? is such behavior considered as blacklistable?
 	return false
@@ -515,7 +510,7 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainsli
 func reapVerify() {
 	for {
 		zoneKeyCache.RemoveExpiredKeys()
-		pendingSignatures.RemoveExpiredSections()
+		pendingKeys.RemoveExpiredValues()
 		time.Sleep(Config.ReapVerifyTimeout)
 	}
 }

@@ -358,6 +358,101 @@ func (c *zoneKeyCacheImpl) Len() int {
 	return c.counter.Value()
 }
 
+type pendingKeyCacheValue struct {
+	//sections is a hash map from section.Hash to the sectionSender in which section is contained
+	sections *safeHashMap.Map
+	//zoneCtx is zoneCtxMap's key
+	zoneCtx string
+	//token is tokenMap's key
+	token rainslib.Token
+	//sendTo is the connection information of the server to which the delegation query has been sent
+	sendTo rainslib.ConnInfo
+	//expiration is the time when the delegation query expires in unix time
+	expiration int64
+
+	mux sync.Mutex
+	//set to true if the pointer to this element is removed from both hash maps
+	deleted bool
+}
+
+func zoneCtxKey(zone, context string) string {
+	return fmt.Sprintf("%s %s", zone, context)
+}
+
+type pendingKeyCacheImpl struct {
+	//zoneCtxMap is a map from zoneContext to *pendingKeyCacheValue safe for concurrent use
+	zoneCtxMap safeHashMap.Map
+	//tokenMap is a map from token to *pendingKeyCacheValue safe for concurrent use
+	tokenMap safeHashMap.Map
+
+	counter safeCounter.Counter
+}
+
+//Add adds sectionSender to the cache and returns true if a new delegation should be sent.
+func (c *pendingKeyCacheImpl) Add(sectionSender msgSectionSender) bool {}
+
+//AddToken adds token to the token map where the value of the map corresponds to the cache entry
+//matching the given zone and context. Token is only added to the map if a matching cache entry
+//exists without a token. False is returned if no matching cache entry exists or it already contains
+//a token
+func (c *pendingKeyCacheImpl) AddToken(token rainslib.Token, zone, context string) bool {
+	entry, ok := c.zoneCtxMap.Get(zoneCtxKey(zone, context))
+	value := entry.(*pendingKeyCacheValue)
+	if ok && value.token != [16]byte{} {
+		value.token = token
+		if !c.tokenMap.Add(token.String(), value) {
+			log.Error("token already in cache. Token was reused too early", "token", token)
+		}
+		return true
+	}
+	return false
+}
+
+//GetAndRemove returns all sections who contain a signature matching the given parameter and
+//deletes them from the cache. It returns true if at least one section is returned. The token
+//map is updated if necessary.
+func (c *pendingKeyCacheImpl) GetAndRemove(zone, context string, algoType rainslib.SignatureAlgorithmType, phase int) ([]msgSectionSender, bool) {
+}
+
+//GetAndRemoveByToken returns all sections who correspond to token and deletes them from the
+//cache. It returns true if at least one section is returned. Token is removed from the token
+//map.
+func (c *pendingKeyCacheImpl) GetAndRemoveByToken(token rainslib.Token) ([]msgSectionSender, bool) {
+	if entry, ok := c.tokenMap.Remove(token.String()); ok {
+		value := entry.(*pendingKeyCacheValue)
+		c.zoneCtxMap.Remove(value.zoneCtx)
+		values := value.sections.GetAll()
+		sectionSenders := make([]msgSectionSender, len(values))
+		for i, v := range values {
+			sectionSenders[i] = v.(msgSectionSender)
+		}
+		return sectionSenders, len(sectionSenders) > 0
+	}
+	return nil, false
+}
+
+//ContainsToken returns true if token is in the token map.
+func (c *pendingKeyCacheImpl) ContainsToken(token rainslib.Token) bool {
+	_, ok := c.tokenMap.Get(token.String())
+	return ok
+}
+
+//Remove deletes the cache entry corresponding to token (and with it all contained sections)
+func (c *pendingKeyCacheImpl) Remove(token rainslib.Token) {
+	if entry, ok := c.tokenMap.Remove(token.String()); ok {
+		c.zoneCtxMap.Remove(entry.(*pendingKeyCacheValue).zoneCtx)
+	}
+}
+
+//RemoveExpiredValues deletes all sections of an expired entry and updates the token map if
+//necessary. It logs which sections are removed and to which server the query has been sent.
+func (c *pendingKeyCacheImpl) RemoveExpiredValues() {}
+
+//Len returns the number of sections in the cache
+func (c *pendingKeyCacheImpl) Len() int {
+	return c.counter.Value()
+}
+
 //pendingSignatureCacheValue is the value received from the pendingQuery cache
 type pendingSignatureCacheValue struct {
 	sectionWSSender sectionWithSigSender
@@ -1002,7 +1097,7 @@ func (c *negativeAssertionCacheImpl) AddZone(zone *rainslib.ZoneSection, expirat
 //recently used strategy.
 func add(c *negativeAssertionCacheImpl, s rainslib.MessageSectionWithSigForward, expiration int64, isInternal bool) bool {
 	isFull := false
-	key := fmt.Sprintf("%s %s", s.GetSubjectZone(), s.GetContext())
+	key := zoneCtxKey(s.GetSubjectZone(), s.GetContext())
 	cacheValue := negAssertionCacheValue{
 		sections: make(map[string]sectionExpiration),
 		cacheKey: key,
@@ -1054,7 +1149,7 @@ func add(c *negativeAssertionCacheImpl, s rainslib.MessageSectionWithSigForward,
 //Get returns true and a set of assertions matching the given key if there exist some. Otherwise
 //nil and false is returned.
 func (c *negativeAssertionCacheImpl) Get(zone, context string, interval rainslib.Interval) ([]rainslib.MessageSectionWithSigForward, bool) {
-	key := fmt.Sprintf("%s %s", zone, context)
+	key := zoneCtxKey(zone, context)
 	v, ok := c.cache.Get(key)
 	if !ok {
 		return nil, false
@@ -1225,73 +1320,4 @@ func (c *consistencyCacheImpl) Remove(section rainslib.MessageSectionWithSigForw
 		//until the operation on this cache is done or the remove function spins on this value with
 		//exponential backoff.
 	}
-}
-
-/*
- * active token cache implementation
- */
-type activeTokenCacheImpl struct {
-	//activeTokenCache maps tokens to their expiration time
-	activeTokenCache map[rainslib.Token]int64
-	maxElements      uint
-	elementCount     uint
-	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
-	elemCountLock sync.RWMutex
-
-	//cacheLock is used to protect activeTokenCache from simultaneous access.
-	cacheLock sync.RWMutex
-}
-
-//isPriority returns true and removes token from the cache if the section containing token has high priority and is not yet expired
-func (c *activeTokenCacheImpl) IsPriority(token rainslib.Token) bool {
-	c.cacheLock.RLock()
-	if exp, ok := c.activeTokenCache[token]; ok {
-		c.cacheLock.RUnlock()
-		if exp < time.Now().Unix() {
-			return false
-		}
-		c.elemCountLock.Lock()
-		c.cacheLock.Lock()
-		c.elementCount--
-		delete(c.activeTokenCache, token)
-		c.cacheLock.Unlock()
-		c.elemCountLock.Unlock()
-		return true
-	}
-	c.cacheLock.RUnlock()
-	return false
-}
-
-//AddToken adds token to the datastructure. The first incoming section with the same token will be processed with high priority
-//expiration is the query expiration time which determines how long the token is treated with high priority.
-//It returns false if the cache is full and the token is not added to the cache.
-func (c *activeTokenCacheImpl) AddToken(token rainslib.Token, expiration int64) bool {
-	c.elemCountLock.Lock()
-	defer c.elemCountLock.Unlock()
-	if c.elementCount < c.maxElements {
-		c.cacheLock.Lock()
-		defer c.cacheLock.Unlock()
-		c.elementCount++
-		c.activeTokenCache[token] = expiration
-		return true
-	}
-	return false
-}
-
-//DeleteExpiredElements removes all expired tokens from the data structure and logs their information
-//Returns all expired tokens
-func (c *activeTokenCacheImpl) DeleteExpiredElements() []rainslib.Token {
-	tokens := []rainslib.Token{}
-	c.elemCountLock.Lock()
-	c.cacheLock.Lock()
-	defer c.elemCountLock.Unlock()
-	defer c.cacheLock.Unlock()
-	for token, exp := range c.activeTokenCache {
-		if exp < time.Now().Unix() {
-			c.elementCount--
-			delete(c.activeTokenCache, token)
-			tokens = append(tokens, token)
-		}
-	}
-	return tokens
 }

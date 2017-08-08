@@ -38,15 +38,16 @@
   of an attack). It is not fix size because it is operationally important that this cache has enough
   capacity. In case this cache is full an alarm must go off. To prevent false alarms, we remove
   expired elements.
-- It must provide an insertion function which stores a section to the cache. It returns if a new
-  delegation query should be sent. It logs if the section is dropped in case the cache is full.
-- It must provide a fast lookup of the sections which wait for a public key according to the public
-  key's zone, context, algoType and phase. These sections are removed from the cache. In case all
-  sections of the public key's zone and context are answered by it, the corresponding token is
-  removed from the cache.
-- It must provide a fast lookup of the sections corresponding to a token. The token and sections are
-  removed from the cache (This function is intended for the case when a shard or zone is received in
-  response to a delegation query).
+- It must provide an insertion function which stores a section together with the ConnInfo from where
+  we received it and its token to the cache. It returns if a new delegation query should
+  be sent. It logs if the section is dropped in case the cache is full.
+- It must provide a fast lookup of the sections (together with ConnInfo and Token) which wait for a
+  public key according to the public key's zone, context, algoType and phase. These sections are
+  removed from the cache. In case all sections of the public key's zone and context are answered by
+  it, the corresponding token is removed from the cache.
+- It must provide a fast lookup of the sections (together with ConnInfo and Token) corresponding to
+  the query's token. The query's token and sections are removed from the cache (This function is intended
+  for the case when a shard or zone is received in response to a delegation query).
 - It must provide a reap function that removes expired tokens and sections. It logs all removed
   sections and the connection information to which the delegation query was sent.
 - It must provide a remove function which deletes all sections from the cache corresponding to a

@@ -80,9 +80,9 @@ func loadConfig(configPath string) {
 //loadAuthoritative stores to authoritative for which zone and context this server has authority.
 //Entries over which this server has authority will not be affected by the lru policy of the caches.
 func loadAuthoritative(contextAuthorities []string) {
-	authoritative = make(map[contextAndZone]bool)
+	authoritative = make(map[zoneContext]bool)
 	for i, context := range contextAuthorities {
-		authoritative[contextAndZone{Context: context, Zone: Config.ZoneAuthority[i]}] = true
+		authoritative[zoneContext{Zone: Config.ZoneAuthority[i], Context: context}] = true
 	}
 }
 
@@ -192,9 +192,4 @@ func createPendingQueryCache(cacheSize uint) (pendingQueryCache, error) {
 		return nil, err
 	}
 	return &pendingQueryCacheImpl{callBackCache: c, maxElements: cacheSize, elementCount: 0, activeTokens: make(map[[16]byte]elemAndValidTo)}, nil
-}
-
-//createActiveTokenCache returns a new active token cache
-func createActiveTokenCache(cacheSize uint) activeTokenCache {
-	return &activeTokenCacheImpl{maxElements: cacheSize, elementCount: 0, activeTokenCache: make(map[rainslib.Token]int64)}
 }
