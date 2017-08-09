@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/netsec-ethz/rains/utils/safeHashMap"
+
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/rainsSiglib"
@@ -34,6 +36,12 @@ func initVerify() error {
 		warnSize:             Config.ZoneKeyCacheWarnSize,
 		maxPublicKeysPerZone: Config.MaxPublicKeysPerZone,
 		keysPerContextZone:   make(map[string]int),
+	}
+
+	pendingKeys = &pendingKeyCacheImpl{
+		zoneCtxMap: safeHashMap.New(),
+		tokenMap:   safeHashMap.New(),
+		counter:    safeCounter.New(Config.PendingKeyCacheSize),
 	}
 
 	err := loadRootZonePublicKey(Config.RootZonePublicKeyPath)

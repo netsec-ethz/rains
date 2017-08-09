@@ -909,4 +909,193 @@ func (c *negativeAssertionCacheImpl) RemoveZone(subjectZone string) {
 //Len returns the number of elements in the cache.
 func (c *negativeAssertionCacheImpl) Len() int {
 	return c.counter.Value()
+}
+
+
+//pendingSignatureCache stores all sections with a signature waiting for a public key to arrive so they can be verified
+type pendingSignatureCache interface {
+	//Add adds a section together with a validity to the cache. Returns true if there is not yet a pending query for this context and zone
+	//If the cache is full it removes all section stored with the least recently used <context, zone> tuple.
+	Add(context, zone string, value pendingSignatureCacheValue) bool
+	//GetAllAndDelete returns true and all valid sections associated with the given context and zone if there are any. Otherwise false.
+	//We simultaneously obtained all elements and close the set data structure. Then we remove the entry from the cache. If in the meantime an Add operation happened,
+	//then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
+	GetAllAndDelete(context, zone string) ([]sectionWithSigSender, bool)
+	//RemoveExpiredSections goes through the cache and removes all expired sections. If for a given context and zone there is no section left it removes the entry from cache.
+	RemoveExpiredSections()
+	//Len returns the number of sections in the cache.
+	Len() int
+}
+
+//pendingSignatureCacheValue is the value received from the pendingQuery cache
+type pendingSignatureCacheValue struct {
+	sectionWSSender sectionWithSigSender
+	validUntil      int64
+}
+
+func (p pendingSignatureCacheValue) Hash() string {
+	return fmt.Sprintf("%s_%d", p.sectionWSSender.Hash(), p.validUntil)
+}
+
+
+// Pending signature cache implementation We have a hierarchical locking system. We first lock the
+// cache to get a pointer to a set data structure. Then we release the lock on the cache and for
+// operations on the set data structure we use a separate lock. We store the elementCount (number of
+// sections in the pendingSignatureCacheImpl) separate, as each cache entry can have several
+// sections in the set data structure. When we want to update elementCount we must lock using
+// elemCountLock. This lock must never be held when doing a change to the the cache or the set data
+// structure. It can happen that some sections get dropped. This is the case when the cache is full
+// or when we add a section to the set while another go routine deletes the pointer to that set as
+// it was empty before. The second case is expected to occur rarely.
+
+type pendingSignatureCacheImpl struct {
+	cache        *cache.Cache
+	maxElements  uint
+	elementCount uint
+	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
+	//TODO CFE take both mutex together, here and cache
+	elemCountLock sync.RWMutex
+}
+
+//Add adds a section together with a validity to the cache. Returns true if there is not yet a pending query for this context and zone
+//If the cache is full it removes all section stored with the least recently used <context, zone> tuple.
+func (c *pendingSignatureCacheImpl) Add(context, zone string, value pendingSignatureCacheValue) bool {
+	log.Debug("Add value to pending signature cache", "context", context, "zone", zone, "value", value)
+	set := setDataStruct.New()
+	set.Add(value)
+	ok := c.cache.Add(set, false, context, zone)
+	if ok {
+		updateCount(c)
+		handleCacheSize(c)
+		return true
+	}
+	log.Debug("There is already a set in the cache, get it and add value.")
+	v, ok := c.cache.Get(context, zone)
+	if ok {
+		val, ok := v.(setContainer)
+		if ok {
+			ok := val.Add(value)
+			if ok {
+				updateCount(c)
+				handleCacheSize(c)
+				return false
+			}
+			log.Warn("List was closed but cache entry was not yet deleted. This case must be rare!")
+			return false
+		}
+		log.Error(fmt.Sprintf("Cache element was not of type container. Got:%T", v))
+		return false
+	}
+	//cache entry was deleted in the meantime. Retry
+	log.Warn("Cache entry was delete between, trying to add new and getting the existing one. This case must be rare!")
+	return c.Add(context, zone, value)
+}
+
+//updateCount increases the element count by one
+func updateCount(c *pendingSignatureCacheImpl) {
+	c.elemCountLock.Lock()
+	c.elementCount++
+	c.elemCountLock.Unlock()
+}
+
+//handleCacheSize deletes all sections from the least recently used cache entry if it exceeds the cache siz.
+func handleCacheSize(c *pendingSignatureCacheImpl) {
+	if c.elementCount > c.maxElements {
+		key, _ := c.cache.GetLeastRecentlyUsedKey()
+		c.GetAllAndDelete(key[0], key[1])
+	}
+}
+
+//GetAllAndDelete returns true and all valid sections associated with the given context and zone if there are any. Otherwise false.
+//We simultaneously obtained all elements and close the set data structure. Then we remove the entry from the cache. If in the meantime an Add operation happened,
+//then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
+func (c *pendingSignatureCacheImpl) GetAllAndDelete(context, zone string) ([]sectionWithSigSender, bool) {
+	sections := []sectionWithSigSender{}
+	deleteCount := uint(0)
+	v, ok := c.cache.Get(context, zone)
+	if !ok {
+		return sections, false
+	}
+	if set, ok := v.(setContainer); ok {
+		secs := set.GetAllAndDelete()
+		deleteCount = uint(len(secs))
+		c.cache.Remove(context, zone)
+		for _, section := range secs {
+			if s, ok := section.(pendingSignatureCacheValue); ok {
+				if s.validUntil > time.Now().Unix() {
+					sections = append(sections, s.sectionWSSender)
+				} else {
+					log.Info("section expired", "section", s.sectionWSSender, "validity", s.validUntil)
+				}
+			} else {
+				log.Error(fmt.Sprintf("Cache element was not of type pendingSignatureCacheValue. Got:%T", section))
+			}
+		}
+
+	} else {
+		log.Error(fmt.Sprintf("Cache element was not of type container. Got:%T", v))
+	}
+	c.elemCountLock.Lock()
+	c.elementCount -= deleteCount
+	c.elemCountLock.Unlock()
+	return sections, len(sections) > 0
+}
+
+//RemoveExpiredSections goes through the cache and removes all expired sections. If for a given context and zone there is no section left it removes the entry from cache.
+func (c *pendingSignatureCacheImpl) RemoveExpiredSections() {
+	keys := c.cache.Keys()
+	deleteCount := uint(0)
+	for _, key := range keys {
+		v, ok := c.cache.Get(key[0], key[1])
+		if ok { //check if element is still contained
+			set, ok := v.(setContainer)
+			if ok { //check that cache element is a data container
+				vals := set.GetAll()
+				//check validity of all container elements and remove expired once
+				allRemoved := true
+				for _, val := range vals {
+					v, ok := val.(pendingSignatureCacheValue)
+					if ok {
+						if v.validUntil < time.Now().Unix() {
+							ok := set.Delete(val)
+							if ok {
+								deleteCount++
+							}
+						} else {
+							allRemoved = false
+						}
+					} else {
+						log.Error(fmt.Sprintf("set element was not of type pendingSignatureCacheValue. Got:%T", val))
+					}
+				}
+				//remove entry from cache if non left. If one was added in the meantime do not delete it.
+				if allRemoved {
+					vals := set.GetAllAndDelete()
+					if len(vals) == 0 {
+						c.cache.Remove(key[0], key[1])
+					} else {
+						set := setDataStruct.New()
+						for _, val := range vals {
+							set.Add(val)
+						}
+						//FIXME CFE here another go routine could come in between. Add an update function to the cache.
+						c.cache.Remove(key[0], key[1])
+						c.cache.Add(set, false, key[0], key[1])
+					}
+				}
+			} else {
+				log.Error(fmt.Sprintf("Cache element was not of type container. Got:%T", v))
+			}
+		}
+	}
+	c.elemCountLock.Lock()
+	c.elementCount -= deleteCount
+	c.elemCountLock.Unlock()
+}
+
+//Len returns the number of sections in the cache.
+func (c *pendingSignatureCacheImpl) Len() int {
+	c.elemCountLock.RLock()
+	defer c.elemCountLock.RUnlock()
+	return int(c.elementCount)
 }*/

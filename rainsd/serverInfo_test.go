@@ -239,6 +239,170 @@ func TestZoneKeyCache(t *testing.T) {
 	}
 }
 
+//FIXME CFE we cannot test if the cache logs correctly when the maximum number of delegations per
+//zone is reached. Should we return a value if so in which form (object, error)?
+func TestPendingKeyCache(t *testing.T) {
+	a0 := &rainslib.AssertionSection{SubjectZone: "com", Context: "."}
+	s1 := &rainslib.ShardSection{SubjectZone: "com", Context: "."}
+	z2 := &rainslib.ZoneSection{SubjectZone: "ch", Context: "."}
+	a3 := &rainslib.AssertionSection{SubjectZone: "ch", Context: "."}
+	m := []msgSectionSender{
+		msgSectionSender{Section: a0, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
+		msgSectionSender{Section: s1, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
+		msgSectionSender{Section: z2, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
+		msgSectionSender{Section: a3, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
+	}
+	tokens := []rainslib.Token{rainslib.GenerateToken(), rainslib.GenerateToken()}
+	var tests = []struct {
+		input pendingKeyCache
+	}{
+		{&pendingKeyCacheImpl{counter: safeCounter.New(4), tokenMap: safeHashMap.New(),
+			zoneCtxMap: safeHashMap.New()},
+		},
+	}
+	for i, test := range tests {
+		c := test.input
+		if c.Len() != 0 {
+			t.Errorf("%d:init size is incorrect actual=%d", i, c.Len())
+		}
+		//Add: different cacheValues and same cacheValue, same Algo, different Hash
+		expectedValues := []bool{true, false, true}
+		for j := 0; j < 3; j++ {
+			sendQuery := c.Add(m[j], rainslib.Ed25519, 1)
+			if c.Len() != j+1 {
+				t.Errorf("%d.%d:section was not added to the cache. len=%d", i, j, c.Len())
+			}
+			if sendQuery != expectedValues[j] {
+				t.Errorf("%d.%d:incorrect Add() return value. expected=%v actual=%v", i, j, expectedValues[j], sendQuery)
+			}
+		}
+		//check that no matter what the new section is, it gets dropped in case the cache is full
+		for j := 0; j < len(m); j++ {
+			sendQuery := c.Add(m[j], rainslib.Ed25519, 1)
+			if c.Len() != 3 {
+				t.Errorf("%d.%d:section was added to the cache. len=%d", i, j, c.Len())
+			}
+			if sendQuery {
+				t.Errorf("%d.%d:incorrect Add() return value. expected=false actual=%v", i, j, sendQuery)
+			}
+		}
+		//Add token to cache entries
+		ok := c.AddToken(rainslib.GenerateToken(), time.Now().Add(time.Second).Unix(), rainslib.ConnInfo{}, "de", ".")
+		if ok {
+			t.Errorf("%d:token added to non existing entry. len=%d", i, c.Len())
+		}
+		ok = c.AddToken(tokens[0], time.Now().Add(time.Second).Unix(), rainslib.ConnInfo{}, "com", ".")
+		if !ok {
+			t.Errorf("%d:wrong return value of addToken()", i)
+		}
+		ok = c.AddToken(tokens[1], time.Now().Add(time.Second).Unix(), rainslib.ConnInfo{}, "ch", ".")
+		if !ok {
+			t.Errorf("%d:wrong return value of addToken()", i)
+		}
+		//Check if token in cache
+		newToken := rainslib.GenerateToken()
+		if c.ContainsToken(newToken) {
+			t.Errorf("%d:wrong return value of ContainsToken() actual=%v", i, newToken)
+		}
+		if !c.ContainsToken(tokens[0]) {
+			t.Errorf("%d:wrong return value of ContainsToken() actual=%v", i, c.ContainsToken(tokens[0]))
+		}
+		if !c.ContainsToken(tokens[1]) {
+			t.Errorf("%d:wrong return value of ContainsToken() actual=%v", i, c.ContainsToken(tokens[1]))
+		}
+		//Check removal by token
+		v, ok := c.GetAndRemoveByToken(rainslib.GenerateToken())
+		if ok || v != nil || c.Len() != 3 {
+			t.Errorf("%d:Entry removed from cache with non matching token. len=%d", i, c.Len())
+		}
+		v, ok = c.GetAndRemoveByToken(tokens[0])
+		if !ok || c.Len() != 1 || len(v) != 2 || (v[0] == m[0] && v[1] != m[1] || v[0] == m[1] && v[1] != m[0] || v[0] != m[0] && v[0] != m[1]) {
+			t.Errorf(`%d:Token was not added to correct cacheValue by AddToken() or
+			incorrect entries are removed from cache. len=%d returnValue=%v`, i, c.Len(), v)
+		}
+		//Check remaining Add() cases: same cacheValue and different algo type or phase;
+		//same cacheValue, same algo, same hash
+		sendQuery := c.Add(m[3], rainslib.Ed448, 1) //different algo type
+		if c.Len() != 2 {
+			t.Errorf("%d:section was not added to the cache. len=%d", i, c.Len())
+		}
+		if sendQuery {
+			t.Errorf("%d:incorrect Add() return value. expected=false actual=%v", i, sendQuery)
+		}
+		sendQuery = c.Add(m[3], rainslib.Ed448, 1) //duplicate
+		if c.Len() != 2 {
+			t.Errorf("%d:same section was added again to the cache. len=%d", i, c.Len())
+		}
+		if sendQuery {
+			t.Errorf("%d:incorrect Add() return value. expected=false actual=%v", i, sendQuery)
+		}
+		sendQuery = c.Add(m[3], rainslib.Ed25519, 0) //different phase
+		if c.Len() != 3 {
+			t.Errorf("%d:section was not added to the cache. len=%d", i, c.Len())
+		}
+		if sendQuery {
+			t.Errorf("%d:incorrect Add() return value. expected=false actual=%v", i, sendQuery)
+		}
+		//Check GetAndRemove()
+		//non existing elements
+		v, ok = c.GetAndRemove("none contained zone", ".", rainslib.Ed25519, 0)
+		if ok || v != nil || c.Len() != 3 {
+			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
+		}
+		v, ok = c.GetAndRemove("ch", "non contained context", rainslib.Ed448, 0)
+		if ok || v != nil || c.Len() != 3 {
+			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
+		}
+		v, ok = c.GetAndRemove("ch", ".", rainslib.Ed448, 0)
+		if ok || v != nil || c.Len() != 3 {
+			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
+		}
+		v, ok = c.GetAndRemove("ch", ".", rainslib.Ed25519, 2)
+		if ok || v != nil || c.Len() != 3 {
+			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
+		}
+		//actual remove
+		v, ok = c.GetAndRemove("ch", ".", rainslib.Ed448, 1)
+		if !ok || c.Len() != 2 || len(v) != 1 || v[0] != m[3] {
+			t.Errorf("%d:GetAndRemove() wrong return values. len=%d expectedValue= %v returnValue=%v", i, c.Len(), m[3], v[0])
+		}
+		v, ok = c.GetAndRemove("ch", ".", rainslib.Ed25519, 0)
+		if !ok || c.Len() != 1 || len(v) != 1 || v[0] != m[3] {
+			t.Errorf("%d:GetAndRemove() wrong return values. len=%d expectedValue= %v returnValue=%v", i, c.Len(), m[3], v[0])
+		}
+		v, ok = c.GetAndRemove("ch", ".", rainslib.Ed25519, 1)
+		if !ok || c.Len() != 0 || len(v) != 1 || v[0] != m[2] {
+			t.Errorf("%d:GetAndRemove() wrong return values. len=%d expectedValue= %v returnValue=%v", i, c.Len(), m[2], v[0])
+		}
+		//correct cleanup of hash map keys
+		sendQuery = c.Add(m[0], rainslib.Ed25519, 0)
+		if c.Len() != 1 {
+			t.Errorf("%d:section was not added to the cache. len=%d", i, c.Len())
+		}
+		if !sendQuery {
+			t.Errorf("%d:incorrect Add() return value. expected=true actual=%v", i, sendQuery)
+		}
+		ok = c.AddToken(tokens[0], time.Now().Unix(), rainslib.ConnInfo{}, "com", ".")
+		if !ok {
+			t.Errorf("%d:wrong return value of addToken().", i)
+		}
+		time.Sleep(2 * time.Second)
+		//resend after expiration
+		sendQuery = c.Add(m[0], rainslib.Ed25519, 0)
+		if c.Len() != 1 {
+			t.Errorf("%d:same section was added again to the cache. len=%d", i, c.Len())
+		}
+		if !sendQuery {
+			t.Errorf("%d:incorrect Add() return value. expected=true actual=%v", i, sendQuery)
+		}
+		time.Sleep(2 * time.Second)
+		c.RemoveExpiredValues()
+		if c.Len() != 0 {
+			t.Errorf("%d:Expired value was not removed. len=%d", i, c.Len())
+		}
+	}
+}
+
 func TestAssertionCache(t *testing.T) {
 	consistCache = &consistencyCacheImpl{
 		ctxZoneMap: make(map[string]*consistencyCacheValue),

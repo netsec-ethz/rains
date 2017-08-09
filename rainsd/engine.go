@@ -195,7 +195,7 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 		//assertion cannot be used to answer queries, delete all waiting for this assertion. How should we handle this case.
 		//send a redirect to root?
 		pendingQueries.GetAllAndDelete(token)
-		pendingKeys.Remove(token)
+		pendingKeys.GetAndRemoveByToken(token)
 		return false
 	}
 	return true

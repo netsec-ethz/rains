@@ -53,7 +53,7 @@ type rainsdConfig struct {
 	ZoneKeyCacheSize           int
 	ZoneKeyCacheWarnSize       int
 	MaxPublicKeysPerZone       int
-	PendingSignatureCacheSize  uint
+	PendingKeyCacheSize        int
 	InfrastructureKeyCacheSize uint
 	ExternalKeyCacheSize       uint
 	DelegationQueryValidity    time.Duration //in seconds
@@ -161,27 +161,10 @@ type pendingKeyCache interface {
 	GetAndRemoveByToken(token rainslib.Token) ([]msgSectionSender, bool)
 	//ContainsToken returns true if token is in the token map.
 	ContainsToken(token rainslib.Token) bool
-	//Remove deletes the cache entry corresponding to token (and with it all contained sections)
-	Remove(token rainslib.Token)
 	//RemoveExpiredValues deletes all sections of an expired entry and updates the token map if
 	//necessary. It logs which sections are removed and to which server the query has been sent.
 	RemoveExpiredValues()
 	//Len returns the number of sections in the cache
-	Len() int
-}
-
-//pendingSignatureCache stores all sections with a signature waiting for a public key to arrive so they can be verified
-type pendingSignatureCache interface {
-	//Add adds a section together with a validity to the cache. Returns true if there is not yet a pending query for this context and zone
-	//If the cache is full it removes all section stored with the least recently used <context, zone> tuple.
-	Add(context, zone string, value pendingSignatureCacheValue) bool
-	//GetAllAndDelete returns true and all valid sections associated with the given context and zone if there are any. Otherwise false.
-	//We simultaneously obtained all elements and close the set data structure. Then we remove the entry from the cache. If in the meantime an Add operation happened,
-	//then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
-	GetAllAndDelete(context, zone string) ([]sectionWithSigSender, bool)
-	//RemoveExpiredSections goes through the cache and removes all expired sections. If for a given context and zone there is no section left it removes the entry from cache.
-	RemoveExpiredSections()
-	//Len returns the number of sections in the cache.
 	Len() int
 }
 

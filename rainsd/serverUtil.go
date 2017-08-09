@@ -176,15 +176,6 @@ func createCapabilityCache(hashToCapCacheSize int) capabilityCache {
 	return &capabilityCacheImpl{capabilityMap: cache, counter: counter}
 }
 
-//createPendingSignatureCache returns a new pending signature cache
-func createPendingSignatureCache(cacheSize uint) (pendingSignatureCache, error) {
-	c, err := cache.New(cacheSize, "noAnyContext")
-	if err != nil {
-		return nil, err
-	}
-	return &pendingSignatureCacheImpl{cache: c, maxElements: cacheSize, elementCount: 0}, nil
-}
-
 //createPendingQueryCache returns a new pending query cache
 func createPendingQueryCache(cacheSize uint) (pendingQueryCache, error) {
 	c, err := cache.New(cacheSize, "noAnyContext")
