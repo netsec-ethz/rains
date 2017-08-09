@@ -44,13 +44,6 @@ var enoughSystemRessources bool
 //It spawns a goroutine which periodically goes through the cache and removes outdated entries, see reapEngine()
 func initEngine() error {
 	//init Caches
-	var err error
-	pendingQueries, err = createPendingQueryCache(Config.PendingQueryCacheSize)
-	if err != nil {
-		log.Error("Cannot create pending query Cache", "error", err)
-		return err
-	}
-
 	consistCache = &consistencyCacheImpl{
 		ctxZoneMap: make(map[string]*consistencyCacheValue),
 	}
@@ -194,7 +187,7 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 	if a.ValidSince() > time.Now().Unix() {
 		//assertion cannot be used to answer queries, delete all waiting for this assertion. How should we handle this case.
 		//send a redirect to root?
-		pendingQueries.GetAllAndDelete(token)
+		pendingQueries.GetAndRemove(a, token, time.Now().Unix())
 		pendingKeys.GetAndRemoveByToken(token)
 		return false
 	}
@@ -224,7 +217,7 @@ func handleAssertion(a *rainslib.AssertionSection, token rainslib.Token) {
 
 //handlePendingQueries triggers any pending queries and send the response to it.
 func handlePendingQueries(section rainslib.MessageSectionWithSig, token rainslib.Token) {
-	values, ok := pendingQueries.GetAllAndDelete(token)
+	/*values, ok := pendingQueries.GetAndRemove(section, token, time.Now().Unix())
 	log.Debug("handle pending queries.", "waitingQueriesCount", len(values))
 	if ok {
 		for _, v := range values {
@@ -234,7 +227,7 @@ func handlePendingQueries(section rainslib.MessageSectionWithSig, token rainslib
 				log.Info("Query expired in pendingQuery queue.", "expirationTime", v.validUntil)
 			}
 		}
-	}
+	}*/
 }
 
 //shouldAssertionBeCached returns true if assertion should be cached
@@ -260,7 +253,7 @@ func assertShard(shard *rainslib.ShardSection, isAuthoritative bool, token rains
 	//shard cannot be used to answer queries if it and all contained assertions are currently not valid
 	//FIXME CFE how to handle this case? 1) delete all waiting elements for this token, 2) send a redirect? 3) redir and blacklist for sender?
 	if shard.ValidSince() > time.Now().Unix() {
-		pendingQueries.GetAllAndDelete(token)
+		pendingQueries.GetAndRemove(shard, token, time.Now().Unix())
 		return false
 	}
 	return true
@@ -298,7 +291,7 @@ func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool, token rainslib
 	if zone.ValidSince() > time.Now().Unix() {
 		//zone cannot be used to answer queries if it and all contained assertion and shards are currently not valid
 		//FIXME CFE how to handle this case? 1) delete all waiting elements for this token, 2) send a redirect? 3) redir and blacklist for sender?
-		pendingQueries.GetAllAndDelete(token)
+		pendingQueries.GetAndRemove(zone, token, time.Now().Unix())
 		return false
 	}
 	return true
@@ -315,7 +308,7 @@ func shouldZoneBeCached(zone *rainslib.ZoneSection) bool {
 func assertAddressAssertion(context string, a *rainslib.AddressAssertionSection, token rainslib.Token) bool {
 	if a.ValidSince() > time.Now().Unix() {
 		//TODO CFE similar concerns to the questions for assertions
-		pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
+		//pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
 		return false
 	}
 	if shouldAddressAssertionBeCached(a) {
@@ -356,7 +349,7 @@ func shouldAddressAssertionBeCached(assertion *rainslib.AddressAssertionSection)
 func assertAddressZone(zone *rainslib.AddressZoneSection, token rainslib.Token) bool {
 	if zone.ValidSince() > time.Now().Unix() {
 		//TODO CFE similar concerns to the questions for shards
-		pendingQueries.GetAllAndDelete(token) //address zone cannot be used to answer queries, delete all waiting for this zone.
+		pendingQueries.GetAndRemove(zone, token, time.Now().Unix()) //address zone cannot be used to answer queries, delete all waiting for this zone.
 		return false
 	}
 	if shouldAddressZoneBeCached(zone) {
@@ -419,7 +412,7 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 	}
 	//FIXME CFE allow multiple types
 	//FIXME CFE only send query if not already in cache.
-	pendingQueries.Add(query.Context, "", "", query.Types, pendingQuerySetValue{connInfo: sender, token: tok, validUntil: validUntil})
+	pendingQueries.Add(msgSectionSender{Section: query, Sender: sender, Token: token})
 	log.Debug("Added query into to pending query cache", "query", query)
 	msg := rainslib.NewAddressQueryMessage(query.Context, query.SubjectAddr, validUntil, query.Types, nil, tok)
 	SendMessage(msg, delegate)
@@ -506,12 +499,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		if query.Expires < validUntil {
 			validUntil = query.Expires
 		}
-		isNew, _ := pendingQueries.Add(query.Context, zAn.zone, zAn.name, query.Types,
-			pendingQuerySetValue{
-				connInfo:   sender,
-				token:      tok,
-				validUntil: validUntil,
-			})
+		isNew := pendingQueries.Add(msgSectionSender{Section: query, Sender: sender, Token: token})
 		log.Info("Added query into to pending query cache", "query", query)
 		if isNew {
 			msg := rainslib.NewQueryMessage(query.Context, fmt.Sprintf("%s.%s", zAn.name, zAn.zone),

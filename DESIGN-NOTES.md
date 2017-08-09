@@ -40,7 +40,7 @@
    a message contains several sections it splits them up and handles each of them separately and in
    parallel. The number of simultaneously active goroutines is upper bounded. Assertions in response
    to a delegation queries can be configured to be handled with priority.
-- Pending query cache designs:
+- Pending query cache design proposals:
   1. As soon as the server processes the first section which is an answer to a query it forwards the
      section and removes the entry from the pending query cache. (Disadvantages: If a server/client
      is interested in several information it should issue for each of them a separate query
@@ -55,27 +55,7 @@
      the expiration are cached and then sent back to the sender. (Disadvantages: high delay and if
      the server decides to not cache a section then it can also not be used as an answer except if
      we would store each answering section to the pending query cache)
-- Pending key cache:
-  - A server can only resend a delegation query when the previous one has expired. This assures that
-    a server does not get flooded with delegation queries after it rolled over a key.
-  - The server checks if the token of an arriving section is stored in the cache and updates the
-    cache accordingly. (In case the response is a delegation or a redirect, iterative, recursive or
-    no lookup. In case of negative proof remove sections and log it)
-  - All arriving delegation assertions without a matching token are checked if they answers any of
-    the sections in the pending key cache (hashmap lookup by zone, context, algorithm type and phase
-    ID). All answered sections are added to the processing queue.
-  - If the token on a message matches one in the pending key cache then the sections of this message
-    are handled with priority (if not disabled in configuration).
-  - There is a hashmap in the cache which is keyed by the token and the value is an object
-    containing an expiration time and a pointer to an object containing all sections waiting for a
-    public key. An entry is only removed from this hashmap if it has expired (a reap function takes
-    care of this). This ensures that all messages in response to a delegation query are handled with
-    priority.
-  - Active Token cache is now part of the pending key cache because it is necessary to have a
-    pointer from the token to the pending sections to remove them without raising an alarm in case
-    the other server has sent a notification in response to the delegation query.
-  - The server must log every section that gets dropped together with the destination which failed
-    to send a delegation assertion in time.
+- Pending key cache: see DESIGN-PENDING-KEY-CACHE.md
 
 
 2. The server processes incoming information on a per message basis, i.e. for each incoming message
@@ -114,11 +94,11 @@
 
 ##Conclusion
 
-I prefer the first proposal as sections are independent of each other and it leverages this
-property. Goroutines do not have to communicate with each other and it is easier to add server
-specific configurations because of that. The coalescing of information is in the pending query cache
-by section instead of in the server's engine by message. In both approaches it is not necessary to
-cache an answer to be able to respond to pending queries.
+The first proposal with the second pending query design proposal was chosen as sections are
+independent of each other and it leverages this property. Goroutines do not have to communicate with
+each other and it is easier to add server specific configurations because of that. The coalescing of
+information is in the pending query cache by section instead of in the server's engine by message.
+In both approaches it is not necessary to cache an answer to be able to respond to pending queries.
 
 # Signatures
 

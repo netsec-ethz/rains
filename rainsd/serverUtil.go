@@ -12,7 +12,6 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/rainslib"
-	"github.com/netsec-ethz/rains/utils/cache"
 	"github.com/netsec-ethz/rains/utils/lruCache"
 	"github.com/netsec-ethz/rains/utils/protoParser"
 	"github.com/netsec-ethz/rains/utils/safeCounter"
@@ -173,13 +172,4 @@ func createCapabilityCache(hashToCapCacheSize int) capabilityCache {
 	counter := safeCounter.New(hashToCapCacheSize)
 	counter.Add(2)
 	return &capabilityCacheImpl{capabilityMap: cache, counter: counter}
-}
-
-//createPendingQueryCache returns a new pending query cache
-func createPendingQueryCache(cacheSize uint) (pendingQueryCache, error) {
-	c, err := cache.New(cacheSize, "noAnyContext")
-	if err != nil {
-		return nil, err
-	}
-	return &pendingQueryCacheImpl{callBackCache: c, maxElements: cacheSize, elementCount: 0, activeTokens: make(map[[16]byte]elemAndValidTo)}, nil
 }

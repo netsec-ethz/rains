@@ -145,7 +145,7 @@ type zonePublicKeyCache interface {
 
 type pendingKeyCache interface {
 	//Add adds sectionSender to the cache and returns true if a new delegation should be sent.
-	Add(sectionSender msgSectionSender, algoType rainslib.SignatureAlgorithmType, phase int) bool
+	Add(sectionSender sectionWithSigSender, algoType rainslib.SignatureAlgorithmType, phase int) bool
 	//AddToken adds token to the token map where the value of the map corresponds to the cache entry
 	//matching the given zone and cotext. Token is added to the map and the cache entry's token,
 	//expiration and sendTo fields are updated only if a matching cache entry exists. False is
@@ -154,11 +154,11 @@ type pendingKeyCache interface {
 	//GetAndRemove returns all sections who contain a signature matching the given parameter and
 	//deletes them from the cache. It returns true if at least one section is returned. The token
 	//map is updated if necessary.
-	GetAndRemove(zone, context string, algoType rainslib.SignatureAlgorithmType, phase int) ([]msgSectionSender, bool)
+	GetAndRemove(zone, context string, algoType rainslib.SignatureAlgorithmType, phase int) ([]sectionWithSigSender, bool)
 	//GetAndRemoveByToken returns all sections who correspond to token and deletes them from the
 	//cache. It returns true if at least one section is returned. Token is removed from the token
 	//map.
-	GetAndRemoveByToken(token rainslib.Token) ([]msgSectionSender, bool)
+	GetAndRemoveByToken(token rainslib.Token) ([]sectionWithSigSender, bool)
 	//ContainsToken returns true if token is in the token map.
 	ContainsToken(token rainslib.Token) bool
 	//RemoveExpiredValues deletes all sections of an expired entry and updates the token map if
@@ -168,19 +168,34 @@ type pendingKeyCache interface {
 	Len() int
 }
 
-//pendingQueryCache stores connection information about queriers which are waiting for an assertion to arrive
 type pendingQueryCache interface {
-	//Add adds connection information together with a token and a validity to the cache.
-	//Returns true and a newly generated token for the query to be sent out if cache does not contain a valid entry for context,zone,name,objType.Otherwise false is returned
-	//If the cache is full it removes a pendingQueryCacheValue according to some metric.
-	Add(context, zone, name string, objType []rainslib.ObjectType, value pendingQuerySetValue) (bool, rainslib.Token)
-	//GetAllAndDelete returns true and all valid pendingQuerySetValues associated with the given token if there are any. Otherwise false
-	//We simultaneously obtained all elements and close the set data structure. Then we remove the entry from the cache. If in the meantime an Add operation happened,
-	//then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
-	GetAllAndDelete(token rainslib.Token) ([]pendingQuerySetValue, bool)
-	//RemoveExpiredValues goes through the cache and removes all expired values and tokens. If for a given context and zone there is no value left it removes the entry from cache.
+	//Add adds sectionSender to the cache and returns true if a query should be sent.
+	Add(sectionSender msgSectionSender) bool
+	//AddToken adds token to the token map where the value of the map corresponds to the cache entry
+	//matching the given (fully qualified) name, context and types (sorted). Token is added to the
+	//map and the cache entry's token, expiration and sendTo fields are updated only if a matching
+	//cache entry exists. False is returned if no matching cache entry exists.
+	AddToken(token rainslib.Token, expiration int64, sendTo rainslib.ConnInfo, name, context string,
+		types []rainslib.ObjectType) bool
+	//AddAnswer adds section to the cache entry based on its content or token with the given
+	//deadine. It returns true if section answers the query (false if section is intended as a
+	//delegation or redirect) //FIXME CFE better return queries such that the process can decide
+	//what to do with them (and move logic out of the cache)?
+	AddAnswer(section rainslib.MessageSectionWithSig, token rainslib.Token, deadline int64) bool
+	//GetAndRemoveByToken returns all queries who correspond to token or section and deletes them
+	//from the cache if no other section has been added to this cache entry since section has been
+	//added by AddAnswer(). It returns true if at least one query is returned with the corresponding
+	//information where to send it back. Token is removed from the token map.
+	GetAndRemove(section rainslib.MessageSectionWithSig, token rainslib.Token, deadline int64) (
+		[]msgSectionSender, bool)
+	//UpdateToken adds newToken to the token map and lets it point to the cache value pointed by
+	//oldToken. oldToken is then removed from the token map.
+	UpdateToken(oldToken, newToken rainslib.Token)
+	//RemoveExpiredValues deletes all queries of an expired entry and updates the token map if
+	//necessary. It logs which queries are removed and from which server the query has come and to
+	//which it has been sent.
 	RemoveExpiredValues()
-	//Len returns the number of elements in the cache.
+	//Len returns the number of queries in the cache
 	Len() int
 }
 
@@ -226,35 +241,6 @@ type negativeAssertionCache interface {
 	Len() int
 }
 
-//zoneContext stores a context and a zone
-type zoneContext struct {
-	Zone    string
-	Context string
-}
-
-//setContainer is an interface for a set data structure where all operations are concurrency safe
-type setContainer interface {
-	//Add appends item to the current set if not already contained.
-	//It returns false if it was not able to add the element because the underlying datastructure
-	//was deleted in the meantime
-	Add(item rainslib.Hashable) bool
-
-	//Delete removes item from the set.
-	//Returns true if it was able to delete the element.
-	Delete(item rainslib.Hashable) bool
-
-	//GetAll returns all elements contained in the set.
-	//If the underlying datastructure is deleted, the empty list is returned
-	GetAll() []rainslib.Hashable
-
-	//GetAllAndDelete returns all set elements and deletes the underlying datastructure.
-	//If the underlying datastructure is already deleted, the empty list is returned.
-	GetAllAndDelete() []rainslib.Hashable
-
-	//Len returns the number of elements in the set.
-	Len() int
-}
-
 type consistencyCache interface {
 	//Add adds section to the consistency cache.
 	Add(section rainslib.MessageSectionWithSigForward)
@@ -265,13 +251,7 @@ type consistencyCache interface {
 	Remove(section rainslib.MessageSectionWithSigForward)
 }
 
-//zoneAndName contains zone and name which together constitute a fully qualified name
-type zoneAndName struct {
-	zone string
-	name string
-}
-
-//addressCache implements a data structure for fast reverse lookup.
+//addressSectionCache implements a data structure for fast reverse lookup.
 //All operations must be concurrency safe
 type addressSectionCache interface {
 	//AddAssertion adds an address Assertion section to the cache
@@ -285,4 +265,16 @@ type addressSectionCache interface {
 	Get(netAddr *net.IPNet, types []rainslib.ObjectType) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool)
 	//DeleteExpiredElements removes all expired elements from the data structure.
 	DeleteExpiredElements()
+}
+
+//zoneContext stores a context and a zone
+type zoneContext struct {
+	Zone    string
+	Context string
+}
+
+//zoneAndName contains zone and name which together constitute a fully qualified name
+type zoneAndName struct {
+	zone string
+	name string
 }

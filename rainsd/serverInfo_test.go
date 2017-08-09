@@ -245,11 +245,11 @@ func TestPendingKeyCache(t *testing.T) {
 	s1 := &rainslib.ShardSection{SubjectZone: "com", Context: "."}
 	z2 := &rainslib.ZoneSection{SubjectZone: "ch", Context: "."}
 	a3 := &rainslib.AssertionSection{SubjectZone: "ch", Context: "."}
-	m := []msgSectionSender{
-		msgSectionSender{Section: a0, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
-		msgSectionSender{Section: s1, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
-		msgSectionSender{Section: z2, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
-		msgSectionSender{Section: a3, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
+	m := []sectionWithSigSender{
+		sectionWithSigSender{Section: a0, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
+		sectionWithSigSender{Section: s1, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
+		sectionWithSigSender{Section: z2, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
+		sectionWithSigSender{Section: a3, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
 	}
 	tokens := []rainslib.Token{rainslib.GenerateToken(), rainslib.GenerateToken()}
 	var tests = []struct {

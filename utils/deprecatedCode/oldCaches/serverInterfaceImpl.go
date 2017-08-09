@@ -1098,4 +1098,282 @@ func (c *pendingSignatureCacheImpl) Len() int {
 	c.elemCountLock.RLock()
 	defer c.elemCountLock.RUnlock()
 	return int(c.elementCount)
-}*/
+}
+
+//setContainer is an interface for a set data structure where all operations are concurrency safe
+type setContainer interface {
+	//Add appends item to the current set if not already contained.
+	//It returns false if it was not able to add the element because the underlying datastructure
+	//was deleted in the meantime
+	Add(item rainslib.Hashable) bool
+
+	//Delete removes item from the set.
+	//Returns true if it was able to delete the element.
+	Delete(item rainslib.Hashable) bool
+
+	//GetAll returns all elements contained in the set.
+	//If the underlying datastructure is deleted, the empty list is returned
+	GetAll() []rainslib.Hashable
+
+	//GetAllAndDelete returns all set elements and deletes the underlying datastructure.
+	//If the underlying datastructure is already deleted, the empty list is returned.
+	GetAllAndDelete() []rainslib.Hashable
+
+	//Len returns the number of elements in the set.
+	Len() int
+}
+
+//pendingQueryCache stores connection information about queriers which are waiting for an assertion to arrive
+type pendingQueryCache interface {
+	//Add adds connection information together with a token and a validity to the cache.
+	//Returns true and a newly generated token for the query to be sent out if cache does not contain a valid entry for context,zone,name,objType.Otherwise false is returned
+	//If the cache is full it removes a pendingQueryCacheValue according to some metric.
+	Add(context, zone, name string, objType []rainslib.ObjectType, value pendingQuerySetValue) (bool, rainslib.Token)
+	//GetAllAndDelete returns true and all valid pendingQuerySetValues associated with the given token if there are any. Otherwise false
+	//We simultaneously obtained all elements and close the set data structure. Then we remove the entry from the cache. If in the meantime an Add operation happened,
+	//then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
+	GetAllAndDelete(token rainslib.Token) ([]pendingQuerySetValue, bool)
+	//RemoveExpiredValues goes through the cache and removes all expired values and tokens. If for a given context and zone there is no value left it removes the entry from cache.
+	RemoveExpiredValues()
+	//Len returns the number of elements in the cache.
+	Len() int
+}
+
+type elemAndValidTo struct {
+	validUntil int64
+	context    string
+	zone       string
+	name       string
+	objType    rainslib.ObjectType
+}
+
+//pendingSignatureCacheValue is the value received from the pendingQuery cache
+type pendingQuerySetValue struct {
+	connInfo   rainslib.ConnInfo
+	token      rainslib.Token //Token from the received query
+	validUntil int64
+}
+
+func (p pendingQuerySetValue) Hash() string {
+	return fmt.Sprintf("%s_%v_%d", p.connInfo.Hash(), p.token, p.validUntil)
+}
+
+//pendingSignatureCacheValue is the value received from the pendingQuery cache
+type pendingQueryCacheValue struct {
+	set   setContainer
+	token rainslib.Token //Token of this servers query
+}
+
+
+//Pending query cache implementation
+//We have a hierarchical locking system. We first lock the cache to get a pointer to a set data structure. Then we release the lock on the cache and for
+//operations on the set data structure we use a separate lock.
+//We store the elementCount (number of sections in the pendingQueryCacheImpl) separate, as each cache entry can have several querier infos in the set data structure.
+//When we want to update elementCount we must lock using elemCountLock. This lock must never be held when doing a change to the the cache or the set data structure.
+//It can happen that some sections get dropped. This is the case when the cache is full or when we add a section to the set while another go routine deletes the pointer to that
+//set as it was empty before. The second case is expected to occur rarely.
+
+type pendingQueryCacheImpl struct {
+	//callBackCache stores to a given <context,zone,name,type> the query validity and connection information of the querier waiting for the answer.
+	//It is used to avoid sending the same query multiple times to obtain the same information.
+	callBackCache *cache.Cache
+	maxElements   uint
+	elementCount  uint
+	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
+	elemCountLock sync.RWMutex
+
+	//activeTokens contains all tokens of sent out queries to be able to find the peers asking for this information.
+	activeTokens    map[[16]byte]elemAndValidTo
+	activeTokenLock sync.RWMutex
+}
+
+//Add adds connection information together with a token and a validity to the cache.
+//Returns true if cache does not contain a valid entry for context,zone,name,objType else return false
+//If the cache is full it removes a pendingQueryCacheValue according to some metric.
+func (c *pendingQueryCacheImpl) Add(context, zone, name string, objType []rainslib.ObjectType, value pendingQuerySetValue) (bool, rainslib.Token) {
+	set := setDataStruct.New()
+	set.Add(value)
+	token := rainslib.GenerateToken()
+	cacheValue := pendingQueryCacheValue{set: set, token: token}
+	ok := c.callBackCache.Add(cacheValue, false, context, zone, name, fmt.Sprintf("%v", objType))
+	if ok {
+		c.activeTokenLock.Lock()
+		c.activeTokens[token] = elemAndValidTo{
+			context: context,
+			zone:    zone,
+			name:    name,
+			//FIXME CFE allow multiple types
+			objType:    objType[0],
+			validUntil: value.validUntil,
+		}
+		c.activeTokenLock.Unlock()
+		updatePendingQueryCount(c)
+		handlePendingQueryCacheSize(c)
+		return true, token
+	}
+	//there is already a set in the cache, get it and add value.
+	v, ok := c.callBackCache.Get(context, zone, name, fmt.Sprintf("%v", objType))
+	if ok {
+		val, ok := v.(pendingQueryCacheValue)
+		if ok {
+			ok := val.set.Add(value)
+			if ok {
+				updatePendingQueryCount(c)
+				handlePendingQueryCacheSize(c)
+				return false, [16]byte{}
+			}
+			log.Warn("Set was closed but cache entry was not yet deleted. This case must be rare!")
+			return false, [16]byte{}
+		}
+		log.Error(fmt.Sprintf("Cache element was not of type pendingQueryCacheValue. Got:%T", v))
+		return false, [16]byte{}
+	}
+	//cache entry was deleted in the meantime. Retry
+	log.Warn("Cache entry was delete between, trying to add new and getting the existing one. This case must be rare!")
+	return c.Add(context, zone, name, objType, value)
+}
+
+//updatePendingQueryCount increases the element count by one
+func updatePendingQueryCount(c *pendingQueryCacheImpl) {
+	c.elemCountLock.Lock()
+	c.elementCount++
+	c.elemCountLock.Unlock()
+}
+
+//handlePendingQueryCacheSize deletes all sender infos from the least recently used cache entry if it exceeds the cache size
+func handlePendingQueryCacheSize(c *pendingQueryCacheImpl) {
+	c.elemCountLock.RLock()
+	if c.elementCount > c.maxElements {
+		c.elemCountLock.RUnlock()
+		key, _ := c.callBackCache.GetLeastRecentlyUsedKey()
+		v, ok := c.callBackCache.Get(key[0], key[1])
+		if ok {
+			if v, ok := v.(pendingQueryCacheValue); ok {
+				c.GetAllAndDelete(v.token)
+			}
+		}
+	} else {
+		c.elemCountLock.RUnlock()
+	}
+}
+
+//GetAllAndDelete returns true and all valid pendingQueryCacheValues associated with the given token if there are any. Otherwise false
+//We remove the entry from the cache and from the activeToken map. Then we simultaneously obtained all elements from the set data structure and close it.
+//If in the meantime an Add operation happened, then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
+func (c *pendingQueryCacheImpl) GetAllAndDelete(token rainslib.Token) ([]pendingQuerySetValue, bool) {
+	sendInfos := []pendingQuerySetValue{}
+	deleteCount := uint(0)
+	c.activeTokenLock.RLock()
+	v, ok := c.activeTokens[token]
+	c.activeTokenLock.RUnlock()
+	if !ok || v.validUntil < time.Now().Unix() {
+		log.Debug("Token not in cache or expired", "token", token, "Now", time.Now(), "ValidUntil", time.Unix(v.validUntil, 0))
+		return sendInfos, false
+	}
+	val, ok := c.callBackCache.Get(v.context, v.zone, v.name, v.objType.String())
+	if !ok {
+		log.Info("For context,zone,name,type there is no entry in the cache.", "value", val)
+		return sendInfos, false
+	}
+	if cval, ok := val.(pendingQueryCacheValue); ok {
+		c.callBackCache.Remove(v.context, v.zone, v.name, v.objType.String())
+		c.activeTokenLock.Lock()
+		delete(c.activeTokens, token)
+		c.activeTokenLock.RUnlock()
+		queriers := cval.set.GetAllAndDelete()
+		deleteCount = uint(len(queriers))
+		for _, querier := range queriers {
+			if q, ok := querier.(pendingQuerySetValue); ok {
+				if q.validUntil > time.Now().Unix() {
+					sendInfos = append(sendInfos, q)
+				} else {
+					log.Info("query expired.", "sender", q.connInfo, "token", q.token)
+				}
+			} else {
+				log.Error(fmt.Sprintf("Cache element was not of type pendingQuerySetValue. Got:%T", querier))
+			}
+		}
+
+	} else {
+		log.Error(fmt.Sprintf("Cache not of type pendingQueryCacheValue. Got:%T", v))
+	}
+	c.elemCountLock.Lock()
+	c.elementCount -= deleteCount
+	c.elemCountLock.Unlock()
+	return sendInfos, len(sendInfos) > 0
+}
+
+//RemoveExpiredValues goes through the cache and removes all expired values and tokens. If for a given context and zone there is no value left it removes the entry from cache.
+func (c *pendingQueryCacheImpl) RemoveExpiredValues() {
+	//Delete all expired tokens
+	c.activeTokenLock.Lock()
+	for key, val := range c.activeTokens {
+		if val.validUntil < time.Now().Unix() {
+			delete(c.activeTokens, key)
+			c.callBackCache.Remove(val.context, val.zone, val.name, val.objType.String())
+		}
+	}
+	c.activeTokenLock.Unlock()
+	//Delete expired received queries.
+	keys := c.callBackCache.Keys()
+	deleteCount := uint(0)
+	for _, key := range keys {
+		v, ok := c.callBackCache.Get(key[0], key[1])
+		if ok { //check if element is still contained
+			cval, ok := v.(pendingQueryCacheValue)
+			if ok { //check that cache element is a pendingQueryCacheValue
+				vals := cval.set.GetAll()
+				//check validity of all container elements and remove expired once
+				allRemoved := true
+				for _, val := range vals {
+					v, ok := val.(pendingQuerySetValue)
+					if ok {
+						if v.validUntil < time.Now().Unix() {
+							ok := cval.set.Delete(val)
+							if ok {
+								deleteCount++
+							}
+						} else {
+							allRemoved = false
+						}
+					} else {
+						log.Error(fmt.Sprintf("set element was not of type pendingQuerySetValue. Got:%T", val))
+					}
+				}
+				//remove entry from cache if non left. If one was added in the meantime do not delete it.
+				if allRemoved {
+					vals := cval.set.GetAllAndDelete()
+					if len(vals) == 0 {
+						c.callBackCache.Remove(key[0], key[1])
+						c.activeTokenLock.Lock()
+						delete(c.activeTokens, cval.token)
+						c.activeTokenLock.RUnlock()
+					} else {
+						set := setDataStruct.New()
+						for _, val := range vals {
+							set.Add(val)
+						}
+						//FIXME CFE here another go routine could come in between. Add an update function to the cache.
+						c.callBackCache.Remove(key[0], key[1])
+						c.callBackCache.Add(set, false, key[0], key[1])
+					}
+				}
+			} else {
+				log.Error(fmt.Sprintf("Cache element was not of type pendingQueryCacheValue. Got:%T", v))
+			}
+		}
+	}
+	c.elemCountLock.Lock()
+	c.elementCount -= deleteCount
+	c.elemCountLock.Unlock()
+}
+
+//Len returns the number of elements in the cache.
+func (c *pendingQueryCacheImpl) Len() int {
+	c.elemCountLock.RLock()
+	defer c.elemCountLock.RUnlock()
+	return int(c.elementCount)
+}
+
+
+*/
