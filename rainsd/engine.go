@@ -6,14 +6,14 @@ import (
 	"strings"
 	"time"
 
+	log "github.com/inconshreveable/log15"
+
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/binaryTrie"
 	"github.com/netsec-ethz/rains/utils/lruCache"
 	"github.com/netsec-ethz/rains/utils/safeCounter"
 	"github.com/netsec-ethz/rains/utils/safeHashMap"
 	"github.com/shirou/gopsutil/cpu"
-
-	log "github.com/inconshreveable/log15"
 )
 
 var consistCache consistencyCache

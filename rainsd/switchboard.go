@@ -10,12 +10,12 @@ import (
 	"net"
 	"time"
 
+	log "github.com/inconshreveable/log15"
+
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/lruCache"
 	"github.com/netsec-ethz/rains/utils/protoParser"
 	"github.com/netsec-ethz/rains/utils/safeCounter"
-
-	log "github.com/inconshreveable/log15"
 )
 
 //connCache stores connections of this server. It is not guaranteed that a returned connection is still active.

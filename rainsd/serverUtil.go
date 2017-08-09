@@ -6,18 +6,17 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"time"
+
+	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/cache"
 	"github.com/netsec-ethz/rains/utils/lruCache"
 	"github.com/netsec-ethz/rains/utils/protoParser"
-	"github.com/netsec-ethz/rains/utils/zoneFileParser"
-
-	"strings"
-
-	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/utils/safeCounter"
+	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 )
 
 //InitServer initializes the server

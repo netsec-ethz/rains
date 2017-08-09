@@ -1,12 +1,12 @@
 package rainslib
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 
-	"fmt"
-
 	log "github.com/inconshreveable/log15"
+
 	"golang.org/x/crypto/ed25519"
 )
 

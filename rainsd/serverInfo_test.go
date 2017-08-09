@@ -7,12 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/crypto/ed25519"
-
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/lruCache"
 	"github.com/netsec-ethz/rains/utils/safeCounter"
 	"github.com/netsec-ethz/rains/utils/safeHashMap"
+	"golang.org/x/crypto/ed25519"
 )
 
 func TestCapabilityCache(t *testing.T) {

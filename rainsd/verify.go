@@ -7,14 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netsec-ethz/rains/utils/safeHashMap"
-
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/rainsSiglib"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/lruCache"
 	"github.com/netsec-ethz/rains/utils/safeCounter"
+	"github.com/netsec-ethz/rains/utils/safeHashMap"
 )
 
 //zoneKeyCache is used to store public keys of zones and a pointer to assertions containing them
