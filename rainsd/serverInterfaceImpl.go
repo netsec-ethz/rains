@@ -569,6 +569,9 @@ type pendingQueryCacheValue struct {
 }
 
 func nameCtxTypesKey(zone, context string, types []rainslib.ObjectType) string {
+	if types == nil {
+		return fmt.Sprintf("%s %s nil", zone, context)
+	}
 	sort.Slice(types, func(i, j int) bool { return types[i] < types[j] })
 	return fmt.Sprintf("%s %s %v", zone, context, types)
 }

@@ -2,6 +2,8 @@ package rainsd
 
 import (
 	"bufio"
+	"encoding/hex"
+	"fmt"
 	"net"
 	"reflect"
 	"testing"
@@ -875,6 +877,81 @@ func TestConsistencyCache(t *testing.T) {
 		sections = c.Get(shards[0].SubjectZone, shards[0].Context, assertions[0])
 		if len(sections) != 0 {
 			t.Errorf("%d:Not the correct element was removed. actual=%v", i, sections)
+		}
+	}
+}
+
+func TestNameCtxTypesKey(t *testing.T) {
+	var tests = []struct {
+		name    string
+		context string
+		types   []rainslib.ObjectType
+		output  string
+	}{
+		{"example.com", ".", nil, "example.com . nil"},
+		{"example.com", ".", []rainslib.ObjectType{5, 8, 1, 6}, "example.com . [1 5 6 8]"},
+	}
+	for i, test := range tests {
+		if nameCtxTypesKey(test.name, test.context, test.types) != test.output {
+			t.Errorf("%d:Wrong return value expected=%s actual=%s", i, test.output,
+				nameCtxTypesKey(test.name, test.context, test.types))
+		}
+	}
+}
+
+func TestZoneCtxKey(t *testing.T) {
+	var tests = []struct {
+		zone    string
+		context string
+		output  string
+	}{
+		{"", "", " "},
+		{"example.com", ".", "example.com ."},
+	}
+	for i, test := range tests {
+		if zoneCtxKey(test.zone, test.context) != test.output {
+			t.Errorf("%d:Wrong return value expected=%s actual=%s", i, test.output,
+				zoneCtxKey(test.zone, test.context))
+		}
+	}
+}
+
+func TestAlgoPhaseKey(t *testing.T) {
+	var tests = []struct {
+		algoType rainslib.SignatureAlgorithmType
+		phase    int
+		output   string
+	}{
+		{rainslib.Ed25519, 2, "1 2"},
+	}
+	for i, test := range tests {
+		if algoPhaseKey(test.algoType, test.phase) != test.output {
+			t.Errorf("%d:Wrong return value expected=%s actual=%s", i, test.output,
+				algoPhaseKey(test.algoType, test.phase))
+		}
+	}
+}
+
+func TestSectionWithSigSenderHash(t *testing.T) {
+	tcpAddr, _ := net.ResolveTCPAddr("tcp", "192.0.2.0:80")
+	token := rainslib.GenerateToken()
+	var tests = []struct {
+		input  sectionWithSigSender
+		output string
+	}{
+		{
+			sectionWithSigSender{
+				Section: &rainslib.AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "context"},
+				Sender:  rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr},
+				Token:   token,
+			},
+			fmt.Sprintf("1_192.0.2.0:80_A_name_zone_context_[]_[]_%s", hex.EncodeToString(token[:])),
+		},
+	}
+	for i, test := range tests {
+		if test.input.Hash() != test.output {
+			t.Errorf("%d:Wrong return value expected=%s actual=%s", i, test.output,
+				test.input.Hash())
 		}
 	}
 }
