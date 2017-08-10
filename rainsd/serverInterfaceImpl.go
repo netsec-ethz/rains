@@ -18,8 +18,8 @@ import (
 
 //connCacheValue is the value pointed to by the hash map in the connectionCacheImpl
 type connCacheValue struct {
-	connections  *[]net.Conn
-	capabilities *[]rainslib.Capability
+	connections  []net.Conn
+	capabilities []rainslib.Capability
 	//mux is used to protect connections from simultaneous access
 	//TODO most access are reads, but do we have a lot of parallel access to the same
 	//connCacheValue? If not replace with sync.Mutex.
@@ -42,11 +42,11 @@ func getNetworkAndAddr(conn net.Conn) string {
 
 //AddConnection adds conn to the cache. If the cache is full the least recently used connection is removed.
 func (c *connectionCacheImpl) AddConnection(conn net.Conn) {
-	v := &connCacheValue{connections: &[]net.Conn{}}
+	v := &connCacheValue{connections: []net.Conn{}}
 	e, _ := c.cache.GetOrAdd(getNetworkAndAddr(conn), v, false)
 	value := e.(*connCacheValue)
 	value.mux.Lock()
-	*value.connections = append(*value.connections, conn)
+	value.connections = append(value.connections, conn)
 	value.mux.Unlock()
 	if c.counter.Inc() {
 		//cache is full, remove all connections from the least recently used destination
@@ -62,7 +62,7 @@ func (c *connectionCacheImpl) AddConnection(conn net.Conn) {
 				continue
 			}
 			value.deleted = true
-			for _, conn := range *value.connections {
+			for _, conn := range value.connections {
 				conn.Close()
 				c.counter.Dec()
 			}
@@ -76,7 +76,7 @@ func (c *connectionCacheImpl) AddConnection(conn net.Conn) {
 //AddCapability adds capabilities to the destAddr entry. It returns false if there is no entry in
 //the cache for dstAddr. If there is already a capability list associated with destAddr, it will be
 //overwritten.
-func (c *connectionCacheImpl) AddCapabilityList(dstAddr rainslib.ConnInfo, capabilities *[]rainslib.Capability) bool {
+func (c *connectionCacheImpl) AddCapabilityList(dstAddr rainslib.ConnInfo, capabilities []rainslib.Capability) bool {
 	if e, ok := c.cache.Get(dstAddr.NetworkAndAddr()); ok {
 		v := e.(*connCacheValue)
 		v.mux.Lock()
@@ -100,7 +100,7 @@ func (c *connectionCacheImpl) GetConnection(dstAddr rainslib.ConnInfo) ([]net.Co
 		if v.deleted {
 			return nil, false
 		}
-		return *v.connections, true
+		return v.connections, true
 	}
 	return nil, false
 }
@@ -115,7 +115,7 @@ func (c *connectionCacheImpl) GetCapabilityList(dstAddr rainslib.ConnInfo) ([]ra
 		if v.deleted {
 			return nil, false
 		}
-		return *v.capabilities, true
+		return v.capabilities, true
 	}
 	return nil, false
 }
@@ -128,11 +128,11 @@ func (c *connectionCacheImpl) CloseAndRemoveConnection(conn net.Conn) {
 		v.mux.Lock()
 		defer v.mux.Unlock()
 		if !v.deleted {
-			if len(*v.connections) > 1 {
-				for i, connection := range *v.connections {
+			if len(v.connections) > 1 {
+				for i, connection := range v.connections {
 					//TODO CFE not sure if this comparison works
 					if connection == conn {
-						*v.connections = append((*v.connections)[:i], (*v.connections)[i+1:]...)
+						v.connections = append((v.connections)[:i], (v.connections)[i+1:]...)
 						c.counter.Dec()
 					}
 				}
@@ -166,7 +166,7 @@ func (c *capabilityCacheImpl) Add(capabilities []rainslib.Capability) {
 		cs = append(cs, []byte(c)...)
 	}
 	hash := sha256.Sum256(cs)
-	_, ok := c.capabilityMap.GetOrAdd(string(hash[:]), &capabilities, false)
+	_, ok := c.capabilityMap.GetOrAdd(string(hash[:]), capabilities, false)
 	//handle full cache
 	if ok && c.counter.Inc() {
 		for {
@@ -179,12 +179,12 @@ func (c *capabilityCacheImpl) Add(capabilities []rainslib.Capability) {
 	}
 }
 
-func (c *capabilityCacheImpl) Get(hash []byte) (*[]rainslib.Capability, bool) {
+func (c *capabilityCacheImpl) Get(hash []byte) ([]rainslib.Capability, bool) {
 	if v, ok := c.capabilityMap.Get(string(hash)); ok {
-		if val, ok := v.(*[]rainslib.Capability); ok {
+		if val, ok := v.([]rainslib.Capability); ok {
 			return val, true
 		}
-		log.Warn("Cache entry is not of type *[]rainslib.Capability",
+		log.Warn("Cache entry is not of type []rainslib.Capability",
 			"actualType", fmt.Sprintf("%T", v))
 	}
 	return nil, false
@@ -436,8 +436,7 @@ func (c *pendingKeyCacheImpl) Add(sectionSender sectionWithSigSender,
 
 //AddToken adds token to the token map where the value of the map corresponds to the cache entry
 //matching the given zone and context. Token is only added to the map if a matching cache entry
-//exists without a token. False is returned if no matching cache entry exists or it already contains
-//a token
+//exists without a token. True is returned if the entry is updated.
 func (c *pendingKeyCacheImpl) AddToken(token rainslib.Token, expiration int64,
 	sendTo rainslib.ConnInfo, zone, context string) bool {
 	if entry, ok := c.zoneCtxMap.Get(zoneCtxKey(zone, context)); ok {
@@ -445,14 +444,14 @@ func (c *pendingKeyCacheImpl) AddToken(token rainslib.Token, expiration int64,
 		value.mux.Lock()
 		defer value.mux.Unlock()
 		if value.token == [16]byte{} {
+			if _, ok := c.tokenMap.GetOrAdd(token.String(), value); !ok {
+				log.Error("token already in cache. Token was reused too early", "token", token)
+				return false
+			}
 			value.token = token
 			value.expiration = expiration
 			value.sendTo = sendTo
-			_, ok := c.tokenMap.GetOrAdd(token.String(), value)
-			if !ok {
-				log.Error("token already in cache. Token was reused too early", "token", token)
-			}
-			return ok
+			return true
 		}
 	}
 	return false
@@ -535,9 +534,6 @@ func (c *pendingKeyCacheImpl) RemoveExpiredValues() {
 			c.zoneCtxMap.Remove(v.zoneCtx)
 			log.Warn("pending key cache entry has expired", "value", v)
 			for _, set := range v.sections {
-				for k := range set {
-					log.Warn("", "", k)
-				}
 				c.counter.Sub(len(set))
 			}
 		}
@@ -547,6 +543,188 @@ func (c *pendingKeyCacheImpl) RemoveExpiredValues() {
 
 //Len returns the number of sections in the cache
 func (c *pendingKeyCacheImpl) Len() int {
+	return c.counter.Value()
+}
+
+type pendingQueryCacheValue struct {
+	mux sync.Mutex
+	//queries contains all queries waiting for an answer to a query that has been sent by this server.
+	queries []msgSectionSender
+	//nameCtxTypes is nameCtxTypesMap's key
+	nameCtxTypes string
+	//token is tokenMap's key
+	token rainslib.Token
+	//sendTo is the connection information of the server to which the delegation query has been sent
+	sendTo rainslib.ConnInfo
+	//expiration is the time when the delegation query expires in unix time
+	expiration int64
+	//set to true if the pointer to this element is removed from both hash maps
+	deleted bool
+	//answers is a set of sections answering the pending queries (implemented as a map from
+	//section.Hash() to section)
+	answers *safeHashMap.Map
+	//deadline is a timestamp when a response containing answers is sent to all pending queries. It
+	//is measured as the number of nanoseconds passed since 1.1.1970 (unix time in nanoseconds).
+	deadline int64
+}
+
+func nameCtxTypesKey(zone, context string, types []rainslib.ObjectType) string {
+	sort.Slice(types, func(i, j int) bool { return types[i] < types[j] })
+	return fmt.Sprintf("%s %s %v", zone, context, types)
+}
+
+//TODO CFE this cache is currently not able to return all queries based on an assertion's name,
+//context and type. This can be achieved by adding a safeHashMap keyed by name, context and type
+//pointing to a set of *pendingQueryCacheValue
+type pendingQueryCacheImpl struct {
+	//zoneCtxMap is a map from zoneContext to *pendingQueryCacheValue safe for concurrent use
+	nameCtxTypesMap *safeHashMap.Map
+	//tokenMap is a map from token to *pendingQueryCacheValue safe for concurrent use
+	tokenMap *safeHashMap.Map
+	//counter holds the number of queries stored in the cache
+	counter *safeCounter.Counter
+}
+
+//Add adds sectionSender to the cache and returns false if the query is already in the cache.
+func (c *pendingQueryCacheImpl) Add(sectionSender msgSectionSender) bool {
+	if c.counter.Inc() {
+		log.Warn("pending query cache is full", "size", c.counter.Value())
+		c.counter.Dec()
+		return false
+	}
+	query := sectionSender.Section.(*rainslib.QuerySection)
+	entry := &pendingQueryCacheValue{
+		nameCtxTypes: nameCtxTypesKey(query.Name, query.Context, query.Types),
+		queries:      []msgSectionSender{sectionSender},
+		answers:      safeHashMap.New(),
+		expiration:   time.Now().Add(time.Second).Unix(),
+	}
+	if entry, ok := c.nameCtxTypesMap.GetOrAdd(entry.nameCtxTypes, entry); !ok {
+		value := entry.(*pendingQueryCacheValue)
+		value.mux.Lock()
+		if value.deleted {
+			value.mux.Unlock()
+			return c.Add(sectionSender)
+		}
+		defer value.mux.Unlock()
+		value.queries = append(value.queries, sectionSender)
+		isExpired := value.expiration < time.Now().Unix()
+		if isExpired {
+			value.expiration = time.Now().Add(time.Second).Unix()
+			log.Warn("pending query cache entry has expired", "value", value)
+		}
+		return isExpired
+	}
+	return true
+}
+
+//AddToken adds token to the token map where the value of the map corresponds to the cache entry
+//matching the given (fully qualified) name, context and types (sorted). Token is added to the map
+//and the cache entry's token, expiration and sendTo fields are updated only if a matching cache
+//entry exists. True is returned if the entry is updated.
+func (c *pendingQueryCacheImpl) AddToken(token rainslib.Token, expiration int64,
+	sendTo rainslib.ConnInfo, name, context string, types []rainslib.ObjectType) bool {
+	if entry, ok := c.nameCtxTypesMap.Get(nameCtxTypesKey(name, context, types)); ok {
+		value := entry.(*pendingQueryCacheValue)
+		value.mux.Lock()
+		defer value.mux.Unlock()
+		if value.token == [16]byte{} {
+			if _, ok := c.tokenMap.GetOrAdd(token.String(), value); !ok {
+				log.Error("token already in cache. Token was reused too early", "token", token)
+				return false
+			}
+			value.token = token
+			value.expiration = expiration
+			value.sendTo = sendTo
+			return true
+		}
+	}
+	return false
+}
+
+//AddAnswerByToken adds section to the cache entry matching token with the given deadline. It
+//returns a pending query from the entry and true if there is a matching token in the cache. The
+//pending queries are are not removed from the cache.
+func (c *pendingQueryCacheImpl) AddAnswerByToken(section rainslib.MessageSectionWithSig,
+	token rainslib.Token, deadline int64) (*rainslib.QuerySection, bool) {
+	if entry, ok := c.tokenMap.Get(token.String()); ok {
+		v := entry.(*pendingQueryCacheValue)
+		v.mux.Lock()
+		defer v.mux.Unlock()
+		if v.deleted {
+			return nil, false
+		}
+		v.deadline = deadline
+		if _, ok := v.answers.GetOrAdd(section.Hash(), section); ok {
+			return v.queries[0].Section.(*rainslib.QuerySection), true
+		}
+	}
+	return nil, false
+}
+
+//GetAndRemoveByToken returns all queries waiting for a response to a query message containing
+//token and deletes them from the cache if no other section has been added to this cache entry
+//since section has been added by AddAnswerByToken(). Token is removed from the token map.
+func (c *pendingQueryCacheImpl) GetAndRemoveByToken(token rainslib.Token, deadline int64) []msgSectionSender {
+	if entry, ok := c.tokenMap.Get(token.String()); ok {
+		v := entry.(*pendingQueryCacheValue)
+		v.mux.Lock()
+		defer v.mux.Unlock()
+		if v.deleted || v.deadline != deadline {
+			return nil
+		}
+		v.deleted = true
+		c.tokenMap.Remove(token.String())
+		c.nameCtxTypesMap.Remove(v.nameCtxTypes)
+		c.counter.Sub(len(v.queries))
+		return v.queries
+	}
+	return nil
+}
+
+//UpdateToken adds newToken to the token map, lets it point to the cache value pointed by
+//oldToken and removes oldToken from the token map if newToken is not already in the token map.
+//It returns false if there is already an entry for newToken in the token map.
+func (c *pendingQueryCacheImpl) UpdateToken(oldToken, newToken rainslib.Token) bool {
+	if v, ok := c.tokenMap.Get(oldToken.String()); ok {
+		value := v.(*pendingQueryCacheValue)
+		value.mux.Lock()
+		if value.deleted {
+			return true
+		}
+		if _, ok := c.tokenMap.GetOrAdd(newToken.String(), value); ok {
+			c.tokenMap.Remove(oldToken.String())
+			return true
+		}
+		return false
+	}
+	return true
+}
+
+//RemoveExpiredValues deletes all queries of an expired entry and updates the token map if
+//necessary. It logs which queries are removed and from which server the query has come and to
+//which it has been sent.
+func (c *pendingQueryCacheImpl) RemoveExpiredValues() {
+	for _, value := range c.nameCtxTypesMap.GetAll() {
+		v := value.(*pendingQueryCacheValue)
+		v.mux.Lock()
+		if v.deleted {
+			v.mux.Unlock()
+			continue
+		}
+		if v.expiration < time.Now().Unix() {
+			v.deleted = true
+			c.tokenMap.Remove(v.token.String())
+			c.nameCtxTypesMap.Remove(v.nameCtxTypes)
+			log.Warn("pending query cache entry has expired", "value", v)
+			c.counter.Sub(len(v.queries))
+		}
+		v.mux.Unlock()
+	}
+}
+
+//Len returns the number of queries in the cache
+func (c *pendingQueryCacheImpl) Len() int {
 	return c.counter.Value()
 }
 

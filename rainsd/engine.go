@@ -61,6 +61,12 @@ func initEngine() error {
 		zoneMap: safeHashMap.New(),
 	}
 
+	pendingQueries = &pendingQueryCacheImpl{
+		nameCtxTypesMap: safeHashMap.New(),
+		tokenMap:        safeHashMap.New(),
+		counter:         safeCounter.New(Config.PendingQueryCacheSize),
+	}
+
 	//FIXME CFE implement cache according to design document
 	addressCacheIPv4 = make(map[string]addressSectionCache)
 	addressCacheIPv4["."] = new(binaryTrie.TrieNode)
@@ -187,7 +193,7 @@ func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token r
 	if a.ValidSince() > time.Now().Unix() {
 		//assertion cannot be used to answer queries, delete all waiting for this assertion. How should we handle this case.
 		//send a redirect to root?
-		pendingQueries.GetAndRemove(a, token, time.Now().Unix())
+		pendingQueries.GetAndRemoveByToken(token, time.Now().Unix())
 		pendingKeys.GetAndRemoveByToken(token)
 		return false
 	}
@@ -253,7 +259,7 @@ func assertShard(shard *rainslib.ShardSection, isAuthoritative bool, token rains
 	//shard cannot be used to answer queries if it and all contained assertions are currently not valid
 	//FIXME CFE how to handle this case? 1) delete all waiting elements for this token, 2) send a redirect? 3) redir and blacklist for sender?
 	if shard.ValidSince() > time.Now().Unix() {
-		pendingQueries.GetAndRemove(shard, token, time.Now().Unix())
+		pendingQueries.GetAndRemoveByToken(token, time.Now().Unix())
 		return false
 	}
 	return true
@@ -291,7 +297,7 @@ func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool, token rainslib
 	if zone.ValidSince() > time.Now().Unix() {
 		//zone cannot be used to answer queries if it and all contained assertion and shards are currently not valid
 		//FIXME CFE how to handle this case? 1) delete all waiting elements for this token, 2) send a redirect? 3) redir and blacklist for sender?
-		pendingQueries.GetAndRemove(zone, token, time.Now().Unix())
+		pendingQueries.GetAndRemoveByToken(token, time.Now().Unix())
 		return false
 	}
 	return true
@@ -349,7 +355,7 @@ func shouldAddressAssertionBeCached(assertion *rainslib.AddressAssertionSection)
 func assertAddressZone(zone *rainslib.AddressZoneSection, token rainslib.Token) bool {
 	if zone.ValidSince() > time.Now().Unix() {
 		//TODO CFE similar concerns to the questions for shards
-		pendingQueries.GetAndRemove(zone, token, time.Now().Unix()) //address zone cannot be used to answer queries, delete all waiting for this zone.
+		pendingQueries.GetAndRemoveByToken(token, time.Now().Unix()) //address zone cannot be used to answer queries, delete all waiting for this zone.
 		return false
 	}
 	if shouldAddressZoneBeCached(zone) {

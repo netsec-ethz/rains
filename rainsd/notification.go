@@ -31,7 +31,7 @@ func notify(msgSender msgSectionSender) {
 			for _, c := range strings.Split(section.Data, " ") {
 				cList = append(cList, rainslib.Capability(c))
 			}
-			connCache.AddCapabilityList(msgSender.Sender, &cList)
+			connCache.AddCapabilityList(msgSender.Sender, cList)
 		}
 	case rainslib.NTCapHashNotKnown:
 		if len(section.Data) == 0 {
@@ -49,7 +49,7 @@ func notify(msgSender msgSectionSender) {
 				for _, c := range strings.Split(section.Data, " ") {
 					cList = append(cList, rainslib.Capability(c))
 				}
-				connCache.AddCapabilityList(msgSender.Sender, &cList)
+				connCache.AddCapabilityList(msgSender.Sender, cList)
 				sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTCapabilityAnswer, capabilityList)
 			}
 		}

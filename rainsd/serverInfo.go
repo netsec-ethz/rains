@@ -62,7 +62,7 @@ type rainsdConfig struct {
 	//engine
 	AssertionCacheSize         int
 	NegativeAssertionCacheSize int
-	PendingQueryCacheSize      uint
+	PendingQueryCacheSize      int
 	QueryValidity              time.Duration //in seconds
 	AddressQueryValidity       time.Duration //in seconds
 	ContextAuthority           []string
@@ -97,7 +97,7 @@ type connectionCache interface {
 	//AddCapability adds capabilities to the destAddr entry. It returns false if there is no entry
 	//in the cache for dstAddr. If there is already a capability list associated with destAddr, it
 	//will be overwritten.
-	AddCapabilityList(dstAddr rainslib.ConnInfo, capabilities *[]rainslib.Capability) bool
+	AddCapabilityList(dstAddr rainslib.ConnInfo, capabilities []rainslib.Capability) bool
 	//GetConnection returns true and all cached connections to dstAddr.
 	//GetConnection returns false if there is no cached connection to dstAddr.
 	GetConnection(dstAddr rainslib.ConnInfo) ([]net.Conn, bool)
@@ -118,7 +118,7 @@ type capabilityCache interface {
 	Add(capabilities []rainslib.Capability)
 	//Get returns true and a pointer to the capability list from which the hash was taken if
 	//present, otherwise false and nil.
-	Get(hash []byte) (*[]rainslib.Capability, bool)
+	Get(hash []byte) ([]rainslib.Capability, bool)
 	//Len returns the number of elements currently in the cache.
 	Len() int
 }
@@ -168,8 +168,9 @@ type pendingKeyCache interface {
 	Len() int
 }
 
+//TODO CFE also add methods which can return queries which are answered by the section's content.
 type pendingQueryCache interface {
-	//Add adds sectionSender to the cache and returns true if a query should be sent.
+	//Add adds sectionSender to the cache and returns false if the query is already in the cache.
 	Add(sectionSender msgSectionSender) bool
 	//AddToken adds token to the token map where the value of the map corresponds to the cache entry
 	//matching the given (fully qualified) name, context and types (sorted). Token is added to the
@@ -177,20 +178,19 @@ type pendingQueryCache interface {
 	//cache entry exists. False is returned if no matching cache entry exists.
 	AddToken(token rainslib.Token, expiration int64, sendTo rainslib.ConnInfo, name, context string,
 		types []rainslib.ObjectType) bool
-	//AddAnswer adds section to the cache entry based on its content or token with the given
-	//deadine. It returns true if section answers the query (false if section is intended as a
-	//delegation or redirect) //FIXME CFE better return queries such that the process can decide
-	//what to do with them (and move logic out of the cache)?
-	AddAnswer(section rainslib.MessageSectionWithSig, token rainslib.Token, deadline int64) bool
-	//GetAndRemoveByToken returns all queries who correspond to token or section and deletes them
-	//from the cache if no other section has been added to this cache entry since section has been
-	//added by AddAnswer(). It returns true if at least one query is returned with the corresponding
-	//information where to send it back. Token is removed from the token map.
-	GetAndRemove(section rainslib.MessageSectionWithSig, token rainslib.Token, deadline int64) (
-		[]msgSectionSender, bool)
-	//UpdateToken adds newToken to the token map and lets it point to the cache value pointed by
-	//oldToken. oldToken is then removed from the token map.
-	UpdateToken(oldToken, newToken rainslib.Token)
+	//AddAnswerByToken adds section to the cache entry matching token with the given deadline. It
+	//returns a pending query from the entry and true if there is a matching token in the cache. The
+	//pending queries are are not removed from the cache.
+	AddAnswerByToken(section rainslib.MessageSectionWithSig, token rainslib.Token, deadline int64) (
+		*rainslib.QuerySection, bool)
+	//GetAndRemoveByToken returns all queries waiting for a response to a query message containing
+	//token and deletes them from the cache if no other section has been added to this cache entry
+	//since section has been added by AddAnswerByToken(). Token is removed from the token map.
+	GetAndRemoveByToken(token rainslib.Token, deadline int64) []msgSectionSender
+	//UpdateToken adds newToken to the token map, lets it point to the cache value pointed by
+	//oldToken and removes oldToken from the token map if newToken is not already in the token map.
+	//It returns false if there is already an entry for newToken in the token map.
+	UpdateToken(oldToken, newToken rainslib.Token) bool
 	//RemoveExpiredValues deletes all queries of an expired entry and updates the token map if
 	//necessary. It logs which queries are removed and from which server the query has come and to
 	//which it has been sent.

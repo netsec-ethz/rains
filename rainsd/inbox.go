@@ -99,7 +99,7 @@ func processCapability(caps []rainslib.Capability, sender rainslib.ConnInfo, tok
 				sendNotificationMsg(token, sender, rainslib.NTCapHashNotKnown, capabilityHash)
 			}
 		} else {
-			connCache.AddCapabilityList(sender, &caps)
+			connCache.AddCapabilityList(sender, caps)
 			sendNotificationMsg(token, sender, rainslib.NTCapabilityAnswer, capabilityHash)
 		}
 	}
