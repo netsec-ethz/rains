@@ -86,6 +86,7 @@ func initEngine() error {
 func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
 	switch section := sectionWSSender.Section.(type) {
 	case *rainslib.AssertionSection:
+		//FIXME CFE There are new run time checks. Add Todo's for those that are not yet implemented
 		log.Debug("Start processing Assertion", "assertion", section)
 		if enoughSystemRessources {
 			if !isAssertionConsistent(section) {
@@ -508,7 +509,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		isNew := pendingQueries.Add(msgSectionSender{Section: query, Sender: sender, Token: token})
 		log.Info("Added query into to pending query cache", "query", query)
 		if isNew {
-			msg := rainslib.NewQueryMessage(query.Context, fmt.Sprintf("%s.%s", zAn.name, zAn.zone),
+			msg := rainslib.NewQueryMessage(fmt.Sprintf("%s.%s", zAn.name, zAn.zone), query.Context,
 				validUntil, query.Types, nil, tok)
 			if err := SendMessage(msg, delegate); err == nil {
 				log.Info("Sent query.", "destination", delegate, "query", msg.Content[0])

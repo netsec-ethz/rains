@@ -131,7 +131,7 @@ func TestNewQueryMessage(t *testing.T) {
 		},
 	}
 	for i, test := range tests {
-		msg := NewQueryMessage(test.context, test.name, test.expires, test.types, test.options, test.token)
+		msg := NewQueryMessage(test.name, test.context, test.expires, test.types, test.options, test.token)
 		if !reflect.DeepEqual(test.expected, msg) {
 			t.Errorf("%d: Message containing Query do not match. expected=%v actual=%v", i, test.expected, msg)
 		}

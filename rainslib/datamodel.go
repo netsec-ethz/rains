@@ -364,7 +364,7 @@ type NotificationType int
 
 const (
 	NTHeartbeat          NotificationType = 100
-	NTCapabilityAnswer   NotificationType = 398
+	NTCapabilityAnswer   NotificationType = 398 //FIXME CFE remove this type and send instead of msg with ntcapability answer just the capability
 	NTCapHashNotKnown    NotificationType = 399
 	NTBadMessage         NotificationType = 400
 	NTRcvInconsistentMsg NotificationType = 403

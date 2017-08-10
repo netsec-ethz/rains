@@ -109,7 +109,7 @@ func verify(msgSender msgSectionSender) {
 			sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTRcvInconsistentMsg, "")
 			return //already logged, that context is invalid
 		}
-		if validQuery(section.Expires) {
+		if !isQueryExpired(section.Expires) {
 			addressQuery(section, msgSender.Sender, msgSender.Token)
 		}
 	case *rainslib.QuerySection:
@@ -117,7 +117,7 @@ func verify(msgSender msgSectionSender) {
 			sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTRcvInconsistentMsg, "")
 			return //already logged, that context is invalid
 		}
-		if validQuery(section.Expires) {
+		if !isQueryExpired(section.Expires) {
 			query(section, msgSender.Sender, msgSender.Token)
 		}
 	default:
@@ -134,13 +134,13 @@ func contextInvalid(context string) bool {
 	return false
 }
 
-//validQuery returns false when the expires is in the past
-func validQuery(expires int64) bool {
+//isQueryExpired returns true if the query has expired
+func isQueryExpired(expires int64) bool {
 	if expires < time.Now().Unix() {
 		log.Info("Query expired", "expirationTime", expires, "now", time.Now().Unix())
 		return false
 	}
-	log.Info("Query is valid")
+	log.Info("Query is not expired")
 	return true
 }
 
@@ -268,44 +268,41 @@ func invalidObjectType(subjectAddr *net.IPNet, objectType rainslib.ObjectType) b
 	return true
 }
 
-//verifySignatures verifies all signatures of sectionSender.Section and strips off expired signatures.
-//If a public key is missing a query is issued for the super ordinate zone and the section is added to the pendingSignatures cache.
-//It returns false if there is no signature left on the message or when at least one public keys is missing.
+//verifySignatures verifies all signatures of sectionSender.Section and strips off expired
+//signatures. If a public key is missing a query is issued and the section is added to the pending
+//key cache. It returns false if there is no signature left on the message or when at least one
+//public keys is missing.
 func verifySignatures(sectionSender sectionWithSigSender) bool {
 	section := sectionSender.Section
 	keysNeeded := make(map[rainslib.SignatureMetaData]bool)
+	neededKeys(section, keysNeeded)
 	//FIXME CFE differentiate between zone public keys and rev zone public keys. Load from different
 	//caches, different behavior on first signature check not successful.
-	neededKeys(section, keysNeeded)
 	publicKeys, missingKeys, ok := publicKeysPresent(section.GetSubjectZone(), section.GetContext(), keysNeeded)
 	if ok {
 		log.Info("All public keys are present.", "msgSectionWithSig", section)
 		addZoneAndContextToContainedSections(section)
+		//TODO CFE look at this case!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		return validSignature(section, publicKeys)
 	}
-	log.Info("Some public keys are missing", "#missingKeys", len(missingKeys))
-	//FIXME CFE use new cache.
-	//Add section to the pendingSignatureCache.
-	/*cacheValue := pendingSignatureCacheValue{
-		sectionWSSender: sectionSender,
-		validUntil:      getQueryValidity(section.Sigs(rainslib.RainsKeySpace)),
-	}
-	ok = pendingSignatures.Add(section.GetContext(), section.GetSubjectZone(), cacheValue)
-	log.Info("Section added to the pending signature cache", "section", section)
-	//FIXME CFE distinguish between update add and error in cache. We currently only have one boolean return value...
-	if ok {
-		token := rainslib.GenerateToken()
-		msg := rainslib.NewQueryMessage(section.GetContext(), section.GetSubjectZone(),
-			cacheValue.validUntil, []rainslib.ObjectType{rainslib.OTDelegation}, nil, token)
-		SendMessage(msg, sectionSender.Sender)
-		if !activeTokens.AddToken(token, cacheValue.validUntil) {
-			log.Warn("activeTokenCache is full. Delegation query cannot be handled over the priority queue")
+	log.Info("Some public keys are missing. Add section to pending signature cache",
+		"#missingKeys", len(missingKeys), "section", section)
+	for k := range missingKeys {
+		if sendQuery := pendingKeys.Add(sectionSender, k.Algorithm, k.KeyPhase); sendQuery {
+			token := rainslib.GenerateToken()
+			//TODO CFE make expiration time configurable
+			exp := time.Now().Add(time.Second).Unix()
+			if ok := pendingKeys.AddToken(token, exp, sectionSender.Sender,
+				section.GetSubjectZone(), section.GetContext()); ok {
+				msg := rainslib.NewQueryMessage(section.GetSubjectZone(), section.GetContext(),
+					exp, []rainslib.ObjectType{rainslib.OTDelegation}, nil, token)
+				SendMessage(msg, sectionSender.Sender)
+				continue
+			}
 		}
-	} else {
-		log.Info("Already issued a delegation query for this context and zone.", "context", section.GetContext(), "zone", section.GetSubjectZone())
-	}*/
-	//FIXME CFE should we have a counter where we send a redirect query directly to the root after
-	//a configurable amount of false delegation assertions? is such behavior considered as blacklistable?
+		log.Info("Already issued a delegation query for this context and zone.",
+			"zone", section.GetSubjectZone(), "context", section.GetContext())
+	}
 	return false
 }
 
@@ -313,21 +310,21 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 func neededKeys(section rainslib.MessageSectionWithSig, keys map[rainslib.SignatureMetaData]bool) {
 	switch section := section.(type) {
 	case *rainslib.AssertionSection, *rainslib.AddressAssertionSection:
-		extractNeededKeys(section.GetSubjectZone(), section, keys)
+		extractNeededKeys(section, keys)
 	case *rainslib.ShardSection:
-		extractNeededKeys(section.GetSubjectZone(), section, keys)
+		extractNeededKeys(section, keys)
 		for _, a := range section.Content {
-			extractNeededKeys(section.GetSubjectZone(), a, keys)
+			extractNeededKeys(a, keys)
 		}
 	case *rainslib.ZoneSection:
-		extractNeededKeys(section.GetSubjectZone(), section, keys)
+		extractNeededKeys(section, keys)
 		for _, sec := range section.Content {
 			neededKeys(sec, keys)
 		}
 	case *rainslib.AddressZoneSection:
-		extractNeededKeys(section.GetSubjectZone(), section, keys)
+		extractNeededKeys(section, keys)
 		for _, a := range section.Content {
-			extractNeededKeys(section.GetSubjectZone(), a, keys)
+			extractNeededKeys(a, keys)
 		}
 	default:
 		log.Error("Not supported message section with sig. This case must be prevented beforehand")
@@ -335,7 +332,7 @@ func neededKeys(section rainslib.MessageSectionWithSig, keys map[rainslib.Signat
 }
 
 //extractNeededKeys adds all key metadata to keys which are necessary to verify all section's signatures
-func extractNeededKeys(subjectZone string, section rainslib.MessageSectionWithSig, sigData map[rainslib.SignatureMetaData]bool) {
+func extractNeededKeys(section rainslib.MessageSectionWithSig, sigData map[rainslib.SignatureMetaData]bool) {
 	for _, sig := range section.Sigs(rainslib.RainsKeySpace) {
 		sigData[sig.GetSignatureMetaData()] = true
 	}
