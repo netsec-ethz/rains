@@ -643,8 +643,9 @@ func (c *pendingQueryCacheImpl) AddToken(token rainslib.Token, expiration int64,
 }
 
 //AddAnswerByToken adds section to the cache entry matching token with the given deadline. It
-//returns a pending query from the entry and true if there is a matching token in the cache. The
-//pending queries are are not removed from the cache.
+//returns a pending query from the entry and true if there is a matching token in the cache and
+//section is not already stored for these pending queries. The pending queries are are not removed
+//from the cache.
 func (c *pendingQueryCacheImpl) AddAnswerByToken(section rainslib.MessageSectionWithSig,
 	token rainslib.Token, deadline int64) (*rainslib.QuerySection, bool) {
 	if entry, ok := c.tokenMap.Get(token.String()); ok {
@@ -665,21 +666,26 @@ func (c *pendingQueryCacheImpl) AddAnswerByToken(section rainslib.MessageSection
 //GetAndRemoveByToken returns all queries waiting for a response to a query message containing
 //token and deletes them from the cache if no other section has been added to this cache entry
 //since section has been added by AddAnswerByToken(). Token is removed from the token map.
-func (c *pendingQueryCacheImpl) GetAndRemoveByToken(token rainslib.Token, deadline int64) []msgSectionSender {
+func (c *pendingQueryCacheImpl) GetAndRemoveByToken(token rainslib.Token, deadline int64) (
+	[]msgSectionSender, []rainslib.MessageSectionWithSig) {
 	if entry, ok := c.tokenMap.Get(token.String()); ok {
 		v := entry.(*pendingQueryCacheValue)
 		v.mux.Lock()
 		defer v.mux.Unlock()
 		if v.deleted || v.deadline != deadline {
-			return nil
+			return nil, nil
 		}
 		v.deleted = true
 		c.tokenMap.Remove(token.String())
 		c.nameCtxTypesMap.Remove(v.nameCtxTypes)
 		c.counter.Sub(len(v.queries))
-		return v.queries
+		var answers []rainslib.MessageSectionWithSig
+		for _, section := range v.answers.GetAll() {
+			answers = append(answers, section.(rainslib.MessageSectionWithSig))
+		}
+		return v.queries, answers
 	}
-	return nil
+	return nil, nil
 }
 
 //UpdateToken adds newToken to the token map, lets it point to the cache value pointed by
@@ -689,6 +695,7 @@ func (c *pendingQueryCacheImpl) UpdateToken(oldToken, newToken rainslib.Token) b
 	if v, ok := c.tokenMap.Get(oldToken.String()); ok {
 		value := v.(*pendingQueryCacheValue)
 		value.mux.Lock()
+		defer value.mux.Unlock()
 		if value.deleted {
 			return true
 		}
