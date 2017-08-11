@@ -312,12 +312,12 @@ func TestPendingKeyCache(t *testing.T) {
 			t.Errorf("%d:wrong return value of ContainsToken() actual=%v", i, c.ContainsToken(tokens[1]))
 		}
 		//Check removal by token
-		v, ok := c.GetAndRemoveByToken(rainslib.GenerateToken())
-		if ok || v != nil || c.Len() != 3 {
+		v := c.GetAndRemoveByToken(rainslib.GenerateToken())
+		if v != nil || c.Len() != 3 {
 			t.Errorf("%d:Entry removed from cache with non matching token. len=%d", i, c.Len())
 		}
-		v, ok = c.GetAndRemoveByToken(tokens[0])
-		if !ok || c.Len() != 1 || len(v) != 2 || (v[0] == m[0] && v[1] != m[1] || v[0] == m[1] && v[1] != m[0] || v[0] != m[0] && v[0] != m[1]) {
+		v = c.GetAndRemoveByToken(tokens[0])
+		if c.Len() != 1 || len(v) != 2 || (v[0] == m[0] && v[1] != m[1] || v[0] == m[1] && v[1] != m[0] || v[0] != m[0] && v[0] != m[1]) {
 			t.Errorf(`%d:Token was not added to correct cacheValue by AddToken() or
 			incorrect entries are removed from cache. len=%d returnValue=%v`, i, c.Len(), v)
 		}
@@ -346,33 +346,33 @@ func TestPendingKeyCache(t *testing.T) {
 		}
 		//Check GetAndRemove()
 		//non existing elements
-		v, ok = c.GetAndRemove("none contained zone", ".", rainslib.Ed25519, 0)
-		if ok || v != nil || c.Len() != 3 {
+		v = c.GetAndRemove("none contained zone", ".", rainslib.Ed25519, 0)
+		if v != nil || c.Len() != 3 {
 			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
 		}
-		v, ok = c.GetAndRemove("ch", "non contained context", rainslib.Ed448, 0)
-		if ok || v != nil || c.Len() != 3 {
+		v = c.GetAndRemove("ch", "non contained context", rainslib.Ed448, 0)
+		if v != nil || c.Len() != 3 {
 			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
 		}
-		v, ok = c.GetAndRemove("ch", ".", rainslib.Ed448, 0)
-		if ok || v != nil || c.Len() != 3 {
+		v = c.GetAndRemove("ch", ".", rainslib.Ed448, 0)
+		if v != nil || c.Len() != 3 {
 			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
 		}
-		v, ok = c.GetAndRemove("ch", ".", rainslib.Ed25519, 2)
-		if ok || v != nil || c.Len() != 3 {
+		v = c.GetAndRemove("ch", ".", rainslib.Ed25519, 2)
+		if v != nil || c.Len() != 3 {
 			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
 		}
 		//actual remove
-		v, ok = c.GetAndRemove("ch", ".", rainslib.Ed448, 1)
-		if !ok || c.Len() != 2 || len(v) != 1 || v[0] != m[3] {
+		v = c.GetAndRemove("ch", ".", rainslib.Ed448, 1)
+		if c.Len() != 2 || len(v) != 1 || v[0] != m[3] {
 			t.Errorf("%d:GetAndRemove() wrong return values. len=%d expectedValue= %v returnValue=%v", i, c.Len(), m[3], v[0])
 		}
-		v, ok = c.GetAndRemove("ch", ".", rainslib.Ed25519, 0)
-		if !ok || c.Len() != 1 || len(v) != 1 || v[0] != m[3] {
+		v = c.GetAndRemove("ch", ".", rainslib.Ed25519, 0)
+		if c.Len() != 1 || len(v) != 1 || v[0] != m[3] {
 			t.Errorf("%d:GetAndRemove() wrong return values. len=%d expectedValue= %v returnValue=%v", i, c.Len(), m[3], v[0])
 		}
-		v, ok = c.GetAndRemove("ch", ".", rainslib.Ed25519, 1)
-		if !ok || c.Len() != 0 || len(v) != 1 || v[0] != m[2] {
+		v = c.GetAndRemove("ch", ".", rainslib.Ed25519, 1)
+		if c.Len() != 0 || len(v) != 1 || v[0] != m[2] {
 			t.Errorf("%d:GetAndRemove() wrong return values. len=%d expectedValue= %v returnValue=%v", i, c.Len(), m[2], v[0])
 		}
 		//correct cleanup of hash map keys
@@ -485,28 +485,41 @@ func TestPendingQueryCache(t *testing.T) {
 		if !ok {
 			t.Errorf("%d:wrong return value of addToken()", i)
 		}
+		//Get Query based on token
+		query, ok := c.GetQuery(rainslib.GenerateToken())
+		if ok {
+			t.Errorf("%d.0:wrong return value of GetQuery() expected=[nil false] actual=[%v %v]", i, ok, query)
+		}
+		query, ok = c.GetQuery(tokens[0])
+		if !ok || !reflect.DeepEqual(query, q0) {
+			t.Errorf("%d.1:wrong return value of GetQuery() expected=[%v false] actual=[%v %v]", i, q0, ok, query)
+		}
+		query, ok = c.GetQuery(tokens[1])
+		if !ok || !reflect.DeepEqual(query, q1) {
+			t.Errorf("%d.2:wrong return value of GetQuery() expected=[%v false] actual=[%v %v]", i, q1, ok, query)
+		}
 		//Add answers to cache entries
 		deadline := time.Now().Add(time.Second).UnixNano()
-		query, ok := c.AddAnswerByToken(a0, rainslib.GenerateToken(), deadline)
-		if ok || query != nil {
-			t.Errorf("%d.0:wrong return value of AddAnswerByToken() expected=[nil, false] actual=[%v %v]", i, query, ok)
+		ok = c.AddAnswerByToken(a0, rainslib.GenerateToken(), deadline)
+		if ok {
+			t.Errorf("%d.0:wrong return value of AddAnswerByToken() expected=false actual=%v", i, ok)
 		}
 
-		query, ok = c.AddAnswerByToken(a0, tokens[0], deadline)
-		if !ok || !reflect.DeepEqual(query, q0) {
-			t.Errorf("%d.1:wrong return value of AddAnswerByToken() query=%v ok=%v", i, query, ok)
+		ok = c.AddAnswerByToken(a0, tokens[0], deadline)
+		if !ok {
+			t.Errorf("%d.1:wrong return value of AddAnswerByToken() ok=%v", i, ok)
 		}
-		query, ok = c.AddAnswerByToken(a0, tokens[0], deadline) //same entry
-		if ok || query != nil {
-			t.Errorf("%d.2:wrong return value of AddAnswerByToken() query=%v ok=%v", i, query, ok)
+		ok = c.AddAnswerByToken(a0, tokens[0], deadline) //same entry
+		if ok {
+			t.Errorf("%d.2:wrong return value of AddAnswerByToken() ok=%v", i, ok)
 		}
-		query, ok = c.AddAnswerByToken(a1, tokens[0], deadline) //different entry
-		if !ok || !reflect.DeepEqual(query, q0) {
-			t.Errorf("%d.3:wrong return value of AddAnswerByToken() query=%v ok=%v", i, query, ok)
+		ok = c.AddAnswerByToken(a1, tokens[0], deadline) //different entry
+		if !ok {
+			t.Errorf("%d.3:wrong return value of AddAnswerByToken() ok=%v", i, ok)
 		}
-		query, ok = c.AddAnswerByToken(s0, tokens[1], deadline) //non assertions also accepted
-		if !ok || !reflect.DeepEqual(query, q1) {
-			t.Errorf("%d.4:wrong return value of AddAnswerByToken() query=%v ok=%v", i, query, ok)
+		ok = c.AddAnswerByToken(s0, tokens[1], deadline) //non assertions also accepted
+		if !ok {
+			t.Errorf("%d.4:wrong return value of AddAnswerByToken() ok=%v", i, ok)
 		}
 		//Token update
 		ok = c.UpdateToken(rainslib.GenerateToken(), rainslib.GenerateToken())

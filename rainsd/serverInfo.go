@@ -198,12 +198,12 @@ type pendingQueryCache interface {
 	//cache entry exists. False is returned if no matching cache entry exists.
 	AddToken(token rainslib.Token, expiration int64, sendTo rainslib.ConnInfo, name, context string,
 		types []rainslib.ObjectType) bool
+	//GetQuery returns true and the query stored with token in the cache if there is such an entry.
+	GetQuery(token rainslib.Token) (*rainslib.QuerySection, bool)
 	//AddAnswerByToken adds section to the cache entry matching token with the given deadline. It
-	//returns a pending query from the entry and true if there is a matching token in the cache and
-	//section is not already stored for these pending queries.. The pending queries are are not
-	//removed from the cache.
-	AddAnswerByToken(section rainslib.MessageSectionWithSig, token rainslib.Token, deadline int64) (
-		*rainslib.QuerySection, bool)
+	//returns true if there is a matching token in the cache and section is not already stored for
+	//these pending queries. The pending queries are are not removed from the cache.
+	AddAnswerByToken(section rainslib.MessageSectionWithSig, token rainslib.Token, deadline int64) bool
 	//GetAndRemoveByToken returns all queries waiting for a response to a query message containing
 	//token and deletes them from the cache if no other section has been added to this cache entry
 	//since section has been added by AddAnswerByToken(). Token is removed from the token map.

@@ -63,9 +63,9 @@
   or have already been expired. It returns if it was able to add this information.
 - it must provide a Token update function to handle the case when it receives a redirect such that
   it can issue a new query to the redirection and leave the queries in the cache.
-- it must provide a fast function that checks if an incoming section answers a pending query. A
-  section is checked based on its content and the token of the message it was contained. It returns
-  if the section is assumed to be an answer to the query or if it is meant as a delegation/redirect.
+- it must provide a function to retrieve the query based on the token with which it was sent.
+- it must provide a function to add a section based on its token as an answer to the pending query
+  cache (the cache does not check if the section actually answers the query)
 - it must provide a function that returns all queries which can be answered by a section (according
   to its content or the token of its message) in case no other section answering the same pending
   query arrived during the wait-time.

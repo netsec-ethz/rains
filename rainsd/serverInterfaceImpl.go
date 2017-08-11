@@ -645,25 +645,37 @@ func (c *pendingQueryCacheImpl) AddToken(token rainslib.Token, expiration int64,
 	return false
 }
 
+//GetQuery returns true and the query stored with token in the cache if there is such an entry.
+func (c *pendingQueryCacheImpl) GetQuery(token rainslib.Token) (*rainslib.QuerySection, bool) {
+	if entry, ok := c.tokenMap.Get(token.String()); ok {
+		v := entry.(*pendingQueryCacheValue)
+		v.mux.Lock()
+		defer v.mux.Unlock()
+		if !v.deleted {
+			return v.queries[0].Section.(*rainslib.QuerySection), true
+		}
+	}
+	return nil, false
+}
+
 //AddAnswerByToken adds section to the cache entry matching token with the given deadline. It
 //returns a pending query from the entry and true if there is a matching token in the cache and
 //section is not already stored for these pending queries. The pending queries are are not removed
 //from the cache.
 func (c *pendingQueryCacheImpl) AddAnswerByToken(section rainslib.MessageSectionWithSig,
-	token rainslib.Token, deadline int64) (*rainslib.QuerySection, bool) {
+	token rainslib.Token, deadline int64) bool {
 	if entry, ok := c.tokenMap.Get(token.String()); ok {
 		v := entry.(*pendingQueryCacheValue)
 		v.mux.Lock()
 		defer v.mux.Unlock()
-		if v.deleted {
-			return nil, false
-		}
-		v.deadline = deadline
-		if _, ok := v.answers.GetOrAdd(section.Hash(), section); ok {
-			return v.queries[0].Section.(*rainslib.QuerySection), true
+		if !v.deleted {
+			v.deadline = deadline
+			if _, ok := v.answers.GetOrAdd(section.Hash(), section); ok {
+				return true
+			}
 		}
 	}
-	return nil, false
+	return false
 }
 
 //GetAndRemoveByToken returns all queries waiting for a response to a query message containing
