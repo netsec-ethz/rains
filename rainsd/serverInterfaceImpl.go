@@ -460,13 +460,13 @@ func (c *pendingKeyCacheImpl) AddToken(token rainslib.Token, expiration int64,
 //GetAndRemove returns all sections who contain a signature matching the given parameter and
 //deletes them from the cache. It returns true if at least one section is returned. The token
 //map is updated if necessary.
-func (c *pendingKeyCacheImpl) GetAndRemove(zone, context string, algoType rainslib.SignatureAlgorithmType, phase int) ([]sectionWithSigSender, bool) {
+func (c *pendingKeyCacheImpl) GetAndRemove(zone, context string, algoType rainslib.SignatureAlgorithmType, phase int) []sectionWithSigSender {
 	if entry, ok := c.zoneCtxMap.Get(zoneCtxKey(zone, context)); ok {
 		value := entry.(*pendingKeyCacheValue)
 		value.mux.Lock()
 		defer value.mux.Unlock()
 		if value.deleted {
-			return nil, false
+			return nil
 		}
 		if set, ok := value.sections[algoPhaseKey(algoType, phase)]; ok {
 			if len(value.sections) == 1 {
@@ -480,22 +480,22 @@ func (c *pendingKeyCacheImpl) GetAndRemove(zone, context string, algoType rainsl
 			}
 			delete(value.sections, algoPhaseKey(algoType, phase))
 			c.counter.Sub(len(sectionSenders))
-			return sectionSenders, len(sectionSenders) > 0
+			return sectionSenders
 		}
 	}
-	return nil, false
+	return nil
 }
 
 //GetAndRemoveByToken returns all sections who correspond to token and deletes them from the
 //cache. It returns true if at least one section is returned. Token is removed from the token
 //map.
-func (c *pendingKeyCacheImpl) GetAndRemoveByToken(token rainslib.Token) ([]sectionWithSigSender, bool) {
+func (c *pendingKeyCacheImpl) GetAndRemoveByToken(token rainslib.Token) []sectionWithSigSender {
 	if entry, ok := c.tokenMap.Remove(token.String()); ok {
 		value := entry.(*pendingKeyCacheValue)
 		value.mux.Lock()
 		if value.deleted {
 			value.mux.Unlock()
-			return nil, false
+			return nil
 		}
 		value.deleted = true
 		c.zoneCtxMap.Remove(value.zoneCtx)
@@ -507,9 +507,9 @@ func (c *pendingKeyCacheImpl) GetAndRemoveByToken(token rainslib.Token) ([]secti
 			}
 		}
 		c.counter.Sub(len(sectionSenders))
-		return sectionSenders, len(sectionSenders) > 0
+		return sectionSenders
 	}
-	return nil, false
+	return nil
 }
 
 //ContainsToken returns true if token is in the token map.

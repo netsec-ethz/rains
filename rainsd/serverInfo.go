@@ -174,13 +174,11 @@ type pendingKeyCache interface {
 	//returned if no matching cache entry exists.
 	AddToken(token rainslib.Token, expiration int64, sendTo rainslib.ConnInfo, zone, context string) bool
 	//GetAndRemove returns all sections who contain a signature matching the given parameter and
-	//deletes them from the cache. It returns true if at least one section is returned. The token
-	//map is updated if necessary.
-	GetAndRemove(zone, context string, algoType rainslib.SignatureAlgorithmType, phase int) ([]sectionWithSigSender, bool)
+	//deletes them from the cache. The token map is updated if necessary.
+	GetAndRemove(zone, context string, algoType rainslib.SignatureAlgorithmType, phase int) []sectionWithSigSender
 	//GetAndRemoveByToken returns all sections who correspond to token and deletes them from the
-	//cache. It returns true if at least one section is returned. Token is removed from the token
-	//map.
-	GetAndRemoveByToken(token rainslib.Token) ([]sectionWithSigSender, bool)
+	//cache. Token is removed from the token map.
+	GetAndRemoveByToken(token rainslib.Token) []sectionWithSigSender
 	//ContainsToken returns true if token is in the token map.
 	ContainsToken(token rainslib.Token) bool
 	//RemoveExpiredValues deletes all sections of an expired entry and updates the token map if

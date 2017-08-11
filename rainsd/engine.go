@@ -26,122 +26,185 @@ func initEngine() {
 //it adds a section with valid signatures to the assertion/shard/zone cache. Triggers any pending queries answered by it.
 //The section's signatures MUST have already been verified and there MUST be at least one valid
 //rains signature on the message
-func assert(sectionWSSender sectionWithSigSender, isAuthoritative bool) {
-	switch section := sectionWSSender.Section.(type) {
+func assert(ss sectionWithSigSender, isAuthoritative bool) {
+	if enoughSystemRessources && sectionIsInconsistent(ss.Section) {
+		log.Warn("section is inconsistent with cached elements.", "section", ss.Section)
+		sendNotificationMsg(ss.Token, ss.Sender, rainslib.NTRcvInconsistentMsg, "")
+		return
+	}
+	addSectionToCache(ss.Section, isAuthoritative)
+	pendingKeysCallback(ss)
+	pendingQueriesCallback(ss.Token)
+	log.Info(fmt.Sprintf("Finished handling %T", ss.Section), "section", ss.Section)
+}
+
+//sectionIsInconsistent returns true if section is not consistent with cached element which are valid
+//at the same time.
+func sectionIsInconsistent(section rainslib.MessageSectionWithSig) bool {
+	//FIXME CFE There are new run time checks. Add Todo's for those that are not yet implemented
+	switch section := section.(type) {
 	case *rainslib.AssertionSection:
-		//FIXME CFE There are new run time checks. Add Todo's for those that are not yet implemented
-		log.Debug("Start processing Assertion", "assertion", section)
-		if enoughSystemRessources {
-			if !isAssertionConsistent(section) {
-				log.Warn("Assertion is inconsistent with cached elements.")
-				sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
-				return
-			}
-		}
-		log.Debug("Assertion is consistent with cached elements.")
-		ok := assertAssertion(section, isAuthoritative, sectionWSSender.Token)
-		if ok {
-			handleAssertion(section, sectionWSSender.Token)
+		return !isAssertionConsistent(section)
+	case *rainslib.ShardSection:
+		return !isShardConsistent(section)
+	case *rainslib.ZoneSection:
+		return !isZoneConsistent(section)
+	case *rainslib.AddressAssertionSection:
+		return !isAddressAssertionConsistent(section)
+	case *rainslib.AddressZoneSection:
+		return !isAddressZoneConsistent(section)
+	default:
+		log.Error("Not supported message section with sig. This case must be prevented beforehand")
+		return true
+	}
+}
+
+//sectionIsInconsistent returns true if section is not consistent with cached element which are valid
+//at the same time.
+func addSectionToCache(section rainslib.MessageSectionWithSig, isAuthoritative bool) {
+	switch section := section.(type) {
+	case *rainslib.AssertionSection:
+		if shouldAssertionBeCached(section) {
+			addAssertionToCache(section, isAuthoritative)
 		}
 	case *rainslib.ShardSection:
-		log.Debug("Start processing Shard", "shard", section)
-		if enoughSystemRessources {
-			if !isShardConsistent(section) {
-				log.Debug("Shard is inconsistent with cached elements.")
-				sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
-				return
-			}
-		}
-		log.Debug("Shard is consistent with cached elements.")
-		ok := assertShard(section, isAuthoritative, sectionWSSender.Token)
-		if ok {
-			handlePendingQueries(section, sectionWSSender.Token)
+		if shouldShardBeCached(section) {
+			addShardToCache(section, isAuthoritative)
 		}
 	case *rainslib.ZoneSection:
-		log.Debug("Start processing zone", "zone", section)
-		if enoughSystemRessources {
-			if !isZoneConsistent(section) {
-				log.Debug("Zone is inconsistent with cached elements.")
-				sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
-				return
-			}
-		}
-		log.Debug("Zone is consistent with cached elements.")
-		ok := assertZone(section, isAuthoritative, sectionWSSender.Token)
-		if ok {
-			handlePendingQueries(section, sectionWSSender.Token)
+		if shouldZoneBeCached(section) {
+			addZoneToCache(section, isAuthoritative)
 		}
 	case *rainslib.AddressAssertionSection:
-		log.Debug("Start processing address assertion", "assertion", section)
-		if enoughSystemRessources {
-			if !isAddressAssertionConsistent(section) {
-				log.Debug("Address Assertion is inconsistent with cached elements.")
-				sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
-				return
-			}
-		}
-		log.Debug("Address Assertion is consistent with cached elements.")
-		ok := assertAddressAssertion(section.Context, section, sectionWSSender.Token)
-		if ok {
-			handlePendingQueries(section, sectionWSSender.Token)
+		if shouldAddressAssertionBeCached(section) {
+			addAddressAssertionToCache(section, isAuthoritative)
 		}
 	case *rainslib.AddressZoneSection:
-		log.Debug("Start processing address zone", "zone", section)
-		if enoughSystemRessources {
-			if !isAddressZoneConsistent(section) {
-				log.Debug("Address zone is inconsistent with cached elements.")
-				sendNotificationMsg(sectionWSSender.Token, sectionWSSender.Sender, rainslib.NTBadMessage, "")
-				return
-			}
-		}
-		log.Debug("Address zone is consistent with cached elements.")
-		ok := assertAddressZone(section, sectionWSSender.Token)
-		if ok {
-			handlePendingQueries(section, sectionWSSender.Token)
+		if shouldAddressZoneBeCached(section) {
+			addAddressZoneToCache(section, isAuthoritative)
 		}
 	default:
 		log.Error("Not supported message section with sig. This case must be prevented beforehand")
 	}
-	log.Info(fmt.Sprintf("Finished handling %T", sectionWSSender.Section), "section", sectionWSSender.Section)
 }
 
-//assertAssertion adds an assertion to the assertion cache. The assertion's signatures MUST have already been verified.
-//Returns true if the assertion can be used to answer pending queries.
-func assertAssertion(a *rainslib.AssertionSection, isAuthoritative bool, token rainslib.Token) bool {
-	if shouldAssertionBeCached(a) {
-		assertionsCache.Add(a, a.ValidUntil(), isAuthoritative)
-		for i := range a.Content {
-			if a.Content[i].Type == rainslib.OTDelegation {
-				if publicKey, ok := a.Content[i].Value.(rainslib.PublicKey); ok {
-					publicKey.ValidSince = a.ValidSince()
-					publicKey.ValidUntil = a.ValidUntil()
-					ok := zoneKeyCache.Add(a, publicKey, isAuthoritative)
-					if !ok {
-						log.Warn("zoneKeyCache is getting full")
-					}
-					log.Debug("Added publicKey to cache", "publicKey", publicKey)
-				} else {
-					log.Error("Object type and value type mismatch. This case must be prevented beforehand")
-					return false
+//shouldAssertionBeCached returns true if assertion should be cached
+func shouldAssertionBeCached(assertion *rainslib.AssertionSection) bool {
+	log.Info("Assertion will be cached", "assertion", assertion)
+	//TODO CFE implement when necessary
+	return true
+}
+
+//shouldShardBeCached returns true if shard should be cached
+func shouldShardBeCached(shard *rainslib.ShardSection) bool {
+	log.Info("Shard will be cached", "shard", shard)
+	//TODO CFE implement when necessary
+	return true
+}
+
+//shouldZoneBeCached returns true if zone should be cached
+func shouldZoneBeCached(zone *rainslib.ZoneSection) bool {
+	log.Info("Zone will be cached", "zone", zone)
+	//TODO CFE implement when necessary
+	return true
+}
+
+//shouldAddressAssertionBeCached returns true if assertion should be cached
+func shouldAddressAssertionBeCached(assertion *rainslib.AddressAssertionSection) bool {
+	log.Info("Assertion will be cached", "AddressAssertion", assertion)
+	//TODO CFE implement when necessary
+	return true
+}
+
+//shouldAddressZoneBeCached returns true if zone should be cached
+func shouldAddressZoneBeCached(zone *rainslib.AddressZoneSection) bool {
+	log.Info("Zone will be cached", "AddressZone", zone)
+	//TODO CFE implement when necessary
+	return true
+}
+
+//addAssertionToCache adds a to the assertion cache and to the public key cache in case a holds a
+//public key.
+func addAssertionToCache(a *rainslib.AssertionSection, isAuthoritative bool) {
+	assertionsCache.Add(a, a.ValidUntil(), isAuthoritative)
+	log.Debug("Added assertion to cache", "assertion", *a)
+	for _, obj := range a.Content {
+		if obj.Type == rainslib.OTDelegation {
+			if publicKey, ok := obj.Value.(rainslib.PublicKey); ok {
+				publicKey.ValidSince = a.ValidSince()
+				publicKey.ValidUntil = a.ValidUntil()
+				ok := zoneKeyCache.Add(a, publicKey, isAuthoritative)
+				if !ok {
+					log.Warn("number of entries in the zoneKeyCache reached a critical amount")
 				}
-			} else if a.Content[i].Type == rainslib.OTRedirection {
-				//TODO CFE update Token in cache.
-				//special case
-				return false
+				log.Debug("Added publicKey to cache", "publicKey", publicKey)
 			} else {
-				//determine if the response is an answer for the query or an answer to a redirect.
-				//return accordingly
+				log.Error("Object type and value type mismatch. This case must be prevented beforehand")
 			}
 		}
 	}
-	if a.ValidSince() > time.Now().Unix() {
-		//assertion cannot be used to answer queries, delete all waiting for this assertion. How should we handle this case.
-		//send a redirect to root?
-		pendingQueries.GetAndRemoveByToken(token, time.Now().Unix())
-		pendingKeys.GetAndRemoveByToken(token)
-		return false
+}
+
+//addShardToCache adds shard to the negAssertion cache and all contained assertions to the
+//assertionsCache.
+func addShardToCache(shard *rainslib.ShardSection, isAuthoritative bool) {
+	negAssertionCache.AddShard(shard, shard.ValidUntil(), isAuthoritative)
+	for _, assertion := range shard.Content {
+		a := assertion.Copy(shard.Context, shard.SubjectZone)
+		addAssertionToCache(a, isAuthoritative)
 	}
-	return true
+}
+
+//addZoneToCache adds zone and all contained shards to the negAssertion cache and all contained
+//assertions to the assertionCache.
+func addZoneToCache(zone *rainslib.ZoneSection, isAuthoritative bool) {
+	negAssertionCache.AddZone(zone, zone.ValidUntil(), isAuthoritative)
+	for _, section := range zone.Content {
+		switch section := section.(type) {
+		case *rainslib.AssertionSection:
+			a := section.Copy(zone.Context, zone.SubjectZone)
+			addAssertionToCache(a, isAuthoritative)
+		case *rainslib.ShardSection:
+			s := section.Copy(zone.Context, zone.SubjectZone)
+			addShardToCache(s, isAuthoritative)
+		default:
+			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", section))
+		}
+	}
+}
+
+//addAddressAssertionToCache adds a to the addressSection cache.
+func addAddressAssertionToCache(a *rainslib.AddressAssertionSection, isAuthoritative bool) {
+	if err := getAddressCache(a.SubjectAddr, a.Context).AddAddressAssertion(a); err != nil {
+		log.Warn("Was not able to add addressAssertion to cache", "addressAssertion", a)
+	}
+}
+
+//addAddressZoneToCache adds zone and all contained addressAssertions to the addressSection cache.
+func addAddressZoneToCache(zone *rainslib.AddressZoneSection, isAuthoritative bool) {
+	if err := getAddressCache(zone.SubjectAddr, zone.Context).AddAddressZone(zone); err != nil {
+		log.Warn("Was not able to add addressZone to cache", "addressZone", zone)
+	}
+	for _, a := range zone.Content {
+		addAddressAssertionToCache(a, isAuthoritative)
+	}
+}
+
+func pendingKeysCallback(swss sectionWithSigSender) {
+	//TODO CFE also add a section to the queue when an unrelated assertion answers it
+	if sectionSenders := pendingKeys.GetAndRemoveByToken(swss.Token); len(sectionSenders) > 0 {
+		//An external service MUST check that the received response makes sense. Otherwise these
+		//sections would be in the cache as long as the sender responds in time with 'fake' answers
+		//(which results in putting these sections on the normal queue from which they are added
+		//again to the pending key cache and so forth.
+		for _, ss := range sectionSenders {
+			normalChannel <- msgSectionSender{Sender: ss.Sender, Section: ss.Section, Token: ss.Token}
+		}
+	}
+}
+
+func pendingQueriesCallback(token rainslib.Token) {
+
 }
 
 //handleAssertion triggers any pending queries answered by it. a is already in the cache
@@ -178,127 +241,6 @@ func handlePendingQueries(section rainslib.MessageSectionWithSig, token rainslib
 			}
 		}
 	}*/
-}
-
-//shouldAssertionBeCached returns true if assertion should be cached
-func shouldAssertionBeCached(assertion *rainslib.AssertionSection) bool {
-	log.Info("Assertion will be cached", "assertion", assertion)
-	//TODO CFE implement when necessary
-	return true
-}
-
-//assertShard adds a shard to the negAssertion cache and all contained assertions to the assertionsCache.
-//The shard's signatures and all contained assertion signatures MUST have already been verified
-//Returns true if the shard can be further processed.
-func assertShard(shard *rainslib.ShardSection, isAuthoritative bool, token rainslib.Token) bool {
-	if shouldShardBeCached(shard) {
-		negAssertionCache.AddShard(shard, shard.ValidUntil(), isAuthoritative)
-	}
-	for _, assertion := range shard.Content {
-		a := assertion.Copy(shard.Context, shard.SubjectZone)
-		//TODO CFE how to handle redir assertion in shard which is there for completeness vs redir meant to get further information.
-		//also call handleAssertion on all the contained assertions. (in case they are not signed, the server must answer with the whole shard)
-		assertAssertion(a, isAuthoritative, [16]byte{})
-	}
-	//shard cannot be used to answer queries if it and all contained assertions are currently not valid
-	//FIXME CFE how to handle this case? 1) delete all waiting elements for this token, 2) send a redirect? 3) redir and blacklist for sender?
-	if shard.ValidSince() > time.Now().Unix() {
-		pendingQueries.GetAndRemoveByToken(token, time.Now().Unix())
-		return false
-	}
-	return true
-}
-
-func shouldShardBeCached(shard *rainslib.ShardSection) bool {
-	log.Info("Shard will be cached", "shard", shard)
-	//TODO CFE implement when necessary
-	return true
-}
-
-//assertZone adds a zone to the negAssertion cache. It also adds all contained shards to the negAssertion cache and all contained assertions to the assertionsCache.
-//The zone's signatures and all contained shard and assertion signatures MUST have already been verified
-//Returns true if the zone can be further processed.
-func assertZone(zone *rainslib.ZoneSection, isAuthoritative bool, token rainslib.Token) bool {
-	if shouldZoneBeCached(zone) {
-		negAssertionCache.AddZone(zone, zone.ValidUntil(), isAuthoritative)
-	}
-	for _, section := range zone.Content {
-		switch section := section.(type) {
-		case *rainslib.AssertionSection:
-			a := section.Copy(zone.Context, zone.SubjectZone)
-			//TODO CFE how to handle redir assertion in shard which is there for completeness vs redir meant to get further information.
-			//also call handleAssertion on all the contained assertions. (in case they are not signed, the server must answer with the whole shard)
-			assertAssertion(a, isAuthoritative, [16]byte{})
-		case *rainslib.ShardSection:
-			//TODO CFE how to handle redir assertion in shard which is there for completeness vs redir meant to get further information.
-			//also call handleAssertion on all the contained assertions. (in case they are not signed, the server must answer with the whole shard)
-			s := section.Copy(zone.Context, zone.SubjectZone)
-			assertShard(s, isAuthoritative, [16]byte{})
-		default:
-			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", section))
-		}
-	}
-	if zone.ValidSince() > time.Now().Unix() {
-		//zone cannot be used to answer queries if it and all contained assertion and shards are currently not valid
-		//FIXME CFE how to handle this case? 1) delete all waiting elements for this token, 2) send a redirect? 3) redir and blacklist for sender?
-		pendingQueries.GetAndRemoveByToken(token, time.Now().Unix())
-		return false
-	}
-	return true
-}
-
-func shouldZoneBeCached(zone *rainslib.ZoneSection) bool {
-	log.Info("Zone will be cached", "zone", zone)
-	//TODO CFE implement when necessary
-	return true
-}
-
-//assertAddressAssertion adds an assertion to the address assertion cache. The assertion's signatures MUST have already been verified.
-//Returns true if the address assertion can be further processed.
-func assertAddressAssertion(context string, a *rainslib.AddressAssertionSection, token rainslib.Token) bool {
-	if a.ValidSince() > time.Now().Unix() {
-		//TODO CFE similar concerns to the questions for assertions
-		//pendingQueries.GetAllAndDelete(token) //assertion cannot be used to answer queries, delete all waiting for this assertion.
-		return false
-	}
-	if shouldAddressAssertionBeCached(a) {
-		if err := getAddressCache(a.SubjectAddr, context).AddAddressAssertion(a); err != nil {
-			log.Warn("Was not able to add addressAssertion to cache", "addressAssertion", a)
-		}
-	}
-	return true
-}
-
-//shouldAddressAssertionBeCached returns true if address assertion should be cached
-func shouldAddressAssertionBeCached(assertion *rainslib.AddressAssertionSection) bool {
-	log.Info("Address Assertion will be cached", "addressAssertion", assertion)
-	//TODO CFE implement when necessary
-	return true
-}
-
-//assertAdressZone adds a zone to the address negAssertion cache. It also adds all contained assertions to the address assertions cache.
-//The zone's signatures and all contained assertion signatures MUST have already been verified
-//Returns true if the zone can be further processed.
-func assertAddressZone(zone *rainslib.AddressZoneSection, token rainslib.Token) bool {
-	if zone.ValidSince() > time.Now().Unix() {
-		//TODO CFE similar concerns to the questions for shards
-		pendingQueries.GetAndRemoveByToken(token, time.Now().Unix()) //address zone cannot be used to answer queries, delete all waiting for this zone.
-		return false
-	}
-	if shouldAddressZoneBeCached(zone) {
-		getAddressCache(zone.SubjectAddr, zone.Context).AddAddressZone(zone)
-	}
-	for _, a := range zone.Content {
-		assertAddressAssertion(zone.Context, a, token)
-	}
-	return true
-}
-
-//shouldAddressZoneBeCached returns true if address zone should be cached
-func shouldAddressZoneBeCached(zone *rainslib.AddressZoneSection) bool {
-	log.Info("Address ZOne will be cached", "addressZone", zone)
-	//TODO CFE implement when necessary
-	return true
 }
 
 //addressQuery directly answers the query if the result is cached. Otherwise it issues a new query
