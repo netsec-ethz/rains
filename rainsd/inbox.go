@@ -21,9 +21,6 @@ var prioWorkers chan struct{}
 var normalWorkers chan struct{}
 var notificationWorkers chan struct{}
 
-//capabilities stores known hashes of capabilities and for each connInfo what capability the communication partner has.
-var capabilities capabilityCache
-
 func initInbox() error {
 	//init Channels
 	prioChannel = make(chan msgSectionSender, Config.PrioBufferSize)
@@ -34,9 +31,6 @@ func initInbox() error {
 	prioWorkers = make(chan struct{}, Config.PrioWorkerCount)
 	normalWorkers = make(chan struct{}, Config.NormalWorkerCount)
 	notificationWorkers = make(chan struct{}, Config.NotificationWorkerCount)
-
-	//init Capability Cache
-	capabilities = createCapabilityCache(Config.CapabilitiesCacheSize)
 
 	go workPrio()
 	go workNotification()

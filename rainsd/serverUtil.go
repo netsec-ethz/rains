@@ -30,8 +30,9 @@ func InitServer(configPath string, logLevel int) error {
 	if err := loadCert(Config.TLSCertificateFile); err != nil {
 		return err
 	}
-	initOwnCapabilities(Config.Capabilities)
 	log.Debug("Successfully loaded Certificate")
+	initOwnCapabilities(Config.Capabilities)
+	initCaches()
 	if err := initSwitchboard(); err != nil {
 		return err
 	}
@@ -44,9 +45,7 @@ func InitServer(configPath string, logLevel int) error {
 		return err
 	}
 	log.Debug("Successfully initiated verify")
-	if err := initEngine(); err != nil {
-		return err
-	}
+	initEngine()
 	log.Debug("Successfully initiated engine")
 	return nil
 }

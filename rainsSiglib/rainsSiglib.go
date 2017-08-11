@@ -8,9 +8,9 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/netsec-ethz/rains/rainslib"
-
 	log "github.com/inconshreveable/log15"
+
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 //CheckSectionSignatures verifies all signatures on the section. Expired signatures are removed.

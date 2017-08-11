@@ -9,74 +9,17 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/rainslib"
-	"github.com/netsec-ethz/rains/utils/binaryTrie"
-	"github.com/netsec-ethz/rains/utils/lruCache"
-	"github.com/netsec-ethz/rains/utils/safeCounter"
-	"github.com/netsec-ethz/rains/utils/safeHashMap"
 	"github.com/shirou/gopsutil/cpu"
 )
-
-var consistCache consistencyCache
-
-//assertionCache contains a set of valid assertions where some of them might be expired.
-//An entry is marked as extrenal if it might be evicted by a LRU caching strategy.
-var assertionsCache assertionCache
-
-//negAssertionCache contains for each zone and context an interval tree to find all shards and zones containing a specific assertion
-//for a zone the range is infinit: range "",""
-//for a shard the range is given as declared in the section.
-//An entry is marked as extrenal if it might be evicted by a LRU caching strategy.
-var negAssertionCache negativeAssertionCache
-
-//pendingQueries contains a mapping from all self issued pending queries to the set of message bodies waiting for it.
-var pendingQueries pendingQueryCache
-
-//addressCache contains a set of valid IPv4 address assertions and address zones where some of them might be expired per context.
-var addressCacheIPv4 map[string]addressSectionCache
-
-//addressCache contains a set of valid IPv6 address assertions and address zones where some of them might be expired per context.
-var addressCacheIPv6 map[string]addressSectionCache
 
 //enoughSystemRessources returns true if the server has enough resources to make consistency checks
 var enoughSystemRessources bool
 
 //initEngine initialized the engine, which processes valid sections and queries.
 //It spawns a goroutine which periodically goes through the cache and removes outdated entries, see reapEngine()
-func initEngine() error {
-	//init Caches
-	consistCache = &consistencyCacheImpl{
-		ctxZoneMap: make(map[string]*consistencyCacheValue),
-	}
-
-	assertionsCache = &assertionCacheImpl{
-		cache:                  lruCache.New(),
-		counter:                safeCounter.New(Config.AssertionCacheSize),
-		zoneMap:                safeHashMap.New(),
-		entriesPerAssertionMap: make(map[string]int),
-	}
-
-	negAssertionCache = &negativeAssertionCacheImpl{
-		cache:   lruCache.New(),
-		counter: safeCounter.New(Config.NegativeAssertionCacheSize),
-		zoneMap: safeHashMap.New(),
-	}
-
-	pendingQueries = &pendingQueryCacheImpl{
-		nameCtxTypesMap: safeHashMap.New(),
-		tokenMap:        safeHashMap.New(),
-		counter:         safeCounter.New(Config.PendingQueryCacheSize),
-	}
-
-	//FIXME CFE implement cache according to design document
-	addressCacheIPv4 = make(map[string]addressSectionCache)
-	addressCacheIPv4["."] = new(binaryTrie.TrieNode)
-	addressCacheIPv6 = make(map[string]addressSectionCache)
-	addressCacheIPv6["."] = new(binaryTrie.TrieNode)
-
+func initEngine() {
 	go reapEngine()
 	go measureSystemRessources()
-
-	return nil
 }
 
 //assert checks the consistency of the incoming section with sections in the cache.
@@ -324,23 +267,6 @@ func assertAddressAssertion(context string, a *rainslib.AddressAssertionSection,
 		}
 	}
 	return true
-}
-
-func getAddressCache(addr *net.IPNet, context string) (tree addressSectionCache) {
-	if addr.IP.To4() != nil {
-		tree = addressCacheIPv4[context]
-		if tree == nil {
-			tree = new(binaryTrie.TrieNode)
-			addressCacheIPv4[context] = tree
-		}
-	} else {
-		tree = addressCacheIPv6[context]
-		if tree == nil {
-			tree = new(binaryTrie.TrieNode)
-			addressCacheIPv6[context] = tree
-		}
-	}
-	return
 }
 
 //shouldAddressAssertionBeCached returns true if address assertion should be cached

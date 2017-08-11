@@ -610,13 +610,9 @@ func (a *AddressAssertionSection) GetContext() string {
 	return a.Context
 }
 
-//GetSubjectZone returns the zone of the shard
+//GetSubjectZone returns the SubjectAddr
 func (a *AddressAssertionSection) GetSubjectZone() string {
-	if a.Context == "." {
-		//FIXME CFE how to find out authority when delegated???
-		return "."
-	}
-	return strings.Split(a.Context, "cx-")[1]
+	return a.SubjectAddr.String()
 }
 
 //UpdateValidity updates the validity of this assertion if the validity period is extended.
@@ -740,13 +736,9 @@ func (z *AddressZoneSection) GetContext() string {
 	return z.Context
 }
 
-//GetSubjectZone returns the zone of the shard
+//GetSubjectZone returns the SubjectAddr of the zone
 func (z *AddressZoneSection) GetSubjectZone() string {
-	if z.Context == "." {
-		//FIXME CFE how to find out authority when delegated???
-		return "."
-	}
-	return strings.Split(z.Context, "cx-")[1]
+	return z.SubjectAddr.String()
 }
 
 //UpdateValidity updates the validity of this addressZone if the validity period is extended.

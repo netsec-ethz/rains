@@ -13,13 +13,8 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/rainslib"
-	"github.com/netsec-ethz/rains/utils/lruCache"
 	"github.com/netsec-ethz/rains/utils/protoParser"
-	"github.com/netsec-ethz/rains/utils/safeCounter"
 )
-
-//connCache stores connections of this server. It is not guaranteed that a returned connection is still active.
-var connCache connectionCache
 
 //cert holds the tls certificate of this server
 var cert tls.Certificate
@@ -27,11 +22,7 @@ var cert tls.Certificate
 //InitSwitchboard initializes the switchboard
 func initSwitchboard() error {
 	var err error
-	//init cache
-	connCache = &connectionCacheImpl{
-		cache:   lruCache.New(),
-		counter: safeCounter.New(Config.MaxConnections),
-	}
+
 	cert, err = tls.LoadX509KeyPair(Config.TLSCertificateFile, Config.TLSPrivateKeyFile)
 	if err != nil {
 		log.Error("Cannot load certificate. Path to CertificateFile or privateKeyFile might be invalid.", "CertPath", Config.TLSCertificateFile,

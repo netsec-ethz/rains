@@ -123,8 +123,30 @@ type capabilityCache interface {
 	Len() int
 }
 
-//zonePublicKeyCache is used to store public keys of zones and a pointer to assertions containing them.
+//zonePublicKeyCache is used to store public keys of zones and a pointer to delegation assertions
+//containing them.
 type zonePublicKeyCache interface {
+	//Add adds publicKey together with the assertion containing it to the cache. Returns false if
+	//the cache exceeds a configured (during initialization of the cache) amount of entries. If the
+	//cache is full it removes a public key according to some metric. The cache logs a message when
+	//a zone has more than a certain (configurable) amount of public keys. (An external service can
+	//then decide if it wants to blacklist a given zone). If the internal flag is set, the publicKey
+	//will only be removed after it expired.
+	Add(assertion *rainslib.AssertionSection, publicKey rainslib.PublicKey, internal bool) bool
+	//Get returns true, the assertion holding the returned public key, and a non expired public key
+	//which can be used to verify a signature with sigMetaData. It returns false if there is no
+	//valid matching public key in the cache.
+	Get(zone, context string, sigMetaData rainslib.SignatureMetaData) (
+		rainslib.PublicKey, *rainslib.AssertionSection, bool)
+	//RemoveExpiredKeys deletes all expired public keys from the cache.
+	RemoveExpiredKeys()
+	//Len returns the number of public keys currently in the cache.
+	Len() int
+}
+
+//revZonePublicKeyCache is used to store public keys of addressZones and a pointer to delegation
+//assertions containing them.
+type revZonePublicKeyCache interface {
 	//Add adds publicKey together with the assertion containing it to the cache. Returns false if
 	//the cache exceeds a configured (during initialization of the cache) amount of entries. If the
 	//cache is full it removes a public key according to some metric. The cache logs a message when

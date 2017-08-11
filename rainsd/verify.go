@@ -11,16 +11,7 @@ import (
 
 	"github.com/netsec-ethz/rains/rainsSiglib"
 	"github.com/netsec-ethz/rains/rainslib"
-	"github.com/netsec-ethz/rains/utils/lruCache"
-	"github.com/netsec-ethz/rains/utils/safeCounter"
-	"github.com/netsec-ethz/rains/utils/safeHashMap"
 )
-
-//zoneKeyCache is used to store public keys of zones and a pointer to assertions containing them
-var zoneKeyCache zonePublicKeyCache
-
-//pendingSignatures contains all sections that are waiting for a delegation query to arrive such that their signatures can be verified.
-var pendingKeys pendingKeyCache
 
 //sigEncoder is used to translate a message or section into a signable format
 var sigEncoder rainslib.SignatureFormatEncoder
@@ -28,21 +19,6 @@ var sigEncoder rainslib.SignatureFormatEncoder
 //initVerify initialized the module which is responsible for checking the validity of the signatures and the structure of the sections.
 //It spawns a goroutine which periodically goes through the cache and removes outdated entries, see reapVerify()
 func initVerify() error {
-	//init cache
-	zoneKeyCache = &zoneKeyCacheImpl{
-		cache:                lruCache.New(),
-		counter:              safeCounter.New(Config.ZoneKeyCacheSize),
-		warnSize:             Config.ZoneKeyCacheWarnSize,
-		maxPublicKeysPerZone: Config.MaxPublicKeysPerZone,
-		keysPerContextZone:   make(map[string]int),
-	}
-
-	pendingKeys = &pendingKeyCacheImpl{
-		zoneCtxMap: safeHashMap.New(),
-		tokenMap:   safeHashMap.New(),
-		counter:    safeCounter.New(Config.PendingKeyCacheSize),
-	}
-
 	err := loadRootZonePublicKey(Config.RootZonePublicKeyPath)
 	if err != nil {
 		return err
@@ -276,33 +252,13 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 	section := sectionSender.Section
 	keysNeeded := make(map[rainslib.SignatureMetaData]bool)
 	neededKeys(section, keysNeeded)
-	//FIXME CFE differentiate between zone public keys and rev zone public keys. Load from different
-	//caches, different behavior on first signature check not successful.
 	publicKeys, missingKeys, ok := publicKeysPresent(section.GetSubjectZone(), section.GetContext(), keysNeeded)
 	if ok {
 		log.Info("All public keys are present.", "msgSectionWithSig", section)
 		addZoneAndContextToContainedSections(section)
-		//TODO CFE look at this case!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		return validSignature(section, publicKeys)
 	}
-	log.Info("Some public keys are missing. Add section to pending signature cache",
-		"#missingKeys", len(missingKeys), "section", section)
-	for k := range missingKeys {
-		if sendQuery := pendingKeys.Add(sectionSender, k.Algorithm, k.KeyPhase); sendQuery {
-			token := rainslib.GenerateToken()
-			//TODO CFE make expiration time configurable
-			exp := time.Now().Add(time.Second).Unix()
-			if ok := pendingKeys.AddToken(token, exp, sectionSender.Sender,
-				section.GetSubjectZone(), section.GetContext()); ok {
-				msg := rainslib.NewQueryMessage(section.GetSubjectZone(), section.GetContext(),
-					exp, []rainslib.ObjectType{rainslib.OTDelegation}, nil, token)
-				SendMessage(msg, sectionSender.Sender)
-				continue
-			}
-		}
-		log.Info("Already issued a delegation query for this context and zone.",
-			"zone", section.GetSubjectZone(), "context", section.GetContext())
-	}
+	handleMissingKeys(sectionSender, missingKeys)
 	return false
 }
 
@@ -342,18 +298,36 @@ func extractNeededKeys(section rainslib.MessageSectionWithSig, sigData map[rains
 //It also returns the set of cached publicKeys and a set of the missing publicKey identifiers
 func publicKeysPresent(zone, context string, sigMetaData map[rainslib.SignatureMetaData]bool) (
 	map[rainslib.PublicKeyID][]rainslib.PublicKey, map[rainslib.SignatureMetaData]bool, bool) {
-
 	keys := make(map[rainslib.PublicKeyID][]rainslib.PublicKey)
 	missingKeys := make(map[rainslib.SignatureMetaData]bool)
 
-	for sigData := range sigMetaData {
-		if key, _, ok := zoneKeyCache.Get(zone, context, sigData); ok {
-			//returned public key is guaranteed to be valid
-			log.Debug("Corresponding Public key in cache.", "cacheKey=sigMetaData", sigData, "publicKey", key)
-			keys[sigData.PublicKeyID] = append(keys[sigData.PublicKeyID], key)
-		} else {
-			log.Debug("Public key not in zoneKeyCache", "zone", zone, "cacheKey=sigMetaData", sigData)
-			missingKeys[sigData] = true
+	if _, _, err := net.ParseCIDR(zone); err != nil {
+		//Assertion, Shard or Zone
+		for sigData := range sigMetaData {
+			if key, _, ok := zoneKeyCache.Get(zone, context, sigData); ok {
+				//returned public key is guaranteed to be valid
+				log.Debug("Corresponding Public key in cache.", "cacheKey=sigMetaData", sigData, "publicKey", key)
+				keys[sigData.PublicKeyID] = append(keys[sigData.PublicKeyID], key)
+			} else {
+				log.Debug("Public key not in zoneKeyCache", "zone", zone, "cacheKey=sigMetaData", sigData)
+				missingKeys[sigData] = true
+			}
+		}
+	} else {
+		//AddressAssertion, AddressZone
+		for sigData := range sigMetaData {
+			if key, _, ok := revZoneKeyCache.Get(zone, context, sigData); ok {
+				//TODO CFE the returned delegation is the most specific one (in terms of its ip
+				//address space) in the cache. If it verifies then we add it to the keys slice.
+				//Otherwise there might be a delegation to a more specific ip address space and we
+				//add it to the missingKeys slice. [Add a CheckSectionSignature function to
+				//rainsSiglib which evaluates only one (given) signature]
+				log.Debug("Corresponding Public key in cache.", "cacheKey=sigMetaData", sigData, "publicKey", key)
+				keys[sigData.PublicKeyID] = append(keys[sigData.PublicKeyID], key)
+			} else {
+				log.Debug("Public key not in zoneKeyCache", "zone", zone, "cacheKey=sigMetaData", sigData)
+				missingKeys[sigData] = true
+			}
 		}
 	}
 	return keys, missingKeys, len(missingKeys) == 0
@@ -392,6 +366,30 @@ func addZoneAndContextToContainedSections(section rainslib.MessageSectionWithSig
 		}
 	default:
 		log.Warn("Not supported message section with sig")
+	}
+}
+
+//handleMissingKeys adds sectionSender to the pending key cache and sends a delegation query if
+//necessary
+func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[rainslib.SignatureMetaData]bool) {
+	section := sectionSender.Section
+	log.Info("Some public keys are missing. Add section to pending signature cache",
+		"#missingKeys", len(missingKeys), "section", section)
+	for k := range missingKeys {
+		if sendQuery := pendingKeys.Add(sectionSender, k.Algorithm, k.KeyPhase); sendQuery {
+			token := rainslib.GenerateToken()
+			//TODO CFE make expiration time configurable
+			exp := time.Now().Add(time.Second).Unix()
+			if ok := pendingKeys.AddToken(token, exp, sectionSender.Sender,
+				section.GetSubjectZone(), section.GetContext()); ok {
+				msg := rainslib.NewQueryMessage(section.GetSubjectZone(), section.GetContext(),
+					exp, []rainslib.ObjectType{rainslib.OTDelegation}, nil, token)
+				SendMessage(msg, sectionSender.Sender)
+				continue
+			}
+		}
+		log.Info("Already issued a delegation query for this context and zone.",
+			"zone", section.GetSubjectZone(), "context", section.GetContext())
 	}
 }
 
