@@ -17,11 +17,11 @@
   change the configuration.
 - redirects from other zones are either removed because they are part of the least recently used
   zone in case the cache is full or are expired.
-- it must provide an insertion function which stores to a zone a map from redirection names to
-  objects containing IP addresses of these names, pointers to the assertions containing these
-  information, and an expiration time.
-- it must provide fast lookup of a set of IP addresses associated with redirect names for the
-  queried zone.
+- it must provide an two insertion functions. One that stores delegation or redirect names to the
+  cache and another which adds connection information to such a name together with an expiration
+  time. The assertions from which this information originates, must be logged.
+- it must provide fast lookup of a set of connection information associated with redirect/delegation
+  names for the queried zone.
 - it must provide a reap function to delete expired elements.
 - all cache operations must be safe for concurrent access
 
@@ -32,7 +32,7 @@
 - in case the cache is full all entries of the zone at the tail of the list are removed.
 - to allow fast lookup several hash maps are used. The first hash map is keyed by the subjectZone.
   The value points to a lru list node.
-- a list node contains a hash map keyed by redirection name. The value is an object containing a set
-  of IP addresses associated with the hash maps' keys, the zone and pointers to assertions from
-  which this information was taken from. (The zone value is necessary to update both hash maps when
-  an entry is removed)
+- a list node contains a hash map keyed by the connection information. The value is the expiration
+  time of the IP Assertion. It holds a lock and a deleted flag such that the reap function can
+  delete this list node from the cache in a safe way. Optionally it could store the assertions
+  containing the delegation and the IP addresses.

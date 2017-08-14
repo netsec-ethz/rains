@@ -227,8 +227,28 @@ func pendingQueriesCallback(swss sectionWithSigSender) {
 
 	}
 	//Delegation case
-	switch swss.Section.(type) {
+	switch section := swss.Section.(type) {
 	case *rainslib.AssertionSection:
+		if iterativeLookupAllowed() {
+			if rainslib.ContainsType(section.Content, rainslib.OTDelegation) ||
+				rainslib.ContainsType(section.Content, rainslib.OTRedirection) {
+				//if there is an ip address in redirCache
+				//send same query to this ip and update token in pending cache.
+				//else send IP query to returned connection, update token in pending cache.
+				return
+			}
+			if rainslib.ContainsType(section.Content, rainslib.OTIP4Addr) ||
+				rainslib.ContainsType(section.Content, rainslib.OTIP6Addr) {
+				//send same query to this ip and update token in pending cache. Add IP to redire cache.
+
+			}
+		}
+		sectionSenders, _ := pendingQueries.GetAndRemoveByToken(swss.Token, 0)
+		for _, ss := range sectionSenders {
+			sendNotificationMsg(ss.Token, ss.Sender, rainslib.NTNoAssertionAvail, "")
+			log.Warn("Was not able to use answer to query.", "query", query, "token", swss.Token,
+				"sender", swss.Sender, "section", swss.Section)
+		}
 	case *rainslib.AddressAssertionSection:
 	case *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.AddressZoneSection:
 		return //shard or zone cannot be used as a delegation answer
@@ -350,6 +370,12 @@ func sendZoneAnswer(section *rainslib.ZoneSection, query rainslib.MessageSection
 	for _, ss := range sectionSenders {
 		sendQueryAnswer(sections, ss.Sender, ss.Token)
 	}
+}
+
+//iterativeLookupAllowed returns true if iterative lookup is enabled for this server
+func iterativeLookupAllowed() bool {
+	//TODO CFE implement some policy
+	return false
 }
 
 //query directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.

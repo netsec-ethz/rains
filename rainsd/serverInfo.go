@@ -290,6 +290,23 @@ type addressSectionCache interface {
 	DeleteExpiredElements()
 }
 
+//redirectionCache can be used to lookup connection information based on a redirect or delegation
+//name.
+type redirectionCache interface {
+	//AddName adds subjectZone to the cache if it has not already been added. Otherwise it updates
+	//the expiration time in case it is larger
+	AddName(subjectZone string, expiration int64)
+	//AddConnInfo returns true and adds connInfo to subjectZone in the cache if subjectZone is
+	//already in the cache. Otherwise false is returned and connInfo is not added to the cache.
+	AddConnInfo(subjectZone string, connInfo rainslib.ConnInfo) bool
+	//GetConnInfos returns all non expired cached connection information stored to subjectZone
+	GetConnInfos(subjectZone string) []rainslib.ConnInfo
+	//DeleteExpiredElements removes all expired elements from the data structure.
+	DeleteExpiredElements()
+	//Len returns the number of elements in the cache.
+	Len() int
+}
+
 //zoneContext stores a context and a zone
 type zoneContext struct {
 	Zone    string
