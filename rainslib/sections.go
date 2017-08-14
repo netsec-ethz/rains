@@ -323,6 +323,34 @@ func (s *ShardSection) String() string {
 		s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, s.Content, s.Signatures)
 }
 
+//AssertionsByNameAndTypes returns all contained assertions with subjectName and at least one object
+//that has a type contained in types. It is assumed that the contained assertions are sorted by
+//subjectName in ascending order. The returned assertions are pairwise distinct.
+func (s *ShardSection) AssertionsByNameAndTypes(subjectName string, types []ObjectType) []*AssertionSection {
+	assertionMap := make(map[string]*AssertionSection)
+	i := sort.Search(len(s.Content), func(i int) bool { return s.Content[i].SubjectName >= subjectName })
+	for ; i < len(s.Content) && s.Content[i].SubjectName == subjectName; i++ {
+		for _, oType := range types {
+			if ContainsType(s.Content[i].Content, oType) {
+				assertionMap[s.Content[i].Hash()] = s.Content[i]
+				break
+			}
+		}
+	}
+	var assertions []*AssertionSection
+	for _, a := range assertionMap {
+		assertions = append(assertions, a)
+	}
+	return assertions
+}
+
+//InRange returns true if subjectName is inside the shard range
+func (s *ShardSection) InRange(subjectName string) bool {
+	return (s.RangeFrom == "" && s.RangeTo == "") || (s.RangeFrom == "" && s.RangeTo > subjectName) ||
+		(s.RangeTo == "" && s.RangeFrom < subjectName) ||
+		(s.RangeFrom < subjectName && s.RangeTo > subjectName)
+}
+
 //ZoneSection contains information about the zone
 type ZoneSection struct {
 	Signatures  []Signature
@@ -495,6 +523,66 @@ func (z *ZoneSection) String() string {
 		return "Zone:nil"
 	}
 	return fmt.Sprintf("Zone:[SZ=%s CTX=%s CONTENT=%v SIG=%v]", z.SubjectZone, z.Context, z.Content, z.Signatures)
+}
+
+//SectionsByNameAndTypes returns all contained assertions with subjectName and at least one object
+//that has a type contained in types together with all contained shards having subjectName in their
+//range. It is assumed that the contained sections are sorted as for signing. The returned
+//assertions and shards are pairwise distinct.
+func (z *ZoneSection) SectionsByNameAndTypes(subjectName string, types []ObjectType) (
+	[]*AssertionSection, []*ShardSection) {
+	assertionMap := make(map[string]*AssertionSection)
+	shardMap := make(map[string]*ShardSection)
+
+	//extract assertions matching subjectName
+	i := sort.Search(len(z.Content), func(i int) bool {
+		if a, ok := z.Content[i].(*AssertionSection); ok {
+			return a.SubjectName >= subjectName
+		}
+		return true
+	})
+	for ; i < len(z.Content); i++ {
+		if a, ok := z.Content[i].(*AssertionSection); ok && a.SubjectName == subjectName {
+			for _, oType := range types {
+				if ContainsType(a.Content, oType) {
+					assertionMap[a.Hash()] = a
+					break
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	//extract assertions contained in shards matching subjectName and shards having subjectName in
+	//their range.
+	i = sort.Search(len(z.Content), func(i int) bool {
+		_, ok := z.Content[i].(*ShardSection)
+		return ok
+	})
+	for ; i < len(z.Content); i++ {
+		if s, ok := z.Content[i].(*ShardSection); ok && s.RangeFrom < subjectName {
+			if s.RangeTo == "" || s.RangeTo > subjectName {
+				shardMap[s.Hash()] = s
+				answers := s.AssertionsByNameAndTypes(subjectName, types)
+				for _, a := range answers {
+					assertionMap[a.Hash()] = a
+				}
+			}
+		} else {
+			break
+		}
+	}
+
+	var assertions []*AssertionSection
+	for _, a := range assertionMap {
+		assertions = append(assertions, a)
+	}
+	var shards []*ShardSection
+	for _, s := range shardMap {
+		shards = append(shards, s)
+	}
+	return assertions, shards
 }
 
 //QuerySection contains information about the query

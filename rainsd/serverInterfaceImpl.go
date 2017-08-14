@@ -646,13 +646,13 @@ func (c *pendingQueryCacheImpl) AddToken(token rainslib.Token, expiration int64,
 }
 
 //GetQuery returns true and the query stored with token in the cache if there is such an entry.
-func (c *pendingQueryCacheImpl) GetQuery(token rainslib.Token) (*rainslib.QuerySection, bool) {
+func (c *pendingQueryCacheImpl) GetQuery(token rainslib.Token) (rainslib.MessageSection, bool) {
 	if entry, ok := c.tokenMap.Get(token.String()); ok {
 		v := entry.(*pendingQueryCacheValue)
 		v.mux.Lock()
 		defer v.mux.Unlock()
 		if !v.deleted {
-			return v.queries[0].Section.(*rainslib.QuerySection), true
+			return v.queries[0].Section, true
 		}
 	}
 	return nil, false
@@ -682,7 +682,7 @@ func (c *pendingQueryCacheImpl) AddAnswerByToken(section rainslib.MessageSection
 //token and deletes them from the cache if no other section has been added to this cache entry
 //since section has been added by AddAnswerByToken(). Token is removed from the token map.
 func (c *pendingQueryCacheImpl) GetAndRemoveByToken(token rainslib.Token, deadline int64) (
-	[]msgSectionSender, []rainslib.MessageSectionWithSig) {
+	[]msgSectionSender, []rainslib.MessageSection) {
 	if entry, ok := c.tokenMap.Get(token.String()); ok {
 		v := entry.(*pendingQueryCacheValue)
 		v.mux.Lock()
@@ -694,9 +694,9 @@ func (c *pendingQueryCacheImpl) GetAndRemoveByToken(token rainslib.Token, deadli
 		c.tokenMap.Remove(token.String())
 		c.nameCtxTypesMap.Remove(v.nameCtxTypes)
 		c.counter.Sub(len(v.queries))
-		var answers []rainslib.MessageSectionWithSig
+		var answers []rainslib.MessageSection
 		for _, section := range v.answers.GetAll() {
-			answers = append(answers, section.(rainslib.MessageSectionWithSig))
+			answers = append(answers, section.(rainslib.MessageSection))
 		}
 		return v.queries, answers
 	}

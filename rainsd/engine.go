@@ -206,8 +206,150 @@ func pendingKeysCallback(swss sectionWithSigSender) {
 
 func pendingQueriesCallback(swss sectionWithSigSender) {
 	//TODO CFE make wait time configurable
-	deadline := time.Now().Add(10 * time.Millisecond).UnixNano()
-	pendingQueries.AddAnswerByToken(swss.Section, swss.Token, deadline)
+	query, ok := pendingQueries.GetQuery(swss.Token)
+	if !ok {
+		//TODO CFE Check by content when token does not match
+		return
+	}
+	if isAnswerToQuery(swss.Section, query) {
+		switch section := swss.Section.(type) {
+		case *rainslib.AssertionSection, *rainslib.AddressAssertionSection:
+			sendAssertionAnswer(section, query, swss.Token)
+		case *rainslib.ShardSection:
+			sendShardAnswer(section, query, swss.Token)
+		case *rainslib.ZoneSection:
+			sendZoneAnswer(section, query, swss.Token)
+		case *rainslib.AddressZoneSection:
+			//TODO CFE implement if necessary
+		default:
+			log.Error("Not supported message section with sig. This case must be prevented beforehand")
+		}
+
+	}
+	//Delegation case
+	switch swss.Section.(type) {
+	case *rainslib.AssertionSection:
+	case *rainslib.AddressAssertionSection:
+	case *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.AddressZoneSection:
+		return //shard or zone cannot be used as a delegation answer
+	default:
+		log.Error("Not supported message section with sig. This case must be prevented beforehand")
+	}
+}
+
+//isAnswerToQuery returns true if section answers the query.
+func isAnswerToQuery(section rainslib.MessageSectionWithSig, query rainslib.MessageSection) bool {
+	switch section := section.(type) {
+	case *rainslib.AssertionSection:
+		if q, ok := query.(*rainslib.QuerySection); ok {
+			if q.Name == fmt.Sprintf("%s.%s", section.SubjectName, section.SubjectZone) {
+				for _, oType := range q.Types {
+					if rainslib.ContainsType(section.Content, oType) {
+						return true
+					}
+				}
+			}
+		}
+		return false
+	case *rainslib.ShardSection:
+		if q, ok := query.(*rainslib.QuerySection); ok {
+			if name, ok := getSubjectName(q.Name, section.SubjectZone); ok {
+				return section.InRange(name)
+			}
+		}
+		return false
+	case *rainslib.ZoneSection:
+		if q, ok := query.(*rainslib.QuerySection); ok {
+			if _, ok := getSubjectName(q.Name, section.SubjectZone); ok {
+				return true
+			}
+		}
+		return false
+	case *rainslib.AddressAssertionSection:
+		//TODO CFE implement the host address and network address case if delegation is a response
+		//or not.
+		_, ok := query.(*rainslib.AddressQuerySection)
+		return ok
+	case *rainslib.AddressZoneSection:
+		//TODO CFE only implement if necessary
+	default:
+		log.Error("Not supported message section with sig. This case must be prevented beforehand")
+	}
+	return true
+}
+
+//getSubjectName returns true and the subjectName of queryName if queryName's suffix is subjectZone
+//and queryName != subjectZone is zone. Otherwise an empty string and false is returned
+func getSubjectName(queryName, subjectZone string) (string, bool) {
+	if strings.HasSuffix(queryName, subjectZone) {
+		zonePoints := strings.Count(subjectZone, ".")
+		pointDiff := strings.Count(queryName, ".") - zonePoints
+		if pointDiff > 0 {
+			return strings.Join(strings.Split(queryName, ".")[:pointDiff], "."), true
+		}
+	}
+	return "", false
+}
+
+//sendAssertionAnswer sends all assertions arrived during a configurable waitTime back to all
+//pending queries waiting on token.
+func sendAssertionAnswer(section rainslib.MessageSectionWithSig, query rainslib.MessageSection, token rainslib.Token) {
+	waitTime := 10 * time.Millisecond
+	deadline := time.Now().Add(waitTime).UnixNano()
+	pendingQueries.AddAnswerByToken(section, token, deadline)
+	time.Sleep(waitTime)
+	sectionSenders, answers := pendingQueries.GetAndRemoveByToken(token, deadline)
+	for _, ss := range sectionSenders {
+		sendQueryAnswer(answers, ss.Sender, ss.Token)
+	}
+}
+
+//sendShardAnswer sends either section or contained assertions answering query back to all pending
+//queries waiting on token.
+func sendShardAnswer(section *rainslib.ShardSection, query rainslib.MessageSection, token rainslib.Token) {
+	name, _ := getSubjectName(query.(*rainslib.QuerySection).Name, section.SubjectZone)
+	answers := section.AssertionsByNameAndTypes(name, query.(*rainslib.QuerySection).Types)
+	sectionSenders, _ := pendingQueries.GetAndRemoveByToken(token, 0)
+	var sections []rainslib.MessageSection
+	if len(answers) > 0 {
+		sections = make([]rainslib.MessageSection, len(answers))
+		for i := 0; i < len(answers); i++ {
+			sections[i] = answers[i]
+		}
+	} else {
+		sections = append(sections, section)
+	}
+	for _, ss := range sectionSenders {
+		sendQueryAnswer(sections, ss.Sender, ss.Token)
+	}
+}
+
+//sendZoneAnswer sends either section or contained assertions or shards answering query back to all
+//pending queries waiting on token.
+func sendZoneAnswer(section *rainslib.ZoneSection, query rainslib.MessageSection, token rainslib.Token) {
+	name, _ := getSubjectName(query.(*rainslib.QuerySection).Name, section.SubjectZone)
+	assertions, shards := section.SectionsByNameAndTypes(name, query.(*rainslib.QuerySection).Types)
+	sectionSenders, _ := pendingQueries.GetAndRemoveByToken(token, 0)
+	var sections []rainslib.MessageSection
+	if len(assertions) > 0 {
+		sections = make([]rainslib.MessageSection, len(assertions))
+		for i := 0; i < len(assertions); i++ {
+			sections[i] = assertions[i]
+		}
+	} else if len(shards) > 0 {
+		shortestShard := shards[0]
+		for _, s := range shards {
+			if len(s.Content) < len(shortestShard.Content) {
+				shortestShard = s
+			}
+		}
+		sections = append(sections, shortestShard)
+	} else {
+		sections = append(sections, section)
+	}
+	for _, ss := range sectionSenders {
+		sendQueryAnswer(sections, ss.Sender, ss.Token)
+	}
 }
 
 //query directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.

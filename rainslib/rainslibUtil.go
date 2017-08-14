@@ -141,3 +141,13 @@ func NewNotificationMessage(token Token, t NotificationType, data string) RainsM
 	msg, _ := NewNotificationsMessage([]Token{token}, []NotificationType{t}, []string{data})
 	return msg
 }
+
+//ContainsType returns true if objects contains an object with type oType
+func ContainsType(objects []Object, oType ObjectType) bool {
+	for _, o := range objects {
+		if o.Type == oType {
+			return true
+		}
+	}
+	return false
+}
