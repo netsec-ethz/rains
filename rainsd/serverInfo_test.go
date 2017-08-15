@@ -894,6 +894,127 @@ func TestConsistencyCache(t *testing.T) {
 	}
 }
 
+func TestRedirectionCache(t *testing.T) {
+	tcpAddr0, _ := net.ResolveTCPAddr("tcp", "192.0.2.0:80")
+	tcpAddr1, _ := net.ResolveTCPAddr("tcp", "192.0.2.0:443")
+	connInfo0 := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr0}
+	connInfo1 := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr1}
+	exp := time.Now().Add(time.Hour).Unix()
+	var tests = []struct {
+		input redirectionCache
+	}{
+		{&redirectionCacheImpl{nameConnMap: lruCache.New(), counter: safeCounter.New(5),
+			warnSize: 1},
+		},
+	}
+	for i, test := range tests {
+		c := test.input
+		if c.Len() != 0 {
+			t.Errorf("%d:init size is incorrect actual=%d", i, c.Len())
+		}
+		//Add redirect/delegation name
+		c.AddName("example.com", exp, false)
+		c.AddName("example2.com", exp, false)
+		c.AddName("example.net", exp, true)
+		if c.Len() != 0 {
+			t.Errorf("%d:wrong count expected=0 actual=%d", i, c.Len())
+		}
+		//Add Connection info
+		ok := c.AddConnInfo("example.com", connInfo0, exp)
+		if c.Len() != 1 || !ok {
+			t.Errorf("%d.0:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
+		}
+		ok = c.AddConnInfo("example.com", connInfo0, exp)
+		if c.Len() != 1 || !ok {
+			t.Errorf("%d.1: element two times in set or return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
+		}
+		ok = c.AddConnInfo("example2.com", connInfo0, exp)
+		if c.Len() != 2 || !ok {
+			t.Errorf("%d.2:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
+		}
+		ok = c.AddConnInfo("example.com", connInfo1, exp) //warning must be logged
+		if c.Len() != 3 || !ok {
+			t.Errorf("%d.3:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
+		}
+		ok = c.AddConnInfo("example.net", connInfo0, exp)
+		if c.Len() != 4 || !ok {
+			t.Errorf("%d.4:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
+		}
+		//lru removal only when element added
+		ok = c.AddConnInfo("example.net", connInfo0, exp)
+		if c.Len() != 4 || !ok {
+			t.Errorf("%d.5:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
+		}
+		ok = c.AddConnInfo("example.net", connInfo1, time.Now().Add(-1*time.Second).Unix())
+		if c.Len() != 4 || !ok {
+			t.Errorf("%d.6:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
+		}
+		//example.com must still be in the cache while example2.com must have been removed.
+		//GetConnInfo
+		conns := c.GetConnsInfo("example2.com")
+		if conns != nil {
+			t.Errorf("%d.0:return of connInfo of non existing name. expected=<nil> actual=%v", i, conns)
+		}
+		conns = c.GetConnsInfo("example.com")
+		if len(conns) != 2 || conns[0] == connInfo0 && conns[1] != connInfo1 ||
+			conns[0] == connInfo1 && conns[1] != connInfo0 || conns[0] != connInfo0 && conns[0] != connInfo1 {
+			t.Errorf("%d.1:return of connInfo wrong. actual=%v", i, conns)
+		}
+		conns = c.GetConnsInfo("test.example.net")
+		if len(conns) != 1 || conns[0] != connInfo0 {
+			t.Errorf("%d.1:return of connInfo wrong. actual=%v", i, conns)
+		}
+		//expired name
+		c.AddName("example3.com", time.Now().Add(-1*time.Second).Unix(), false)
+		conns = c.GetConnsInfo("test.example3.com")
+		if conns != nil {
+			t.Errorf("%d.0:return of connInfo of expired name. expected=<nil> actual=%v", i, conns)
+		}
+		c.RemoveExpiredValues()
+		ok = c.AddConnInfo("example3.com", connInfo0, exp)
+		if c.Len() != 3 || ok {
+			t.Errorf("%d.7:return value of AddConnInfo wrong. expected=false actual=%v length=%d", i, ok, c.Len())
+		}
+		//test that expiration is updated on AddName (otherwise it gets removed by RemoveExpiredValues())
+		c.AddName("example3.com", time.Now().Add(-1*time.Second).Unix(), false)
+		c.AddName("example3.com", exp, false)
+		ok = c.AddConnInfo("example3.com", connInfo0, exp)
+		c.RemoveExpiredValues()
+		ok = c.AddConnInfo("example3.com", connInfo0, exp)
+		if c.Len() != 4 || !ok {
+			t.Errorf("%d.8:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
+		}
+		//Remove expired connInfo and also name from the lru mapping because there is no connInfo left
+		c.AddName("example2.com", exp, false)
+		ok = c.AddConnInfo("example2.com", connInfo0, time.Now().Add(-1*time.Second).Unix())
+		if c.Len() != 3 || !ok { //two example3 connInfo are removed through lru and one example2 is added
+			t.Errorf("%d.9:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
+		}
+		c.RemoveExpiredValues()
+		ok = c.AddConnInfo("example2.com", connInfo0, exp)
+		if c.Len() != 2 || ok { //two example.net connInfo are in the cache. Example2 name was removed
+			//so AddConnInfo is not able to add an entry
+			t.Errorf("%d.10:return value of AddConnInfo wrong. expected=false actual=%v length=%d", i, ok, c.Len())
+		}
+
+		//check that the expiration value of a connInfo is updated
+		c.AddName("example2.com", exp, false)
+		ok = c.AddConnInfo("example2.com", connInfo0, time.Now().Add(-1*time.Second).Unix())
+		if c.Len() != 3 || !ok {
+			t.Errorf("%d.11:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
+		}
+		ok = c.AddConnInfo("example2.com", connInfo0, exp) //update expiration value
+		if c.Len() != 3 || !ok {
+			t.Errorf("%d.12:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
+		}
+		c.RemoveExpiredValues()
+		ok = c.AddConnInfo("example2.com", connInfo1, exp)
+		if c.Len() != 4 || !ok {
+			t.Errorf("%d.13:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
+		}
+	}
+}
+
 func TestNameCtxTypesKey(t *testing.T) {
 	var tests = []struct {
 		name    string

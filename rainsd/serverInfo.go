@@ -295,14 +295,15 @@ type addressSectionCache interface {
 type redirectionCache interface {
 	//AddName adds subjectZone to the cache if it has not already been added. Otherwise it updates
 	//the expiration time in case it is larger
-	AddName(subjectZone string, expiration int64)
+	AddName(subjectZone string, expiration int64, internal bool)
 	//AddConnInfo returns true and adds connInfo to subjectZone in the cache if subjectZone is
 	//already in the cache. Otherwise false is returned and connInfo is not added to the cache.
-	AddConnInfo(subjectZone string, connInfo rainslib.ConnInfo) bool
-	//GetConnInfos returns all non expired cached connection information stored to subjectZone
-	GetConnInfos(subjectZone string) []rainslib.ConnInfo
-	//DeleteExpiredElements removes all expired elements from the data structure.
-	DeleteExpiredElements()
+	AddConnInfo(subjectZone string, connInfo rainslib.ConnInfo, expiration int64) bool
+	//GetConnInfos returns all non expired cached connection information stored to subjectZone. If
+	//no entry is found the superordinate zones are tried until an entry is found.
+	GetConnsInfo(subjectZone string) []rainslib.ConnInfo
+	//RemoveExpiredValues removes all expired elements from the data structure.
+	RemoveExpiredValues()
 	//Len returns the number of elements in the cache.
 	Len() int
 }

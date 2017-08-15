@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -1210,4 +1211,154 @@ func (c *consistencyCacheImpl) Remove(section rainslib.MessageSectionWithSigForw
 		//until the operation on this cache is done or the remove function spins on this value with
 		//exponential backoff.
 	}
+}
+
+type redirectionCacheValue struct {
+	mux sync.Mutex
+	//sections is a hash map from algoType and phase to a hash map keyed by section.Hash and
+	//pointing to sectionWithSigSender in which section is contained
+	connInfo map[rainslib.ConnInfo]int64
+	//name of the delegation or redirect assertion
+	name string
+	//expiration is the time when the delegation or redirect assertion expires in unix time
+	expiration int64
+	//set to true if the pointer to this element is removed from both hash maps
+	deleted bool
+}
+
+//redirectionCache can be used to lookup connection information based on a redirect or delegation
+//name.
+type redirectionCacheImpl struct {
+	//nameConnMap is a lru cache from delegation/redirect name to *redirectionCacheValue safe for
+	//concurrent use
+	nameConnMap *lruCache.Cache
+	//counter holds the number of queries stored in the cache
+	counter *safeCounter.Counter
+	//warnSize is the amount of connInfo that can be stored to a name before warnings are logged
+	warnSize int
+}
+
+//AddName adds subjectZone to the cache if it has not already been added. Otherwise it updates
+//the expiration time in case it is larger
+func (c *redirectionCacheImpl) AddName(subjectZone string, expiration int64, internal bool) {
+	value := &redirectionCacheValue{name: subjectZone, expiration: expiration,
+		connInfo: make(map[rainslib.ConnInfo]int64)}
+	if entry, ok := c.nameConnMap.GetOrAdd(subjectZone, value, internal); !ok {
+		v := entry.(*redirectionCacheValue)
+		v.mux.Lock()
+		if v.deleted {
+			v.mux.Unlock()
+			c.AddName(subjectZone, expiration, internal)
+		}
+		if v.expiration < expiration {
+			v.expiration = expiration
+		}
+		v.mux.Unlock()
+	}
+}
+
+//AddConnInfo returns true and adds connInfo to subjectZone in the cache if subjectZone is
+//already in the cache. Otherwise false is returned and connInfo is not added to the cache.
+//if the cache is full
+func (c *redirectionCacheImpl) AddConnInfo(subjectZone string, connInfo rainslib.ConnInfo,
+	expiration int64) bool {
+	if entry, ok := c.nameConnMap.Get(subjectZone); ok {
+		v := entry.(*redirectionCacheValue)
+		v.mux.Lock()
+		defer v.mux.Unlock()
+		if v.deleted {
+			return false
+		}
+		if exp, ok := v.connInfo[connInfo]; ok {
+			if exp < expiration {
+				v.connInfo[connInfo] = expiration
+			}
+		} else {
+			v.connInfo[connInfo] = expiration
+			if c.counter.Inc() {
+				redirectCacheLruRemoval(c)
+			}
+			if len(v.connInfo) > c.warnSize {
+				log.Warn("There are too many connInformation for a delegation/redirect name",
+					"name", subjectZone, "allowed", c.warnSize, "actual", len(v.connInfo))
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func redirectCacheLruRemoval(c *redirectionCacheImpl) {
+	key, e := c.nameConnMap.GetLeastRecentlyUsed()
+	v := e.(*redirectionCacheValue)
+	v.mux.Lock()
+	if v.deleted {
+		v.mux.Unlock()
+		redirectCacheLruRemoval(c)
+	}
+	v.deleted = true
+	c.nameConnMap.Remove(key)
+	v.mux.Unlock()
+	c.counter.Sub(len(v.connInfo))
+}
+
+//GetConnInfos returns all non expired cached connection information stored to subjectZone If
+//no entry is found the superordinate zones are tried until an entry is found.
+func (c *redirectionCacheImpl) GetConnsInfo(subjectZone string) []rainslib.ConnInfo {
+	for subjectZone != "" {
+		if entry, ok := c.nameConnMap.Get(subjectZone); ok {
+			v := entry.(*redirectionCacheValue)
+			v.mux.Lock()
+			if !v.deleted && v.expiration >= time.Now().Unix() {
+				var conns []rainslib.ConnInfo
+				for conn, exp := range v.connInfo {
+					if exp >= time.Now().Unix() {
+						conns = append(conns, conn)
+					}
+				}
+				v.mux.Unlock()
+				return conns
+			}
+			v.mux.Unlock()
+		}
+		if strings.Contains(subjectZone, ".") {
+			i := strings.Index(subjectZone, ".")
+			subjectZone = subjectZone[i+1:]
+		} else {
+			subjectZone = "."
+		}
+	}
+	return nil
+}
+
+//RemoveExpiredValues removes all expired elements from the data structure.
+func (c *redirectionCacheImpl) RemoveExpiredValues() {
+	for _, e := range c.nameConnMap.GetAll() {
+		v := e.(*redirectionCacheValue)
+		v.mux.Lock()
+		if v.deleted {
+			//continue
+		} else if v.expiration < time.Now().Unix() {
+			v.deleted = true
+			c.counter.Sub(len(v.connInfo))
+			c.nameConnMap.Remove(v.name)
+		} else {
+			for conn, exp := range v.connInfo {
+				if exp < time.Now().Unix() {
+					delete(v.connInfo, conn)
+					c.counter.Dec()
+				}
+			}
+			if len(v.connInfo) == 0 {
+				v.deleted = true
+				c.nameConnMap.Remove(v.name)
+			}
+		}
+		v.mux.Unlock()
+	}
+}
+
+//Len returns the number of elements in the cache.
+func (c *redirectionCacheImpl) Len() int {
+	return c.counter.Value()
 }
