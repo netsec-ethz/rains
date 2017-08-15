@@ -42,6 +42,9 @@ var negAssertionCache negativeAssertionCache
 //consistencyCache allows to do fast consistency checks.
 var consistCache consistencyCache
 
+//redirectCache allows fast retrieval of connection information for a given subjectZone
+var redirectCache redirectionCache
+
 //addressCache contains a set of valid IPv4 address assertions and address zones where some of them might be expired per context.
 var addressCacheIPv4 map[string]addressSectionCache
 
@@ -91,6 +94,12 @@ func initCaches() {
 
 	consistCache = &consistencyCacheImpl{
 		ctxZoneMap: make(map[string]*consistencyCacheValue),
+	}
+
+	redirectCache = &redirectionCacheImpl{
+		nameConnMap: lruCache.New(),
+		counter:     safeCounter.New(Config.RedirectionCacheSize),
+		warnSize:    Config.RedirectionCacheWarnSize,
 	}
 
 	//FIXME CFE implement cache according to design document

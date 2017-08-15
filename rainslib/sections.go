@@ -331,7 +331,7 @@ func (s *ShardSection) AssertionsByNameAndTypes(subjectName string, types []Obje
 	i := sort.Search(len(s.Content), func(i int) bool { return s.Content[i].SubjectName >= subjectName })
 	for ; i < len(s.Content) && s.Content[i].SubjectName == subjectName; i++ {
 		for _, oType := range types {
-			if ContainsType(s.Content[i].Content, oType) {
+			if _, ok := ContainsType(s.Content[i].Content, oType); ok {
 				assertionMap[s.Content[i].Hash()] = s.Content[i]
 				break
 			}
@@ -544,7 +544,7 @@ func (z *ZoneSection) SectionsByNameAndTypes(subjectName string, types []ObjectT
 	for ; i < len(z.Content); i++ {
 		if a, ok := z.Content[i].(*AssertionSection); ok && a.SubjectName == subjectName {
 			for _, oType := range types {
-				if ContainsType(a.Content, oType) {
+				if _, ok := ContainsType(a.Content, oType); ok {
 					assertionMap[a.Hash()] = a
 					break
 				}

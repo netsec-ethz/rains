@@ -229,18 +229,30 @@ func pendingQueriesCallback(swss sectionWithSigSender) {
 	//Delegation case
 	switch section := swss.Section.(type) {
 	case *rainslib.AssertionSection:
+		zoneAndName := fmt.Sprintf("%s.%s", section.SubjectName, section.SubjectZone)
 		if iterativeLookupAllowed() {
-			if rainslib.ContainsType(section.Content, rainslib.OTDelegation) ||
-				rainslib.ContainsType(section.Content, rainslib.OTRedirection) {
-				//if there is an ip address in redirCache
-				//send same query to this ip and update token in pending cache.
-				//else send IP query to returned connection, update token in pending cache.
-				return
+			if _, ok := rainslib.ContainsType(section.Content, rainslib.OTDelegation); ok {
+				if sendToRedirect(zoneAndName, section.Context, swss.Token, query) {
+					return
+				}
 			}
-			if rainslib.ContainsType(section.Content, rainslib.OTIP4Addr) ||
-				rainslib.ContainsType(section.Content, rainslib.OTIP6Addr) {
-				//send same query to this ip and update token in pending cache. Add IP to redire cache.
-
+			if o, ok := rainslib.ContainsType(section.Content, rainslib.OTRedirection); ok {
+				redirectCache.GetConnsInfo(o.Value.(string))
+				if sendToRedirect(zoneAndName, section.Context, swss.Token, query) {
+					return
+				}
+			}
+			if o, ok := rainslib.ContainsType(section.Content, rainslib.OTIP6Addr); ok {
+				//TODO make a configurable upper bound for valid until before adding connInfo to cache
+				if resendPendingQuery(query, swss.Token, zoneAndName, o.Value.(string), section.ValidUntil()) {
+					return
+				}
+			}
+			if o, ok := rainslib.ContainsType(section.Content, rainslib.OTIP4Addr); ok {
+				//TODO make a configurable upper bound for valid until before adding connInfo to cache
+				if resendPendingQuery(query, swss.Token, zoneAndName, o.Value.(string), section.ValidUntil()) {
+					return
+				}
 			}
 		}
 		sectionSenders, _ := pendingQueries.GetAndRemoveByToken(swss.Token, 0)
@@ -264,7 +276,7 @@ func isAnswerToQuery(section rainslib.MessageSectionWithSig, query rainslib.Mess
 		if q, ok := query.(*rainslib.QuerySection); ok {
 			if q.Name == fmt.Sprintf("%s.%s", section.SubjectName, section.SubjectZone) {
 				for _, oType := range q.Types {
-					if rainslib.ContainsType(section.Content, oType) {
+					if _, ok := rainslib.ContainsType(section.Content, oType); ok {
 						return true
 					}
 				}
@@ -370,6 +382,75 @@ func sendZoneAnswer(section *rainslib.ZoneSection, query rainslib.MessageSection
 	for _, ss := range sectionSenders {
 		sendQueryAnswer(sections, ss.Sender, ss.Token)
 	}
+}
+
+//sendToRedirect looks up connection information by name in the redirectCache and sends query to it.
+//In case there is no connection information stored for name an IP query is sent to a super ordinate
+//zone. It then updates token in the redirect cache to the token of the newly sent query.
+//Return true if it was able to send a query and update the token
+func sendToRedirect(name, context string, token rainslib.Token, query rainslib.MessageSection) bool {
+	//TODO CFE policy to pick connInfo
+	if conns := redirectCache.GetConnsInfo(name); len(conns) > 0 {
+		tok := rainslib.GenerateToken()
+		if pendingQueries.UpdateToken(token, tok) {
+			SendMessage(rainslib.RainsMessage{
+				Content: []rainslib.MessageSection{query},
+				Token:   tok,
+			}, conns[0])
+			return true
+		}
+		return false
+	}
+	redirectName := name
+	for name != "" {
+		if strings.Contains(name, ".") {
+			i := strings.Index(name, ".")
+			name = name[i+1:]
+		} else {
+			name = "."
+		}
+		if conns := redirectCache.GetConnsInfo(name); len(conns) > 0 {
+			tok := rainslib.GenerateToken()
+			if pendingQueries.UpdateToken(token, tok) {
+				//TODO CFE make expiration time configurable
+				SendMessage(
+					rainslib.NewQueryMessage(
+						redirectName,
+						context,
+						time.Now().Add(time.Second).Unix(),
+						[]rainslib.ObjectType{rainslib.OTIP6Addr, rainslib.OTIP4Addr},
+						nil,
+						tok),
+					conns[0])
+				return true
+			}
+			return false
+		}
+	}
+	return false
+}
+
+//resendPendingQuery resends query to a connInfo retrieved from the redirectCache based on name.
+//Token is updated in the cache. ipAddr is the response to a IP query with token. True is returned
+//if the token could have been updated in the cache and the new query is sent out.
+func resendPendingQuery(query rainslib.MessageSection, token rainslib.Token, name, ipAddr string,
+	expiration int64) bool {
+	//TODO CFE which port to choose?
+	if tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%v:%d", ipAddr, 5022)); err != nil {
+		connInfo := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr}
+		if redirectCache.AddConnInfo(name, connInfo, expiration) {
+			tok := rainslib.GenerateToken()
+			if pendingQueries.UpdateToken(token, tok) {
+				SendMessage(rainslib.RainsMessage{
+					Content: []rainslib.MessageSection{query},
+					Token:   tok,
+				}, connInfo)
+				return true
+			}
+		}
+		//No redirect/delegation for connInfo in cache, send notification back to senders.
+	}
+	return false
 }
 
 //iterativeLookupAllowed returns true if iterative lookup is enabled for this server

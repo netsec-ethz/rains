@@ -960,7 +960,7 @@ func TestRedirectionCache(t *testing.T) {
 			conns[0] == connInfo1 && conns[1] != connInfo0 || conns[0] != connInfo0 && conns[0] != connInfo1 {
 			t.Errorf("%d.1:return of connInfo wrong. actual=%v", i, conns)
 		}
-		conns = c.GetConnsInfo("test.example.net")
+		conns = c.GetConnsInfo("example.net")
 		if len(conns) != 1 || conns[0] != connInfo0 {
 			t.Errorf("%d.1:return of connInfo wrong. actual=%v", i, conns)
 		}

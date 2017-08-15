@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -1302,31 +1301,22 @@ func redirectCacheLruRemoval(c *redirectionCacheImpl) {
 	c.counter.Sub(len(v.connInfo))
 }
 
-//GetConnInfos returns all non expired cached connection information stored to subjectZone If
-//no entry is found the superordinate zones are tried until an entry is found.
+//GetConnInfos returns all non expired cached connection information stored to subjectZone
 func (c *redirectionCacheImpl) GetConnsInfo(subjectZone string) []rainslib.ConnInfo {
-	for subjectZone != "" {
-		if entry, ok := c.nameConnMap.Get(subjectZone); ok {
-			v := entry.(*redirectionCacheValue)
-			v.mux.Lock()
-			if !v.deleted && v.expiration >= time.Now().Unix() {
-				var conns []rainslib.ConnInfo
-				for conn, exp := range v.connInfo {
-					if exp >= time.Now().Unix() {
-						conns = append(conns, conn)
-					}
+	if entry, ok := c.nameConnMap.Get(subjectZone); ok {
+		v := entry.(*redirectionCacheValue)
+		v.mux.Lock()
+		if !v.deleted && v.expiration >= time.Now().Unix() {
+			var conns []rainslib.ConnInfo
+			for conn, exp := range v.connInfo {
+				if exp >= time.Now().Unix() {
+					conns = append(conns, conn)
 				}
-				v.mux.Unlock()
-				return conns
 			}
 			v.mux.Unlock()
+			return conns
 		}
-		if strings.Contains(subjectZone, ".") {
-			i := strings.Index(subjectZone, ".")
-			subjectZone = subjectZone[i+1:]
-		} else {
-			subjectZone = "."
-		}
+		v.mux.Unlock()
 	}
 	return nil
 }

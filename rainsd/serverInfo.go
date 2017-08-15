@@ -63,6 +63,8 @@ type rainsdConfig struct {
 	AssertionCacheSize         int
 	NegativeAssertionCacheSize int
 	PendingQueryCacheSize      int
+	RedirectionCacheSize       int
+	RedirectionCacheWarnSize   int
 	QueryValidity              time.Duration //in seconds
 	AddressQueryValidity       time.Duration //in seconds
 	ContextAuthority           []string
@@ -299,8 +301,7 @@ type redirectionCache interface {
 	//AddConnInfo returns true and adds connInfo to subjectZone in the cache if subjectZone is
 	//already in the cache. Otherwise false is returned and connInfo is not added to the cache.
 	AddConnInfo(subjectZone string, connInfo rainslib.ConnInfo, expiration int64) bool
-	//GetConnInfos returns all non expired cached connection information stored to subjectZone. If
-	//no entry is found the superordinate zones are tried until an entry is found.
+	//GetConnInfos returns all non expired cached connection information stored to subjectZone.
 	GetConnsInfo(subjectZone string) []rainslib.ConnInfo
 	//RemoveExpiredValues removes all expired elements from the data structure.
 	RemoveExpiredValues()
