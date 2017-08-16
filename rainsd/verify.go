@@ -384,7 +384,10 @@ func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[rains
 				section.GetSubjectZone(), section.GetContext()); ok {
 				msg := rainslib.NewQueryMessage(section.GetSubjectZone(), section.GetContext(),
 					exp, []rainslib.ObjectType{rainslib.OTDelegation}, nil, token)
-				SendMessage(msg, sectionSender.Sender)
+				//TODO CFE make this configurable, remove hard coding
+				//SendMessage(msg, sectionSender.Sender)
+				tcpAddr, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:5023")
+				SendMessage(msg, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
 				continue
 			}
 		}
