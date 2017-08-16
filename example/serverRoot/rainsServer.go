@@ -3,9 +3,9 @@ package main
 import (
 	"flag"
 
-	"github.com/netsec-ethz/rains/rainsd"
-
 	log "github.com/inconshreveable/log15"
+
+	"github.com/netsec-ethz/rains/rainsd"
 )
 
 const (

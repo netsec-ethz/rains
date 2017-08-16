@@ -150,9 +150,12 @@ func addAssertionToCache(a *rainslib.AssertionSection, isAuthoritative bool) {
 //assertionsCache.
 func addShardToCache(shard *rainslib.ShardSection, isAuthoritative bool) {
 	negAssertionCache.AddShard(shard, shard.ValidUntil(), isAuthoritative)
+	log.Debug("Added shard to cache", "shard", *shard)
 	for _, assertion := range shard.Content {
-		a := assertion.Copy(shard.Context, shard.SubjectZone)
-		addAssertionToCache(a, isAuthoritative)
+		if shouldAssertionBeCached(assertion) {
+			a := assertion.Copy(shard.Context, shard.SubjectZone)
+			addAssertionToCache(a, isAuthoritative)
+		}
 	}
 }
 
@@ -160,14 +163,19 @@ func addShardToCache(shard *rainslib.ShardSection, isAuthoritative bool) {
 //assertions to the assertionCache.
 func addZoneToCache(zone *rainslib.ZoneSection, isAuthoritative bool) {
 	negAssertionCache.AddZone(zone, zone.ValidUntil(), isAuthoritative)
+	log.Debug("Added zone to cache", "zone", *zone)
 	for _, section := range zone.Content {
 		switch section := section.(type) {
 		case *rainslib.AssertionSection:
-			a := section.Copy(zone.Context, zone.SubjectZone)
-			addAssertionToCache(a, isAuthoritative)
+			if shouldAssertionBeCached(section) {
+				a := section.Copy(zone.Context, zone.SubjectZone)
+				addAssertionToCache(a, isAuthoritative)
+			}
 		case *rainslib.ShardSection:
-			s := section.Copy(zone.Context, zone.SubjectZone)
-			addShardToCache(s, isAuthoritative)
+			if shouldShardBeCached(section) {
+				s := section.Copy(zone.Context, zone.SubjectZone)
+				addShardToCache(s, isAuthoritative)
+			}
 		default:
 			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", section))
 		}
@@ -464,15 +472,21 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 	log.Debug("Start processing query", "query", query)
 	zoneAndNames := getZoneAndName(query.Name)
 	for _, zAn := range zoneAndNames {
-		assertions := []*rainslib.AssertionSection{}
+		assertions := []rainslib.MessageSection{}
 		for _, t := range query.Types {
-			if asserts, ok := assertionsCache.Get(query.Context, zAn.zone, zAn.name, t); ok {
-				assertions = append(assertions, asserts...)
+			if asserts, ok := assertionsCache.Get(zAn.name, zAn.zone, query.Context, t); ok {
+				//TODO implement a more elaborate policy to filter returned assertions instead
+				//of sending all non expired once back.
+				for _, a := range asserts {
+					if a.ValidUntil() > time.Now().Unix() {
+						assertions = append(assertions, a)
+						break
+					}
+				}
 			}
 		}
-		//TODO CFE add heuristic which assertion(s) to return
 		if len(assertions) > 0 {
-			sendOneQueryAnswer(assertions[0], sender, token)
+			sendQueryAnswer(assertions, sender, token)
 			log.Info("Finished handling query by sending assertion from cache", "query", query)
 			return
 		}
@@ -480,11 +494,14 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 	}
 
 	for _, zAn := range zoneAndNames {
-		negAssertion, ok := negAssertionCache.Get(query.Context, zAn.zone, rainslib.StringInterval{Name: zAn.name})
+		negAssertion, ok := negAssertionCache.Get(zAn.zone, query.Context, rainslib.StringInterval{Name: zAn.name})
 		if ok {
-			//For each type check if one of the zone or shards contain the queried assertion. If there is at least one assertion answer with it.
-			//If no assertion is contained in a zone or shard for any of the queried types, answer with the shortest element. shortest according to what?
-			//size in bytes? how to efficiently determine that. e.g. using gob encoding. alternatively we could also count the number of contained elements.
+			//TODO CFE For each type check if one of the zone or shards contain the queried
+			//assertion. If there is at least one assertion answer with it. If no assertion is
+			//contained in a zone or shard for any of the queried types, answer with the shortest
+			//element. shortest according to what? size in bytes? how to efficiently determine that.
+			//e.g. using gob encoding. alternatively we could also count the number of contained
+			//elements.
 			sendOneQueryAnswer(negAssertion[0], sender, token)
 			log.Info("Finished handling query by sending shard or zone from cache", "query", query)
 			return
@@ -493,10 +510,10 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 	log.Debug("No entry found in negAssertion cache matching the query")
 
 	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
-		log.Info("Send a notification message back due to query option: 'Cached Answers only'",
+		log.Debug("Send a notification message back due to query option: 'Cached Answers only'",
 			"destination", sender)
 		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
-		log.Debug("Finished handling query (unsuccessful) ", "query", query)
+		log.Info("Finished handling query (unsuccessful, cached answers only) ", "query", query)
 		return
 	}
 	for _, zAn := range zoneAndNames {
@@ -534,6 +551,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 //addressQuery directly answers the query if the result is cached. Otherwise it issues a new query
 //and adds this query to the pendingQueries Cache.
 func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
+	//FIXME CFE make it compatible with the new caches
 	log.Debug("Start processing address query", "addressQuery", query)
 	assertion, zone, ok := getAddressCache(query.SubjectAddr, query.Context).Get(query.SubjectAddr, query.Types)
 	//TODO CFE add heuristic which assertion to return

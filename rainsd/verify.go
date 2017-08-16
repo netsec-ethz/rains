@@ -114,10 +114,10 @@ func contextInvalid(context string) bool {
 func isQueryExpired(expires int64) bool {
 	if expires < time.Now().Unix() {
 		log.Info("Query expired", "expirationTime", expires, "now", time.Now().Unix())
-		return false
+		return true
 	}
 	log.Info("Query is not expired")
-	return true
+	return false
 }
 
 //containedSectionsInvalid returns

@@ -779,6 +779,11 @@ type assertionCacheImpl struct {
 	mux                    sync.Mutex     //protects entriesPerAssertionMap from simultaneous access
 }
 
+//assertionCacheMapKey returns the key for assertionCacheImpl.cache based on the assertion
+func assertionCacheMapKey(name, zone, context string, oType rainslib.ObjectType) string {
+	return fmt.Sprintf("%s %s %s %d", name, zone, context, oType)
+}
+
 //Add adds an assertion together with an expiration time (number of seconds since 01.01.1970) to
 //the cache. It returns false if the cache is full and an element was removed according to least
 //recently used strategy. It also adds the shard to the consistency cache.
@@ -786,7 +791,7 @@ func (c *assertionCacheImpl) Add(a *rainslib.AssertionSection, expiration int64,
 	isFull := false
 	consistCache.Add(a)
 	for _, o := range a.Content {
-		key := fmt.Sprintf("%s %s %s %d", a.SubjectName, a.SubjectZone, a.Context, o.Type)
+		key := assertionCacheMapKey(a.SubjectName, a.SubjectZone, a.Context, o.Type)
 		cacheValue := assertionCacheValue{
 			assertions: make(map[string]assertionExpiration),
 			cacheKey:   key,
@@ -853,8 +858,7 @@ func (c *assertionCacheImpl) Add(a *rainslib.AssertionSection, expiration int64,
 //Get returns true and a set of assertions matching the given key if there exist some. Otherwise
 //nil and false is returned.
 func (c *assertionCacheImpl) Get(name, zone, context string, objType rainslib.ObjectType) ([]*rainslib.AssertionSection, bool) {
-	key := fmt.Sprintf("%s %s %s %d", name, zone, context, objType)
-	v, ok := c.cache.Get(key)
+	v, ok := c.cache.Get(assertionCacheMapKey(name, zone, context, objType))
 	if !ok {
 		return nil, false
 	}
