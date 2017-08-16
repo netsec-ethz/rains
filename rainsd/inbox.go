@@ -54,7 +54,7 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 	}
 	log.Debug("Parsed Message", "msg", msg)
 
-	//FIXME CFE get infrastructure key from cache and if not present send a infra query, add a new cache for whole messages to wait for missing public keys
+	//TODO CFE get infrastructure key from cache and if not present send a infra query, add a new cache for whole messages to wait for missing public keys
 	if !rainsSiglib.CheckMessageSignatures(&msg, rainslib.PublicKey{}, sigEncoder) {
 	}
 
@@ -102,7 +102,7 @@ func processCapability(caps []rainslib.Capability, sender rainslib.ConnInfo, tok
 //sendNotificationMsg sends a notification message to dst with the given notificationType and capabilityList
 func sendNotificationMsg(token rainslib.Token, dst rainslib.ConnInfo,
 	notificationType rainslib.NotificationType, capabilityList string) {
-	//FIXME CFE when we have CBOR use it to normalize&serialize the array before hashing it.
+	//TODO CFE when we have CBOR use it to normalize&serialize the array before hashing it.
 	//Currently we use the hard coded version from the draft.
 	msg := rainslib.NewNotificationMessage(token, notificationType, capabilityList)
 	SendMessage(msg, dst)

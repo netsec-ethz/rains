@@ -68,8 +68,6 @@ func PublishInformation() error {
 		return err
 	}
 
-	//FIXME CFE only process notification messages as a response to published content for a
-	//configurable amount of time. Then close the connection
 	err = sendMsg(msg, len(assertions), len(zone.Content))
 	if err != nil {
 		log.Warn("Was not able to send signed zone.", "error", err)

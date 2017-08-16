@@ -130,7 +130,6 @@ func (c *connectionCacheImpl) CloseAndRemoveConnection(conn net.Conn) {
 		if !v.deleted {
 			if len(v.connections) > 1 {
 				for i, connection := range v.connections {
-					//TODO CFE not sure if this comparison works
 					if connection == conn {
 						v.connections = append((v.connections)[:i], (v.connections)[i+1:]...)
 						c.counter.Dec()

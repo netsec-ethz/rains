@@ -320,3 +320,7 @@ type zoneAndName struct {
 	zone string
 	name string
 }
+
+func (e *zoneAndName) fullyQualifiedName() string {
+	return fmt.Sprintf("%s.%s", e.name, e.zone)
+}

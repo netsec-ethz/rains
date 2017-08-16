@@ -51,7 +51,7 @@ func InitServer(configPath string, logLevel int) error {
 }
 
 //LoadConfig loads and stores server configuration
-//FIXME CFE do not load config directly into Config. But load it and then translate/cast elements to Config
+//TODO CFE do not load config directly into Config. But load it and then translate/cast elements to Config
 func loadConfig(configPath string) {
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
@@ -132,7 +132,7 @@ func loadCert(certPath string) error {
 //It stores the hex encoded sha256 hash of the sorted capabilities to capabilityHash
 //and a string representation of the capability list to capabilityList
 func initOwnCapabilities(capabilities []rainslib.Capability) {
-	//FIXME CFE when we have CBOR use it to normalize&serialize the array before hashing it.
+	//TODO CFE when we have CBOR use it to normalize&serialize the array before hashing it.
 	//Currently we use the hard coded version from the draft.
 	capabilityHash = "e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745"
 	cs := make([]string, len(capabilities))
@@ -145,13 +145,13 @@ func initOwnCapabilities(capabilities []rainslib.Capability) {
 //SendMessage adds an infrastructure signature to message and encodes it. Then it is sent to addr.
 //In case of an encoder error, it logs message information and the error.
 func SendMessage(message rainslib.RainsMessage, dst rainslib.ConnInfo) error {
-	//FIXME CFE add infrastructure signatured
+	//TODO CFE add infrastructure signatured
 	//TODO CFE maybe remove?
 	return sendTo(message, dst, 1, 1)
 }
 
 //getRootAddr returns an addr to a root server.
-//FIXME CFE load root addr from config, or are they hardcoded?
+//FIXME CFE load root addr from config?
 func getRootAddr() rainslib.ConnInfo {
 	tcpAddr := *Config.ServerAddress.TCPAddr
 	tcpAddr.Port++

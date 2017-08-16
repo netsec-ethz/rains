@@ -21,8 +21,8 @@ import (
 
 //RainsMessage represents a Message
 type RainsMessage struct {
-	//Capabilities is a slice of capabilities the server originating the message has.
-	//TODO CFE how to distinguish between hash of capability and capability itself
+	//Capabilities is a slice of capabilities or the hash thereof which the server originating the
+	//message has.
 	Capabilities []Capability
 	//Token is used to identify a message
 	Token Token

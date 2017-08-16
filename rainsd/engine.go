@@ -41,8 +41,8 @@ func assert(ss sectionWithSigSender, isAuthoritative bool) {
 //sectionIsInconsistent returns true if section is not consistent with cached element which are valid
 //at the same time.
 func sectionIsInconsistent(section rainslib.MessageSectionWithSig) bool {
-	//FIXME CFE There are new run time checks. Add Todo's for those that are not yet implemented
-	//FIXME drop a shard or zone if it is not sorted.
+	//TODO CFE There are new run time checks. Add Todo's for those that are not yet implemented
+	//TODO CFE drop a shard or zone if it is not sorted.
 	switch section := section.(type) {
 	case *rainslib.AssertionSection:
 		return !isAssertionConsistent(section)
@@ -232,7 +232,6 @@ func pendingQueriesCallback(swss sectionWithSigSender) {
 		default:
 			log.Error("Not supported message section with sig. This case must be prevented beforehand")
 		}
-
 	}
 	//Delegation case
 	switch section := swss.Section.(type) {
@@ -251,14 +250,15 @@ func pendingQueriesCallback(swss sectionWithSigSender) {
 				}
 			}
 			if o, ok := rainslib.ContainsType(section.Content, rainslib.OTIP6Addr); ok {
-				//TODO make a configurable upper bound for valid until before adding connInfo to cache
-				if resendPendingQuery(query, swss.Token, zoneAndName, o.Value.(string), section.ValidUntil()) {
+				if resendPendingQuery(query, swss.Token, zoneAndName, o.Value.(string),
+					time.Now().Add(Config.QueryValidity).Unix()) {
 					return
 				}
 			}
 			if o, ok := rainslib.ContainsType(section.Content, rainslib.OTIP4Addr); ok {
 				//TODO make a configurable upper bound for valid until before adding connInfo to cache
-				if resendPendingQuery(query, swss.Token, zoneAndName, o.Value.(string), section.ValidUntil()) {
+				if resendPendingQuery(query, swss.Token, zoneAndName, o.Value.(string),
+					time.Now().Add(Config.QueryValidity).Unix()) {
 					return
 				}
 			}
@@ -420,12 +420,11 @@ func sendToRedirect(name, context string, token rainslib.Token, query rainslib.M
 		if conns := redirectCache.GetConnsInfo(name); len(conns) > 0 {
 			tok := rainslib.GenerateToken()
 			if pendingQueries.UpdateToken(token, tok) {
-				//TODO CFE make expiration time configurable
 				SendMessage(
 					rainslib.NewQueryMessage(
 						redirectName,
 						context,
-						time.Now().Add(time.Second).Unix(),
+						time.Now().Add(Config.QueryValidity).Unix(),
 						[]rainslib.ObjectType{rainslib.OTIP6Addr, rainslib.OTIP4Addr},
 						nil,
 						tok),
@@ -517,9 +516,17 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		return
 	}
 	for _, zAn := range zoneAndNames {
-		//TODO CFE determine if we do the lookup ourselves or if we send a redir assertion back. how
-		//to choose redir, just root or more involved strategy? avoid amplification vector. especially if you manage to receive zones. Can saturate a whole link...
-		delegate := getRootAddr()
+		var delegate rainslib.ConnInfo
+		if iterativeLookupAllowed() {
+			if conns := redirectCache.GetConnsInfo(zAn.fullyQualifiedName()); len(conns) > 0 {
+				//TODO CFE design policy which server to choose (same as pending query callback?)
+				delegate = conns[0]
+			} else {
+				continue
+			}
+		} else {
+			delegate = getRootAddr()
+		}
 		if delegate.Equal(serverConnInfo) {
 			sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
 			log.Error("Stop processing query. I am authoritative and have no answer in cache")
@@ -537,11 +544,13 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		isNew := pendingQueries.Add(msgSectionSender{Section: query, Sender: sender, Token: token})
 		log.Info("Added query into to pending query cache", "query", query)
 		if isNew {
-			msg := rainslib.NewQueryMessage(fmt.Sprintf("%s.%s", zAn.name, zAn.zone), query.Context,
-				validUntil, query.Types, nil, tok)
-			if err := SendMessage(msg, delegate); err == nil {
-				log.Info("Sent query.", "destination", delegate, "query", msg.Content[0])
-			}
+			if pendingQueries.AddToken(tok, validUntil, delegate, query.Name, query.Context, query.Types) {
+				msg := rainslib.NewQueryMessage(fmt.Sprintf("%s.%s", zAn.name, zAn.zone), query.Context,
+					validUntil, query.Types, nil, tok)
+				if err := SendMessage(msg, delegate); err == nil {
+					log.Info("Sent query.", "destination", delegate, "query", msg.Content[0])
+				}
+			} //else answer already arrived and callback function has already been invoked
 		} else {
 			log.Info("Query already sent.")
 		}
@@ -599,10 +608,10 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 	SendMessage(msg, delegate)
 }
 
-//addressZoneContainsAssertion checks if zone.Content contains an addressAssertion with subjectAddr
-//and context. If it does not find an entry it sends the addressZone back to the querier and returns
-//true. Otherwise it checks if the entry has an unexpired signature. In that case it sends the
-//addressAssertion back to the querier and returns true, otherwise it return false
+//handleAddressZoneQueryResponse checks if zone.Content contains an addressAssertion with
+//subjectAddr and context. If it does not find an entry it sends the addressZone back to the querier
+//and returns true. Otherwise it checks if the entry has an unexpired signature. In that case it
+//sends the addressAssertion back to the querier and returns true, otherwise it return false
 func handleAddressZoneQueryResponse(zone *rainslib.AddressZoneSection, subjectAddr *net.IPNet,
 	context string, queryType []rainslib.ObjectType, sender rainslib.ConnInfo, token rainslib.Token) bool {
 	for _, a := range zone.Content {

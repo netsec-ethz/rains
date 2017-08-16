@@ -378,16 +378,12 @@ func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[rains
 	for k := range missingKeys {
 		if sendQuery := pendingKeys.Add(sectionSender, k.Algorithm, k.KeyPhase); sendQuery {
 			token := rainslib.GenerateToken()
-			//TODO CFE make expiration time configurable
-			exp := time.Now().Add(time.Second).Unix()
+			exp := time.Now().Add(Config.QueryValidity).Unix()
 			if ok := pendingKeys.AddToken(token, exp, sectionSender.Sender,
 				section.GetSubjectZone(), section.GetContext()); ok {
 				msg := rainslib.NewQueryMessage(section.GetSubjectZone(), section.GetContext(),
 					exp, []rainslib.ObjectType{rainslib.OTDelegation}, nil, token)
-				//TODO CFE make this configurable, remove hard coding
-				//SendMessage(msg, sectionSender.Sender)
-				tcpAddr, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:5023")
-				SendMessage(msg, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
+				SendMessage(msg, getRootAddr())
 				continue
 			}
 		}
