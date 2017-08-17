@@ -178,6 +178,19 @@ func (a *AssertionSection) IsConsistent() bool {
 	return true
 }
 
+//NeededKeys adds to keysNeeded key meta data which is necessary to verify all a's signatures.
+func (a *AssertionSection) NeededKeys(keysNeeded map[SignatureMetaData]bool) {
+	extractNeededKeys(a, keysNeeded)
+}
+
+//extractNeededKeys adds all key metadata to sigData which are necessary to verify all section's
+//signatures.
+func extractNeededKeys(section MessageSectionWithSig, sigData map[SignatureMetaData]bool) {
+	for _, sig := range section.Sigs(RainsKeySpace) {
+		sigData[sig.GetSignatureMetaData()] = true
+	}
+}
+
 //ShardSection contains information about the shard
 type ShardSection struct {
 	Signatures  []Signature
@@ -396,6 +409,14 @@ func (s *ShardSection) IsConsistent() bool {
 //empty string
 func sectionHasContextOrSubjectZone(section MessageSectionWithSig) bool {
 	return section.GetSubjectZone() != "" || section.GetContext() != ""
+}
+
+//NeededKeys adds to keysNeeded key meta data which is necessary to verify all s's signatures.
+func (s *ShardSection) NeededKeys(keysNeeded map[SignatureMetaData]bool) {
+	extractNeededKeys(s, keysNeeded)
+	for _, a := range s.Content {
+		a.NeededKeys(keysNeeded)
+	}
 }
 
 //ZoneSection contains information about the zone
@@ -672,6 +693,14 @@ func (z *ZoneSection) IsConsistent() bool {
 	return true
 }
 
+//NeededKeys adds to keysNeeded key meta data which is necessary to verify all z's signatures.
+func (z *ZoneSection) NeededKeys(keysNeeded map[SignatureMetaData]bool) {
+	extractNeededKeys(z, keysNeeded)
+	for _, section := range z.Content {
+		section.NeededKeys(keysNeeded)
+	}
+}
+
 //QuerySection contains information about the query
 type QuerySection struct {
 	Context    string
@@ -923,6 +952,11 @@ func invalidObjectType(subjectAddr *net.IPNet, objectType ObjectType) bool {
 	return true
 }
 
+//NeededKeys adds to keysNeeded key meta data which is necessary to verify all a's signatures.
+func (a *AddressAssertionSection) NeededKeys(keysNeeded map[SignatureMetaData]bool) {
+	extractNeededKeys(a, keysNeeded)
+}
+
 //AddressZoneSection contains information about the address zone
 type AddressZoneSection struct {
 	Signatures  []Signature
@@ -1080,6 +1114,14 @@ func assertionAddrWithinZoneAddr(assertionSubjectAddr, zoneSubejectAddr *net.IPN
 		return false
 	}
 	return true
+}
+
+//NeededKeys adds to keysNeeded key meta data which is necessary to verify all z's signatures.
+func (z *AddressZoneSection) NeededKeys(keysNeeded map[SignatureMetaData]bool) {
+	extractNeededKeys(z, keysNeeded)
+	for _, a := range z.Content {
+		a.NeededKeys(keysNeeded)
+	}
 }
 
 //AddressQuerySection contains information about the address query

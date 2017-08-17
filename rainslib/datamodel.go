@@ -140,6 +140,7 @@ type MessageSectionWithSig interface {
 	ValidUntil() int64
 	Hash() string
 	IsConsistent() bool
+	NeededKeys(map[SignatureMetaData]bool)
 }
 
 //MessageSectionWithSigForward can be either an Assertion, Shard or Zone
