@@ -80,32 +80,45 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 	}
 }
 
-//processCapability processes capabilities and sends a notification back to the sender if the hash is not understood.
+//processCapability processes capabilities and sends a notification back to the sender if the hash
+//is not understood.
 func processCapability(caps []rainslib.Capability, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Process capabilities", "capabilities", caps)
 	if len(caps) > 0 {
 		isHash := !strings.HasPrefix(string(caps[0]), "urn:")
 		if isHash {
 			if caps, ok := capabilities.Get([]byte(caps[0])); ok {
-				connCache.AddCapabilityList(sender, caps)
-				sendNotificationMsg(token, sender, rainslib.NTCapabilityAnswer, capabilityHash)
-			} else {
+				addCapabilityAndRespond(sender, caps)
+			} else { //capability hash not understood
 				sendNotificationMsg(token, sender, rainslib.NTCapHashNotKnown, capabilityHash)
 			}
 		} else {
-			connCache.AddCapabilityList(sender, caps)
-			sendNotificationMsg(token, sender, rainslib.NTCapabilityAnswer, capabilityHash)
+			addCapabilityAndRespond(sender, caps)
 		}
 	}
 }
 
-//sendNotificationMsg sends a notification message to dst with the given notificationType and capabilityList
+//sendNotificationMsg sends a notification message to dst with the given notificationType and
+//capabilityList
 func sendNotificationMsg(token rainslib.Token, dst rainslib.ConnInfo,
 	notificationType rainslib.NotificationType, capabilityList string) {
 	//TODO CFE when we have CBOR use it to normalize&serialize the array before hashing it.
 	//Currently we use the hard coded version from the draft.
 	msg := rainslib.NewNotificationMessage(token, notificationType, capabilityList)
 	SendMessage(msg, dst)
+}
+
+//addCapabilityAndRespond adds caps to the connection cache entry of sender and sends its own
+//capabilities back if it has not already received capability information on this connection.
+func addCapabilityAndRespond(sender rainslib.ConnInfo, caps []rainslib.Capability) {
+	if !connCache.AddCapabilityList(sender, caps) {
+		SendMessage(
+			rainslib.RainsMessage{
+				Token:        rainslib.GenerateToken(),
+				Capabilities: []rainslib.Capability{rainslib.Capability(capabilityHash)},
+			},
+			sender)
+	}
 }
 
 //addMsgSectionToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg section to the prio cache, otherwise to the normal cache.

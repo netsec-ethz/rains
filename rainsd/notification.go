@@ -14,33 +14,16 @@ func notify(msgSender msgSectionSender) {
 	section := msgSender.Section.(*rainslib.NotificationSection)
 	switch section.Type {
 	case rainslib.NTHeartbeat:
-	//nop
-	case rainslib.NTCapabilityAnswer:
-		if len(section.Data) == 0 {
-			log.Error("Received NTCapabilityAnswer without data")
-			return
-		}
-		if capabilityIsHash(section.Data) {
-			if caps, ok := capabilities.Get([]byte(section.Data)); ok {
-				connCache.AddCapabilityList(msgSender.Sender, caps)
-			} else {
-				sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTCapHashNotKnown, "")
-			}
-		} else {
-			cList := []rainslib.Capability{}
-			for _, c := range strings.Split(section.Data, " ") {
-				cList = append(cList, rainslib.Capability(c))
-			}
-			connCache.AddCapabilityList(msgSender.Sender, cList)
-		}
 	case rainslib.NTCapHashNotKnown:
 		if len(section.Data) == 0 {
-			sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTCapabilityAnswer, capabilityList)
+			caps, _ := connCache.GetCapabilityList(serverConnInfo)
+			sendCapability(msgSender.Sender, caps)
 		} else {
 			if capabilityIsHash(section.Data) {
 				if caps, ok := capabilities.Get([]byte(section.Data)); ok {
 					connCache.AddCapabilityList(msgSender.Sender, caps)
-					sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTCapabilityAnswer, capabilityList)
+					ownCaps, _ := connCache.GetCapabilityList(serverConnInfo)
+					sendCapability(msgSender.Sender, ownCaps)
 				} else {
 					sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTCapHashNotKnown, capabilityList)
 				}
@@ -50,34 +33,74 @@ func notify(msgSender msgSectionSender) {
 					cList = append(cList, rainslib.Capability(c))
 				}
 				connCache.AddCapabilityList(msgSender.Sender, cList)
-				sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTCapabilityAnswer, capabilityList)
+				ownCaps, _ := connCache.GetCapabilityList(serverConnInfo)
+				sendCapability(msgSender.Sender, ownCaps)
 			}
 		}
 	case rainslib.NTBadMessage:
 		notifLog.Error("Sent msg was malformed")
+		dropPendingSectionsAndQueries(msgSender.Token,
+			msgSender.Section.(*rainslib.NotificationSection), true)
 	case rainslib.NTRcvInconsistentMsg:
 		notifLog.Error("Sent msg was inconsistent")
+		dropPendingSectionsAndQueries(msgSender.Token,
+			msgSender.Section.(*rainslib.NotificationSection), true)
 	case rainslib.NTMsgTooLarge:
 		notifLog.Error("Sent msg was too large")
+		//TODO CFE resend message in smaller chunks
 	case rainslib.NTNoAssertionsExist:
 		notifLog.Info("Bad request, only clients receive this notification type")
-		msg := rainslib.NewNotificationMessage(msgSender.Token, rainslib.NTBadMessage, "")
-		SendMessage(msg, msgSender.Sender)
+		sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTBadMessage, "")
 	case rainslib.NTUnspecServerErr:
 		notifLog.Error("Unspecified error of other server")
+		dropPendingSectionsAndQueries(msgSender.Token,
+			msgSender.Section.(*rainslib.NotificationSection), false)
 	case rainslib.NTServerNotCapable:
 		notifLog.Error("Other server was not capable")
+		dropPendingSectionsAndQueries(msgSender.Token,
+			msgSender.Section.(*rainslib.NotificationSection), false)
 	case rainslib.NTNoAssertionAvail:
 		notifLog.Info("No assertion was available")
-		//TODO CFE forward this msg to the query issuing it. Lookup token mapping in delegationTokenMapping
+		dropPendingSectionsAndQueries(msgSender.Token,
+			msgSender.Section.(*rainslib.NotificationSection), false)
 	default:
 		notifLog.Warn("No matching notification type")
-		msg := rainslib.NewNotificationMessage(msgSender.Token, rainslib.NTBadMessage, "No matching notification type")
-		SendMessage(msg, msgSender.Sender)
+		sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTBadMessage, "No matching notification type")
 	}
 }
 
 //capabilityIsHash returns true if capabilities are represented as a hash.
 func capabilityIsHash(capabilities string) bool {
 	return !strings.HasPrefix(capabilities, "urn:")
+}
+
+//sendCapability sends a message with capabilities to sender
+func sendCapability(sender rainslib.ConnInfo, capabilities []rainslib.Capability) {
+	SendMessage(
+		rainslib.RainsMessage{
+			Token:        rainslib.GenerateToken(),
+			Capabilities: capabilities,
+		},
+		sender)
+}
+
+//dropPendingSectionsAndQueries removes all entries from the pending caches matching token and
+//forwards the received notification or unspecServerErr depending on serverError flag
+func dropPendingSectionsAndQueries(token rainslib.Token, notification *rainslib.NotificationSection,
+	serverError bool) {
+	for _, ss := range pendingKeys.GetAndRemoveByToken(token) {
+		if serverError {
+			sendNotificationMsg(ss.Token, ss.Sender, rainslib.NTUnspecServerErr, "")
+		} else {
+			sendNotificationMsg(ss.Token, ss.Sender, notification.Type, notification.Data)
+		}
+	}
+	sectionSenders, _ := pendingQueries.GetAndRemoveByToken(token, 0)
+	for _, ss := range sectionSenders {
+		if serverError {
+			sendNotificationMsg(ss.Token, ss.Sender, rainslib.NTUnspecServerErr, "")
+		} else {
+			sendNotificationMsg(ss.Token, ss.Sender, notification.Type, notification.Data)
+		}
+	}
 }
