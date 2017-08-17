@@ -92,7 +92,7 @@
    arrived the pending cache signals the goroutine that it can continue its processing. Responses
    to delegations can be configured to be processes with high priority.
 
-##Conclusion
+## Conclusion
 
 The first proposal with the second pending query design proposal was chosen as sections are
 independent of each other and it leverages this property. Goroutines do not have to communicate with

@@ -481,6 +481,8 @@ func processQuery(msgSender msgSectionSender) {
 func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Start processing query", "query", query)
 	zoneAndNames := getZoneAndName(query.Name)
+
+	//positive answer lookup
 	for _, zAn := range zoneAndNames {
 		assertions := []rainslib.MessageSection{}
 		for _, t := range query.Types {
@@ -500,9 +502,11 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 			log.Info("Finished handling query by sending assertion from cache", "query", query)
 			return
 		}
-		log.Debug("No entry found in assertion cache", "name", zAn.name, "zone", zAn.zone, "context", query.Context, "type", query.Types)
+		log.Debug("No entry found in assertion cache", "name", zAn.name, "zone", zAn.zone,
+			"context", query.Context, "type", query.Types)
 	}
 
+	//negative answer lookup (note that it can occur a positive answer if assertion removed from cache)
 	for _, zAn := range zoneAndNames {
 		negAssertion, ok := negAssertionCache.Get(zAn.zone, query.Context, rainslib.StringInterval{Name: zAn.name})
 		if ok {
@@ -519,6 +523,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 	}
 	log.Debug("No entry found in negAssertion cache matching the query")
 
+	//cached answers only?
 	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
 		log.Debug("Send a notification message back due to query option: 'Cached Answers only'",
 			"destination", sender)
@@ -526,6 +531,8 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		log.Info("Finished handling query (unsuccessful, cached answers only) ", "query", query)
 		return
 	}
+
+	//forward query (no answer in cache)
 	for _, zAn := range zoneAndNames {
 		var delegate rainslib.ConnInfo
 		if iterativeLookupAllowed() {
