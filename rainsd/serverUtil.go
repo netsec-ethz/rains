@@ -1,6 +1,7 @@
 package rainsd
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
@@ -22,30 +23,28 @@ import (
 func InitServer(configPath string, logLevel int) error {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(logLevel), h))
-	loadConfig(configPath)
-	serverConnInfo = Config.ServerAddress
 	msgParser = new(protoParser.ProtoParserAndFramer)
 	sigEncoder = new(zoneFileParser.Parser)
+	if err := loadConfig(configPath); err != nil {
+		return err
+	}
+	log.Debug("Successfully loaded Config")
+	serverConnInfo = Config.ServerAddress
 	loadAuthoritative(Config.ContextAuthority)
-	if err := loadCert(Config.TLSCertificateFile); err != nil {
+	if err := loadTLSCertificate(Config.TLSCertificateFile, Config.TLSPrivateKeyFile); err != nil {
 		return err
 	}
 	log.Debug("Successfully loaded Certificate")
 	initOwnCapabilities(Config.Capabilities)
 	initCaches()
-	err := loadRootZonePublicKey(Config.RootZonePublicKeyPath)
-	if err != nil {
+	if err := loadRootZonePublicKey(Config.RootZonePublicKeyPath); err != nil {
 		return err
 	}
 	log.Debug("Successfully loaded root zone public key")
-	if err := initSwitchboard(); err != nil {
+	if err := initQueuesAndWorkers(); err != nil {
 		return err
 	}
-	log.Debug("Successfully initiated switchboard")
-	if err := initInbox(); err != nil {
-		return err
-	}
-	log.Debug("Successfully initiated inbox")
+	log.Debug("Successfully initiated queues and goroutines working on it")
 	initEngine()
 	log.Debug("Successfully initiated engine")
 	return nil
@@ -53,13 +52,15 @@ func InitServer(configPath string, logLevel int) error {
 
 //LoadConfig loads and stores server configuration
 //TODO CFE do not load config directly into Config. But load it and then translate/cast elements to Config
-func loadConfig(configPath string) {
+func loadConfig(configPath string) error {
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Warn("Could not open config file...", "path", configPath, "error", err)
+		return err
 	}
 	if err = json.Unmarshal(file, &Config); err != nil {
 		log.Warn("Could not unmarshal json format of config", "error", err)
+		return err
 	}
 	Config.KeepAlivePeriod *= time.Second
 	Config.TCPTimeout *= time.Second
@@ -73,6 +74,7 @@ func loadConfig(configPath string) {
 	Config.MaxCacheValidity.AssertionValidity *= time.Hour
 	Config.MaxCacheValidity.ShardValidity *= time.Hour
 	Config.MaxCacheValidity.ZoneValidity *= time.Hour
+	return nil
 }
 
 //loadAuthoritative stores to authoritative for which zone and context this server has authority.
@@ -113,18 +115,24 @@ func loadRootZonePublicKey(keyPath string) error {
 	return err
 }
 
-//loadCert load a tls certificate from certPath
-func loadCert(certPath string) error {
+//loadTLSCertificate load a tls certificate from certPath
+func loadTLSCertificate(certPath string, TLSPrivateKeyPath string) error {
 	roots = x509.NewCertPool()
 	file, err := ioutil.ReadFile(certPath)
 	if err != nil {
 		log.Error("error", err)
 		return err
 	}
-	ok := roots.AppendCertsFromPEM(file)
-	if !ok {
+
+	if ok := roots.AppendCertsFromPEM(file); !ok {
 		log.Error("failed to parse root certificate")
 		return errors.New("failed to parse root certificate")
+	}
+
+	if cert, err = tls.LoadX509KeyPair(certPath, TLSPrivateKeyPath); err != nil {
+		log.Error("Cannot load certificate. Path to CertificateFile or privateKeyFile might be invalid.",
+			"CertPath", certPath, "KeyPath", TLSPrivateKeyPath, "error", err)
+		return err
 	}
 	return nil
 }

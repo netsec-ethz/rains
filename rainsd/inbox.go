@@ -21,7 +21,7 @@ var prioWorkers chan struct{}
 var normalWorkers chan struct{}
 var notificationWorkers chan struct{}
 
-func initInbox() error {
+func initQueuesAndWorkers() error {
 	//init Channels
 	prioChannel = make(chan msgSectionSender, Config.PrioBufferSize)
 	normalChannel = make(chan msgSectionSender, Config.NormalBufferSize)

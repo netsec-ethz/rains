@@ -16,20 +16,6 @@ import (
 	"github.com/netsec-ethz/rains/utils/protoParser"
 )
 
-//cert holds the tls certificate of this server
-var cert tls.Certificate
-
-//InitSwitchboard initializes the switchboard
-func initSwitchboard() (err error) {
-	cert, err = tls.LoadX509KeyPair(Config.TLSCertificateFile, Config.TLSPrivateKeyFile)
-	if err != nil {
-		log.Error("Cannot load certificate. Path to CertificateFile or privateKeyFile might be invalid.", "CertPath", Config.TLSCertificateFile,
-			"KeyPath", Config.TLSPrivateKeyFile, "error", err)
-		return err
-	}
-	return nil
-}
-
 //sendTo sends message to the specified receiver.
 func sendTo(message rainslib.RainsMessage, receiver rainslib.ConnInfo, retries, backoffMilliSeconds int) (err error) {
 	var framer rainslib.MsgFramer

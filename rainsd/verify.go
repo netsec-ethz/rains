@@ -13,9 +13,6 @@ import (
 	"github.com/netsec-ethz/rains/rainslib"
 )
 
-//sigEncoder is used to translate a message or section into a signable format
-var sigEncoder rainslib.SignatureFormatEncoder
-
 //verify verifies msgSender.Section
 //It checks the consistency of the msgSender.Section and if it is inconsistent a notification msg is sent. (Consistency with cached elements is checked later in engine)
 //It validates all signatures (including contained once), stripping of expired once.
