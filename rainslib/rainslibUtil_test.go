@@ -120,11 +120,11 @@ func TestNewQueryMessage(t *testing.T) {
 				Token: token,
 				Content: []MessageSection{
 					&QuerySection{
-						Name:    "example.com",
-						Context: ".",
-						Expires: 100,
-						Types:   []ObjectType{OTIP4Addr},
-						Options: []QueryOption{QOTokenTracing, QOMinE2ELatency},
+						Name:       "example.com",
+						Context:    ".",
+						Expiration: 100,
+						Types:      []ObjectType{OTIP4Addr},
+						Options:    []QueryOption{QOTokenTracing, QOMinE2ELatency},
 					},
 				},
 			},
@@ -158,7 +158,7 @@ func TestNewAddressQueryMessage(t *testing.T) {
 					&AddressQuerySection{
 						SubjectAddr: subjectAddress1,
 						Context:     ".",
-						Expires:     100,
+						Expiration:  100,
 						Types:       []ObjectType{OTIP4Addr},
 						Options:     []QueryOption{QOTokenTracing, QOMinE2ELatency},
 					},
@@ -172,7 +172,7 @@ func TestNewAddressQueryMessage(t *testing.T) {
 					&AddressQuerySection{
 						SubjectAddr: subjectAddress2,
 						Context:     ".",
-						Expires:     100,
+						Expiration:  100,
 						Types:       []ObjectType{OTIP4Addr},
 						Options:     []QueryOption{QOTokenTracing, QOMinE2ELatency},
 					},

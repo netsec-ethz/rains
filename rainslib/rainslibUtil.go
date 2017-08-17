@@ -96,11 +96,11 @@ func UpdateSectionValidity(section MessageSectionWithSig, pkeyValidSince, pkeyVa
 func NewQueryMessage(name, context string, expTime int64, objType []ObjectType,
 	queryOptions []QueryOption, token Token) RainsMessage {
 	query := QuerySection{
-		Context: context,
-		Name:    name,
-		Expires: expTime,
-		Types:   objType,
-		Options: queryOptions,
+		Context:    context,
+		Name:       name,
+		Expiration: expTime,
+		Types:      objType,
+		Options:    queryOptions,
 	}
 	return RainsMessage{Token: token, Content: []MessageSection{&query}}
 }
@@ -111,7 +111,7 @@ func NewAddressQueryMessage(context string, ipNet *net.IPNet, expTime int64, obj
 	addressQuery := AddressQuerySection{
 		Context:     context,
 		SubjectAddr: ipNet,
-		Expires:     expTime,
+		Expiration:  expTime,
 		Types:       objType,
 		Options:     queryOptions,
 	}

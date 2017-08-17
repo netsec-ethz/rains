@@ -33,6 +33,11 @@ func InitServer(configPath string, logLevel int) error {
 	log.Debug("Successfully loaded Certificate")
 	initOwnCapabilities(Config.Capabilities)
 	initCaches()
+	err := loadRootZonePublicKey(Config.RootZonePublicKeyPath)
+	if err != nil {
+		return err
+	}
+	log.Debug("Successfully loaded root zone public key")
 	if err := initSwitchboard(); err != nil {
 		return err
 	}
@@ -41,10 +46,6 @@ func InitServer(configPath string, logLevel int) error {
 		return err
 	}
 	log.Debug("Successfully initiated inbox")
-	if err := initVerify(); err != nil {
-		return err
-	}
-	log.Debug("Successfully initiated verify")
 	initEngine()
 	log.Debug("Successfully initiated engine")
 	return nil

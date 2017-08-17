@@ -18,7 +18,6 @@ var enoughSystemRessources bool
 //initEngine initialized the engine, which processes valid sections and queries.
 //It spawns a goroutine which periodically goes through the cache and removes outdated entries, see reapEngine()
 func initEngine() {
-	go reapEngine()
 	go measureSystemRessources()
 }
 
@@ -466,6 +465,18 @@ func iterativeLookupAllowed() bool {
 	return false
 }
 
+//processQuery processes msgSender containing a query section
+func processQuery(msgSender msgSectionSender) {
+	switch section := msgSender.Section.(type) {
+	case *rainslib.QuerySection:
+		query(section, msgSender.Sender, msgSender.Token)
+	case *rainslib.AddressQuerySection:
+		addressQuery(section, msgSender.Sender, msgSender.Token)
+	default:
+		log.Error("Not supported query message section. This case must be prevented beforehand")
+	}
+}
+
 //query directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
 func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Start processing query", "query", query)
@@ -538,8 +549,8 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 			tok = rainslib.GenerateToken()
 		}
 		validUntil := time.Now().Add(Config.QueryValidity).Unix() //Upper bound for forwarded query expiration time
-		if query.Expires < validUntil {
-			validUntil = query.Expires
+		if query.Expiration < validUntil {
+			validUntil = query.Expiration
 		}
 		isNew := pendingQueries.Add(msgSectionSender{Section: query, Sender: sender, Token: token})
 		log.Info("Added query into to pending query cache", "query", query)
@@ -597,8 +608,8 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 		tok = rainslib.GenerateToken()
 	}
 	validUntil := time.Now().Add(Config.AddressQueryValidity).Unix() //Upper bound for forwarded query expiration time
-	if query.Expires < validUntil {
-		validUntil = query.Expires
+	if query.Expiration < validUntil {
+		validUntil = query.Expiration
 	}
 	//FIXME CFE allow multiple types
 	//FIXME CFE only send query if not already in cache.
@@ -708,16 +719,6 @@ func sendQueryAnswer(sections []rainslib.MessageSection, sender rainslib.ConnInf
 //sendOneQueryAnswer sends a section with Signature back to the sender with the specified token
 func sendOneQueryAnswer(section rainslib.MessageSectionWithSig, sender rainslib.ConnInfo, token rainslib.Token) {
 	sendQueryAnswer([]rainslib.MessageSection{section}, sender, token)
-}
-
-//reapEngine deletes expired elements in the following caches: assertionCache, negAssertionCache, pendingQueries
-func reapEngine() {
-	for {
-		assertionsCache.RemoveExpiredValues()
-		negAssertionCache.RemoveExpiredValues()
-		pendingQueries.RemoveExpiredValues()
-		time.Sleep(Config.ReapEngineTimeout)
-	}
 }
 
 //measureSystemRessources measures current cpu usage and updates enoughSystemRessources

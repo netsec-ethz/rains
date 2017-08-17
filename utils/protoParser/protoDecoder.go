@@ -181,7 +181,7 @@ func decodeQuery(q proto.QuerySection) (*rainslib.QuerySection, error) {
 	query := rainslib.QuerySection{}
 	var err error
 
-	query.Expires = q.Expires()
+	query.Expiration = q.Expires()
 
 	query.Context, err = q.Context()
 	if err != nil {
@@ -332,7 +332,7 @@ func decodeAddressZone(z proto.AddressZoneSection) (*rainslib.AddressZoneSection
 func decodeAddressQuery(q proto.AddressQuerySection) (*rainslib.AddressQuerySection, error) {
 	query := rainslib.AddressQuerySection{}
 
-	query.Expires = q.Expires()
+	query.Expiration = q.Expires()
 
 	ipCIDR, err := q.SubjectAddr()
 	if err != nil {

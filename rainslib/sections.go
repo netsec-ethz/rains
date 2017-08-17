@@ -81,7 +81,8 @@ func (a *AssertionSection) UpdateValidity(validSince, validUntil int64, maxValid
 	if validSince < a.validSince {
 		if validSince > time.Now().Add(maxValidity).Unix() {
 			a.validSince = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", a.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
+			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", a.validSince,
+				"newValidSince", validSince, "maxValidity", maxValidity)
 		} else {
 			a.validSince = validSince
 		}
@@ -89,7 +90,8 @@ func (a *AssertionSection) UpdateValidity(validSince, validUntil int64, maxValid
 	if validUntil > a.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			a.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", a.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
+			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", a.validSince,
+				"newValidSince", validSince, "maxValidity", maxValidity)
 		} else {
 			a.validUntil = validUntil
 		}
@@ -111,10 +113,12 @@ func (a *AssertionSection) Hash() string {
 	if a == nil {
 		return "A_nil"
 	}
-	return fmt.Sprintf("A_%s_%s_%s_%v_%v", a.SubjectName, a.SubjectZone, a.Context, a.Content, a.Signatures)
+	return fmt.Sprintf("A_%s_%s_%s_%v_%v",
+		a.SubjectName, a.SubjectZone, a.Context, a.Content, a.Signatures)
 }
 
-//EqualContextZoneName return true if the given assertion has the same context, subjectZone, subjectName.
+//EqualContextZoneName return true if the given assertion has the same context, subjectZone,
+//subjectName.
 func (a *AssertionSection) EqualContextZoneName(assertion *AssertionSection) bool {
 	if assertion == nil {
 		return false
@@ -132,7 +136,8 @@ func (a *AssertionSection) Sort() {
 	sort.Slice(a.Content, func(i, j int) bool { return a.Content[i].CompareTo(a.Content[j]) < 0 })
 }
 
-//CompareTo compares two assertions and returns 0 if they are equal, 1 if a is greater than assertion and -1 if a is smaller than assertion
+//CompareTo compares two assertions and returns 0 if they are equal, 1 if a is greater than
+//assertion and -1 if a is smaller than assertion
 func (a *AssertionSection) CompareTo(assertion *AssertionSection) int {
 	if a.SubjectName < assertion.SubjectName {
 		return -1
@@ -166,6 +171,11 @@ func (a *AssertionSection) String() string {
 	}
 	return fmt.Sprintf("Assertion:[SN=%s SZ=%s CTX=%s CONTENT=%v SIG=%v]",
 		a.SubjectName, a.SubjectZone, a.Context, a.Content, a.Signatures)
+}
+
+//IsConsistent returns true. Assertion is always consistent.
+func (a *AssertionSection) IsConsistent() bool {
+	return true
 }
 
 //ShardSection contains information about the shard
@@ -210,7 +220,8 @@ func (s *ShardSection) GetSubjectZone() string {
 	return s.SubjectZone
 }
 
-//Copy creates a copy of the shard with the given context and subjectZone values. The contained assertions are not modified
+//Copy creates a copy of the shard with the given context and subjectZone values. The contained
+//assertions are not modified
 func (s *ShardSection) Copy(context, subjectZone string) *ShardSection {
 	stub := &ShardSection{}
 	*stub = *s
@@ -238,7 +249,8 @@ func (s *ShardSection) UpdateValidity(validSince, validUntil int64, maxValidity 
 	if validSince < s.validSince {
 		if validSince > time.Now().Add(maxValidity).Unix() {
 			s.validSince = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", s.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
+			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", s.validSince,
+				"newValidSince", validSince, "maxValidity", maxValidity)
 		} else {
 			s.validSince = validSince
 		}
@@ -246,7 +258,8 @@ func (s *ShardSection) UpdateValidity(validSince, validUntil int64, maxValidity 
 	if validUntil > s.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			s.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", s.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
+			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", s.validSince,
+				"newValidSince", validSince, "maxValidity", maxValidity)
 		} else {
 			s.validUntil = validUntil
 		}
@@ -272,7 +285,8 @@ func (s *ShardSection) Hash() string {
 	for _, a := range s.Content {
 		aHashes = append(aHashes, a.Hash())
 	}
-	return fmt.Sprintf("S_%s_%s_%s_%s_[%s]_%v", s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, strings.Join(aHashes, " "), s.Signatures)
+	return fmt.Sprintf("S_%s_%s_%s_%s_[%s]_%v", s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo,
+		strings.Join(aHashes, " "), s.Signatures)
 }
 
 //Sort sorts the content of the shard lexicographically.
@@ -283,7 +297,8 @@ func (s *ShardSection) Sort() {
 	sort.Slice(s.Content, func(i, j int) bool { return s.Content[i].CompareTo(s.Content[j]) < 0 })
 }
 
-//CompareTo compares two shards and returns 0 if they are equal, 1 if s is greater than shard and -1 if s is smaller than shard
+//CompareTo compares two shards and returns 0 if they are equal, 1 if s is greater than shard and -1
+//if s is smaller than shard
 func (s *ShardSection) CompareTo(shard *ShardSection) int {
 	if s.SubjectZone < shard.SubjectZone {
 		return -1
@@ -351,6 +366,38 @@ func (s *ShardSection) InRange(subjectName string) bool {
 		(s.RangeFrom < subjectName && s.RangeTo > subjectName)
 }
 
+//AddZoneAndContextToAssertions adds the shard's subjectZone and context value to all contained
+//assertions
+func (s *ShardSection) AddZoneAndContextToAssertions() {
+	for _, a := range s.Content {
+		a.SubjectZone = s.SubjectZone
+		a.Context = s.Context
+	}
+}
+
+//IsConsistent returns true if all contained assertions have no subjectZone and context and are
+//within the shards range.
+func (s *ShardSection) IsConsistent() bool {
+	for _, a := range s.Content {
+		if sectionHasContextOrSubjectZone(a) {
+			log.Warn("Contained assertion has a subjectZone or context", "assertion", a)
+			return false
+		}
+		if !s.InRange(a.SubjectName) {
+			log.Warn("Contained assertion's subjectName is outside the shard's range", "subjectName",
+				a.SubjectName, "Range", fmt.Sprintf("[%s:%s]", s.RangeFrom, s.RangeTo))
+			return true
+		}
+	}
+	return true
+}
+
+//sectionHasContextOrSubjectZone returns false if the section's subjectZone and context are both the
+//empty string
+func sectionHasContextOrSubjectZone(section MessageSectionWithSig) bool {
+	return section.GetSubjectZone() != "" || section.GetContext() != ""
+}
+
 //ZoneSection contains information about the zone
 type ZoneSection struct {
 	Signatures  []Signature
@@ -410,7 +457,8 @@ func (z *ZoneSection) UpdateValidity(validSince, validUntil int64, maxValidity t
 	if validSince < z.validSince {
 		if validSince > time.Now().Add(maxValidity).Unix() {
 			z.validSince = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", z.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
+			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", z.validSince,
+				"newValidSince", validSince, "maxValidity", maxValidity)
 		} else {
 			z.validSince = validSince
 		}
@@ -418,7 +466,8 @@ func (z *ZoneSection) UpdateValidity(validSince, validUntil int64, maxValidity t
 	if validUntil > z.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			z.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", z.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
+			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", z.validSince,
+				"newValidSince", validSince, "maxValidity", maxValidity)
 		} else {
 			z.validUntil = validUntil
 		}
@@ -450,7 +499,8 @@ func (z *ZoneSection) Hash() string {
 			return ""
 		}
 	}
-	return fmt.Sprintf("Z_%s_%s_[%s]_%v", z.SubjectZone, z.Context, strings.Join(contentHashes, " "), z.Signatures)
+	return fmt.Sprintf("Z_%s_%s_[%s]_%v", z.SubjectZone, z.Context, strings.Join(contentHashes, " "),
+		z.Signatures)
 }
 
 //Sort sorts the content of the zone lexicographically.
@@ -477,7 +527,8 @@ func (z *ZoneSection) Sort() {
 	})
 }
 
-//CompareTo compares two zones and returns 0 if they are equal, 1 if z is greater than zone and -1 if z is smaller than zone
+//CompareTo compares two zones and returns 0 if they are equal, 1 if z is greater than zone and -1
+//if z is smaller than zone
 func (z *ZoneSection) CompareTo(zone *ZoneSection) int {
 	if z.SubjectZone < zone.SubjectZone {
 		return -1
@@ -522,7 +573,8 @@ func (z *ZoneSection) String() string {
 	if z == nil {
 		return "Zone:nil"
 	}
-	return fmt.Sprintf("Zone:[SZ=%s CTX=%s CONTENT=%v SIG=%v]", z.SubjectZone, z.Context, z.Content, z.Signatures)
+	return fmt.Sprintf("Zone:[SZ=%s CTX=%s CONTENT=%v SIG=%v]",
+		z.SubjectZone, z.Context, z.Content, z.Signatures)
 }
 
 //SectionsByNameAndTypes returns all contained assertions with subjectName and at least one object
@@ -585,17 +637,62 @@ func (z *ZoneSection) SectionsByNameAndTypes(subjectName string, types []ObjectT
 	return assertions, shards
 }
 
+//AddZoneAndContextToSections adds the zone's subjectZone and context value to all contained
+//assertions and shards
+func (z *ZoneSection) AddZoneAndContextToSections() {
+	for _, sec := range z.Content {
+		switch sec := sec.(type) {
+		case *AssertionSection:
+			sec.SubjectZone = z.SubjectZone
+			sec.Context = z.Context
+		case *ShardSection:
+			sec.SubjectZone = z.SubjectZone
+			sec.Context = z.Context
+			for _, a := range sec.Content {
+				a.SubjectZone = z.SubjectZone
+				a.Context = z.Context
+			}
+		default:
+			log.Warn("Not supported message section inside zone")
+		}
+	}
+}
+
+//IsConsistent returns true if all contained assertions and shards are consistent
+func (z *ZoneSection) IsConsistent() bool {
+	for _, section := range z.Content {
+		if sectionHasContextOrSubjectZone(section) {
+			log.Warn("Contained section has a subjectZone or context", "section", section)
+			return false
+		}
+		if shard := section.(*ShardSection); !shard.IsConsistent() {
+			return false //already logged
+		}
+	}
+	return true
+}
+
 //QuerySection contains information about the query
 type QuerySection struct {
-	Context string
-	Name    string
-	Types   []ObjectType
-	Expires int64 //time when this query expires represented as the number of seconds elapsed since January 1, 1970 UTC
-	Options []QueryOption
+	Context    string
+	Name       string
+	Types      []ObjectType
+	Expiration int64 //unix seconds
+	Options    []QueryOption
+}
+
+//GetContext returns q's context
+func (q *QuerySection) GetContext() string {
+	return q.Context
+}
+
+//GetExpiration returns q's expiration
+func (q *QuerySection) GetExpiration() int64 {
+	return q.Expiration
 }
 
 //ContainsOption returns true if the query contains the given query option.
-func (q QuerySection) ContainsOption(option QueryOption) bool {
+func (q *QuerySection) ContainsOption(option QueryOption) bool {
 	return containsOption(option, q.Options)
 }
 
@@ -614,7 +711,8 @@ func (q *QuerySection) Sort() {
 	sort.Slice(q.Options, func(i, j int) bool { return q.Options[i] < q.Options[j] })
 }
 
-//CompareTo compares two queries and returns 0 if they are equal, 1 if q is greater than query and -1 if q is smaller than query
+//CompareTo compares two queries and returns 0 if they are equal, 1 if q is greater than query and
+//-1 if q is smaller than query
 func (q *QuerySection) CompareTo(query *QuerySection) int {
 	if q.Context < query.Context {
 		return -1
@@ -636,9 +734,9 @@ func (q *QuerySection) CompareTo(query *QuerySection) int {
 			return 1
 		}
 	}
-	if q.Expires < query.Expires {
+	if q.Expiration < query.Expiration {
 		return -1
-	} else if q.Expires > query.Expires {
+	} else if q.Expiration > query.Expiration {
 		return 1
 	} else if len(q.Options) < len(query.Options) {
 		return -1
@@ -660,7 +758,8 @@ func (q *QuerySection) String() string {
 	if q == nil {
 		return "Query:nil"
 	}
-	return fmt.Sprintf("Query:[CTX=%s NA=%s TYPE=%v EXP=%d OPT=%v]", q.Context, q.Name, q.Types, q.Expires, q.Options)
+	return fmt.Sprintf("Query:[CTX=%s NA=%s TYPE=%v EXP=%d OPT=%v]",
+		q.Context, q.Name, q.Types, q.Expiration, q.Options)
 }
 
 //AddressAssertionSection contains information about the address assertion
@@ -712,7 +811,8 @@ func (a *AddressAssertionSection) UpdateValidity(validSince, validUntil int64, m
 	if validSince < a.validSince {
 		if validSince > time.Now().Add(maxValidity).Unix() {
 			a.validSince = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", a.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
+			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", a.validSince,
+				"newValidSince", validSince, "maxValidity", maxValidity)
 
 		} else {
 			a.validSince = validSince
@@ -721,7 +821,8 @@ func (a *AddressAssertionSection) UpdateValidity(validSince, validUntil int64, m
 	if validUntil > a.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			a.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", a.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
+			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", a.validSince,
+				"newValidSince", validSince, "maxValidity", maxValidity)
 		} else {
 			a.validUntil = validUntil
 		}
@@ -758,7 +859,8 @@ func (a *AddressAssertionSection) Sort() {
 	sort.Slice(a.Content, func(i, j int) bool { return a.Content[i].CompareTo(a.Content[j]) < 0 })
 }
 
-//CompareTo compares two addressAssertions and returns 0 if they are equal, 1 if a is greater than assertion and -1 if a is smaller than assertion
+//CompareTo compares two addressAssertions and returns 0 if they are equal, 1 if a is greater than
+//assertion and -1 if a is smaller than assertion
 func (a *AddressAssertionSection) CompareTo(assertion *AddressAssertionSection) int {
 	if a.SubjectAddr.String() < assertion.SubjectAddr.String() {
 		return -1
@@ -786,7 +888,39 @@ func (a *AddressAssertionSection) String() string {
 	if a == nil {
 		return "AddressAssertion:nil"
 	}
-	return fmt.Sprintf("AddressAssertion:[SA=%s CTX=%s CONTENT=%v SIG=%v]", a.SubjectAddr, a.Context, a.Content, a.Signatures)
+	return fmt.Sprintf("AddressAssertion:[SA=%s CTX=%s CONTENT=%v SIG=%v]",
+		a.SubjectAddr, a.Context, a.Content, a.Signatures)
+}
+
+//IsConsistent returns false if the addressAssertion contains not allowed object types
+func (a *AddressAssertionSection) IsConsistent() bool {
+	for _, o := range a.Content {
+		if invalidObjectType(a.SubjectAddr, o.Type) {
+			log.Warn("Not allowed object type for an address assertion.", "objectType", o.Type,
+				"subjectAddr", a.SubjectAddr)
+			return false
+		}
+	}
+	return true
+}
+
+//invalidObjectType returns true if the object type is not allowed for the given subjectAddr.
+func invalidObjectType(subjectAddr *net.IPNet, objectType ObjectType) bool {
+	prefixLength, addressLength := subjectAddr.Mask.Size()
+	if addressLength == 32 {
+		if prefixLength == 32 {
+			return objectType != OTName
+		}
+		return objectType != OTDelegation && objectType != OTRedirection && objectType != OTRegistrant
+	}
+	if addressLength == 128 {
+		if prefixLength == 128 {
+			return objectType != OTName
+		}
+		return objectType != OTDelegation && objectType != OTRedirection && objectType != OTRegistrant
+	}
+	log.Warn("Invalid addressLength", "addressLength", addressLength)
+	return true
 }
 
 //AddressZoneSection contains information about the address zone
@@ -838,7 +972,8 @@ func (z *AddressZoneSection) UpdateValidity(validSince, validUntil int64, maxVal
 	if validSince < z.validSince {
 		if validSince > time.Now().Add(maxValidity).Unix() {
 			z.validSince = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", z.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
+			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", z.validSince,
+				"newValidSince", validSince, "maxValidity", maxValidity)
 		} else {
 			z.validSince = validSince
 		}
@@ -846,7 +981,8 @@ func (z *AddressZoneSection) UpdateValidity(validSince, validUntil int64, maxVal
 	if validUntil > z.validUntil {
 		if validUntil > time.Now().Add(maxValidity).Unix() {
 			z.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", z.validSince, "newValidSince", validSince, "maxValidity", maxValidity)
+			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", z.validSince,
+				"newValidSince", validSince, "maxValidity", maxValidity)
 		} else {
 			z.validUntil = validUntil
 		}
@@ -887,7 +1023,8 @@ func (z *AddressZoneSection) Sort() {
 	sort.Slice(z.Content, func(i, j int) bool { return z.Content[i].CompareTo(z.Content[j]) < 0 })
 }
 
-//CompareTo compares two addressZones and returns 0 if they are equal, 1 if z is greater than zone and -1 if z is smaller than zone
+//CompareTo compares two addressZones and returns 0 if they are equal, 1 if z is greater than zone
+//and -1 if z is smaller than zone
 func (z *AddressZoneSection) CompareTo(zone *AddressZoneSection) int {
 	if z.SubjectAddr.String() < zone.SubjectAddr.String() {
 		return -1
@@ -915,7 +1052,34 @@ func (z *AddressZoneSection) String() string {
 	if z == nil {
 		return "AddressZone:nil"
 	}
-	return fmt.Sprintf("AddressZone:[SA=%s CTX=%s CONTENT=%v SIG=%v]", z.SubjectAddr, z.Context, z.Content, z.Signatures)
+	return fmt.Sprintf("AddressZone:[SA=%s CTX=%s CONTENT=%v SIG=%v]",
+		z.SubjectAddr, z.Context, z.Content, z.Signatures)
+}
+
+//IsConsistent returns true if all contained addressAssertions are consistent and within the
+//addressZone's subjectAddr
+func (z *AddressZoneSection) IsConsistent() bool {
+	//if addressZone needed use this function assertionAddrWithinZoneAddr()
+	log.Error("TODO CFE implement it if necessary")
+	return true
+}
+
+//assertionAddrWithinZoneAddr returns true if the assertion's subjectAddress is within the outer
+//zone's subjectAddress
+func assertionAddrWithinZoneAddr(assertionSubjectAddr, zoneSubejectAddr *net.IPNet) bool {
+	zprefix, _ := zoneSubejectAddr.Mask.Size()
+	aprefix, _ := assertionSubjectAddr.Mask.Size()
+	if aprefix < zprefix {
+		log.Warn("Assertion is less specific than zone", "assertion prefix", aprefix,
+			"zone prefix", zprefix)
+		return false
+	}
+	if !zoneSubejectAddr.Contains(assertionSubjectAddr.IP) {
+		log.Warn("Assertion network is not contained in zone network",
+			"assertion network", assertionSubjectAddr, "zone network", zoneSubejectAddr)
+		return false
+	}
+	return true
 }
 
 //AddressQuerySection contains information about the address query
@@ -923,12 +1087,22 @@ type AddressQuerySection struct {
 	SubjectAddr *net.IPNet
 	Context     string
 	Types       []ObjectType
-	Expires     int64
+	Expiration  int64 //Unix seconds
 	Options     []QueryOption
 }
 
+//GetContext returns q's context
+func (q *AddressQuerySection) GetContext() string {
+	return q.Context
+}
+
+//GetExpiration returns q's expiration
+func (q *AddressQuerySection) GetExpiration() int64 {
+	return q.Expiration
+}
+
 //ContainsOption returns true if the address query contains the given query option.
-func (q AddressQuerySection) ContainsOption(option QueryOption) bool {
+func (q *AddressQuerySection) ContainsOption(option QueryOption) bool {
 	return containsOption(option, q.Options)
 }
 
@@ -937,7 +1111,8 @@ func (q *AddressQuerySection) Sort() {
 	sort.Slice(q.Options, func(i, j int) bool { return q.Options[i] < q.Options[j] })
 }
 
-//CompareTo compares two addressQueries and returns 0 if they are equal, 1 if q is greater than query and -1 if q is smaller than query
+//CompareTo compares two addressQueries and returns 0 if they are equal, 1 if q is greater than
+//query and -1 if q is smaller than query
 func (q *AddressQuerySection) CompareTo(query *AddressQuerySection) int {
 	if q.SubjectAddr.String() < query.SubjectAddr.String() {
 		return -1
@@ -959,9 +1134,9 @@ func (q *AddressQuerySection) CompareTo(query *AddressQuerySection) int {
 			return 1
 		}
 	}
-	if q.Expires < query.Expires {
+	if q.Expiration < query.Expiration {
 		return -1
-	} else if q.Expires > query.Expires {
+	} else if q.Expiration > query.Expiration {
 		return 1
 	} else if len(q.Options) < len(query.Options) {
 		return -1
@@ -983,7 +1158,8 @@ func (q *AddressQuerySection) String() string {
 	if q == nil {
 		return "AddressQuery:nil"
 	}
-	return fmt.Sprintf("AddressQuery:[SA=%s CTX=%s TYPE=%v EXP=%d OPT=%v]", q.SubjectAddr, q.Context, q.Types, q.Expires, q.Options)
+	return fmt.Sprintf("AddressQuery:[SA=%s CTX=%s TYPE=%v EXP=%d OPT=%v]",
+		q.SubjectAddr, q.Context, q.Types, q.Expiration, q.Options)
 }
 
 //NotificationSection contains information about the notification
@@ -998,7 +1174,8 @@ func (n *NotificationSection) Sort() {
 	//notification is already sorted (it does not contain a list of elements).
 }
 
-//CompareTo compares two notifications and returns 0 if they are equal, 1 if n is greater than notification and -1 if n is smaller than notification
+//CompareTo compares two notifications and returns 0 if they are equal, 1 if n is greater than
+//notification and -1 if n is smaller than notification
 func (n *NotificationSection) CompareTo(notification *NotificationSection) int {
 	if n.Token != notification.Token {
 		for i, b := range n.Token {
@@ -1027,7 +1204,8 @@ func (n *NotificationSection) String() string {
 	if n == nil {
 		return "Notification:nil"
 	}
-	return fmt.Sprintf("Notification:[TOK=%s TYPE=%d DATA=%s]", hex.EncodeToString(n.Token[:]), n.Type, n.Data)
+	return fmt.Sprintf("Notification:[TOK=%s TYPE=%d DATA=%s]",
+		hex.EncodeToString(n.Token[:]), n.Type, n.Data)
 }
 
 //filterSigs returns only those signatures which are in the given keySpace

@@ -125,7 +125,8 @@ type MessageSection interface {
 	String() string
 }
 
-//MessageSectionWithSig can be either an Assertion, Shard, Zone, AddressAssertion, AddressZone
+//MessageSectionWithSig is an interface for a section protected by a signature. In the current
+//implementation it can be an Assertion, Shard, Zone, AddressAssertion, AddressZone
 type MessageSectionWithSig interface {
 	MessageSection
 	AllSigs() []Signature
@@ -138,12 +139,20 @@ type MessageSectionWithSig interface {
 	ValidSince() int64
 	ValidUntil() int64
 	Hash() string
+	IsConsistent() bool
 }
 
 //MessageSectionWithSigForward can be either an Assertion, Shard or Zone
 type MessageSectionWithSigForward interface {
 	MessageSectionWithSig
 	Interval
+}
+
+//MessageSectionQuery is the interface for a query section. In the current implementation it can be
+//a query or an addressQuery
+type MessageSectionQuery interface {
+	GetContext() string
+	GetExpiration() int64
 }
 
 //Interval defines an interval over strings

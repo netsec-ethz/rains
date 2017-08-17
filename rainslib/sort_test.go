@@ -233,22 +233,22 @@ func sortedQueries(nof int) []*QuerySection {
 					for m := 0; m < 8; m++ {
 						//TODO CFE extend this test when we support multiple types per assertion
 						queries = append(queries, &QuerySection{
-							Context: strconv.Itoa(i),
-							Name:    strconv.Itoa(j),
-							Types:   []ObjectType{ObjectType(k)},
-							Expires: int64(l),
-							Options: []QueryOption{QueryOption(m)},
+							Context:    strconv.Itoa(i),
+							Name:       strconv.Itoa(j),
+							Types:      []ObjectType{ObjectType(k)},
+							Expiration: int64(l),
+							Options:    []QueryOption{QueryOption(m)},
 						})
 					}
 					for m := 0; m < 7; m++ {
 						for n := m + 1; n < 8; n++ {
 							//TODO CFE extend this test when we support multiple types per assertion
 							queries = append(queries, &QuerySection{
-								Context: strconv.Itoa(i),
-								Name:    strconv.Itoa(j),
-								Types:   []ObjectType{ObjectType(k)},
-								Expires: int64(l),
-								Options: []QueryOption{QueryOption(m), QueryOption(n)},
+								Context:    strconv.Itoa(i),
+								Name:       strconv.Itoa(j),
+								Types:      []ObjectType{ObjectType(k)},
+								Expiration: int64(l),
+								Options:    []QueryOption{QueryOption(m), QueryOption(n)},
 							})
 						}
 					}
@@ -362,7 +362,7 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 							SubjectAddr: subjectAddress,
 							Context:     strconv.Itoa(j),
 							Types:       []ObjectType{ObjectType(k)},
-							Expires:     int64(l),
+							Expiration:  int64(l),
 							Options:     []QueryOption{QueryOption(m)},
 						})
 					}
@@ -373,7 +373,7 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 								SubjectAddr: subjectAddress,
 								Context:     strconv.Itoa(j),
 								Types:       []ObjectType{ObjectType(k)},
-								Expires:     int64(l),
+								Expiration:  int64(l),
 								Options:     []QueryOption{QueryOption(m), QueryOption(n)},
 							})
 						}
@@ -390,7 +390,7 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 							SubjectAddr: subjectAddress2,
 							Context:     strconv.Itoa(j),
 							Types:       []ObjectType{ObjectType(k)},
-							Expires:     int64(l),
+							Expiration:  int64(l),
 							Options:     []QueryOption{QueryOption(m)},
 						})
 					}

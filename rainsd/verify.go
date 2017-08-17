@@ -16,18 +16,6 @@ import (
 //sigEncoder is used to translate a message or section into a signable format
 var sigEncoder rainslib.SignatureFormatEncoder
 
-//initVerify initialized the module which is responsible for checking the validity of the signatures and the structure of the sections.
-//It spawns a goroutine which periodically goes through the cache and removes outdated entries, see reapVerify()
-func initVerify() error {
-	err := loadRootZonePublicKey(Config.RootZonePublicKeyPath)
-	if err != nil {
-		return err
-	}
-
-	go reapVerify()
-	return nil
-}
-
 //verify verifies msgSender.Section
 //It checks the consistency of the msgSender.Section and if it is inconsistent a notification msg is sent. (Consistency with cached elements is checked later in engine)
 //It validates all signatures (including contained once), stripping of expired once.
@@ -35,69 +23,53 @@ func initVerify() error {
 //If there happens an error in the signature verification process of any signature, the whole section gets dropped (signatures of contained sections are also considered)
 func verify(msgSender msgSectionSender) {
 	log.Info(fmt.Sprintf("Verify %T", msgSender.Section), "msgSection", msgSender.Section)
-	switch section := msgSender.Section.(type) {
-	case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection:
+	switch msgSender.Section.(type) {
+	case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection,
+		*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection:
 		sectionSender := sectionWithSigSender{
-			Section: section.(rainslib.MessageSectionWithSig),
+			Section: msgSender.Section.(rainslib.MessageSectionWithSig),
 			Sender:  msgSender.Sender,
 			Token:   msgSender.Token,
 		}
-		if containedSectionsInvalid(sectionSender) {
-			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg, "")
-			return //already logged, that contained section is invalid
-		}
-		if contextInvalid(sectionSender.Section.GetContext()) {
-			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg, "")
-			return //already logged, that context is invalid
-		}
-		if zone, ok := section.(*rainslib.ZoneSection); ok && !containedShardsAreConsistent(zone) {
-			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg, "")
-			return //already logged, that the zone is internally invalid
-		}
-		if verifySignatures(sectionSender) {
-			assert(sectionSender, authoritative[zoneContext{
-				Zone:    sectionSender.Section.GetSubjectZone(),
-				Context: sectionSender.Section.GetContext(),
-			}])
-		}
-	case *rainslib.AddressAssertionSection, *rainslib.AddressZoneSection:
-		sectionSender := sectionWithSigSender{
-			Section: section.(rainslib.MessageSectionWithSig),
-			Sender:  msgSender.Sender,
-			Token:   msgSender.Token,
-		}
-		if containedSectionsInvalid(sectionSender) {
-			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg, "")
-			return //already logged, that contained section is invalid
-		}
-		if contextInvalid(sectionSender.Section.GetContext()) {
-			sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg, "")
-			return //already logged, that context is invalid
-		}
-		if verifySignatures(sectionSender) {
-			assert(sectionSender, authoritative[zoneContext{
-				Zone:    sectionSender.Section.GetSubjectZone(),
-				Context: sectionSender.Section.GetContext(),
-			}])
-		}
-	case *rainslib.AddressQuerySection:
-		if contextInvalid(section.Context) {
-			sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTRcvInconsistentMsg, "")
-			return //already logged, that context is invalid
-		}
-		if !isQueryExpired(section.Expires) {
-			addressQuery(section, msgSender.Sender, msgSender.Token)
-		}
-	case *rainslib.QuerySection:
-		if contextInvalid(section.Context) {
-			sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTRcvInconsistentMsg, "")
-			return //already logged, that context is invalid
-		}
-		if !isQueryExpired(section.Expires) {
-			query(section, msgSender.Sender, msgSender.Token)
-		}
+		verifySection(sectionSender)
+	case *rainslib.AddressQuerySection, *rainslib.QuerySection:
+		verifyQuery(msgSender.Section.(rainslib.MessageSectionQuery), msgSender)
 	default:
-		log.Warn("Not supported Msg section to verify", "msgSection", section)
+		log.Warn("Not supported Msg section to verify", "msgSection", msgSender)
+	}
+}
+
+//verifySection forwards the received section protected by signature(s) to be processed if it is
+//consistent, all nonexpired signatures verify and there is at least one non expired signature.
+func verifySection(sectionSender sectionWithSigSender) {
+	if !sectionSender.Section.IsConsistent() {
+		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg, "")
+		return //already logged, that contained section is invalid
+	}
+	if contextInvalid(sectionSender.Section.GetContext()) {
+		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg, "")
+		return //already logged, that context is invalid
+	}
+	if zone, ok := sectionSender.Section.(*rainslib.ZoneSection); ok && !containedShardsAreConsistent(zone) {
+		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg, "")
+		return //already logged, that the zone is internally invalid
+	}
+	if verifySignatures(sectionSender) {
+		assert(sectionSender, authoritative[zoneContext{
+			Zone:    sectionSender.Section.GetSubjectZone(),
+			Context: sectionSender.Section.GetContext(),
+		}])
+	}
+}
+
+//verifyQuery forwards the received query to be processed if it is consistent and not expired.
+func verifyQuery(query rainslib.MessageSectionQuery, msgSender msgSectionSender) {
+	if contextInvalid(query.GetContext()) {
+		sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTRcvInconsistentMsg, "")
+		return //already logged, that context is invalid
+	}
+	if !isQueryExpired(query.GetExpiration()) {
+		processQuery(msgSender)
 	}
 }
 
@@ -118,130 +90,6 @@ func isQueryExpired(expires int64) bool {
 	}
 	log.Info("Query is not expired")
 	return false
-}
-
-//containedSectionsInvalid returns
-//For assertions: false
-//For addressAssertions: true if it contains invalid object types
-//For shards and zones: true if any of the contained sections' context or subjectZone is not the empty string
-//OR any contained assertion's subjectName is outside the range of its outer shard (the shard that contains the assertion)
-//For addressZones: true if any of the contained addressAssertions' context is not the empty string
-//OR any contained addressAssertion's subjectAddress is not within the zone's subjectAddress or contains invalid object types
-//Additionally for zones: true if the contained sections are not of type assertion or shard. This case should never happen
-func containedSectionsInvalid(sectionSender sectionWithSigSender) bool {
-	switch sec := sectionSender.Section.(type) {
-	case *rainslib.AssertionSection:
-		return false //assertions do not contain sections
-	case *rainslib.AddressAssertionSection:
-		if addressAssertionInvalidObjectType(sec) {
-			return true
-		}
-	case *rainslib.ShardSection:
-		for _, assertion := range sec.Content {
-			if sectionHasContextOrSubjectZone(assertion) || !containedSectionInRange(assertion.SubjectName, sec, sectionSender) {
-				return true
-			}
-		}
-	case *rainslib.ZoneSection:
-		for _, section := range sec.Content {
-			//check that all contained assertions and shards of this zone have the same context and subjectZone as the zone
-			switch section := section.(type) {
-			case *rainslib.AssertionSection:
-				if sectionHasContextOrSubjectZone(section) {
-					return true
-				}
-			case *rainslib.ShardSection:
-				if sectionHasContextOrSubjectZone(section) {
-					return true
-				}
-				for _, assertion := range section.Content {
-					if sectionHasContextOrSubjectZone(assertion) || !containedSectionInRange(assertion.SubjectName, section, sectionSender) {
-						return true
-					}
-				}
-			default:
-				log.Error("Contained section is not an assertion or a shard", "containedSectionType", fmt.Sprintf("%T", section))
-				return true
-			}
-		}
-	case *rainslib.AddressZoneSection:
-		for _, addressAssertion := range sec.Content {
-			if addressAssertion.Context != "" || !assertionAddrWithinZoneAddr(addressAssertion.SubjectAddr, sec.SubjectAddr) ||
-				addressAssertionInvalidObjectType(addressAssertion) {
-				return true
-			}
-		}
-	default:
-		log.Error("Unsupported section to check for validity", "sectionType", fmt.Sprintf("%T", sec))
-		return true
-	}
-	return false
-}
-
-//sectionHasContextOrSubjectZone returns false if the section's context and subjectZone both are the empty string
-func sectionHasContextOrSubjectZone(section rainslib.MessageSectionWithSig) bool {
-	if section.GetContext() != "" || section.GetSubjectZone() != "" {
-		log.Warn("Contained section has a context or subjectZone != \"\"", "section", section)
-		return true
-	}
-	return false
-}
-
-//containedSectionInRange returns true if the assertion's subjectName is inside the shard's range.
-//Otherwise it sends a inconsistency notification and returns false.
-func containedSectionInRange(subjectName string, shard *rainslib.ShardSection, sectionSender sectionWithSigSender) bool {
-	if shard.RangeFrom != "" && subjectName < shard.RangeFrom || shard.RangeTo != "" && subjectName > shard.RangeTo {
-		log.Warn("Contained assertion's subjectName is outside the shard's range", "subjectName", subjectName,
-			"Range", fmt.Sprintf("[%s:%s]", shard.RangeFrom, shard.RangeTo))
-		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg, "")
-		return false
-	}
-	return true
-}
-
-//assertionAddrWithinZoneAddr returns true if the assertion's subjectAddress is within the outer zone's subjectAddress
-func assertionAddrWithinZoneAddr(assertionSubjectAddr, zoneSubejectAddr *net.IPNet) bool {
-	zprefix, _ := zoneSubejectAddr.Mask.Size()
-	aprefix, _ := assertionSubjectAddr.Mask.Size()
-	if aprefix < zprefix {
-		log.Warn("Assertion is less specific than zone", "assertion prefix", aprefix, "zone prefix", zprefix)
-		return false
-	}
-	if !zoneSubejectAddr.Contains(assertionSubjectAddr.IP) {
-		log.Warn("Assertion network is not contained in zone network", "assertion network", assertionSubjectAddr, "zone network", zoneSubejectAddr)
-		return false
-	}
-	return true
-}
-
-//addressAssertionInvalidObjectType returns true if the addressAssertion contains a not allowed object type
-func addressAssertionInvalidObjectType(a *rainslib.AddressAssertionSection) bool {
-	for _, o := range a.Content {
-		if invalidObjectType(a.SubjectAddr, o.Type) {
-			log.Warn("Not Allowed object type of contained address assertion.", "objectType", o.Type, "subjectAddr", a.SubjectAddr)
-			return true
-		}
-	}
-	return false
-}
-
-//invalidObjectType returns true if the object type is not allowed for the given subjectAddr.
-func invalidObjectType(subjectAddr *net.IPNet, objectType rainslib.ObjectType) bool {
-	prefixLength, addressLength := subjectAddr.Mask.Size()
-	if addressLength == 32 {
-		if prefixLength == 32 {
-			return objectType != rainslib.OTName
-		}
-		return objectType != rainslib.OTDelegation && objectType != rainslib.OTRedirection && objectType != rainslib.OTRegistrant
-	}
-	if addressLength == 128 {
-		if prefixLength == 128 {
-			return objectType != rainslib.OTName
-		}
-		return objectType != rainslib.OTDelegation && objectType != rainslib.OTRedirection && objectType != rainslib.OTRegistrant
-	}
-	log.Warn("Invalid addressLength", "addressLength", addressLength)
-	return true
 }
 
 //verifySignatures verifies all signatures of sectionSender.Section and strips off expired
@@ -339,27 +187,9 @@ func addZoneAndContextToContainedSections(section rainslib.MessageSectionWithSig
 	case *rainslib.AssertionSection, *rainslib.AddressAssertionSection:
 		//no contained sections
 	case *rainslib.ShardSection:
-		for _, a := range section.Content {
-			a.SubjectZone = section.GetSubjectZone()
-			a.Context = section.GetContext()
-		}
+		section.AddZoneAndContextToAssertions()
 	case *rainslib.ZoneSection:
-		for _, sec := range section.Content {
-			switch sec := sec.(type) {
-			case *rainslib.AssertionSection:
-				sec.SubjectZone = section.GetSubjectZone()
-				sec.Context = section.GetContext()
-			case *rainslib.ShardSection:
-				sec.SubjectZone = section.GetSubjectZone()
-				sec.Context = section.GetContext()
-				for _, a := range sec.Content {
-					a.SubjectZone = section.GetSubjectZone()
-					a.Context = section.GetContext()
-				}
-			default:
-				log.Warn("Not supported message section inside zone")
-			}
-		}
+		section.AddZoneAndContextToSections()
 	case *rainslib.AddressZoneSection:
 		for _, a := range section.Content {
 			a.Context = section.Context
@@ -378,7 +208,7 @@ func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[rains
 	for k := range missingKeys {
 		if sendQuery := pendingKeys.Add(sectionSender, k.Algorithm, k.KeyPhase); sendQuery {
 			token := rainslib.GenerateToken()
-			exp := time.Now().Add(Config.QueryValidity).Unix()
+			exp := getQueryValidity(section.Sigs(rainslib.RainsKeySpace))
 			if ok := pendingKeys.AddToken(token, exp, sectionSender.Sender,
 				section.GetSubjectZone(), section.GetContext()); ok {
 				msg := rainslib.NewQueryMessage(section.GetSubjectZone(), section.GetContext(),
@@ -394,8 +224,7 @@ func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[rains
 
 //getQueryValidity returns the expiration value for a delegation query.
 //It is either a configured upper bound or if smaller the longest validity time of all present signatures.
-func getQueryValidity(sigs []rainslib.Signature) int64 {
-	validity := int64(0)
+func getQueryValidity(sigs []rainslib.Signature) (validity int64) {
 	for _, sig := range sigs {
 		if sig.ValidUntil > validity {
 			validity = sig.ValidUntil
@@ -451,7 +280,8 @@ func validZoneSignatures(section *rainslib.ZoneSection, keys map[rainslib.Public
 				return false
 			}
 		case *rainslib.ShardSection:
-			if !rainsSiglib.CheckSectionSignatures(sec, keys, sigEncoder, Config.MaxCacheValidity) || !validContainedAssertions(sec.Content, keys) {
+			if !rainsSiglib.CheckSectionSignatures(sec, keys, sigEncoder, Config.MaxCacheValidity) ||
+				!validContainedAssertions(sec.Content, keys) {
 				return false
 			}
 			sec.Context = ""
@@ -505,13 +335,4 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainsli
 		return false
 	}
 	return len(section.Sigs(rainslib.RainsKeySpace)) > 0
-}
-
-//reapVerify deletes expired keys from the key caches and expired sections from the pendingSignature cache in intervals according to the config
-func reapVerify() {
-	for {
-		zoneKeyCache.RemoveExpiredKeys()
-		pendingKeys.RemoveExpiredValues()
-		time.Sleep(Config.ReapVerifyTimeout)
-	}
 }

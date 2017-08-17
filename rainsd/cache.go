@@ -2,6 +2,7 @@ package rainsd
 
 import (
 	"net"
+	"time"
 
 	"github.com/netsec-ethz/rains/utils/binaryTrie"
 	"github.com/netsec-ethz/rains/utils/lruCache"
@@ -107,6 +108,22 @@ func initCaches() {
 	addressCacheIPv4["."] = new(binaryTrie.TrieNode)
 	addressCacheIPv6 = make(map[string]addressSectionCache)
 	addressCacheIPv6["."] = new(binaryTrie.TrieNode)
+
+	go reap(func() { zoneKeyCache.RemoveExpiredKeys() }, Config.ReapVerifyTimeout)
+	//go reap(func() { revZoneKeyCache.RemoveExpiredKeys() }, Config.ReapVerifyTimeout)
+	go reap(func() { pendingKeys.RemoveExpiredValues() }, Config.ReapVerifyTimeout)
+	go reap(func() { redirectCache.RemoveExpiredValues() }, Config.ReapVerifyTimeout)
+	go reap(func() { assertionsCache.RemoveExpiredValues() }, Config.ReapEngineTimeout)
+	go reap(func() { negAssertionCache.RemoveExpiredValues() }, Config.ReapEngineTimeout)
+	go reap(func() { pendingQueries.RemoveExpiredValues() }, Config.ReapEngineTimeout)
+}
+
+//reap executes reapFunction in intervals of waitTime
+func reap(reapFunction func(), waitTime time.Duration) {
+	for {
+		reapFunction()
+		time.Sleep(waitTime)
+	}
 }
 
 func getAddressCache(addr *net.IPNet, context string) (tree addressSectionCache) {

@@ -144,7 +144,7 @@ func encodeQuery(q *rainslib.QuerySection, seg *capnp.Segment) (proto.MessageSec
 
 	query.SetName(q.Name)
 	query.SetContext(q.Context)
-	query.SetExpires(q.Expires)
+	query.SetExpires(q.Expiration)
 
 	qtList, err := capnp.NewInt32List(seg, int32(len(q.Types)))
 	if err != nil {
@@ -275,7 +275,7 @@ func encodeAddressQuery(q *rainslib.AddressQuerySection, seg *capnp.Segment) (pr
 	}
 
 	query.SetContext(q.Context)
-	query.SetExpires(q.Expires)
+	query.SetExpires(q.Expiration)
 
 	qtList, err := capnp.NewInt32List(seg, int32(len(q.Types)))
 	if err != nil {

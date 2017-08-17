@@ -20,9 +20,7 @@ import (
 var cert tls.Certificate
 
 //InitSwitchboard initializes the switchboard
-func initSwitchboard() error {
-	var err error
-
+func initSwitchboard() (err error) {
 	cert, err = tls.LoadX509KeyPair(Config.TLSCertificateFile, Config.TLSPrivateKeyFile)
 	if err != nil {
 		log.Error("Cannot load certificate. Path to CertificateFile or privateKeyFile might be invalid.", "CertPath", Config.TLSCertificateFile,
