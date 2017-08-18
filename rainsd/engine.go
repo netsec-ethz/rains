@@ -339,7 +339,7 @@ func sendAssertionAnswer(section rainslib.MessageSectionWithSig, query rainslib.
 	time.Sleep(waitTime)
 	sectionSenders, answers := pendingQueries.GetAndRemoveByToken(token, deadline)
 	for _, ss := range sectionSenders {
-		sendQueryAnswer(answers, ss.Sender, ss.Token)
+		sendSections(answers, ss.Token, ss.Sender)
 	}
 }
 
@@ -359,7 +359,7 @@ func sendShardAnswer(section *rainslib.ShardSection, query rainslib.MessageSecti
 		sections = append(sections, section)
 	}
 	for _, ss := range sectionSenders {
-		sendQueryAnswer(sections, ss.Sender, ss.Token)
+		sendSections(sections, ss.Token, ss.Sender)
 	}
 }
 
@@ -387,7 +387,7 @@ func sendZoneAnswer(section *rainslib.ZoneSection, query rainslib.MessageSection
 		sections = append(sections, section)
 	}
 	for _, ss := range sectionSenders {
-		sendQueryAnswer(sections, ss.Sender, ss.Token)
+		sendSections(sections, ss.Token, ss.Sender)
 	}
 }
 
@@ -400,10 +400,7 @@ func sendToRedirect(name, context string, token rainslib.Token, query rainslib.M
 	if conns := redirectCache.GetConnsInfo(name); len(conns) > 0 {
 		tok := rainslib.GenerateToken()
 		if pendingQueries.UpdateToken(token, tok) {
-			SendMessage(rainslib.RainsMessage{
-				Content: []rainslib.MessageSection{query},
-				Token:   tok,
-			}, conns[0])
+			sendSection(query, tok, conns[0])
 			return true
 		}
 		return false
@@ -419,15 +416,13 @@ func sendToRedirect(name, context string, token rainslib.Token, query rainslib.M
 		if conns := redirectCache.GetConnsInfo(name); len(conns) > 0 {
 			tok := rainslib.GenerateToken()
 			if pendingQueries.UpdateToken(token, tok) {
-				SendMessage(
-					rainslib.NewQueryMessage(
-						redirectName,
-						context,
-						time.Now().Add(Config.QueryValidity).Unix(),
-						[]rainslib.ObjectType{rainslib.OTIP6Addr, rainslib.OTIP4Addr},
-						nil,
-						tok),
-					conns[0])
+				newQuery := &rainslib.QuerySection{
+					Name:       redirectName,
+					Context:    context,
+					Expiration: time.Now().Add(Config.QueryValidity).Unix(),
+					Types:      []rainslib.ObjectType{rainslib.OTIP6Addr, rainslib.OTIP4Addr},
+				}
+				sendSection(newQuery, tok, conns[0])
 				return true
 			}
 			return false
@@ -447,10 +442,7 @@ func resendPendingQuery(query rainslib.MessageSection, token rainslib.Token, nam
 		if redirectCache.AddConnInfo(name, connInfo, expiration) {
 			tok := rainslib.GenerateToken()
 			if pendingQueries.UpdateToken(token, tok) {
-				SendMessage(rainslib.RainsMessage{
-					Content: []rainslib.MessageSection{query},
-					Token:   tok,
-				}, connInfo)
+				sendSection(query, tok, connInfo)
 				return true
 			}
 		}
@@ -498,7 +490,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 			}
 		}
 		if len(assertions) > 0 {
-			sendQueryAnswer(assertions, sender, token)
+			sendSections(assertions, token, sender)
 			log.Info("Finished handling query by sending assertion from cache", "query", query)
 			return
 		}
@@ -516,7 +508,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 			//element. shortest according to what? size in bytes? how to efficiently determine that.
 			//e.g. using gob encoding. alternatively we could also count the number of contained
 			//elements.
-			sendOneQueryAnswer(negAssertion[0], sender, token)
+			sendSection(negAssertion[0], token, sender)
 			log.Info("Finished handling query by sending shard or zone from cache", "query", query)
 			return
 		}
@@ -563,10 +555,14 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		log.Info("Added query into to pending query cache", "query", query)
 		if isNew {
 			if pendingQueries.AddToken(tok, validUntil, delegate, query.Name, query.Context, query.Types) {
-				msg := rainslib.NewQueryMessage(fmt.Sprintf("%s.%s", zAn.name, zAn.zone), query.Context,
-					validUntil, query.Types, nil, tok)
-				if err := SendMessage(msg, delegate); err == nil {
-					log.Info("Sent query.", "destination", delegate, "query", msg.Content[0])
+				newQuery := &rainslib.QuerySection{
+					Name:       fmt.Sprintf("%s.%s", zAn.name, zAn.zone),
+					Context:    query.Context,
+					Expiration: validUntil,
+					Types:      query.Types,
+				}
+				if err := sendSection(newQuery, tok, delegate); err == nil {
+					log.Info("Sent query.", "destination", delegate, "query", newQuery)
 				}
 			} //else answer already arrived and callback function has already been invoked
 		} else {
@@ -584,7 +580,7 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 	//TODO CFE add heuristic which assertion to return
 	if ok {
 		if assertion != nil {
-			sendOneQueryAnswer(assertion, sender, token)
+			sendSection(assertion, token, sender)
 			log.Debug("Finished handling query by sending address assertion from cache", "query", query)
 			return
 		}
@@ -614,16 +610,16 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 	if !query.ContainsOption(rainslib.QOTokenTracing) {
 		tok = rainslib.GenerateToken()
 	}
-	validUntil := time.Now().Add(Config.AddressQueryValidity).Unix() //Upper bound for forwarded query expiration time
-	if query.Expiration < validUntil {
-		validUntil = query.Expiration
+	newQuery := *query
+	//Upper bound for forwarded query expiration time
+	if newQuery.Expiration > time.Now().Add(Config.AddressQueryValidity).Unix() {
+		newQuery.Expiration = time.Now().Add(Config.AddressQueryValidity).Unix()
 	}
 	//FIXME CFE allow multiple types
 	//FIXME CFE only send query if not already in cache.
 	pendingQueries.Add(msgSectionSender{Section: query, Sender: sender, Token: token})
 	log.Debug("Added query into to pending query cache", "query", query)
-	msg := rainslib.NewAddressQueryMessage(query.Context, query.SubjectAddr, validUntil, query.Types, nil, tok)
-	SendMessage(msg, delegate)
+	sendSection(&newQuery, tok, delegate)
 }
 
 //handleAddressZoneQueryResponse checks if zone.Content contains an addressAssertion with
@@ -638,14 +634,14 @@ func handleAddressZoneQueryResponse(zone *rainslib.AddressZoneSection, subjectAd
 			for _, sig := range a.Sigs(rainslib.RainsKeySpace) {
 				//TODO CFE only check for this condition when queryoption 5 is not set
 				if sig.ValidUntil > time.Now().Unix() {
-					sendOneQueryAnswer(a, sender, token)
+					sendSection(a, token, sender)
 					return true
 				}
 			}
 			return false
 		}
 	}
-	sendOneQueryAnswer(zone, sender, token)
+	sendSection(zone, token, sender)
 	return true
 }
 
@@ -690,7 +686,7 @@ func handleShardOrZoneQueryResponse(section rainslib.MessageSectionWithSigForwar
 		subjectZone, context, queryType, sender, token); entryFound {
 		return hasSig
 	}
-	sendOneQueryAnswer(section, sender, token)
+	sendSection(section, token, sender)
 	return true
 }
 
@@ -708,7 +704,7 @@ func containedAssertionQueryResponse(assertions []*rainslib.AssertionSection, su
 			for _, sig := range a.Sigs(rainslib.RainsKeySpace) {
 				//TODO CFE only check for this condition when queryoption 5 is not set
 				if sig.ValidUntil > time.Now().Unix() {
-					sendOneQueryAnswer(a, sender, token)
+					sendSection(a, token, sender)
 					return true, true
 				}
 			}
@@ -716,16 +712,6 @@ func containedAssertionQueryResponse(assertions []*rainslib.AssertionSection, su
 		}
 	}
 	return false, false
-}
-
-//sendQueryAnswer sends a slice of sections with Signatures back to the sender with the specified token
-func sendQueryAnswer(sections []rainslib.MessageSection, sender rainslib.ConnInfo, token rainslib.Token) {
-	SendMessage(rainslib.RainsMessage{Content: sections, Token: token}, sender)
-}
-
-//sendOneQueryAnswer sends a section with Signature back to the sender with the specified token
-func sendOneQueryAnswer(section rainslib.MessageSectionWithSig, sender rainslib.ConnInfo, token rainslib.Token) {
-	sendQueryAnswer([]rainslib.MessageSection{section}, sender, token)
 }
 
 //measureSystemRessources measures current cpu usage and updates enoughSystemRessources

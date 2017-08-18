@@ -151,12 +151,39 @@ func initOwnCapabilities(capabilities []rainslib.Capability) {
 	capabilityList = strings.Join(cs, " ")
 }
 
-//SendMessage adds an infrastructure signature to message and encodes it. Then it is sent to addr.
-//In case of an encoder error, it logs message information and the error.
-func SendMessage(message rainslib.RainsMessage, dst rainslib.ConnInfo) error {
-	//TODO CFE add infrastructure signatured
-	//TODO CFE maybe remove?
-	return sendTo(message, dst, 1, 1)
+//sendSections creates a messages containing token and sections and sends it to destination. If
+//token is empty, a new token is generated
+func sendSections(sections []rainslib.MessageSection, token rainslib.Token, destination rainslib.ConnInfo) error {
+	if token == [16]byte{} {
+		token = rainslib.GenerateToken()
+	}
+	msg := rainslib.RainsMessage{Token: token, Content: sections}
+	//TODO CFE make retires and backoff configurable
+	return sendTo(msg, destination, 1, 1)
+}
+
+//sendSection creates a messages containing token and section and sends it to destination. If
+//token is empty, a new token is generated
+func sendSection(section rainslib.MessageSection, token rainslib.Token, destination rainslib.ConnInfo) error {
+	return sendSections([]rainslib.MessageSection{section}, token, destination)
+}
+
+//sendNotificationMsg sends a message containing freshly generated token and a notification section with
+//notificationType, token, and data to destination.
+func sendNotificationMsg(token rainslib.Token, destination rainslib.ConnInfo,
+	notificationType rainslib.NotificationType, data string) {
+	notification := &rainslib.NotificationSection{
+		Type:  notificationType,
+		Token: token,
+		Data:  data,
+	}
+	sendSection(notification, rainslib.Token{}, destination)
+}
+
+//sendCapability sends a message with capabilities to sender
+func sendCapability(destination rainslib.ConnInfo, capabilities []rainslib.Capability) {
+	msg := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Capabilities: capabilities}
+	sendTo(msg, destination, 1, 1)
 }
 
 //getRootAddr returns an addr to a root server.

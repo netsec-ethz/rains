@@ -98,26 +98,11 @@ func processCapability(caps []rainslib.Capability, sender rainslib.ConnInfo, tok
 	}
 }
 
-//sendNotificationMsg sends a notification message to dst with the given notificationType and
-//capabilityList
-func sendNotificationMsg(token rainslib.Token, dst rainslib.ConnInfo,
-	notificationType rainslib.NotificationType, capabilityList string) {
-	//TODO CFE when we have CBOR use it to normalize&serialize the array before hashing it.
-	//Currently we use the hard coded version from the draft.
-	msg := rainslib.NewNotificationMessage(token, notificationType, capabilityList)
-	SendMessage(msg, dst)
-}
-
 //addCapabilityAndRespond adds caps to the connection cache entry of sender and sends its own
 //capabilities back if it has not already received capability information on this connection.
 func addCapabilityAndRespond(sender rainslib.ConnInfo, caps []rainslib.Capability) {
 	if !connCache.AddCapabilityList(sender, caps) {
-		SendMessage(
-			rainslib.RainsMessage{
-				Token:        rainslib.GenerateToken(),
-				Capabilities: []rainslib.Capability{rainslib.Capability(capabilityHash)},
-			},
-			sender)
+		sendCapability(sender, []rainslib.Capability{rainslib.Capability(capabilityHash)})
 	}
 }
 

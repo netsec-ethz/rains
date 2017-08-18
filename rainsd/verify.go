@@ -40,15 +40,18 @@ func verify(msgSender msgSectionSender) {
 //consistent, all nonexpired signatures verify and there is at least one non expired signature.
 func verifySection(sectionSender sectionWithSigSender) {
 	if !sectionSender.Section.IsConsistent() {
-		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg, "")
+		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg,
+			"contained section has context or subjectZone")
 		return //already logged, that contained section is invalid
 	}
 	if contextInvalid(sectionSender.Section.GetContext()) {
-		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg, "")
+		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg,
+			"invalid context")
 		return //already logged, that context is invalid
 	}
 	if zone, ok := sectionSender.Section.(*rainslib.ZoneSection); ok && !containedShardsAreConsistent(zone) {
-		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg, "")
+		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg,
+			"contained sections are inconsistent with outer section")
 		return //already logged, that the zone is internally invalid
 	}
 	if verifySignatures(sectionSender) {
@@ -62,7 +65,7 @@ func verifySection(sectionSender sectionWithSigSender) {
 //verifyQuery forwards the received query to be processed if it is consistent and not expired.
 func verifyQuery(query rainslib.MessageSectionQuery, msgSender msgSectionSender) {
 	if contextInvalid(query.GetContext()) {
-		sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTRcvInconsistentMsg, "")
+		sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTRcvInconsistentMsg, "invalid context")
 		return //already logged, that context is invalid
 	}
 	if !isQueryExpired(query.GetExpiration()) {
@@ -276,9 +279,13 @@ func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[rains
 			exp := getQueryValidity(section.Sigs(rainslib.RainsKeySpace))
 			if ok := pendingKeys.AddToken(token, exp, sectionSender.Sender,
 				section.GetSubjectZone(), section.GetContext()); ok {
-				msg := rainslib.NewQueryMessage(section.GetSubjectZone(), section.GetContext(),
-					exp, []rainslib.ObjectType{rainslib.OTDelegation}, nil, token)
-				SendMessage(msg, getRootAddr())
+				query := &rainslib.QuerySection{
+					Name:       section.GetSubjectZone(),
+					Context:    section.GetContext(),
+					Expiration: exp,
+					Types:      []rainslib.ObjectType{rainslib.OTDelegation},
+				}
+				sendSection(query, token, getRootAddr())
 				continue
 			}
 		}

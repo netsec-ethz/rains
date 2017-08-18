@@ -74,16 +74,6 @@ func capabilityIsHash(capabilities string) bool {
 	return !strings.HasPrefix(capabilities, "urn:")
 }
 
-//sendCapability sends a message with capabilities to sender
-func sendCapability(sender rainslib.ConnInfo, capabilities []rainslib.Capability) {
-	SendMessage(
-		rainslib.RainsMessage{
-			Token:        rainslib.GenerateToken(),
-			Capabilities: capabilities,
-		},
-		sender)
-}
-
 //dropPendingSectionsAndQueries removes all entries from the pending caches matching token and
 //forwards the received notification or unspecServerErr depending on serverError flag
 func dropPendingSectionsAndQueries(token rainslib.Token, notification *rainslib.NotificationSection,
