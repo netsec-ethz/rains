@@ -242,8 +242,7 @@ func pendingQueriesCallback(swss sectionWithSigSender) {
 					return
 				}
 			}
-			if o, ok := rainslib.ContainsType(section.Content, rainslib.OTRedirection); ok {
-				redirectCache.GetConnsInfo(o.Value.(string))
+			if _, ok := rainslib.ContainsType(section.Content, rainslib.OTRedirection); ok {
 				if sendToRedirect(zoneAndName, section.Context, swss.Token, query) {
 					return
 				}
@@ -255,24 +254,22 @@ func pendingQueriesCallback(swss sectionWithSigSender) {
 				}
 			}
 			if o, ok := rainslib.ContainsType(section.Content, rainslib.OTIP4Addr); ok {
-				//TODO make a configurable upper bound for valid until before adding connInfo to cache
 				if resendPendingQuery(query, swss.Token, zoneAndName, o.Value.(string),
 					time.Now().Add(Config.QueryValidity).Unix()) {
 					return
 				}
 			}
 		}
-		sectionSenders, _ := pendingQueries.GetAndRemoveByToken(swss.Token, 0)
-		for _, ss := range sectionSenders {
-			sendNotificationMsg(ss.Token, ss.Sender, rainslib.NTNoAssertionAvail, "")
-			log.Warn("Was not able to use answer to query.", "query", query, "token", swss.Token,
-				"sender", swss.Sender, "section", swss.Section)
-		}
 	case *rainslib.AddressAssertionSection:
 	case *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.AddressZoneSection:
-		return //shard or zone cannot be used as a delegation answer
 	default:
 		log.Error("Not supported message section with sig. This case must be prevented beforehand")
+	}
+	sectionSenders, _ := pendingQueries.GetAndRemoveByToken(swss.Token, 0)
+	for _, ss := range sectionSenders {
+		sendNotificationMsg(ss.Token, ss.Sender, rainslib.NTNoAssertionAvail, "")
+		log.Warn("Was not able to use answer to query.", "query", query, "token", swss.Token,
+			"sender", swss.Sender, "section", swss.Section)
 	}
 }
 

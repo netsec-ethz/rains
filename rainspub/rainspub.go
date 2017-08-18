@@ -230,6 +230,16 @@ func signAssertions(assertions []*rainslib.AssertionSection, keyAlgo rainslib.Si
 	return nil
 }
 
+//createRainsMessage creates a rainsMessage containing the given zone and return the byte representation of this rainsMessage ready to send out.
+func createRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
+	msg := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Content: []rainslib.MessageSection{zone}} //no capabilities
+	byteMsg, err := msgParser.Encode(msg)
+	if err != nil {
+		return []byte{}, err
+	}
+	return byteMsg, nil
+}
+
 //sendMsg sends the given zone to rains servers specified in the configuration
 func sendMsg(msg []byte, assertionCount, shardCount int) error {
 	//TODO CFE use certificate for tls
@@ -302,8 +312,6 @@ func handleResponse(conn net.Conn, n *rainslib.NotificationSection) bool {
 	switch n.Type {
 	case rainslib.NTHeartbeat, rainslib.NTNoAssertionsExist, rainslib.NTNoAssertionAvail:
 	//nop
-	case rainslib.NTCapabilityAnswer:
-		handleCapabilities(n.Data)
 	case rainslib.NTCapHashNotKnown:
 	//TODO CFE send back the whole capability list in an empty message
 	case rainslib.NTBadMessage:
@@ -329,19 +337,4 @@ func handleResponse(conn net.Conn, n *rainslib.NotificationSection) bool {
 //capabilityIsHash returns true if capabilities are represented as a hash.
 func capabilityIsHash(capabilities string) bool {
 	return !strings.HasPrefix(capabilities, "urn:")
-}
-
-//handleCapabilities changes the way rainspub is communicating with the given server
-func handleCapabilities(capabilities string) {
-	//No capabilities so far to handle
-}
-
-//createRainsMessage creates a rainsMessage containing the given zone and return the byte representation of this rainsMessage ready to send out.
-func createRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
-	msg := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Content: []rainslib.MessageSection{zone}} //no capabilities
-	byteMsg, err := msgParser.Encode(msg)
-	if err != nil {
-		return []byte{}, err
-	}
-	return byteMsg, nil
 }
