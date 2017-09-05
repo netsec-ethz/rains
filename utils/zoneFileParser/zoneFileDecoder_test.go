@@ -21,13 +21,17 @@ func TestDecodePublicKeyData(t *testing.T) {
 		{
 			hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012")),
 			rainslib.PublicKey{
-				Key:        rainslib.RainsKeySpace,
-				Type:       rainslib.Ed25519,
+				PublicKeyID: rainslib.PublicKeyID{
+					KeySpace:  rainslib.RainsKeySpace,
+					Algorithm: rainslib.Ed25519,
+				},
 				ValidSince: 0,
 				ValidUntil: 5},
 			rainslib.PublicKey{
-				KeySpace:   rainslib.RainsKeySpace,
-				Type:       rainslib.Ed25519,
+				PublicKeyID: rainslib.PublicKeyID{
+					KeySpace:  rainslib.RainsKeySpace,
+					Algorithm: rainslib.Ed25519,
+				},
 				Key:        ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
 				ValidSince: 0,
 				ValidUntil: 5},
@@ -36,8 +40,10 @@ func TestDecodePublicKeyData(t *testing.T) {
 		{
 			hex.EncodeToString([]byte("keyTooShort")),
 			rainslib.PublicKey{
-				Key:        rainslib.RainsKeySpace,
-				Type:       rainslib.Ed25519,
+				PublicKeyID: rainslib.PublicKeyID{
+					KeySpace:  rainslib.RainsKeySpace,
+					Algorithm: rainslib.Ed25519,
+				},
 				ValidSince: 0,
 				ValidUntil: 5},
 			rainslib.PublicKey{},
@@ -46,8 +52,10 @@ func TestDecodePublicKeyData(t *testing.T) {
 		{
 			"noEncoding",
 			rainslib.PublicKey{
-				Key:        rainslib.RainsKeySpace,
-				Type:       rainslib.Ed25519,
+				PublicKeyID: rainslib.PublicKeyID{
+					KeySpace:  rainslib.RainsKeySpace,
+					Algorithm: rainslib.Ed25519,
+				},
 				ValidSince: 0,
 				ValidUntil: 5},
 			rainslib.PublicKey{},
@@ -97,7 +105,7 @@ func TestDecodeSigAlgoAndData(t *testing.T) {
 		wantErrorMsg string
 	}{
 		{fmt.Sprintf("ed25519 %s", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))),
-			rainslib.PublicKey{Type: rainslib.Ed25519, Key: ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012"))}, ""},
+			rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519}, Key: ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012"))}, ""},
 		{fmt.Sprintf("ed25519 %s", hex.EncodeToString([]byte("keyTooShort"))),
 			rainslib.PublicKey{}, "public key length is not 32. actual:11"},
 		{"ed448", rainslib.PublicKey{}, "not yet implemented"},
@@ -127,7 +135,9 @@ func TestDecodeNextKey(t *testing.T) {
 	}{
 		{fmt.Sprintf(":next: ed25519 %s 5 10", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))),
 			rainslib.PublicKey{
-				Type:       rainslib.Ed25519,
+				PublicKeyID: rainslib.PublicKeyID{
+					Algorithm: rainslib.Ed25519,
+				},
 				Key:        ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
 				ValidSince: 5,
 				ValidUntil: 10},
@@ -160,9 +170,11 @@ func TestDecodeExternalKey(t *testing.T) {
 	}{
 		{fmt.Sprintf(":extra: rains ed25519 %s", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))),
 			rainslib.PublicKey{
-				KeySpace: rainslib.RainsKeySpace,
-				Type:     rainslib.Ed25519,
-				Key:      ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
+				PublicKeyID: rainslib.PublicKeyID{
+					KeySpace:  rainslib.RainsKeySpace,
+					Algorithm: rainslib.Ed25519,
+				},
+				Key: ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
 			},
 			"",
 		},
@@ -192,8 +204,10 @@ func TestDecodeInfraKey(t *testing.T) {
 	}{
 		{fmt.Sprintf(":infra: ed25519 %s", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))),
 			rainslib.PublicKey{
-				Type: rainslib.Ed25519,
-				Key:  ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
+				PublicKeyID: rainslib.PublicKeyID{
+					Algorithm: rainslib.Ed25519,
+				},
+				Key: ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
 			},
 			"",
 		},
@@ -221,9 +235,11 @@ func TestDecodeDelegationKey(t *testing.T) {
 	}{
 		{fmt.Sprintf(":deleg: ed25519 %s", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))),
 			rainslib.PublicKey{
-				KeySpace: rainslib.RainsKeySpace,
-				Type:     rainslib.Ed25519,
-				Key:      ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
+				PublicKeyID: rainslib.PublicKeyID{
+					KeySpace:  rainslib.RainsKeySpace,
+					Algorithm: rainslib.Ed25519,
+				},
+				Key: ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
 			},
 			"",
 		},

@@ -1,8 +1,8 @@
 # Assertion cache
 
 ## Cache design decisions
-- Assertions over which the server has authority are only removed when they expire. All other
-  assertions are subject to a least recently used policy.
+- Assertions over which the server has authority and all delegation assertions are only removed when
+  they expire. All other assertions are subject to a least recently used policy.
 
 ## Assertion requirements
 - cache has a maximum size which is configurable (to avoid memory exhaustion of the server in case
@@ -14,14 +14,15 @@
 - it must provide an insertion function which stores an assertion together with an expiration time
   to the cache (expiration time is necessary as we might want to store them for a shorter amount of
   time as they are valid. It is not possible to change the value directly as it is protected by the
-  signature).
+  signature). It must also add this entry to the consistency cache.
 - it must provide fast lookup of a set of assertions based on name, type, and zone (if any context
   is allowed) or a name, type, zone, and context. A set is returned such that the calling function
-  can decide which entry it wants to send back according to a policy. Depending on a parameter flag
-  it also returns expired assertions as part of the returned set (to allow answering queries with
-  option 5 set).
+  can decide which entry it wants to send back according to a policy. Be aware that also expired,
+  but not yet reaped values are returned in the set.
 - it must provide a reap function that removes expired assertions. This function must also remove
   the corresponding element in the consistency cache.
+- it must provide a removal function which removes all assertions of a specific zone in case this
+  zone misbehaved or sent inconsistent messages.
 - all cache operations must be safe for concurrent access
 
 ## Assertion implementation

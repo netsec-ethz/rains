@@ -482,7 +482,7 @@ func decodeSigAlgoAndData(scanner *WordScanner) (rainslib.PublicKey, error) {
 		return rainslib.PublicKey{}, err
 	}
 	scanner.Scan()
-	publicKey := rainslib.PublicKey{Type: keyAlgoType}
+	publicKey := rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: keyAlgoType}}
 	switch keyAlgoType {
 	case rainslib.Ed25519:
 		return decodeEd25519PublicKeyData(scanner.Text(), publicKey)

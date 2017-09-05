@@ -82,7 +82,7 @@ func TestAssertionHash(t *testing.T) {
 		{nil, "A_nil"},
 		{new(AssertionSection), "A____[]_[]"},
 		{&AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "ctx", Content: GetAllValidObjects()[:3],
-			Signatures: []Signature{Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
+			Signatures: []Signature{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519}, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
 			"A_name_zone_ctx_[OT:1 OV:{example.com [3 2]} OT:2 OV:2001:db8:: OT:3 OV:192.0.2.0]_[{KS=0 AT=1 VS=1000 VU=2000 KP=0 data=53696744617461}]"},
 	}
 	for i, test := range tests {
@@ -101,11 +101,13 @@ func TestShardHash(t *testing.T) {
 		{new(ShardSection), "S_____[]_[]"},
 		{&ShardSection{SubjectZone: "zone", Context: "ctx", RangeFrom: "RB", RangeTo: "RT", Content: []*AssertionSection{new(AssertionSection)},
 			Signatures: []Signature{Signature{
-				KeySpace:   RainsKeySpace,
-				Algorithm:  Ed25519,
+				PublicKeyID: PublicKeyID{
+					KeySpace:  RainsKeySpace,
+					Algorithm: Ed25519,
+					KeyPhase:  1,
+				},
 				ValidSince: 1000,
 				ValidUntil: 2000,
-				KeyPhase:   1,
 				Data:       []byte("SigData")}}},
 			"S_zone_ctx_RB_RT_[A____[]_[]]_[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461}]"},
 	}
@@ -125,11 +127,13 @@ func TestZoneHash(t *testing.T) {
 		{new(ZoneSection), "Z___[]_[]"},
 		{&ZoneSection{SubjectZone: "zone", Context: "ctx", Content: []MessageSectionWithSigForward{new(AssertionSection), new(ShardSection)},
 			Signatures: []Signature{Signature{
-				KeySpace:   RainsKeySpace,
-				Algorithm:  Ed25519,
+				PublicKeyID: PublicKeyID{
+					KeySpace:  RainsKeySpace,
+					Algorithm: Ed25519,
+					KeyPhase:  1,
+				},
 				ValidSince: 1000,
 				ValidUntil: 2000,
-				KeyPhase:   1,
 				Data:       []byte("SigData")}}},
 			"Z_zone_ctx_[A____[]_[] S_____[]_[]]_[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461}]"},
 		{&ZoneSection{Content: []MessageSectionWithSigForward{new(ZoneSection)}}, ""},
@@ -159,11 +163,13 @@ func TestAddressAssertionHash(t *testing.T) {
 				Content:     objects2,
 				Signatures: []Signature{
 					Signature{
-						KeySpace:   RainsKeySpace,
-						Algorithm:  Ed25519,
+						PublicKeyID: PublicKeyID{
+							KeySpace:  RainsKeySpace,
+							Algorithm: Ed25519,
+							KeyPhase:  1,
+						},
 						ValidSince: 1000,
 						ValidUntil: 2000,
-						KeyPhase:   1,
 						Data:       []byte("SigData"),
 					},
 				},
@@ -177,11 +183,13 @@ func TestAddressAssertionHash(t *testing.T) {
 				Content:     objects1,
 				Signatures: []Signature{
 					Signature{
-						KeySpace:   RainsKeySpace,
-						Algorithm:  Ed25519,
+						PublicKeyID: PublicKeyID{
+							KeySpace:  RainsKeySpace,
+							Algorithm: Ed25519,
+							KeyPhase:  1,
+						},
 						ValidSince: 1000,
 						ValidUntil: 2000,
-						KeyPhase:   1,
 						Data:       []byte("SigData"),
 					},
 				},
@@ -215,11 +223,13 @@ func TestAddressZoneHash(t *testing.T) {
 				},
 				Signatures: []Signature{
 					Signature{
-						KeySpace:   RainsKeySpace,
-						Algorithm:  Ed25519,
+						PublicKeyID: PublicKeyID{
+							KeySpace:  RainsKeySpace,
+							Algorithm: Ed25519,
+							KeyPhase:  1,
+						},
 						ValidSince: 1000,
 						ValidUntil: 2000,
-						KeyPhase:   1,
 						Data:       []byte("SigData"),
 					},
 				},
@@ -236,11 +246,13 @@ func TestAddressZoneHash(t *testing.T) {
 				},
 				Signatures: []Signature{
 					Signature{
-						KeySpace:   RainsKeySpace,
-						Algorithm:  Ed25519,
+						PublicKeyID: PublicKeyID{
+							KeySpace:  RainsKeySpace,
+							Algorithm: Ed25519,
+							KeyPhase:  1,
+						},
 						ValidSince: 1000,
 						ValidUntil: 2000,
-						KeyPhase:   1,
 						Data:       []byte("SigData"),
 					},
 				},
@@ -296,8 +308,8 @@ func TestAssertionString(t *testing.T) {
 				Context:     "ctx",
 				Content:     GetAllValidObjects()[:3],
 				Signatures: []Signature{
-					Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, KeyPhase: 1, Data: []byte("SigData")},
-					Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 3000, ValidUntil: 4000, KeyPhase: 1, Data: []byte("SigData2")},
+					Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519, KeyPhase: 1}, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")},
+					Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519, KeyPhase: 1}, ValidSince: 3000, ValidUntil: 4000, Data: []byte("SigData2")},
 				},
 			},
 			"Assertion:[SN=name SZ=zone CTX=ctx CONTENT=[OT:1 OV:{example.com [3 2]} OT:2 OV:2001:db8:: OT:3 OV:192.0.2.0] SIG=[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461} {KS=0 AT=1 VS=3000 VU=4000 KP=1 data=5369674461746132}]]",
@@ -327,7 +339,7 @@ func TestShardString(t *testing.T) {
 					new(AssertionSection),
 				},
 				Signatures: []Signature{
-					Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, KeyPhase: 1, Data: []byte("SigData")}}},
+					Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519, KeyPhase: 1}, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
 			"Shard:[SZ=zone CTX=ctx RF=RF RT=RT CONTENT=[Assertion:[SN= SZ= CTX= CONTENT=[] SIG=[]]] SIG=[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461}]]"},
 	}
 	for i, test := range tests {
@@ -353,7 +365,7 @@ func TestZoneString(t *testing.T) {
 					new(ShardSection),
 				},
 				Signatures: []Signature{
-					Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, KeyPhase: 1, Data: []byte("SigData")}}},
+					Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519, KeyPhase: 1}, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
 			"Zone:[SZ=zone CTX=ctx CONTENT=[Assertion:[SN= SZ= CTX= CONTENT=[] SIG=[]] Shard:[SZ= CTX= RF= RT= CONTENT=[] SIG=[]]] SIG=[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461}]]"},
 		{&ZoneSection{Content: []MessageSectionWithSigForward{new(ZoneSection)}}, "Zone:[SZ= CTX= CONTENT=[Zone:[SZ= CTX= CONTENT=[] SIG=[]]] SIG=[]]"},
 	}
@@ -381,7 +393,7 @@ func TestAddressAssertionString(t *testing.T) {
 				Context:     "ctx",
 				Content:     objects2,
 				Signatures: []Signature{
-					Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, KeyPhase: 1, Data: []byte("SigData")}}},
+					Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519, KeyPhase: 1}, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
 			"AddressAssertion:[SA=192.0.2.0/32 CTX=ctx CONTENT=[OT:1 OV:{example.com [3 2]}] SIG=[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461}]]",
 		},
 		{
@@ -390,7 +402,7 @@ func TestAddressAssertionString(t *testing.T) {
 				Context:     "ctx",
 				Content:     objects1,
 				Signatures: []Signature{
-					Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, KeyPhase: 1, Data: []byte("SigData")},
+					Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519, KeyPhase: 1}, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")},
 				},
 			},
 			fmt.Sprintf("AddressAssertion:[SA=2001:db8::/32 CTX=ctx CONTENT=[OT:4 OV:example.com OT:5 OV:%s OT:10 OV:Registrant information] SIG=[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461}]]",
@@ -421,11 +433,13 @@ func TestAddressZoneString(t *testing.T) {
 				new(AddressAssertionSection),
 			},
 			Signatures: []Signature{Signature{
-				KeySpace:   RainsKeySpace,
-				Algorithm:  Ed25519,
+				PublicKeyID: PublicKeyID{
+					KeySpace:  RainsKeySpace,
+					Algorithm: Ed25519,
+					KeyPhase:  1,
+				},
 				ValidSince: 1000,
 				ValidUntil: 2000,
-				KeyPhase:   1,
 				Data:       []byte("SigData"),
 			}},
 		},
@@ -439,7 +453,7 @@ func TestAddressZoneString(t *testing.T) {
 					new(AddressAssertionSection),
 				},
 				Signatures: []Signature{
-					Signature{KeySpace: RainsKeySpace, Algorithm: Ed25519, ValidSince: 1000, ValidUntil: 2000, KeyPhase: 1, Data: []byte("SigData")}}},
+					Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519, KeyPhase: 1}, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
 			"AddressZone:[SA=2001:db8::/32 CTX=ctx CONTENT=[AddressAssertion:[SA=<nil> CTX= CONTENT=[] SIG=[]] AddressAssertion:[SA=<nil> CTX= CONTENT=[] SIG=[]]] SIG=[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461}]]"},
 	}
 	for i, test := range tests {
@@ -461,11 +475,11 @@ func TestQueryString(t *testing.T) {
 		},
 		{
 			&QuerySection{
-				Context: "ctx",
-				Name:    "name",
-				Types:   []ObjectType{OTName},
-				Expires: 100,
-				Options: []QueryOption{QOMinE2ELatency, QOMinInfoLeakage},
+				Context:    "ctx",
+				Name:       "name",
+				Types:      []ObjectType{OTName},
+				Expiration: 100,
+				Options:    []QueryOption{QOMinE2ELatency, QOMinInfoLeakage},
 			},
 			"Query:[CTX=ctx NA=name TYPE=[1] EXP=100 OPT=[1 3]]",
 		},
@@ -494,7 +508,7 @@ func TestAddressQueryString(t *testing.T) {
 				SubjectAddr: subjectAddress1,
 				Context:     "ctx",
 				Types:       []ObjectType{OTName},
-				Expires:     100,
+				Expiration:  100,
 				Options:     []QueryOption{QOMinE2ELatency, QOMinInfoLeakage},
 			},
 			"AddressQuery:[SA=192.0.2.0/32 CTX=ctx TYPE=[1] EXP=100 OPT=[1 3]]",
@@ -504,7 +518,7 @@ func TestAddressQueryString(t *testing.T) {
 				SubjectAddr: subjectAddress2,
 				Context:     "ctx",
 				Types:       []ObjectType{OTName},
-				Expires:     100,
+				Expiration:  100,
 				Options:     []QueryOption{QOMinE2ELatency, QOMinInfoLeakage},
 			},
 			"AddressQuery:[SA=2001:db8::/32 CTX=ctx TYPE=[1] EXP=100 OPT=[1 3]]",
@@ -905,7 +919,7 @@ func TestSigs(t *testing.T) {
 		param  KeySpaceID
 		output []Signature
 	}{
-		{[]Signature{Signature{KeySpace: KeySpaceID(-1)}, Signature{}}, RainsKeySpace, []Signature{Signature{}}},
+		{[]Signature{Signature{PublicKeyID: PublicKeyID{KeySpace: KeySpaceID(-1)}}, Signature{}}, RainsKeySpace, []Signature{Signature{}}},
 	}
 	for i, test := range tests {
 		var s MessageSectionWithSig

@@ -120,18 +120,18 @@ func TestNewQueryMessage(t *testing.T) {
 				Token: token,
 				Content: []MessageSection{
 					&QuerySection{
-						Name:    "example.com",
-						Context: ".",
-						Expires: 100,
-						Types:   []ObjectType{OTIP4Addr},
-						Options: []QueryOption{QOTokenTracing, QOMinE2ELatency},
+						Name:       "example.com",
+						Context:    ".",
+						Expiration: 100,
+						Types:      []ObjectType{OTIP4Addr},
+						Options:    []QueryOption{QOTokenTracing, QOMinE2ELatency},
 					},
 				},
 			},
 		},
 	}
 	for i, test := range tests {
-		msg := NewQueryMessage(test.context, test.name, test.expires, test.types, test.options, test.token)
+		msg := NewQueryMessage(test.name, test.context, test.expires, test.types, test.options, test.token)
 		if !reflect.DeepEqual(test.expected, msg) {
 			t.Errorf("%d: Message containing Query do not match. expected=%v actual=%v", i, test.expected, msg)
 		}
@@ -158,7 +158,7 @@ func TestNewAddressQueryMessage(t *testing.T) {
 					&AddressQuerySection{
 						SubjectAddr: subjectAddress1,
 						Context:     ".",
-						Expires:     100,
+						Expiration:  100,
 						Types:       []ObjectType{OTIP4Addr},
 						Options:     []QueryOption{QOTokenTracing, QOMinE2ELatency},
 					},
@@ -172,7 +172,7 @@ func TestNewAddressQueryMessage(t *testing.T) {
 					&AddressQuerySection{
 						SubjectAddr: subjectAddress2,
 						Context:     ".",
-						Expires:     100,
+						Expiration:  100,
 						Types:       []ObjectType{OTIP4Addr},
 						Options:     []QueryOption{QOTokenTracing, QOMinE2ELatency},
 					},

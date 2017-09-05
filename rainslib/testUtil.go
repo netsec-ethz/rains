@@ -187,7 +187,7 @@ func CheckQuery(q1, q2 *QuerySection, t *testing.T) {
 	if q1.Context != q2.Context {
 		t.Error("Query context mismatch")
 	}
-	if q1.Expires != q2.Expires {
+	if q1.Expiration != q2.Expiration {
 		t.Error("Query Expires mismatch")
 	}
 	if q1.Name != q2.Name {
@@ -250,7 +250,7 @@ func CheckAddressQuery(q1, q2 *AddressQuerySection, t *testing.T) {
 	if q1.Context != q2.Context {
 		t.Error("AddressQuery context mismatch")
 	}
-	if q1.Expires != q2.Expires {
+	if q1.Expiration != q2.Expiration {
 		t.Error("AddressQuery Expires mismatch")
 	}
 	if len(q1.Types) != len(q2.Types) {
@@ -376,7 +376,7 @@ func CheckPublicKey(p1, p2 PublicKey, t *testing.T) {
 	if p1.KeySpace != p2.KeySpace {
 		t.Error("PublicKey KeySpace mismatch")
 	}
-	if p1.Type != p2.Type {
+	if p1.Algorithm != p2.Algorithm {
 		t.Error("PublicKey Type mismatch")
 	}
 	if p1.ValidSince != p2.ValidSince {

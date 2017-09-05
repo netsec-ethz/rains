@@ -88,12 +88,12 @@ func TestEncodePublicKey(t *testing.T) {
 		input rainslib.PublicKey
 		want  string
 	}{
-		{rainslib.PublicKey{Type: rainslib.Ed25519, Key: pkey}, fmt.Sprintf("ed25519 %s", hex.EncodeToString(pkey))},
-		{rainslib.PublicKey{Type: rainslib.Ed25519, Key: []byte(" ")}, ""},
-		{rainslib.PublicKey{Type: rainslib.Ed448}, ""},
-		{rainslib.PublicKey{Type: rainslib.Ecdsa256}, ""},
-		{rainslib.PublicKey{Type: rainslib.Ecdsa384}, ""},
-		{rainslib.PublicKey{Type: rainslib.SignatureAlgorithmType(-1)}, ""},
+		{rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519}, Key: pkey}, fmt.Sprintf("ed25519 %s", hex.EncodeToString(pkey))},
+		{rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519}, Key: []byte(" ")}, ""},
+		{rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed448}}, ""},
+		{rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ecdsa256}}, ""},
+		{rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ecdsa384}}, ""},
+		{rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.SignatureAlgorithmType(-1)}}, ""},
 	}
 	for _, test := range tests {
 		if encodePublicKey(test.input) != test.want {

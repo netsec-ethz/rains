@@ -3,8 +3,8 @@
 ## Cache design decisions
 - Shards and Zones over which the server has authority are only removed when they expire. All other
   shards and zones are subject to a least recently used policy.
-- Expired shards and zones are also returned such that it is possible to answer a query which has
-  query option 5 (expired assertions are acceptable) set. 
+- Expired but not yet reaped shards and zones are also returned such that the caller can decide how
+  he wants to handle them. e.g. when a query has option 5 (expired assertions are acceptable) set.
 
 ## Negative assertion requirements
 - cache has a maximum size which is configurable (to avoid memory exhaustion of the server in case
@@ -20,10 +20,11 @@
 - it must provide fast lookup of a set of shards and zones based on a subjectZone (if any context is
   allowed) or a subjectZone and context. A set of all intervals containing the subjectZone is
   returned such that the calling function can decide which entry it wants to send back according to
-  a policy. Depending on a parameter flag it also returns expired shards or zones as part of the
-  returned set (to allow answering queries with option 5 set).
+  a policy.
 - it must provide a reap function that removes expired entries. This function must also remove the
   corresponding element in the consistency cache.
+- it must provide a removal function which removes all assertions of a specific zone in case this
+  zone misbehaved or sent inconsistent messages.
 - all cache operations must be safe for concurrent access
 
 ## Negative assertion implementation

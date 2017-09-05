@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/netsec-ethz/rains/rainslib"
-
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -42,7 +41,7 @@ type rainpubConfig struct {
 	//ZoneValidity defines the time until a zone is valid starting from the time it is signed
 	ZoneValidUntil time.Duration //in hours
 	//MaxAssertionsPerShard the maximal number of assertions per shard. Currently independent of assertion's internal size
-	MaxAssertionsPerShard uint
+	MaxAssertionsPerShard int
 	//ServerAddresses of the rainsd servers to which rainspub is pushing zone file information
 	ServerAddresses []rainslib.ConnInfo
 	//ZoneFilePath is the location of the rains zone file

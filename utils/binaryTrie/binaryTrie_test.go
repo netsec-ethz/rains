@@ -13,7 +13,9 @@ import (
 func TestAddAndFind(t *testing.T) {
 
 	publicKey := rainslib.PublicKey{
-		Type:       rainslib.Ed25519,
+		PublicKeyID: rainslib.PublicKeyID{
+			Algorithm: rainslib.Ed25519,
+		},
 		Key:        []byte("TestKey"),
 		ValidSince: 10000,
 		ValidUntil: 50000,
@@ -25,8 +27,10 @@ func TestAddAndFind(t *testing.T) {
 	registrantObject := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}
 
 	signature := rainslib.Signature{
-		KeySpace:   rainslib.RainsKeySpace,
-		Algorithm:  rainslib.Ed25519,
+		PublicKeyID: rainslib.PublicKeyID{
+			KeySpace:  rainslib.RainsKeySpace,
+			Algorithm: rainslib.Ed25519,
+		},
 		ValidSince: 1000,
 		ValidUntil: 1000000000,
 		Data:       []byte("SignatureData")}

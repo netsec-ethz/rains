@@ -2,13 +2,12 @@ package rainsd
 
 import (
 	"fmt"
-
-	"github.com/netsec-ethz/rains/rainsSiglib"
-	"github.com/netsec-ethz/rains/rainslib"
-
 	"strings"
 
 	log "github.com/inconshreveable/log15"
+
+	"github.com/netsec-ethz/rains/rainsSiglib"
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 //incoming messages are buffered in one of these channels until they get processed by a worker go routine
@@ -22,13 +21,7 @@ var prioWorkers chan struct{}
 var normalWorkers chan struct{}
 var notificationWorkers chan struct{}
 
-//activeTokens stores the tokens of active delegation queries.
-var activeTokens activeTokenCache
-
-//capabilities stores known hashes of capabilities and for each connInfo what capability the communication partner has.
-var capabilities capabilityCache
-
-func initInbox() error {
+func initQueuesAndWorkers() error {
 	//init Channels
 	prioChannel = make(chan msgSectionSender, Config.PrioBufferSize)
 	normalChannel = make(chan msgSectionSender, Config.NormalBufferSize)
@@ -39,20 +32,9 @@ func initInbox() error {
 	normalWorkers = make(chan struct{}, Config.NormalWorkerCount)
 	notificationWorkers = make(chan struct{}, Config.NotificationWorkerCount)
 
-	//init Capability Cache
-	var err error
-	capabilities, err = createCapabilityCache(Config.CapabilitiesCacheSize, Config.PeerToCapCacheSize)
-	if err != nil {
-		log.Error("Cannot create connCache", "error", err)
-		return err
-	}
-
-	activeTokens = createActiveTokenCache(Config.ActiveTokenCacheSize)
-
 	go workPrio()
 	go workNotification()
 	go workBoth()
-
 	return nil
 }
 
@@ -62,18 +44,17 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 	//check message length
 	if uint(len(message)) > Config.MaxMsgByteLength {
 		token, _ := msgParser.Token(message)
-		sendNotificationMsg(token, sender, rainslib.NTMsgTooLarge)
+		sendNotificationMsg(token, sender, rainslib.NTMsgTooLarge, "")
 		return
 	}
-	//FIXME CFE first extract only SubjectZone to determine if zone is on blacklist and if so drop it instantly
 	msg, err := msgParser.Decode(message)
 	if err != nil {
-		sendNotificationMsg(msg.Token, sender, rainslib.NTBadMessage)
+		sendNotificationMsg(msg.Token, sender, rainslib.NTBadMessage, "")
 		return
 	}
 	log.Debug("Parsed Message", "msg", msg)
 
-	//FIXME CFE get infrastructure key from cache and if not present send a infra query, add a new cache for whole messages to wait for missing public keys
+	//TODO CFE get infrastructure key from cache and if not present send a infra query, add a new cache for whole messages to wait for missing public keys
 	if !rainsSiglib.CheckMessageSignatures(&msg, rainslib.PublicKey{}, sigEncoder) {
 	}
 
@@ -99,50 +80,35 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 	}
 }
 
-//processCapability processes capabilities and sends a notification back to the sender if the hash is not understood.
+//processCapability processes capabilities and sends a notification back to the sender if the hash
+//is not understood.
 func processCapability(caps []rainslib.Capability, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Process capabilities", "capabilities", caps)
 	if len(caps) > 0 {
 		isHash := !strings.HasPrefix(string(caps[0]), "urn:")
 		if isHash {
-			if caps, ok := capabilities.GetFromHash([]byte(caps[0])); !ok {
-				capabilities.Add(sender, caps)
-				handleCapabilities(caps)
-			} else {
-				sendNotificationMsg(token, sender, rainslib.NTCapHashNotKnown)
+			if caps, ok := capabilities.Get([]byte(caps[0])); ok {
+				addCapabilityAndRespond(sender, caps)
+			} else { //capability hash not understood
+				sendNotificationMsg(token, sender, rainslib.NTCapHashNotKnown, capabilityHash)
 			}
 		} else {
-			capabilities.Add(sender, caps)
-			handleCapabilities(caps)
+			addCapabilityAndRespond(sender, caps)
 		}
 	}
 }
 
-//handleCapabilities takes appropriate actions depending on the capability of the communication partner
-func handleCapabilities(caps []rainslib.Capability) {
-	log.Warn("Capability handling is not yet implemented")
-	/*for _, capa := range caps {
-		switch capa {
-		case rainslib.TLSOverTCP:
-			//TODO CFE impl
-		case rainslib.NoCapability:
-			//Do nothing
-		default:
-			log.Warn("Sent capability value does not match know capability", "rcvCaps", capa)
-		}
-	}*/
-}
-
-//sendNotificationMsg sends a notification message to dst with the given notificationType.
-//If an error occurs during parsing no message is sent and the error is logged.
-func sendNotificationMsg(token rainslib.Token, dst rainslib.ConnInfo, notificationType rainslib.NotificationType) {
-	msg := rainslib.NewNotificationMessage(token, notificationType, "")
-	SendMessage(msg, dst)
+//addCapabilityAndRespond adds caps to the connection cache entry of sender and sends its own
+//capabilities back if it has not already received capability information on this connection.
+func addCapabilityAndRespond(sender rainslib.ConnInfo, caps []rainslib.Capability) {
+	if !connCache.AddCapabilityList(sender, caps) {
+		sendCapability(sender, []rainslib.Capability{rainslib.Capability(capabilityHash)})
+	}
 }
 
 //addMsgSectionToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg section to the prio cache, otherwise to the normal cache.
 func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token, sender rainslib.ConnInfo) {
-	if activeTokens.IsPriority(tok) {
+	if pendingKeys.ContainsToken(tok) {
 		log.Debug("add section with signature to priority queue", "token", tok)
 		prioChannel <- msgSectionSender{Sender: sender, Section: msgSection, Token: tok}
 	} else {
@@ -189,7 +155,8 @@ func normalWorkerHandler(msg msgSectionSender) {
 //The prio channel is necessary to avoid a blocking of the server. e.g. in the following unrealistic scenario
 //1) normal queue fills up with non delegation queries which all are missing a public key
 //2) The non-delegation queries get processed by the normalWorkers and added to the pendingSignature cache
-//3) For each non-delegation query that gets taken off the queue a new non-delegation query or expired delegation query wins against all waiting valid delegation-queries.
+//3) For each non-delegation query that gets taken off the queue a new non-delegation query or expired
+//   delegation query wins against all waiting valid delegation-queries.
 //4) Then although the server is working all the time, no section is added to the caches.
 func workPrio() {
 	for {

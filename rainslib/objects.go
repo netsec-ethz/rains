@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	log "github.com/inconshreveable/log15"
+
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -175,21 +176,39 @@ const (
 	Sha512     HashAlgorithmType = 3
 )
 
+//PublicKeyID contains all necessary information to distinguish different public keys from the same
+//authority
+type PublicKeyID struct {
+	//Algorithm determines the signature algorithm to be used for signing and verification
+	Algorithm SignatureAlgorithmType
+	//KeySpace is an identifier of a key space
+	KeySpace KeySpaceID
+	//KeyPhase defines the keyPhase in which this public key is valid
+	KeyPhase int
+}
+
+func (p PublicKeyID) String() string {
+	return fmt.Sprintf("AT=%s KS=%v KP=%d", p.Algorithm, p.KeySpace, p.KeyPhase)
+}
+
+//Hash returns a string containing all information uniquely identifying a public key ID.
+func (p PublicKeyID) Hash() string {
+	return fmt.Sprintf("%d,%d,%d", p.Algorithm, p.KeySpace, p.KeyPhase)
+}
+
 //PublicKey contains information about a public key
 type PublicKey struct {
-	Type       SignatureAlgorithmType
-	KeySpace   KeySpaceID
+	PublicKeyID
 	ValidSince int64
 	ValidUntil int64
-	KeyPhase   int
 	Key        interface{}
 }
 
 //CompareTo compares two publicKey objects and returns 0 if they are equal, 1 if p is greater than pkey and -1 if p is smaller than pkey
 func (p PublicKey) CompareTo(pkey PublicKey) int {
-	if p.Type < pkey.Type {
+	if p.Algorithm < pkey.Algorithm {
 		return -1
-	} else if p.Type > pkey.Type {
+	} else if p.Algorithm > pkey.Algorithm {
 		return 1
 	} else if p.KeySpace < pkey.KeySpace {
 		return -1
@@ -213,7 +232,7 @@ func (p PublicKey) CompareTo(pkey PublicKey) int {
 		if k2, ok := pkey.Key.(ed25519.PublicKey); ok {
 			return bytes.Compare(k1, k2)
 		}
-		log.Error("PublicKey.Key Type does not match algorithmIdType", "algoType", pkey.Type, "KeyType", fmt.Sprintf("%T", pkey.Key))
+		log.Error("PublicKey.Key Type does not match algorithmIdType", "algoType", pkey.Algorithm, "KeyType", fmt.Sprintf("%T", pkey.Key))
 	default:
 		log.Warn("Unsupported public key type", "type", fmt.Sprintf("%T", p.Key))
 	}
@@ -229,8 +248,19 @@ func (p PublicKey) String() string {
 	default:
 		log.Warn("Unsupported public key type", "type", fmt.Sprintf("%T", p.Key))
 	}
-	return fmt.Sprintf("{%d %d %d %d %d %s}",
-		p.Type, p.KeySpace, p.ValidSince, p.ValidUntil, p.KeyPhase, keyString)
+	return fmt.Sprintf("{%s VS=%d VU=%d data=%s}", p.PublicKeyID, p.ValidSince, p.ValidUntil, keyString)
+}
+
+//Hash returns a string containing all information uniquely identifying a public key.
+func (p PublicKey) Hash() string {
+	keyString := ""
+	switch k1 := p.Key.(type) {
+	case ed25519.PublicKey:
+		keyString = hex.EncodeToString(k1)
+	default:
+		log.Warn("Unsupported public key type", "type", fmt.Sprintf("%T", p.Key))
+	}
+	return fmt.Sprintf("%s,%d,%d,%s", p.PublicKeyID.Hash(), p.ValidSince, p.ValidUntil, keyString)
 }
 
 //NamesetExpression encodes a modified POSIX Extended Regular Expression format

@@ -15,13 +15,14 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+
 	"golang.org/x/crypto/ed25519"
 )
 
 //RainsMessage represents a Message
 type RainsMessage struct {
-	//Capabilities is a slice of capabilities the server originating the message has.
-	//TODO CFE how to distinguish between hash of capability and capability itself
+	//Capabilities is a slice of capabilities or the hash thereof which the server originating the
+	//message has.
 	Capabilities []Capability
 	//Token is used to identify a message
 	Token Token
@@ -105,7 +106,7 @@ type Capability string
 
 const (
 	//NoCapability is used when the server does not listen for any connections
-	NoCapability Capability = ""
+	NoCapability Capability = "urn:x-rains:nocapability"
 	//TLSOverTCP is used when the server listens for tls over tcp connections
 	TLSOverTCP Capability = "urn:x-rains:tlssrv"
 )
@@ -124,7 +125,8 @@ type MessageSection interface {
 	String() string
 }
 
-//MessageSectionWithSig can be either an Assertion, Shard, Zone, AddressAssertion, AddressZone
+//MessageSectionWithSig is an interface for a section protected by a signature. In the current
+//implementation it can be an Assertion, Shard, Zone, AddressAssertion, AddressZone
 type MessageSectionWithSig interface {
 	MessageSection
 	AllSigs() []Signature
@@ -137,6 +139,8 @@ type MessageSectionWithSig interface {
 	ValidSince() int64
 	ValidUntil() int64
 	Hash() string
+	IsConsistent() bool
+	NeededKeys(map[SignatureMetaData]bool)
 }
 
 //MessageSectionWithSigForward can be either an Assertion, Shard or Zone
@@ -145,12 +149,41 @@ type MessageSectionWithSigForward interface {
 	Interval
 }
 
+//MessageSectionQuery is the interface for a query section. In the current implementation it can be
+//a query or an addressQuery
+type MessageSectionQuery interface {
+	GetContext() string
+	GetExpiration() int64
+}
+
 //Interval defines an interval over strings
 type Interval interface {
 	//Begin of the interval
 	Begin() string
 	//End of the interval
 	End() string
+}
+
+//Intersect returns true if a and b are overlapping
+func Intersect(a, b Interval) bool {
+	//case1: both intervals are points => compare with equality
+	if a.Begin() == a.End() && b.Begin() == b.End() && a.Begin() != "" && b.Begin() != "" {
+		return a.Begin() == b.Begin()
+	}
+	//case2: at least one of them is an interval
+	if a.Begin() == "" {
+		return b.Begin() == "" || a.End() == "" || a.End() > b.Begin()
+	}
+	if a.End() == "" {
+		return b.End() == "" || a.Begin() < b.End()
+	}
+	if b.Begin() == "" {
+		return b.End() == "" || b.End() > a.Begin()
+	}
+	if b.End() == "" {
+		return b.Begin() < a.End()
+	}
+	return a.Begin() < b.End() && a.End() > b.Begin()
 }
 
 //TotalInterval is an interval over the whole namespace
@@ -189,27 +222,38 @@ type Hashable interface {
 	Hash() string
 }
 
-//Signature contains meta data of the signature and the signature data itself.
-type Signature struct {
-	//KeySpace is an identifier of a key space
-	KeySpace KeySpaceID
-	//Algorithm determines the signature algorithm to be used for signing and verification
-	Algorithm SignatureAlgorithmType
+//SignatureMetaData contains meta data of the signature
+type SignatureMetaData struct {
+	PublicKeyID
 	//ValidSince defines the time from which on this signature is valid. ValidSince is represented as seconds since the UNIX epoch UTC.
 	ValidSince int64
 	//ValidUntil defines the time after which this signature is not valid anymore. ValidUntil is represented as seconds since the UNIX epoch UTC.
 	ValidUntil int64
-	//KeyPhase defines the keyPhase in which this signature was signed.
-	KeyPhase int
+}
+
+func (sig SignatureMetaData) String() string {
+	return fmt.Sprintf("%d %d %d %d %d",
+		sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, sig.KeyPhase)
+}
+
+//Signature contains meta data of the signature and the signature data itself.
+type Signature struct {
+	PublicKeyID
+	//ValidSince defines the time from which on this signature is valid. ValidSince is represented as seconds since the UNIX epoch UTC.
+	ValidSince int64
+	//ValidUntil defines the time after which this signature is not valid anymore. ValidUntil is represented as seconds since the UNIX epoch UTC.
+	ValidUntil int64
 	//Data holds the signature data
 	Data interface{}
 }
 
-//GetSignatureMetaData returns a string containing the signature's metadata
-//(keyspace, algorithm type, validSince and validUntil, keyPhase) in signable format
-func (sig Signature) GetSignatureMetaData() string {
-	return fmt.Sprintf("%d %d %d %d %d",
-		sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, sig.KeyPhase)
+//GetSignatureMetaData returns the signatures metaData
+func (sig Signature) GetSignatureMetaData() SignatureMetaData {
+	return SignatureMetaData{
+		PublicKeyID: sig.PublicKeyID,
+		ValidSince:  sig.ValidSince,
+		ValidUntil:  sig.ValidUntil,
+	}
 }
 
 //String implements Stringer interface
@@ -233,7 +277,7 @@ func (sig *Signature) SignData(privateKey interface{}, encoding string) error {
 		log.Warn("PrivateKey is nil")
 		return errors.New("privateKey is nil")
 	}
-	encoding += sig.GetSignatureMetaData()
+	encoding += sig.GetSignatureMetaData().String()
 	data := []byte(encoding)
 	switch sig.Algorithm {
 	case Ed25519:
@@ -289,7 +333,7 @@ func (sig *Signature) VerifySignature(publicKey interface{}, encoding string) bo
 		log.Warn("PublicKey is nil")
 		return false
 	}
-	encoding += sig.GetSignatureMetaData()
+	encoding += sig.GetSignatureMetaData().String()
 	data := []byte(encoding)
 	switch sig.Algorithm {
 	case Ed25519:
@@ -369,6 +413,17 @@ func (c ConnInfo) String() string {
 		return c.TCPAddr.String()
 	default:
 		log.Warn("Unsupported network address", "typeCode", c.Type)
+		return ""
+	}
+}
+
+//NetworkAndAddr returns the network name and addr of the connection separated by space
+func (c ConnInfo) NetworkAndAddr() string {
+	switch c.Type {
+	case TCP:
+		return fmt.Sprintf("%s %s", c.TCPAddr.Network(), c.String())
+	default:
+		log.Warn("Unsupported network address type", "type", c.Type)
 		return ""
 	}
 }

@@ -25,8 +25,10 @@ const (
 //GetMessage returns a messages containing all sections. The assertion contains an instance of every objectTypes
 func GetMessage() RainsMessage {
 	signature := Signature{
-		KeySpace:   RainsKeySpace,
-		Algorithm:  Ed25519,
+		PublicKeyID: PublicKeyID{
+			KeySpace:  RainsKeySpace,
+			Algorithm: Ed25519,
+		},
 		ValidSince: 1000,
 		ValidUntil: 2000,
 		Data:       []byte("SignatureData")}
@@ -60,11 +62,11 @@ func GetMessage() RainsMessage {
 	}
 
 	query := &QuerySection{
-		Context: globalContext,
-		Expires: 159159,
-		Name:    testDomain,
-		Options: []QueryOption{QOMinE2ELatency, QOMinInfoLeakage},
-		Types:   []ObjectType{OTIP4Addr},
+		Context:    globalContext,
+		Expiration: 159159,
+		Name:       testDomain,
+		Options:    []QueryOption{QOMinE2ELatency, QOMinInfoLeakage},
+		Types:      []ObjectType{OTIP4Addr},
 	}
 
 	notification := &NotificationSection{
@@ -104,7 +106,7 @@ func GetMessage() RainsMessage {
 	addressQuery := &AddressQuerySection{
 		SubjectAddr: subjectAddress1,
 		Context:     globalContext,
-		Expires:     7564859,
+		Expiration:  7564859,
 		Types:       []ObjectType{OTName},
 		Options:     []QueryOption{QOMinE2ELatency, QOMinInfoLeakage},
 	}
@@ -134,11 +136,13 @@ func GetAllValidObjects() []Object {
 
 	pubKey, _, _ := ed25519.GenerateKey(nil)
 	publicKey := PublicKey{
-		KeySpace:   RainsKeySpace,
-		Type:       Ed25519,
-		Key:        pubKey,
+		PublicKeyID: PublicKeyID{
+			KeySpace:  RainsKeySpace,
+			Algorithm: Ed25519,
+		},
 		ValidSince: 10000,
 		ValidUntil: 50000,
+		Key:        pubKey,
 	}
 	certificate := CertificateObject{
 		Type:     PTTLS,
@@ -182,8 +186,10 @@ func GetValidNameObject() Object {
 func GetAllowedNetworkObjects() []Object {
 	pubKey, _, _ := ed25519.GenerateKey(nil)
 	publicKey := PublicKey{
-		KeySpace:   RainsKeySpace,
-		Type:       Ed25519,
+		PublicKeyID: PublicKeyID{
+			KeySpace:  RainsKeySpace,
+			Algorithm: Ed25519,
+		},
 		Key:        pubKey,
 		ValidSince: 10000,
 		ValidUntil: 50000,

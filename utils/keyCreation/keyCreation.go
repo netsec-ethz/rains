@@ -7,11 +7,11 @@ import (
 	"os"
 	"time"
 
+	log "github.com/inconshreveable/log15"
+
 	"github.com/netsec-ethz/rains/rainsSiglib"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
-
-	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -25,8 +25,10 @@ func CreateDelegationAssertion(context, zone string) error {
 	}
 	log.Debug("Generated root public Key", "publicKey", publicKey)
 	pkey := rainslib.PublicKey{
-		KeySpace:   rainslib.RainsKeySpace,
-		Type:       rainslib.Ed25519,
+		PublicKeyID: rainslib.PublicKeyID{
+			KeySpace:  rainslib.RainsKeySpace,
+			Algorithm: rainslib.Ed25519,
+		},
 		Key:        publicKey,
 		ValidSince: time.Now().Unix(),
 		ValidUntil: time.Now().Add(30 * 24 * time.Hour).Unix(),
@@ -60,8 +62,10 @@ func CreateDelegationAssertion(context, zone string) error {
 //addSignature signs the section with the public key and adds the resulting signature to the section
 func addSignature(a rainslib.MessageSectionWithSig, key ed25519.PrivateKey) bool {
 	signature := rainslib.Signature{
-		Algorithm: rainslib.Ed25519,
-		KeySpace:  rainslib.RainsKeySpace,
+		PublicKeyID: rainslib.PublicKeyID{
+			Algorithm: rainslib.Ed25519,
+			KeySpace:  rainslib.RainsKeySpace,
+		},
 		//FIXME CFE add validity times to config
 		ValidSince: time.Now().Unix(),
 		ValidUntil: time.Now().Add(30 * 24 * time.Hour).Unix(),

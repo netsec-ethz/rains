@@ -10,45 +10,17 @@ import (
 	"net"
 	"time"
 
+	log "github.com/inconshreveable/log15"
+
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/protoParser"
-
-	log "github.com/inconshreveable/log15"
 )
 
-//connCache stores connections of this server. It is not guaranteed that a returned connection is still active.
-var connCache connectionCache
-
-//cert holds the tls certificate of this server
-var cert tls.Certificate
-
-//capabilityHash contains the sha256 hash of this server's capability list
-var capabilityHash string
-
-//InitSwitchboard initializes the switchboard
-func initSwitchboard() error {
-	var err error
-	//init cache
-	connCache, err = createConnectionCache(Config.MaxConnections)
-	if err != nil {
-		log.Error("Cannot create connCache", "error", err)
-		return err
-	}
-	cert, err = tls.LoadX509KeyPair(Config.TLSCertificateFile, Config.TLSPrivateKeyFile)
-	if err != nil {
-		log.Error("Cannot load certificate. Path to CertificateFile or privateKeyFile might be invalid.", "CertPath", Config.TLSCertificateFile,
-			"KeyPath", Config.TLSPrivateKeyFile, "error", err)
-		return err
-	}
-	capabilityHash = generateCapabilityHash(Config.Capabilities)
-	return nil
-}
-
 //sendTo sends message to the specified receiver.
-func sendTo(message []byte, receiver rainslib.ConnInfo, retries, backoffMilliSeconds int) (err error) {
+func sendTo(message rainslib.RainsMessage, receiver rainslib.ConnInfo, retries, backoffMilliSeconds int) (err error) {
 	var framer rainslib.MsgFramer
 
-	conns, ok := connCache.Get(receiver)
+	conns, ok := connCache.GetConnection(receiver)
 	if !ok {
 		conn, err := createConnection(receiver)
 		//add connection to cache
@@ -57,21 +29,28 @@ func sendTo(message []byte, receiver rainslib.ConnInfo, retries, backoffMilliSec
 			log.Warn("Could not establish connection", "error", err, "receiver", receiver)
 			return err
 		}
-		connCache.Add(conn)
+		connCache.AddConnection(conn)
 		//handle connection
 		if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
 			go handleConnection(conn, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
 		} else {
 			log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 		}
+		//add capabilities to message
+		message.Capabilities = []rainslib.Capability{rainslib.Capability(capabilityHash)}
+	}
+	msg, err := msgParser.Encode(message)
+	if err != nil {
+		log.Warn("Cannot encode message", "message", message, "error", err)
+		return err
 	}
 	framer = new(protoParser.ProtoParserAndFramer)
 	for _, conn := range conns {
 		framer.InitStreams(nil, conn)
-		err = framer.Frame(message)
+		err = framer.Frame(msg)
 		if err != nil {
 			log.Warn("Was not able to frame or send the message", "Error", err, "connections", conns, "receiver", receiver)
-			connCache.Delete(conn)
+			connCache.CloseAndRemoveConnection(conn)
 			continue
 		}
 		log.Debug("Send successful", "receiver", receiver)
@@ -122,7 +101,7 @@ func Listen() {
 			if isIPBlacklisted(conn.RemoteAddr()) {
 				continue
 			}
-			connCache.Add(conn)
+			connCache.AddConnection(conn)
 			if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
 				go handleConnection(conn, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
 			} else {
@@ -144,8 +123,7 @@ func handleConnection(conn net.Conn, dstAddr rainslib.ConnInfo) {
 		deliver(framer.Data(), dstAddr)
 		conn.SetDeadline(time.Now().Add(Config.TCPTimeout))
 	}
-	connCache.Delete(conn)
-	conn.Close()
+	connCache.CloseAndRemoveConnection(conn)
 	log.Debug("connection removed from cache", "remoteAddr", conn.RemoteAddr())
 }
 
@@ -153,12 +131,4 @@ func handleConnection(conn net.Conn, dstAddr rainslib.ConnInfo) {
 func isIPBlacklisted(addr net.Addr) bool {
 	log.Warn("TODO CFE ip blacklist not yet implemented")
 	return false
-}
-
-//generateCapabilityHash sorts capabilities in lexicographically increasing order.
-//It returns the hex encoded sha256 hash of the sorted capabilities
-func generateCapabilityHash(capabilities []rainslib.Capability) string {
-	//FIXME CFE when we have CBOR use it to normalize&serialize the array before hashing it.
-	//Currently we use the hard coded version from the draft.
-	return "e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745"
 }
