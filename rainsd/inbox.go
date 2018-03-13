@@ -127,19 +127,18 @@ func isZoneBlacklisted(zone string) bool {
 //the channel normalWorkers enforces a maximum number of go routines working on the prioChannel and normalChannel.
 func workBoth() {
 	for {
-		normalWorkers <- struct{}{}
 		select {
 		case msg := <-prioChannel:
 			go prioWorkerHandler(msg)
 			continue
 		default:
-			//do nothing
+			// Fallthrough to second select.
 		}
 		select {
+		case msg := <-prioChannel:
+			go prioWorkerHandler(msg)
 		case msg := <-normalChannel:
 			go normalWorkerHandler(msg)
-		default:
-			<-normalWorkers
 		}
 	}
 }
