@@ -6,14 +6,15 @@ import (
 	"html/template"
 	"net/http"
 
+	"github.com/golang/glog"
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/rainsd"
 )
 
 var (
-	httpAddr = flag.String("httpAddr", "[::1]:8080", "Address to listen on for info server")
-	config   = flag.String("config", "", "Path to configuration file.")
-	v        = flag.Int("v", int(log.LvlInfo), "Verbosity of logging")
+	httpAddr  = flag.String("httpAddr", "[::1]:8080", "Address to listen on for info server")
+	config    = flag.String("config", "", "Path to configuration file.")
+	verbosity = flag.Int("verbosity", int(log.LvlInfo), "Verbosity of logging")
 
 	buildinfo_hostname string
 	buildinfo_commit   string
@@ -31,7 +32,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 `
 	tmpl, err := template.New("statusPage").Parse(statusPage)
 	if err != nil {
-		log.Warn("failed to parse template: %v", err)
+		glog.Warningf("failed to parse template: %v", err)
 		w.Write([]byte("Internal server error"))
 		w.WriteHeader(500)
 		return
@@ -47,7 +48,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		buildinfo_hostname,
 	})
 	if err != nil {
-		log.Warn("failed to execute template: %v", err)
+		glog.Warningf("failed to execute template: %v", err)
 		w.Write([]byte("Internal server error"))
 		w.WriteHeader(500)
 		return
@@ -58,21 +59,20 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 func statusServer() {
 	http.HandleFunc("/0/status", statusHandler)
 	if err := http.ListenAndServe(*httpAddr, nil); err != nil {
-		log.Warn("HTTP server error: %v", err)
+		glog.Warningf("HTTP server error: %v", err)
 	}
 }
 
 func main() {
 	flag.Parse()
 
-	log.Info("Starting rains server...")
+	glog.Info("Starting rains server...")
+
 	if *config == "" {
-		log.Crit("Path to config file must be specified.")
-		return
+		glog.Fatalf("Path to config file must be specified.")
 	}
-	if err := rainsd.InitServer(*config, *v); err != nil {
-		log.Crit("Failed to start server: %v", err)
-		return
+	if err := rainsd.InitServer(*config, *verbosity); err != nil {
+		glog.Fatalf("Failed to start server: %v", err)
 	}
 	go statusServer()
 	rainsd.Listen()

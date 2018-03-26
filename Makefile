@@ -6,7 +6,7 @@ BUILD_PATH=${GOPATH}/src/github.com/netsec-ethz/rains/build/
 
 LDFLAGS = -ldflags "-X main.buildinfo_hostname=${HOSTNAME} -X main.buildinfo_commit=${COMMIT} -X main.buildinfo_branch=${BRANCH}"
 
-all: clean rainsd rainspub rainsdig
+all: clean rainsd rainspub rainsdig integration
 
 clean:
 	rm -rf ${BUILD_PATH}
@@ -27,4 +27,9 @@ rainsdig:
 	go build ${LDFLAGS} -o rainsdig github.com/netsec-ethz/rains/rainsdig ; \
 	cd - >/dev/null
 
-.PHONY: clean rainsd rainspub rainsdig
+integration:
+	cd ${BUILD_PATH}; \
+	go build ${LDFLAGS} -o integration github.com/netsec-ethz/rains/integration ;\
+	cd - >/dev/null
+
+.PHONY: clean rainsd rainspub rainsdig integration
