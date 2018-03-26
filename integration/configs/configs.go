@@ -61,7 +61,6 @@ var (
     "ContextAuthority":             ["{{.ContextAuthority}}"],
     "ZoneAuthority":                ["{{.ZoneAuthority}}"]
 }
-
     `
 )
 

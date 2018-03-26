@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -16,10 +17,12 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
 	"github.com/netsec-ethz/rains/integration/configs"
+	"github.com/netsec-ethz/rains/integration/runner"
 	"github.com/netsec-ethz/rains/rainsSiglib"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
@@ -46,13 +49,79 @@ func main() {
 	if err := initRootServer(tmp); err != nil {
 		glog.Fatalf("failed to initialize root server: %v", err)
 	}
-	// TODO: implement l2tld server generator.
+	zonePortMap := make(map[string]uint)
+	zonePortMap["."] = 2345
+	port := uint(2346)
 	// Initialize a level 2 server for each l2TLD we are supposed to run.
-	/*
-		for _, l2TLD := range *l2TLDs {
-
+	l2TLDSlice := strings.Split(*l2TLDs, ",")
+	for _, l2TLD := range l2TLDSlice {
+		if err := generateL2Server(tmp, l2TLD, port); err != nil {
+			glog.Fatalf("failed to create config for l2TLD server %q: %v", l2TLD, err)
 		}
-	*/
+		zonePortMap[l2TLD] = port
+		port++
+		glog.Infof("Successfully generated config files for server: %v", l2TLD)
+	}
+	serverExit := make(chan *runner.Runner)
+	servers := make([]*runner.Runner, 0)
+	ctx, done := context.WithCancel(context.Background())
+	defer done()
+	// Start root server.
+	rootRunner := runner.New(filepath.Join(tmp, "bin", "rainsd"),
+		[]string{"--config", filepath.Join(tmp, "config", "root", "server.conf")},
+		tmp, &serverExit)
+	glog.Info("Starting root server")
+	servers = append(servers, rootRunner)
+	if err := rootRunner.Execute(ctx); err != nil {
+		glog.Fatalf("Failed to start root server: %v", err)
+	}
+	// Start l2TLD servers.
+	for _, l2TLD := range l2TLDSlice {
+		runner := runner.New(filepath.Join(tmp, "bin", "rainsd"),
+			[]string{"--config", filepath.Join(tmp, "config", l2TLD, "server.conf")},
+			tmp, &serverExit)
+		glog.Infof("Starting l2TLD server for %q", l2TLD)
+		servers = append(servers, runner)
+		if err := runner.Execute(ctx); err != nil {
+			glog.Fatalf("Failed to start l2TLD server %q: %v", l2TLD, err)
+		}
+	}
+	ready := make(chan error)
+	go func() {
+		ready <- waitForListen(zonePortMap, 30*time.Second)
+	}()
+	select {
+	case r := <-serverExit:
+		glog.Fatalf("Unexpected exit of server process command %q, stderr: %s", r.Command(), r.Stderr())
+	case err := <-ready:
+		if err != nil {
+			glog.Fatalf("Failed to probe servers: %v", err)
+		}
+	}
+	glog.Info("Servers successfully started. Ready to push data.")
+}
+
+func waitForListen(zonePortMap map[string]uint, timeoutAfter time.Duration) error {
+	giveupAt := time.Now().Add(timeoutAfter)
+	var conn net.Conn
+	var err error
+	for _, port := range zonePortMap {
+		addr := fmt.Sprintf("[::1]:%d", port)
+		for time.Now().Before(giveupAt) {
+			conn, err = net.Dial("tcp", addr)
+			if err != nil {
+				time.Sleep(1 * time.Second)
+				continue
+			}
+			glog.Infof("Successfully probed server at: %v", addr)
+			conn.Close()
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to connect to %q: %v", addr, err)
+		}
+	}
+	return nil
 }
 
 // installBinaries copies rainsd, rainspub, rainsdig to the temporary path.
@@ -92,7 +161,7 @@ func initRootServer(basepath string) error {
 	}
 	delegationAssertionPath := filepath.Join(rootConfPath, "delegationAssertion.gob")
 	if err := CreateDelegationAssertion(".", ".", rootConfPath, delegationAssertionPath); err != nil {
-		return fmt.Errorf("Failed to create delegation assertion: %v", err)
+		return fmt.Errorf("failed to create delegation assertion: %v", err)
 	}
 	certFilePath := filepath.Join(rootConfPath, "tls.crt")
 	keyFilePath := filepath.Join(rootConfPath, "tls.key")
@@ -114,7 +183,45 @@ func initRootServer(basepath string) error {
 	configPath := filepath.Join(rootConfPath, "server.conf")
 	f, err := os.OpenFile(configPath, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
-		return fmt.Errorf("failed to open %q: %v", configPath, err)
+		return fmt.Errorf("failed to create config file %q: %v", configPath, err)
+	}
+	if _, err := f.WriteString(out); err != nil {
+		return fmt.Errorf("failed to write server config to file: %v", err)
+	}
+	return nil
+}
+
+// generateL2Server creates the configuration for a second level nameserver.
+func generateL2Server(basePath, l2tld string, port uint) error {
+	confPath := filepath.Join(basePath, "config", l2tld)
+	if err := os.MkdirAll(confPath, 0700); err != nil {
+		return fmt.Errorf("failed to create l2 server config dir: %v", err)
+	}
+	delegationAssertionPath := filepath.Join(confPath, "delegationAssertion.gob")
+	if err := CreateDelegationAssertion(fmt.Sprintf(".%s", l2tld), ".", confPath, delegationAssertionPath); err != nil {
+		return fmt.Errorf("failed to create delegation assertion: %v", err)
+	}
+	certFilePath := filepath.Join(confPath, "tls.crt")
+	keyFilePath := filepath.Join(confPath, "tls.key")
+	if err := generateX509Pair(certFilePath, keyFilePath); err != nil {
+		return fmt.Errorf("failed to create x509 certificate pair: %v", err)
+	}
+	config := &configs.ServerConfigParams{
+		ListenPort:            port,
+		RootZonePublicKeyPath: delegationAssertionPath,
+		TLSCertificateFile:    certFilePath,
+		TLSPrivateKeyFile:     keyFilePath,
+		ContextAuthority:      ".",
+		ZoneAuthority:         l2tld,
+	}
+	out, err := config.ServerConfig()
+	if err != nil {
+		return fmt.Errorf("failed to generate configuration for l2tld %q: %v", l2tld, err)
+	}
+	configPath := filepath.Join(confPath, "server.conf")
+	f, err := os.OpenFile(configPath, os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return fmt.Errorf("failed to create config file %q: %v", configPath, err)
 	}
 	if _, err := f.WriteString(out); err != nil {
 		return fmt.Errorf("failed to write server config to file: %v", err)
