@@ -37,11 +37,14 @@ func InitServer(configPath string, logLevel int) error {
 	log.Debug("Successfully loaded Certificate")
 	initOwnCapabilities(Config.Capabilities)
 	initCaches()
+	log.Info("Root zone public key path", "value", Config.RootZonePublicKeyPath)
 	if err := loadRootZonePublicKey(Config.RootZonePublicKeyPath); err != nil {
+		log.Warn("Failed to load root zone public key")
 		return err
 	}
-	log.Debug("Successfully loaded root zone public key")
-	if err := initQueuesAndWorkers(); err != nil {
+	log.Info("Successfully loaded root zone public key")
+	// XXX(rayhaan): pass shutdown channel from main.
+	if err := initQueuesAndWorkers(make(chan bool)); err != nil {
 		return err
 	}
 	log.Debug("Successfully initiated queues and goroutines working on it")
@@ -90,28 +93,36 @@ func loadAuthoritative(contextAuthorities []string) {
 func loadRootZonePublicKey(keyPath string) error {
 	a := new(rainslib.AssertionSection)
 	err := rainslib.Load(keyPath, a)
-	if err == nil {
-		for _, c := range a.Content {
-			if c.Type == rainslib.OTDelegation {
-				if publicKey, ok := c.Value.(rainslib.PublicKey); ok {
-					keyMap := make(map[rainslib.PublicKeyID][]rainslib.PublicKey)
-					keyMap[a.Signatures[0].PublicKeyID] = []rainslib.PublicKey{publicKey}
-					if validateSignatures(a, keyMap) {
-						log.Info("Added root public key to zone key cache.",
-							"context", a.Context,
-							"zone", a.SubjectZone,
-							"RootPublicKey", c.Value,
-						)
-						if ok := zoneKeyCache.Add(a, publicKey, true); !ok {
-							return errors.New("Cache is smaller than the amount of root public keys")
-						}
+	if err != nil {
+		log.Warn("Failed to load root zone public key", "err", err)
+		return err
+	}
+	log.Info("Content loaded from root zone public key", "a", a)
+	var keysAdded int
+	for _, c := range a.Content {
+		if c.Type == rainslib.OTDelegation {
+			if publicKey, ok := c.Value.(rainslib.PublicKey); ok {
+				keyMap := make(map[rainslib.PublicKeyID][]rainslib.PublicKey)
+				keyMap[a.Signatures[0].PublicKeyID] = []rainslib.PublicKey{publicKey}
+				if validateSignatures(a, keyMap) {
+					log.Info("Added root public key to zone key cache.",
+						"context", a.Context,
+						"zone", a.SubjectZone,
+						"RootPublicKey", c.Value,
+					)
+					if ok := zoneKeyCache.Add(a, publicKey, true); !ok {
+						return errors.New("Cache is smaller than the amount of root public keys")
 					}
+					keysAdded += 1
 				} else {
-					log.Warn(fmt.Sprintf("Was not able to cast to rainslib.PublicKey Got Type:%T", c.Value))
+					return fmt.Errorf("Failed to validate signature for assertion: %v", a)
 				}
+			} else {
+				log.Warn(fmt.Sprintf("Was not able to cast to rainslib.PublicKey Got Type:%T", c.Value))
 			}
 		}
 	}
+	log.Info("Keys added to zoneKeyCache", "count", keysAdded)
 	return err
 }
 

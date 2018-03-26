@@ -132,6 +132,7 @@ func publicKeysPresent(zone, context string, sigMetaData map[rainslib.SignatureM
 	} else {
 		//AddressAssertion, AddressZone
 		for sigData := range sigMetaData {
+			log.Info("Looking for signature with ID", "ID", sigData.PublicKeyID)
 			if key, _, ok := revZoneKeyCache.Get(zone, context, sigData); ok {
 				//TODO CFE the returned delegation is the most specific one (in terms of its ip
 				//address space) in the cache. If it verifies then we add it to the keys slice.
@@ -193,7 +194,7 @@ func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainsli
 		return false //already logged
 	}
 	if section.ValidSince() == math.MaxInt64 {
-		log.Warn("No signature is valid before the MaxValidity date in the future.")
+		log.Info("No signature is valid before the MaxValidity date in the future.")
 		return false
 	}
 	return len(section.Sigs(rainslib.RainsKeySpace)) > 0
@@ -274,6 +275,7 @@ func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[rains
 	log.Info("Some public keys are missing. Add section to pending signature cache",
 		"#missingKeys", len(missingKeys), "section", section)
 	for k := range missingKeys {
+		log.Info("MissingKeys", "key", k)
 		if sendQuery := pendingKeys.Add(sectionSender, k.Algorithm, k.KeyPhase); sendQuery {
 			token := rainslib.GenerateToken()
 			exp := getQueryValidity(section.Sigs(rainslib.RainsKeySpace))
