@@ -99,6 +99,12 @@ func main() {
 		}
 	}
 	glog.Info("Servers successfully started. Ready to push data.")
+	if err := genRootPubConf(tmp, l2TLDSlice, zonePortMap["."]); err != nil {
+		glog.Fatalf("Failed to generate root rainsPub config: %v", err)
+	}
+	if err := runRainsPub(ctx, tmp, filepath.Join(tmp, "config", "rootPub")); err != nil {
+		glog.Fatalf("Failed to run root rainsPub: %v", err)
+	}
 }
 
 func waitForListen(zonePortMap map[string]uint, timeoutAfter time.Duration) error {
@@ -150,6 +156,96 @@ func copyBinTmp(bin, outPath string) error {
 	if err := ioutil.WriteFile(filepath.Join(outPath, bin), b, 0700); err != nil {
 		return fmt.Errorf("failed to copy binary into tmp folder: %v", err)
 	}
+	return nil
+}
+
+// genRootPubConf generates a rainspub configuration for the root zone data.
+// l2Dirs is a slice of paths to the l2TLD server configuration directories,
+// which is used for extracting the public keys.
+func genRootPubConf(basePath string, l2TLDs []string, rootPort uint) error {
+	zoneKeyMap := make(map[string]string)
+	for _, l2TLD := range l2TLDs {
+		zoneKeyMap[l2TLD] = filepath.Join(basePath, "config", l2TLD, "public.key")
+	}
+	// Build up a map of l2TLD -> ed25519 public key.
+	pkeyMap := make(map[string]string)
+	for zone, key := range zoneKeyMap {
+		keyBytes, err := ioutil.ReadFile(key)
+		if err != nil {
+			return fmt.Errorf("failed to read public key for l2TLD %q: %v", zone, err)
+		}
+		pkeyMap[zone] = string(keyBytes)
+	}
+	rpp := configs.RootPubParams{
+		L2TLDs: make([]struct {
+			TLD    string
+			PubKey string
+		}, 0),
+	}
+	for zone, key := range pkeyMap {
+		glog.Infof("Adding zone: %s, key: %s", zone, key)
+		rpp.L2TLDs = append(rpp.L2TLDs, struct {
+			TLD    string
+			PubKey string
+		}{
+			zone,
+			key,
+		})
+	}
+	zoneData, err := rpp.ZoneFile()
+	if err != nil {
+		return fmt.Errorf("failed to generate rainsPub config for root zone: %v", err)
+	}
+	outDir := filepath.Join(basePath, "config", "rootPub")
+	if _, err := os.Stat(outDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(outDir, 0700); err != nil {
+			return fmt.Errorf("failed to create rootPub directory: %v", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed to stat rootPub directory: %v", err)
+	}
+	if err := ioutil.WriteFile(filepath.Join(outDir, "data.zone"), []byte(zoneData), 0600); err != nil {
+		return fmt.Errorf("failed to write data.zone: %v", err)
+	}
+	rpc := configs.RootPubConf{
+		Port:           rootPort,
+		ZoneFilePath:   filepath.Join(outDir, "data.zone"),
+		PrivateKeyPath: filepath.Join(basePath, "config", "root", "private.key"),
+	}
+	conf, err := rpc.PubConfig()
+	if err != nil {
+		return fmt.Errorf("failed to generate rainsPub config: %v", err)
+	}
+	if err := ioutil.WriteFile(filepath.Join(outDir, "rainsPub.conf"), []byte(conf), 0600); err != nil {
+		return fmt.Errorf("failed to write rainsPub.conf: %v", err)
+	}
+	return nil
+}
+
+// publishRootZone runs rainsPub on the provided configuration directory.
+// It is expected that the directory will contain the following files:
+// * data.zone
+// * private.key
+// * rainsPub.conf
+func runRainsPub(ctx context.Context, basePath, confPath string) error {
+	done := make(chan *runner.Runner)
+	r := runner.New(filepath.Join(basePath, "bin", "rainspub"),
+		[]string{"--config", filepath.Join(confPath, "rainsPub.conf")},
+		basePath,
+		&done)
+	if err := r.Execute(ctx); err != nil {
+		return fmt.Errorf("failed to run rainspub binary: %v", err)
+	}
+	timeout := time.After(30 * time.Second)
+	select {
+	case r := <-done:
+		if r.ExitErr != nil {
+			return fmt.Errorf("rainspub failed with error: %v", r.ExitErr)
+		}
+	case <-timeout:
+		return errors.New("rainspub execution timed out")
+	}
+	glog.Infof("Rainspub successfully exited, stdout: %v", r.Stdout())
 	return nil
 }
 

@@ -8,13 +8,42 @@ import (
 )
 
 var (
+	pubTmpl = `
+    :Z: . . [
+        :S: [
+            {{ range .L2TLDs }}
+                :A: {{ .TLD }} [ :deleg: ed25519 {{ .PubKey }} ]
+            {{ end }}
+        ]
+    ]
+`
+
+	pubConfTmpl = `
+{
+    "AssertionValidSince": 0,
+    "DelegationValidSince": 0,
+    "ShardValidSince": 0,
+    "ZoneValidSince": 0,
+    "AssertionValidUntil": 86400,
+    "DelegationValidUntil": 86400,
+    "ShardValidUntil": 86400,
+    "ZoneValidUntil": 86400,
+    "MaxAssertionsPerShard": 5,
+    "ServerAddresses": [
+        {"Type":"TCP", "TCPAddr":{"IP":"::1","Port":{{ .Port }},"Zone":""}}
+    ],
+    "ZoneFilePath":"{{ .ZoneFilePath }}",
+    "ZonePrivateKeyPath": "{{ .PrivateKeyPath }}"
+}
+    `
+
 	serverTmpl = `
 {
     "RootZonePublicKeyPath":        "{{.RootZonePublicKeyPath}}",
     "ServerAddress":                {
                                         "Type":     "TCP",
                                         "TCPAddr":  {
-                                                        "IP":"127.0.0.1",
+                                                        "IP":"::1",
                                                         "Port":{{.ListenPort}},
                                                         "Zone":""
                                                     }
@@ -63,6 +92,46 @@ var (
 }
     `
 )
+
+type RootPubConf struct {
+	Port           uint
+	ZoneFilePath   string
+	PrivateKeyPath string
+}
+
+func (rpc *RootPubConf) PubConfig() (string, error) {
+	tmpl, err := template.New("rootPubConf").Parse(pubConfTmpl)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse config template: %v", err)
+	}
+	buf := bytes.NewBuffer(make([]byte, 0))
+	if err := tmpl.Execute(buf, rpc); err != nil {
+		return "", fmt.Errorf("failed to execute config template: %v", err)
+	}
+	return buf.String(), nil
+
+}
+
+// RootPubParams defines the variables to substitute into
+// the configuration for the root rainsPub instance.
+type RootPubParams struct {
+	L2TLDs []struct {
+		TLD    string
+		PubKey string
+	}
+}
+
+func (rpp *RootPubParams) ZoneFile() (string, error) {
+	tmpl, err := template.New("rootPubParams").Parse(pubTmpl)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse config template: %v", err)
+	}
+	buf := bytes.NewBuffer(make([]byte, 0))
+	if err := tmpl.Execute(buf, rpp); err != nil {
+		return "", fmt.Errorf("failed to execute config template: %v", err)
+	}
+	return buf.String(), nil
+}
 
 type ServerConfigParams struct {
 	ListenPort            uint
