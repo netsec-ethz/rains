@@ -16,6 +16,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"time"
@@ -30,10 +31,11 @@ import (
 )
 
 var (
-	l2TLDs     = flag.String("l2TLDs", "ch,de,com", "Comma separated list of level 2 TLDs")
-	validity   = flag.Duration("validity", 30*24*time.Hour, "Validity time for signatures and assertions.")
-	buildDir   = flag.String("buildDir", "build/", "Path to directory containing RAINS binaries.")
-	ecdsaCurve = flag.String("ecdsa_curve", "P521", "Which ECDSA curve to use when generating X509 certificates")
+	l2TLDs       = flag.String("l2TLDs", "ch,de,com", "Comma separated list of level 2 TLDs")
+	validity     = flag.Duration("validity", 30*24*time.Hour, "Validity time for signatures and assertions.")
+	buildDir     = flag.String("buildDir", "build/", "Path to directory containing RAINS binaries.")
+	ecdsaCurve   = flag.String("ecdsaCurve", "P521", "Which ECDSA curve to use when generating X509 certificates")
+	waitForCtrlC = flag.Bool("waitForCtrlC", false, "Wait after running tests for manual debugging of the setup")
 )
 
 func main() {
@@ -104,6 +106,28 @@ func main() {
 	}
 	if err := runRainsPub(ctx, tmp, filepath.Join(tmp, "config", "rootPub")); err != nil {
 		glog.Fatalf("Failed to run root rainsPub: %v", err)
+	}
+	glog.Info("Successfully published data, now querying and verifying responses.")
+	res, err := runRainsDig(ctx, tmp, ".", "[::1]", fmt.Sprintf("%d", zonePortMap["."]), 30*time.Second)
+	if err != nil {
+		glog.Fatalf("Failed to run rainsDig on root zone: %v", err)
+	}
+	pubKeyMap := make(map[string]string)
+	for _, zone := range l2TLDSlice {
+		key, err := zonePublicKey(tmp, zone)
+		if err != nil {
+			glog.Fatalf("Failed to read pubkic key for l2 zone %q: %v", zone, err)
+		}
+		pubKeyMap[zone] = key
+	}
+	verifyRainsDigRoot(res, pubKeyMap)
+	glog.Infof("Successfully ran rainsDig and got response: %s", res)
+	if *waitForCtrlC {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
+		glog.Infof("Waiting for ^C, do your manual poking now...")
+		<-c
+		glog.Infof("Shutting down")
 	}
 }
 
@@ -218,6 +242,58 @@ func genRootPubConf(basePath string, l2TLDs []string, rootPort uint) error {
 	}
 	if err := ioutil.WriteFile(filepath.Join(outDir, "rainsPub.conf"), []byte(conf), 0600); err != nil {
 		return fmt.Errorf("failed to write rainsPub.conf: %v", err)
+	}
+	return nil
+}
+
+// runRainsDig queries the specified server for the requested zone.
+// The output of stdout is returned on success, otherwise an error
+// is returned.
+func runRainsDig(ctx context.Context, basePath, zone, serverHost, serverPort string, maxTime time.Duration) (string, error) {
+	binPath := filepath.Join(basePath, "bin", "rainsdig")
+	args := []string{"--insecureTLS", "-s", serverHost, "-p", serverPort}
+	glog.Infof("Running rainsdig with arguments: %v", args)
+	/* TODO: Check why rainspub hangs when specifying zone: "-q", zone */
+	exitChan := make(chan *runner.Runner)
+	r := runner.New(binPath, args, basePath, &exitChan)
+	r.Execute(ctx)
+	timeout := time.After(maxTime)
+	select {
+	case <-exitChan:
+		if r.ExitErr != nil {
+			return "", fmt.Errorf("failed to run rainsDig: %v, stdErr: %s", r.ExitErr, r.Stderr())
+		}
+	case <-timeout:
+		return "", errors.New("rainsDig execution timed out")
+	}
+	return r.Stdout(), nil
+}
+
+// zonePublicKey reads the ed25519 public key for the specified l2 zone.
+func zonePublicKey(basePath, zone string) (string, error) {
+	pathToKey := filepath.Join(basePath, "config", zone, "public.key")
+	b, err := ioutil.ReadFile(pathToKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to read public key file at %q: %v", pathToKey, err)
+	}
+	return string(b), nil
+}
+
+// verifyRainsDigRoot checks rainsDig's output is correct for the root zone.
+// subKeys is a map from l2TLD to public key.
+func verifyRainsDigRoot(output string, subKeys map[string]string) error {
+	// TODO: Use utils/zoneFileParser once the tests of that module pass again.
+	// For now naively match the keys.
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, ":A:") {
+			line = strings.TrimSpace(line)
+			parts := strings.Split(line, " ")
+			if len(parts) != 9 {
+				return fmt.Errorf("expected 9 parts in delegation record but got %d, text: %s",
+					len(parts), line)
+			}
+		}
 	}
 	return nil
 }
