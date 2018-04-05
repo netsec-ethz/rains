@@ -61,8 +61,7 @@ func init() {
 }
 
 //Parser can be used to parse RAINS zone files
-type Parser struct {
-}
+type Parser struct{}
 
 var lineNrLogger log.Logger
 
@@ -75,7 +74,7 @@ func (p Parser) Encode(s rainslib.MessageSection) string {
 //Decode returns all assertions contained in the given zonefile
 func (p Parser) Decode(zoneFile []byte, filePath string) ([]*rainslib.AssertionSection, error) {
 	scanner := NewWordScanner(zoneFile)
-	lineNrLogger = log.New("file", filePath, "lineNr", log.Lazy{scanner.LineNumber})
+	lineNrLogger = log.New("file", filePath, "lineNr", log.Lazy{Fn: scanner.LineNumber})
 	return decodeZone(scanner)
 }
 
