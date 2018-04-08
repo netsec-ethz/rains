@@ -28,6 +28,7 @@ import (
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 	"golang.org/x/crypto/ed25519"
+	"gopkg.in/d4l3k/messagediff.v1"
 )
 
 var (
@@ -116,11 +117,14 @@ func main() {
 	for _, zone := range l2TLDSlice {
 		key, err := zonePublicKey(tmp, zone)
 		if err != nil {
-			glog.Fatalf("Failed to read pubkic key for l2 zone %q: %v", zone, err)
+			glog.Fatalf("Failed to read public key for l2 zone %q: %v", zone, err)
 		}
 		pubKeyMap[zone] = key
 	}
-	verifyRainsDigRoot(res, pubKeyMap)
+	err = verifyRainsDigRoot(res, pubKeyMap)
+	if err != nil {
+		glog.Fatalf("failed to verify root zone entries: %v", err)
+	}
 	glog.Infof("Successfully ran rainsDig and got response: %s", res)
 	if *waitForCtrlC {
 		c := make(chan os.Signal, 1)
@@ -282,18 +286,42 @@ func zonePublicKey(basePath, zone string) (string, error) {
 // verifyRainsDigRoot checks rainsDig's output is correct for the root zone.
 // subKeys is a map from l2TLD to public key.
 func verifyRainsDigRoot(output string, subKeys map[string]string) error {
-	// TODO: Use utils/zoneFileParser once the tests of that module pass again.
-	// For now naively match the keys.
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
-		if strings.Contains(line, ":A:") {
-			line = strings.TrimSpace(line)
-			parts := strings.Split(line, " ")
-			if len(parts) != 9 {
-				return fmt.Errorf("expected 9 parts in delegation record but got %d, text: %s",
-					len(parts), line)
+	parser := zoneFileParser.Parser{}
+	as, err := parser.Decode([]byte(output))
+	if err != nil {
+		return fmt.Errorf("failed to parse rainsDig output: %v", err)
+	}
+	toCheck := len(subKeys)
+	for _, assertion := range as {
+		glog.Infof("subjectName = %s", assertion.SubjectName)
+		if key, ok := subKeys[assertion.SubjectName]; ok {
+			content := assertion.Content
+			if len(content) > 1 {
+				return fmt.Errorf("expected content length for subject=%s to be 1 but got %d", assertion.SubjectName, len(content))
 			}
+			if _, ok := content[0].Value.(rainslib.PublicKey); !ok {
+				return fmt.Errorf("expected value of type rainslib.PublicKey but got %T", content[0].Value)
+			}
+			pkey := content[0].Value.(rainslib.PublicKey)
+			if _, ok := pkey.Key.(ed25519.PublicKey); !ok {
+				return fmt.Errorf("expected key of type ed25519.PublcKey but got %T", pkey.Key)
+			}
+			keyBytes := []byte(pkey.Key.(ed25519.PublicKey))
+			wantBytes, err := hex.DecodeString(key)
+			if err != nil {
+				return fmt.Errorf("failed to decode expected public key to bytes: %v", err)
+			}
+			if diff, ok := messagediff.PrettyDiff(wantBytes, keyBytes); !ok {
+				return fmt.Errorf("mismatched public keys for zone %q: diff: %s", assertion.SubjectName, diff)
+			}
+			glog.Infof("Key successfully verified for zone %s", assertion.SubjectName)
+		} else {
+			return fmt.Errorf("got unknown sub zone: %s", assertion.SubjectName)
 		}
+		toCheck -= 1
+	}
+	if toCheck != 0 {
+		return fmt.Errorf("Did not receive responses for %d published zones", toCheck)
 	}
 	return nil
 }

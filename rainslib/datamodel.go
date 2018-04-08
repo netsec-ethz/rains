@@ -474,7 +474,7 @@ type RainsMsgParser interface {
 type ZoneFileParser interface {
 	//Decode takes as input the content of a zoneFile and the name from which the data was loaded.
 	//It returns all contained assertions or an error in case of failure
-	Decode(zoneFile []byte, filePath string) ([]*AssertionSection, error)
+	Decode(zoneFile []byte) ([]*AssertionSection, error)
 
 	//Encode returns the given section represented in the zone file format if it is a zoneSection.
 	//In all other cases it returns the section in a displayable format similar to the zone file format

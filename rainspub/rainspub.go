@@ -83,7 +83,7 @@ func loadAssertions() ([]*rainslib.AssertionSection, error) {
 		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
 		return nil, err
 	}
-	assertions, err := parser.Decode(file, config.ZoneFilePath)
+	assertions, err := parser.Decode(file)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)
 		return nil, err
