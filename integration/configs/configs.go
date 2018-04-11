@@ -17,6 +17,15 @@ var (
         ]
     ]
 `
+	l2PubTmpl = `
+    :Z: {{ .TLD }} . [
+        :S: [
+            {{ range .Domains }}
+                :A: {{ .Domain }} [ :ip4: {{ .IP4 }} ]
+            {{ end }}
+        ]
+    ]
+`
 
 	pubConfTmpl = `
 {
@@ -92,6 +101,26 @@ var (
 }
     `
 )
+
+type L2PubParams struct {
+	TLD     string
+	Domains []struct {
+		Domain string
+		IP4    string
+	}
+}
+
+func (l2p *L2PubParams) Config() (string, error) {
+	tmpl, err := template.New("l2PubTmpl").Parse(l2PubTmpl)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse zonefile template: %v", err)
+	}
+	buf := bytes.NewBuffer(make([]byte, 0))
+	if err := tmpl.Execute(buf, l2p); err != nil {
+		return "", fmt.Errorf("failed to execute zonefile template: %v", err)
+	}
+	return buf.String(), nil
+}
 
 type RootPubConf struct {
 	Port           uint

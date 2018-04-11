@@ -33,6 +33,7 @@ import (
 
 var (
 	l2TLDs       = flag.String("l2TLDs", "ch,de,com", "Comma separated list of level 2 TLDs")
+	domains      = flag.String("domains", "example,gov,edu", "Comma seperated list of domains to create in l2TLDs.")
 	validity     = flag.Duration("validity", 30*24*time.Hour, "Validity time for signatures and assertions.")
 	buildDir     = flag.String("buildDir", "build/", "Path to directory containing RAINS binaries.")
 	ecdsaCurve   = flag.String("ecdsaCurve", "P521", "Which ECDSA curve to use when generating X509 certificates")
@@ -121,11 +122,14 @@ func main() {
 		}
 		pubKeyMap[zone] = key
 	}
-	err = verifyRainsDigRoot(res, pubKeyMap)
-	if err != nil {
+	if err := verifyRainsDigRoot(res, pubKeyMap); err != nil {
 		glog.Fatalf("failed to verify root zone entries: %v", err)
 	}
 	glog.Infof("Successfully ran rainsDig and got response: %s", res)
+	if err := l2Pub(ctx, tmp, l2TLDSlice, strings.Split(*domains, ","), zonePortMap); err != nil {
+		glog.Fatalf("failed to push records to l2 servers: %v", err)
+	}
+	glog.Infof("Successfully ran rainspub for l2 TLDs")
 	if *waitForCtrlC {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
@@ -183,6 +187,60 @@ func copyBinTmp(bin, outPath string) error {
 	}
 	if err := ioutil.WriteFile(filepath.Join(outPath, bin), b, 0700); err != nil {
 		return fmt.Errorf("failed to copy binary into tmp folder: %v", err)
+	}
+	return nil
+}
+
+// l2Pub generates rainspub configs for the l2TLD servers and pushes the zones.
+func l2Pub(ctx context.Context, basePath string, l2TLDs, domains []string, zonePortMap map[string]uint) error {
+	for _, l2TLD := range l2TLDs {
+		rainsdConfPath := filepath.Join(basePath, "config", l2TLD)
+		privKeyPath := filepath.Join(rainsdConfPath, "private.key")
+		rainsPubPath := filepath.Join(basePath, "config", fmt.Sprintf("%s_pub", l2TLD))
+		if err := os.MkdirAll(rainsPubPath, 0700); err != nil {
+			return fmt.Errorf("failed to create config dir for rainspub zone %s: %v", l2TLD, err)
+		}
+		l2p := &configs.L2PubParams{
+			TLD: l2TLD,
+			Domains: make([]struct {
+				Domain string
+				IP4    string
+			}, 0),
+		}
+		for _, domain := range domains {
+			l2p.Domains = append(l2p.Domains, struct {
+				Domain string
+				IP4    string
+			}{domain, "127.0.0.1"})
+		}
+		zone, err := l2p.Config()
+		if err != nil {
+			return fmt.Errorf("failed to generate l2TLD rainsPub config: %v", err)
+		}
+		zoneFile := filepath.Join(rainsPubPath, "zone")
+		if err := ioutil.WriteFile(zoneFile, []byte(zone), 0600); err != nil {
+			return fmt.Errorf("failed to write zone file: %v", err)
+		}
+		configFile := filepath.Join(rainsPubPath, "rainsPub.conf")
+		port, ok := zonePortMap[l2TLD]
+		if !ok {
+			return fmt.Errorf("failed to get port for zone %s", l2TLD)
+		}
+		pubConf := &configs.RootPubConf{
+			Port:           port,
+			ZoneFilePath:   zoneFile,
+			PrivateKeyPath: privKeyPath,
+		}
+		config, err := pubConf.PubConfig()
+		if err != nil {
+			return fmt.Errorf("failed to generate rainsPub config: %v", err)
+		}
+		if err := ioutil.WriteFile(configFile, []byte(config), 0600); err != nil {
+			return fmt.Errorf("failed to write rainsPub config file: %v", err)
+		}
+		if err := runRainsPub(ctx, basePath, rainsPubPath); err != nil {
+			return fmt.Errorf("failed to run rainsPub: %v", err)
+		}
 	}
 	return nil
 }
@@ -327,10 +385,7 @@ func verifyRainsDigRoot(output string, subKeys map[string]string) error {
 }
 
 // publishRootZone runs rainsPub on the provided configuration directory.
-// It is expected that the directory will contain the following files:
-// * data.zone
-// * private.key
-// * rainsPub.conf
+// It is expected that the directory will contain rainsPub.conf.
 func runRainsPub(ctx context.Context, basePath, confPath string) error {
 	done := make(chan *runner.Runner)
 	r := runner.New(filepath.Join(basePath, "bin", "rainspub"),
