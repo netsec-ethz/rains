@@ -100,6 +100,7 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 	section := sectionSender.Section
 	keysNeeded := make(map[rainslib.SignatureMetaData]bool)
 	section.NeededKeys(keysNeeded)
+	log.Debug("verifySignatures", "KeysNeeded", keysNeeded)
 	publicKeys, missingKeys, ok := publicKeysPresent(section.GetSubjectZone(), section.GetContext(), keysNeeded)
 	if ok {
 		log.Info("All public keys are present.", "msgSectionWithSig", section)

@@ -129,7 +129,10 @@ func main() {
 	if err := l2Pub(ctx, tmp, l2TLDSlice, strings.Split(*domains, ","), zonePortMap); err != nil {
 		glog.Fatalf("failed to push records to l2 servers: %v", err)
 	}
-	glog.Infof("Successfully ran rainspub for l2 TLDs")
+	// Query each l2TLD and make sure the expected entries are there.
+	if err := verifyRainsDigL2(ctx, tmp, strings.Split(*domains, ","), zonePortMap); err != nil {
+		glog.Fatalf("failed to verify L2 servers with rainsdig: %v", err)
+	}
 	if *waitForCtrlC {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt)
@@ -314,8 +317,10 @@ func genRootPubConf(basePath string, l2TLDs []string, rootPort uint) error {
 func runRainsDig(ctx context.Context, basePath, zone, serverHost, serverPort string, maxTime time.Duration) (string, error) {
 	binPath := filepath.Join(basePath, "bin", "rainsdig")
 	args := []string{"--insecureTLS", "-s", serverHost, "-p", serverPort}
+	if zone != "." {
+		args = append(args, "-q", zone)
+	}
 	glog.Infof("Running rainsdig with arguments: %v", args)
-	/* TODO: Check why rainspub hangs when specifying zone: "-q", zone */
 	exitChan := make(chan *runner.Runner)
 	r := runner.New(binPath, args, basePath, &exitChan)
 	r.Execute(ctx)
@@ -339,6 +344,44 @@ func zonePublicKey(basePath, zone string) (string, error) {
 		return "", fmt.Errorf("failed to read public key file at %q: %v", pathToKey, err)
 	}
 	return string(b), nil
+}
+
+// verifyRainsDig runs rainsDig for each domain in each TLD, and checks the answers.
+func verifyRainsDigL2(ctx context.Context, basePath string, domains []string, zonePortMap map[string]uint) error {
+	for zone, port := range zonePortMap {
+		if zone == "." {
+			continue
+		}
+		fqdn := fmt.Sprintf(".%s.", zone)
+		output, err := runRainsDig(ctx, basePath, fqdn, "[::1]", fmt.Sprintf("%d", port), 10*time.Second)
+		if err != nil {
+			return fmt.Errorf("failed to run rainsDig: %v", err)
+		}
+		parser := zoneFileParser.Parser{}
+		as, err := parser.Decode([]byte(output))
+		if err != nil {
+			return fmt.Errorf("failed to parse rainsDig output: %v", err)
+		}
+		if len(as) != len(domains) {
+			return fmt.Errorf("expected %d section(s) when querying %q, but got %d", len(domains), fqdn, len(as))
+		}
+		for _, assertion := range as {
+			content := assertion.Content
+			if len(content) != 1 {
+				return fmt.Errorf("expected 1 object in assertion for %q content but got %d", fqdn, len(content))
+			}
+			addr, ok := content[0].Value.(string)
+			if !ok {
+				return fmt.Errorf("expected value to be of type string, but got %T", content[0].Value)
+			}
+			// FIXME: Change this to a custom thing for each record.
+			if addr != "127.0.0.1" {
+				return fmt.Errorf("expected A record with value 127.0.0.1, but got: %s", addr)
+			}
+			glog.Infof("successfully verified %s.%s", assertion.SubjectName, assertion.SubjectZone)
+		}
+	}
+	return nil
 }
 
 // verifyRainsDigRoot checks rainsDig's output is correct for the root zone.
@@ -453,7 +496,7 @@ func generateL2Server(basePath, l2tld string, port uint) error {
 		return fmt.Errorf("failed to create l2 server config dir: %v", err)
 	}
 	delegationAssertionPath := filepath.Join(confPath, "delegationAssertion.gob")
-	if err := CreateDelegationAssertion(fmt.Sprintf(".%s", l2tld), ".", confPath, delegationAssertionPath); err != nil {
+	if err := CreateDelegationAssertion(fmt.Sprintf("%s.", l2tld), ".", confPath, delegationAssertionPath); err != nil {
 		return fmt.Errorf("failed to create delegation assertion: %v", err)
 	}
 	certFilePath := filepath.Join(confPath, "tls.crt")
@@ -554,7 +597,7 @@ func generateX509Pair(certOutPath, keyOutPath string) error {
 // CreateDelegationAssertion generates a new public/private key pair for the
 // given context and zone. It stores the private key and a delegation assertion
 // to a file. In case of root public key the assertion is self signed (zone=.)
-func CreateDelegationAssertion(context, zone, outPath, gobOut string) error {
+func CreateDelegationAssertion(zone, context, outPath, gobOut string) error {
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return err
@@ -575,10 +618,8 @@ func CreateDelegationAssertion(context, zone, outPath, gobOut string) error {
 		SubjectName: "@",
 		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation, Value: pkey}},
 	}
-	if zone == "." {
-		if ok := addSignature(assertion, privateKey); !ok {
-			return errors.New("Was not able to sign the assertion")
-		}
+	if ok := addSignature(assertion, privateKey); !ok {
+		return errors.New("Was not able to sign the assertion")
 	}
 	// storeKeyPair saves the public and private key.
 	if err := storeKeyPair(publicKey, privateKey, outPath); err != nil {

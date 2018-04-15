@@ -18,7 +18,7 @@ var (
     ]
 `
 	l2PubTmpl = `
-    :Z: {{ .TLD }} . [
+    :Z: {{ .TLD }}. . [
         :S: [
             {{ range .Domains }}
                 :A: {{ .Domain }} [ :ip4: {{ .IP4 }} ]

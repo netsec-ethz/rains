@@ -105,14 +105,14 @@ func loadRootZonePublicKey(keyPath string) error {
 				keyMap := make(map[rainslib.PublicKeyID][]rainslib.PublicKey)
 				keyMap[a.Signatures[0].PublicKeyID] = []rainslib.PublicKey{publicKey}
 				if validateSignatures(a, keyMap) {
+					if ok := zoneKeyCache.Add(a, publicKey, true); !ok {
+						return errors.New("Cache is smaller than the amount of root public keys")
+					}
 					log.Info("Added root public key to zone key cache.",
 						"context", a.Context,
 						"zone", a.SubjectZone,
 						"RootPublicKey", c.Value,
 					)
-					if ok := zoneKeyCache.Add(a, publicKey, true); !ok {
-						return errors.New("Cache is smaller than the amount of root public keys")
-					}
 					keysAdded += 1
 				} else {
 					return fmt.Errorf("Failed to validate signature for assertion: %v", a)

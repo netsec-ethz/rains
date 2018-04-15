@@ -128,7 +128,7 @@ func sendQuery(msg []byte, token rainslib.Token, connInfo rainslib.ConnInfo) err
 			*rainslib.AddressAssertionSection, *rainslib.AddressQuerySection, *rainslib.AddressZoneSection:
 			fmt.Println(zfParser.Encode(section))
 		default:
-			log.Warn("Unexpected section type", "Type", fmt.Sprintf("%T", section))
+			log.Warn("got unexpected section type", "type", fmt.Sprintf("%T", section))
 		}
 	}
 	return nil
@@ -140,7 +140,6 @@ func createConnection(connInfo rainslib.ConnInfo) (conn net.Conn, err error) {
 	case rainslib.TCP:
 		return tls.Dial(connInfo.TCPAddr.Network(), connInfo.String(), &tls.Config{InsecureSkipVerify: *insecureTLS})
 	default:
-		log.Warn("Unsupported Network address type.")
 		return nil, errors.New("unsupported Network address type")
 	}
 }
