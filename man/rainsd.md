@@ -68,11 +68,11 @@ program. Keys are to be specified in a top-level JSON map.
     the set of messages waiting for that response,
 * `RedirectionCacheSize`: Cache for fast retrieval of connection information
     for a given subject zone,
-* `RedirectionCacheWarnSize`:
-* `QueryValidity`
-* `AddressQueryValidity`
+* `RedirectionCacheWarnSize`: Size of redirectio cache to print warning at,
+* `QueryValidity`: How long a query should be valid for,
+* `AddressQueryValidity`: How long an address query should be valid for,
 * `ContextAuthority`: The context within which this server is authoritative,
 * `ZoneAuthority`: The zones for which this server is authoritative,
 * `MaxCacheValidity`: a map containing validity entries for the caches in the
     server,
-* `ReapEngineTimeout`
+* `ReapEngineTimeout`: Timeout for cache reaping routines in the server,
