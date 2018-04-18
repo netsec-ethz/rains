@@ -17,7 +17,7 @@ var (
         ]
     ]
 `
-	l2PubTmpl = `
+	tldPubTmpl = `
     :Z: {{ .TLD }}. . [
         :S: [
             {{ range .Domains }}
@@ -102,7 +102,7 @@ var (
     `
 )
 
-type L2PubParams struct {
+type TLDPubParams struct {
 	TLD     string
 	Domains []struct {
 		Domain string
@@ -110,13 +110,13 @@ type L2PubParams struct {
 	}
 }
 
-func (l2p *L2PubParams) Config() (string, error) {
-	tmpl, err := template.New("l2PubTmpl").Parse(l2PubTmpl)
+func (tpp *TLDPubParams) Config() (string, error) {
+	tmpl, err := template.New("tldPubTmpl").Parse(tldPubTmpl)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse zonefile template: %v", err)
 	}
 	buf := bytes.NewBuffer(make([]byte, 0))
-	if err := tmpl.Execute(buf, l2p); err != nil {
+	if err := tmpl.Execute(buf, tpp); err != nil {
 		return "", fmt.Errorf("failed to execute zonefile template: %v", err)
 	}
 	return buf.String(), nil
@@ -138,7 +138,6 @@ func (rpc *RootPubConf) PubConfig() (string, error) {
 		return "", fmt.Errorf("failed to execute config template: %v", err)
 	}
 	return buf.String(), nil
-
 }
 
 // RootPubParams defines the variables to substitute into

@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	httpAddr  = flag.String("httpAddr", "[::1]:8080", "Address to listen on for info server")
+	debugAddr = flag.String("debug_addr", "[::1]:8080", "Address to listen on for debugging info server.")
 	config    = flag.String("config", "", "Path to configuration file.")
-	verbosity = flag.Int("verbosity", int(log.LvlInfo), "Verbosity of logging")
+	verbosity = flag.Int("verbosity", int(log.LvlInfo), "Verbosity of logging.")
 
 	buildinfo_hostname string
 	buildinfo_commit   string
@@ -58,7 +58,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 
 func statusServer() {
 	http.HandleFunc("/0/status", statusHandler)
-	if err := http.ListenAndServe(*httpAddr, nil); err != nil {
+	if err := http.ListenAndServe(*debugAddr, nil); err != nil {
 		glog.Warningf("HTTP server error: %v", err)
 	}
 }
