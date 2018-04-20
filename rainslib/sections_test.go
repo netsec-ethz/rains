@@ -950,3 +950,140 @@ func TestSigs(t *testing.T) {
 		}
 	}
 }
+
+func TestAssertionsByNameAndTypes(t *testing.T) {
+	ss := ShardSection{
+		Content: make([]*AssertionSection, 0),
+	}
+	as1 := &AssertionSection{
+		SubjectName: "example",
+		SubjectZone: "com.",
+		Content: []Object{Object{
+			Type:  OTIP4Addr,
+			Value: "127.0.0.1",
+		},
+			Object{
+				Type:  OTIP6Addr,
+				Value: "::1",
+			}},
+	}
+	as2 := &AssertionSection{
+		SubjectName: "example",
+		SubjectZone: "com.",
+		Content: []Object{
+			Object{
+				Type:  OTRegistrant,
+				Value: "John Doe",
+			},
+			Object{
+				Type:  OTRegistrar,
+				Value: "Jane Doe",
+			},
+		}}
+	ss.Content = append(ss.Content, as1, as2)
+	res1 := ss.AssertionsByNameAndTypes("example", []ObjectType{OTRegistrar, OTIP6Addr})
+	expect1 := []*AssertionSection{as1, as2}
+	if len(res1) != 2 {
+		t.Errorf("expected 2 assertionsections, but got %v", len(res1))
+	}
+	if !reflect.DeepEqual(res1, expect1) {
+		t.Errorf("mismatched returned assertionsections: got %v, want %v", res1, expect1)
+	}
+	res2 := ss.AssertionsByNameAndTypes("non.existant", []ObjectType{OTRegistrar, OTIP6Addr})
+	if len(res2) != 0 {
+		t.Errorf("expected 0 assertionsections but got %d: %v", len(res2), res2)
+	}
+	res3 := ss.AssertionsByNameAndTypes("example", []ObjectType{OTIP6Addr})
+	expect3 := []*AssertionSection{as1}
+	if len(res3) != 1 {
+		t.Errorf("expected 1 assertinsections but got %d: %v", len(res3), res3)
+	}
+	if !reflect.DeepEqual(res3, expect3) {
+		t.Errorf("mismatched returned assertionsections: got %v, want %v", res3, expect3)
+	}
+}
+
+func TestInRange(t *testing.T) {
+	ss := ShardSection{
+		RangeFrom: "abc",
+		RangeTo:   "xyz",
+	}
+	testMatrix := []struct {
+		Input  string
+		Output bool
+	}{
+		{
+			Input:  "aaa",
+			Output: false,
+		},
+		{
+			Input:  "abc",
+			Output: false,
+		},
+		{
+			Input:  "abcdef",
+			Output: true,
+		},
+		{
+			Input:  "zzz",
+			Output: false,
+		},
+	}
+	for i, testCase := range testMatrix {
+		if out := ss.InRange(testCase.Input); out != testCase.Output {
+			t.Errorf("case %d: expected response of %t from InRange, but got %t with input %s",
+				i, out, testCase.Output, testCase.Input)
+		}
+	}
+}
+
+func TestIsConsistent(t *testing.T) {
+	testMatrix := []struct {
+		section    *ShardSection
+		wellformed bool
+	}{
+		{
+			section:    &ShardSection{SubjectZone: "legitimate.zone"},
+			wellformed: true,
+		},
+		{
+			section: &ShardSection{
+				SubjectZone: "legitimate.zone",
+				RangeFrom:   "abc",
+				RangeTo:     "xyz",
+				Content: []*AssertionSection{
+					&AssertionSection{
+						SubjectName: "aaa",
+					},
+				},
+			},
+			wellformed: false,
+		},
+		{
+			section: &ShardSection{
+				SubjectZone: "legitimate.zone",
+				RangeFrom:   "abc",
+				RangeTo:     "xyz",
+				Content: []*AssertionSection{
+					&AssertionSection{
+						SubjectName: "def",
+					},
+				},
+			},
+			wellformed: true,
+		},
+		{
+			section: &ShardSection{
+				SubjectZone: "legitimate.zone",
+				RangeFrom:   "abc",
+				RangeTo:     "xyz",
+			},
+			wellformed: true,
+		},
+	}
+	for i, testCase := range testMatrix {
+		if res := testCase.section.IsConsistent(); res != testCase.wellformed {
+			t.Errorf("case %d: wrong consistency: got %t, want %t", i, res, testCase.wellformed)
+		}
+	}
+}
