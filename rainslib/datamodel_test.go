@@ -57,20 +57,28 @@ func TestMessageSectionWithSigSignatures(t *testing.T) {
 }
 
 func TestMessageSectionWithSigGetContextAndSubjectZone(t *testing.T) {
+	_, sampleNet, _ := net.ParseCIDR("2001:db8::/32")
 	var tests = []struct {
-		input MessageSectionWithSig
+		input             MessageSectionWithSig
+		exptectCtx        string
+		expectSubjectZone string
 	}{
-		{&AssertionSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"}},
-		{&ShardSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"}},
-		{&ZoneSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"}},
-		{&AddressAssertionSection{Context: "testContextcx-testSubjectZone"}},
-		{&AddressZoneSection{Context: "testContextcx-testSubjectZone"}},
+		{&AssertionSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"},
+			"testContextcx-testSubjectZone", "testSubjectZone"},
+		{&ShardSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"},
+			"testContextcx-testSubjectZone", "testSubjectZone"},
+		{&ZoneSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"},
+			"testContextcx-testSubjectZone", "testSubjectZone"},
+		{&AddressAssertionSection{Context: "testContextcx-testSubjectZone", SubjectAddr: sampleNet},
+			"testContextcx-testSubjectZone", "2001:db8::/32"},
+		{&AddressZoneSection{Context: "testContextcx-testSubjectZone", SubjectAddr: sampleNet},
+			"testContextcx-testSubjectZone", "2001:db8::/32"},
 	}
 	for i, test := range tests {
-		if test.input.GetContext() != "testContextcx-testSubjectZone" {
+		if test.input.GetContext() != test.exptectCtx {
 			t.Errorf("%d: Context does not match. expected=testContextcx-testSubjectZone actual=%s", i, test.input.GetContext())
 		}
-		if test.input.GetSubjectZone() != "testSubjectZone" {
+		if test.input.GetSubjectZone() != test.expectSubjectZone {
 			t.Errorf("%d: SubjectZone does not match. expected=testSubjectZone actual=%s", i, test.input.GetSubjectZone())
 		}
 	}
