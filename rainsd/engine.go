@@ -26,6 +26,7 @@ func initEngine() {
 //The section's signatures MUST have already been verified and there MUST be at least one valid
 //rains signature on the message
 func assert(ss sectionWithSigSender, isAuthoritative bool) {
+	log.Debug("Adding assertion to cache", "assertion", ss)
 	if enoughSystemRessources && sectionIsInconsistent(ss.Section) {
 		log.Warn("section is inconsistent with cached elements.", "section", ss.Section)
 		sendNotificationMsg(ss.Token, ss.Sender, rainslib.NTRcvInconsistentMsg, "")

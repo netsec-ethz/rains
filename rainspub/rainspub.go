@@ -40,6 +40,35 @@ func InitRainspub(configPath string) error {
 	return nil
 }
 
+// InitFromFlags initializes the rainspub instance from flags instead
+// of command line parameters.
+func InitFromFlags(serverHost, zoneFile, privateKeyFile string, validityDuration time.Duration, serverPort int) error {
+	h := log.CallerFileHandler(log.StdoutHandler)
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, h))
+	config.ZoneFilePath = zoneFile
+	config.ZonePrivateKeyPath = privateKeyFile
+	config.ServerAddresses = make([]rainslib.ConnInfo, 0)
+	config.ServerAddresses = append(config.ServerAddresses, rainslib.ConnInfo{
+		Type: rainslib.TCP,
+		TCPAddr: &net.TCPAddr{
+			IP:   net.ParseIP(serverHost),
+			Port: serverPort,
+		},
+	})
+	config.ZoneValidUntil = validityDuration
+	config.DelegationValidUntil = validityDuration
+	config.AssertionValidUntil = validityDuration
+	err := loadPrivateKey(config.ZonePrivateKeyPath)
+	if err != nil {
+		return err
+	}
+	p := zoneFileParser.Parser{}
+	parser = p
+	signatureEncoder = p
+	msgParser = new(protoParser.ProtoParserAndFramer)
+	return nil
+}
+
 //PublishInformation does:
 //1) loads all assertions from the rains zone file.
 //2) groups assertions into shards
@@ -83,7 +112,7 @@ func loadAssertions() ([]*rainslib.AssertionSection, error) {
 		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
 		return nil, err
 	}
-	assertions, err := parser.Decode(file, config.ZoneFilePath)
+	assertions, err := parser.Decode(file)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)
 		return nil, err

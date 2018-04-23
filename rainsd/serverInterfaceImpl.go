@@ -244,6 +244,7 @@ type zoneKeyCacheImpl struct {
 //then decide if it wants to blacklist a given zone). If the internal flag is set, the publicKey
 //will only be removed after it expired.
 func (c *zoneKeyCacheImpl) Add(assertion *rainslib.AssertionSection, publicKey rainslib.PublicKey, internal bool) bool {
+	log.Info("Adding key to cache", "publicKey", publicKey, "assertion", assertion)
 	subjectName := assertion.SubjectName
 	if assertion.SubjectName == "@" {
 		subjectName = assertion.SubjectZone
