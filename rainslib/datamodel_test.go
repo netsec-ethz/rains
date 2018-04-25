@@ -627,3 +627,65 @@ func TestSort(t *testing.T) {
 		}
 	}
 }
+
+type MockInterval struct {
+	begin string
+	end   string
+}
+
+func (mi MockInterval) Begin() string {
+	return mi.begin
+}
+
+func (mi MockInterval) End() string {
+	return mi.end
+}
+
+func TestOverlapping(t *testing.T) {
+	testMatrix := []struct {
+		one    MockInterval
+		two    MockInterval
+		output bool
+	}{
+		{
+			one:    MockInterval{"a", "z"},
+			two:    MockInterval{"e", "n"},
+			output: true,
+		},
+		{
+			one:    MockInterval{"o", "w"},
+			two:    MockInterval{"a", "e"},
+			output: false,
+		},
+		{
+			one:    MockInterval{"", "e"},
+			two:    MockInterval{"n", "q"},
+			output: false,
+		},
+		{
+			one:    MockInterval{"a", ""},
+			two:    MockInterval{"a", "z"},
+			output: true,
+		},
+		{
+			one:    MockInterval{"a", "p"},
+			two:    MockInterval{"q", ""},
+			output: false,
+		},
+		{
+			one:    MockInterval{"a", "z"},
+			two:    MockInterval{"", "b"},
+			output: true,
+		},
+		{
+			one:    MockInterval{"a", "a"},
+			two:    MockInterval{"b", "b"},
+			output: false,
+		},
+	}
+	for i, entry := range testMatrix {
+		if out := Intersect(entry.one, entry.two); out != entry.output {
+			t.Errorf("case %d: wrong return type from Intersect: got %t, want %t", i, out, entry.output)
+		}
+	}
+}

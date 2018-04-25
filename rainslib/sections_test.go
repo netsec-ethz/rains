@@ -1087,3 +1087,77 @@ func TestIsConsistent(t *testing.T) {
 		}
 	}
 }
+
+func TestSectionsByNamesAndTypes(t *testing.T) {
+	zs := &ZoneSection{
+		Content: []MessageSectionWithSigForward{
+			&AssertionSection{
+				SubjectName: "domain",
+				SubjectZone: "com.",
+				Content: []Object{
+					Object{
+						Type:  OTRegistrant,
+						Value: "Jane Doe",
+					},
+				},
+			},
+			&AssertionSection{
+				SubjectName: "example",
+				SubjectZone: "ch.",
+				Content: []Object{
+					Object{
+						Type:  OTIP4Addr,
+						Value: "127.0.0.1",
+					},
+				},
+			},
+			&ShardSection{
+				RangeFrom: "as",
+				RangeTo:   "b",
+				Content: []*AssertionSection{
+					&AssertionSection{
+						SubjectName: "as559.net",
+						Content: []Object{
+							Object{
+								Type:  OTIP6Addr,
+								Value: "2001:67c:10ec::cafe",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	testMatrix := []struct {
+		subjectName string
+		types       []ObjectType
+		as          []*AssertionSection
+		ss          []*ShardSection
+	}{
+		{
+			subjectName: "example",
+			types:       []ObjectType{OTIP4Addr},
+			as:          []*AssertionSection{zs.Content[1].(*AssertionSection)},
+		},
+		{
+			subjectName: "domain",
+			types:       []ObjectType{OTRegistrant},
+			as:          []*AssertionSection{zs.Content[0].(*AssertionSection)},
+		},
+		{
+			subjectName: "as559.net",
+			types:       []ObjectType{OTIP6Addr},
+			as:          []*AssertionSection{zs.Content[2].(*ShardSection).Content[0]},
+			ss:          []*ShardSection{zs.Content[2].(*ShardSection)},
+		},
+	}
+	for i, testCase := range testMatrix {
+		as, ss := zs.SectionsByNameAndTypes(testCase.subjectName, testCase.types)
+		if !reflect.DeepEqual(as, testCase.as) {
+			t.Errorf("case %d: mismatched assertionSections: got %v, want %v", i, as, testCase.as)
+		}
+		if !reflect.DeepEqual(ss, testCase.ss) {
+			t.Errorf("case %d: mismatched shardSections: got %v, want %v", i, ss, testCase.ss)
+		}
+	}
+}
