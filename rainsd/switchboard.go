@@ -10,6 +10,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/golang/glog"
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/rainslib"
@@ -80,7 +81,7 @@ func createConnection(receiver rainslib.ConnInfo) (net.Conn, error) {
 //Listen listens for incoming connections and creates a go routine for each connection.
 func Listen() {
 	srvLogger := log.New("addr", serverConnInfo.String())
-
+	glog.Infof("Starting listen in rainsd library")
 	switch serverConnInfo.Type {
 	case rainslib.TCP:
 		srvLogger.Info("Start TCP listener")

@@ -46,7 +46,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 	for i, sig := range s.Sigs(rainslib.RainsKeySpace) {
 		if keys, ok := pkeys[sig.PublicKeyID]; ok {
 			if int64(sig.ValidUntil) < time.Now().Unix() {
-				log.Debug("signature is expired", "signature", sig)
+				log.Info("signature is expired", "signature", sig)
 				s.DeleteSig(i)
 				continue
 			}

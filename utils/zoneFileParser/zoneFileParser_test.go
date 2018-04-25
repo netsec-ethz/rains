@@ -14,7 +14,7 @@ func TestEncodeDecode(t *testing.T) {
 	parser := Parser{}
 	zoneFile := parser.Encode(zones[0])
 
-	assertions, err := parser.Decode([]byte(zoneFile), "generatedInTest")
+	assertions, err := parser.Decode([]byte(zoneFile))
 	if err != nil {
 		t.Error(err)
 	}

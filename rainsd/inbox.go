@@ -21,7 +21,7 @@ var prioWorkers chan struct{}
 var normalWorkers chan struct{}
 var notificationWorkers chan struct{}
 
-func initQueuesAndWorkers() error {
+func initQueuesAndWorkers(done chan bool) error {
 	//init Channels
 	prioChannel = make(chan msgSectionSender, Config.PrioBufferSize)
 	normalChannel = make(chan msgSectionSender, Config.NormalBufferSize)
@@ -32,9 +32,9 @@ func initQueuesAndWorkers() error {
 	normalWorkers = make(chan struct{}, Config.NormalWorkerCount)
 	notificationWorkers = make(chan struct{}, Config.NotificationWorkerCount)
 
-	go workPrio()
+	go workPrio(done)
 	go workNotification()
-	go workBoth()
+	go workBoth(done)
 	return nil
 }
 
@@ -125,29 +125,24 @@ func isZoneBlacklisted(zone string) bool {
 
 //workBoth works on the prioChannel and on the normalChannel. A worker only fetches a message from the normalChannel if the prioChannel is empty.
 //the channel normalWorkers enforces a maximum number of go routines working on the prioChannel and normalChannel.
-func workBoth() {
+func workBoth(done chan bool) {
 	for {
-		normalWorkers <- struct{}{}
 		select {
 		case msg := <-prioChannel:
-			go prioWorkerHandler(msg)
+			verify(msg)
 			continue
 		default:
-			//do nothing
+			// Fallthrough to second select.
 		}
 		select {
+		case msg := <-prioChannel:
+			verify(msg)
 		case msg := <-normalChannel:
-			go normalWorkerHandler(msg)
-		default:
-			<-normalWorkers
+			verify(msg)
+		case <-done:
+			return
 		}
 	}
-}
-
-//normalWorkerHandler handles sections on the normalChannel
-func normalWorkerHandler(msg msgSectionSender) {
-	verify(msg)
-	<-normalWorkers
 }
 
 //workPrio works on the prioChannel. It waits on the prioChannel and creates a new go routine which handles the section.
@@ -158,18 +153,15 @@ func normalWorkerHandler(msg msgSectionSender) {
 //3) For each non-delegation query that gets taken off the queue a new non-delegation query or expired
 //   delegation query wins against all waiting valid delegation-queries.
 //4) Then although the server is working all the time, no section is added to the caches.
-func workPrio() {
+func workPrio(done chan bool) {
 	for {
-		prioWorkers <- struct{}{}
-		msg := <-prioChannel
-		go prioWorkerHandler(msg)
+		select {
+		case msg := <-prioChannel:
+			verify(msg)
+		case <-done:
+			return
+		}
 	}
-}
-
-//prioWorkerHandler handles sections on the prioChannel
-func prioWorkerHandler(msg msgSectionSender) {
-	verify(msg)
-	<-prioWorkers
 }
 
 //workNotification works on the notificationChannel. It waits on the notificationChannel and creates a new go routine which handles the notification.
