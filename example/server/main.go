@@ -14,7 +14,7 @@ import (
 var (
 	debugAddr = flag.String("debug_addr", "[::1]:8080", "Address to listen on for debugging info server.")
 	config    = flag.String("config", "", "Path to configuration file.")
-	verbosity = flag.Int("verbosity", int(log.LvlInfo), "Verbosity of logging.")
+	verbosity = flag.Int("verbosity", int(log.LvlDebug), "Verbosity of logging.")
 
 	buildinfo_hostname string
 	buildinfo_commit   string

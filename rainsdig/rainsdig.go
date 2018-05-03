@@ -19,9 +19,12 @@ import (
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 )
 
+var anyQuery = []rainslib.ObjectType{rainslib.OTName, rainslib.OTIP4Addr,
+	rainslib.OTIP6Addr, rainslib.OTDelegation, rainslib.OTServiceInfo}
+
 //TODO add default values to description
 var revLookup = flag.String("x", "", "Reverse lookup, addr is an IPv4 address in dotted-decimal notation, or a colon-delimited IPv6 address.")
-var queryType = flag.Int("t", 3, "specifies the type for which dig issues a query.")
+var queryType = flag.Int("t", -1, "specifies the type for which dig issues a query.")
 var name = flag.String("q", "", "sets the query's subjectName to this value.")
 var port = flag.Uint("p", 5022, "is the port number that dig will send its queries to.")
 var serverAddr = flag.String("s", "", `is the IP address of the name server to query.
@@ -88,8 +91,14 @@ func main() {
 		}
 		connInfo := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr}
 
-		message := rainslib.NewQueryMessage(*name, *context, *expires,
-			[]rainslib.ObjectType{rainslib.ObjectType(*queryType)}, queryOptions, rainslib.GenerateToken())
+		var qt []rainslib.ObjectType
+		if *queryType == -1 {
+			qt = anyQuery
+		} else {
+			qt = []rainslib.ObjectType{rainslib.ObjectType(*queryType)}
+		}
+
+		message := rainslib.NewQueryMessage(*name, *context, *expires, qt, queryOptions, rainslib.GenerateToken())
 		msg, err := msgParser.Encode(message)
 		if err != nil {
 			fmt.Printf("could not encode the query, error=%s\n", err)
@@ -205,7 +214,6 @@ func (i *qoptFlag) Set(value string) error {
 		*i = append(*i, rainslib.QONoProactiveCaching)
 	default:
 		return fmt.Errorf("There is no query option for value: %s", value)
-
 	}
 	return nil
 }

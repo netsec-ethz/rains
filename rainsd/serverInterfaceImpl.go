@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -781,7 +782,9 @@ type assertionCacheImpl struct {
 
 //assertionCacheMapKey returns the key for assertionCacheImpl.cache based on the assertion
 func assertionCacheMapKey(name, zone, context string, oType rainslib.ObjectType) string {
-	return fmt.Sprintf("%s %s %s %d", name, zone, context, oType)
+	key := fmt.Sprintf("%s %s %s %d", name, zone, context, oType)
+	log.Debug("assertionCacheMapKey", "key", key)
+	return key
 }
 
 //Add adds an assertion together with an expiration time (number of seconds since 01.01.1970) to
@@ -855,10 +858,44 @@ func (c *assertionCacheImpl) Add(a *rainslib.AssertionSection, expiration int64,
 	return !isFull
 }
 
+// zoneHierarchy returns a slice of domain names upto the root to try and find a match in the cache.
+func zoneHierarchy(name, zone string) []string {
+	if zone == "." {
+		if name == "" {
+			return []string{zone}
+		}
+		return []string{fmt.Sprintf("%s.", name), zone}
+	}
+	if name != "" {
+		zone = fmt.Sprintf("%s.%s", name, zone)
+	}
+	labels := strings.Split(zone, ".")
+	attempts := make([]string, 0)
+	for i := 0; i < len(labels)-1; i++ {
+		attempts = append(attempts, strings.Join(labels[i:], "."))
+	}
+	return attempts
+}
+
 //Get returns true and a set of assertions matching the given key if there exist some. Otherwise
 //nil and false is returned.
 func (c *assertionCacheImpl) Get(name, zone, context string, objType rainslib.ObjectType) ([]*rainslib.AssertionSection, bool) {
-	v, ok := c.cache.Get(assertionCacheMapKey(name, zone, context, objType))
+	log.Debug("get", "name", name, "zone", zone)
+	hierarchy := zoneHierarchy(name, zone)
+	log.Debug("hierarchy is ", "hierarchy", hierarchy)
+	var v interface{}
+	var ok bool
+	for _, fqdn := range hierarchy {
+		log.Info("Trying get with fqdn", "fqdn", fqdn)
+		subject, zone, err := fqdnToSubjectZone(fqdn)
+		if err != nil {
+			panic(fmt.Sprintf("Attempted to lookup bad key in cache: %v", fqdn))
+		}
+		v, ok = c.cache.Get(assertionCacheMapKey(subject, zone, context, objType))
+		if ok {
+			break
+		}
+	}
 	if !ok {
 		return nil, false
 	}
