@@ -209,7 +209,8 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 						deleg = obj.Value
 					}
 					if obj.Type == rainslib.OTServiceInfo {
-						serviceInfo = obj.Value.(*rainslib.ServiceInfo)
+						tmp := obj.Value.(rainslib.ServiceInfo)
+						serviceInfo = &tmp
 					}
 				}
 				glog.Infof("deleg was %v", deleg)
@@ -217,11 +218,11 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 					return nil, fmt.Errorf("Incomplete delegation chain, last response = %v", resp)
 				}
 				latestResolver = fmt.Sprintf("%s:%d", serviceInfo.Name, serviceInfo.Port)
+				glog.Infof("latestResolver updated to %v", latestResolver)
 			case *rainslib.ZoneSection:
 				// Negative case when a zone is returned to prove non-existance.
 				return resp, nil
 			}
 		}
-		return nil, fmt.Errorf("Didn't get delegation nor response")
 	}
 }

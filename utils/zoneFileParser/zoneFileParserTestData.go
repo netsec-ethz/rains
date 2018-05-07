@@ -290,12 +290,12 @@ func getZonesAndEncodings() ([]*rainslib.ZoneSection, []string) {
 	zone0 := &rainslib.ZoneSection{
 		Content:     []rainslib.MessageSectionWithSigForward{assertions[0], shards[1]},
 		Context:     ".",
-		SubjectZone: "ch",
+		SubjectZone: "ch.",
 		Signatures:  []rainslib.Signature{getSignature()},
 	}
 	zone1 := &rainslib.ZoneSection{
 		Context:     ".",
-		SubjectZone: "ch",
+		SubjectZone: "ch.",
 		Signatures:  []rainslib.Signature{getSignature()},
 	}
 
@@ -304,8 +304,8 @@ func getZonesAndEncodings() ([]*rainslib.ZoneSection, []string) {
 
 	//encodings
 	encodings := []string{}
-	encodings = append(encodings, fmt.Sprintf(":Z: ch . [\n%s%s\n%s%s\n]", indent4, assertionEncodings[0], indent4, shardEncodings[1])) //when not used for signing, it does not copy context and subjectZone to contained shards and assertions
-	encodings = append(encodings, ":Z: ch . [\n]")
+	encodings = append(encodings, fmt.Sprintf(":Z: ch. . [\n%s%s\n%s%s\n]", indent4, assertionEncodings[0], indent4, shardEncodings[1])) //when not used for signing, it does not copy context and subjectZone to contained shards and assertions
+	encodings = append(encodings, ":Z: ch. . [\n]")
 
 	return zones, encodings
 }

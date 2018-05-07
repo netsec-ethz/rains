@@ -547,10 +547,10 @@ func TestDecodeZone(t *testing.T) {
 	}{
 		{zoneEncodings[0], []*rainslib.AssertionSection{zones[0].Content[0].(*rainslib.AssertionSection), zones[0].Content[1].(*rainslib.ShardSection).Content[0]}, ""},
 		{"WrongType", nil, "malformed zonefile: expected ':Z:' got: WrongType at line 1"},
-		{":Z: ch . ", nil, "malformed zonefile: expected '[' got:  at line 2"},
-		{":Z: ch . [ WrongType", nil, "malformed zonefile: expected ':A:' or ':S:' but got WrongType at line 1"},
-		{":Z: ch . [ :A: ", nil, "error decoding assertion: expected '[' but got  at line 2"},
-		{":Z: ch . [ :S: ", nil, "expected '[' but got  at line 2"},
+		{":Z: ch. . ", nil, "malformed zonefile: expected '[' got:  at line 2"},
+		{":Z: ch. . [ WrongType", nil, "malformed zonefile: expected ':A:' or ':S:' but got WrongType at line 1"},
+		{":Z: ch. . [ :A: ", nil, "error decoding assertion: expected '[' but got  at line 2"},
+		{":Z: ch. . [ :S: ", nil, "expected '[' but got  at line 2"},
 	}
 	for i, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))

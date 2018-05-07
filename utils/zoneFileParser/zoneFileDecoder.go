@@ -30,9 +30,9 @@ func validZone(zone string) bool {
 	return true
 }
 
-// validSubject is the canonical source of truth if the provided string is a subject.
+// validSubject ensures that a subject does not end with a dot, to prevent errors concatenating.
 func validSubject(subject string) bool {
-	return len(subject) > 0 && !strings.Contains(subject, ".")
+	return !strings.HasSuffix(subject, ".")
 }
 
 // decodeZone expects as input a scanner holding the data of a zone represented in the zone file format.
