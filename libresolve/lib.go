@@ -60,7 +60,7 @@ func (r *Resolver) Lookup(name, context string) (*rainslib.RainsMessage, error) 
 }
 
 func (r *Resolver) nameToQuery(name, context string, expTime int64, opts []rainslib.QueryOption) rainslib.RainsMessage {
-	types := []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr, rainslib.OTDelegation, rainslib.OTServiceInfo}
+	types := []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr, rainslib.OTDelegation, rainslib.OTServiceInfo, rainslib.OTRedirection}
 	return rainslib.NewQueryMessage(name, context, expTime, types, opts, rainslib.GenerateToken())
 }
 
@@ -190,39 +190,68 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 		if len(resp.Content) == 0 {
 			return nil, errors.New("got empty response")
 		}
-		// Parse the response to find the service-info node.
+		glog.Infof("response was %+v", resp)
+		// The response can either be a redirection chain or a response.
+		redirectMap := make(map[string]string)
+		srvMap := make(map[string]rainslib.ServiceInfo)
+		concreteMap := make(map[string]string)
 		for _, section := range resp.Content {
 			switch section.(type) {
 			case *rainslib.AssertionSection:
-				// Positive case
 				as := section.(*rainslib.AssertionSection)
 				sz := mergeSubjectZone(as.SubjectName, as.SubjectZone)
-				glog.Infof("Received a assertionsection for %s, %s, merged: %s", as.SubjectName, as.SubjectZone, sz)
 				if sz == name {
 					return resp, nil
 				}
-				var deleg interface{}
-				var serviceInfo *rainslib.ServiceInfo = nil
 				for _, obj := range as.Content {
-					if obj.Type == rainslib.OTDelegation {
-						glog.Infof("type of OTDelegation is %T", obj.Value)
-						deleg = obj.Value
-					}
-					if obj.Type == rainslib.OTServiceInfo {
-						tmp := obj.Value.(rainslib.ServiceInfo)
-						serviceInfo = &tmp
+					switch obj.Type {
+					case rainslib.OTRedirection:
+						redirectMap[sz] = obj.Value.(string)
+					case rainslib.OTServiceInfo:
+						si := obj.Value.(rainslib.ServiceInfo)
+						srvMap[sz] = si
+					case rainslib.OTIP4Addr:
+						concreteMap[sz] = obj.Value.(string)
+					case rainslib.OTIP6Addr:
+						concreteMap[sz] = fmt.Sprintf("[%s]", obj.Value.(string))
 					}
 				}
-				glog.Infof("deleg was %v", deleg)
-				if serviceInfo == nil {
-					return nil, fmt.Errorf("Incomplete delegation chain, last response = %v", resp)
-				}
-				latestResolver = fmt.Sprintf("%s:%d", serviceInfo.Name, serviceInfo.Port)
-				glog.Infof("latestResolver updated to %v", latestResolver)
-			case *rainslib.ZoneSection:
-				// Negative case when a zone is returned to prove non-existance.
-				return resp, nil
 			}
+		}
+		// If we are here, there is some recursion required or there is no answer.
+		// Firstly we check if there is some redirection for a suffix we are interested in.
+		redirTarget := ""
+		for key, value := range redirectMap {
+			if strings.HasSuffix(name, key) {
+				redirTarget = value
+			}
+		}
+		if redirTarget == "" {
+			return nil, fmt.Errorf("failed to find result or redirection, response was: %v", resp)
+		}
+		// Follow redir until we encounter a srv.
+		seen := make(map[string]bool)
+		for {
+			if _, ok := seen[redirTarget]; ok {
+				return nil, fmt.Errorf("redirect loop detected, target %q, response: %v", redirTarget, resp)
+			}
+			seen[redirTarget] = true
+			if next, ok := redirectMap[redirTarget]; ok {
+				redirTarget = next
+			} else {
+				break
+			}
+		}
+		// There should now be a mapping between the next redirTarget and a serviceinfo object.
+		if srvInfo, ok := srvMap[redirTarget]; ok {
+			// srvInfo should contain a name
+			if concreteTarget, ok := concreteMap[srvInfo.Name]; ok {
+				latestResolver = fmt.Sprintf("%s:%d", concreteTarget, srvInfo.Port)
+			} else {
+				return nil, fmt.Errorf("serviceInfo target could not be found in response, target: %q, resp: %v", srvInfo.Name, resp)
+			}
+		} else {
+			return nil, fmt.Errorf("recieved incomplete response, missing serviceInfo for target FQDN %q, resp: %v", redirTarget, resp)
 		}
 	}
 }

@@ -467,6 +467,65 @@ func processQuery(msgSender msgSectionSender) {
 	}
 }
 
+// queryTransitiveClosure fetches the missing records when a :redir: record is encountered.
+// Note: the redirection value must be an FQDN otherwise we can't look it up yet.
+func queryTransitiveClosure(as []*rainslib.AssertionSection, qCtx string) []*rainslib.AssertionSection {
+	unresolved := make(map[string]bool)
+	ctr := 0
+	for _, as := range as {
+		for _, o := range as.Content {
+			if o.Type == rainslib.OTRedirection {
+				unresolved[o.Value.(string)] = true
+				ctr += 1
+			}
+		}
+	}
+	for ctr > 0 {
+		for name, _ := range unresolved {
+			log.Debug("processing unresolved name", "name", name)
+			delete(unresolved, name)
+			ctr -= 1
+			res := make([]*rainslib.AssertionSection, 0)
+			if asserts, ok := assertionsCache.Get(name, qCtx, rainslib.OTRedirection, true); ok {
+				res = append(res, asserts...)
+			}
+			if asserts, ok := assertionsCache.Get(name, qCtx, rainslib.OTServiceInfo, true); ok {
+				unresolved[name] = true
+				res = append(res, asserts...)
+			}
+			if asserts, ok := assertionsCache.Get(name, qCtx, rainslib.OTIP4Addr, true); ok {
+				res = append(res, asserts...)
+			}
+			if asserts, ok := assertionsCache.Get(name, qCtx, rainslib.OTIP6Addr, true); ok {
+				res = append(res, asserts...)
+			}
+			if len(res) == 0 {
+				log.Warn("queryTransitiveClosure: no targets for serviceinfo", "name", name)
+			}
+			for _, resAssert := range res {
+				for _, obj := range resAssert.Content {
+					if obj.Type == rainslib.OTRedirection {
+						log.Debug("Adding redirection target", "from", name, "to", obj.Value.(string), "unresolved", unresolved)
+						unresolved[obj.Value.(string)] = true
+						ctr += 1
+					}
+					if obj.Type == rainslib.OTServiceInfo {
+						sin := obj.Value.(rainslib.ServiceInfo)
+						log.Debug("Adding serviceinfo target", "from", name, "to", sin.Name, "unresolved", unresolved)
+						unresolved[sin.Name] = true
+						ctr += 1
+					}
+				}
+			}
+			for _, a := range res {
+				log.Debug("Adding assertion for transitive closure", "assertion", a)
+				as = append(as, a)
+			}
+		}
+	}
+	return as
+}
+
 // query directly answers the query if the result is cached.
 // Otherwise it issues a new query and adds this query to the pendingQueries Cache.
 func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
@@ -481,18 +540,22 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 	// Lookup positive.
 	assertions := []rainslib.MessageSection{}
 	for _, t := range query.Types {
-		if asserts, ok := assertionsCache.Get(subject, zone, query.Context, t); ok {
+		fqdn := mergeSubjectZone(subject, zone)
+		if asserts, ok := assertionsCache.Get(fqdn, query.Context, t, false); ok {
+			log.Debug("before transitiveClosure", "assertlen", len(asserts))
+			asserts = queryTransitiveClosure(asserts, query.Context)
+			log.Debug("after transitiveClosure", "assertLen", len(asserts))
 			//TODO implement a more elaborate policy to filter returned assertions instead
 			//of sending all non expired once back.
 			for _, a := range asserts {
 				if a.ValidUntil() > time.Now().Unix() {
 					assertions = append(assertions, a)
-					break
 				}
 			}
 		}
 	}
 	if len(assertions) > 0 {
+		log.Debug("sending", "assertLen", len(assertions))
 		sendSections(assertions, token, sender)
 		log.Info("Finished handling query by sending assertion from cache", "query", query)
 		return

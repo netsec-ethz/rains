@@ -231,25 +231,6 @@ type pendingQueryCache interface {
 	Len() int
 }
 
-//assertionCache is used to store and efficiently lookup assertions
-type assertionCache interface {
-	//Add adds an assertion together with an expiration time (number of seconds since 01.01.1970) to
-	//the cache. It returns false if the cache is full and a non internal element has been removed
-	//according to some strategy. It also adds assertion to the consistency cache.
-	Add(assertion *rainslib.AssertionSection, expiration int64, isInternal bool) bool
-	//Get returns true and a set of assertions matching the given key if there exist some. Otherwise
-	//nil and false is returned.
-	Get(name, zone, context string, objType rainslib.ObjectType) ([]*rainslib.AssertionSection, bool)
-	//RemoveExpiredValues goes through the cache and removes all expired assertions from the
-	//assertionCache and the consistency cache.
-	RemoveExpiredValues()
-	//RemoveZone deletes all assertions in the assertionCache and consistencyCache of the given
-	//zone.
-	RemoveZone(zone string)
-	//Len returns the number of elements in the cache.
-	Len() int
-}
-
 type negativeAssertionCache interface {
 	//Add adds shard together with an expiration time (number of seconds since 01.01.1970) to
 	//the cache. It returns false if the cache is full and a non internal element has been removed

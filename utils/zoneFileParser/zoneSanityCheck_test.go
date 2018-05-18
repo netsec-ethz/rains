@@ -24,4 +24,13 @@ func TestValidateZoneRedirects(t *testing.T) {
 	if err := ValidateZoneRedirects(as); !strings.HasPrefix(err.Error(), expectErrPrefix) {
 		t.Errorf("mismatched error in validateZoneRedirects, got %q, want prefix %q", err.Error(), expectErrPrefix)
 	}
+	loopTarget := ":Z: . . [ :A: example [ :redir: nic.example. ] :A: nic.example [ :redir: example. ] ]"
+	as, err = p.Decode([]byte(loopTarget))
+	if err != nil {
+		t.Fatalf("malformed zonefile 'loopTarget' hardcoded in test: %v", err)
+	}
+	expectErrPrefix = "redirect loop for key"
+	if err := ValidateZoneRedirects(as); !strings.HasPrefix(err.Error(), expectErrPrefix) {
+		t.Errorf("mismatched error in validateZoneRedirects, got %q, want prefix %q", err.Error(), expectErrPrefix)
+	}
 }

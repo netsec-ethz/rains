@@ -20,7 +20,7 @@ import (
 )
 
 var anyQuery = []rainslib.ObjectType{rainslib.OTName, rainslib.OTIP4Addr,
-	rainslib.OTIP6Addr, rainslib.OTDelegation, rainslib.OTServiceInfo}
+	rainslib.OTIP6Addr, rainslib.OTDelegation, rainslib.OTServiceInfo, rainslib.OTRedirection}
 
 //TODO add default values to description
 var revLookup = flag.String("x", "", "Reverse lookup, addr is an IPv4 address in dotted-decimal notation, or a colon-delimited IPv6 address.")

@@ -32,7 +32,7 @@ var pendingQueries pendingQueryCache
 
 //assertionCache contains a set of valid assertions where some of them might be expired.
 //An entry is marked as extrenal if it might be evicted by a LRU caching strategy.
-var assertionsCache assertionCache
+var assertionsCache *assertionCache
 
 //negAssertionCache contains for each zone and context an interval tree to find all shards and zones containing a specific assertion
 //for a zone the range is infinit: range "",""
@@ -80,7 +80,7 @@ func initCaches() {
 		counter:         safeCounter.New(Config.PendingQueryCacheSize),
 	}
 
-	assertionsCache = &assertionCacheImpl{
+	assertionsCache = &assertionCache{
 		cache:                  lruCache.New(),
 		counter:                safeCounter.New(Config.AssertionCacheSize),
 		zoneMap:                safeHashMap.New(),
