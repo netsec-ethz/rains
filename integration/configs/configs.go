@@ -12,7 +12,9 @@ var (
     :Z: . . [
         :S: [
             {{ range .L2TLDs }}
-                :A: {{ .TLD }} [ :deleg: ed25519 {{ .PubKey }} ]
+                :A: {{ .TLD }} [ :deleg: ed25519 {{ .PubKey }} :redir: ns.{{ .TLD }} ]
+                :A: ns.{{ .TLD }} [ :srv: ns1.{{ .TLD }} {{ .RedirPort }} 10 ]
+                :A: ns1.{{ .TLD }} [ :ip6: ::1 ]
             {{ end }}
         ]
     ]
@@ -144,8 +146,9 @@ func (rpc *RootPubConf) PubConfig() (string, error) {
 // the configuration for the root rainsPub instance.
 type RootPubParams struct {
 	L2TLDs []struct {
-		TLD    string
-		PubKey string
+		TLD       string
+		PubKey    string
+		RedirPort uint
 	}
 }
 

@@ -39,12 +39,13 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Failed to execute query: %v", err)
 	}
-	for _, section := range result.Content {
+	for i, section := range result.Content {
+		glog.Infof("Printing section %d", i)
 		switch section.(type) {
 		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.QuerySection, *rainslib.NotificationSection,
 			*rainslib.AddressAssertionSection, *rainslib.AddressQuerySection, *rainslib.AddressZoneSection:
 			parser := zoneFileParser.Parser{}
-			fmt.Printf(parser.Encode(section))
+			fmt.Printf("%s\n", parser.Encode(section))
 		default:
 			glog.Warningf("Received an unexpected section type in response: %T, %v", section, section)
 		}

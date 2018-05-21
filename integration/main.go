@@ -106,14 +106,14 @@ func main() {
 		}
 	}
 	glog.Info("Servers successfully started. Ready to push data.")
-	if err := genRootPubConf(tmp, TLDSlice, zonePortMap["."]); err != nil {
+	if err := genRootPubConf(tmp, TLDSlice, zonePortMap); err != nil {
 		glog.Fatalf("Failed to generate root rainsPub config: %v", err)
 	}
 	if err := runRainsPub(ctx, tmp, filepath.Join(tmp, "config", "rootPub")); err != nil {
 		glog.Fatalf("Failed to run root rainsPub: %v", err)
 	}
 	glog.Info("Successfully published data, now querying and verifying responses.")
-	res, err := runRainsDig(ctx, tmp, ".", "[::1]", fmt.Sprintf("%d", zonePortMap["."]), 30*time.Second)
+	res, err := runResolve(ctx, tmp, ".", "[::1]", fmt.Sprintf("%d", zonePortMap["."]), 30*time.Second)
 	if err != nil {
 		glog.Fatalf("Failed to run rainsDig on root zone: %v", err)
 	}
@@ -134,7 +134,7 @@ func main() {
 	}
 	// Query each TLD and make sure the expected entries are there.
 	if err := verifyRainsDigTLD(ctx, tmp, strings.Split(*RLDs, ","), zonePortMap); err != nil {
-		glog.Fatalf("failed to verify L2 servers with rainsdig: %v", err)
+		glog.Fatalf("failed to verify L2 servers with resolve: %v", err)
 	}
 	if *waitAfter {
 		c := make(chan os.Signal, 1)
@@ -202,7 +202,7 @@ func tldPub(ctx context.Context, basePath string, TLDs, RLDs []string, zonePortM
 // genRootPubConf generates a rainspub configuration for the root zone data.
 // l2Dirs is a slice of paths to the TLD server configuration directories,
 // which is used for extracting the public keys.
-func genRootPubConf(basePath string, TLDs []string, rootPort uint) error {
+func genRootPubConf(basePath string, TLDs []string, zonePortMap map[string]uint) error {
 	zoneKeyMap := make(map[string]string)
 	for _, TLD := range TLDs {
 		zoneKeyMap[TLD] = filepath.Join(basePath, "config", TLD, "public.key")
@@ -218,18 +218,25 @@ func genRootPubConf(basePath string, TLDs []string, rootPort uint) error {
 	}
 	rpp := configs.RootPubParams{
 		L2TLDs: make([]struct {
-			TLD    string
-			PubKey string
+			TLD       string
+			PubKey    string
+			RedirPort uint
 		}, 0),
 	}
 	for zone, key := range pkeyMap {
+		port, ok := zonePortMap[zone]
+		if !ok {
+			return fmt.Errorf("could not find port for zone %q, zonePortMap %v", zone, zonePortMap)
+		}
 		glog.Infof("Adding zone: %s, key: %s", zone, key)
 		rpp.L2TLDs = append(rpp.L2TLDs, struct {
-			TLD    string
-			PubKey string
+			TLD       string
+			PubKey    string
+			RedirPort uint
 		}{
 			zone,
 			key,
+			port,
 		})
 	}
 	zoneData, err := rpp.ZoneFile()
@@ -247,6 +254,10 @@ func genRootPubConf(basePath string, TLDs []string, rootPort uint) error {
 	if err := ioutil.WriteFile(filepath.Join(outDir, "data.zone"), []byte(zoneData), 0600); err != nil {
 		return fmt.Errorf("failed to write data.zone: %v", err)
 	}
+	rootPort, ok := zonePortMap["."]
+	if !ok {
+		return fmt.Errorf("could not find root port in zonePortMap: %v", zonePortMap)
+	}
 	rpc := configs.RootPubConf{
 		Port:           rootPort,
 		ZoneFilePath:   filepath.Join(outDir, "data.zone"),
@@ -262,13 +273,13 @@ func genRootPubConf(basePath string, TLDs []string, rootPort uint) error {
 	return nil
 }
 
-// runRainsDig queries the specified server for the requested zone.
+// runResolve queries the specified server for the requested zone.
 // The output of stdout is returned on success, otherwise an error
 // is returned.
-func runRainsDig(ctx context.Context, basePath, zone, serverHost, serverPort string, maxTime time.Duration) (string, error) {
-	binPath := filepath.Join(basePath, "bin", "rainsdig")
-	args := []string{"--insecureTLS", "-s", serverHost, "-p", serverPort, "-q", zone}
-	glog.Infof("Running rainsdig with arguments: %v", args)
+func runResolve(ctx context.Context, basePath, zone, serverHost, serverPort string, maxTime time.Duration) (string, error) {
+	binPath := filepath.Join(basePath, "bin", "resolve")
+	args := []string{"--insecureTLS", "-root", fmt.Sprintf("%s:%s", serverHost, serverPort), "-name", zone}
+	glog.Infof("Running resolve with arguments: %v", args)
 	exitChan := make(chan *runner.Runner)
 	r := runner.New(binPath, args, basePath, &exitChan)
 	r.Execute(ctx)
@@ -302,7 +313,7 @@ func verifyRainsDigTLD(ctx context.Context, basePath string, RLDs []string, zone
 		}
 		for _, rld := range RLDs {
 			fqdn := fmt.Sprintf("%s.%s.", rld, zone)
-			output, err := runRainsDig(ctx, basePath, fqdn, "[::1]", fmt.Sprintf("%d", port), 10*time.Second)
+			output, err := runResolve(ctx, basePath, fqdn, "[::1]", fmt.Sprintf("%d", port), 10*time.Second)
 			if err != nil {
 				return fmt.Errorf("failed to run rainsDig: %v", err)
 			}
@@ -355,27 +366,26 @@ func verifyRainsDigRoot(output string, subKeys map[string]string) error {
 		glog.Infof("subjectName = %s", assertion.SubjectName)
 		if key, ok := subKeys[assertion.SubjectName]; ok {
 			content := assertion.Content
-			if len(content) > 1 {
-				return fmt.Errorf("expected content length for subject=%s to be 1 but got %d", assertion.SubjectName, len(content))
+			for _, object := range content {
+				switch object.Type {
+				case rainslib.OTDelegation:
+					value, ok := object.Value.(rainslib.PublicKey)
+					if !ok {
+						return fmt.Errorf("expected value type of rainslib.PublicKey but got %T: %v", object.Value, object.Value)
+					}
+					keyBytes := []byte(value.Key.(ed25519.PublicKey))
+					wantBytes, err := hex.DecodeString(key)
+					if err != nil {
+						return fmt.Errorf("failed to decode expected public key to bytes: %v", err)
+					}
+					if diff, ok := messagediff.PrettyDiff(wantBytes, keyBytes); !ok {
+						return fmt.Errorf("mismatched public keys for zone %q: diff: %s", assertion.SubjectName, diff)
+					}
+					glog.Infof("Successfully verified key for zone %s", assertion.SubjectName)
+				}
 			}
-			if _, ok := content[0].Value.(rainslib.PublicKey); !ok {
-				return fmt.Errorf("expected value of type rainslib.PublicKey but got %T", content[0].Value)
-			}
-			pkey := content[0].Value.(rainslib.PublicKey)
-			if _, ok := pkey.Key.(ed25519.PublicKey); !ok {
-				return fmt.Errorf("expected key of type ed25519.PublcKey but got %T", pkey.Key)
-			}
-			keyBytes := []byte(pkey.Key.(ed25519.PublicKey))
-			wantBytes, err := hex.DecodeString(key)
-			if err != nil {
-				return fmt.Errorf("failed to decode expected public key to bytes: %v", err)
-			}
-			if diff, ok := messagediff.PrettyDiff(wantBytes, keyBytes); !ok {
-				return fmt.Errorf("mismatched public keys for zone %q: diff: %s", assertion.SubjectName, diff)
-			}
-			glog.Infof("Key successfully verified for zone %s", assertion.SubjectName)
 		} else {
-			return fmt.Errorf("got unknown sub zone: %s", assertion.SubjectName)
+			continue
 		}
 		toCheck -= 1
 	}

@@ -197,6 +197,9 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 		concreteMap := make(map[string]string)
 		for _, section := range resp.Content {
 			switch section.(type) {
+			case *rainslib.ZoneSection:
+				// If we were given a whole zone it's because we asked for it or it's non-existance proof.
+				return resp, nil
 			case *rainslib.AssertionSection:
 				as := section.(*rainslib.AssertionSection)
 				sz := mergeSubjectZone(as.SubjectName, as.SubjectZone)
