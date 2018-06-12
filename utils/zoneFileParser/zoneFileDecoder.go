@@ -13,6 +13,28 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+// validZone is the canonical source of truth if the provided string is a zone.
+func validZone(zone string) bool {
+	if zone == "." {
+		return true
+	}
+	if !strings.HasSuffix(zone, ".") {
+		return false
+	}
+	labels := strings.Split(zone, ".")
+	for i := 0; i < len(labels)-1; i++ {
+		if labels[i] == "" {
+			return false
+		}
+	}
+	return true
+}
+
+// validSubject ensures that a subject does not end with a dot, to prevent errors concatenating.
+func validSubject(subject string) bool {
+	return !strings.HasSuffix(subject, ".")
+}
+
 // decodeZone expects as input a scanner holding the data of a zone represented in the zone file format.
 // It returns all assertions present in the zone file or an error in case the zone file is malformed.
 // The error indicates what value was expected and in which line of the input the error occurred.
@@ -24,6 +46,9 @@ func decodeZone(scanner *WordScanner) ([]*rainslib.AssertionSection, error) {
 	}
 	scanner.Scan()
 	zone := scanner.Text()
+	if !validZone(zone) {
+		return nil, fmt.Errorf("%q is not a valid zone", zone)
+	}
 	scanner.Scan()
 	context := scanner.Text()
 	scanner.Scan()
@@ -99,6 +124,9 @@ func decodeAssertion(context, zone string, scanner *WordScanner) (*rainslib.Asse
 	}
 	scanner.Scan()
 	name := scanner.Text()
+	if !validSubject(name) {
+		return nil, fmt.Errorf("%q is not a valid subject", name)
+	}
 	missingBracket := true
 	//skip subjectZone and context if they are present
 	for i := 0; i < 3; i++ {
