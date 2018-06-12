@@ -187,14 +187,19 @@ func CheckQuery(q1, q2 *QuerySection, t *testing.T) {
 	if q1.Context != q2.Context {
 		t.Error("Query context mismatch")
 	}
-	if q1.Expires != q2.Expires {
+	if q1.Expiration != q2.Expiration {
 		t.Error("Query Expires mismatch")
 	}
 	if q1.Name != q2.Name {
 		t.Error("Query Name mismatch")
 	}
-	if q1.Type != q2.Type {
-		t.Error("Query Type mismatch")
+	if len(q1.Types) != len(q2.Types) {
+		t.Error("Query Type length mismatch")
+	}
+	for i, o1 := range q1.Types {
+		if o1 != q2.Types[i] {
+			t.Errorf("Query Type at position %d mismatch", i)
+		}
 	}
 	if len(q1.Options) != len(q2.Options) {
 		t.Error("Query Option length mismatch")
@@ -245,11 +250,16 @@ func CheckAddressQuery(q1, q2 *AddressQuerySection, t *testing.T) {
 	if q1.Context != q2.Context {
 		t.Error("AddressQuery context mismatch")
 	}
-	if q1.Expires != q2.Expires {
+	if q1.Expiration != q2.Expiration {
 		t.Error("AddressQuery Expires mismatch")
 	}
-	if q1.Type != q2.Type {
-		t.Error("AddressQuery Type mismatch")
+	if len(q1.Types) != len(q2.Types) {
+		t.Error("Query Type length mismatch")
+	}
+	for i, o1 := range q1.Types {
+		if o1 != q2.Types[i] {
+			t.Errorf("Query Type at position %d mismatch", i)
+		}
 	}
 	if len(q1.Options) != len(q2.Options) {
 		t.Error("AddressQuery Option length mismatch")
@@ -366,7 +376,7 @@ func CheckPublicKey(p1, p2 PublicKey, t *testing.T) {
 	if p1.KeySpace != p2.KeySpace {
 		t.Error("PublicKey KeySpace mismatch")
 	}
-	if p1.Type != p2.Type {
+	if p1.Algorithm != p2.Algorithm {
 		t.Error("PublicKey Type mismatch")
 	}
 	if p1.ValidSince != p2.ValidSince {

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/netsec-ethz/rains/rainslib"
-
 	"golang.org/x/crypto/ed25519"
 )
 

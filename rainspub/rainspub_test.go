@@ -4,10 +4,11 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/inconshreveable/log15"
+
 	"github.com/netsec-ethz/rains/rainsd"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
-
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -90,7 +91,7 @@ func TestGroupAssertionsToShards(t *testing.T) {
 		Content: []rainslib.Object{rainslib.Object{Type: rainslib.OTIP4Addr, Value: "130.60.184.132"}}}
 	var tests = []struct {
 		input              []*rainslib.AssertionSection
-		assertionsPerShard uint
+		assertionsPerShard int
 		output             *rainslib.ZoneSection
 	}{
 		{[]*rainslib.AssertionSection{a1, a2}, 2,
@@ -118,7 +119,8 @@ func TestGroupAssertionsToShards(t *testing.T) {
 	}
 	for _, test := range tests {
 		config.MaxAssertionsPerShard = test.assertionsPerShard
-		rainslib.CheckZone(groupAssertionsToShards(test.input), test.output, t)
+		rainslib.CheckZone(groupAssertionsToShards(test.input[0].SubjectZone,
+			test.input[0].Context, test.input), test.output, t)
 	}
 }
 
@@ -145,7 +147,7 @@ func TestSignZone(t *testing.T) {
 		if err != nil && err.Error() != test.errMsg {
 			t.Errorf("%d: signZone() wrong error message. expected=%s, actual=%s", i, test.errMsg, err.Error())
 		}
-		if err == nil && (test.input.Signatures[0].Data == nil || test.input.Content[0].Sigs()[0].Data == nil ||
+		if err == nil && (test.input.Signatures[0].Data == nil || test.input.Content[0].Sigs(rainslib.RainsKeySpace)[0].Data == nil ||
 			test.input.Content[0].(*rainslib.ShardSection).Content[0].Signatures[0].Data == nil) {
 			t.Errorf("%d: signZone() did not add signature to all sections.", i)
 		}
@@ -171,7 +173,7 @@ func TestSignShard(t *testing.T) {
 		if err != nil && err.Error() != test.errMsg {
 			t.Errorf("%d: signZone() wrong error message. expected=%s, actual=%s", i, test.errMsg, err.Error())
 		}
-		if err == nil && (test.input.Content[0].Sigs()[0].Data == nil ||
+		if err == nil && (test.input.Content[0].Sigs(rainslib.RainsKeySpace)[0].Data == nil ||
 			test.input.Content[0].Signatures[0].Data == nil) {
 			t.Errorf("%d: signZone() did not add signature to all sections.", i)
 		}
@@ -182,7 +184,7 @@ func TestSignAssertion(t *testing.T) {
 	InitRainspub("test/rainspub.conf")
 	a1 := getAssertionWithTwoIPObjects()
 	pubKey, _, _ := ed25519.GenerateKey(nil)
-	publicKey := rainslib.PublicKey{KeySpace: rainslib.RainsKeySpace, Type: rainslib.Ed25519, Key: pubKey}
+	publicKey := rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{KeySpace: rainslib.RainsKeySpace, Algorithm: rainslib.Ed25519}, Key: pubKey}
 	a2 := &rainslib.AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".",
 		Content: []rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}}}
 	var tests = []struct {
@@ -242,7 +244,7 @@ func TestCreateRainsMessage(t *testing.T) {
 
 func TestSendMessage(t *testing.T) {
 	InitRainspub("test/rainspub.conf")
-	rainsd.InitServer("test/server.conf")
+	rainsd.InitServer("test/server.conf", int(log.LvlInfo))
 	go rainsd.Listen()
 	time.Sleep(time.Second / 10)
 	a := getAssertionWithTwoIPObjects()
@@ -260,7 +262,7 @@ func TestSendMessage(t *testing.T) {
 	}
 	for i, test := range tests {
 		config.ServerAddresses = test.conns
-		err := sendMsg(test.input)
+		err := sendMsg(test.input, 0, 0)
 		if err != nil && err.Error() != test.errMsg {
 			t.Errorf("%d: signZone() wrong error message. expected=%s, actual=%s", i, test.errMsg, err.Error())
 		}

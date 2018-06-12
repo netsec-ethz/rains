@@ -207,7 +207,7 @@ func (p *ProtoParserAndFramer) Token(m []byte) (rainslib.Token, error) {
 	token := rainslib.Token{}
 	message, err := capnp.Unmarshal(m)
 	if err != nil {
-		return token, nil
+		return token, err
 	}
 	msg, err := proto.ReadRootRainsMessage(message)
 	if err != nil {

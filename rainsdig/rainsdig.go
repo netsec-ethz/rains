@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
+	log "github.com/inconshreveable/log15"
+
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/protoParser"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
-
-	log "github.com/inconshreveable/log15"
 )
 
 //TODO add default values to description
@@ -24,7 +24,7 @@ var revLookup = flag.String("x", "", "Reverse lookup, addr is an IPv4 address in
 var queryType = flag.Int("t", 3, "specifies the type for which dig issues a query.")
 var name = flag.String("q", "", "sets the query's subjectName to this value.")
 var port = flag.Uint("p", 5022, "is the port number that dig will send its queries to.")
-var serverAddr = flag.String("s", "", `is the IP address of the name server to query. 
+var serverAddr = flag.String("s", "", `is the IP address of the name server to query.
 		This can be an IPv4 address in dotted-decimal notation or an IPv6 address in colon-delimited notation.`)
 var context = flag.String("c", ".", "context specifies the context for which dig issues a query.")
 var expires = flag.Int64("exp", time.Now().Add(10*time.Second).Unix(), "expires sets the valid until value of the query.")
@@ -88,7 +88,8 @@ func main() {
 		}
 		connInfo := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr}
 
-		message := rainslib.NewQueryMessage(*context, *name, *expires, rainslib.ObjectType(*queryType), queryOptions, rainslib.GenerateToken())
+		message := rainslib.NewQueryMessage(*name, *context, *expires,
+			[]rainslib.ObjectType{rainslib.ObjectType(*queryType)}, queryOptions, rainslib.GenerateToken())
 		msg, err := msgParser.Encode(message)
 		if err != nil {
 			fmt.Printf("could not encode the query, error=%s\n", err)
@@ -127,7 +128,7 @@ func sendQuery(msg []byte, token rainslib.Token, connInfo rainslib.ConnInfo) err
 			*rainslib.AddressAssertionSection, *rainslib.AddressQuerySection, *rainslib.AddressZoneSection:
 			fmt.Println(zfParser.Encode(section))
 		default:
-			log.Warn("Unexpected section type", "Type", fmt.Sprintf("%T", section))
+			log.Warn("got unexpected section type", "type", fmt.Sprintf("%T", section))
 		}
 	}
 	return nil
@@ -139,7 +140,6 @@ func createConnection(connInfo rainslib.ConnInfo) (conn net.Conn, err error) {
 	case rainslib.TCP:
 		return tls.Dial(connInfo.TCPAddr.Network(), connInfo.String(), &tls.Config{InsecureSkipVerify: *insecureTLS})
 	default:
-		log.Warn("Unsupported Network address type.")
 		return nil, errors.New("unsupported Network address type")
 	}
 }

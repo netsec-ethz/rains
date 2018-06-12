@@ -180,7 +180,7 @@ func encodeNameObject(no rainslib.NameObject) string {
 
 //encodePublicKey returns pkey represented as a string in zone file format.
 func encodePublicKey(pkey rainslib.PublicKey) string {
-	switch pkey.Type {
+	switch pkey.Algorithm {
 	case rainslib.Ed25519:
 		if key, ok := pkey.Key.(ed25519.PublicKey); ok {
 			return fmt.Sprintf("%s %s", keyAlgoed25519, hex.EncodeToString(key))
@@ -196,7 +196,7 @@ func encodePublicKey(pkey rainslib.PublicKey) string {
 		log.Warn("Not yet implemented")
 		return ""
 	default:
-		log.Warn("Unsupported signature algorithm type", "actualType", pkey.Type)
+		log.Warn("Unsupported signature algorithm type", "actualType", pkey.Algorithm)
 
 	}
 	return ""

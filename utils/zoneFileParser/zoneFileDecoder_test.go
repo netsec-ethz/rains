@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/netsec-ethz/rains/rains/rainslib"
+	"github.com/netsec-ethz/rains/rainslib"
 
-	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -21,13 +20,17 @@ func TestDecodePublicKeyData(t *testing.T) {
 		{
 			hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012")),
 			rainslib.PublicKey{
-				Key:        rainslib.RainsKeySpace,
-				Type:       rainslib.Ed25519,
+				PublicKeyID: rainslib.PublicKeyID{
+					KeySpace:  rainslib.RainsKeySpace,
+					Algorithm: rainslib.Ed25519,
+				},
 				ValidSince: 0,
 				ValidUntil: 5},
 			rainslib.PublicKey{
-				KeySpace:   rainslib.RainsKeySpace,
-				Type:       rainslib.Ed25519,
+				PublicKeyID: rainslib.PublicKeyID{
+					KeySpace:  rainslib.RainsKeySpace,
+					Algorithm: rainslib.Ed25519,
+				},
 				Key:        ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
 				ValidSince: 0,
 				ValidUntil: 5},
@@ -36,31 +39,35 @@ func TestDecodePublicKeyData(t *testing.T) {
 		{
 			hex.EncodeToString([]byte("keyTooShort")),
 			rainslib.PublicKey{
-				Key:        rainslib.RainsKeySpace,
-				Type:       rainslib.Ed25519,
+				PublicKeyID: rainslib.PublicKeyID{
+					KeySpace:  rainslib.RainsKeySpace,
+					Algorithm: rainslib.Ed25519,
+				},
 				ValidSince: 0,
 				ValidUntil: 5},
 			rainslib.PublicKey{},
-			"public key length is not 32. actual:11",
+			"wrong public key length: got 11, want: 32",
 		},
 		{
 			"noEncoding",
 			rainslib.PublicKey{
-				Key:        rainslib.RainsKeySpace,
-				Type:       rainslib.Ed25519,
+				PublicKeyID: rainslib.PublicKeyID{
+					KeySpace:  rainslib.RainsKeySpace,
+					Algorithm: rainslib.Ed25519,
+				},
 				ValidSince: 0,
 				ValidUntil: 5},
 			rainslib.PublicKey{},
 			"encoding/hex: invalid byte: U+006E 'n'",
 		},
 	}
-	for _, test := range tests {
+	for i, test := range tests {
 		pkey, err := decodeEd25519PublicKeyData(test.input, test.inputKey)
 		if pkey.CompareTo(test.want) != 0 {
-			t.Errorf("Resulting publicKey incorrect after decoding. expected=%v, actual=%v", test.want, pkey)
+			t.Errorf("case %d: Resulting publicKey incorrect after decoding. expected=%v, actual=%v", i, test.want, pkey)
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
@@ -77,15 +84,13 @@ func TestDecodeKeyAlgoType(t *testing.T) {
 		{"ecdsa384", rainslib.Ecdsa384, ""},
 		{"FalseEncoding", rainslib.SignatureAlgorithmType(-1), "non existing signature algorithm type: FalseEncoding"},
 	}
-	for _, test := range tests {
-		scanner := NewWordScanner([]byte(test.input))
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
+	for i, test := range tests {
 		keyAlgo, err := decodeKeyAlgoType(test.input)
 		if keyAlgo != test.want {
-			t.Errorf("incorrect decoding of keyAlgoType. expected=%v, actual=%v", test.want, keyAlgo)
+			t.Errorf("case %d: incorrect decoding of keyAlgoType. expected=%v, actual=%v", i, test.want, keyAlgo)
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
@@ -97,24 +102,23 @@ func TestDecodeSigAlgoAndData(t *testing.T) {
 		wantErrorMsg string
 	}{
 		{fmt.Sprintf("ed25519 %s", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))),
-			rainslib.PublicKey{Type: rainslib.Ed25519, Key: ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012"))}, ""},
+			rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519}, Key: ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012"))}, ""},
 		{fmt.Sprintf("ed25519 %s", hex.EncodeToString([]byte("keyTooShort"))),
-			rainslib.PublicKey{}, "public key length is not 32. actual:11"},
-		{"ed448", rainslib.PublicKey{}, "not yet implemented"},
-		{"ecdsa256", rainslib.PublicKey{}, "not yet implemented"},
-		{"ecdsa384", rainslib.PublicKey{}, "not yet implemented"},
+			rainslib.PublicKey{}, "wrong public key length: got 11, want: 32"},
+		{"ed448", rainslib.PublicKey{}, "ed448 not yet implemented"},
+		{"ecdsa256", rainslib.PublicKey{}, "ecdsa256 not yet implemented"},
+		{"ecdsa384", rainslib.PublicKey{}, "ecdsa384 not yet implemented"},
 		{"noEncoding", rainslib.PublicKey{}, "non existing signature algorithm type: noEncoding"},
 	}
-	for _, test := range tests {
+	for i, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
 		scanner.Scan()
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
 		pkey, err := decodeSigAlgoAndData(scanner)
 		if pkey.CompareTo(test.want) != 0 {
-			t.Errorf("incorrect decoding of publicKey. expected=%v, actual=%v", test.want, pkey)
+			t.Errorf("case %d: incorrect decoding of publicKey. expected=%v, actual=%v", i, test.want, pkey)
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
@@ -127,27 +131,28 @@ func TestDecodeNextKey(t *testing.T) {
 	}{
 		{fmt.Sprintf(":next: ed25519 %s 5 10", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))),
 			rainslib.PublicKey{
-				Type:       rainslib.Ed25519,
+				PublicKeyID: rainslib.PublicKeyID{
+					Algorithm: rainslib.Ed25519,
+				},
 				Key:        ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
 				ValidSince: 5,
 				ValidUntil: 10},
 			"",
 		},
-		{"WrongType", rainslib.PublicKey{}, "ZoneFile malformed wrong object type"},
+		{"WrongType", rainslib.PublicKey{}, "expected :next: but got WrongType at line 1"},
 		{":next: inexistentAlgoType", rainslib.PublicKey{}, "non existing signature algorithm type: inexistentAlgoType"},
-		{fmt.Sprintf(":next: ed25519 %s NaN1 10", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))), rainslib.PublicKey{}, "strconv.ParseInt: parsing \"NaN1\": invalid syntax"},
-		{fmt.Sprintf(":next: ed25519 %s 5 NaN2", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))), rainslib.PublicKey{}, "strconv.ParseInt: parsing \"NaN2\": invalid syntax"},
+		{fmt.Sprintf(":next: ed25519 %s NaN1 10", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))), rainslib.PublicKey{}, "expected number for ValidSince but got NaN1 at line 1 : strconv.ParseInt: parsing \"NaN1\": invalid syntax"},
+		{fmt.Sprintf(":next: ed25519 %s 5 NaN2", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))), rainslib.PublicKey{}, "expected number for ValidUntil but got NaN2 at line 1 : strconv.ParseInt: parsing \"NaN2\": invalid syntax"},
 	}
-	for _, test := range tests {
+	for i, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
 		scanner.Scan()
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
 		pkey, err := decodeNextKey(scanner)
 		if pkey.CompareTo(test.want) != 0 {
-			t.Errorf("incorrect decoding of nextKey. expected=%v, actual=%v", test.want, pkey)
+			t.Errorf("case %d: incorrect decoding of nextKey. expected=%v, actual=%v", i, test.want, pkey)
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
@@ -160,26 +165,27 @@ func TestDecodeExternalKey(t *testing.T) {
 	}{
 		{fmt.Sprintf(":extra: rains ed25519 %s", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))),
 			rainslib.PublicKey{
-				KeySpace: rainslib.RainsKeySpace,
-				Type:     rainslib.Ed25519,
-				Key:      ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
+				PublicKeyID: rainslib.PublicKeyID{
+					KeySpace:  rainslib.RainsKeySpace,
+					Algorithm: rainslib.Ed25519,
+				},
+				Key: ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
 			},
 			"",
 		},
-		{"WrongType", rainslib.PublicKey{}, "ZoneFile malformed wrong object type"},
-		{":extra: UnsupportedKeySpaceID", rainslib.PublicKey{}, "Unsupported key space type"},
+		{"WrongType", rainslib.PublicKey{}, "expected :extra: but got: WrongType at line 1"},
+		{":extra: UnsupportedKeySpaceID", rainslib.PublicKey{}, "expected known key type but got: UnsupportedKeySpaceID at line 1"},
 		{":extra: rains inexistentAlgoType", rainslib.PublicKey{}, "non existing signature algorithm type: inexistentAlgoType"},
 	}
-	for _, test := range tests {
+	for i, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
 		scanner.Scan()
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
 		pkey, err := decodeExternalKey(scanner)
 		if pkey.CompareTo(test.want) != 0 {
-			t.Errorf("incorrect decoding of extraKey. expected=%v, actual=%v", test.want, pkey)
+			t.Errorf("case %d: incorrect decoding of extraKey. expected=%v, actual=%v", i, test.want, pkey)
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
@@ -192,23 +198,24 @@ func TestDecodeInfraKey(t *testing.T) {
 	}{
 		{fmt.Sprintf(":infra: ed25519 %s", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))),
 			rainslib.PublicKey{
-				Type: rainslib.Ed25519,
-				Key:  ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
+				PublicKeyID: rainslib.PublicKeyID{
+					Algorithm: rainslib.Ed25519,
+				},
+				Key: ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
 			},
 			"",
 		},
-		{"WrongType", rainslib.PublicKey{}, "ZoneFile malformed wrong object type"},
+		{"WrongType", rainslib.PublicKey{}, "expected ':infra:' but got WrongType at line 1"},
 	}
-	for _, test := range tests {
+	for i, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
 		scanner.Scan()
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
 		pkey, err := decodeInfraKey(scanner)
 		if pkey.CompareTo(test.want) != 0 {
-			t.Errorf("incorrect decoding of infraKey. expected=%v, actual=%v", test.want, pkey)
+			t.Errorf("case %d: incorrect decoding of infraKey. expected=%v, actual=%v", i, test.want, pkey)
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
@@ -221,24 +228,25 @@ func TestDecodeDelegationKey(t *testing.T) {
 	}{
 		{fmt.Sprintf(":deleg: ed25519 %s", hex.EncodeToString([]byte("KeyDataOfLength32 90123456789012"))),
 			rainslib.PublicKey{
-				KeySpace: rainslib.RainsKeySpace,
-				Type:     rainslib.Ed25519,
-				Key:      ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
+				PublicKeyID: rainslib.PublicKeyID{
+					KeySpace:  rainslib.RainsKeySpace,
+					Algorithm: rainslib.Ed25519,
+				},
+				Key: ed25519.PublicKey([]byte("KeyDataOfLength32 90123456789012")),
 			},
 			"",
 		},
-		{"WrongType", rainslib.PublicKey{}, "ZoneFile malformed wrong object type"},
+		{"WrongType", rainslib.PublicKey{}, "expected ':deleg:' but got WrongType at line 1"},
 	}
-	for _, test := range tests {
+	for i, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
 		scanner.Scan()
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
 		pkey, err := decodeDelegationKey(scanner)
 		if pkey.CompareTo(test.want) != 0 {
-			t.Errorf("incorrect decoding of delegKey. expected=%v, actual=%v", test.want, pkey)
+			t.Errorf("case %d: incorrect decoding of delegKey. expected=%v, actual=%v", i, test.want, pkey)
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
@@ -253,17 +261,15 @@ func TestDecodeCertHashType(t *testing.T) {
 		{"sha256", rainslib.Sha256, ""},
 		{"sha384", rainslib.Sha384, ""},
 		{"sha512", rainslib.Sha512, ""},
-		{"FalseEncoding", rainslib.HashAlgorithmType(-1), "non existing certificate hash algorithm type"},
+		{"FalseEncoding", rainslib.HashAlgorithmType(-1), "non existing certificate hash algorithm type: FalseEncoding"},
 	}
-	for _, test := range tests {
-		scanner := NewWordScanner([]byte(test.input))
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
+	for i, test := range tests {
 		hashAlgo, err := decodeCertHashType(test.input)
 		if hashAlgo != test.want {
-			t.Errorf("incorrect decoding of certHashType. expected=%v, actual=%v", test.want, hashAlgo)
+			t.Errorf("case %d: incorrect decoding of certHashType. expected=%v, actual=%v", i, test.want, hashAlgo)
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
@@ -276,17 +282,15 @@ func TestDecodeCertUsage(t *testing.T) {
 	}{
 		{"endEntity", rainslib.CUEndEntity, ""},
 		{"trustAnchor", rainslib.CUTrustAnchor, ""},
-		{"FalseEncoding", rainslib.CertificateUsage(-1), "non existing certificate usage type"},
+		{"FalseEncoding", rainslib.CertificateUsage(-1), "non existing certificate usage type: FalseEncoding"},
 	}
-	for _, test := range tests {
-		scanner := NewWordScanner([]byte(test.input))
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
+	for i, test := range tests {
 		certUsage, err := decodeCertUsage(test.input)
 		if certUsage != test.want {
-			t.Errorf("incorrect decoding of certUsageType. expected=%v, actual=%v", test.want, certUsage)
+			t.Errorf("case %d: incorrect decoding of certUsageType. expected=%v, actual=%v", i, test.want, certUsage)
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
@@ -299,17 +303,15 @@ func TestDecodeCertPT(t *testing.T) {
 	}{
 		{"unspecified", rainslib.PTUnspecified, ""},
 		{"tls", rainslib.PTTLS, ""},
-		{"FalseEncoding", rainslib.ProtocolType(-1), "non existing certificate protocol type"},
+		{"FalseEncoding", rainslib.ProtocolType(-1), "non existing certificate protocol type: FalseEncoding"},
 	}
-	for _, test := range tests {
-		scanner := NewWordScanner([]byte(test.input))
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
+	for i, test := range tests {
 		certPT, err := decodeCertPT(test.input)
 		if certPT != test.want {
-			t.Errorf("incorrect decoding of certProtocolType. expected=%v, actual=%v", test.want, certPT)
+			t.Errorf("case %d: incorrect decoding of certProtocolType. expected=%v, actual=%v", i, test.want, certPT)
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
@@ -329,22 +331,21 @@ func TestDecodeCertObject(t *testing.T) {
 			},
 			"",
 		},
-		{"WrongType", rainslib.CertificateObject{}, "ZoneFile malformed wrong object type"},
-		{":cert: wrongPT", rainslib.CertificateObject{}, "non existing certificate protocol type"},
-		{":cert: tls wrongCU", rainslib.CertificateObject{}, "non existing certificate usage type"},
-		{":cert: tls trustAnchor wrongAlgo", rainslib.CertificateObject{}, "non existing certificate hash algorithm type"},
-		{":cert: tls trustAnchor sha256 noHexEncoding", rainslib.CertificateObject{}, "encoding/hex: odd length hex string"},
+		{"WrongType", rainslib.CertificateObject{}, "expected ':cert:' but got WrongType at line 1"},
+		{":cert: wrongPT", rainslib.CertificateObject{}, "non existing certificate protocol type: wrongPT"},
+		{":cert: tls wrongCU", rainslib.CertificateObject{}, "non existing certificate usage type: wrongCU"},
+		{":cert: tls trustAnchor wrongAlgo", rainslib.CertificateObject{}, "non existing certificate hash algorithm type: wrongAlgo"},
+		{":cert: tls trustAnchor sha256 noHexEncoding", rainslib.CertificateObject{}, "encoding/hex: invalid byte: U+006E 'n'"},
 	}
-	for _, test := range tests {
+	for i, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
 		scanner.Scan()
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
 		cert, err := decodeCertObject(scanner)
 		if cert.CompareTo(test.want) != 0 {
-			t.Errorf("incorrect decoding of delegKey. expected=%v, actual=%v", test.want, cert)
+			t.Errorf("case %d: incorrect decoding of delegKey. expected=%v, actual=%v", i, test.want, cert)
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
@@ -353,18 +354,23 @@ func TestDecodeFreeText(t *testing.T) {
 	var tests = []struct {
 		input string
 		want  string
+		err   string
 	}{
-		{":regt: Hello my name is ]", "Hello my name is"},
-		{":regt: Hello my name is :ip:", "Hello my name is"},
-		{":redir: Hello my name is   ", ""}, //not finished correctly, return empty string
+		{":regt: Hello my name is ]", "Hello my name is", ""},
+		{":regt: Hello my name is :ip:", "Hello my name is", ""},
+		{":redir: Hello my name is   ", "", "unexpected EOF while parsing free text"}, //not finished correctly, return empty string
 	}
-	for _, test := range tests {
+	for i, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
 		scanner.Scan()
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
-		text := decodeFreeText(scanner)
+		text, err := decodeFreeText(scanner)
+		if test.err == "" && err != nil {
+			t.Errorf("case %d: expected nil err, but got %v", i, err)
+		} else if err != nil && err.Error() != test.err {
+			t.Errorf("case %d: exptected error %q but got %q", i, test.err, err.Error())
+		}
 		if text != test.want {
-			t.Errorf("incorrect decoding of delegKey. expected=%v, actual=%v", test.want, text)
+			t.Errorf("case %d: incorrect decoding of delegKey. expected=%v, actual=%v", i, test.want, text)
 		}
 	}
 }
@@ -384,20 +390,19 @@ func TestDecodeServiceInfo(t *testing.T) {
 			},
 			"",
 		},
-		{"WrongType", rainslib.ServiceInfo{}, "ZoneFile malformed wrong object type"},
-		{":srv: ethz.ch NaN1", rainslib.ServiceInfo{}, "strconv.Atoi: parsing \"NaN1\": invalid syntax"},
-		{":srv: ethz.ch 80 NaN2", rainslib.ServiceInfo{}, "strconv.Atoi: parsing \"NaN2\": invalid syntax"},
+		{"WrongType", rainslib.ServiceInfo{}, "failed parsing serviceInfo, expected :SRV: but got WrongType at line 1"},
+		{":srv: ethz.ch NaN1", rainslib.ServiceInfo{}, "expected number but got NaN1 at line 1 : strconv.Atoi: parsing \"NaN1\": invalid syntax"},
+		{":srv: ethz.ch 80 NaN2", rainslib.ServiceInfo{}, "expected number but got NaN2 at line 1 : strconv.Atoi: parsing \"NaN2\": invalid syntax"},
 	}
-	for _, test := range tests {
+	for i, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
 		scanner.Scan()
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
 		srvInfo, err := decodeServiceInfo(scanner)
 		if srvInfo.CompareTo(test.want) != 0 {
-			t.Errorf("incorrect decoding of serviceInfo object. expected=%v, actual=%v", test.want, srvInfo)
+			t.Errorf("case %d: incorrect decoding of serviceInfo object. expected=%v, actual=%v", i, test.want, srvInfo)
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
@@ -430,21 +435,20 @@ func TestDecodeNameObject(t *testing.T) {
 			},
 			"",
 		},
-		{"WrongType", rainslib.NameObject{}, "ZoneFile malformed wrong object type"},
-		{":name: ethz.ch NotOpenBracket", rainslib.NameObject{}, "ZoneFile malformed not open bracket"},
-		{":name: ethz.ch [ NotAnObjectType", rainslib.NameObject{}, "unsupported object type"},
-		{":name: ethz.ch [ cert ", rainslib.NameObject{}, "ZoneFile malformed, not a closing bracket but EOF"},
+		{"WrongType", rainslib.NameObject{}, "expected ':name:' but got WrongType at line 1"},
+		{":name: ethz.ch NotOpenBracket", rainslib.NameObject{}, "malformed input: expected '[' but got NotOpenBracket at line 1"},
+		{":name: ethz.ch [ NotAnObjectType", rainslib.NameObject{}, "malformed object type: NotAnObjectType at line 1"},
+		{":name: ethz.ch [ cert ", rainslib.NameObject{}, "malformed input: expected ']' but got  at line 2"},
 	}
-	for _, test := range tests {
+	for i, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
 		scanner.Scan()
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
 		nameObject, err := decodeNameObject(scanner)
 		if nameObject.CompareTo(test.want) != 0 {
-			t.Errorf("incorrect decoding of nameObject. expected=%v, actual=%v", test.want, nameObject)
+			t.Errorf("case %d: incorrect decoding of nameObject. expected=%v, actual=%v", i, test.want, nameObject)
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
@@ -457,28 +461,27 @@ func TestDecodeObjects(t *testing.T) {
 		wantErrorMsg string
 	}{
 		{objectEncodings[0] + " ]", objects.Objects[0], ""},
-		{"WrongType", nil, "ZoneFile malformed unsupported objectType"},
-		{":ip4: 127.0.0.1 ", nil, "ZoneFile malformed, not a closing bracket but EOF"},
-		{":name: name NotABracket", nil, "ZoneFile malformed not open bracket"},
+		{"WrongType", nil, "malformed input: expected :<objectType>: (e.g. :ip4:) actual: WrongType at line 1"},
+		{":ip4: 127.0.0.1 ", nil, "malformed input: expected ']' but got  at line 2"},
+		{":name: name NotABracket", nil, "malformed input: expected '[' but got NotABracket at line 1"},
 		{":deleg: 153", nil, "non existing signature algorithm type: 153"},
-		{":cert: 153", nil, "non existing certificate protocol type"},
-		{":srv: name NaN", nil, "strconv.Atoi: parsing \"NaN\": invalid syntax"},
+		{":cert: 153", nil, "non existing certificate protocol type: 153"},
+		{":srv: name NaN", nil, "expected number but got NaN at line 1 : strconv.Atoi: parsing \"NaN\": invalid syntax"},
 		{":infra: 153", nil, "non existing signature algorithm type: 153"},
 		{":extra: rains 153", nil, "non existing signature algorithm type: 153"},
 		{":next: 153", nil, "non existing signature algorithm type: 153"},
 	}
-	for _, test := range tests {
+	for i, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
 		objs, err := decodeObjects(scanner)
-		for i, o := range objs {
-			if o.CompareTo(test.want[i]) != 0 {
-				t.Errorf("incorrect decoding of object. expected=%v, actual=%v", test.want[i], o)
+		for j, o := range objs {
+			if o.CompareTo(test.want[j]) != 0 {
+				t.Errorf("case %d: incorrect decoding of object. expected=%v, actual=%v", i, test.want[j], o)
 			}
 		}
 
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
@@ -491,82 +494,78 @@ func TestDecodeAssertion(t *testing.T) {
 		wantErrorMsg string
 	}{
 		{assertionEncodings[2], assertions[2], ""},
-		{"WrongType", nil, "ZoneFile malformed wrong section type"},
-		{":A: ", nil, "ZoneFile malformed, missing open bracket"},
-		{":A: ethz.ch [ ", nil, "ZoneFile malformed unsupported objectType"},
+		{"WrongType", nil, "error decoding assertion: expected ':A:' but got WrongType at line 1"},
+		{":A: ", nil, "error decoding assertion: expected '[' but got  at line 2"},
+		{":A: ethz.ch [ ", nil, "malformed input: expected :<objectType>: (e.g. :ip4:) actual:  at line 2"},
 	}
-	for _, test := range tests {
+	for i, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
 		scanner.Scan()
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
 		a, err := decodeAssertion("", "", scanner)
 		if a != nil && a.CompareTo(test.want) != 0 {
-			t.Errorf("incorrect decoding of assertion. expected=%v, actual=%v", test.want, a)
+			t.Errorf("case %d: incorrect decoding of assertion. expected=%v, actual=%v", i, test.want, a)
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
 
 func TestDecodeShard(t *testing.T) {
 	shards, shardEncodings := getShardAndEncodings()
-
 	var tests = []struct {
 		input        string
 		want         []*rainslib.AssertionSection
 		wantErrorMsg string
 	}{
 		{shardEncodings[3], shards[3].Content, ""},
-		{"WrongType", nil, "ZoneFile malformed wrong section type"},
-		{":S: ", nil, "ZoneFile malformed, missing open bracket"},
-		{":S:  [ WrongType", nil, "ZoneFile malformed wrong section type"},
+		{"WrongType", nil, "expected shard ':S:' but got WrongType at line 1"},
+		{":S: ", nil, "expected '[' but got  at line 2"},
+		{":S:  [ WrongType", nil, "error decoding assertion: expected ':A:' but got WrongType at line 1"},
 	}
-	for _, test := range tests {
+	for i, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
 		scanner.Scan()
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
 		s, err := decodeShard("", "", scanner)
-		for i, a := range s {
-			if a != nil && a.CompareTo(test.want[i]) != 0 {
-				t.Errorf("incorrect decoding of shard. expected=%v, actual=%v", test.want[i], a)
+		for j, a := range s {
+			if a != nil && a.CompareTo(test.want[j]) != 0 {
+				t.Errorf("case %d: incorrect decoding of shard. expected=%v, actual=%v", i, test.want[j], a)
 			}
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }
 
 func TestDecodeZone(t *testing.T) {
 	zones, zoneEncodings := getZonesAndEncodings()
-
 	var tests = []struct {
 		input        string
 		want         []*rainslib.AssertionSection
 		wantErrorMsg string
 	}{
 		{zoneEncodings[0], []*rainslib.AssertionSection{zones[0].Content[0].(*rainslib.AssertionSection), zones[0].Content[1].(*rainslib.ShardSection).Content[0]}, ""},
-		{"WrongType", nil, "ZoneFile malformed wrong section type"},
-		{":Z: ch . ", nil, "ZoneFile malformed, missing open bracket"},
-		{":Z: ch . [ WrongType", nil, "ZoneFile malformed wrong section type"},
-		{":Z: ch . [ :A: ", nil, "ZoneFile malformed, missing open bracket"},
-		{":Z: ch . [ :S: ", nil, "ZoneFile malformed, missing open bracket"},
+		{"WrongType", nil, "malformed zonefile: expected ':Z:' got: WrongType at line 1"},
+		{":Z: ch . ", nil, "malformed zonefile: expected '[' got:  at line 2"},
+		{":Z: ch . [ WrongType", nil, "malformed zonefile: expected ':A:' or ':S:' but got WrongType at line 1"},
+		{":Z: ch . [ :A: ", nil, "error decoding assertion: expected '[' but got  at line 2"},
+		{":Z: ch . [ :S: ", nil, "expected '[' but got  at line 2"},
 	}
-	for _, test := range tests {
+	for i, test := range tests {
 		scanner := NewWordScanner([]byte(test.input))
-		lineNrLogger = log.New("lineNr", log.Lazy{scanner.LineNumber})
 		z, err := decodeZone(scanner)
-		for i, a := range z {
-			//contained section must not have a context or subjectZone, thus to compare it, inherit the value from the zone
-			test.want[i].Context = zones[0].Context
-			test.want[i].SubjectZone = zones[0].SubjectZone
-			if a != nil && a.CompareTo(test.want[i]) != 0 {
-				t.Errorf("incorrect decoding of zone. expected=%v, actual=%v", test.want[i], a)
+		for j, a := range z {
+			// contained section must not have a context or subjectZone, thus
+			// to compare it, inherit the value from the zone.
+			test.want[j].Context = zones[0].Context
+			test.want[j].SubjectZone = zones[0].SubjectZone
+			if a != nil && a.CompareTo(test.want[j]) != 0 {
+				t.Errorf("case %d: incorrect decoding of zone. expected=%v, actual=%v", i, test.want[j], a)
 			}
 		}
 		if err != nil && err.Error() != test.wantErrorMsg {
-			t.Errorf("Wrong error message. expected=%s, actual=%s", test.wantErrorMsg, err.Error())
+			t.Errorf("case %d: Wrong error message. expected=%s, actual=%s", i, test.wantErrorMsg, err.Error())
 		}
 	}
 }

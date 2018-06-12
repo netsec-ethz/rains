@@ -5,11 +5,12 @@ package rainsSiglib
 
 import (
 	"fmt"
-	"github.com/netsec-ethz/rains/rainslib"
 	"regexp"
 	"time"
 
 	log "github.com/inconshreveable/log15"
+
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 //CheckSectionSignatures verifies all signatures on the section. Expired signatures are removed.
@@ -22,7 +23,7 @@ import (
 //4) encode section
 //5) sign the encoding and compare the resulting signature data with the signature data received with the section. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib.SignatureAlgorithmType]rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder,
+func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib.PublicKeyID][]rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder,
 	maxVal rainslib.MaxCacheValidity) bool {
 	log.Debug(fmt.Sprintf("Check %T signature", s), "section", s)
 	if s == nil {
@@ -33,7 +34,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 		log.Warn("pkeys map is nil")
 		return false
 	}
-	if len(s.Sigs()) == 0 {
+	if len(s.Sigs(rainslib.RainsKeySpace)) == 0 {
 		log.Debug("Section contain no signatures")
 		return true
 	}
@@ -42,18 +43,24 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 	}
 	s.Sort()
 	encodedSection := encoder.EncodeSection(s)
-	for i, sig := range s.Sigs() {
-		if pkey, ok := pkeys[sig.Algorithm]; ok {
+	for i, sig := range s.Sigs(rainslib.RainsKeySpace) {
+		if keys, ok := pkeys[sig.PublicKeyID]; ok {
 			if int64(sig.ValidUntil) < time.Now().Unix() {
-				log.Debug("signature is expired", "signature", sig)
+				log.Info("signature is expired", "signature", sig)
 				s.DeleteSig(i)
 				continue
-			} else if !sig.VerifySignature(pkey.Key, encodedSection) {
-				log.Warn("Signature does not match", "encoding", encodedSection, "signature", sig)
+			}
+			if key, ok := getPublicKey(keys, sig.GetSignatureMetaData()); ok {
+				if !sig.VerifySignature(key.Key, encodedSection) {
+					log.Warn("Signature does not match", "encoding", encodedSection, "signature", sig)
+					return false
+				}
+				log.Debug("Signature was valid")
+				rainslib.UpdateSectionValidity(s, key.ValidSince, key.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
+			} else {
+				log.Warn("No time overlapping publicKey in keys for signature", "keys", keys, "signature", sig)
 				return false
 			}
-			log.Debug("Signature was valid")
-			rainslib.UpdateSectionValidity(s, pkey.ValidSince, pkey.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
 		} else {
 			log.Warn("No publicKey in keymap matching algorithm type", "keymap", pkeys, "algorithmType", sig.Algorithm)
 			return false
@@ -316,4 +323,13 @@ func containsZoneFileType(input string) bool {
 		return true
 	}
 	return false
+}
+
+func getPublicKey(keys []rainslib.PublicKey, sigMetaData rainslib.SignatureMetaData) (rainslib.PublicKey, bool) {
+	for _, key := range keys {
+		if key.ValidSince <= sigMetaData.ValidUntil && key.ValidUntil >= sigMetaData.ValidSince {
+			return key, true
+		}
+	}
+	return rainslib.PublicKey{}, false
 }

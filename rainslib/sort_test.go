@@ -1,12 +1,12 @@
 package rainslib
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 
-	"fmt"
-
 	log "github.com/inconshreveable/log15"
+
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -42,8 +42,10 @@ func sortedPublicKeys(nof int) []PublicKey {
 				for l := 0; l < nof; l++ {
 					for m := 0; m < nof; m++ {
 						pkeys = append(pkeys, PublicKey{
-							Type:       SignatureAlgorithmType(i),
-							KeySpace:   KeySpaceID(j),
+							PublicKeyID: PublicKeyID{
+								Algorithm: SignatureAlgorithmType(i),
+								KeySpace:  KeySpaceID(j),
+							},
 							ValidSince: int64(k),
 							ValidUntil: int64(l),
 							Key:        ed25519.PublicKey([]byte{byte(m)}),
@@ -231,22 +233,22 @@ func sortedQueries(nof int) []*QuerySection {
 					for m := 0; m < 8; m++ {
 						//TODO CFE extend this test when we support multiple types per assertion
 						queries = append(queries, &QuerySection{
-							Context: strconv.Itoa(i),
-							Name:    strconv.Itoa(j),
-							Type:    ObjectType(k),
-							Expires: int64(l),
-							Options: []QueryOption{QueryOption(m)},
+							Context:    strconv.Itoa(i),
+							Name:       strconv.Itoa(j),
+							Types:      []ObjectType{ObjectType(k)},
+							Expiration: int64(l),
+							Options:    []QueryOption{QueryOption(m)},
 						})
 					}
 					for m := 0; m < 7; m++ {
 						for n := m + 1; n < 8; n++ {
 							//TODO CFE extend this test when we support multiple types per assertion
 							queries = append(queries, &QuerySection{
-								Context: strconv.Itoa(i),
-								Name:    strconv.Itoa(j),
-								Type:    ObjectType(k),
-								Expires: int64(l),
-								Options: []QueryOption{QueryOption(m), QueryOption(n)},
+								Context:    strconv.Itoa(i),
+								Name:       strconv.Itoa(j),
+								Types:      []ObjectType{ObjectType(k)},
+								Expiration: int64(l),
+								Options:    []QueryOption{QueryOption(m), QueryOption(n)},
 							})
 						}
 					}
@@ -359,8 +361,8 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 						queries = append(queries, &AddressQuerySection{
 							SubjectAddr: subjectAddress,
 							Context:     strconv.Itoa(j),
-							Type:        ObjectType(k),
-							Expires:     int64(l),
+							Types:       []ObjectType{ObjectType(k)},
+							Expiration:  int64(l),
 							Options:     []QueryOption{QueryOption(m)},
 						})
 					}
@@ -370,8 +372,8 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 							queries = append(queries, &AddressQuerySection{
 								SubjectAddr: subjectAddress,
 								Context:     strconv.Itoa(j),
-								Type:        ObjectType(k),
-								Expires:     int64(l),
+								Types:       []ObjectType{ObjectType(k)},
+								Expiration:  int64(l),
 								Options:     []QueryOption{QueryOption(m), QueryOption(n)},
 							})
 						}
@@ -387,8 +389,8 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 						queries = append(queries, &AddressQuerySection{
 							SubjectAddr: subjectAddress2,
 							Context:     strconv.Itoa(j),
-							Type:        ObjectType(k),
-							Expires:     int64(l),
+							Types:       []ObjectType{ObjectType(k)},
+							Expiration:  int64(l),
 							Options:     []QueryOption{QueryOption(m)},
 						})
 					}

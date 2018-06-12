@@ -25,13 +25,17 @@ func getObjectsAndEncodings() (ObjectIndent, []string) {
 	}
 	pubKey, _, _ := ed25519.GenerateKey(nil)
 	publicKey := rainslib.PublicKey{
-		KeySpace: rainslib.RainsKeySpace,
-		Type:     rainslib.Ed25519,
-		Key:      pubKey,
+		PublicKeyID: rainslib.PublicKeyID{
+			KeySpace:  rainslib.RainsKeySpace,
+			Algorithm: rainslib.Ed25519,
+		},
+		Key: pubKey,
 	}
 	publicKeyWithValidity := rainslib.PublicKey{
-		KeySpace:   rainslib.RainsKeySpace,
-		Type:       rainslib.Ed25519,
+		PublicKeyID: rainslib.PublicKeyID{
+			KeySpace:  rainslib.RainsKeySpace,
+			Algorithm: rainslib.Ed25519,
+		},
 		Key:        pubKey,
 		ValidSince: 1000,
 		ValidUntil: 20000,
@@ -156,8 +160,10 @@ func getObjectsAndEncodings() (ObjectIndent, []string) {
 //getSignature returns a signature. Currently it is not used for encoding. It is used to test that encoder can handle unnecessary content on sections
 func getSignature() rainslib.Signature {
 	return rainslib.Signature{
-		KeySpace:   rainslib.RainsKeySpace,
-		Algorithm:  rainslib.Ed25519,
+		PublicKeyID: rainslib.PublicKeyID{
+			KeySpace:  rainslib.RainsKeySpace,
+			Algorithm: rainslib.Ed25519,
+		},
 		ValidSince: 1000,
 		ValidUntil: 2000,
 		Data:       []byte("SignatureData")}
@@ -309,11 +315,11 @@ func getQueriesAndEncodings() ([]*rainslib.QuerySection, []string) {
 	//addressqueries
 	queries := []*rainslib.QuerySection{}
 	query := &rainslib.QuerySection{
-		Context: ".",
-		Expires: 159159,
-		Name:    "ethz.ch",
-		Options: []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
-		Type:    rainslib.OTIP4Addr,
+		Context:    ".",
+		Expiration: 159159,
+		Name:       "ethz.ch",
+		Options:    []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
+		Types:      []rainslib.ObjectType{rainslib.OTIP4Addr},
 	}
 	queries = append(queries, query)
 
@@ -333,8 +339,10 @@ func getAddressAssertionsAndEncodings() ([]*rainslib.AddressAssertionSection, []
 		Types: []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr},
 	}
 	publicKey := rainslib.PublicKey{
-		KeySpace:   rainslib.RainsKeySpace,
-		Type:       rainslib.Ed25519,
+		PublicKeyID: rainslib.PublicKeyID{
+			KeySpace:  rainslib.RainsKeySpace,
+			Algorithm: rainslib.Ed25519,
+		},
 		Key:        ed25519.PublicKey([]byte("01234567890123456789012345678901")),
 		ValidSince: 10000,
 		ValidUntil: 50000,
@@ -345,8 +353,10 @@ func getAddressAssertionsAndEncodings() ([]*rainslib.AddressAssertionSection, []
 	registrantObject := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}
 
 	signature := rainslib.Signature{
-		KeySpace:   rainslib.RainsKeySpace,
-		Algorithm:  rainslib.Ed25519,
+		PublicKeyID: rainslib.PublicKeyID{
+			KeySpace:  rainslib.RainsKeySpace,
+			Algorithm: rainslib.Ed25519,
+		},
 		ValidSince: 1000,
 		ValidUntil: 2000,
 		Data:       []byte("SignatureData")}
@@ -414,8 +424,8 @@ func getAddressQueriesAndEncodings() ([]*rainslib.AddressQuerySection, []string)
 	addressQuery := &rainslib.AddressQuerySection{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
-		Expires:     7564859,
-		Type:        rainslib.OTName,
+		Expiration:  7564859,
+		Types:       []rainslib.ObjectType{rainslib.OTName},
 		Options:     []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
 	}
 	addressQueries = append(addressQueries, addressQuery)

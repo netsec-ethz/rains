@@ -1,7 +1,6 @@
 package zoneFileParser
 
 import (
-	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -14,15 +13,14 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-//decodeZone expects as input a scanner holding the data of a zone represented in the zone file format.
-//It returns all assertions present in the zone file or an error in case the zone file is malformed.
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeZone expects as input a scanner holding the data of a zone represented in the zone file format.
+// It returns all assertions present in the zone file or an error in case the zone file is malformed.
+// The error indicates what value was expected and in which line of the input the error occurred.
 func decodeZone(scanner *WordScanner) ([]*rainslib.AssertionSection, error) {
 	assertions := []*rainslib.AssertionSection{}
 	scanner.Scan()
 	if scanner.Text() != ":Z:" {
-		lineNrLogger.Error("zoneFile malformed.", "expected", ":Z:", "actual", scanner.Text())
-		return nil, errors.New("ZoneFile malformed wrong section type")
+		return nil, fmt.Errorf("malformed zonefile: expected ':Z:' got: %s", scanner.TextLine())
 	}
 	scanner.Scan()
 	zone := scanner.Text()
@@ -30,41 +28,39 @@ func decodeZone(scanner *WordScanner) ([]*rainslib.AssertionSection, error) {
 	context := scanner.Text()
 	scanner.Scan()
 	if scanner.Text() != "[" {
-		lineNrLogger.Error("zonFile malformed.", "expected", "[", "actual", scanner.Text())
-		return nil, errors.New("ZoneFile malformed, missing open bracket")
+		return nil, fmt.Errorf("malformed zonefile: expected '[' got: %s", scanner.TextLine())
 	}
 	scanner.Scan()
 	for scanner.Text() != "]" {
 		switch scanner.Text() {
 		case ":A:":
-			a, err := decodeAssertion(context, zone, scanner)
-			if err != nil {
+			if a, err := decodeAssertion(context, zone, scanner); err != nil {
 				return nil, err
+			} else {
+				assertions = append(assertions, a)
 			}
-			assertions = append(assertions, a)
 		case ":S:":
-			asserts, err := decodeShard(context, zone, scanner)
-			if err != nil {
+			if a, err := decodeShard(context, zone, scanner); err != nil {
 				return nil, err
+			} else {
+				assertions = append(assertions, a...)
 			}
-			assertions = append(assertions, asserts...)
 		default:
-			lineNrLogger.Error("zonFile malformed.", "expected", ":A: or :S:", "actual", scanner.Text())
-			return nil, errors.New("ZoneFile malformed wrong section type")
+			return nil, fmt.Errorf("malformed zonefile: expected ':A:' or ':S:' but got %s", scanner.TextLine())
 		}
 		scanner.Scan() //reads in the next section's type or exit the loop in case of ']'
 	}
 	return assertions, nil
 }
 
-//decodeShard expects as input a scanner at a position where a shard represented in zone file format starts (i.e. scanner.Text() must return :S:)
-//It returns all assertions present in the shard or an error in case the scanner holds a malformed shard i.e. it is not in zone file format
-//The context and sujectZone are inherited from the zone containing the shard.
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeShard expects as input a scanner at a position where a shard
+// represented in zone file format starts (i.e. scanner.Text() must return :S:)
+// It returns all assertions present in the shard or an error in case the
+// scanner holds a malformed shard i.e. it is not in zone file format
+// The context and sujectZone are inherited from the zone containing the shard.
 func decodeShard(context, subjectZone string, scanner *WordScanner) ([]*rainslib.AssertionSection, error) {
 	if scanner.Text() != ":S:" {
-		lineNrLogger.Error("Scanner is not at the beginning of a shard", "expected", ":S:", "actual", scanner.Text())
-		return nil, errors.New("ZoneFile malformed wrong section type")
+		return nil, fmt.Errorf("expected shard ':S:' but got %s", scanner.TextLine())
 	}
 	assertions := []*rainslib.AssertionSection{}
 	missingBracket := true
@@ -77,29 +73,29 @@ func decodeShard(context, subjectZone string, scanner *WordScanner) ([]*rainslib
 		}
 	}
 	if missingBracket {
-		lineNrLogger.Error("zonFile malformed.", "expected", "[", "actual", scanner.Text())
-		return nil, errors.New("ZoneFile malformed, missing open bracket")
+		return nil, fmt.Errorf("expected '[' but got %s", scanner.TextLine())
 	}
 	scanner.Scan()
 	for scanner.Text() != "]" {
-		a, err := decodeAssertion(context, subjectZone, scanner)
-		if err != nil {
+		if a, err := decodeAssertion(context, subjectZone, scanner); err != nil {
 			return nil, err
+		} else {
+			assertions = append(assertions, a)
 		}
-		assertions = append(assertions, a)
 		scanner.Scan()
 	}
 	return assertions, nil
 }
 
-//decodeAssertion expects as input a scanner at a position where an assertion represented in zone file format starts (i.e. scanner.Text() must return :A:)
-//It returns the assertion or an error in case the scanner holds a malformed assertion i.e. it is not in zone file format
-//The context and sujectZone are inherited from the zone containing the assertion.
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeAssertion expects as input a scanner at a position where an assertion
+// represented in zone file format starts (i.e. scanner.Text() must return :A:)
+// It returns the assertion or an error in case the scanner holds a malformed
+// assertion i.e. it is not in zone file format The context and sujectZone are
+// inherited from the zone containing the assertion.  The error indicates what
+// value was expected and in which line of the input the error occurred.
 func decodeAssertion(context, zone string, scanner *WordScanner) (*rainslib.AssertionSection, error) {
 	if scanner.Text() != ":A:" {
-		lineNrLogger.Error("Scanner is not at the beginning of an assertion", "expected", ":A:", "actual", scanner.Text())
-		return nil, errors.New("ZoneFile malformed wrong section type")
+		return nil, fmt.Errorf("error decoding assertion: expected ':A:' but got %s", scanner.TextLine())
 	}
 	scanner.Scan()
 	name := scanner.Text()
@@ -113,8 +109,7 @@ func decodeAssertion(context, zone string, scanner *WordScanner) (*rainslib.Asse
 		}
 	}
 	if missingBracket {
-		lineNrLogger.Error("zonFile malformed.", "expected", "[", "actual", scanner.Text())
-		return nil, errors.New("ZoneFile malformed, missing open bracket")
+		return nil, fmt.Errorf("error decoding assertion: expected '[' but got %s", scanner.TextLine())
 	}
 	objects, err := decodeObjects(scanner)
 	if err != nil {
@@ -125,9 +120,11 @@ func decodeAssertion(context, zone string, scanner *WordScanner) (*rainslib.Asse
 	return a, nil
 }
 
-//decodeObjects expects as input a scanner at a position where an object represented in zone file format starts.
-//It returns the object or an error in case the scanner holds a malformed object i.e. it is not in zone file format
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeObjects expects as input a scanner at a position where an object
+// represented in zone file format starts.  It returns the object or an error
+// in case the scanner holds a malformed object i.e. it is not in zone file
+// format The error indicates what value was expected and in which line of the
+// input the error occurred.
 func decodeObjects(scanner *WordScanner) ([]rainslib.Object, error) {
 	scanner.Scan()
 	objects := []rainslib.Object{}
@@ -155,7 +152,11 @@ func decodeObjects(scanner *WordScanner) ([]rainslib.Object, error) {
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTDelegation, Value: delegation})
 		case typeNameSet:
-			objects = append(objects, rainslib.Object{Type: rainslib.OTNameset, Value: rainslib.NamesetExpression(decodeFreeText(scanner))})
+			ft, err := decodeFreeText(scanner)
+			if err != nil {
+				return nil, fmt.Errorf("failed reading free text for typeNameSet: %v", err)
+			}
+			objects = append(objects, rainslib.Object{Type: rainslib.OTNameset, Value: rainslib.NamesetExpression(ft)})
 			continue
 		case typeCertificate:
 			cert, err := decodeCertObject(scanner)
@@ -170,10 +171,18 @@ func decodeObjects(scanner *WordScanner) ([]rainslib.Object, error) {
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTServiceInfo, Value: srvInfo})
 		case typeRegistrar:
-			objects = append(objects, rainslib.Object{Type: rainslib.OTRegistrar, Value: decodeFreeText(scanner)})
+			ft, err := decodeFreeText(scanner)
+			if err != nil {
+				return nil, fmt.Errorf("failed reading free text for typeRegistrar: %v", err)
+			}
+			objects = append(objects, rainslib.Object{Type: rainslib.OTRegistrar, Value: ft})
 			continue
 		case typeRegistrant:
-			objects = append(objects, rainslib.Object{Type: rainslib.OTRegistrant, Value: decodeFreeText(scanner)})
+			ft, err := decodeFreeText(scanner)
+			if err != nil {
+				return nil, fmt.Errorf("failed reading free text for typeRegistrant: %v", err)
+			}
+			objects = append(objects, rainslib.Object{Type: rainslib.OTRegistrant, Value: ft})
 			continue
 		case typeInfraKey:
 			infrastructureKey, err := decodeInfraKey(scanner)
@@ -194,33 +203,31 @@ func decodeObjects(scanner *WordScanner) ([]rainslib.Object, error) {
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTNextKey, Value: nextKey})
 		default:
-			lineNrLogger.Error("zonFile malformed.", "expected", ":<objectType>: (e.g. :ip4:)", "actual", scanner.Text())
-			return nil, errors.New("ZoneFile malformed unsupported objectType")
+			return nil, fmt.Errorf("malformed input: expected :<objectType>: (e.g. :ip4:) actual: %s", scanner.TextLine())
 		}
 		notEOF := scanner.Scan()
 		if !notEOF {
-			lineNrLogger.Error("zonFile malformed.", "expected", "]", "actual", scanner.Text())
-			return nil, errors.New("ZoneFile malformed, not a closing bracket but EOF")
+			return nil, fmt.Errorf("malformed input: expected ']' but got %s", scanner.TextLine())
 		}
 	}
 	return objects, nil
 }
 
-//decodeNameObject expects as input a scanner at a position where a nameObject represented in zone file format starts.
-//It returns the nameObject or an error in case the scanner holds a malformed nameObject i.e. it is not in zone file format
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeNameObject expects as input a scanner at a position where a nameObject
+// represented in zone file format starts.  It returns the nameObject or an
+// error in case the scanner holds a malformed nameObject i.e. it is not in zone
+// file format The error indicates what value was expected and in which line of
+// the input the error occurred.
 func decodeNameObject(scanner *WordScanner) (rainslib.NameObject, error) {
 	if scanner.Text() != ":name:" {
-		lineNrLogger.Error("Scanner is not at the beginning of a nameObject", "expected", ":name:", "actual", scanner.Text())
-		return rainslib.NameObject{}, errors.New("ZoneFile malformed wrong object type")
+		return rainslib.NameObject{}, fmt.Errorf("expected ':name:' but got %s", scanner.TextLine())
 	}
 	nameObject := rainslib.NameObject{}
 	scanner.Scan()
 	nameObject.Name = scanner.Text()
 	scanner.Scan()
 	if scanner.Text() != "[" {
-		lineNrLogger.Error("zonFile malformed.", "expected", "[", "actual", scanner.Text())
-		return rainslib.NameObject{}, errors.New("ZoneFile malformed not open bracket")
+		return rainslib.NameObject{}, fmt.Errorf("malformed input: expected '[' but got %s", scanner.TextLine())
 	}
 	scanner.Scan()
 	for scanner.Text() != "]" {
@@ -252,25 +259,24 @@ func decodeNameObject(scanner *WordScanner) (rainslib.NameObject, error) {
 		case otNextKey:
 			nameObject.Types = append(nameObject.Types, rainslib.OTNextKey)
 		default:
-			log.Warn("Unsupported object type", "type", scanner.Text())
-			return rainslib.NameObject{}, errors.New("unsupported object type")
+			return rainslib.NameObject{}, fmt.Errorf("malformed object type: %s", scanner.TextLine())
 		}
 		notEOF := scanner.Scan()
 		if !notEOF {
-			lineNrLogger.Error("zonFile malformed.", "expected", "]", "actual", scanner.Text())
-			return rainslib.NameObject{}, errors.New("ZoneFile malformed, not a closing bracket but EOF")
+			return rainslib.NameObject{}, fmt.Errorf("malformed input: expected ']' but got %s", scanner.TextLine())
 		}
 	}
 	return nameObject, nil
 }
 
-//decodeServiceInfo expects as input a scanner at a position where a srvInfo object represented in zone file format starts.
-//It returns the srvInfo object or an error in case the scanner holds a malformed srvInfo object i.e. it is not in zone file format
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeServiceInfo expects as input a scanner at a position where a srvInfo
+// object represented in zone file format starts.  It returns the srvInfo object
+// or an error in case the scanner holds a malformed srvInfo object i.e. it is
+// not in zone file format The error indicates what value was expected and in
+// which line of the input the error occurred.
 func decodeServiceInfo(scanner *WordScanner) (rainslib.ServiceInfo, error) {
 	if scanner.Text() != ":srv:" {
-		lineNrLogger.Error("Scanner is not at the beginning of a serviceInfo object", "expected", ":srv:", "actual", scanner.Text())
-		return rainslib.ServiceInfo{}, errors.New("ZoneFile malformed wrong object type")
+		return rainslib.ServiceInfo{}, fmt.Errorf("failed parsing serviceInfo, expected :SRV: but got %s", scanner.TextLine())
 	}
 	srvInfo := rainslib.ServiceInfo{}
 	scanner.Scan()
@@ -278,45 +284,46 @@ func decodeServiceInfo(scanner *WordScanner) (rainslib.ServiceInfo, error) {
 	scanner.Scan()
 	portNr, err := strconv.Atoi(scanner.Text())
 	if err != nil {
-		lineNrLogger.Error("zonFile malformed.", "expected", "<number>", "actual", scanner.Text())
-		return rainslib.ServiceInfo{}, err
+		return rainslib.ServiceInfo{}, fmt.Errorf("expected number but got %s : %v", scanner.TextLine(), err)
 	}
 	srvInfo.Port = uint16(portNr)
 	scanner.Scan()
 	prio, err := strconv.Atoi(scanner.Text())
 	if err != nil {
-		lineNrLogger.Error("zonFile malformed.", "expected", "<number>", "actual", scanner.Text())
-		return rainslib.ServiceInfo{}, err
+		return rainslib.ServiceInfo{}, fmt.Errorf("expected number but got %s : %v", scanner.TextLine(), err)
 	}
 	srvInfo.Priority = uint(prio)
 	return srvInfo, nil
 }
 
-//decodeFreeText expects as input a scanner at a position where a free text field starts.
-//It returns all following words separated by space until it encounters the next object type definition (:<type>:) or the end of the assertion (]).
-//It returns the certificate object or an error in case the scanner holds a malformed certificate object i.e. it is not in zone file format
-//The error indicates what value was expected and in which line of the input the error occurred.
-func decodeFreeText(scanner *WordScanner) string {
+// decodeFreeText expects as input a scanner at a position where a free text
+// field starts.  It returns all following words separated by space until it
+// encounters the next object type definition (:<type>:) or the end of the
+// assertion (]).  It returns the certificate object or an error in case the
+// scanner holds a malformed certificate object i.e. it is not in zone file
+// format The error indicates what value was expected and in which line of the
+// input the error occurred.
+func decodeFreeText(scanner *WordScanner) (string, error) {
 	text := ""
 	scanner.Scan()
 	for (!strings.HasPrefix(scanner.Text(), ":") || !strings.HasSuffix(scanner.Text(), ":")) && scanner.Text() != "]" {
 		text += fmt.Sprintf("%s ", scanner.Text())
-		notEOF := scanner.Scan()
-		if !notEOF {
-			lineNrLogger.Error("zonFile malformed.", "expected", "]", "actual", scanner.Text())
-			return ""
+		nextEOF := scanner.Scan()
+		if !nextEOF {
+			return "", errors.New("unexpected EOF while parsing free text")
 		}
 	}
-	return text[:len(text)-1] //remove last space
+	return text[:len(text)-1], nil //remove last space
 }
 
-//decodeCertObject expects as input a scanner at a position where a certificate object represented in zone file format starts.
-//It returns the certificate object or an error in case the scanner holds a malformed certificate object i.e. it is not in zone file format
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeCertObject expects as input a scanner at a position where a certificate
+// object represented in zone file format starts.  It returns the certificate
+// object or an error in case the scanner holds a malformed certificate object
+// i.e. it is not in zone file format The error indicates what value was
+// expected and in which line of the input the error occurred.
 func decodeCertObject(scanner *WordScanner) (rainslib.CertificateObject, error) {
 	if scanner.Text() != ":cert:" {
-		lineNrLogger.Error("Scanner is not at the beginning of a serviceInfo object", "expected", ":cert:", "actual", scanner.Text())
-		return rainslib.CertificateObject{}, errors.New("ZoneFile malformed wrong object type")
+		return rainslib.CertificateObject{}, fmt.Errorf("expected ':cert:' but got %s", scanner.TextLine())
 	}
 	scanner.Scan()
 	certType, err := decodeCertPT(scanner.Text())
@@ -347,8 +354,10 @@ func decodeCertObject(scanner *WordScanner) (rainslib.CertificateObject, error) 
 	return cert, nil
 }
 
-//decodeCertPT returns the protocol type of a certificate or an error in case the input holds a malformed protocol type i.e. it is not in zone file format
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeCertPT returns the protocol type of a certificate or an error in case
+// the input holds a malformed protocol type i.e. it is not in zone file format
+// The error indicates what value was expected and in which line of the input
+// the error occurred.
 func decodeCertPT(certType string) (rainslib.ProtocolType, error) {
 	switch certType {
 	case unspecified:
@@ -356,13 +365,14 @@ func decodeCertPT(certType string) (rainslib.ProtocolType, error) {
 	case ptTLS:
 		return rainslib.PTTLS, nil
 	default:
-		lineNrLogger.Error("zonFile malformed.", "expected", "certificate protocol type identifier", "actual", certType)
-		return rainslib.ProtocolType(-1), errors.New("non existing certificate protocol type")
+		return rainslib.ProtocolType(-1), fmt.Errorf("non existing certificate protocol type: %s", certType)
 	}
 }
 
-//decodeCertUsage returns the usage type of a certificate or an error in case the input holds a malformed usage type i.e. it is not in zone file format
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeCertUsage returns the usage type of a certificate or an error in case
+// the input holds a malformed usage type i.e. it is not in zone file format The
+// error indicates what value was expected and in which line of the input the
+// error occurred.
 func decodeCertUsage(usageType string) (rainslib.CertificateUsage, error) {
 	switch usageType {
 	case cuTrustAnchor:
@@ -370,14 +380,14 @@ func decodeCertUsage(usageType string) (rainslib.CertificateUsage, error) {
 	case cuEndEntity:
 		return rainslib.CUEndEntity, nil
 	default:
-		lineNrLogger.Error("zonFile malformed.", "expected", "certificate usage identifier", "actual", usageType)
-		return rainslib.CertificateUsage(-1), errors.New("non existing certificate usage type")
+		return rainslib.CertificateUsage(-1), fmt.Errorf("non existing certificate usage type: %s", usageType)
 	}
 }
 
-//decodeCertHashType returns the hash algorithm type or an error in case the input holds a malformed hash algorithm type
-//i.e. it is not in zone file format
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeCertHashType returns the hash algorithm type or an error in case the
+// input holds a malformed hash algorithm type i.e. it is not in zone file
+// format The error indicates what value was expected and in which line of the
+// input the error occurred.
 func decodeCertHashType(hashType string) (rainslib.HashAlgorithmType, error) {
 	switch hashType {
 	case haNone:
@@ -389,42 +399,44 @@ func decodeCertHashType(hashType string) (rainslib.HashAlgorithmType, error) {
 	case haSha512:
 		return rainslib.Sha512, nil
 	default:
-		lineNrLogger.Error("zonFile malformed.", "expected", "certificate hash algo identifier", "actual", hashType)
-		return rainslib.HashAlgorithmType(-1), errors.New("non existing certificate hash algorithm type")
+		return rainslib.HashAlgorithmType(-1), fmt.Errorf("non existing certificate hash algorithm type: %s", hashType)
 	}
 }
 
-//decodeDelegationKey expects as input a scanner at a position where an delegation object represented in zone file format starts.
-//It returns the delegation object or an error in case the scanner holds a malformed delegation object i.e. it is not in zone file format
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeDelegationKey expects as input a scanner at a position where an
+// delegation object represented in zone file format starts.  It returns the
+// delegation object or an error in case the scanner holds a malformed
+// delegation object i.e. it is not in zone file format The error indicates
+// what value was expected and in which line of the input the error occurred.
 func decodeDelegationKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	if scanner.Text() != ":deleg:" {
-		lineNrLogger.Error("Scanner is not at the beginning of a delegationKey object", "expected", ":deleg:", "actual", scanner.Text())
-		return rainslib.PublicKey{}, errors.New("ZoneFile malformed wrong object type")
+		return rainslib.PublicKey{}, fmt.Errorf("expected ':deleg:' but got %s", scanner.TextLine())
 	}
 	scanner.Scan()
 	return decodeSigAlgoAndData(scanner)
 }
 
-//decodeInfraKey expects as input a scanner at a position where an infraKey object represented in zone file format starts.
-//It returns the infraKey object or an error in case the scanner holds a malformed infraKey object i.e. it is not in zone file format
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeInfraKey expects as input a scanner at a position where an infraKey
+// object represented in zone file format starts.  It returns the infraKey
+// object or an error in case the scanner holds a malformed infraKey object
+// i.e. it is not in zone file format The error indicates what value was
+// expected and in which line of the input the error occurred.
 func decodeInfraKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	if scanner.Text() != ":infra:" {
-		lineNrLogger.Error("Scanner is not at the beginning of a infraKey object", "expected", ":infra:", "actual", scanner.Text())
-		return rainslib.PublicKey{}, errors.New("ZoneFile malformed wrong object type")
+		return rainslib.PublicKey{}, fmt.Errorf("expected ':infra:' but got %s", scanner.TextLine())
 	}
 	scanner.Scan()
 	return decodeSigAlgoAndData(scanner)
 }
 
-//decodeExternalKey expects as input a scanner at a position where an externalKey object represented in zone file format starts.
-//It returns the externalKey object or an error in case the scanner holds a malformed externalKey object i.e. it is not in zone file format
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeExternalKey expects as input a scanner at a position where an
+// externalKey object represented in zone file format starts.  It returns the
+// externalKey object or an error in case the scanner holds a malformed
+// externalKey object i.e. it is not in zone file format The error indicates
+// what value was expected and in which line of the input the error occurred.
 func decodeExternalKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	if scanner.Text() != ":extra:" {
-		lineNrLogger.Error("Scanner is not at the beginning of a extraKey object", "expected", ":extra:", "actual", scanner.Text())
-		return rainslib.PublicKey{}, errors.New("ZoneFile malformed wrong object type")
+		return rainslib.PublicKey{}, fmt.Errorf("expected :extra: but got: %s", scanner.TextLine())
 	}
 	scanner.Scan()
 	var keySpace rainslib.KeySpaceID
@@ -432,8 +444,7 @@ func decodeExternalKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	case ksRains:
 		keySpace = rainslib.RainsKeySpace
 	default:
-		log.Warn("Unsupported key space type", "actualType", scanner.Text())
-		return rainslib.PublicKey{}, errors.New("Unsupported key space type")
+		return rainslib.PublicKey{}, fmt.Errorf("expected known key type but got: %s", scanner.TextLine())
 	}
 	scanner.Scan()
 	extra, err := decodeSigAlgoAndData(scanner)
@@ -444,13 +455,14 @@ func decodeExternalKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	return extra, nil
 }
 
-//decodeNextKey expects as input a scanner at a position where a nextKey object represented in zone file format starts.
-//It returns the nextKey object or an error in case the scanner holds a malformed nextKey object i.e. it is not in zone file format
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeNextKey expects as input a scanner at a position where a nextKey
+// object represented in zone file format starts.  It returns the nextKey
+// object or an error in case the scanner holds a malformed nextKey object i.e.
+// it is not in zone file format The error indicates what value was expected
+// and in which line of the input the error occurred.
 func decodeNextKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	if scanner.Text() != ":next:" {
-		lineNrLogger.Error("Scanner is not at the beginning of a nextKey object", "expected", ":next:", "actual", scanner.Text())
-		return rainslib.PublicKey{}, errors.New("ZoneFile malformed wrong object type")
+		return rainslib.PublicKey{}, fmt.Errorf("expected :next: but got %s", scanner.TextLine())
 	}
 	scanner.Scan()
 	nextKey, err := decodeSigAlgoAndData(scanner)
@@ -460,50 +472,51 @@ func decodeNextKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	scanner.Scan()
 	nextKey.ValidSince, err = strconv.ParseInt(scanner.Text(), 10, 64)
 	if err != nil {
-		log.Warn("Was not able to parse validSince to int64", "expected", "<number>", "actual", scanner.Text())
-		return rainslib.PublicKey{}, err
+		return rainslib.PublicKey{}, fmt.Errorf("expected number for ValidSince but got %s : %v", scanner.TextLine(), err)
 	}
 	scanner.Scan()
 	nextKey.ValidUntil, err = strconv.ParseInt(scanner.Text(), 10, 64)
 	if err != nil {
-		log.Warn("Was not able to parse validUntil to int64", "expected", "<number>", "actual", scanner.Text())
-		return rainslib.PublicKey{}, err
+		return rainslib.PublicKey{}, fmt.Errorf("expected number for ValidUntil but got %s : %v", scanner.TextLine(), err)
 	}
 	return nextKey, nil
 }
 
-//decodeSigAlgoAndData expects as input a scanner at a position where a signature algorithm type object represented in zone file format starts.
-//It returns a publicKey object holding the signature algorithm type and the public key data
-//or an error in case the scanner holds a malformed signature algorithm type or malformed public key data i.e. it is not in zone file format
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeSigAlgoAndData expects as input a scanner at a position where a
+// signature algorithm type object represented in zone file format starts.  It
+// returns a publicKey object holding the signature algorithm type and the
+// public key data or an error in case the scanner holds a malformed signature
+// algorithm type or malformed public key data i.e. it is not in zone file
+// format The error indicates what value was expected and in which line of the
+// input the error occurred.
 func decodeSigAlgoAndData(scanner *WordScanner) (rainslib.PublicKey, error) {
 	keyAlgoType, err := decodeKeyAlgoType(scanner.Text())
 	if err != nil {
 		return rainslib.PublicKey{}, err
 	}
 	scanner.Scan()
-	publicKey := rainslib.PublicKey{Type: keyAlgoType}
+	publicKey := rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: keyAlgoType}}
 	switch keyAlgoType {
 	case rainslib.Ed25519:
 		return decodeEd25519PublicKeyData(scanner.Text(), publicKey)
 	case rainslib.Ed448:
-		log.Warn("Not yet implemented")
-		publicKey.Key = []byte{}
+		// TODO: implement ed448.
+		return rainslib.PublicKey{}, errors.New("ed448 not yet implemented")
 	case rainslib.Ecdsa256:
-		log.Warn("Not yet implemented")
-		publicKey.Key = new(ecdsa.PublicKey)
+		// TODO: implement ecdsa256.
+		return rainslib.PublicKey{}, errors.New("ecdsa256 not yet implemented")
 	case rainslib.Ecdsa384:
-		log.Warn("Not yet implemented")
-		publicKey.Key = new(ecdsa.PublicKey)
+		// TODO: implement ecdsa384.
+		return rainslib.PublicKey{}, errors.New("ecdsa384 not yet implemented")
 	default:
-		lineNrLogger.Error("zonFile malformed.", "expected", "key algorithm type identifier", "actual", keyAlgoType)
-		return rainslib.PublicKey{}, errors.New("non existing signature algorithm type")
+		return rainslib.PublicKey{}, fmt.Errorf("expected known signature algorithm but got: %s (type %s)", scanner.TextLine(), keyAlgoType)
 	}
-	return rainslib.PublicKey{}, errors.New("not yet implemented")
 }
 
-//decodeKeyAlgoType returns the signature algorithm type or an error in case the input holds a malformed signature algorithm type i.e. it is not in zone file format
-//The error indicates what value was expected and in which line of the input the error occurred.
+// decodeKeyAlgoType returns the signature algorithm type or an error in case
+// the input holds a malformed signature algorithm type i.e. it is not in zone
+// file format The error indicates what value was expected and in which line of
+// the input the error occurred.
 func decodeKeyAlgoType(keyAlgoType string) (rainslib.SignatureAlgorithmType, error) {
 	switch keyAlgoType {
 	case keyAlgoed25519:
@@ -515,12 +528,12 @@ func decodeKeyAlgoType(keyAlgoType string) (rainslib.SignatureAlgorithmType, err
 	case keyAlgoecdsa384:
 		return rainslib.Ecdsa384, nil
 	default:
-		lineNrLogger.Error("zonFile malformed.", "expected", "signature algorithm type identifier", "actual", keyAlgoType)
 		return rainslib.SignatureAlgorithmType(-1), fmt.Errorf("non existing signature algorithm type: %s", keyAlgoType)
 	}
 }
 
-//decodeEd25519PublicKeyData returns the publicKey or an error in case pkeyInput is malformed i.e. it is not in zone file format
+// decodeEd25519PublicKeyData returns the publicKey or an error in case
+// pkeyInput is malformed i.e. it is not in zone file format.
 func decodeEd25519PublicKeyData(pkeyInput string, publicKey rainslib.PublicKey) (rainslib.PublicKey, error) {
 	pKey, err := hex.DecodeString(pkeyInput)
 	if err != nil {
@@ -530,5 +543,5 @@ func decodeEd25519PublicKeyData(pkeyInput string, publicKey rainslib.PublicKey) 
 		publicKey.Key = ed25519.PublicKey(pKey)
 		return publicKey, nil
 	}
-	return rainslib.PublicKey{}, fmt.Errorf("public key length is not 32. actual:%d", len(pKey))
+	return rainslib.PublicKey{}, fmt.Errorf("wrong public key length: got %d, want: 32", len(pKey))
 }

@@ -110,17 +110,28 @@ func TestNewQueryMessage(t *testing.T) {
 		context  string
 		name     string
 		expires  int64
-		t        ObjectType
+		types    []ObjectType
 		options  []QueryOption
 		token    Token
 		expected RainsMessage
 	}{
-		{".", "example.com", 100, OTIP4Addr, []QueryOption{QOTokenTracing, QOMinE2ELatency}, token,
-			RainsMessage{Token: token, Content: []MessageSection{&QuerySection{Name: "example.com", Context: ".", Expires: 100, Type: OTIP4Addr,
-				Options: []QueryOption{QOTokenTracing, QOMinE2ELatency}}}}},
+		{".", "example.com", 100, []ObjectType{OTIP4Addr}, []QueryOption{QOTokenTracing, QOMinE2ELatency}, token,
+			RainsMessage{
+				Token: token,
+				Content: []MessageSection{
+					&QuerySection{
+						Name:       "example.com",
+						Context:    ".",
+						Expiration: 100,
+						Types:      []ObjectType{OTIP4Addr},
+						Options:    []QueryOption{QOTokenTracing, QOMinE2ELatency},
+					},
+				},
+			},
+		},
 	}
 	for i, test := range tests {
-		msg := NewQueryMessage(test.context, test.name, test.expires, test.t, test.options, test.token)
+		msg := NewQueryMessage(test.name, test.context, test.expires, test.types, test.options, test.token)
 		if !reflect.DeepEqual(test.expected, msg) {
 			t.Errorf("%d: Message containing Query do not match. expected=%v actual=%v", i, test.expected, msg)
 		}
@@ -135,20 +146,42 @@ func TestNewAddressQueryMessage(t *testing.T) {
 		context  string
 		ipNet    *net.IPNet
 		expires  int64
-		t        ObjectType
+		types    []ObjectType
 		options  []QueryOption
 		token    Token
 		expected RainsMessage
 	}{
-		{".", subjectAddress1, 100, OTIP4Addr, []QueryOption{QOTokenTracing, QOMinE2ELatency}, token,
-			RainsMessage{Token: token, Content: []MessageSection{&AddressQuerySection{SubjectAddr: subjectAddress1, Context: ".", Expires: 100, Type: OTIP4Addr,
-				Options: []QueryOption{QOTokenTracing, QOMinE2ELatency}}}}},
-		{".", subjectAddress2, 100, OTIP4Addr, []QueryOption{QOTokenTracing, QOMinE2ELatency}, token,
-			RainsMessage{Token: token, Content: []MessageSection{&AddressQuerySection{SubjectAddr: subjectAddress2, Context: ".", Expires: 100, Type: OTIP4Addr,
-				Options: []QueryOption{QOTokenTracing, QOMinE2ELatency}}}}},
+		{".", subjectAddress1, 100, []ObjectType{OTIP4Addr}, []QueryOption{QOTokenTracing, QOMinE2ELatency}, token,
+			RainsMessage{
+				Token: token,
+				Content: []MessageSection{
+					&AddressQuerySection{
+						SubjectAddr: subjectAddress1,
+						Context:     ".",
+						Expiration:  100,
+						Types:       []ObjectType{OTIP4Addr},
+						Options:     []QueryOption{QOTokenTracing, QOMinE2ELatency},
+					},
+				},
+			},
+		},
+		{".", subjectAddress2, 100, []ObjectType{OTIP4Addr}, []QueryOption{QOTokenTracing, QOMinE2ELatency}, token,
+			RainsMessage{
+				Token: token,
+				Content: []MessageSection{
+					&AddressQuerySection{
+						SubjectAddr: subjectAddress2,
+						Context:     ".",
+						Expiration:  100,
+						Types:       []ObjectType{OTIP4Addr},
+						Options:     []QueryOption{QOTokenTracing, QOMinE2ELatency},
+					},
+				},
+			},
+		},
 	}
 	for i, test := range tests {
-		msg := NewAddressQueryMessage(test.context, test.ipNet, test.expires, test.t, test.options, test.token)
+		msg := NewAddressQueryMessage(test.context, test.ipNet, test.expires, test.types, test.options, test.token)
 		if !reflect.DeepEqual(test.expected, msg) {
 			t.Errorf("%d: Message containing Query do not match. expected=%v actual=%v", i, test.expected, msg)
 		}

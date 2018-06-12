@@ -13,9 +13,11 @@ import (
 //isAssertionConsistent checks if the incoming assertion is consistent with the elements in the cache.
 //If not, every element of this zone and context is dropped and it returns false
 func isAssertionConsistent(assertion *rainslib.AssertionSection) bool {
-	negAssertions, _ := negAssertionCache.GetAll(assertion.Context, assertion.SubjectZone, assertion)
+	negAssertions := consistCache.Get(assertion.Context, assertion.SubjectZone, assertion)
 	for _, negAssertion := range negAssertions {
 		switch negAssertion := negAssertion.(type) {
+		case *rainslib.AssertionSection:
+			//TODO CFE do nothing???
 		case *rainslib.ShardSection:
 			if togetherValid(assertion, negAssertion) && !shardContainsAssertion(assertion, negAssertion) {
 				log.Warn("Inconsistency encountered between assertion and shard. Drop all sections for given context and zone.", "assertion", assertion, "shard", negAssertion)
@@ -37,34 +39,26 @@ func isAssertionConsistent(assertion *rainslib.AssertionSection) bool {
 //isShardConsistent checks if the incoming shard is consistent with the elements in the cache.
 //If not every element of this zone is dropped and it return false
 func isShardConsistent(shard *rainslib.ShardSection) bool {
-	//check against cached assertions
-	assertions, ok := assertionsCache.GetInRange(shard.Context, shard.SubjectZone, shard)
-	if ok {
-		for _, a := range assertions {
-			if togetherValid(shard, a) && !shardContainsAssertion(a, shard) {
+	sections := consistCache.Get(shard.Context, shard.SubjectZone, shard)
+	for _, v := range sections {
+		switch v := v.(type) {
+		case *rainslib.AssertionSection:
+			if togetherValid(shard, v) && !shardContainsAssertion(v, shard) {
 				dropAllWithContextZone(shard.Context, shard.SubjectZone)
 				return false
 			}
-		}
-	}
-	//check against cached shards and zones
-	sections, ok := negAssertionCache.GetAll(shard.Context, shard.SubjectZone, shard)
-	if ok {
-		for _, v := range sections {
-			switch v := v.(type) {
-			case *rainslib.ShardSection:
-				if togetherValid(shard, v) && !isShardConsistentWithShard(shard, v) {
-					dropAllWithContextZone(shard.Context, shard.SubjectZone)
-					return false
-				}
-			case *rainslib.ZoneSection:
-				if togetherValid(shard, v) && !isShardConsistentWithZone(shard, v) {
-					dropAllWithContextZone(shard.Context, shard.SubjectZone)
-					return false
-				}
-			default:
-				log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *ZoneSection. Got=%T", v))
+		case *rainslib.ShardSection:
+			if togetherValid(shard, v) && !isShardConsistentWithShard(shard, v) {
+				dropAllWithContextZone(shard.Context, shard.SubjectZone)
+				return false
 			}
+		case *rainslib.ZoneSection:
+			if togetherValid(shard, v) && !isShardConsistentWithZone(shard, v) {
+				dropAllWithContextZone(shard.Context, shard.SubjectZone)
+				return false
+			}
+		default:
+			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *ZoneSection. Got=%T", v))
 		}
 	}
 	return true
@@ -73,19 +67,15 @@ func isShardConsistent(shard *rainslib.ShardSection) bool {
 //isZoneConsistent checks if the incoming zone is consistent with the elements in the cache.
 //If not every element of this zone is dropped and it return false
 func isZoneConsistent(zone *rainslib.ZoneSection) bool {
-	//check against cached assertions
-	assertions, _ := assertionsCache.GetInRange(zone.Context, zone.SubjectZone, zone)
-	for _, a := range assertions {
-		if togetherValid(zone, a) && !zoneContainsAssertion(a, zone) {
-			dropAllWithContextZone(zone.Context, zone.SubjectZone)
-			return false
-		}
-	}
-	//check against cached shards and zones
-	sections, ok := negAssertionCache.GetAll(zone.Context, zone.SubjectZone, zone)
+	sections, ok := negAssertionCache.Get(zone.Context, zone.SubjectZone, zone)
 	if ok {
 		for _, v := range sections {
 			switch v := v.(type) {
+			case *rainslib.AssertionSection:
+				if togetherValid(zone, v) && !zoneContainsAssertion(v, zone) {
+					dropAllWithContextZone(zone.Context, zone.SubjectZone)
+					return false
+				}
 			case *rainslib.ShardSection:
 				if togetherValid(zone, v) && !isShardConsistentWithZone(v, zone) {
 					dropAllWithContextZone(zone.Context, zone.SubjectZone)
@@ -125,11 +115,8 @@ func togetherValid(s1, s2 rainslib.MessageSectionWithSig) bool {
 
 //dropAllWithContextZone deletes all assertions, shards and zones in the cache with the given context and zone
 func dropAllWithContextZone(context, zone string) {
-	assertions, _ := assertionsCache.GetInRange(context, zone, rainslib.TotalInterval{})
-	for _, a := range assertions {
-		assertionsCache.Remove(a)
-	}
-	negAssertionCache.Remove(context, zone)
+	assertionsCache.RemoveZone(zone)
+	negAssertionCache.RemoveZone(zone)
 }
 
 //shardContainsAssertion returns true if the given shard contains the given assertion
@@ -366,6 +353,9 @@ func (s *sortedAssertions) Get(interval rainslib.Interval) ([]*rainslib.Assertio
 	i := sort.Search(len(s.assertions), func(i int) bool {
 		return s.assertions[i].SubjectName >= interval.Begin()
 	})
+	if i == len(s.assertions) {
+		return nil, false
+	}
 	if s.assertions[i].SubjectName < interval.Begin() {
 		return elements, false
 	}

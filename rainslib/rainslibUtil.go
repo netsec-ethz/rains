@@ -10,6 +10,7 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -92,24 +93,26 @@ func UpdateSectionValidity(section MessageSectionWithSig, pkeyValidSince, pkeyVa
 }
 
 //NewQueryMessage creates a new message containing a query body with values obtained from the input parameter
-func NewQueryMessage(context, name string, expTime int64, objType ObjectType, queryOptions []QueryOption, token Token) RainsMessage {
+func NewQueryMessage(name, context string, expTime int64, objType []ObjectType,
+	queryOptions []QueryOption, token Token) RainsMessage {
 	query := QuerySection{
-		Context: context,
-		Name:    name,
-		Expires: expTime,
-		Type:    objType,
-		Options: queryOptions,
+		Context:    context,
+		Name:       name,
+		Expiration: expTime,
+		Types:      objType,
+		Options:    queryOptions,
 	}
 	return RainsMessage{Token: token, Content: []MessageSection{&query}}
 }
 
 //NewAddressQueryMessage creates a new message containing an addressQuery body with values obtained from the input parameter
-func NewAddressQueryMessage(context string, ipNet *net.IPNet, expTime int64, objType ObjectType, queryOptions []QueryOption, token Token) RainsMessage {
+func NewAddressQueryMessage(context string, ipNet *net.IPNet, expTime int64, objType []ObjectType,
+	queryOptions []QueryOption, token Token) RainsMessage {
 	addressQuery := AddressQuerySection{
 		Context:     context,
 		SubjectAddr: ipNet,
-		Expires:     expTime,
-		Type:        objType,
+		Expiration:  expTime,
+		Types:       objType,
 		Options:     queryOptions,
 	}
 	return RainsMessage{Token: token, Content: []MessageSection{&addressQuery}}
@@ -137,4 +140,14 @@ func NewNotificationsMessage(tokens []Token, types []NotificationType, data []st
 func NewNotificationMessage(token Token, t NotificationType, data string) RainsMessage {
 	msg, _ := NewNotificationsMessage([]Token{token}, []NotificationType{t}, []string{data})
 	return msg
+}
+
+//ContainsType returns the first object with oType and true if objects contains at least one
+func ContainsType(objects []Object, oType ObjectType) (Object, bool) {
+	for _, o := range objects {
+		if o.Type == oType {
+			return o, true
+		}
+	}
+	return Object{}, false
 }

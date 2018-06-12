@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/netsec-ethz/rainslib"
+	"github.com/netsec-ethz/rains/rainslib"
 )
 
 func TestNew(t *testing.T) {
