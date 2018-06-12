@@ -57,20 +57,28 @@ func TestMessageSectionWithSigSignatures(t *testing.T) {
 }
 
 func TestMessageSectionWithSigGetContextAndSubjectZone(t *testing.T) {
+	_, sampleNet, _ := net.ParseCIDR("2001:db8::/32")
 	var tests = []struct {
-		input MessageSectionWithSig
+		input             MessageSectionWithSig
+		exptectCtx        string
+		expectSubjectZone string
 	}{
-		{&AssertionSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"}},
-		{&ShardSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"}},
-		{&ZoneSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"}},
-		{&AddressAssertionSection{Context: "testContextcx-testSubjectZone"}},
-		{&AddressZoneSection{Context: "testContextcx-testSubjectZone"}},
+		{&AssertionSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"},
+			"testContextcx-testSubjectZone", "testSubjectZone"},
+		{&ShardSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"},
+			"testContextcx-testSubjectZone", "testSubjectZone"},
+		{&ZoneSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"},
+			"testContextcx-testSubjectZone", "testSubjectZone"},
+		{&AddressAssertionSection{Context: "testContextcx-testSubjectZone", SubjectAddr: sampleNet},
+			"testContextcx-testSubjectZone", "2001:db8::/32"},
+		{&AddressZoneSection{Context: "testContextcx-testSubjectZone", SubjectAddr: sampleNet},
+			"testContextcx-testSubjectZone", "2001:db8::/32"},
 	}
 	for i, test := range tests {
-		if test.input.GetContext() != "testContextcx-testSubjectZone" {
+		if test.input.GetContext() != test.exptectCtx {
 			t.Errorf("%d: Context does not match. expected=testContextcx-testSubjectZone actual=%s", i, test.input.GetContext())
 		}
-		if test.input.GetSubjectZone() != "testSubjectZone" {
+		if test.input.GetSubjectZone() != test.expectSubjectZone {
 			t.Errorf("%d: SubjectZone does not match. expected=testSubjectZone actual=%s", i, test.input.GetSubjectZone())
 		}
 	}
@@ -616,6 +624,68 @@ func TestSort(t *testing.T) {
 		m.Sort()
 		if !reflect.DeepEqual(m.Content, test.sorted) {
 			t.Errorf("%d: RainsMessage.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, m.Content)
+		}
+	}
+}
+
+type MockInterval struct {
+	begin string
+	end   string
+}
+
+func (mi MockInterval) Begin() string {
+	return mi.begin
+}
+
+func (mi MockInterval) End() string {
+	return mi.end
+}
+
+func TestOverlapping(t *testing.T) {
+	testMatrix := []struct {
+		one    MockInterval
+		two    MockInterval
+		output bool
+	}{
+		{
+			one:    MockInterval{"a", "z"},
+			two:    MockInterval{"e", "n"},
+			output: true,
+		},
+		{
+			one:    MockInterval{"o", "w"},
+			two:    MockInterval{"a", "e"},
+			output: false,
+		},
+		{
+			one:    MockInterval{"", "e"},
+			two:    MockInterval{"n", "q"},
+			output: false,
+		},
+		{
+			one:    MockInterval{"a", ""},
+			two:    MockInterval{"a", "z"},
+			output: true,
+		},
+		{
+			one:    MockInterval{"a", "p"},
+			two:    MockInterval{"q", ""},
+			output: false,
+		},
+		{
+			one:    MockInterval{"a", "z"},
+			two:    MockInterval{"", "b"},
+			output: true,
+		},
+		{
+			one:    MockInterval{"a", "a"},
+			two:    MockInterval{"b", "b"},
+			output: false,
+		},
+	}
+	for i, entry := range testMatrix {
+		if out := Intersect(entry.one, entry.two); out != entry.output {
+			t.Errorf("case %d: wrong return type from Intersect: got %t, want %t", i, out, entry.output)
 		}
 	}
 }
