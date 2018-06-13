@@ -638,20 +638,21 @@ func TestAssertionCache(t *testing.T) {
 		c.Add(assertions[0], assertions[0].ValidUntil(), false)
 		//Test Get
 		//external element
-		a, ok := c.Get(assertions[0].SubjectName, assertions[0].SubjectZone, assertions[0].Context,
-			assertions[0].Content[0].Type)
+		a, ok := c.Get(fmt.Sprintf("%s%s", assertions[0].SubjectName, assertions[0].SubjectZone), assertions[0].Context,
+			assertions[0].Content[0].Type, false)
 		if !ok || len(a) != 1 || assertions[0] != a[0] {
 			t.Errorf("%d:Was not able to get correct assertion from cache expected=%s actual=%s", i, assertions[0], a[0])
 		}
 		//internal element
-		a, ok = c.Get(aORG[0].SubjectName, aORG[0].SubjectZone, aORG[0].Context, aORG[0].Content[0].Type)
+		a, ok = c.Get(fmt.Sprintf("%s%s", aORG[0].SubjectName, aORG[0].SubjectZone), aORG[0].Context,
+			aORG[0].Content[0].Type, false)
 		if !ok || len(a) != 1 || aORG[0] != a[0] {
 			t.Errorf("%d:Was not able to get correct assertion from cache expected=%s actual=%s", i, aORG[0], a[0])
 		}
 		//more than one answer
 		c.Add(assertions[1], assertions[1].ValidUntil(), false)
-		a, ok = c.Get(assertions[0].SubjectName, assertions[0].SubjectZone, assertions[0].Context,
-			assertions[0].Content[0].Type)
+		a, ok = c.Get(fmt.Sprintf("%s%s", assertions[0].SubjectName, assertions[0].SubjectZone), assertions[0].Context,
+			assertions[0].Content[0].Type, false)
 		if !ok || len(a) != 2 || (a[0] == assertions[0] && a[1] != assertions[1]) ||
 			(a[0] == assertions[1] && a[1] != assertions[0]) || (a[0] == assertions[0] && a[0] == assertions[1]) {
 			t.Errorf("%d:Was not able to get correct assertion from cache expected=%s actual=%s", i, assertions, a)
@@ -687,7 +688,8 @@ func TestAssertionCache(t *testing.T) {
 		c.Add(aORG[0], aORG[0].ValidUntil(), true)
 		c.Add(assertions[2], assertions[2].ValidUntil(), false)
 		c.RemoveZone("com")
-		a, ok = c.Get(aORG[0].SubjectName, aORG[0].SubjectZone, aORG[0].Context, aORG[0].Content[0].Type)
+		a, ok = c.Get(fmt.Sprintf("%s%s", aORG[0].SubjectName, aORG[0].SubjectZone), aORG[0].Context,
+			aORG[0].Content[0].Type, false)
 		if c.Len() != 1 || a[0] != aORG[0] {
 			t.Errorf("%d:Was not able to remove correct elements of zone '.' from cache.", i)
 		}
@@ -707,7 +709,8 @@ func TestAssertionCache(t *testing.T) {
 			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
 		}
 		c.RemoveExpiredValues()
-		a, ok = c.Get(aORG[0].SubjectName, aORG[0].SubjectZone, aORG[0].Context, aORG[0].Content[0].Type)
+		a, ok = c.Get(fmt.Sprintf("%s%s", aORG[0].SubjectName, aORG[0].SubjectZone), aORG[0].Context,
+			aORG[0].Content[0].Type, false)
 		if c.Len() != 1 || a[0] != aORG[0] {
 			t.Errorf("%d:Was not able to remove correct expired elements from cache.", i)
 		}

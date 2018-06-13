@@ -772,7 +772,7 @@ type assertionExpiration struct {
  * such that we can remove all entries of a zone in case of misbehavior or inconsistencies.
  * It does not support any context
  */
-type assertionCache struct {
+type assertionCacheImpl struct {
 	cache                  *lruCache.Cache
 	counter                *safeCounter.Counter
 	zoneMap                *safeHashMap.Map
@@ -806,7 +806,7 @@ func assertionCacheMapKeyFQDN(fqdn, context string, oType rainslib.ObjectType) s
 //Add adds an assertion together with an expiration time (number of seconds since 01.01.1970) to
 //the cache. It returns false if the cache is full and an element was removed according to least
 //recently used strategy. It also adds the shard to the consistency cache.
-func (c *assertionCache) Add(a *rainslib.AssertionSection, expiration int64, isInternal bool) bool {
+func (c *assertionCacheImpl) Add(a *rainslib.AssertionSection, expiration int64, isInternal bool) bool {
 	isFull := false
 	consistCache.Add(a)
 	for _, o := range a.Content {
@@ -891,7 +891,7 @@ func zoneHierarchy(fqdn string) []string {
 //nil and false is returned.
 // If strict is true then only a direct match for the provided FQDN is looked up.
 // Otherwise, a search up the domain name hierarchy is performed to get the topmost match.
-func (c *assertionCache) Get(fqdn, context string, objType rainslib.ObjectType, strict bool) ([]*rainslib.AssertionSection, bool) {
+func (c *assertionCacheImpl) Get(fqdn, context string, objType rainslib.ObjectType, strict bool) ([]*rainslib.AssertionSection, bool) {
 	log.Debug("get", "fqdn", fqdn)
 	var v interface{}
 	var ok bool
@@ -927,7 +927,7 @@ func (c *assertionCache) Get(fqdn, context string, objType rainslib.ObjectType, 
 
 //RemoveExpiredValues goes through the cache and removes all expired assertions from the
 //assertionCache and the consistency cache.
-func (c *assertionCache) RemoveExpiredValues() {
+func (c *assertionCacheImpl) RemoveExpiredValues() {
 	for _, v := range c.cache.GetAll() {
 		value := v.(*assertionCacheValue)
 		deleteCount := 0
@@ -962,7 +962,7 @@ func (c *assertionCache) RemoveExpiredValues() {
 }
 
 //RemoveZone deletes all assertions in the assertionCache and consistencyCache of the given zone.
-func (c *assertionCache) RemoveZone(zone string) {
+func (c *assertionCacheImpl) RemoveZone(zone string) {
 	if set, ok := c.zoneMap.Remove(zone); ok {
 		for _, key := range set.(*safeHashMap.Map).GetAllKeys() {
 			v, ok := c.cache.Remove(key)
@@ -991,7 +991,7 @@ func (c *assertionCache) RemoveZone(zone string) {
 }
 
 //Len returns the number of elements in the cache.
-func (c *assertionCache) Len() int {
+func (c *assertionCacheImpl) Len() int {
 	return c.counter.Value()
 }
 
