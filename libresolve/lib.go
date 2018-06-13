@@ -9,9 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/protoParser"
+
+	log "github.com/inconshreveable/log15"
 )
 
 type ResolutionMode int
@@ -97,17 +98,17 @@ func (r *Resolver) waitResponse(pf protoParser.ProtoParserAndFramer, token rains
 
 func (r *Resolver) forwardQuery(q rainslib.RainsMessage) (*rainslib.RainsMessage, error) {
 	if len(r.Forwarders) == 0 {
-		return nil, errors.New("forwarders must be specified to use this mode.")
+		return nil, errors.New("forwarders must be specified to use this mode")
 	}
 	errs := make([]error, 0)
 	for i, forwarder := range r.Forwarders {
-		glog.Infof("Connecting to forwarding resolver #%d: %v", i, forwarder)
+		log.Info(fmt.Sprintf("Connecting to forwarding resolver #%d: %v", i, forwarder))
 		d := &net.Dialer{
 			Timeout: r.DialTimeout,
 		}
 		conn, err := tls.DialWithDialer(d, "tcp", forwarder, &tls.Config{InsecureSkipVerify: r.InsecureTLS})
 		if err != nil {
-			glog.Warningf("Connection to fowarding resolver %d failed: %v", i, err)
+			log.Warn(fmt.Sprintf("Connection to fowarding resolver %d failed: %v", i, err))
 			errs = append(errs, err)
 			continue
 		}
@@ -158,7 +159,7 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 	latestResolver := r.RootNameservers[0] // TODO: try multiple root nameservers.
 	var resp *rainslib.RainsMessage
 	for {
-		glog.Infof("connecting to resolver at address: %s to resolve %q", latestResolver, name)
+		log.Info(fmt.Sprintf("connecting to resolver at address: %s to resolve %q", latestResolver, name))
 		d := &net.Dialer{
 			Timeout: r.DialTimeout,
 		}
@@ -170,7 +171,7 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 		pf := protoParser.ProtoParserAndFramer{}
 		pf.InitStreams(conn, conn)
 		q := r.nameToQuery(name, context, time.Now().Add(15*time.Second).Unix(), []rainslib.QueryOption{})
-		glog.Infof("query is: %v", q)
+		log.Info(fmt.Sprintf("query is: %v", q))
 		b, err := pf.Encode(q)
 		if err != nil {
 			return nil, fmt.Errorf("failed to encode query: %v", err)
@@ -190,7 +191,7 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 		if len(resp.Content) == 0 {
 			return nil, errors.New("got empty response")
 		}
-		glog.Infof("response was %+v", resp)
+		log.Info(fmt.Sprintf("response was %+v", resp))
 		// The response can either be a redirection chain or a response.
 		redirectMap := make(map[string]string)
 		srvMap := make(map[string]rainslib.ServiceInfo)
