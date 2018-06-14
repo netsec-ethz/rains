@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/golang/glog"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -28,7 +27,6 @@ func WaitForListen(zonePortMap map[string]uint, timeoutAfter time.Duration) erro
 				time.Sleep(1 * time.Second)
 				continue
 			}
-			glog.Infof("Successfully probed server at: %v", addr)
 			conn.Close()
 			break
 		}

@@ -2,7 +2,7 @@ COMMIT=$(shell git rev-parse HEAD)
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
 HOSTNAME=$(shell hostname -f)
 
-BUILD_PATH=${GOPATH}/src/github.com/netsec-ethz/rains/build/
+BUILD_PATH=${PWD}/build/
 
 LDFLAGS = -ldflags "-X main.buildinfo_hostname=${HOSTNAME} -X main.buildinfo_commit=${COMMIT} -X main.buildinfo_branch=${BRANCH}"
 
