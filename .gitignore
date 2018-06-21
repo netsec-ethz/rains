@@ -25,6 +25,7 @@ _testmain.go
 *.exe
 *.test
 *.prof
+*.out
 
 #server main() function binary
 /example/serverCH/serverCH

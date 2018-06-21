@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 
@@ -512,6 +513,7 @@ func TestContainsZoneFileType(t *testing.T) {
 var result bool
 
 func BenchmarkSignAssertions(b *testing.B) {
+	log.Root().SetHandler(log.DiscardHandler())
 	encoder := new(zoneFileParser.Parser)
 	_, pkey, _ := ed25519.GenerateKey(nil)
 	assertion := rainslib.GetMessage().Content[0].(rainslib.MessageSectionWithSig)
@@ -520,13 +522,14 @@ func BenchmarkSignAssertions(b *testing.B) {
 		ValidUntil:  time.Now().Add(time.Hour).Unix(),
 	}
 	for n := 0; n < b.N; n++ {
-		for i := 0; i < 3000; i++ {
+		for i := 0; i < 1; i++ {
 			result = SignSection(assertion, pkey, sig, encoder)
 		}
 	}
 }
 
 func benchmarkSignShard(nofAssertions int, b *testing.B) {
+	log.Root().SetHandler(log.DiscardHandler())
 	encoder := new(zoneFileParser.Parser)
 	_, pkey, _ := ed25519.GenerateKey(nil)
 	assertion := rainslib.GetMessage().Content[0].(*rainslib.AssertionSection)
@@ -549,6 +552,7 @@ func BenchmarkSignShard100(b *testing.B) { benchmarkSignShard(100, b) }
 //Assertions are equally distributed among shards. Zone only contains shards as assertions are
 //contained in shards.
 func benchmarkSignZone(nofShards, nofAssertionsPerShard int, b *testing.B) {
+	log.Root().SetHandler(log.DiscardHandler())
 	encoder := new(zoneFileParser.Parser)
 	_, pkey, _ := ed25519.GenerateKey(nil)
 	assertion := rainslib.GetMessage().Content[0].(*rainslib.AssertionSection)
