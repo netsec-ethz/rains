@@ -508,3 +508,66 @@ func TestContainsZoneFileType(t *testing.T) {
 		}
 	}
 }
+
+var result bool
+
+func BenchmarkSignAssertions(b *testing.B) {
+	encoder := new(zoneFileParser.Parser)
+	_, pkey, _ := ed25519.GenerateKey(nil)
+	assertion := rainslib.GetMessage().Content[0].(rainslib.MessageSectionWithSig)
+	sig := rainslib.Signature{
+		PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519},
+		ValidUntil:  time.Now().Add(time.Hour).Unix(),
+	}
+	for n := 0; n < b.N; n++ {
+		for i := 0; i < 3000; i++ {
+			result = SignSection(assertion, pkey, sig, encoder)
+		}
+	}
+}
+
+func benchmarkSignShard(nofAssertions int, b *testing.B) {
+	encoder := new(zoneFileParser.Parser)
+	_, pkey, _ := ed25519.GenerateKey(nil)
+	assertion := rainslib.GetMessage().Content[0].(*rainslib.AssertionSection)
+	shard := rainslib.GetMessage().Content[1].(*rainslib.ShardSection)
+	for i := 1; i < nofAssertions; i++ {
+		shard.Content = append(shard.Content, assertion)
+	}
+	sig := rainslib.Signature{
+		PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519},
+		ValidUntil:  time.Now().Add(time.Hour).Unix(),
+	}
+	for n := 0; n < b.N; n++ {
+		result = SignSection(shard, pkey, sig, encoder)
+	}
+}
+
+func BenchmarkSignShard10(b *testing.B)  { benchmarkSignShard(10, b) }
+func BenchmarkSignShard100(b *testing.B) { benchmarkSignShard(100, b) }
+
+//Assertions are equally distributed among shards. Zone only contains shards as assertions are
+//contained in shards.
+func benchmarkSignZone(nofShards, nofAssertionsPerShard int, b *testing.B) {
+	encoder := new(zoneFileParser.Parser)
+	_, pkey, _ := ed25519.GenerateKey(nil)
+	assertion := rainslib.GetMessage().Content[0].(*rainslib.AssertionSection)
+	shard := rainslib.GetMessage().Content[1].(*rainslib.ShardSection)
+	zone := rainslib.GetMessage().Content[2].(*rainslib.ZoneSection)
+	for i := 1; i < nofAssertionsPerShard; i++ {
+		shard.Content = append(shard.Content, assertion)
+	}
+	for i := 1; i < nofShards; i++ {
+		zone.Content = append(zone.Content, shard)
+	}
+	sig := rainslib.Signature{
+		PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519},
+		ValidUntil:  time.Now().Add(time.Hour).Unix(),
+	}
+	for n := 0; n < b.N; n++ {
+		result = SignSection(zone, pkey, sig, encoder)
+	}
+}
+
+func BenchmarkSignZone10_100(b *testing.B)  { benchmarkSignZone(10, 100, b) }
+func BenchmarkSignShard100_10(b *testing.B) { benchmarkSignZone(100, 10, b) }
