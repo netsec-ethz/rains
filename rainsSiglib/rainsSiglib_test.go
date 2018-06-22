@@ -13,6 +13,7 @@ import (
 )
 
 func TestEncodeAndDecode(t *testing.T) {
+	log.Root().SetHandler(log.DiscardHandler())
 	nameObjectContent := rainslib.NameObject{
 		Name:  "ethz2.ch",
 		Types: []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr},
@@ -244,6 +245,7 @@ func TestEncodeAndDecode(t *testing.T) {
 }
 
 func TestCheckSectionSignaturesErrors(t *testing.T) {
+	log.Root().SetHandler(log.DiscardHandler())
 	encoder := new(zoneFileParser.Parser)
 	maxVal := rainslib.MaxCacheValidity{AddressAssertionValidity: time.Hour}
 	keys := make(map[rainslib.PublicKeyID][]rainslib.PublicKey)
@@ -271,6 +273,7 @@ func TestCheckSectionSignaturesErrors(t *testing.T) {
 }
 
 func TestCheckMessageSignaturesErrors(t *testing.T) {
+	log.Root().SetHandler(log.DiscardHandler())
 	encoder := new(zoneFileParser.Parser)
 	message := rainslib.GetMessage()
 	message2 := rainslib.GetMessage()
@@ -296,6 +299,7 @@ func TestCheckMessageSignaturesErrors(t *testing.T) {
 }
 
 func TestSignSection(t *testing.T) {
+	log.Root().SetHandler(log.DiscardHandler())
 	encoder := new(zoneFileParser.Parser)
 	sections := rainslib.GetMessage().Content
 	_, pkey, _ := ed25519.GenerateKey(nil)
@@ -330,6 +334,7 @@ func TestSignSection(t *testing.T) {
 }
 
 func TestSignMessage(t *testing.T) {
+	log.Root().SetHandler(log.DiscardHandler())
 	encoder := new(zoneFileParser.Parser)
 	message := rainslib.GetMessage()
 	_, pkey, _ := ed25519.GenerateKey(nil)
@@ -365,6 +370,7 @@ func TestSignMessage(t *testing.T) {
 }
 
 func TestCheckMessageStringFields(t *testing.T) {
+	log.Root().SetHandler(log.DiscardHandler())
 	message := rainslib.GetMessage()
 	var tests = []struct {
 		input *rainslib.RainsMessage
@@ -383,6 +389,7 @@ func TestCheckMessageStringFields(t *testing.T) {
 }
 
 func TestCheckStringFields(t *testing.T) {
+	log.Root().SetHandler(log.DiscardHandler())
 	sections := rainslib.GetMessage().Content
 	var tests = []struct {
 		input rainslib.MessageSection
@@ -427,6 +434,7 @@ func TestCheckStringFields(t *testing.T) {
 }
 
 func TestCheckObjectFields(t *testing.T) {
+	log.Root().SetHandler(log.DiscardHandler())
 	var tests = []struct {
 		input []rainslib.Object
 		want  bool
@@ -450,6 +458,7 @@ func TestCheckObjectFields(t *testing.T) {
 }
 
 func TestCheckCapabilites(t *testing.T) {
+	log.Root().SetHandler(log.DiscardHandler())
 	var tests = []struct {
 		input []rainslib.Capability
 		want  bool
@@ -482,6 +491,7 @@ func TestCheckCapabilites(t *testing.T) {
 }
 
 func TestContainsZoneFileType(t *testing.T) {
+	log.Root().SetHandler(log.DiscardHandler())
 	var tests = []struct {
 		input string
 		want  bool
@@ -522,8 +532,8 @@ func BenchmarkSignAssertions(b *testing.B) {
 		ValidUntil:  time.Now().Add(time.Hour).Unix(),
 	}
 	for n := 0; n < b.N; n++ {
-		for i := 0; i < 1; i++ {
-			result = SignSection(assertion, pkey, sig, encoder)
+		for i := 0; i < 10000; i++ {
+			result = SignSectionUnsafe(assertion, pkey, sig, encoder)
 		}
 	}
 }
@@ -542,7 +552,7 @@ func benchmarkSignShard(nofAssertions int, b *testing.B) {
 		ValidUntil:  time.Now().Add(time.Hour).Unix(),
 	}
 	for n := 0; n < b.N; n++ {
-		result = SignSection(shard, pkey, sig, encoder)
+		result = SignSectionUnsafe(shard, pkey, sig, encoder)
 	}
 }
 
@@ -569,7 +579,7 @@ func benchmarkSignZone(nofShards, nofAssertionsPerShard int, b *testing.B) {
 		ValidUntil:  time.Now().Add(time.Hour).Unix(),
 	}
 	for n := 0; n < b.N; n++ {
-		result = SignSection(zone, pkey, sig, encoder)
+		result = SignSectionUnsafe(zone, pkey, sig, encoder)
 	}
 }
 
