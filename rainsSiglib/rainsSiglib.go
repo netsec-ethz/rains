@@ -105,19 +105,11 @@ func CheckMessageSignatures(msg *rainslib.RainsMessage, publicKey rainslib.Publi
 	return len(msg.Signatures) > 0
 }
 
-//SignSection signs a section with the given private Key and adds the resulting bytestring to the given signature.
-//Signatures with validUntil in the past are not signed and added
-//Returns false if the signature was not added to the section
-//
-//Process is defined as:
-//1) check that the signature's ValidUntil is in the future
-//2) check that string fields do not contain  <whitespace>:<non whitespace>:<whitespace>
-//3) sort section
-//4) encode section
-//5) sign the encoding and add it to the signature which will then be added to the section. The encoding of the
-//   signature meta data is added in the verifySignature() method
-func SignSection(s rainslib.MessageSectionWithSig, privateKey interface{}, sig rainslib.Signature, encoder rainslib.SignatureFormatEncoder) bool {
-	log.Debug("Sign Section")
+//ValidSectionAndSignature returns true if the section is not nil, the signature's ValidUntil is in
+//the future, the string fields do not contain  <whitespace>:<non whitespace>:<whitespace>, and the
+//section's content is sorted (by sorting it).
+func ValidSectionAndSignature(s rainslib.MessageSectionWithSig, sig rainslib.Signature) bool {
+	log.Debug("Validating section and signature before signing")
 	if s == nil {
 		log.Warn("section is nil")
 		return false
@@ -130,12 +122,40 @@ func SignSection(s rainslib.MessageSectionWithSig, privateKey interface{}, sig r
 		return false
 	}
 	s.Sort()
+	return true
+}
+
+//SignSectionUnsafe signs a section with the given private Key and adds the resulting bytestring to
+//the given signatures. The shard's or zone's content must already be sorted. It does not check the
+//validity of the signature or the section. Returns false if the signature was not added to the
+//section
+func SignSectionUnsafe(s rainslib.MessageSectionWithSig, privateKey interface{}, sig rainslib.Signature, encoder rainslib.SignatureFormatEncoder) bool {
+	log.Debug("Start Signing Section")
 	err := (&sig).SignData(privateKey, encoder.EncodeSection(s))
 	if err != nil {
 		return false
 	}
 	s.AddSig(sig)
 	return true
+}
+
+//SignSection signs a section with the given private Key and adds the resulting bytestring to the given signature.
+//Signatures with validUntil in the past are not signed and added
+//Returns false if the signature was not added to the section
+//
+//Process is defined as:
+//1) check that the signature's ValidUntil is in the future
+//2) check that string fields do not contain  <whitespace>:<non whitespace>:<whitespace>
+//3) sort section
+//4) encode section
+//5) sign the encoding and add it to the signature which will then be added to the section. The encoding of the
+//   signature meta data is added in the verifySignature() method
+func SignSection(s rainslib.MessageSectionWithSig, privateKey interface{}, sig rainslib.Signature,
+	encoder rainslib.SignatureFormatEncoder) bool {
+	if !ValidSectionAndSignature(s, sig) {
+		return false
+	}
+	return SignSectionUnsafe(s, privateKey, sig, encoder)
 }
 
 //SignMessage signs a message with the given private Key and adds the resulting bytestring to the given signature.
@@ -149,7 +169,8 @@ func SignSection(s rainslib.MessageSectionWithSig, privateKey interface{}, sig r
 //4) encode message
 //5) sign the encoding and add it to the signature which will then be added to the message. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func SignMessage(msg *rainslib.RainsMessage, privateKey interface{}, sig rainslib.Signature, encoder rainslib.SignatureFormatEncoder) bool {
+func SignMessage(msg *rainslib.RainsMessage, privateKey interface{}, sig rainslib.Signature,
+	encoder rainslib.SignatureFormatEncoder) bool {
 	log.Debug("Sign Message")
 	if msg == nil {
 		log.Warn("msg is nil")
@@ -171,8 +192,9 @@ func SignMessage(msg *rainslib.RainsMessage, privateKey interface{}, sig rainsli
 	return true
 }
 
-//checkMessageStringFields returns true if the capabilities and all string fields in the contained sections of the given message
-//do not contain a zone file type marker, i.e. not a substring matching regrex expression '\s:\S+:\s'
+//checkMessageStringFields returns true if the capabilities and all string fields in the contained
+//sections of the given message do not contain a zone file type marker, i.e. not a substring
+//matching regrex expression '\s:\S+:\s'
 func checkMessageStringFields(msg *rainslib.RainsMessage) bool {
 	if msg == nil || !checkCapabilites(msg.Capabilities) {
 		return false
@@ -185,8 +207,8 @@ func checkMessageStringFields(msg *rainslib.RainsMessage) bool {
 	return true
 }
 
-//checkStringFields returns true if non of the string fields of the given section contain a zone file type marker.
-//It panics if the interface s contains a type but the interfaces value is nil
+//checkStringFields returns true if non of the string fields of the given section contain a zone
+//file type marker. It panics if the interface s contains a type but the interfaces value is nil
 func checkStringFields(s rainslib.MessageSection) bool {
 	switch s := s.(type) {
 	case *rainslib.AssertionSection:
