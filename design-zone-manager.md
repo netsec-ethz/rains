@@ -48,3 +48,12 @@ performs the following steps:
 
 RainsPub discards all messages with an unknown token and of non notification
 type.
+
+## Issues
+
+- The zone .com has 130M domain entries. It would take way too long for just one
+  process to read the whole file. Is there a way how an authority can split up
+  the zonefile such that it can be read and signed in parallel. Is it even
+  possible for .com to send a zone to its servers (size) or would it make more
+  sense to split up the process and send several shards from several rainspub
+  servers?
