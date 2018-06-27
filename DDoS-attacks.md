@@ -207,13 +207,13 @@ shorter shards as well.
 
 ### Network exhaustion attack
 
-Attack 12: An attacker having authority over a zone can push a message containing
-a large zone to his target rains server (it is not necessary to sign the
-contained assertions). The attacker then issues many queries for a non-existent
-name of this zone to the target server. As the target server does not have
-signed shards, it has to reply with the large zone file. This attack will use up
-a large fraction of the server's network capabilities. TODO make some
-calculation how many queries are necessary to saturate server components.
+Attack 12: An attacker having authority over a zone can push a message
+containing a large zone to his target rains server (it is not necessary to sign
+the contained assertions). The attacker then issues many queries for a
+non-existent name of this zone to the target server. As the target server does
+not have signed shards, it has to reply with the large zone file. This attack
+will use up a large fraction of the server's network capabilities. TODO make
+some calculation how many queries are necessary to saturate server components.
 
 Defense: A monitoring service can mark zones with unsigned content as
 potentially malicious and count how many times a query is answered with a zone.
