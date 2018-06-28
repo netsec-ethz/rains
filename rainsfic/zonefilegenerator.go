@@ -26,7 +26,11 @@ var (
 func main() {
 	flag.Parse()
 	log.Info("Start generating zonefile")
-	data, _ := ioutil.ReadFile("names.txt")
+	data, err := ioutil.ReadFile("names.txt")
+	if err != nil {
+		log.Error("Was not able to read file", "error", err)
+		return
+	}
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 	scanner.Split(bufio.ScanWords)
 	var names []string
@@ -47,9 +51,9 @@ func main() {
 	for i := 0; i < *nofEntries; i++ {
 		if *isRoot {
 			pubKey, _, _ := ed25519.GenerateKey(nil)
-			output = append(output, fmt.Sprintf("\t:A: %s [ :deleg: %s ]\n", names[i], hex.EncodeToString(pubKey)))
+			output = append(output, fmt.Sprintf("\t:A: %s [ :deleg: ed25519 %s ]\n", names[i], hex.EncodeToString(pubKey)))
 			output = append(output, fmt.Sprintf("\t:A: %s [ :redir: ns.%s ]\n", names[i], names[i]))
-			output = append(output, fmt.Sprintf("\t:A: ns.%s [ :srv: ns1.%s %d ]\n", names[i], names[i], rand.Intn(65536)))
+			output = append(output, fmt.Sprintf("\t:A: ns.%s [ :srv: ns1.%s %d %d ]\n", names[i], names[i], rand.Intn(65536), rand.Intn(1000)))
 			ip := fmt.Sprintf("%d.%d.%d.%d", rand.Intn(256), rand.Intn(256), rand.Intn(256), rand.Intn(256))
 			output = append(output, fmt.Sprintf("\t:A: ns1.%s [ :ip4: %s ]\n", names[i], ip))
 		} else {
@@ -62,9 +66,9 @@ func main() {
 				rand.Intn(10), rand.Intn(10), rand.Intn(10), rand.Intn(10), rand.Intn(10))
 			output = append(output, fmt.Sprintf("\t:A: ns1.%s [ :ip6: %s ]\n", names[i], ipv6))
 			if i%2 == 0 {
-				output = append(output, fmt.Sprintf("\t:A: %s2 [ :name: %s [ :ip4: :ip6: ] ]\n", names[i], names[i]))
+				output = append(output, fmt.Sprintf("\t:A: %s2 [ :name: %s [ ip4 ip6 ] ]\n", names[i], names[i]))
 			} else {
-				output = append(output, fmt.Sprintf("\t:A: srv.%s [ :srv: srv1.%s %d ]\n", names[i], names[i], rand.Intn(65536)))
+				output = append(output, fmt.Sprintf("\t:A: srv.%s [ :srv: srv1.%s %d %d ]\n", names[i], names[i], rand.Intn(65536), rand.Intn(1000)))
 			}
 
 		}

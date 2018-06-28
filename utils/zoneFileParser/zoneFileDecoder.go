@@ -312,13 +312,13 @@ func decodeServiceInfo(scanner *WordScanner) (rainslib.ServiceInfo, error) {
 	scanner.Scan()
 	portNr, err := strconv.Atoi(scanner.Text())
 	if err != nil {
-		return rainslib.ServiceInfo{}, fmt.Errorf("expected number but got %s : %v", scanner.TextLine(), err)
+		return rainslib.ServiceInfo{}, fmt.Errorf("expected port number but got %s : %v", scanner.TextLine(), err)
 	}
 	srvInfo.Port = uint16(portNr)
 	scanner.Scan()
 	prio, err := strconv.Atoi(scanner.Text())
 	if err != nil {
-		return rainslib.ServiceInfo{}, fmt.Errorf("expected number but got %s : %v", scanner.TextLine(), err)
+		return rainslib.ServiceInfo{}, fmt.Errorf("expected priority number but got %s : %v", scanner.TextLine(), err)
 	}
 	srvInfo.Priority = uint(prio)
 	return srvInfo, nil

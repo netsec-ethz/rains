@@ -10,6 +10,10 @@ _test
 #Files
 /questions.md
 
+#Large benchmarking files
+*zonefileDeleg1000000
+*zonefile1000000
+
 # Architecture specific extensions/prefixes
 *.[568vq]
 [568vq].out

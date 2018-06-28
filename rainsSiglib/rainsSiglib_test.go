@@ -1,6 +1,7 @@
 package rainsSiglib
 
 import (
+	"io/ioutil"
 	"net"
 	"testing"
 	"time"
@@ -522,66 +523,138 @@ func TestContainsZoneFileType(t *testing.T) {
 
 var result bool
 
-func BenchmarkSignAssertions(b *testing.B) {
+//Reads a zonefile and signs all contained assertions
+func benchmarkSignAssertions(zonefileName string, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
-	encoder := new(zoneFileParser.Parser)
+
+	zonefileParser := new(zoneFileParser.Parser)
+	data, err := ioutil.ReadFile(zonefileName)
+	if err != nil {
+		log.Error("Was not able to read zonefile", "error", err)
+		return
+	}
+	assertions, err := zonefileParser.Decode(data)
+	if err != nil {
+		log.Error("Was not able to decode zonefile", "error", err)
+		return
+	}
 	_, pkey, _ := ed25519.GenerateKey(nil)
-	assertion := rainslib.GetMessage().Content[0].(rainslib.MessageSectionWithSig)
 	sig := rainslib.Signature{
 		PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519},
 		ValidUntil:  time.Now().Add(time.Hour).Unix(),
 	}
 	for n := 0; n < b.N; n++ {
-		for i := 0; i < 10000; i++ {
-			result = SignSectionUnsafe(assertion, pkey, sig, encoder)
+		for _, assertion := range assertions {
+			result = SignSectionUnsafe(assertion, pkey, sig, zonefileParser)
 		}
 	}
 }
 
-func benchmarkSignShard(nofAssertions int, b *testing.B) {
+func BenchmarkSignAssertion10000(b *testing.B)  { benchmarkSignAssertions("test/zonefile10000", b) }
+func BenchmarkSignAssertion100000(b *testing.B) { benchmarkSignAssertions("test/zonefile100000", b) }
+
+//BenchmarkSignAssertionDeleg10000 has 40000 entries, a deleg, redir, srv and
+//ip4 for each Delegated zone
+func BenchmarkSignAssertionDeleg10000(b *testing.B) {
+	benchmarkSignAssertions("test/zonefileDeleg10000", b)
+}
+func BenchmarkSignAssertionDeleg100000(b *testing.B) {
+	benchmarkSignAssertions("test/zonefileDeleg100000", b)
+}
+
+//Shard ranges are not chosen correctly
+func benchmarkSignShard(zonefileName string, assertionsPerShard int, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
-	encoder := new(zoneFileParser.Parser)
-	_, pkey, _ := ed25519.GenerateKey(nil)
-	assertion := rainslib.GetMessage().Content[0].(*rainslib.AssertionSection)
-	shard := rainslib.GetMessage().Content[1].(*rainslib.ShardSection)
-	for i := 1; i < nofAssertions; i++ {
-		shard.Content = append(shard.Content, assertion)
+	zonefileParser := new(zoneFileParser.Parser)
+	data, err := ioutil.ReadFile(zonefileName)
+	if err != nil {
+		log.Error("Was not able to read zonefile", "error", err)
+		return
 	}
+	assertions, err := zonefileParser.Decode(data)
+	if err != nil {
+		log.Error("Was not able to decode zonefile", "error", err)
+		return
+	}
+	shards := shardAssertions(assertions, assertionsPerShard)
+	_, pkey, _ := ed25519.GenerateKey(nil)
 	sig := rainslib.Signature{
 		PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519},
 		ValidUntil:  time.Now().Add(time.Hour).Unix(),
 	}
 	for n := 0; n < b.N; n++ {
-		result = SignSectionUnsafe(shard, pkey, sig, encoder)
+		for _, shard := range shards {
+			result = SignSectionUnsafe(shard, pkey, sig, zonefileParser)
+		}
 	}
 }
 
-func BenchmarkSignShard10(b *testing.B)  { benchmarkSignShard(10, b) }
-func BenchmarkSignShard100(b *testing.B) { benchmarkSignShard(100, b) }
+//10000 shards are signed containing each 10 assertions
+func BenchmarkSignShard10(b *testing.B) { benchmarkSignShard("test/zonefile100000", 10, b) }
+
+//1000 shards are signed containing each 100 assertions
+
+func BenchmarkSignShard100(b *testing.B) { benchmarkSignShard("test/zonefile100000", 100, b) }
+
+//100 shards are signed containing each 1000 assertions
+
+func BenchmarkSignShard1000(b *testing.B) { benchmarkSignShard("test/zonefile100000", 1000, b) }
 
 //Assertions are equally distributed among shards. Zone only contains shards as assertions are
 //contained in shards.
-func benchmarkSignZone(nofShards, nofAssertionsPerShard int, b *testing.B) {
+func benchmarkSignZone(zonefileName string, assertionsPerShard int, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
-	encoder := new(zoneFileParser.Parser)
+	zonefileParser := new(zoneFileParser.Parser)
+	data, err := ioutil.ReadFile(zonefileName)
+	if err != nil {
+		log.Error("Was not able to read zonefile", "error", err)
+		return
+	}
+	assertions, err := zonefileParser.Decode(data)
+	if err != nil {
+		log.Error("Was not able to decode zonefile", "error", err)
+		return
+	}
+	shards := shardAssertions(assertions, assertionsPerShard)
+	zone := &rainslib.ZoneSection{
+		Context:     assertions[0].Context,
+		SubjectZone: assertions[0].SubjectZone,
+		Content:     shards,
+	}
 	_, pkey, _ := ed25519.GenerateKey(nil)
-	assertion := rainslib.GetMessage().Content[0].(*rainslib.AssertionSection)
-	shard := rainslib.GetMessage().Content[1].(*rainslib.ShardSection)
-	zone := rainslib.GetMessage().Content[2].(*rainslib.ZoneSection)
-	for i := 1; i < nofAssertionsPerShard; i++ {
-		shard.Content = append(shard.Content, assertion)
-	}
-	for i := 1; i < nofShards; i++ {
-		zone.Content = append(zone.Content, shard)
-	}
 	sig := rainslib.Signature{
 		PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519},
 		ValidUntil:  time.Now().Add(time.Hour).Unix(),
 	}
 	for n := 0; n < b.N; n++ {
-		result = SignSectionUnsafe(zone, pkey, sig, encoder)
+		result = SignSectionUnsafe(zone, pkey, sig, zonefileParser)
 	}
 }
 
-func BenchmarkSignZone10_100(b *testing.B)  { benchmarkSignZone(10, 100, b) }
-func BenchmarkSignShard100_10(b *testing.B) { benchmarkSignZone(100, 10, b) }
+//zone is signed containing 10000 shards containing each 10 assertions
+func BenchmarkSignZone10(b *testing.B) { benchmarkSignZone("test/zonefile100000", 10, b) }
+
+//zone is signed containing 1000 shards containing each 100 assertions
+func BenchmarkSignZone100(b *testing.B) { benchmarkSignZone("test/zonefile100000", 100, b) }
+
+//zone is signed containing 100 shards containing each 1000 assertions
+func BenchmarkSignZone1000(b *testing.B) { benchmarkSignZone("test/zonefile100000", 1000, b) }
+
+func shardAssertions(assertions []*rainslib.AssertionSection, assertionsPerShard int) []rainslib.MessageSectionWithSigForward {
+	var shards []rainslib.MessageSectionWithSigForward
+	for i := 0; i < len(assertions); i++ {
+		shard := &rainslib.ShardSection{
+			Context:     assertions[i].Context,
+			SubjectZone: assertions[i].SubjectZone,
+			RangeFrom:   "aaaaa",
+			RangeTo:     "zzzzz",
+		}
+		for i%assertionsPerShard != assertionsPerShard-1 && i < len(assertions)-1 {
+			shard.Content = append(shard.Content, assertions[i])
+			i++
+		}
+		shard.Content = append(shard.Content, assertions[i])
+		shards = append(shards, shard)
+	}
+	return shards
+}
