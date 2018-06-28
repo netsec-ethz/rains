@@ -205,16 +205,25 @@ these two cases such that she knows if it is safe to use expired assertions.
 
 ## Benchmarking signing
 
-The largest zone is '.com' with 134M registered domains. Next comes china's
-'.cn' with 21.4M entries. Switzerland's '.ch' zone has a bit more than 2 Million
-domains.
+The largest zone is '.com' with 134M registered domains. Next comes china's '.cn' with 21.4M
+entries. Switzerland's '.ch' zone has a bit more than 2 Million domains.
 
-Signing is currently done with just one core on my machine with 2.6GHz.
+Signing is currently done with just one core on my machine with 2.9GHz.
+We were using a benchmark to determine the time it takes an authority to sign a
+zonefile. We have two zonefiles containing 100'000 and 1'000'000 entries similar
+in content to what we expect a zone to have.
 
-- Encoding and signing one assertion takes about 0.1ms
-- Encoding and signing a shard with 100 assertions takes 14ms (4ms + 100*0.1ms)
-- Encoding and signing a zone with 10 shards containing 100 assertions takes
-  175ms (35ms + 10*14ms)
+| nofAssertions | assert/shard | Assertions | Shards | Zone   | Total |
+| -------------:|-------------:|-----------:|-------:|-------:|------:|
+| 10000         | 10           | 0.6        | 0.08   | 0.1    | 0.78  |
+| 10000         | 100          | 0.6        | 0.04   | 0.04   | 0.68  |
+| 10000         | 1000         | 0.6        | 0.1    | 0.1    | 0.8   |
+| 100000        | 10           | 6.3        | 1.1    | 14     | 21.4  |
+| 100000        | 100          | 6.3        | 0.4    | 1.8    | 8.5   |
+| 100000        | 1000         | 6.3        | 1.1    | 1.2    | 8.6   |
+| 1000000       | 10           | 62         | 11.4   | >600   | >673  |
+| 1000000       | 100          | 62         | 6.7    | 125    | 193.7 |
+| 1000000       | 1000         | 62         | 17     | 29.6   | 108.6 |
 
 ## Cost of cloud instances for signing
 
