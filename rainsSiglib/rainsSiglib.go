@@ -105,18 +105,20 @@ func CheckMessageSignatures(msg *rainslib.RainsMessage, publicKey rainslib.Publi
 	return len(msg.Signatures) > 0
 }
 
-//ValidSectionAndSignature returns true if the section is not nil, the signature's ValidUntil is in
-//the future, the string fields do not contain  <whitespace>:<non whitespace>:<whitespace>, and the
-//section's content is sorted (by sorting it).
-func ValidSectionAndSignature(s rainslib.MessageSectionWithSig, sig rainslib.Signature) bool {
+//ValidSectionAndSignature returns true if the section is not nil, all the signatures ValidUntil are
+//in the future, the string fields do not contain  <whitespace>:<non whitespace>:<whitespace>, and
+//the section's content is sorted (by sorting it).
+func ValidSectionAndSignature(s rainslib.MessageSectionWithSig) bool {
 	log.Debug("Validating section and signature before signing")
 	if s == nil {
 		log.Warn("section is nil")
 		return false
 	}
-	if int64(sig.ValidUntil) < time.Now().Unix() {
-		log.Warn("signature is expired", "signature", sig)
-		return false
+	for _, sig := range s.AllSigs() {
+		if int64(sig.ValidUntil) < time.Now().Unix() {
+			log.Warn("signature is expired", "signature", sig)
+			return false
+		}
 	}
 	if !checkStringFields(s) {
 		return false
@@ -152,7 +154,8 @@ func SignSectionUnsafe(s rainslib.MessageSectionWithSig, privateKey interface{},
 //   signature meta data is added in the verifySignature() method
 func SignSection(s rainslib.MessageSectionWithSig, privateKey interface{}, sig rainslib.Signature,
 	encoder rainslib.SignatureFormatEncoder) bool {
-	if !ValidSectionAndSignature(s, sig) {
+	s.AddSig(sig)
+	if !ValidSectionAndSignature(s) {
 		return false
 	}
 	return SignSectionUnsafe(s, privateKey, sig, encoder)

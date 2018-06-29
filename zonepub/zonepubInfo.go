@@ -7,7 +7,7 @@ import (
 )
 
 //config contains configurations for publishing a rains zone file
-var config rainpubConfig
+var config zonepubConfig
 
 //parser is used to extract assertions from a rains zone file.
 var parser rainslib.ZoneFileParser
@@ -18,8 +18,11 @@ var msgParser rainslib.RainsMsgParser
 //subordinateDelegations is a list of all subordinate zones and the delegation schedule with them.
 var subordinateDelegations []delegationInfo
 
-//rainpubConfig lists configurations for publishing zone information
-type rainpubConfig struct {
+//keyPhaseToPath maps the keyphase to the path leading to the private key of this keyphase
+var keyPhaseToPath map[int]string
+
+//zonepubConfig lists configurations for publishing zone information
+type zonepubConfig struct {
 	//AssertionValidity defines the time when an assertion (except a delegation assertion) is valid
 	//starting from the time it is signed
 	AssertionValidSince time.Duration //in hours
@@ -40,21 +43,21 @@ type rainpubConfig struct {
 	ShardValidUntil time.Duration //in hours
 	//ZoneValidity defines the time until a zone is valid starting from the time it is signed
 	ZoneValidUntil time.Duration //in hours
-	//MaxAssertionsPerShard the maximal number of assertions per shard. Currently independent of
-	//assertion's internal size
-	MaxAssertionsPerShard int
 	//ServerAddresses of the rainsd servers to which rainspub is pushing zone file information
 	ServerAddresses []rainslib.ConnInfo
 	//ZoneFilePath is the location of the rains zone file
 	ZoneFilePath string
 	//ZonePrivateKeyPath is the location of the zone's privateKey
-	//TODO CFE move this key into an airgapped device.
-	ZonePrivateKeyPath string
+	ZonePrivateKeyPath []string
 	//DelegationStart defines the time when the superordinate delegated to this zone.
 	DelegationStart time.Time
 	//DelegationInterval defines the time period after which the next delegation assertion to this
 	//zone should be available.
 	DelegationInterval time.Duration //in minutes
+	//PublishInterval defines the time interval after which it republishes the zonefile.
+	PublishInterval time.Duration //in seconds
+	//NofKeyPhases defines the number of key phases
+	NofKeyPhases int
 }
 
 //delegationInfo stores meta data about a delegation issuing schedule for this zone's subordinates.

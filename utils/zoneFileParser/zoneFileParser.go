@@ -75,6 +75,12 @@ func (p Parser) Decode(zoneFile []byte) ([]*rainslib.AssertionSection, error) {
 	return decodeZone(scanner)
 }
 
+//DecodeZone returns a zone exactly as it is represented in the zonefile
+func (p Parser) DecodeZone(zoneFile []byte) (*rainslib.ZoneSection, error) {
+	scanner := NewWordScanner(zoneFile)
+	return decodeZone2(scanner)
+}
+
 //EncodeMessage transforms the given msg into a signable format.
 //It must have already been verified that the msg does not contain malicious content.
 //Signature meta data is not added

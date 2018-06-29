@@ -112,6 +112,86 @@ func decodeShard(context, subjectZone string, scanner *WordScanner) ([]*rainslib
 	return assertions, nil
 }
 
+// decodeZone2 expects as input a scanner holding the data of a zone represented in the zone file
+// format. It returns a zone or an error in case the zone file is malformed. The error indicates
+// what value was expected and in which line of the input the error occurred.
+func decodeZone2(scanner *WordScanner) (*rainslib.ZoneSection, error) {
+	scanner.Scan()
+	if scanner.Text() != ":Z:" {
+		return nil, fmt.Errorf("malformed zonefile: expected ':Z:' got: %s", scanner.TextLine())
+	}
+	scanner.Scan()
+	zone := scanner.Text()
+	if !validZone(zone) {
+		return nil, fmt.Errorf("%q is not a valid zone", zone)
+	}
+	scanner.Scan()
+	context := scanner.Text()
+	scanner.Scan()
+	if scanner.Text() != "[" {
+		return nil, fmt.Errorf("malformed zonefile: expected '[' got: %s", scanner.TextLine())
+	}
+	zoneSection := &rainslib.ZoneSection{
+		SubjectZone: zone,
+		Context:     context,
+	}
+	scanner.Scan()
+	for scanner.Text() != "]" {
+		switch scanner.Text() {
+		case ":A:":
+			if a, err := decodeAssertion(context, zone, scanner); err != nil {
+				return nil, err
+			} else {
+				zoneSection.Content = append(zoneSection.Content, a)
+			}
+		case ":S:":
+			if s, err := decodeShard2(context, zone, scanner); err != nil {
+				return nil, err
+			} else {
+				zoneSection.Content = append(zoneSection.Content, s)
+			}
+		default:
+			return nil, fmt.Errorf("malformed zonefile: expected ':A:' or ':S:' but got %s", scanner.TextLine())
+		}
+		scanner.Scan() //reads in the next section's type or exit the loop in case of ']'
+	}
+	return zoneSection, nil
+}
+
+// decodeShard2 expects as input a scanner at a position where a shard represented in zone file
+// format starts (i.e. scanner.Text() must return :S:) It returns the shard or an error in case the
+// scanner holds a malformed shard i.e. it is not in zone file format The context and sujectZone are
+// inherited from the zone containing the shard.
+func decodeShard2(context, subjectZone string, scanner *WordScanner) (*rainslib.ShardSection, error) {
+	if scanner.Text() != ":S:" {
+		return nil, fmt.Errorf("expected shard ':S:' but got %s", scanner.TextLine())
+	}
+	scanner.Scan()
+	rangeFrom := scanner.Text()
+	scanner.Scan()
+	rangeTo := scanner.Text()
+	scanner.Scan()
+	if scanner.Text() != "[" {
+		return nil, fmt.Errorf("expected '[' but got %s", scanner.TextLine())
+	}
+	shard := &rainslib.ShardSection{
+		SubjectZone: subjectZone,
+		Context:     context,
+		RangeFrom:   rangeFrom,
+		RangeTo:     rangeTo,
+	}
+	scanner.Scan()
+	for scanner.Text() != "]" {
+		if a, err := decodeAssertion(context, subjectZone, scanner); err != nil {
+			return nil, err
+		} else {
+			shard.Content = append(shard.Content, a)
+		}
+		scanner.Scan()
+	}
+	return shard, nil
+}
+
 // decodeAssertion expects as input a scanner at a position where an assertion
 // represented in zone file format starts (i.e. scanner.Text() must return :A:)
 // It returns the assertion or an error in case the scanner holds a malformed
