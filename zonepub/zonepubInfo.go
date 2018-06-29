@@ -1,23 +1,16 @@
-package rainspub
+package zonepub
 
 import (
 	"time"
 
 	"github.com/netsec-ethz/rains/rainslib"
-	"golang.org/x/crypto/ed25519"
 )
 
 //config contains configurations for publishing a rains zone file
 var config rainpubConfig
 
-//zonePrivateKey is used to sign all information about this zone
-var zonePrivateKey ed25519.PrivateKey
-
 //parser is used to extract assertions from a rains zone file.
 var parser rainslib.ZoneFileParser
-
-//signatureEncoder is used to encode a section such that it can be signed
-var signatureEncoder rainslib.SignatureFormatEncoder
 
 //msgParser is used to encode the generated zone such that it can be pushed to the rainsd server
 var msgParser rainslib.RainsMsgParser
