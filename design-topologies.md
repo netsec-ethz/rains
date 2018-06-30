@@ -7,6 +7,15 @@ to the root). It is not only beneficial for a user but also for any entity using
 or being part of the naming system. In this section, we are introducing several
 topologies and strategies on how RAINS might be operated together with an
 analysis pointing out the advantages and disadvantages of these approaches.
+There is always a tradeoff between having smaller local servers and high
+performance centralized servers. The advantage of local servers are a lower
+latency due to the shorter network path and many cache hits as clients from the
+same region speak the same language and will visit similar websites (based on
+the same interests, news, etc.). But once you want to access a lesser known
+website it is with high probability not in the cache. The centralized servers
+have a much broader range of clients and thus, the probability of having a cache
+hit on a lesser known website is certainly higher. [TODO CFE think more about
+the privacy implications for each of the different models]
 
 ## Distributed centralized approach
 
@@ -122,6 +131,30 @@ in answering queries than current once as they do not start with an empty cache.
   RAM sends a memcached request to the distributed caching infrastructure. And
   the memcached servers in the background.
 
+## Peer to peer network
+
+Instead of having large entities which operate high performance rains servers
+all over the world, an entry could be distributed among several rains servers of
+different authorities (optimally in different parts of the world to reduce
+latency). Similar to PNRP [8] or chord [9].This approach distributes the load
+over many different servers providing the naming service. The popularity of a
+domain determines how much it is distributed (otherwise, the server responsible
+for google.com would certainly break down). Each AS (ISP) would be one peer.
+Based on the used hash function it is clear for each client where to find an
+entry. Based on the highly dynamic behavior of the system the entries might
+change too often. It is also doubtable that such a system scales to the
+requirements of a global naming system. Based on the knowledge from where an
+entry is served, it becomes easier for an attacker to target certain domains and
+just DDoS those servers which are responsible for the targeted domain. It is
+especially critic for small domains as they are served only from few servers.
+
+## Hybrid between peer to peer and caching
+
+Cache the most queried entries in a local cache to reduce latency but still
+benefit from the easier lookup based on the known location of an entry. The
+caching also reduces the impact of DDoS attacks target on those servers
+responsible for serving this entry. [TODO CFE elaborate more on this approach]
+
 ## Additional ideas to optimize the system and/or make it more private
 
 - An authority over a zone which wants to reduce query delay in specific region
@@ -160,3 +193,5 @@ https://www.appliedtrust.com/resources/infrastructure/understanding-dns-essentia
 [5] Blog about 1.1.1.1 (26.06.18) https://blog.cloudflare.com/announcing-1111/
 [6] dnsperf (26.06.18) https://www.dnsperf.com/#!dns-resolvers
 [7] Memcached (26.06.18) https://memcached.org/
+[8] PNRP (30.06.18)https://en.wikipedia.org/wiki/Peer_Name_Resolution_Protocol
+[9] Chord (30.06.18) http://nms.csail.mit.edu/papers/chord.pdf
