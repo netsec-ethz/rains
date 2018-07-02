@@ -155,7 +155,10 @@ should take half the time of his superior. This way the zone has enough time to
 cope with a possible delegation failure of its superior zone. Additionally, it
 enables this zone to also have a regular delegation assertion schedule with its
 subordinate. A regular schedule helps to detect possible delegation errors early
-on and gives the involved parties more time to solve them.
+on and gives the involved parties more time to solve them. Additionally, one
+signature is enough for each delegation assertion. This takes off pressure
+during signing for large zones with many delegations and reduces the amount of
+work a rains server must do to check the delegation's validity.
 
 ## Possible delegation errors
 
@@ -234,6 +237,23 @@ Google: 8 cores, 8GB RAM, 375GB storage, Frankfurt: 157$/month
 Source: https://calculator.s3.amazonaws.com/index.html
 AWS: c3.2xlarge 8 vCPU, 15GB RAM, 160GB SSD, I/O high, US-east Virginia: 114$/month
 AWS: c3.2xlarge 8 vCPU, 15GB RAM, 160GB SSD, I/O high, Frankfurt: 162$/month
+
+## Bootstrapping
+
+Every rains server must have a delegation assertion from the root (which is
+self-signed by the root), a redirect assertion to know which name is responsible
+to provide information about the root, a service assertion to obtain the name of
+the root's naming service and port, and an ip4 assertion about the server's ip
+address which hosts the root's naming service. With these four assertions a
+rains server can do recursive lookup and obtain at the end of the process the
+sought information or a proof that this information does not exist. Every
+authority over a zone must create four such entries about its zone and let its
+superordinate sign and store them. Example of the four necessary
+bootstrap assertions for the root.
+1. :A: @ . . :deleg: <public key>
+2. :A: @ . . :redir: ns
+3. :A: ns . . :srv: ns1 1234 0
+4. :A: ns1 . . :ip4: 192.0.2.0
 
 ## Open questions
 

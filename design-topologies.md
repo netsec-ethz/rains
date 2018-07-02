@@ -155,6 +155,16 @@ benefit from the easier lookup based on the known location of an entry. The
 caching also reduces the impact of DDoS attacks target on those servers
 responsible for serving this entry. [TODO CFE elaborate more on this approach]
 
+## Cloud
+
+Having rains servers in the cloud gives an operator more flexibility. Depending
+on how many requests are incoming the number of servers can be dynamically
+adapted. Loading the most queried assertions from a file or another rains server
+on startup helps to make this server faster more efficient as many recursive
+lookups can be prevented. One of the possible downsides is that you must trust
+the cloud operator to do a good job and that he makes sure that there are no
+(or only very limited) disruptions.
+
 ## Additional ideas to optimize the system and/or make it more private
 
 - An authority over a zone which wants to reduce query delay in specific region
