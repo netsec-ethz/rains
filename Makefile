@@ -2,11 +2,11 @@ COMMIT=$(shell git rev-parse HEAD)
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
 HOSTNAME=$(shell hostname -f)
 
-BUILD_PATH=${GOPATH}/src/github.com/netsec-ethz/rains/build/
+BUILD_PATH=${PWD}/build/
 
 LDFLAGS = -ldflags "-X main.buildinfo_hostname=${HOSTNAME} -X main.buildinfo_commit=${COMMIT} -X main.buildinfo_branch=${BRANCH}"
 
-all: clean rainsd rainspub rainsdig integration
+all: clean rainsd rainspub rainsdig integration resolve
 
 clean:
 	rm -rf ${BUILD_PATH}
@@ -32,4 +32,9 @@ integration:
 	go build ${LDFLAGS} -o integration github.com/netsec-ethz/rains/integration ;\
 	cd - >/dev/null
 
-.PHONY: clean rainsd rainspub rainsdig integration
+resolve:
+	cd ${BUILD_PATH}; \
+	go build ${LDFLAGS} -o resolve github.com/netsec-ethz/rains/resolve; \
+	cd - >/dev/null
+
+.PHONY: clean rainsd rainspub rainsdig integration resolve

@@ -399,7 +399,7 @@ func (s *ShardSection) IsConsistent() bool {
 		if !s.InRange(a.SubjectName) {
 			log.Warn("Contained assertion's subjectName is outside the shard's range", "subjectName",
 				a.SubjectName, "Range", fmt.Sprintf("[%s:%s]", s.RangeFrom, s.RangeTo))
-			return true
+			return false
 		}
 	}
 	return true

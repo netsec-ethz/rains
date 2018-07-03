@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/golang/glog"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -28,7 +27,6 @@ func WaitForListen(zonePortMap map[string]uint, timeoutAfter time.Duration) erro
 				time.Sleep(1 * time.Second)
 				continue
 			}
-			glog.Infof("Successfully probed server at: %v", addr)
 			conn.Close()
 			break
 		}
@@ -46,7 +44,7 @@ func InstallBinaries(buildDir, tmpDir string) error {
 	if err := os.Mkdir(outBin, 0766); err != nil {
 		return fmt.Errorf("failed to create bin directory: %v", err)
 	}
-	requiredBins := []string{"rainsd", "rainspub", "rainsdig"}
+	requiredBins := []string{"rainsd", "rainspub", "resolve"}
 	for _, bin := range requiredBins {
 		if err := copyBinTmp(buildDir, bin, outBin); err != nil {
 			return fmt.Errorf("failed to copy binary to tmp dir %q: %v", outBin, err)

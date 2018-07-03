@@ -241,8 +241,9 @@ type assertionCache interface {
 	//according to some strategy. It also adds assertion to the consistency cache.
 	Add(assertion *rainslib.AssertionSection, expiration int64, isInternal bool) bool
 	//Get returns true and a set of assertions matching the given key if there exist some. Otherwise
-	//nil and false is returned.
-	Get(name, zone, context string, objType rainslib.ObjectType) ([]*rainslib.AssertionSection, bool)
+	//nil and false is returned. If strict is set only an exact match for the provided FQDN is returned
+	// otherwise a search up the domain name hiearchy is performed.
+	Get(fqdn, context string, objType rainslib.ObjectType, strict bool) ([]*rainslib.AssertionSection, bool)
 	//RemoveExpiredValues goes through the cache and removes all expired assertions from the
 	//assertionCache and the consistency cache.
 	RemoveExpiredValues()

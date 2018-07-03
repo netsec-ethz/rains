@@ -23,7 +23,6 @@ import (
 
 	"github.com/netsec-ethz/rains/integration/utils"
 
-	"github.com/golang/glog"
 	"github.com/netsec-ethz/rains/integration/configs"
 	"github.com/netsec-ethz/rains/integration/runner"
 	"github.com/netsec-ethz/rains/rainsSiglib"
@@ -31,6 +30,8 @@ import (
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 	"golang.org/x/crypto/ed25519"
 	"gopkg.in/d4l3k/messagediff.v1"
+
+	log "github.com/inconshreveable/log15"
 )
 
 var (
@@ -46,27 +47,31 @@ var (
 
 func main() {
 	flag.Parse()
-	glog.Infof("Initializing tracing server")
+	log.Info("Initializing tracing server")
 	ts, err := utils.NewTraceServer(fmt.Sprintf(":%d", *tracePort))
 	if err != nil {
-		glog.Fatalf("was unable to start tracing server: %v", err)
+		log.Warn("was unable to start tracing server: %v", err)
+		return
 	}
 	go func() {
 		tw := utils.NewTraceWeb(ts)
 		if err := tw.ListenAndServe(fmt.Sprintf(":%d", *traceWebPort)); err != nil {
-			glog.Warningf("failed to ListenAndServe for traceWeb server: %v", err)
+			log.Warn("failed to ListenAndServe for traceWeb server: %v", err)
 		}
 	}()
-	glog.Infof("Initializing system configuration files")
+	log.Info("Initializing system configuration files")
 	tmp, err := ioutil.TempDir("", "RAINSTemp")
 	if err != nil {
-		glog.Fatalf("Failed to create temporary directory: %v", err)
+		log.Error(fmt.Sprintf("Failed to create temporary directory: %v", err))
+		return
 	}
 	if err := utils.InstallBinaries(*buildDir, tmp); err != nil {
-		glog.Fatalf("failed to install binaries: %v", err)
+		log.Error(fmt.Sprintf("Failed to create temporary directory: %v", err))
+		return
 	}
 	if err := initRootServer(tmp); err != nil {
-		glog.Fatalf("failed to initialize root server: %v", err)
+		log.Error(fmt.Sprintf("Failed to initialize root server: %v", err))
+		return
 	}
 	zonePortMap := make(map[string]uint)
 	zonePortMap["."] = *rootPort
@@ -75,11 +80,12 @@ func main() {
 	TLDSlice := strings.Split(*TLDs, ",")
 	for _, TLD := range TLDSlice {
 		if err := generateL2Server(tmp, TLD, port); err != nil {
-			glog.Fatalf("failed to create config for TLD server %q: %v", TLD, err)
+			log.Error(fmt.Sprintf("failed to create config for TLD server: %q: %v", TLD, err))
+			return
 		}
 		zonePortMap[TLD] = port
 		port++
-		glog.Infof("Successfully generated config files for server: %v", TLD)
+		log.Info(fmt.Sprintf("Successfully created config files for server: %v", TLD))
 	}
 	serverExit := make(chan *runner.Runner)
 	servers := make([]*runner.Runner, 0)
@@ -91,10 +97,11 @@ func main() {
 			"--trace_addr", fmt.Sprintf(":%d", *tracePort),
 			"--trace_srv_id", "rootRainsd"},
 		tmp, &serverExit)
-	glog.Info("Starting root server")
+	log.Info("Starting root server")
 	servers = append(servers, rootRunner)
 	if err := rootRunner.Execute(ctx); err != nil {
-		glog.Fatalf("Failed to start root server: %v", err)
+		log.Error(fmt.Sprintf("Failed to start root server: %v", err))
+		return
 	}
 	// Start TLD servers.
 	for _, TLD := range TLDSlice {
@@ -103,10 +110,11 @@ func main() {
 				"--trace_addr", fmt.Sprintf(":%d", *tracePort),
 				"--trace_srv_id", fmt.Sprintf("TLDRainsd:%s", TLD)},
 			tmp, &serverExit)
-		glog.Infof("Starting TLD server for %q", TLD)
+		log.Info(fmt.Sprintf("Starting TLD server for %q", TLD))
 		servers = append(servers, runner)
 		if err := runner.Execute(ctx); err != nil {
-			glog.Fatalf("Failed to start TLD server %q: %v", TLD, err)
+			log.Error(fmt.Sprintf("Failed to start TLD server %q: %v", TLD, err))
+			return
 		}
 	}
 	ready := make(chan error)
@@ -115,45 +123,54 @@ func main() {
 	}()
 	select {
 	case r := <-serverExit:
-		glog.Fatalf("Unexpected exit of server process command %q, stderr: %s\nstdout: %s", r.Command(), r.Stderr(), r.Stdout())
+		log.Error(fmt.Sprintf("Unexpected exit of server process command %q", r.Command()), "stderr", r.Stderr())
+		return
 	case err := <-ready:
 		if err != nil {
-			glog.Fatalf("Failed to probe servers: %v", err)
+			log.Error(fmt.Sprintf("Failed to probe servers: %v", err))
+			return
 		}
 	}
-	glog.Info("Servers successfully started. Ready to push data.")
-	if err := genRootPubConf(tmp, TLDSlice, zonePortMap["."]); err != nil {
-		glog.Fatalf("Failed to generate root rainsPub config: %v", err)
+	log.Info("Servers successfully started. Ready to push data.")
+	if err := genRootPubConf(tmp, TLDSlice, zonePortMap); err != nil {
+		log.Error(fmt.Sprintf("Failed to generate root rainsPub config: %v", err))
+		return
 	}
 	if err := runRainsPub(ctx, tmp, filepath.Join(tmp, "config", "rootPub")); err != nil {
-		glog.Fatalf("Failed to run root rainsPub: %v", err)
+		log.Error(fmt.Sprintf("Failed ot run root rainsPub: %v", err))
+		return
 	}
-	glog.Info("Successfully published data, now querying and verifying responses.")
-	res, err := runRainsDig(ctx, tmp, ".", "[::1]", fmt.Sprintf("%d", zonePortMap["."]), 30*time.Second)
+	log.Info("Successfully published data, now querying and verifying responses.")
+	res, err := runResolve(ctx, tmp, ".", "[::1]", fmt.Sprintf("%d", zonePortMap["."]), 30*time.Second)
 	if err != nil {
-		glog.Warningf("Failed to run rainsDig on root zone: %v", err)
+		log.Error(fmt.Sprintf("Failed to run rainsdig on root zone: %v", err))
 		waitExit()
+		return
 	}
 	pubKeyMap := make(map[string]string)
 	for _, zone := range TLDSlice {
 		key, err := zonePublicKey(tmp, zone)
 		if err != nil {
-			glog.Fatalf("Failed to read public key for l2 zone %q: %v", zone, err)
+			log.Error(fmt.Sprintf("Failed to read public key for l2 zone %q: %v", zone, err))
+			return
 		}
 		pubKeyMap[zone] = key
 	}
 	if err := verifyRainsDigRoot(res, pubKeyMap); err != nil {
-		glog.Fatalf("failed to verify root zone entries: %v", err)
+		log.Error(fmt.Sprintf("failed ot verify root zone entries: %v", err))
+		return
 	}
-	glog.Infof("Successfully ran rainsDig and got response: %s", res)
+	log.Info(fmt.Sprintf("Successfullt ran rainsdig and got response: %s", res))
 	if err := tldPub(ctx, tmp, TLDSlice, strings.Split(*RLDs, ","), zonePortMap); err != nil {
-		glog.Warningf("failed to push RLD records to TLD servers: %v", err)
+		log.Error(fmt.Sprintf("failed to publish RLD records to TLD servers: %v", err))
 		waitExit()
+		return
 	}
 	// Query each TLD and make sure the expected entries are there.
 	if err := verifyRainsDigTLD(ctx, tmp, strings.Split(*RLDs, ","), zonePortMap); err != nil {
-		glog.Warningf("failed to verify L2 servers with rainsdig: %v", err)
+		log.Error(fmt.Sprintf("failed to verify L2 servers: %v", err))
 		waitExit()
+		return
 	}
 	waitExit()
 }
@@ -161,9 +178,9 @@ func main() {
 func waitExit() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
-	glog.Infof("Waiting for ^C to exit...")
+	log.Info("Waiting for ^C to exit...")
 	<-c
-	glog.Infof("Shutting down")
+	log.Info("Shutting down")
 	os.Exit(0)
 }
 
@@ -224,7 +241,7 @@ func tldPub(ctx context.Context, basePath string, TLDs, RLDs []string, zonePortM
 // genRootPubConf generates a rainspub configuration for the root zone data.
 // l2Dirs is a slice of paths to the TLD server configuration directories,
 // which is used for extracting the public keys.
-func genRootPubConf(basePath string, TLDs []string, rootPort uint) error {
+func genRootPubConf(basePath string, TLDs []string, zonePortMap map[string]uint) error {
 	zoneKeyMap := make(map[string]string)
 	for _, TLD := range TLDs {
 		zoneKeyMap[TLD] = filepath.Join(basePath, "config", TLD, "public.key")
@@ -240,18 +257,24 @@ func genRootPubConf(basePath string, TLDs []string, rootPort uint) error {
 	}
 	rpp := configs.RootPubParams{
 		L2TLDs: make([]struct {
-			TLD    string
-			PubKey string
+			TLD       string
+			PubKey    string
+			RedirPort uint
 		}, 0),
 	}
 	for zone, key := range pkeyMap {
-		glog.Infof("Adding zone: %s, key: %s", zone, key)
+		port, ok := zonePortMap[zone]
+		if !ok {
+			return fmt.Errorf("could not find port for zone %q, zonePortMap %v", zone, zonePortMap)
+		}
 		rpp.L2TLDs = append(rpp.L2TLDs, struct {
-			TLD    string
-			PubKey string
+			TLD       string
+			PubKey    string
+			RedirPort uint
 		}{
 			zone,
 			key,
+			port,
 		})
 	}
 	zoneData, err := rpp.ZoneFile()
@@ -269,6 +292,10 @@ func genRootPubConf(basePath string, TLDs []string, rootPort uint) error {
 	if err := ioutil.WriteFile(filepath.Join(outDir, "data.zone"), []byte(zoneData), 0600); err != nil {
 		return fmt.Errorf("failed to write data.zone: %v", err)
 	}
+	rootPort, ok := zonePortMap["."]
+	if !ok {
+		return fmt.Errorf("could not find root port in zonePortMap: %v", zonePortMap)
+	}
 	rpc := configs.RootPubConf{
 		Port:           rootPort,
 		ZoneFilePath:   filepath.Join(outDir, "data.zone"),
@@ -284,16 +311,12 @@ func genRootPubConf(basePath string, TLDs []string, rootPort uint) error {
 	return nil
 }
 
-// runRainsDig queries the specified server for the requested zone.
+// runResolve queries the specified server for the requested zone.
 // The output of stdout is returned on success, otherwise an error
 // is returned.
-func runRainsDig(ctx context.Context, basePath, zone, serverHost, serverPort string, maxTime time.Duration) (string, error) {
-	binPath := filepath.Join(basePath, "bin", "rainsdig")
-	args := []string{"--insecureTLS", "-s", serverHost, "-p", serverPort}
-	if zone != "." {
-		args = append(args, "-q", zone)
-	}
-	glog.Infof("Running rainsdig with arguments: %v", args)
+func runResolve(ctx context.Context, basePath, zone, serverHost, serverPort string, maxTime time.Duration) (string, error) {
+	binPath := filepath.Join(basePath, "bin", "resolve")
+	args := []string{"--insecureTLS", "-root", fmt.Sprintf("%s:%s", serverHost, serverPort), "-name", zone}
 	exitChan := make(chan *runner.Runner)
 	r := runner.New(binPath, args, basePath, &exitChan)
 	r.Execute(ctx)
@@ -325,33 +348,43 @@ func verifyRainsDigTLD(ctx context.Context, basePath string, RLDs []string, zone
 		if zone == "." {
 			continue
 		}
-		fqdn := fmt.Sprintf(".%s.", zone)
-		output, err := runRainsDig(ctx, basePath, fqdn, "[::1]", fmt.Sprintf("%d", port), 10*time.Second)
-		if err != nil {
-			return fmt.Errorf("failed to run rainsDig: %v", err)
-		}
-		parser := zoneFileParser.Parser{}
-		as, err := parser.Decode([]byte(output))
-		if err != nil {
-			return fmt.Errorf("failed to parse rainsDig output: %v", err)
-		}
-		if len(as) != len(RLDs) {
-			return fmt.Errorf("expected %d section(s) when querying %q, but got %d", len(RLDs), fqdn, len(as))
-		}
-		for _, assertion := range as {
-			content := assertion.Content
-			if len(content) != 1 {
-				return fmt.Errorf("expected 1 object in assertion for %q content but got %d", fqdn, len(content))
+		for _, rld := range RLDs {
+			fqdn := fmt.Sprintf("%s.%s.", rld, zone)
+			output, err := runResolve(ctx, basePath, fqdn, "[::1]", fmt.Sprintf("%d", port), 10*time.Second)
+			if err != nil {
+				return fmt.Errorf("failed to run rainsDig: %v", err)
 			}
-			addr, ok := content[0].Value.(string)
-			if !ok {
-				return fmt.Errorf("expected value to be of type string, but got %T", content[0].Value)
+			// XXX: Horrific hack.
+			// The issue is that the zoneFileParser is not roundtripable, i.e. it cannot parse what it iself
+			// has generated if the input was an assertion instead of a whole zone.
+			if !strings.Contains(output, "127.0.0.1") {
+				return fmt.Errorf("expected output to contain 127.0.0.1 but got: %q", output)
 			}
-			// FIXME: Change this to a custom thing for each record.
-			if addr != "127.0.0.1" {
-				return fmt.Errorf("expected A record with value 127.0.0.1, but got: %s", addr)
-			}
-			glog.Infof("successfully verified %s.%s", assertion.SubjectName, assertion.SubjectZone)
+			/*
+				parser := zoneFileParser.Parser{}
+				as, err := parser.Decode([]byte(output))
+				if err != nil {
+					return fmt.Errorf("failed to parse rainsDig output: %v", err)
+				}
+				if len(as) != 1 {
+					return fmt.Errorf("expected %d section(s) when querying %q, but got %d", len(RLDs), fqdn, len(as))
+				}
+				for _, assertion := range as {
+					content := assertion.Content
+					if len(content) != 1 {
+						return fmt.Errorf("expected 1 object in assertion for %q content but got %d", fqdn, len(content))
+					}
+					addr, ok := content[0].Value.(string)
+					if !ok {
+						return fmt.Errorf("expected value to be of type string, but got %T", content[0].Value)
+					}
+					// FIXME: Change this to a custom thing for each record.
+					if addr != "127.0.0.1" {
+						return fmt.Errorf("expected A record with value 127.0.0.1, but got: %s", addr)
+					}
+					glog.Infof("successfully verified %s.%s", assertion.SubjectName, assertion.SubjectZone)
+				}
+			*/
 		}
 	}
 	return nil
@@ -367,30 +400,27 @@ func verifyRainsDigRoot(output string, subKeys map[string]string) error {
 	}
 	toCheck := len(subKeys)
 	for _, assertion := range as {
-		glog.Infof("subjectName = %s", assertion.SubjectName)
 		if key, ok := subKeys[assertion.SubjectName]; ok {
 			content := assertion.Content
-			if len(content) > 1 {
-				return fmt.Errorf("expected content length for subject=%s to be 1 but got %d", assertion.SubjectName, len(content))
+			for _, object := range content {
+				switch object.Type {
+				case rainslib.OTDelegation:
+					value, ok := object.Value.(rainslib.PublicKey)
+					if !ok {
+						return fmt.Errorf("expected value type of rainslib.PublicKey but got %T: %v", object.Value, object.Value)
+					}
+					keyBytes := []byte(value.Key.(ed25519.PublicKey))
+					wantBytes, err := hex.DecodeString(key)
+					if err != nil {
+						return fmt.Errorf("failed to decode expected public key to bytes: %v", err)
+					}
+					if diff, ok := messagediff.PrettyDiff(wantBytes, keyBytes); !ok {
+						return fmt.Errorf("mismatched public keys for zone %q: diff: %s", assertion.SubjectName, diff)
+					}
+				}
 			}
-			if _, ok := content[0].Value.(rainslib.PublicKey); !ok {
-				return fmt.Errorf("expected value of type rainslib.PublicKey but got %T", content[0].Value)
-			}
-			pkey := content[0].Value.(rainslib.PublicKey)
-			if _, ok := pkey.Key.(ed25519.PublicKey); !ok {
-				return fmt.Errorf("expected key of type ed25519.PublcKey but got %T", pkey.Key)
-			}
-			keyBytes := []byte(pkey.Key.(ed25519.PublicKey))
-			wantBytes, err := hex.DecodeString(key)
-			if err != nil {
-				return fmt.Errorf("failed to decode expected public key to bytes: %v", err)
-			}
-			if diff, ok := messagediff.PrettyDiff(wantBytes, keyBytes); !ok {
-				return fmt.Errorf("mismatched public keys for zone %q: diff: %s", assertion.SubjectName, diff)
-			}
-			glog.Infof("Key successfully verified for zone %s", assertion.SubjectName)
 		} else {
-			return fmt.Errorf("got unknown sub zone: %s", assertion.SubjectName)
+			continue
 		}
 		toCheck -= 1
 	}
@@ -420,7 +450,6 @@ func runRainsPub(ctx context.Context, basePath, confPath string) error {
 	case <-timeout:
 		return errors.New("rainspub execution timed out")
 	}
-	glog.Infof("Rainspub successfully exited")
 	return nil
 }
 
@@ -575,7 +604,6 @@ func CreateDelegationAssertion(zone, context, outPath, gobOut string) error {
 	if err != nil {
 		return err
 	}
-	glog.Infof("Generated root public Key: %v", publicKey)
 	pkey := rainslib.PublicKey{
 		PublicKeyID: rainslib.PublicKeyID{
 			KeySpace:  rainslib.RainsKeySpace,
@@ -632,22 +660,4 @@ func SignDelegation(delegationPath, privateKeyPath string) error {
 		return errors.New("Was not able to sign and add signature")
 	}
 	return rainslib.Save(delegationPath, delegation)
-}
-
-// CreateEd25519Keypair creates a ed25519 keypair where it stores the keys
-// hexadecimal encoded to privateKeyPath or publicKeyPath respectively.
-func CreateEd25519Keypair(privateKeyPath, publicKeyPath string) {
-	publicKey, privateKey, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		glog.Errorf("Could not create key pair: %v", err)
-		return
-	}
-	err = ioutil.WriteFile(privateKeyPath, []byte(hex.EncodeToString(privateKey)), 0644)
-	if err != nil {
-		glog.Errorf("Could not store private key to %q: %v", privateKeyPath, err)
-	}
-	err = ioutil.WriteFile(publicKeyPath, []byte(hex.EncodeToString(publicKey)), 0644)
-	if err != nil {
-		glog.Errorf("Could not store public key %q: %v", publicKeyPath, err)
-	}
 }
