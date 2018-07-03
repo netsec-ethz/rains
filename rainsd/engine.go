@@ -470,17 +470,21 @@ func processQuery(msgSender msgSectionSender) {
 //query directly answers the query if the result is cached. Otherwise it issues a new query and adds this query to the pendingQueries Cache.
 func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Start processing query", "query", query)
+	trace(token, fmt.Sprintf("Processing QuerySection for name: %v, types: %v", query.Name, query.Types))
 	zoneAndNames := getZoneAndName(query.Name)
+	trace(token, fmt.Sprintf("split input query to: %v", zoneAndNames))
 
 	//positive answer lookup
 	for _, zAn := range zoneAndNames {
 		assertions := []rainslib.MessageSection{}
 		for _, t := range query.Types {
 			if asserts, ok := assertionsCache.Get(zAn.name, zAn.zone, query.Context, t); ok {
+				trace(token, fmt.Sprintf("received from cache: %v", asserts))
 				//TODO implement a more elaborate policy to filter returned assertions instead
 				//of sending all non expired once back.
 				for _, a := range asserts {
 					if a.ValidUntil() > time.Now().Unix() {
+						trace(token, fmt.Sprintf("appending valid assertion %v to response", a))
 						assertions = append(assertions, a)
 						break
 					}
@@ -489,9 +493,11 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		}
 		if len(assertions) > 0 {
 			sendSections(assertions, token, sender)
+			trace(token, fmt.Sprintf("successfully sent response assertions: %v", assertions))
 			log.Info("Finished handling query by sending assertion from cache", "query", query)
 			return
 		}
+		trace(token, "no entry found in assertion cache")
 		log.Debug("No entry found in assertion cache", "name", zAn.name, "zone", zAn.zone,
 			"context", query.Context, "type", query.Types)
 	}
@@ -507,21 +513,25 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 			//e.g. using gob encoding. alternatively we could also count the number of contained
 			//elements.
 			sendSection(negAssertion[0], token, sender)
+			trace(token, fmt.Sprintf("found negative assertion matching query: %v", negAssertion[0]))
 			log.Info("Finished handling query by sending shard or zone from cache", "query", query)
 			return
 		}
 	}
 	log.Debug("No entry found in negAssertion cache matching the query")
+	trace(token, "no entry found in negative assertion cache")
 
 	//cached answers only?
 	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
 		log.Debug("Send a notification message back due to query option: 'Cached Answers only'",
 			"destination", sender)
 		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
+		trace(token, "returned no assertion available message due to CachedAnswersOnly query option")
 		log.Info("Finished handling query (unsuccessful, cached answers only) ", "query", query)
 		return
 	}
 
+	trace(token, "forwarding query")
 	//forward query (no answer in cache)
 	for _, zAn := range zoneAndNames {
 		var delegate rainslib.ConnInfo

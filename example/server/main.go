@@ -14,7 +14,9 @@ import (
 var (
 	debugAddr = flag.String("debug_addr", "[::1]:8080", "Address to listen on for debugging info server.")
 	config    = flag.String("config", "", "Path to configuration file.")
-	verbosity = flag.Int("verbosity", int(log.LvlInfo), "Verbosity of logging.")
+	verbosity = flag.Int("verbosity", int(log.LvlDebug), "Verbosity of logging.")
+	traceAddr = flag.String("trace_addr", "", "Address of the trace server")
+	traceID   = flag.String("trace_srv_id", "", "Server ID to send with traces")
 
 	buildinfo_hostname string
 	buildinfo_commit   string
@@ -71,7 +73,10 @@ func main() {
 	if *config == "" {
 		glog.Fatalf("Path to config file must be specified.")
 	}
-	if err := rainsd.InitServer(*config, *verbosity); err != nil {
+	if *traceAddr != "" && *traceID == "" {
+		glog.Fatalf("trace_srv_id must be specified when trace_addr is")
+	}
+	if err := rainsd.InitServer(*config, *traceAddr, *traceID, *verbosity); err != nil {
 		glog.Fatalf("Failed to start server: %v", err)
 	}
 	go statusServer()

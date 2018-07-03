@@ -34,17 +34,29 @@ import (
 )
 
 var (
-	rootPort   = flag.Uint("root_port", 2345, "Port at which to start the root server, and base for subsequent servers.")
-	TLDs       = flag.String("tlds", "ch,de,com", "Comma separated list of TLDs")
-	RLDs       = flag.String("rlds", "example,gov,edu", "Comma seperated list of RLDs to create in TLDs.")
-	validity   = flag.Duration("validity", 30*24*time.Hour, "Validity time for signatures and assertions.")
-	buildDir   = flag.String("build_dir", "build/", "Path to directory containing RAINS binaries.")
-	ecdsaCurve = flag.String("ecdsa_curve", "P521", "Which ECDSA curve to use when generating X509 certificates")
-	waitAfter  = flag.Bool("wait_after", false, "Wait after running tests for manual debugging of the setup")
+	rootPort     = flag.Uint("root_port", 2345, "Port at which to start the root server, and base for subsequent servers.")
+	TLDs         = flag.String("tlds", "ch,de,com", "Comma separated list of TLDs")
+	RLDs         = flag.String("rlds", "example,gov,edu", "Comma seperated list of RLDs to create in TLDs.")
+	validity     = flag.Duration("validity", 30*24*time.Hour, "Validity time for signatures and assertions.")
+	buildDir     = flag.String("build_dir", "build/", "Path to directory containing RAINS binaries.")
+	ecdsaCurve   = flag.String("ecdsa_curve", "P521", "Which ECDSA curve to use when generating X509 certificates")
+	tracePort    = flag.Int("trace_port", 16000, "Port to listen on for trace server")
+	traceWebPort = flag.Int("trace_web_port", 16001, "Port to listen on for tracing web interface")
 )
 
 func main() {
 	flag.Parse()
+	glog.Infof("Initializing tracing server")
+	ts, err := utils.NewTraceServer(fmt.Sprintf(":%d", *tracePort))
+	if err != nil {
+		glog.Fatalf("was unable to start tracing server: %v", err)
+	}
+	go func() {
+		tw := utils.NewTraceWeb(ts)
+		if err := tw.ListenAndServe(fmt.Sprintf(":%d", *traceWebPort)); err != nil {
+			glog.Warningf("failed to ListenAndServe for traceWeb server: %v", err)
+		}
+	}()
 	glog.Infof("Initializing system configuration files")
 	tmp, err := ioutil.TempDir("", "RAINSTemp")
 	if err != nil {
@@ -75,7 +87,9 @@ func main() {
 	defer done()
 	// Start root server.
 	rootRunner := runner.New(filepath.Join(tmp, "bin", "rainsd"),
-		[]string{"--config", filepath.Join(tmp, "config", "root", "server.conf")},
+		[]string{"--config", filepath.Join(tmp, "config", "root", "server.conf"),
+			"--trace_addr", fmt.Sprintf(":%d", *tracePort),
+			"--trace_srv_id", "rootRainsd"},
 		tmp, &serverExit)
 	glog.Info("Starting root server")
 	servers = append(servers, rootRunner)
@@ -85,7 +99,9 @@ func main() {
 	// Start TLD servers.
 	for _, TLD := range TLDSlice {
 		runner := runner.New(filepath.Join(tmp, "bin", "rainsd"),
-			[]string{"--config", filepath.Join(tmp, "config", TLD, "server.conf")},
+			[]string{"--config", filepath.Join(tmp, "config", TLD, "server.conf"),
+				"--trace_addr", fmt.Sprintf(":%d", *tracePort),
+				"--trace_srv_id", fmt.Sprintf("TLDRainsd:%s", TLD)},
 			tmp, &serverExit)
 		glog.Infof("Starting TLD server for %q", TLD)
 		servers = append(servers, runner)
@@ -99,7 +115,7 @@ func main() {
 	}()
 	select {
 	case r := <-serverExit:
-		glog.Fatalf("Unexpected exit of server process command %q, stderr: %s", r.Command(), r.Stderr())
+		glog.Fatalf("Unexpected exit of server process command %q, stderr: %s\nstdout: %s", r.Command(), r.Stderr(), r.Stdout())
 	case err := <-ready:
 		if err != nil {
 			glog.Fatalf("Failed to probe servers: %v", err)
@@ -115,7 +131,8 @@ func main() {
 	glog.Info("Successfully published data, now querying and verifying responses.")
 	res, err := runRainsDig(ctx, tmp, ".", "[::1]", fmt.Sprintf("%d", zonePortMap["."]), 30*time.Second)
 	if err != nil {
-		glog.Fatalf("Failed to run rainsDig on root zone: %v", err)
+		glog.Warningf("Failed to run rainsDig on root zone: %v", err)
+		waitExit()
 	}
 	pubKeyMap := make(map[string]string)
 	for _, zone := range TLDSlice {
@@ -130,19 +147,24 @@ func main() {
 	}
 	glog.Infof("Successfully ran rainsDig and got response: %s", res)
 	if err := tldPub(ctx, tmp, TLDSlice, strings.Split(*RLDs, ","), zonePortMap); err != nil {
-		glog.Fatalf("failed to RLD records to TLD servers: %v", err)
+		glog.Warningf("failed to push RLD records to TLD servers: %v", err)
+		waitExit()
 	}
 	// Query each TLD and make sure the expected entries are there.
 	if err := verifyRainsDigTLD(ctx, tmp, strings.Split(*RLDs, ","), zonePortMap); err != nil {
-		glog.Fatalf("failed to verify L2 servers with rainsdig: %v", err)
+		glog.Warningf("failed to verify L2 servers with rainsdig: %v", err)
+		waitExit()
 	}
-	if *waitAfter {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt)
-		glog.Infof("Waiting for ^C, do your manual poking now...")
-		<-c
-		glog.Infof("Shutting down")
-	}
+	waitExit()
+}
+
+func waitExit() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	glog.Infof("Waiting for ^C to exit...")
+	<-c
+	glog.Infof("Shutting down")
+	os.Exit(0)
 }
 
 // tldPub generates rainspub configs for the TLD servers and pushes the registrant level domains.
@@ -398,7 +420,7 @@ func runRainsPub(ctx context.Context, basePath, confPath string) error {
 	case <-timeout:
 		return errors.New("rainspub execution timed out")
 	}
-	glog.Infof("Rainspub successfully exited, stdout: %v", r.Stdout())
+	glog.Infof("Rainspub successfully exited")
 	return nil
 }
 
