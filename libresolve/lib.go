@@ -199,6 +199,7 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 			switch section.(type) {
 			case *rainslib.ZoneSection:
 				// If we were given a whole zone it's because we asked for it or it's non-existance proof.
+				glog.Info("Whole zone return")
 				return resp, nil
 			case *rainslib.AssertionSection:
 				as := section.(*rainslib.AssertionSection)
@@ -219,6 +220,11 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 						concreteMap[sz] = fmt.Sprintf("[%s]", obj.Value.(string))
 					}
 				}
+			case *rainslib.ShardSection:
+				glog.Info("Shard section")
+				return resp, nil
+			default:
+				panic(fmt.Sprintf("got unknown type: %T", section))
 			}
 		}
 		// If we are here, there is some recursion required or there is no answer.

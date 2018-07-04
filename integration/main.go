@@ -43,10 +43,17 @@ var (
 	ecdsaCurve   = flag.String("ecdsa_curve", "P521", "Which ECDSA curve to use when generating X509 certificates")
 	tracePort    = flag.Int("trace_port", 16000, "Port to listen on for trace server")
 	traceWebPort = flag.Int("trace_web_port", 16001, "Port to listen on for tracing web interface")
+	interactive  = flag.Bool("interactive", true, "Interactive mode")
 )
 
 func main() {
 	flag.Parse()
+	tt := &utils.TestTracker{
+		Cont:         make(chan struct{}),
+		RainsdConfs:  make(map[string]string),
+		ZoneFiles:    make(map[string]string),
+		VerifyOutput: make(map[string]string),
+	}
 	log.Info("Initializing tracing server")
 	ts, err := utils.NewTraceServer(fmt.Sprintf(":%d", *tracePort))
 	if err != nil {
@@ -54,11 +61,15 @@ func main() {
 		return
 	}
 	go func() {
-		tw := utils.NewTraceWeb(ts)
+		tw := utils.NewTraceWeb(ts, tt)
 		if err := tw.ListenAndServe(fmt.Sprintf(":%d", *traceWebPort)); err != nil {
 			log.Warn("failed to ListenAndServe for traceWeb server: %v", err)
 		}
 	}()
+	if *interactive {
+		log.Info("waiting for UI click")
+		<-tt.Cont
+	}
 	log.Info("Initializing system configuration files")
 	tmp, err := ioutil.TempDir("", "RAINSTemp")
 	if err != nil {
@@ -69,7 +80,7 @@ func main() {
 		log.Error(fmt.Sprintf("Failed to create temporary directory: %v", err))
 		return
 	}
-	if err := initRootServer(tmp); err != nil {
+	if err := initRootServer(tmp, tt); err != nil {
 		log.Error(fmt.Sprintf("Failed to initialize root server: %v", err))
 		return
 	}
@@ -79,7 +90,7 @@ func main() {
 	// Initialize a level 2 server for each TLD we are supposed to run.
 	TLDSlice := strings.Split(*TLDs, ",")
 	for _, TLD := range TLDSlice {
-		if err := generateL2Server(tmp, TLD, port); err != nil {
+		if err := generateL2Server(tmp, TLD, port, tt); err != nil {
 			log.Error(fmt.Sprintf("failed to create config for TLD server: %q: %v", TLD, err))
 			return
 		}
@@ -132,7 +143,12 @@ func main() {
 		}
 	}
 	log.Info("Servers successfully started. Ready to push data.")
-	if err := genRootPubConf(tmp, TLDSlice, zonePortMap); err != nil {
+	if *interactive {
+		log.Info("waiting for UI click")
+		<-tt.Cont
+	}
+	log.Info("Generating root rainspub files.")
+	if err := genRootPubConf(tmp, TLDSlice, zonePortMap, tt); err != nil {
 		log.Error(fmt.Sprintf("Failed to generate root rainsPub config: %v", err))
 		return
 	}
@@ -140,7 +156,17 @@ func main() {
 		log.Error(fmt.Sprintf("Failed ot run root rainsPub: %v", err))
 		return
 	}
+	log.Info("Generating l2TLD")
+	if err := tldPub(ctx, tmp, TLDSlice, strings.Split(*RLDs, ","), zonePortMap, tt); err != nil {
+		log.Error(fmt.Sprintf("failed to publish RLD records to TLD servers: %v", err))
+		waitExit()
+		return
+	}
 	log.Info("Successfully published data, now querying and verifying responses.")
+	if *interactive {
+		log.Info("Waiting for UI click")
+		<-tt.Cont
+	}
 	res, err := runResolve(ctx, tmp, ".", "[::1]", fmt.Sprintf("%d", zonePortMap["."]), 30*time.Second)
 	if err != nil {
 		log.Error(fmt.Sprintf("Failed to run rainsdig on root zone: %v", err))
@@ -157,21 +183,21 @@ func main() {
 		pubKeyMap[zone] = key
 	}
 	if err := verifyRainsDigRoot(res, pubKeyMap); err != nil {
-		log.Error(fmt.Sprintf("failed ot verify root zone entries: %v", err))
-		return
+		log.Warn("Retrying rainsdig root")
+		if err := verifyRainsDigRoot(res, pubKeyMap); err != nil {
+			log.Error(fmt.Sprintf("failed to verify root zone entries: %v", err))
+			return
+		}
 	}
-	log.Info(fmt.Sprintf("Successfullt ran rainsdig and got response: %s", res))
-	if err := tldPub(ctx, tmp, TLDSlice, strings.Split(*RLDs, ","), zonePortMap); err != nil {
-		log.Error(fmt.Sprintf("failed to publish RLD records to TLD servers: %v", err))
-		waitExit()
-		return
-	}
+	log.Info(fmt.Sprintf("Ran rainsdig and got response: %s", res))
+
 	// Query each TLD and make sure the expected entries are there.
-	if err := verifyRainsDigTLD(ctx, tmp, strings.Split(*RLDs, ","), zonePortMap); err != nil {
+	if err := verifyRainsDigTLD(ctx, tmp, strings.Split(*RLDs, ","), zonePortMap, tt); err != nil {
 		log.Error(fmt.Sprintf("failed to verify L2 servers: %v", err))
 		waitExit()
 		return
 	}
+	log.Info("All tests passed.")
 	waitExit()
 }
 
@@ -185,7 +211,7 @@ func waitExit() {
 }
 
 // tldPub generates rainspub configs for the TLD servers and pushes the registrant level domains.
-func tldPub(ctx context.Context, basePath string, TLDs, RLDs []string, zonePortMap map[string]uint) error {
+func tldPub(ctx context.Context, basePath string, TLDs, RLDs []string, zonePortMap map[string]uint, tt *utils.TestTracker) error {
 	for _, TLD := range TLDs {
 		rainsdConfPath := filepath.Join(basePath, "config", TLD)
 		privKeyPath := filepath.Join(rainsdConfPath, "private.key")
@@ -210,6 +236,7 @@ func tldPub(ctx context.Context, basePath string, TLDs, RLDs []string, zonePortM
 		if err != nil {
 			return fmt.Errorf("failed to generate TLD rainsPub config: %v", err)
 		}
+		tt.ZoneFiles[TLD] = zone
 		zoneFile := filepath.Join(rainsPubPath, "zone")
 		if err := ioutil.WriteFile(zoneFile, []byte(zone), 0600); err != nil {
 			return fmt.Errorf("failed to write zone file: %v", err)
@@ -241,7 +268,7 @@ func tldPub(ctx context.Context, basePath string, TLDs, RLDs []string, zonePortM
 // genRootPubConf generates a rainspub configuration for the root zone data.
 // l2Dirs is a slice of paths to the TLD server configuration directories,
 // which is used for extracting the public keys.
-func genRootPubConf(basePath string, TLDs []string, zonePortMap map[string]uint) error {
+func genRootPubConf(basePath string, TLDs []string, zonePortMap map[string]uint, tt *utils.TestTracker) error {
 	zoneKeyMap := make(map[string]string)
 	for _, TLD := range TLDs {
 		zoneKeyMap[TLD] = filepath.Join(basePath, "config", TLD, "public.key")
@@ -281,6 +308,7 @@ func genRootPubConf(basePath string, TLDs []string, zonePortMap map[string]uint)
 	if err != nil {
 		return fmt.Errorf("failed to generate rainsPub config for root zone: %v", err)
 	}
+	tt.ZoneFiles["root"] = zoneData
 	outDir := filepath.Join(basePath, "config", "rootPub")
 	if _, err := os.Stat(outDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(outDir, 0700); err != nil {
@@ -324,7 +352,7 @@ func runResolve(ctx context.Context, basePath, zone, serverHost, serverPort stri
 	select {
 	case <-exitChan:
 		if r.ExitErr != nil {
-			return "", fmt.Errorf("failed to run rainsDig: %v, stdErr: %s", r.ExitErr, r.Stderr())
+			return "", fmt.Errorf("failed to run resolve (with args %v): %v, stdErr: %s", args, r.ExitErr, r.Stderr())
 		}
 	case <-timeout:
 		return "", errors.New("rainsDig execution timed out")
@@ -343,7 +371,7 @@ func zonePublicKey(basePath, zone string) (string, error) {
 }
 
 // verifyRainsDigTLD runs rainsDig for each domain in each TLD, and checks the answers.
-func verifyRainsDigTLD(ctx context.Context, basePath string, RLDs []string, zonePortMap map[string]uint) error {
+func verifyRainsDigTLD(ctx context.Context, basePath string, RLDs []string, zonePortMap map[string]uint, tt *utils.TestTracker) error {
 	for zone, port := range zonePortMap {
 		if zone == "." {
 			continue
@@ -354,12 +382,14 @@ func verifyRainsDigTLD(ctx context.Context, basePath string, RLDs []string, zone
 			if err != nil {
 				return fmt.Errorf("failed to run rainsDig: %v", err)
 			}
+			tt.VerifyOutput[fmt.Sprintf("%s.%s", rld, zone)] = output
 			// XXX: Horrific hack.
 			// The issue is that the zoneFileParser is not roundtripable, i.e. it cannot parse what it iself
 			// has generated if the input was an assertion instead of a whole zone.
 			if !strings.Contains(output, "127.0.0.1") {
 				return fmt.Errorf("expected output to contain 127.0.0.1 but got: %q", output)
 			}
+			log.Info(fmt.Sprintf("passed verification for rld: %v, tld: %v", rld, zone))
 			/*
 				parser := zoneFileParser.Parser{}
 				as, err := parser.Decode([]byte(output))
@@ -454,7 +484,7 @@ func runRainsPub(ctx context.Context, basePath, confPath string) error {
 }
 
 // initRootServer creates the configuration files for the top level "." server.
-func initRootServer(basepath string) error {
+func initRootServer(basepath string, tt *utils.TestTracker) error {
 	rootConfPath := filepath.Join(basepath, "config/root/")
 	if err := os.MkdirAll(rootConfPath, 0700); err != nil {
 		return fmt.Errorf("failed to create root server config dir: %v", err)
@@ -480,6 +510,7 @@ func initRootServer(basepath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to generate configuration for root server: %v", err)
 	}
+	tt.RainsdConfs["root"] = out
 	configPath := filepath.Join(rootConfPath, "server.conf")
 	f, err := os.OpenFile(configPath, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
@@ -492,7 +523,7 @@ func initRootServer(basepath string) error {
 }
 
 // generateL2Server creates the configuration for a second level nameserver.
-func generateL2Server(basePath, TLD string, port uint) error {
+func generateL2Server(basePath, TLD string, port uint, tt *utils.TestTracker) error {
 	confPath := filepath.Join(basePath, "config", TLD)
 	if err := os.MkdirAll(confPath, 0700); err != nil {
 		return fmt.Errorf("failed to create l2 server config dir: %v", err)
@@ -518,6 +549,7 @@ func generateL2Server(basePath, TLD string, port uint) error {
 	if err != nil {
 		return fmt.Errorf("failed to generate configuration for TLD %q: %v", TLD, err)
 	}
+	tt.RainsdConfs[TLD] = out
 	configPath := filepath.Join(confPath, "server.conf")
 	f, err := os.OpenFile(configPath, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
