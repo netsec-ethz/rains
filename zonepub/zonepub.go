@@ -9,10 +9,8 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
-	"github.com/netsec-ethz/rains/rainsSiglib"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/rainspub"
-	"github.com/netsec-ethz/rains/utils/protoParser"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 )
 
@@ -27,7 +25,6 @@ func Init(configPath string) error {
 		return err
 	}
 	parser = zoneFileParser.Parser{}
-	msgParser = new(protoParser.ProtoParserAndFramer)
 	for i, path := range config.ZonePrivateKeyPath {
 		keyPhaseToPath[i] = path
 	}
@@ -76,52 +73,20 @@ func InitFromFlags(serverHost, zoneFile, privateKeyFile string, validityDuration
 	config.AssertionValidUntil = validityDuration
 	p := zoneFileParser.Parser{}
 	parser = p
-	msgParser = new(protoParser.ProtoParserAndFramer)
 	return nil
-}
-
-//PublishInformation performs periodically the following steps:
-//1) Loads the rains zone file.
-//2) Adds Signature MetaData
-//3) Let rainspub sign the zone
-//4) Query the superordinate zone for the new delegation and push it to all rains servers
-//5) After rainspub signed the zone, send the signed zone to all rains servers specified in the config
-func PublishInformation() {
-	timer := make(chan bool)
-	result := make(chan bool)
-	keyPhase := 0
-	//TODO CFE how to handle delegation schedule guarantees for subordinates?
-	go waitSeconds(config.PublishInterval, timer)
-	go publishZone(result, keyPhase)
-	for true {
-		select {
-		case <-timer:
-			go waitSeconds(config.PublishInterval, timer)
-			go publishZone(result, keyPhase)
-		case success := <-result:
-			if !success {
-				//TODO CFE handle error
-			}
-			keyPhase = (keyPhase + 1) % config.NofKeyPhases
-		}
-	}
-}
-
-//waitSeconds waits interval * seconds before it writes to timer
-func waitSeconds(interval time.Duration, timer chan<- bool) {
-	time.Sleep(interval * time.Second)
-	timer <- true
 }
 
 //publishZone performs the following steps:
 //1) Loads the rains zone file.
-//2) Adds Signature MetaData and perform consistency checks on the zone and its signatures
+//2) Adds Signature MetaData and perform consistency checks on the zone and its
+//   signatures
 //3) Let rainspub sign the zone
-//4) Query the superordinate zone for the new delegation and push it to all rains servers
-//5) After rainspub signed the zone, send the signed zone to all rains servers specified in the
-//config
-//6) write true to success if everything went as expected
-func publishZone(success chan<- bool, keyPhase int) error {
+//4) Query the superordinate zone for the new delegation and push it to all
+//   rains servers
+//5) After rainspub signed the zone, send the signed zone to all rains servers
+//   specified in the config
+//returns an error if something goes wrong
+func publishZone(keyPhase int) error {
 	file, err := ioutil.ReadFile(config.ZoneFilePath)
 	if err != nil {
 		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
@@ -134,15 +99,15 @@ func publishZone(success chan<- bool, keyPhase int) error {
 	}
 	//TODO CFE be able to add multiple signature to a section
 	addSignatureMetaData(zone, keyPhase)
-	if err = checkZone(zone); err != nil {
-		return err
+	if rainspub.ConsistencyCheck(zone) {
+		return errors.New("Inconsistent section")
 	}
 	//TODO CFE do this in a go routine
 	if err = rainspub.SignSectionUnsafe(zone, keyPhaseToPath); err != nil {
 		return err
 	}
 	//TODO CFE: query new delegation from superordinate server and push them to all rains servers
-	msg, err := createRainsMessage(zone)
+	msg, err := rainspub.CreateRainsMessage(zone)
 	if err != nil {
 		log.Warn("Was not able to parse the zone to a rains message.", "error", err)
 		return err
@@ -155,6 +120,9 @@ func publishZone(success chan<- bool, keyPhase int) error {
 	return nil
 }
 
+//TODO CFE change it such that it can be used as envisioned in the
+//design-scalable-signature-updates.md
+//especially that not all assertions are expiring at the same time
 func addSignatureMetaData(zone *rainslib.ZoneSection, keyPhase int) {
 	signature := rainslib.Signature{
 		PublicKeyID: rainslib.PublicKeyID{
@@ -184,31 +152,4 @@ func addSignatureMetaData(zone *rainslib.ZoneSection, keyPhase int) {
 		}
 		sec.AddSig(signature)
 	}
-}
-
-func checkZone(zone *rainslib.ZoneSection) error {
-	if !rainsSiglib.ValidSectionAndSignature(zone) {
-		return errors.New("zone or zone's signature is not valid")
-	}
-	for _, sec := range zone.Content {
-		switch sec := sec.(type) {
-		case *rainslib.AssertionSection, *rainslib.ShardSection:
-			if !rainsSiglib.ValidSectionAndSignature(sec) {
-				return errors.New("zone's content or its signature is not valid")
-			}
-		default:
-			return errors.New("Invalid zone content")
-		}
-	}
-	return nil
-}
-
-//createRainsMessage creates a rainsMessage containing the given zone and return the byte representation of this rainsMessage ready to send out.
-func createRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
-	msg := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Content: []rainslib.MessageSection{zone}} //no capabilities
-	byteMsg, err := msgParser.Encode(msg)
-	if err != nil {
-		return []byte{}, err
-	}
-	return byteMsg, nil
 }

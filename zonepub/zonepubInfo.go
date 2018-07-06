@@ -12,9 +12,6 @@ var config zonepubConfig
 //parser is used to extract assertions from a rains zone file.
 var parser rainslib.ZoneFileParser
 
-//msgParser is used to encode the generated zone such that it can be pushed to the rainsd server
-var msgParser rainslib.RainsMsgParser
-
 //subordinateDelegations is a list of all subordinate zones and the delegation schedule with them.
 var subordinateDelegations []delegationInfo
 

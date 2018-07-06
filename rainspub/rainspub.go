@@ -17,8 +17,56 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-//signatureEncoder is used to encode a section such that it can be signed
-var signatureEncoder rainslib.SignatureFormatEncoder
+//ConsistencyCheck returns true if there are no inconsistencies in the section. It
+//also makes sure that the section is sorted
+func ConsistencyCheck(section rainslib.MessageSectionWithSig) bool {
+	switch section := section.(type) {
+	case *rainslib.AssertionSection:
+		return rainsSiglib.ValidSectionAndSignature(section)
+	case *rainslib.ShardSection:
+		return shardConsistencyCheck(section)
+	case *rainslib.ZoneSection:
+		if !rainsSiglib.ValidSectionAndSignature(section) {
+			return false
+		}
+		for _, sec := range section.Content {
+			switch sec := sec.(type) {
+			case *rainslib.AssertionSection:
+				if !rainsSiglib.ValidSectionAndSignature(sec) {
+					return false
+				}
+			case *rainslib.ShardSection:
+				if !shardConsistencyCheck(sec) {
+					return false
+				}
+			default:
+				log.Error("Invalid zone content", "zone", section)
+				return false
+			}
+		}
+	case *rainslib.AddressAssertionSection:
+		log.Warn("Not yet implemented")
+		return false
+	default:
+		log.Error("Invalid section type")
+		return false
+	}
+	return true
+}
+
+//shardConsistencyCheck returns true if the shard and all contained
+//assertions are consistent and sorted
+func shardConsistencyCheck(shard *rainslib.ShardSection) bool {
+	if !rainsSiglib.ValidSectionAndSignature(shard) {
+		return false
+	}
+	for _, a := range shard.Content {
+		if !rainsSiglib.ValidSectionAndSignature(a) {
+			return false
+		}
+	}
+	return true
+}
 
 //SignSectionUnsafe signs section and all contained sections (if it is a shard or zone). The
 //signature meta data must already be present. SignSectionUnsafe returns an error if it was not able
@@ -33,15 +81,15 @@ func SignSectionUnsafe(section rainslib.MessageSectionWithSig, keyPhaseToPath ma
 		}
 		privateKeys[keyPhase] = privateKey
 	}
-	signatureEncoder = zoneFileParser.Parser{}
+	signatureEncoder := zoneFileParser.Parser{}
 	//TODO implement signing with airgapping
 	switch section := section.(type) {
 	case *rainslib.AssertionSection:
-		return signAssertion(section, privateKeys)
+		return signAssertion(section, privateKeys, signatureEncoder)
 	case *rainslib.ShardSection:
-		return signShard(section, privateKeys)
+		return signShard(section, privateKeys, signatureEncoder)
 	case *rainslib.ZoneSection:
-		return signZone(section, privateKeys)
+		return signZone(section, privateKeys, signatureEncoder)
 	case *rainslib.AddressAssertionSection:
 		log.Warn("Signing address assertions not yet implemented")
 		return errors.New("Signing address assertions not yet implemented")
@@ -74,7 +122,7 @@ func loadPrivateKey(privateKeyPath string) (ed25519.PrivateKey, error) {
 //removes the subjectZone and context of the contained assertions and shards after the signatures
 //have been added. It returns an error if it was unable to sign the zone or any of the contained
 //shards and assertions.
-func signZone(zone *rainslib.ZoneSection, privateKeys map[int]interface{}) error {
+func signZone(zone *rainslib.ZoneSection, privateKeys map[int]interface{}, signatureEncoder rainslib.SignatureFormatEncoder) error {
 	if zone == nil {
 		return errors.New("zone is nil")
 	}
@@ -87,13 +135,13 @@ func signZone(zone *rainslib.ZoneSection, privateKeys map[int]interface{}) error
 	for _, sec := range zone.Content {
 		switch sec := sec.(type) {
 		case *rainslib.AssertionSection:
-			if err := signAssertion(sec, privateKeys); err != nil {
+			if err := signAssertion(sec, privateKeys, signatureEncoder); err != nil {
 				return err
 			}
 			sec.Context = ""
 			sec.SubjectZone = ""
 		case *rainslib.ShardSection:
-			if err := signShard(sec, privateKeys); err != nil {
+			if err := signShard(sec, privateKeys, signatureEncoder); err != nil {
 				return err
 			}
 			sec.Context = ""
@@ -108,7 +156,7 @@ func signZone(zone *rainslib.ZoneSection, privateKeys map[int]interface{}) error
 //signShard signs the shard and all contained assertions with the zone's private key. It removes the
 //subjectZone and context of the contained assertions after the signatures have been added. It
 //returns an error if it was unable to sign the shard or any of the assertions.
-func signShard(s *rainslib.ShardSection, privateKeys map[int]interface{}) error {
+func signShard(s *rainslib.ShardSection, privateKeys map[int]interface{}, signatureEncoder rainslib.SignatureFormatEncoder) error {
 	if s == nil {
 		return errors.New("shard is nil")
 	}
@@ -119,7 +167,7 @@ func signShard(s *rainslib.ShardSection, privateKeys map[int]interface{}) error 
 		}
 	}
 	for _, a := range s.Content {
-		if err := signAssertion(a, privateKeys); err != nil {
+		if err := signAssertion(a, privateKeys, signatureEncoder); err != nil {
 			return err
 		}
 		a.Context = ""
@@ -130,7 +178,7 @@ func signShard(s *rainslib.ShardSection, privateKeys map[int]interface{}) error 
 
 //signAssertion computes the signature data for all contained signatures.
 //It returns an error if it was unable to create all signatures on the assertion.
-func signAssertion(a *rainslib.AssertionSection, privateKeys map[int]interface{}) error {
+func signAssertion(a *rainslib.AssertionSection, privateKeys map[int]interface{}, signatureEncoder rainslib.SignatureFormatEncoder) error {
 	if a == nil {
 		return errors.New("assertion is nil")
 	}
@@ -141,6 +189,18 @@ func signAssertion(a *rainslib.AssertionSection, privateKeys map[int]interface{}
 		}
 	}
 	return nil
+}
+
+//CreateRainsMessage creates a rainsMessage containing the given zone and
+//returns the byte representation of this rainsMessage ready to send out.
+func CreateRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
+	msg := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Content: []rainslib.MessageSection{zone}} //no capabilities
+	msgParser := new(protoParser.ProtoParserAndFramer)
+	byteMsg, err := msgParser.Encode(msg)
+	if err != nil {
+		return []byte{}, err
+	}
+	return byteMsg, nil
 }
 
 //PublishSections establishes connections to all rains servers mentioned in conns. It then sends
