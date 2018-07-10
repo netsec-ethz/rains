@@ -38,9 +38,6 @@ short signature lifetimes while globally still having a scalable naming system.
   assertions to be valid until somewhere in the third quarter. At the start of
   the third quarter the authority should request a new delegation and repeat the
   above mentioned process with the renewed delegation.
-- An assertion should be valid throughout a key roll over i.e. during a
-  transition period the assertion will contain two signatures, one signed by the
-  previous and one by the new private key.
 - The validity of shards should be chosen small to allow for frequent changes
   e.g. one to several days. During the time a shard is valid no new assertion
   can be added by the authority.
@@ -49,15 +46,14 @@ short signature lifetimes while globally still having a scalable naming system.
   an assertion.
 - A RAINS server should answer a query with the longest valid assertion it has.
 - A zone should negotiate with its superordinate zone a delegation renewal
-  schedule. A zone can then request a new delegation according to the schedule
-  or the superordinate zone pushes the delegations for the next period and the
-  subordinate zone can start signing again.
+  schedule. A zone sends its new public key through the next-key assertion to
+  its superordinate zone and expects it to sign the new delegation assertion
+  with the new key. A superordinate zone not able to sign the next delegation
+  with the new public key will result a broken delegation chain and probably in
+  a sla violation.
 
 ## Tradeoffs
 
-- Validity time of assertions: When the validity is longer, it puts less work on
-  the authority but changes can only be made after the current assertion
-  expires and in case of compromise it can be exploited for a longer period.
 - Signature lifetime: A short signature lifetime limits possible exploitations
   in case of a key compromise and it allows for frequent changes. On the other
   side, long signature lifetimes reduce network overhead from redistributing
@@ -66,11 +62,16 @@ short signature lifetimes while globally still having a scalable naming system.
   of a key compromise as a single signature is enough to get a valid assertion.
   On the other hand having an unused but still delegated key pair allows an
   authority to quickly switch to the unused pair in case of compromise of the
-  main key pair.
+  main key pair(s).
+- Assuming only one signature per assertion: The longer the lifetime of an
+  assertion is the longer the overlapping part with the next assertion is and
+  the authority has more time to react to errors but period over which the
+  assertions will be spread is shorter which results in more incoming traffic
+  when the assertions are expiring.
 
 ## DNS case
 
-In an ideal setting an authority receives all delegation assertions on the
+In a DNS like setting an authority receives all delegation assertions on the
 signature chain to the root in short regular intervals from its superordinate. A
 short interval would be a couple of minutes which allows a possible attacker to
 exploit a misconfiguration or a key compromise only for this short period. An
@@ -107,13 +108,20 @@ sign all its assertions in time.
 
 An authority might decide to work with just one key pair and when the renewed
 delegation assertion from its superordinate zone arrives, resign all its
-assertions. The problem here is, that the authority does not know if the sender
-of a query already got the renewed delegation assertion or not. In case the
-querier does not have the renewed assertion, it will not request one as the
-previous one is still active and the validity time of the requested assertion
-will be quite small. Additionally, all assertions from that zone will be
-expiring at the same time when the previous delegation assertion expires and the
-zone will likely be overwhelmed by a flood of incoming queries.
+assertions. There are two problems here:
+
+1. The authority does not know if the sender of a query already got the renewed
+   delegation assertion or not. In case the querier does not have the renewed
+   assertion, it will not request one as the previous one is still active and
+   the validity time of the requested assertion will be quite small.
+   Additionally, all assertions from that zone will be expiring at the same time
+   when the previous delegation assertion expires and the zone will likely be
+   overwhelmed by a flood of incoming queries.
+2. Only having one key pair makes key rollover something special and people are
+   nervous doing it as there is not an easy backup option. (See key rotation
+   problem in DNSSEC where ICANN and Verisign worked for several years on a root
+   key rollover plan and schedule but had to postpone it as a substantial amount
+   of resolvers did not update their system to work with the new key [4]).
 
 ## Proposal: Two key pairs, key rotation, key rollover
 
@@ -125,12 +133,15 @@ the key phase as it is circular. This also maximizes the shortest amount of time
 an authority gets to sign all its assertions.
 
 An authority should as well agree with its superordinate on a delegation
-assertion schedule. An assertion carries now always signatures from both key
-phases (except at the beginning). Compared to the approach with just one key
-pair, this time the querier does not have the delegation assertion for the
-renewed key phase and must request it to be able to check the signature.
+assertion schedule to catch potential errors early and come up with a solution
+before the delegation chain is interrupted.
 
-Also to avoid a massive amount of queries at the same time, an authority should
+Compared to the approach with just one key pair, a caching resolver either has
+an unexpired delegation (and then it is the most recent one) and can use it to
+calculate the lifetime of the assertion or the delegation is missing and it must
+request it.
+
+To avoid a massive amount of queries at the same time, an authority should
 spread out the expiration time of all its assertions uniformly in the third
 quarter of the lifetime of the assertion delegating to it. We chose the third
 quarter so that in case of delay or technical problems an authority still has a
@@ -145,20 +156,21 @@ bandwidth utilization, and higher security by reducing possible exploitation
 periods.
 
 Key rollover is not a special case. Instead of renewing one of the key pairs, a
-new key pair can be delegated by the superordinate zone (after a request from
-the subordinate zone). The process of signing assertions is the same as if a key
-pair would have been renewed, with the only difference that now the new key pair
-instead of the renewed one is used.
+new key pair can be delegated by the superordinate zone (after it reeived a
+next-key assertion from the subordinate zone). The process of signing assertions
+is the same as if a key pair would have been renewed, with the only difference
+that now the new key pair instead of the renewed one is used.
 
 When a zone is delegating its namespace then the delegation assertion schedule
 should take half the time of his superior. This way the zone has enough time to
 cope with a possible delegation failure of its superior zone. Additionally, it
-enables this zone to also have a regular delegation assertion schedule with its
-subordinate. A regular schedule helps to detect possible delegation errors early
-on and gives the involved parties more time to solve them. Additionally, one
-signature is enough for each delegation assertion. This takes off pressure
-during signing for large zones with many delegations and reduces the amount of
-work a rains server must do to check the delegation's validity.
+is more predictable for the subordinate zone which public key is used to sign
+the delegation. A regular schedule helps to detect possible delegation errors
+early on and gives the involved parties more time to solve them. Additionally,
+it is the longest period for which one signature is sufficient for each delegation
+assertion. This takes off pressure during signing for large zones with many
+delegations and reduces the amount of work a rains server must do to check the
+delegation's validity.
 
 ## Possible delegation errors
 
@@ -196,6 +208,11 @@ this zone and it may delegate the namespace to a different authority. The zone
 could pretend in such a case that it lost connection with its superordinate and
 go into 'reduced security mode'. A client should be able to distinguish between
 these two cases such that she knows if it is safe to use expired assertions.
+Additionally, if a private key compromise has happened, then assertions issued
+by the adversary should be excluded from a reduced security mode.
+Should a server by able to push an assertion without a valid delegation into a
+new server, probably not because it goes against the whole idea of having
+expiration times to be secure.
 
 ## Additional defenses using SCION
 - Compared to the current state of DNSSEC where there is only one root and if it
@@ -205,6 +222,9 @@ these two cases such that she knows if it is safe to use expired assertions.
   can still do name resolution. But on the other hand the set of trustable third
   parties increases with each ISD the client connects to.
 - SIBRA to defend against some DDoS attacks, see above
+- PISCES
+- DDoS filtering service in front of RAINS server (per AS max sending rate,
+  history based) [Benjamin Rothenberger]
 
 ## Benchmarking signing
 
@@ -255,6 +275,10 @@ bootstrap assertions for the root.
 3. :A: ns . . :srv: ns1 1234 0
 4. :A: ns1 . . :ip4: 192.0.2.0
 
+In SCION every ISD will have a root zone. A client obtains the root public
+key(s) of its ISD through the TRC file which is the root of trust in a SCION
+network.
+
 ## Open questions
 
 - Is it possible to sign in parallel when the key is in a hardware module?
@@ -267,15 +291,4 @@ bootstrap assertions for the root.
 (22.06.18)
 [2] various statistics on .ch domain names and DNS https://www.nic.ch/statistics/ (22.06.18)
 [3] statistics about ch name servers https://securityblog.switch.ch/2018/03/20/a-day-in-the-life-of-nic-ch/
-
-
-|----|----|----|----| (0,5,10,15,20) Key1
-          |----|----|----|----| (10,15,20,25,30) Key2
-
-Non-delegation assertions
- |--------------| (1,16)
-           |--------------| (11,26)
-  |--------------| (2,17)
-            |--------------| (12,27)
-   |--------------| (3,18)
-             |--------------| (13,28)
+[4] Key rollover postponed https://www.icann.org/news/announcement-2017-09-27-en
