@@ -215,6 +215,7 @@ new server, probably not because it goes against the whole idea of having
 expiration times to be secure.
 
 ## Additional defenses using SCION
+
 - Compared to the current state of DNSSEC where there is only one root and if it
   gets compromised or goes down the whole Internet cannot do name resolution in
   Scion there is one root per ISD. In a normal case a client is part of at least
@@ -226,15 +227,34 @@ expiration times to be secure.
 - DDoS filtering service in front of RAINS server (per AS max sending rate,
   history based) [Benjamin Rothenberger]
 
+## Signing system
+
+There are several options how to build a signing system. The easiest way is to
+store or generate the signing key on the same machine that is also used to sign
+and push the assertions to the authoritative servers. It is simple to maintain
+but also less challenging for an attacker to tamper with the system. For highly
+important keys such a deployment is obviously not sufficient and much stricter
+rules on who, why, when, where and how can access the keys are necessary. As an
+example we can look at the DNSSEC root key which is redundantly stored at two
+secure facilities in the United States in hardware security modules (HSM) [6]. A
+simpler, cheaper, less efficient approach with similar security
+guarantees was proposed by Matsumoto et. al. [7] and improved in Fabian Murer's
+master thesis [8]. They are using commodity hardware in a observable touch-less
+environment.
+
 ## Benchmarking signing
 
-The largest zone is '.com' with 134M registered domains. Next comes china's '.cn' with 21.4M
-entries. Switzerland's '.ch' zone has a bit more than 2 Million domains.
+The largest zone is '.com' with 134M registered domains. Next up is china's
+'.cn' with 21.4M entries. Switzerland's '.ch' zone has a bit more than 2 Million
+domains [5].
 
-Signing is currently done with just one core on my machine with 2.9GHz.
-We were using a benchmark to determine the time it takes an authority to sign a
-zonefile. We have two zonefiles containing 100'000 and 1'000'000 entries similar
-in content to what we expect a zone to have.
+The benchmarks are run on a single machine using only one core with 2.9GHz. The
+signing key and the assertions to sign are pre-loaded from files before the
+measurements are stared. We want to determine the time it takes an authority to
+sign a zonefile. We have several zonefiles containing entries similar in content
+to what we expect a zone to have which vary in the number of entries. The
+'Total' column states the amount of time it takes a zone to sign all assertions,
+all shards and the zone.
 
 | nofAssertions | assert/shard | Assertions [s] | Shards [s] | Zone [s] | Total [s] |
 | -------------:|-------------:|---------------:|-----------:|---------:|----------:|
@@ -247,6 +267,33 @@ in content to what we expect a zone to have.
 | 1000000       | 10           | 62             | 11.4       | >600     | >673      |
 | 1000000       | 100          | 62             | 6.7        | 125      | 193.7     |
 | 1000000       | 1000         | 62             | 17         | 29.6     | 108.6     |
+
+An authority might decide to not sign assertions but instead group a certain
+amount of them together and then only sign the shard. The authoritative servers
+then only respond with shards to queries. This approach reduces the signing work
+for an authority but increases the number of bytes sent in response to a query
+as a shard in most cases contains more information than requested by the query.
+TODO CFE: make measurements!
+
+| nofAssertions | assert/shard | Shards [s] | Zone [s] | Total [s] |
+| -------------:|-------------:|-----------:|---------:|----------:|
+| 10000         | 3            | 0.08       | 0.1      | 0.78      |
+| 10000         | 5            | 0.04       | 0.04     | 0.68      |
+| 10000         | 7            | 0.1        | 0.1      | 0.8       |
+| 100000        | 3            | 1.1        | 14       | 21.4      |
+| 100000        | 5            | 0.4        | 1.8      | 8.5       |
+| 100000        | 7            | 1.1        | 1.2      | 8.6       |
+| 1000000       | 3            | 11.4       | >600     | >673      |
+| 1000000       | 5            | 6.7        | 125      | 193.7     |
+| 1000000       | 7            | 17         | 29.6     | 108.6     |
+
+An authority might also use a combination of the above two approaches. The
+signing work depends on the ratio between the two approaches and can be
+calculated based on the above benchmarks.
+
+TODO CFE create a benchmark which uses all the cores to determine go routine and
+runtime overhead which is expected to be negligible as there is no locking
+involved. But there might be some caching 'issues'.
 
 ## Cost of cloud instances for signing
 
@@ -270,10 +317,14 @@ sought information or a proof that this information does not exist. Every
 authority over a zone must create four such entries about its zone and let its
 superordinate sign and store them. Example of the four necessary
 bootstrap assertions for the root.
+
 1. :A: @ . . :deleg: <public key>
 2. :A: @ . . :redir: ns
 3. :A: ns . . :srv: ns1 1234 0
 4. :A: ns1 . . :ip4: 192.0.2.0
+
+The third assertion is only necessary until there is a standard port for RAINS
+(such as 53 is for DNS).
 
 In SCION every ISD will have a root zone. A client obtains the root public
 key(s) of its ISD through the TRC file which is the root of trust in a SCION
@@ -281,7 +332,6 @@ network.
 
 ## Open questions
 
-- Is it possible to sign in parallel when the key is in a hardware module?
 - How to distinguish between outage, breach from a zone view
 - How to distinguish between outage, breach, or revocation from a client view
 
@@ -292,3 +342,9 @@ network.
 [2] various statistics on .ch domain names and DNS https://www.nic.ch/statistics/ (22.06.18)
 [3] statistics about ch name servers https://securityblog.switch.ch/2018/03/20/a-day-in-the-life-of-nic-ch/
 [4] Key rollover postponed https://www.icann.org/news/announcement-2017-09-27-en
+[5] Number of domain names per TLD https://www.verisign.com/en_US/domain-names/dnib/index.xhtml?section=tlds
+(11.07.18)
+[6] DNSSEC root key information
+https://www.cloudflare.com/dns/dnssec/root-signing-ceremony/ (11.07.18)
+[7] CASTLE https://dl.acm.org/citation.cfm?id=2991115
+[8] Fabian Murer's master thesis [TODO CFE get source]
