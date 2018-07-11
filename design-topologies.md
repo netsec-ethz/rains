@@ -123,7 +123,7 @@ several machines. Additionally, if the RAM requirements change during operation
 new memcached servers can be added to or removed from the system without
 interrupting the service. All servers answering client queries use the same
 distributed caches and thus, have less cache misses. New servers are not slower
-in answering queries than current once as they do not start with an empty cache.
+in answering queries than current ones as they do not start with an empty cache.
 
 - Issue: How does a client know which of the name servers are for answering
   queries and which are for pushing assertions. Probably two components are

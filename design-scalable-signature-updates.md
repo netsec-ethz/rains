@@ -167,80 +167,28 @@ cope with a possible delegation failure of its superior zone. Additionally, it
 is more predictable for the subordinate zone which public key is used to sign
 the delegation. A regular schedule helps to detect possible delegation errors
 early on and gives the involved parties more time to solve them. Additionally,
-it is the longest period for which one signature is sufficient for each delegation
-assertion. This takes off pressure during signing for large zones with many
-delegations and reduces the amount of work a rains server must do to check the
-delegation's validity.
+it is the longest period for which one signature is sufficient for each
+delegation assertion. This takes off pressure during signing for large zones
+with many delegations and reduces the amount of work a rains server must do to
+check the delegation's validity.
 
-## Possible delegation errors
+## Signing systems
 
-- Connection error between zone and its superordinate e.g. damaged networking
-  cable, cable unplugged, machine shutdown, changed IP address, DDoS attack,
-  natural disaster, etc.
-- Signing hardware issues or failure of zone or any superordinate
-- Connection between rainspub and its RAINS servers of zone or any superordinate
-- Private key compromise of zone or any superordinate
-- Delegation request by sending next-key assertion is not being answered
-- Misconfiguration of rainspub or rains server of zone or any superordinate
+There are several options how to build a signing system.
 
-## System behavior during delegation failure
-
-When a zone fails to issue a new delegation assertion before the current
-delegation assertion will expire a delegation failure occurs. The consequences
-are that all assertions of all zones in the tree of subordinates starting from
-this zone will be expired and no new assertions can be issued i.e. all standard
-name lookups for these zones will fail. In such a catastrophic event the
-subordinates could go into a special 'reduced security mode' (similar to
-proceeding when the certificate of a website has expired). In this mode they
-inform the clients that no delegation has been issued to them and that if they
-still want a query to be resolved they have to send it with query option 9 set
-which states that the client is willing to accepts expired assertions (TODO ADD
-THIS QUERY OPTION TO THE RAINS DRAFT). A zone has to make sure that their
-servers only reap assertions from their caches when they have expired before a
-configured time interval. This approach prevents a total outage of name
-resolution for some zones during some amount of time.
-
-## Exploiting the delegation failure outage prevention
-
-When the contract between a zone's authority and its superordinate expires or
-when it gets revoked, then the superordinate will not sign new delegations for
-this zone and it may delegate the namespace to a different authority. The zone
-could pretend in such a case that it lost connection with its superordinate and
-go into 'reduced security mode'. A client should be able to distinguish between
-these two cases such that she knows if it is safe to use expired assertions.
-Additionally, if a private key compromise has happened, then assertions issued
-by the adversary should be excluded from a reduced security mode.
-Should a server by able to push an assertion without a valid delegation into a
-new server, probably not because it goes against the whole idea of having
-expiration times to be secure.
-
-## Additional defenses using SCION
-
-- Compared to the current state of DNSSEC where there is only one root and if it
-  gets compromised or goes down the whole Internet cannot do name resolution in
-  Scion there is one root per ISD. In a normal case a client is part of at least
-  two ISDs. Thus, when all but one connected roots are inaccessible the client
-  can still do name resolution. But on the other hand the set of trustable third
-  parties increases with each ISD the client connects to.
-- SIBRA to defend against some DDoS attacks, see above
-- PISCES
-- DDoS filtering service in front of RAINS server (per AS max sending rate,
-  history based) [Benjamin Rothenberger]
-
-## Signing system
-
-There are several options how to build a signing system. The easiest way is to
-store or generate the signing key on the same machine that is also used to sign
-and push the assertions to the authoritative servers. It is simple to maintain
-but also less challenging for an attacker to tamper with the system. For highly
-important keys such a deployment is obviously not sufficient and much stricter
-rules on who, why, when, where and how can access the keys are necessary. As an
-example we can look at the DNSSEC root key which is redundantly stored at two
-secure facilities in the United States in hardware security modules (HSM) [6]. A
-simpler, cheaper, less efficient approach with similar security
-guarantees was proposed by Matsumoto et. al. [7] and improved in Fabian Murer's
-master thesis [8]. They are using commodity hardware in a observable touch-less
-environment.
+1. The easiest way is to store or generate the signing key on the same machine
+   that is also used to sign and push the assertions to the authoritative
+   servers. It is simple to maintain but also less challenging for an attacker
+   to tamper with the system.
+2. For highly important keys such a deployment is obviously not sufficient and
+   much stricter rules on who, why, when, where and how can access the keys are
+   necessary. As an example we can look at the DNSSEC root key which is
+   redundantly stored at two secure facilities in the United States in hardware
+   security modules (HSM) [6].
+3. A simpler, cheaper, less efficient approach with similar security guarantees
+   was proposed by Matsumoto et. al. [7] and improved in Fabian Murer's master
+   thesis [8]. They are using commodity hardware in a observable touch-less
+   environment.
 
 ## Benchmarking signing
 
@@ -329,11 +277,6 @@ The third assertion is only necessary until there is a standard port for RAINS
 In SCION every ISD will have a root zone. A client obtains the root public
 key(s) of its ISD through the TRC file which is the root of trust in a SCION
 network.
-
-## Open questions
-
-- How to distinguish between outage, breach from a zone view
-- How to distinguish between outage, breach, or revocation from a client view
 
 ## Sources
 
