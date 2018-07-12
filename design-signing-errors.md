@@ -45,7 +45,7 @@ will not be cached and all name lookups are recursive. Additionally, the zone
 must make sure that the expired assertions are not removed from its
 authoritative servers to still allow recursive lookup.
 
-## Lower bound on security
+## Security considerations
 
 A zone should follow the following security recommendations if it does not want
 to become an easy target for an attacker.
@@ -54,6 +54,15 @@ to become an easy target for an attacker.
   an adversary could just collect old assertions and push them to caching
   servers which then have the overhead of processing these messages and it
   degrades the quality of their cache.
+- It should not be easy for a former owner of a name to claim that the
+  delegation chain is broken and thus, by using his former valid but expired
+  delegation and assertion to lead an unsuspecting user away from the new
+  owner's site. This will not happen during a recursive lookup as long as all
+  zones on the delegation chain are honest (which can be expected in most
+  cases). But an adversary could present all the information directly to the
+  user which then has to decide if it trusts the expired entries as it could as
+  well be error class 3 where it might be the only way for a zone to not be
+  totally unavailable.
 
 ## Handle error class 1
 
@@ -101,7 +110,16 @@ information in case the adversary also managed to compromise the signing key. It
 is extremely hard to detect such an attack if the adversary is cautious and uses
 these entries rarely at specific high profile targets.
 
-A possible ........
+To prevent the delegation chain to break, the error zone could ask its
+superordinate zone to take over the signing of delegations. The error zone must
+provide the superordinate zone with the names to sign. Let us look at an example
+where ethz.ch's signing infrastructure goes down. It could then ask the ch zone
+to directly delegate to the zone inf.ethz.ch. Instead of having two delegations
+(:A: ch . ethz :deleg: ... and :A: ethz.ch . inf :deleg: ...) there would be
+just one delegation skipping ethz (:A: ch . inf.ethz :deleg: ...). This will
+obviously come at a (high) cost for the error zone. This approach will probably
+fail for top level domains as the root zones are designed to handle large loads
+on their authoritative servers but less on the signing infrastructure.
 
 ## Handle error class 3
 
@@ -112,50 +130,69 @@ infrastructure is working again.
 
 ### Non-leaf zone
 
-Superordinate can ask supersuperordinate to sign a direct delegation to all its
-important zones. Does not scale for the root zone as it is designed to answer a
-lot of queries but not really to sign many. of course this will be expensive
-...
+The zone will be disconnected from the Internet until the signing and server
+infrastructure is working again. Additionally, it should ask its superordinate
+zone to sign the delegation assertions for its subordinates as in error class 2.
 
 ## Handle error class 4
 
-A reduced security mode should not affect later owner of name. How to make that
-sure?
+It is not necessary to distinguish between leaf and non-leaf zone as an
+adversary having access to the signing key can create a delegation assertion.
+Once an authority detects a private key compromise it can create a new key pair
+and switch to it in the next delegation phase. The hard part about this error
+class is detecting a key compromise, especially when an attacker is cautiously
+using the key. Until the current delegation expires there is nothing a zone can
+do to mitigate an adversary exploiting the private signing key.
 
-## Reduced security mode
+## Attacks claiming a broken delegation chain
 
-send notification that signing issue and that client has to tell it wants
-expired results. -> recursive request. It will become more expensive for the
-'bad' zone as there is no caching anymore.
+- When the contract between a zone's authority and its superordinate expires or
+  is revoked, then the superordinate will not sign new delegations for this zone
+  and it may delegate the namespace to a different authority. The zone could
+  pretend in such a case that it lost connection with its superordinate and a
+  client should accept expired assertions.
+- When an adversary was able to obtain a signing key of a zone and got
+  discovered it can still use the previously issued assertions by again claiming
+  a lost connection to the zone's superordinate.
+- An attacker might try to provide a user with a public key and then trick him
+  to accept an assertion with a valid signature using the previously provided
+  public key without looking at the delegation chain at all. A typical user does
+  not know how the naming system with its root of trust works and might even
+  accept an assertion without a signature at all if the browser does not warn
+  him. He might even proceed after obtaining a warning similar to the case with
+  invalid ssl certificates.
 
-## Exploiting the delegation failure outage prevention
+## Defenses
 
-When the contract between a zone's authority and its superordinate expires or
-when it gets revoked, then the superordinate will not sign new delegations for
-this zone and it may delegate the namespace to a different authority. The zone
-could pretend in such a case that it lost connection with its superordinate and
-go into 'reduced security mode'. A client should be able to distinguish between
-these two cases such that she knows if it is safe to use expired assertions.
-Additionally, if a private key compromise has happened, then assertions issued
-by the adversary should be excluded from a reduced security mode.
-Should a server by able to push an assertion without a valid delegation into a
-new server, probably not because it goes against the whole idea of having
-expiration times to be secure.
+- Replicate infrastructure (also geographically)
+- Large enough caches and rate limiting
+- Store private key in a safe and tamper-proof way
+- Have some infrastructure in the cloud to adapt quickly to changes in the load
+  or local errors
+- Have emergency plans
 
-## Additional defenses using SCION
+## Defenses using SCION
 
 - Compared to the current state of DNSSEC where there is only one root and if it
   gets compromised or goes down the whole Internet cannot do name resolution in
-  Scion there is one root per ISD. In a normal case a client is part of at least
+  SCION there is one root per ISD. In a normal case a client is part of at least
   two ISDs. Thus, when all but one connected roots are inaccessible the client
   can still do name resolution. But on the other hand the set of trustable third
   parties increases with each ISD the client connects to.
-- SIBRA to defend against some DDoS attacks, see above
-- PISCES
+- SIBRA to defend against some DDoS attacks
+- PISCES to defend against some DDoS attacks
 - DDoS filtering service in front of RAINS server (per AS max sending rate,
-  history based) [Benjamin Rothenberger]
+  history based) [Benjamin Rothenberger] to defend against some DDoS attacks
 
-  ## Open questions
+## Distinguish between outage and breach (key compromise)
 
-- How to distinguish between outage, breach from a zone view
-- How to distinguish between outage, breach, or revocation from a client view
+As long as a key compromise is not detected every user of the system cannot
+distinguish between a signature issued by the zone or by an adversary except the
+zone itself. If a RAINS operator does not know someone trustworthy in a zone he
+will treat an outage the same way independent of the cause (misconfiguration,
+nature, malicious, etc.) as he cannot verify it. Thus, adding a 'reduced
+security mode' in case a zone experiences an outage will probably do more harm
+as a zone operator has less incentive to keep its private key(s) safe and having
+a robust signing and serving infrastructure. Additionally, an unverifiable
+'reduced security mode' gives an adversary more options how to exploit the
+system.
