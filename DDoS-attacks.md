@@ -1,25 +1,25 @@
 # DDoS attacks on RAINS
 
-In this section we analyze the security of RAINS by looking at different kind
-of attacker models. We demonstrate several attacks against a RAINS server or the
+In this section we analyze the security of RAINS based on different kind of
+attacker models. We demonstrate several attacks against a RAINS server or the
 networking infrastructure. For each of these attacks we suggest possible defense
-mechanism which an operator of rains servers can deploy to protect against them.
+mechanism which an operator of RAINS servers can deploy to protect against them.
 Some of the defenses are generally applicable and some require additional
 features provided by next generation networks such as SCION. We are only
 discussing attacks where the computational power of the attacker and the
 defender are similar (linear). Once an attacker is exponentially stronger than a
 defender he can just overwhelm the defender's resources with his sheer power
-(computational and monetary wise). We are not considering passive attackers in
-this section as they cannot interrupt the naming service just by observing the
-network (privacy is part of another section).
+(computational and/or monetary wise). We are not considering passive attackers
+in this section as they cannot interrupt the naming service just by observing
+the network (privacy is part of another section).
 
 ## Attacker model 1
 
-- Can send queries
-- Cannot break cryptography
-- Does not have authority over a zone
-- Can have access to many different devices
-- Has knowledge about the topology of the network
+1. Has access to many different devices which are able to send queries
+2. Cannot break cryptography
+3. Does not have authority over a zone
+4. Has knowledge about the topology of the network
+5. Is similar in strength as the defender (linear)
 
 ### RAM and cache exhaustion attacks
 
@@ -29,17 +29,25 @@ they are cached before one of the server's go routines is ready to process them.
 Once the input queue is full, new arriving valid and invalid assertions are
 getting dropped.
 
-Defense: A server could have a policy that it never accepts assertions which are
-not a response to a query issued by it. In case the server has authority over a
-zone it only accepts assertions pushed from the local rainspub. This policy is
-quite conservative and restricts the rains protocol substantially.
+Defense: The infrastructure should have enough capacity to not run into this
+problem. There could be a rate limiting service in front of the servers which
+divides traffic into buckets through a randomized hash function (the seed is
+frequently changed) and starts dropping queries once a bucket used up its fair
+share. This approach results in a reduced service but prevents a total outage.
+An adversary which is capable of persistently filling up all the buckets is not
+part of the attacker model (violates nr. 5).
 
-Another approach would be to have a monitoring service working on the server's
-log files. As soon as the server has received more assertions with invalid
-signatures from a single connection than a pre-configured threshold, the
+A caching resolver could have a policy that it never accepts assertions which
+are not a response to a query issued by it. This approach does not add
+additional state as the server has to keep the token anyway and looking up a
+token is a fast operation.
+
+An additional measure would be to have a monitoring service working on the
+server's log files. As soon as the server has received more assertions with
+invalid signatures from a single connection than a pre-configured threshold, the
 monitoring service will blacklist the IP address of the malicious connection.
 
-Attack 5: An attacker with many devices (e.g. IoT devices which are able to
+Attack 2: An attacker with many devices (e.g. IoT devices which are able to
 create a TCP connection) can start from each of these devices simultaneously one
 or multiple TCP connections to one RAINS server. Firstly, it takes more time for
 connecting devices to establish a TCP connection and secondly, it fills up the
@@ -47,88 +55,71 @@ connection cache which will start to evict connections (possibly active once
 e.g. when a recursive lookup is performed and the query is in the pending cache)
 from the cache according to its LRU strategy.
 
-Defense: None?
-
-### CPU exhaustion attack
-
-Attack 10: For each query the server has to split the name into subject name and
-zone. An adversary can construct a name such that this computation will become
-expensive. This is the case when the subject name contains many dots. An
-attacker can generate many computational expensive queries and send them
-together to a server.
-
-Defense: A server can set a threshold on how many dots a query name can have
-such that it still processes it. A monitoring service does not really help as
-these queries probably come from many different connections which together are
-expensive but blacklisting a client for one bad query is too much in my opinion.
+Defense: The infrastructure must be able to handle a huge number of connection
+requests. In case the attacker is able to exhaust the RAM just with TCP
+connections, then it is too strong (violates nr. 5)
 
 ## Attacker model 2
 
 - Same capabilities as attacker model 1
-- Can sign valid assertions for a zone either by having authority over this zone or being able to
-  steal the private key from this zone's authority.
+- Can sign valid assertions either by having authority over a zone or being able
+  to steal the private key from a zone's authority.
 
 ### RAM and cache exhaustion attacks
 
-Attack 2: An attacker can create a domain, issue long-validity shards with a
-wide shard range and push them to caching servers. Instead of pushing the
-shards, the attacker can as well send a queries for a non-existent names in this
-domain to the caching servers which then fetch the shards. In regular intervals
-the attacker has to resend these queries to prevent the caching servers to evict
-these large entries in case they use a lru policy.
+Attack 3: An attacker issues once 'non-expiring' shards (e.g. expire in 1000
+years) with many contained assertions and pushes them regularly to caching
+servers. Instead of pushing the shards, an attacker can as well send queries for
+non-existent names in that domain and let the caching servers fetch the shards.
+In regular intervals the attacker has to resend these queries to prevent the
+caching servers to evict these large entries in case they use a lru policy. This
+attack will probably not exhaust the cache but fill it with lots of 'garbage'
+content which kind of forces the operator to increase its caching capabilities.
+The validity of the shard is determined by the shortest assertion validity on
+the delegation chain. The further away a zone is from the root the shorter the
+lifetime of the shard is and the attacker has to resend the shard more often.
+Also because there are less queries for non-existing names the entry will get
+stale less quickly.
 
-Defense: The validity of an assertion or shard is at most as long as the
-shortest validity along the delegation chain from the zone to the root. The
-further away a zone is from the root the harder and more unlikely it is to get a
-long-validity assertion as it has to obtain long-validity delegation from all
-zones on the way to the root. Zones close to the root (such as TLDs) earn their
-money mostly by delegating parts of their namespace and have an incentive that
-their customers are continuously reachable through RAINS. Thus, they will likely
-choose reasonable assertion expiration times. A caching server can as well be
-configured to evict entries in its cache after a certain amount of time
-independent of the entry's expiration time. This does not help against an
-adversary who periodically requests large entries. The hard part here is to
-distinguish between legitimate and adversarial queries. A caching server could
-use a log monitoring service which raises an alarm in case it detects periodic
-queries for large entries which can then be inspected by a human.
+Defense [PROTOCOL CHANGE]: It is hard for a server to distinguish between a
+valid and a forged query for a non-existing name. Nevertheless, a maximum shard
+size restricts the attacker as he has to do more work. It also allows the
+operator to have a smaller cache with the same amount of entries and evict
+entries more frequently. Answering non-existence queries with a notification
+message reduced the amount of data transferred over the network substantially.
+If a client still wants proof of non-existence through a shard it can enable
+query option 9. A caching server could use a log monitoring service which raises
+an alarm in case it detects frequent queries for non-existing names.
 
-Attack 3: Same as attack 1 but the adversary firstly obtains a zone and a
-delegation to it. Secondly, he starts creating a huge amount of assertions with
-valid signatures and pushes them to a caching server. This time, not only the
+Attack 4: Same as attack 1 but with valid signatures. This time, not only the
 input queue is filling up, but also the assertion cache.
 
-Defense: The main problem here is to distinguish between a large valid zone
-pushing its assertions and an attack scenario. A monitoring service can
-calculate for each zone the ratio between received queries and received
-assertions. If there are much more non-delegation assertions than queries it is
-likely an attack and the corresponding zone can be blacklisted. This defense
-does not help when the attacker is also sending queries for his zone or when the
-assertions are mostly of delegation type. These scenario cannot or only with a
-huge effort be defended as they imitate common patterns of a naming system. The
-first one is the common case and in the second one the attacker's zone pretends
-to be like zones near the root which are almost delegation only.
+Defense: This scenario cannot or only with a huge effort be defended as the
+attacker imitates common patterns of a naming system. In case the attacker is
+strong enough to fill up the cache and all the buckets of the rate limiting
+mechanism, then he is not part of the model (violates nr. 5)
 
-Attack 4: An attacker with the authority over a zone can create lots of dummy
-delegation assertions with valid signatures. He would then push them to a RAINS
-server to exhaust the delegation assertion cache where under normal
-circumstances entries are only evicted after they have been expired as the
-server must be able to produce a proof of all entries in its cache. The
-consequences are severe in case this attack is successful as the server might
-not be able to store all necessary delegations and thus, cannot check signatures
-of newly incoming assertions which in turn would fill up the pending query cache
-(waiting for the delegation assertion to arrive).
+Attack 5: An attacker can create lots of dummy delegation assertions with valid
+signatures. He would then push them to a RAINS server to exhaust the delegation
+assertion cache where under normal circumstances entries are only evicted after
+they have been expired as the server must be able to produce a proof of all
+entries in its cache. The consequences are severe in case this attack is
+successful as the server might not be able to store all necessary delegations
+and thus, cannot check signatures of newly incoming assertions which in turn
+would fill up the pending query cache (waiting for the delegation assertion to
+arrive).
 
 Defense: Having a monitoring service which counts the number of received
 delegations per zone in a configurable time interval. In case the amount of
 received delegations exceed a threshold and the zone is unknown i.e. it is not a
-valid zone known for having many delegations like the root and TLDs and thus, is
-part of a whitelist, the zone will be blacklisted. The problem here is that
-since the attacker has authority over a zone, he can delegate to a number of
-sub-zones such that the threshold is not reached and then repeat this step in
-each of the sub-zones. This results also in a large amount of delegations
-without being blacklisted. To restrict this defense evasion method the
-monitoring system can raise an alert or blacklist zones which are more than a
-configurable amount of steps away from the root.
+valid zone known for having many delegations like TLDs and thus, is part of a
+whitelist, the zone will be blacklisted. The problem here is that since the
+attacker has authority over a zone, he can delegate to a number of sub-zones
+such that the threshold is not reached and then repeat this step in each of the
+sub-zones. This results also in a large amount of delegations without being
+blacklisted. To restrict this defense evasion method the monitoring system can
+raise an alert or blacklist zones which are more than a configurable amount of
+steps away from the root.
 
 Attack 6: An attacker having authority over a zone can send lots of queries with
 a high valid until value about that zone to a RAINS server which has not yet
@@ -170,7 +161,7 @@ with indirection that makes tracing difficult
 
 Defense: ?
 
-### CPU exhaustion attack 
+### CPU exhaustion attack
 
 Attack 9: An adversary with the authority over a zone can create many shards
 with a large range which are all overlapping (E.g. an alphabetic equivalence to
@@ -232,3 +223,10 @@ predictable [source? e.g. using traceroute].
 
 Defense: Use the same defenses as in attack 1. Additionally, using SIBRA it is
 not possible for an attacker to saturate the whole link.
+
+### Amplification attack
+
+Attack 14: Query with many dots depends on configuration of server,
+caching&recursive, only recursive parallel vs. sequential
+
+Attack 15: large shards, mitigate by e.g. having max shard size 100
