@@ -121,23 +121,26 @@ blacklisted. To restrict this defense evasion method the monitoring system can
 raise an alert or blacklist zones which are more than a configurable amount of
 steps away from the root.
 
-Attack 6: An attacker having authority over a zone can send lots of queries with
-a high valid until value about that zone to a RAINS server which has not yet
-cached any of the answers. On receiving such a query it will put the query into
-the pending query cache and forwards the query after a recursive lookup to an
-authoritative server. The authoritative server under the control of the attacker
-however will not respond to the sent query and lets it time out. The queried
-server will retry several times without success while the original queries are
-filling up the pending query cache. Once the cache overflows good and malicious
-entries will be evicted according to a LRU policy.
+Attack 6: An attacker sends lots of queries with a high valid until value about
+his zone to a RAINS server which has not yet cached any of the answers. On
+receiving such a query it will put the query into the pending query cache and
+forwards the query after a recursive lookup to an authoritative server. The
+authoritative server under the control of the attacker however will not respond
+to the sent query and lets it time out. The queried server will retry several
+times without success while the original queries are filling up the pending
+query cache. Once the cache overflows good and malicious entries will be evicted
+according to a LRU policy.
 
-Defense: A server can reduce the valid until value according to its policy. A
-monitoring service might detect unusual queries and blacklist the IP address of
-the connection from which it received those. In this case it would be receiving
-many queries from the same connection in a short period of time with a large or
-without i.e. infinite valid until value. This approach can also lead to false
-positives e.g. when a large company internally deploys a naming service which
-does all the lookups without a valid until time.
+Defense: A server can reduce the valid until value of the query according to its
+policy. A smaller value implies less time for the query to occupy the cache. The
+cache should be large enough to not overflow even when all queries stay in it
+until they expire for the configured query incoming rate.
+
+A monitoring service could keep track of how many queries expire for a given
+zone and black list it after a certain threshold is passed. However, this is not
+a good idea as an attacker could craft queries that expire shortly after they
+are received by the server such that it expires before the recursive lookup has
+even reached the destination zone and it will be falsely blacklisted.
 
 Attack 7: Similar to attack 6 but this time the target is the pending delegation
 cache. The adversary has to be careful that it does not get blacklisted by the
@@ -145,21 +148,21 @@ queried server in case the authoritative server of his zone does not or only
 after several retries respond to the delegation queries.
 
 Defense: Only respond to delegation queries which are already cached, issued by
-this server or are part of the delegation chain to the root. A server should not
-be blacklisted if it does not respond to a random delegation query as it is not
-responsible to answer it. The client should do a recursive lookup in which case
-it should get an answer according to the above policy. If there is an assertion
-in the cache of this server than the corresponding delegations are also in the
-cache and it can prove the assertion's validity. In case an adversary sends a
-non-delegation query to this server to force it to obtain the delegation, we are
-in the attack 6 case and the corresponding defenses apply.
+this server or are part of the delegation chain to the root to avoid the
+delegation cache to fill up. A server will not be blacklisted if it does not
+respond to a random delegation query as it is not responsible to answer it. If
+there is an assertion in the cache of this server than the corresponding
+delegations are also in the cache and it can prove the assertion's validity. In
+case an adversary sends a non-delegation query to this server to force it to
+obtain the attacker's delegation, we are in the attack 6 case and the
+corresponding defenses apply.
 
 Attack 8: [From the draft] An attacker can cause traffic overload at a targeted
 intermediate or authority service by crafting queries and sending them via
 multiple query services. There is no amplification here, but a concentration,
 with indirection that makes tracing difficult
 
-Defense: ?
+Defense: Rate limiting but still the service will be degraded
 
 ### CPU exhaustion attack
 
@@ -173,12 +176,37 @@ In this adversarial setting consistency checks are computationally expensive and
 the server will probably not be able to check all incoming assertions and shards
 which allows an adversary to inject inconsistent information.
 
-Defense: A server would only check consistency while it has enough computing
-power to maintain the regular service. Additionally, a monitoring system can
-count the ratio of shards to assertions and blacklist zones which have a high
-shard ratio. The counting is not trivial and might not be worth the effort to do
-it online. The server could send an alarm in case it reaches its computational
-capabilities and only the logs are inspected and searched for anomalies.
+Defense: Having a maximum number of assertions per shard reduces the comparison
+a bit but not substantial. A server would only check consistency while it has
+enough computing power to maintain the regular service. Additionally, a
+monitoring system can count the ratio of shards to assertions and blacklist
+zones which have a high shard ratio or with highly overlapping shards. The
+counting is not trivial and might not be worth the effort to do it online. The
+server could send an alarm in case it reaches its computational capabilities and
+only then are the logs inspected and searched for anomalies.
+
+Attack 10: After attack 9 was successful and the zone does not check for
+consistency anymore, the adversary could have a shard stating that a certain
+assertion does not exist which is globally visible while on the same time on
+some resolvers sneak in an inconsistent assertion. Or a malicious superordinate
+zone might delegate 2 public keys for the same key phase. Then it pushes after
+attack 9 happened the unauthorized delegation assertion into the cache which
+probably serves assertions on a round robin base. Clients with the unauthorized
+delegation might obtain fraudulent assertions without noticing as the validation
+works out just fine. These are for the most part one time attacks as the
+resolver under attack might eventually check the consistency based on the logs
+and detect the fraud. But for the second attack it is easier for a malicious
+superordinate to just create an additional key phase try to hide it from the
+authoritative zone by e.g. pushing assertions signed with the unauthorized
+public key at a location far away from the zone authority. To check the
+assertions validity no query will end up at the authorized zone as the
+superordinate can provide the delegation and that is sufficient.
+
+In general I do not see much use for an attacker to have an inconsistency. He
+will most likely be detected quickly and to create an inconsistency he must have
+a zone which he does not want to get blacklisted.
+
+Defense: Do not let attack 9 succeed.
 
 Attack 11: An attacker having authority over a zone can create a message
 containing a zone with a huge amount of unsigned dummy assertions and send it
@@ -198,19 +226,19 @@ shorter shards as well.
 
 ### Network exhaustion attack
 
-Attack 12: An attacker having authority over a zone can push a message
-containing a large zone to his target rains server (it is not necessary to sign
-the contained assertions). The attacker then issues many queries for a
-non-existent name of this zone to the target server. As the target server does
-not have signed shards, it has to reply with the large zone file. This attack
-will use up a large fraction of the server's network capabilities. TODO make
-some calculation how many queries are necessary to saturate server components.
+Attack 12: An attacker can push a message containing a large zone to his target
+RAINS server (it is not necessary to sign the contained assertions). The
+attacker then issues many queries for a non-existent name of this zone to the
+target server. As the target server does not have signed shards, it has to reply
+with the large zone section. This attack will use up a large fraction of the
+server's network capabilities. TODO make some calculation how many queries are
+necessary to saturate server components.
 
 Defense: A monitoring service can mark zones with unsigned content as
 potentially malicious and count how many times a query is answered with a zone.
 After a certain amount of such answers the operator of the server might
 blacklist the zone or contact the authorities of such a zone and ask them to
-publish shorter shards as well. As an alternative, A server could decide to
+publish shorter shards as well. As an alternative, a server could decide to
 never answers with a zone.
 
 Attack 13: This attack is similar to Attack 1 but the target is not the server
@@ -221,12 +249,52 @@ the other side of the target link. In today's Internet the attacker cannot be
 certain where the packets are passing through the network but most are
 predictable [source? e.g. using traceroute].
 
-Defense: Use the same defenses as in attack 1. Additionally, using SIBRA it is
-not possible for an attacker to saturate the whole link.
+Defense: Use the same defenses as in attack 1. Limited size shards reduce the
+issue. Additionally, using SIBRA it is not possible for an attacker to saturate
+the whole link.
 
 ### Amplification attack
 
-Attack 14: Query with many dots depends on configuration of server,
-caching&recursive, only recursive parallel vs. sequential
+Attack 14: An adversary can create many long delegation chains and query a query
+service for the names furthest away from the root. The query service will
+perform a recursive lookup but the adversary will postpone answering the
+delegation requests as much as possible without getting blacklisted to achieve a
+lot of his own queries filling up the pending query cache. Additionally, the
+query service has to send a lot of queries out to perform the recursive lookup
+which could be used as an amplification attack. The query service will send from
+one adversarial query the same amount of delegation queries out as the
+adversarial query's name has dots. The query service should cache these
+delegations as otherwise an adversary can constantly ask the same query and the
+service has to send each time an amount of queries equalling the number of dots
+in the query's name.
 
-Attack 15: large shards, mitigate by e.g. having max shard size 100
+Defense: [PROTOCOL CHANGE] Have a maximal length for the delegation chain. Due
+to halving the delegation lifetime on each level there is basically a lower
+bound on the number of delegations. But an adversary might choose another
+strategy and be able to have much more valid delegations. Setting a tighter
+timeout on the query would also help as it would stop in the middle of the
+recursive lookup after the query expired.
+
+Attack 14.b: [What kind of attack would that be?] To reduce the delay to perform
+a fully recursive lookup, a resolver might check if it already has the
+information about part of the delegation chain and start the recursive lookup
+where the delegation is broken. This can only be done efficiently if the
+delegation cache allows for querying fully qualified names. Also the more dots a
+name has the more cache lookups are necessary.
+
+Attack 15: An attacker can create a message containing a zone with a huge amount
+of unsigned dummy assertions and send it to a RAINS server. He then sends
+queries from different locations to this server which has to respond with the
+large zone section as the assertions are not signed. The destination of the
+large zone section is the attacker itself but it also affects the network
+resources and most of the work is done by the target server.
+
+Defense: Do not allow zone sections or do not answer a positive query with a
+zone section. Limit the amount of assertions that are allowed inside a shard.
+
+[PROTOCOL CHANGE] Having a shard section without shard range where we can group
+assertions that belong together and only sign the group and not individual
+assertions. Safes the zone signing work and it would make sense e.g. for
+delegation, redirection and ip4 of name server as they are mostly only useful
+together. A message can only be signed with the infrastructure key and we cannot
+cache a message but maybe we want to change that, maybe not
