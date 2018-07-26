@@ -28,6 +28,15 @@ characters which are not part of the syntax.
 - "\*" arbitrary number of occurrences of the previous term (including none)
 - "\+" at least one occurrence of the previous term
 
+### Special encodings
+
+- ';' represents the beginning of a comment. The remainder of the line is
+  ignored.
+- '<' represents the nil value of a shard's rangeFrom
+- '>' represents the nil value of a shard's rangeTo
+
+### Format specification
+
 - Zone := Z|ZS
 - Z := :Z: subject-zone context [ {Assertion|Shard}* ]
 - ZS := Z ( Signature* )
@@ -59,13 +68,6 @@ characters which are not part of the syntax.
 - Signature := SM|SMS
 - SM := algorithm keyspace keyphase validSince validUntil
 - SMS := SM signature
-
-### Special encodings
-
-- ';' represents the beginning of a comment. The remainder of the line is
-  ignored.
-- '<' represents the nil value of a shard's rangeFrom
-- '>' represents the nil value of a shard's rangeTo
 
 ## Implementation
 
