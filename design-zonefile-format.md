@@ -10,28 +10,62 @@ in section 5 of [2], used by BIND [3] and many more.
 
 A zone file contains an entry or a sequence of entries. An entry typically
 starts on a new line. Each entry consists of several items depending on the type
-as specified below. At least one white space (space, tab, return) act as a
+as specified below. At least one white space (space, tab, return) acts as a
 delimiter between items. A comment starts with a ";" (semicolon) which results
 in the rest of the line being ignored by the parser. Empty lines are allowed
 anywhere in the file, with or without comments.
 
-An entry is either a zone, a shard or an assertion. Parentheses "()" and
-brackets "[]" are part of the syntax. Similar to regex we use the following
-special characters which are not part of the syntax. Each final non-static term
-is a string representation of the type specified in the rains data model. (TODO
-CFE should we specify the string representation per type? e.g. public key in
-hexadecimal while port in decimal etc.)
+An entry is either a zone, a shard or an assertion. Parentheses "()", brackets
+"[]" and types (type name between semicolons e.g. :ip4:) are static terms. Each
+term starting with a lowercase character stands for an arbitrary string value.
+The meaning of this value is specified in the rains data model. (TODO CFE should
+we specify the string representation per type? e.g. public key in hexadecimal
+while port in decimal etc.) Similar to regex we use the following special
+characters which are not part of the syntax.
 
-- '<>' to group terms (as parenthesis are part of the syntax)
-- '|' either term on the left or term on the right (not both)
-- '\*' arbitrary number of occurrences of the previous term (including none)
-- '\+' at least one occurrence of the previous term
+- "{}" to group terms (as parenthesis are part of the syntax)
+- "|" either term on the left or term on the right (not both)
+- "\*" arbitrary number of occurrences of the previous term (including none)
+- "\+" at least one occurrence of the previous term
 
-- Zone: :Z: 
+- Zone := Z|ZS
+- Z := :Z: subject-zone context [ {Assertion|Shard}* ]
+- ZS := Z ( Signature* )
+- Shard := BS|CS|BSS|CSS
+- BS := :S: subject-zone context rangeFrom rangeUntil [ Assertion* ]
+- CS := :S: rangeFrom rangeUntil [ Assertion* ]
+- BSS := BS ( Signature* )
+- CSS := CS ( Signature* )
+- Assertion := BA|CA|BAS|CAS
+- BA := :A: subject-name subject-zone context [ Object+ ]
+- CA := :A: subject-name [ Object+ ]
+- BAS := BA ( Signature* )
+- CAS := CA ( Signature* )
+- Object := Name|IP6|IP4|Redir|Deleg|Nameset|Cert|Srv|Regr|Regt|Infra|Extra|Next
+- Name := :name: name [ ObjectType+ ]
+- IP6 := :ip4: ip4
+- IP4 := :ip6: ip6
+- Redir := :redir: name
+- Deleg := :deleg: algorithm publicKey
+- Nameset := :nameset: expr
+- Cert := :cert: protocolType usageType hashType certificate
+- Srv := :srv: name port
+- Regr := :regr: registrar
+- Regt := :regt: registrant
+- Infra := :infra: algorithm publicKey
+- Extra := :extra: keyspace algorithm publicKey
+- Next := :next: algorithm publicKey validSince validUntil
+- ObjectType := :name:|:ip6:|:ip4:|:redir:|:deleg:|:nameset:|:cert:|:srv:|:regr:|:regt:|:infra:|:extra:|:next:
+- Signature := SM|SMS
+- SM := algorithm keyspace keyphase validSince validUntil
+- SMS := SM signature
 
 ### Special encodings
 
-- ';' represents the beginning of a comment. Remainder of the line is ignored.
+- ';' represents the beginning of a comment. The remainder of the line is
+  ignored.
+- '<' represents the nil value of a shard's rangeFrom
+- '>' represents the nil value of a shard's rangeTo
 
 ## Implementation
 
@@ -48,17 +82,29 @@ An zone file example for the domain example.com.
 
 :Z: example com. [  
     :S: < > [  
-            :A: bar  [ :ip4: 192.0.2.0 ]  
-            :A: baz  [ :ip4: 192.0.2.1 ]  
-            :A: foo [  
-                    :ip6:      2001:db8::  
-                    :ip4:      192.0.2.2  
-            ]  
+        :A: bar  [ :ip4: 192.0.2.0 ]  
+        :A: baz  [ :ip4: 192.0.2.1 ]  
+        :A: foo [  
+                :ip6:      2001:db8::  
+                :ip4:      192.0.2.2  
+        ]  
     ]  
     :S: bar foo [  
-            :A: baz  [ :ip4: 192.0.2.1 ] (TODO CFE add sig meta data)  
+        :A: baz  [ :ip4: 192.0.2.1 ] (TODO CFE add sig meta data)  
     ] (TODO CFE add sig meta data)  
+]
+or equivalent
+:S: example com. < > [  
+    :A: bar  [ :ip4: 192.0.2.0 ]  
+    :A: baz  [ :ip4: 192.0.2.1 ]  
+    :A: foo [  
+            :ip6:      2001:db8::  
+            :ip4:      192.0.2.2  
+    ]  
 ]  
+:S: example com. bar foo [  
+    :A: baz  [ :ip4: 192.0.2.1 ] (TODO CFE add sig meta data)  
+] (TODO CFE add sig meta data)  
 
 ## Bibliography
 [1] DNS zone file https://en.wikipedia.org/wiki/Zone_file
