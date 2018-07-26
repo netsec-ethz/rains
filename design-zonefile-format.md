@@ -1,4 +1,4 @@
-# Zone file format
+# Zone File Format
 
 A zone file is a text file containing a textual representation of RAINS entries.
 Typically, a zone file describes all entries of a zone. But it can also be used
@@ -28,28 +28,37 @@ characters which are not part of the syntax.
 - "\*" arbitrary number of occurrences of the previous term (including none)
 - "\+" at least one occurrence of the previous term
 
-### Special encodings
+### Special Encodings
 
 - ";" represents the beginning of a comment. The remainder of the line is
   ignored.
 - "<" represents the nil value of a shard's rangeFrom
 - ">" represents the nil value of a shard's rangeTo
 
-### Format specification
+### Zone Format Specification
 
 - Zone := Z|ZS
 - Z := :Z: subject-zone context [ {Assertion|Shard}* ]
 - ZS := Z ( Signature* )
+
+### Shard Format Specification
+
 - Shard := BS|CS|BSS|CSS
 - BS := :S: subject-zone context rangeFrom rangeUntil [ Assertion* ]
 - CS := :S: rangeFrom rangeUntil [ Assertion* ]
 - BSS := BS ( Signature* )
 - CSS := CS ( Signature* )
+
+### Assertion Format Specification
+
 - Assertion := BA|CA|BAS|CAS
 - BA := :A: subject-name subject-zone context [ Object+ ]
 - CA := :A: subject-name [ Object+ ]
 - BAS := BA ( Signature* )
 - CAS := CA ( Signature* )
+
+### Object Format Specification
+
 - Object := Name|IP6|IP4|Redir|Deleg|Nameset|Cert|Srv|Regr|Regt|Infra|Extra|Next
 - Name := :name: name [ ObjectType+ ]
 - IP6 := :ip4: ip4
@@ -65,6 +74,9 @@ characters which are not part of the syntax.
 - Extra := :extra: keyspace algorithm publicKey
 - Next := :next: algorithm publicKey validSince validUntil
 - ObjectType := :name:|:ip6:|:ip4:|:redir:|:deleg:|:nameset:|:cert:|:srv:|:regr:|:regt:|:infra:|:extra:|:next:
+
+### Signature Format Specification
+
 - Signature := SM|SMS
 - SM := algorithm keyspace keyphase validSince validUntil
 - SMS := SM signature
