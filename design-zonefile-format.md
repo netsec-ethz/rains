@@ -30,10 +30,10 @@ characters which are not part of the syntax.
 
 ### Special encodings
 
-- ';' represents the beginning of a comment. The remainder of the line is
+- ";" represents the beginning of a comment. The remainder of the line is
   ignored.
-- '<' represents the nil value of a shard's rangeFrom
-- '>' represents the nil value of a shard's rangeTo
+- "<" represents the nil value of a shard's rangeFrom
+- ">" represents the nil value of a shard's rangeTo
 
 ### Format specification
 
