@@ -37,25 +37,25 @@ characters which are not part of the syntax.
 
 ### Zone Format Specification
 
-- Zone := Z|ZS
+- Zone := Z|ZA
 - Z := :Z: subject-zone context [ {Assertion|Shard}* ]
-- ZS := Z ( Signature* )
+- ZA := Z ( Annotation* )
 
 ### Shard Format Specification
 
-- Shard := BS|CS|BSS|CSS
+- Shard := BS|CS|BSA|CSA
 - BS := :S: subject-zone context rangeFrom rangeUntil [ Assertion* ]
 - CS := :S: rangeFrom rangeUntil [ Assertion* ]
-- BSS := BS ( Signature* )
-- CSS := CS ( Signature* )
+- BSA := BS ( Annotation* )
+- CSA := CS ( Annotation* )
 
 ### Assertion Format Specification
 
-- Assertion := BA|CA|BAS|CAS
+- Assertion := BA|CA|BAA|CAA
 - BA := :A: subject-name subject-zone context [ Object+ ]
 - CA := :A: subject-name [ Object+ ]
-- BAS := BA ( Signature* )
-- CAS := CA ( Signature* )
+- BAA := BA ( Annotation* )
+- CAA := CA ( Annotation* )
 
 ### Object Format Specification
 
@@ -75,10 +75,14 @@ characters which are not part of the syntax.
 - Next := :next: algorithm publicKey validSince validUntil
 - ObjectType := :name:|:ip6:|:ip4:|:redir:|:deleg:|:nameset:|:cert:|:srv:|:regr:|:regt:|:infra:|:extra:|:next:
 
+### Annotation Format Specification
+
+- Annotation := Signature
+
 ### Signature Format Specification
 
 - Signature := SM|SMS
-- SM := algorithm keyspace keyphase validSince validUntil
+- SM := :sig: algorithm keyspace keyphase validSince validUntil
 - SMS := SM signature
 
 ## Implementation
