@@ -19,6 +19,13 @@ the privacy implications for each of the different models]
 
 ## Tradeoff space
 
+To evaluate different topologies we first have to determine in which properties
+a client, developer or operator is interested in. Secondly, we point out which
+of these properties influence each other to figure out where the tradeoffs are
+lying. Finally, we evaluate where to place the different topologies in this
+tradeoff space. Depending on the operational requirements an operator can then
+choose which topology to deploy (or a mixture thereof).
+
 ### Query Latency
 
 ### Scalability
