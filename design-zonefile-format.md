@@ -8,20 +8,19 @@ in section 5 of [2], used by BIND [3] and many more.
 
 ## Format
 
-A zone file contains an entry or a sequence of entries. An entry typically
-starts on a new line. Each entry consists of several items depending on the type
-as specified below. At least one white space (space, tab, return) acts as a
-delimiter between items. A comment starts with a ";" (semicolon) which results
-in the rest of the line being ignored by the parser. Empty lines are allowed
-anywhere in the file, with or without comments.
+A zone file contains a section or a sequence of sections. A section typically
+starts on a new line. Each section consists of several elements. At least one
+white space (space, tab, return) acts as a delimiter between elements. A comment
+starts with a ";" (semicolon) which results in the rest of the line being
+ignored by the parser. Empty lines are allowed anywhere in the file, with or
+without comments.
 
-An entry is either a zone, a shard or an assertion. Parentheses "()", brackets
-"[]" and types (type name between semicolons e.g. :ip4:) are static terms. Each
-term starting with a lowercase character stands for an arbitrary string value.
-The meaning of this value is specified in the rains data model. (TODO CFE should
-we specify the string representation per type? e.g. public key in hexadecimal
-while port in decimal etc.) Similar to regex we use the following special
-characters which are not part of the syntax.
+Parentheses "()", brackets "[]" and types (type name between semicolons e.g.
+:ip4:) are static terms. Each term starting with a lowercase character stands
+for an arbitrary string value. The meaning of this value is specified in the
+RAINS data model. (TODO CFE should we specify the string representation per
+type? e.g. public key in hexadecimal while port in decimal etc.) Similar to
+regex we use the following special characters which are not part of the syntax.
 
 - "{}" to group terms (as parenthesis are part of the syntax)
 - "|" either term on the left or term on the right (not both)

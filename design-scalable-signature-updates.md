@@ -278,6 +278,18 @@ In SCION every ISD will have a root zone. A client obtains the root public
 key(s) of its ISD through the TRC file which is the root of trust in a SCION
 network.
 
+## Issue
+
+- There will always be a gap between the current and the next shard when content
+  within that shard range is altered. Otherwise the consistency check would fail
+  as the entry is part of the new shard but not of the old one. This issue is
+  not that severe as a caching resolver has to request the new shard or
+  assertion after the previous one has expired and this takes more time than the
+  the gap of validity the shard has. But if the cache is pre-fetching some
+  shards, then for a small amount of time it cannot serve this information.
+  Additionally, the expiration of shards must be considered when signing a new
+  shard where as for an assertion it does not really matter.
+
 ## Sources
 
 [1] THE DOMAIN NAME INDUSTRY BRIEF: https://www.verisign.com/assets/domain-name-report-Q12018.pdf
