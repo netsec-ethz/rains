@@ -28,21 +28,64 @@ choose which topology to deploy (or a mixture thereof).
 
 ### Query Latency
 
+Query latency determines the amount of time a client has to wait for an answer
+to his query. The smaller the value the faster a client can start a connection
+with the destination. The value can be expressed as mean, average or tail
+latency.
+
 ### Scalability
+
+Scalability gives an indication about how many clients or queries the system
+deployed in a certain topology can support before it starts to drastically slow
+down. This property can also express how graceful overload is handled i.e. how
+clients experience an overload situation.  
 
 ### Assertion publishing complexity
 
+A zone authority makes information about its zone accessible through its
+authoritative servers. Depending on the topology and the method used there might
+be different amount of steps involved in publishing the zone's information. E.g.
+the number, location and task of the authoritative servers.
+
 ### Availability/Security (Client side)
 
-### Robustness (Operator side)
+A client expects the system to be highly available and to obtain correct
+information from it. The harder it is to break the delegation chain or to
+prevent the client to obtain an answer for his query the better the topology
+performs in this metric.
+
+### Robustness (authoritative side)
+
+The difficulty for an attacker to prevent a zone authority to publish
+information about its zone to the system determines the robustness of the
+topology.
 
 ### Privacy
 
+Depending on the topology the difficulty for an attacker to obtain private
+information varies. This property measures how much effort a given attacker
+model has to invest to gain a certain amount of information about a client.
+
 ### Troubleshooting complexity
 
-### Cost efficiency
+Troubleshooting complexity measures the difficulty for an operator to determine,
+locate and fix an error scenario.
+
+### Cost
+
+Cost states an estimate of the monetary cost each of the topologies has. It can
+include how the costs are divided between the operators of the system and the
+source of the cost such as electricity, location, number of operators etc. 
 
 ### Maintainability
+
+Maintainability describes the effort operators have to invest to keep the system
+running i.e. to update malfunctioning or old hardware, update the amount of
+servers depending on the amount of queries, etc.
+
+## Tradeoffs
+
+### TODO
 
 ## Distributed centralized approach
 
