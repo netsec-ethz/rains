@@ -85,7 +85,28 @@ servers depending on the amount of queries, etc.
 
 ## Tradeoffs
 
-### TODO
+- Cost vs Latency: Deploying additional/less servers closer to the clients.
+- Cost vs Scalability: Deploy more/less servers
+- Cost vs Availability: Having more/less redundant servers
+- Cost vs Robustness: Having more/less authoritative servers and bandwidth
+- Cost vs Privacy: Depending on the approach more servers are needed
+- Cost vs Troubleshooting: Bad tools -> more work -> more operators
+- Cost vs maintainability: Bad maintainability -> more operators
+- Latency vs Security: More/less security checks influence latency
+- Latency vs Robustness: less robust -> more failures -> partly higher latency
+- Latency vs Privacy: Depending on the method, much higher latency (e.g. mixnet)
+- Scalability vs Assertion publishing complexity: obvious
+- Scalability vs Security: More defenses -> more machines&complexity -> less scalable 
+- Scalability vs troubleshooting complexity -> obvious
+- Scalability vs Maintainability: The larger the system the harder to maintain
+- Assertion publishing complexity vs availability: more complex -> more things
+  can go wrong -> reduced availability
+- Assertion publishing complexity vs maintainability: obvious
+- Availability vs privacy: no privacy -> no availability
+- Availability vs Troubleshooting complexity: fix takes longer -> more downtime
+- Robustness vs Privacy: more features -> more possible issues -> less robustness
+- Robustness vs maintainability: more server/complex behavior -> less maintainable
+- Privacy vs Troubleshooting complexity: more private -> harder to troubleshoot
 
 ## Distributed centralized approach
 
