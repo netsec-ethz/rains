@@ -136,7 +136,7 @@ naming authorities and the centralized resolver such as:
 
 ### Use case
 
-- Small to mid size companies
+- Small to mid size companies with few close locations
 
 ### Discussion
 
@@ -158,17 +158,34 @@ performed which increases latency. Fetching updated assertions of the n most
 queried names before they expire is a possible optimization heuristic to reduce
 latency.
 
-## Centralized Controller with distributed resolvers
+## Centralized controller with distributed caching resolvers
 
 ### Setting
 
-We can divide the centralized topology into 
-All information is stored in each of several locations around the world. All
-authorities push their assertions to these locations. A client is querying a
-server from the closest location. Should I elaborate more, as there are so many
-points against this approach?
+This approach is similar to the centralized topology with the difference that
+the centralized resolver is divided into two parts, one centralized controller
+and many distributed caching resolvers. The centralized controller performs the
+task of the centralized resolver in the previous topology. The distributed
+caching resolvers reduce latency substantially for common query patterns. In
+case of a cache miss, the caching resolver forwards the query to the centralized
+controller which on a cache hit responds directly or else does a recursive
+lookup.
+
+### Use case
+
+- Large size companies
+- Companies with several locations that are geographically far apart
 
 ### Discussion
+
+The same holds true as for the centralized topology. With the small difference
+that maintainability is getting a bit harder as the servers are geographically
+distributed and cost will be slightly higher. As the caching resolvers are not
+performing recursive lookup themselves but go through the centralized
+controller, latency is a bit higher. But with this approach the centralized
+instance keeps control over the naming system and can still enforce its policy.
+control. Depending on the query pattern it might even reduce latency for other
+caching resolvers in case the centralized controller still has a cached answer.
 
 ## The DNS approach
 
