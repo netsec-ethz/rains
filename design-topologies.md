@@ -140,8 +140,9 @@ naming authorities and the centralized resolver such as:
 
 ### Discussion
 
-The centralized resolver is a single point of failure. All queries are going
-through it which reduces its scalability. The latency corresponds to the
+A centralized resolver is not only a single point of failure but also a single
+instance all clients using the naming system must agree on. All queries are
+going through it which reduces its scalability. The latency corresponds to the
 distance of the client to the resolver as long as the resolver can handle the
 load. In a company setting where the queries are only coming from withing the
 company, the amount of clients and queries are predictable and the necessary
@@ -187,7 +188,72 @@ instance keeps control over the naming system and can still enforce its policy.
 control. Depending on the query pattern it might even reduce latency for other
 caching resolvers in case the centralized controller still has a cached answer.
 
-## The DNS approach
+## Many independent closed recursive resolvers
+
+### Setting
+
+A client purchases access to a local closed recursive resolvers. In today's
+setting this would be the client's ISP. The resolver caches previous results to
+improve latency and performs recursive lookup on a cache miss for its customers.
+Similar to DNS, there must be a public root zone where each of the independent
+recursive resolvers can start their recursive lookups. This root zone is managed
+in the Internet by IANA [10] and the root servers are operated by several
+entities. In SCION, the root zone will be managed and servers provided by the
+ISD core and affiliated entities. The root servers store delegations and
+redirection entries to authoritative servers of all top-level domain.
+Authoritative servers serve information about the namespace they have authority
+over to any legitimate querier. In case there are multiple root zones, as we
+envision for SCION, there also needs to be a naming consistency observer (NCO).
+The NCO sends queries to all zones and checks if the response is coherent with
+the zone's published public policy. This ensures that all naming inconsistencies
+are public and transparent.
+
+### Use case
+
+- Internet
+- SCION
+
+### Discussion
+
+This topology scales to the size of the Internet. This is due to the namespace
+being hierarchical and the many independent entities where each of them operate
+a small part of the system. They either provide recursive lookup or host
+authoritative servers for their namespace. For an average client latency will be
+low as long as she chooses a resolver close by. Publishing information about a
+zone is quit easy for the authority as it can push the newly signed assertions
+to its own, local authoritative servers to which a redirection assertion points
+stored in the superordinate zone. An authority must be able to defend DDoS
+attacks against its authoritative servers if it does not want itself and all of
+its subzones to become unavailable. A recursive resolver learns the whole
+browsing history of a client as long as it uses only one resolver. This is not
+desirable for a client putting emphasis on her privacy. The cost of operating
+the naming system is split up among many entities which makes it affordable. The
+fact that each entity has its information stored on local machines makes each
+part of the system easy to maintain. But it also makes it hard to troubleshoot a
+non local failure due to the many independent, distributed entities involved.
+
+## Few independent high-performance open recursive resolvers
+
+### Setting
+
+### Use case
+
+- Internet
+- SCION
+
+### Discussion
+
+## Current State: deployment of both above topologies
+
+### Setting
+
+### Use case
+
+- 
+
+### Discussion
+
+## DNS approach
 
 RAINS can be operated the same way DNS is operated [1]. That means there are
 caching and recursive name servers.  A client sends a query to the caching
@@ -309,3 +375,5 @@ https://www.appliedtrust.com/resources/infrastructure/understanding-dns-essentia
 [6] dnsperf (26.06.18) https://www.dnsperf.com/#!dns-resolvers
 [8] PNRP (30.06.18)https://en.wikipedia.org/wiki/Peer_Name_Resolution_Protocol
 [9] Chord (30.06.18) http://nms.csail.mit.edu/papers/chord.pdf
+[10] Root Zone Management https://www.iana.org/domains/root
+[11] Root server operators https://www.iana.org/domains/root/servers
