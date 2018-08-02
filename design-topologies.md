@@ -190,6 +190,11 @@ caching resolvers in case the centralized controller still has a cached answer.
 
 ## Many independent closed recursive resolvers
 
+RAINS can be operated the same way DNS is currently operated [1]. That means
+there are caching and recursive name servers.  A client sends a query to the
+caching server of its ISP. If there is a cache hit, the response is directly
+sent back to the querier. Otherwise, a recursive lookup is performed by the ISP.
+
 ### Setting
 
 A client purchases access to a local closed recursive resolvers. In today's
@@ -232,41 +237,8 @@ fact that each entity has its information stored on local machines makes each
 part of the system easy to maintain. But it also makes it hard to troubleshoot a
 non local failure due to the many independent, distributed entities involved.
 
-## Few independent high-performance open recursive resolvers
-
-### Setting
-
-### Use case
-
-- Internet
-- SCION
-
-### Discussion
-
-## Current State: deployment of both above topologies
-
-### Setting
-
-### Use case
-
-- 
-
-### Discussion
-
-## DNS approach
-
-RAINS can be operated the same way DNS is operated [1]. That means there are
-caching and recursive name servers.  A client sends a query to the caching
-server of its ISP. If there is a cache hit, the response is directly sent back
-to the querier. Otherwise, the query is forwarded to the configured recursive
-server which then sends a query to the authoritative server of the most specific
-domain it already knows (information about the root name server are hard coded).
-It repeats the previous step until it can answer the query and sends the answer
-back to the caching server which then forwards it to the querier.
-
 Advantages:
 
-- Scalable
 - Large scale deployment experiences from DNS
 
 Disadvantages:
@@ -278,7 +250,7 @@ Disadvantages:
   thus, finds out about the querie's content even though the connection between
   client and caching server is over TCP
 
-## Large open DNS resolvers
+## Few independent high-performance open recursive resolvers
 
 In recent years, large tech companies started deploying open recursive DNS
 resolvers such as Google's and Cloudflare's public DNS [2,3], or IBM's Quad9
@@ -286,11 +258,27 @@ resolvers such as Google's and Cloudflare's public DNS [2,3], or IBM's Quad9
 of the user's ISP's one. They argue that they value the user's privacy more and
 are more secure by not resolving names they suspect being malicious. Due to
 their size they are able to gather better information about malicious domains
-and thus, are more accurate than most ISPs. Instead of having a large number of
-distributed independent DNS resolver, in this approach there are only few large
-DNS resolvers highly replicated around the world to reduce the latency for their
-clients. RAINS could take this approach in the beginning to allow everyone to
-perform name resolution even if the client's ISP does not yet support RAINS.
+and thus, are more accurate than most ISPs.
+
+### Setting
+
+In this topology, there are several clusters each consisting of many
+high-performance DNS resolvers which potentially share one cache. These clusters
+are distributed around the world to reduce latency. Few large entities operate
+these clusters. This service is either provided for free or some kind of fee
+must be paid. A client can decide to which set of these large open resolvers it
+wants to send its queries. In case the open resolver does not have a cache hit,
+it performs a recursive lookup. The setting for name authorities and the root
+zone manager are the same as in the previous topology.
+
+### Use case
+
+- Internet
+- SCION
+
+### Discussion
+
+TODO CFE look at other properties described before
 
 Advantages:
 
@@ -301,46 +289,29 @@ Advantages:
 - Large scale deployment experiences from some large tech companies
 - You trust one large tech company to value your privacy
 - Higher security
-- Facilitates initial deployment besides DNS
+- Facilitates initial deployment besides DNS (in case the client's ISP does not
+  yet support RAINS.)
 
 Disadvantages:
 
 - In straight forward copying this approach the new RAINS features are not used
   and RAINS' TCP connection is slower than DNS' UDP.
 - The operator of this large resolver learns all requests of all its users. A
-  user just has to trust the operator to not misusing his data.
+  user just has to trust the operator to not misusing her data.
 
-## Large delegation resolvers
+## Current State: deployment of both above topologies
 
-In this scenario, each ISP still operates naming servers. Instead of just having
-the root where a recursive lookup starts in case the local ISP does not have the
-queried information, there is a third type of server called delegation resolver.
-These delegation resolver only store delegations. They could have the same
-architecture as a RAINS server but only accept delegation assertions or they
-might have more specialized design e.g. using memcached (see next subsection).
-In this approach the main idea is that authoritative servers push their
-delegations to the delegation resolver such that all delegations up to the root
-are present. A recursive resolver would then, instead of querying first the
-root, query a delegation resolver which then answers with all necessary
-delegations in the normal case. This reduces a recursive lookup to just one
-query to a delegation resolver and one query to the authoritative server. But
-since the delegation assertions higher up in the hierarchy are probably cached
-anyway in the recursive resolver and it starts the lookup at the most specific
-known information it probably sends out not more than two queries anyway in most
-cases. This system could be funded by authoritative entities which pay some
-amount to have their delegations accepted and thus, reduce recursive lookup for
-their zone.
+### Setting
 
-Advantages:
+### Use case
 
-- Faster recursive lookup
+- 
 
-Disadvantages:
+### Discussion
 
-- Cost
-- Probably no benefits in most settings
 
-## Peer to peer network
+
+## Peer to peer network TODO CFE
 
 Instead of having large entities which operate high performance rains servers
 all over the world, an entry could be distributed among several rains servers of
@@ -367,13 +338,13 @@ responsible for serving this entry. [TODO CFE elaborate more on this approach]
 ## Bibliography
 
 [1] How DNS works (26.06.18)
-https://www.appliedtrust.com/resources/infrastructure/understanding-dns-essential-knowledge-for-all-it-professionals
-[2] Google public DNS (26.06.18) https://developers.google.com/speed/public-dns/
-[3] Quad9 IBM's public DNS (26.06.18) https://www.quad9.net/
-[4] Cloudflare's public DNS (26.06.18) https://1.1.1.1/
-[5] Blog about 1.1.1.1 (26.06.18) https://blog.cloudflare.com/announcing-1111/
-[6] dnsperf (26.06.18) https://www.dnsperf.com/#!dns-resolvers
-[8] PNRP (30.06.18)https://en.wikipedia.org/wiki/Peer_Name_Resolution_Protocol
-[9] Chord (30.06.18) http://nms.csail.mit.edu/papers/chord.pdf
-[10] Root Zone Management https://www.iana.org/domains/root
-[11] Root server operators https://www.iana.org/domains/root/servers
+https://www.appliedtrust.com/resources/infrastructure/understanding-dns-essential-knowledge-for-all-it-professionals  
+[2]Google public DNS (26.06.18) https://developers.google.com/speed/public-dns/  
+[3] Quad9 IBM's public DNS (26.06.18) https://www.quad9.net/  
+[4] Cloudflare's public DNS (26.06.18) https://1.1.1.1/  
+[5] Blog about 1.1.1.1 (26.06.18) https://blog.cloudflare.com/announcing-1111/  
+[6] dnsperf (26.06.18) https://www.dnsperf.com/#!dns-resolvers  
+[8] PNRP (30.06.18)https://en.wikipedia.org/wiki/Peer_Name_Resolution_Protocol  
+[9] Chord (30.06.18) http://nms.csail.mit.edu/papers/chord.pdf  
+[10] Root Zone Management https://www.iana.org/domains/root  
+[11] Root server operators https://www.iana.org/domains/root/servers  

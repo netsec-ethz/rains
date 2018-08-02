@@ -60,6 +60,36 @@ lookups can be prevented. One of the possible downsides is that you must trust
 the cloud operator to do a good job and that he makes sure that there are no
 (or only very limited) disruptions.
 
+## Large delegation resolvers
+
+In this scenario, each ISP still operates naming servers. Instead of just having
+the root where a recursive lookup starts in case the local ISP does not have the
+queried information, there is a third type of server called delegation resolver.
+These delegation resolver only store delegations. They could have the same
+architecture as a RAINS server but only accept delegation assertions or they
+might have more specialized design e.g. using memcached (see next subsection).
+In this approach the main idea is that authoritative servers push their
+delegations to the delegation resolver such that all delegations up to the root
+are present. A recursive resolver would then, instead of querying first the
+root, query a delegation resolver which then answers with all necessary
+delegations in the normal case. This reduces a recursive lookup to just one
+query to a delegation resolver and one query to the authoritative server. But
+since the delegation assertions higher up in the hierarchy are probably cached
+anyway in the recursive resolver and it starts the lookup at the most specific
+known information it probably sends out not more than two queries anyway in most
+cases. This system could be funded by authoritative entities which pay some
+amount to have their delegations accepted and thus, reduce recursive lookup for
+their zone.
+
+Advantages:
+
+- Faster recursive lookup
+
+Disadvantages:
+
+- Cost
+- Probably no benefits in most settings
+
 ## Bibliography
 
 [1] Memcached (26.06.18) https://memcached.org/
