@@ -115,9 +115,54 @@ the above properties and why they occur.
 - Robustness vs maintainability: more server/complex behavior -> less maintainable
 - Privacy vs Troubleshooting complexity: more private -> harder to troubleshoot
 
-## Centralized approach
+## Centralized
 
 ### Setting
+
+The centralized topology can be divided into two actors. The naming authorities
+and the centralized resolver. The naming authorities provide the information to
+the centralized resolver and all clients are sending their queries to the
+centralized resolver. The centralized resolver is located at one location and
+all traffic is going through it. To remedy a total outage the resolver can be
+replicated at a different location which only takes over when the primary
+resolver fails. The centralized resolver has a global view of the naming
+ecosystem and performs consistency checks and validates the information it
+receives. Several strategies can be used for the communication between the
+naming authorities and the centralized resolver such as:
+
+- Push only (by naming authority)
+- Cache miss only (by centralized resolver)
+- Fetch n most queried names before expiration, else only on cache miss
+
+### Use case
+
+- Small to mid size companies
+
+### Discussion
+
+The centralized resolver is a single point of failure. All queries are going
+through it which reduces its scalability. The latency corresponds to the
+distance of the client to the resolver as long as the resolver can handle the
+load. In a company setting where the queries are only coming from withing the
+company, the amount of clients and queries are predictable and the necessary
+hardware and cache size for the resolver can be estimated. Maintainability is
+easy as everything is at a single location. As all the queries go through this
+one resolver, the company can easily put policies in place which sites are
+allowed to be accessed (by knowing the IP beforehand or changing the default
+resolver a knowledgeable user can go around this access control). As the load is
+predictable and the system is at a single location, monetary cost will be low.
+The push only strategy only works when the company has a relationship with the
+naming authority. The Cache miss only strategy is the simplest one but every
+time an assertion expires, on the next request a recursive lookup has to be
+performed which increases latency. Fetching updated assertions of the n most
+queried names before they expire is a possible optimization heuristic to reduce
+latency.
+
+## Centralized Controller with distributed resolvers
+
+### Setting
+
+We can divide the centralized topology into 
 All information is stored in each of several locations around the world. All
 authorities push their assertions to these locations. A client is querying a
 server from the closest location. Should I elaborate more, as there are so many
