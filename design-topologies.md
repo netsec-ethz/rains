@@ -299,17 +299,22 @@ Disadvantages:
 - The operator of this large resolver learns all requests of all its users. A
   user just has to trust the operator to not misusing her data.
 
-## Current State: deployment of both above topologies
+## Current State: Deployment of both above topologies
 
 ### Setting
 
+See above
+
 ### Use case
 
-- 
+- Internet
 
 ### Discussion
 
-
+By having both of these topologies, a client has more choices to select from to
+satisfy her needs. Using the same topologies for RAINS would also work out but
+does not give it a special advantage over the current system (except being more
+secure).
 
 ## Peer to peer network TODO CFE
 
