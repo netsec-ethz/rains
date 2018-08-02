@@ -5,17 +5,10 @@ paradigm allows a user to check the validity of an assertion without having to
 go through a recursive lookup (but he still needs all delegation assertions up
 to the root). It is not only beneficial for a user but also for any entity using
 or being part of the naming system. In this section, we are introducing several
-topologies and strategies on how RAINS might be operated together with an
-analysis pointing out the advantages and disadvantages of these approaches.
-There is always a tradeoff between having smaller local servers and high
-performance centralized servers. The advantage of local servers are a lower
-latency due to the shorter network path and many cache hits as clients from the
-same region speak the same language and will visit similar websites (based on
-the same interests, news, etc.). But once you want to access a lesser known
-website it is with high probability not in the cache. The centralized servers
-have a much broader range of clients and thus, the probability of having a cache
-hit on a lesser known website is certainly higher. [TODO CFE think more about
-the privacy implications for each of the different models]
+topologies and strategies on how RAINS can be operated. We also list some
+desirable properties and what the tradeoffs are between them. In the end, we
+place each topology/strategy in the tradeoff space and analyse the advantages
+and disadvantages of each approach.
 
 ## Tradeoff space
 
@@ -85,6 +78,20 @@ servers depending on the amount of queries, etc.
 
 ## Tradeoffs
 
+In general, there is a tradeoff between serving each client from a close by
+local server or from a larger, high performance and further away server. The
+first approach requires the servers to be locally distributed at many different
+places close to the clients where as in the second suggestion there are fewer
+locations with more servers to which a larger group of clients send their
+queries. The advantage of local servers are lower latency due to the shorter
+network path and possibly many cache hits as clients from the same region speak
+the same language and will visit similar websites (based on similar interests,
+events, news, etc.). But once a client accesses a lesser known website it is
+with high probability not in the cache. The more centralized servers have larger
+caches and a much broader range of clients and thus, the probability of having a
+cache hit will probably be higher. Next, we are listing the tradeoffs between
+the above properties and why they occur.
+
 - Cost vs Latency: Deploying additional/less servers closer to the clients.
 - Cost vs Scalability: Deploy more/less servers
 - Cost vs Availability: Having more/less redundant servers
@@ -108,12 +115,15 @@ servers depending on the amount of queries, etc.
 - Robustness vs maintainability: more server/complex behavior -> less maintainable
 - Privacy vs Troubleshooting complexity: more private -> harder to troubleshoot
 
-## Distributed centralized approach
+## Centralized approach
 
+### Setting
 All information is stored in each of several locations around the world. All
 authorities push their assertions to these locations. A client is querying a
 server from the closest location. Should I elaborate more, as there are so many
 points against this approach?
+
+### Discussion
 
 ## The DNS approach
 
