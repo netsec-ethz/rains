@@ -312,9 +312,63 @@ See above
 ### Discussion
 
 By having both of these topologies, a client has more choices to select from to
-satisfy her needs. Using the same topologies for RAINS would also work out but
-does not give it a special advantage over the current system (except being more
-secure).
+satisfy her requirements. Using the same topologies for RAINS would also work
+out but does not give it a special advantage over the current system (except
+being more secure and allowing for more optimizations).
+
+## P2P of authoritative servers with distributed independent caching resolvers
+
+### Setting
+Instead of having authoritative server(s) for each zone, the assertions are
+stored in a peer to peer fashion where each zone authority and each independent
+caching resolver is a peer. Clients are not part of the P2P system and can only
+send queries to one of the caching resolvers which fetch the queried information
+from the corresponding node in the P2P system. We could use Chord [9], a
+scalable peer-to-peer looup service for Internet Applications, to store the
+naming information. Instead of doing a recursive name lookup, the lookup is done
+in Chord. Because the keys are distributed evenly among the nodes of the system,
+the larger a Registree (or registrar?) is, the more nodes it must have. The
+approximate number of keys per node can be determined by IANA (ICANN) to
+regulate how much load a node must expect. As a key in Chord we use the same
+byte stream produced to sign the assertion without the signature meta data.
+
+### Use case
+
+- Internet
+
+### Discussion
+
+TODO CFE
+
+The deeper the naming hierarchy is the better chord
+performs compared to recursive lookup. But in current DNS it would be slower.
+
+How does lookup really works in chord. If it is possible to go several times
+over the ocean to get to the right destination then this would not be a good fit
+for the internet -> too high latency.
+Is it possible to store a key at different possitions? probably not. Can we
+change the key to allow weighted distribution depending on keys popularity?
+
+### Issue
+
+Maybe some mechanism is needed to store a key at multiple nodes to prevent an
+attacker to easily DDoS an important domain in case it happens to end up at a
+weak node.
+
+## P2P on a client level, naming authority push & act as backup?
+Have a device attached to the router which is provided by the ISP which acts as
+a small rains server (almost always online) every name is stored at several
+location based on its popularity.
+
+### Setting
+
+See above
+
+### Use case
+
+- Internet
+
+### Discussion
 
 ## Peer to peer network TODO CFE
 
@@ -332,13 +386,6 @@ requirements of a global naming system. Based on the knowledge from where an
 entry is served, it becomes easier for an attacker to target certain domains and
 just DDoS those servers which are responsible for the targeted domain. It is
 especially critic for small domains as they are served only from few servers.
-
-## Hybrid between peer to peer and caching
-
-Cache the most queried entries in a local cache to reduce latency but still
-benefit from the easier lookup based on the known location of an entry. The
-caching also reduces the impact of DDoS attacks target on those servers
-responsible for serving this entry. [TODO CFE elaborate more on this approach]
 
 ## Bibliography
 
