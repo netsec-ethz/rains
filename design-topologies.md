@@ -356,19 +356,34 @@ attacker to easily DDoS an important domain in case it happens to end up at a
 weak node.
 
 ## P2P on a client level, naming authority push & act as backup?
-Have a device attached to the router which is provided by the ISP which acts as
-a small rains server (almost always online) every name is stored at several
-location based on its popularity.
 
 ### Setting
 
-See above
+Every client is part of the naming system. Based on a function, an assertion is
+stored at several clients. The replication extent is based on the estimated
+number of queries this name get in a defined time interval. An ISP must not only
+provide a router to each of its clients but also a small device which acts as a
+RAINS server. Authoritative servers push assertions to the corresponding clients
+based on the function. The function should replicate a name close to places
+where it is often queried.
 
 ### Use case
 
 - Internet
 
 ### Discussion
+
+### Issue
+
+- Who calculates this function
+- Can such a function even exist
+- How to estimate the number of queries a name gets
+- How to figure out where replicate a name without losing too much privacy
+- Authorities do not have control over the servers who serve their names
+- In bad circumstances a name might 'disappear' e.g. when clients who serve it
+  stop using their name server.
+- How to find out where to send your queries to
+- How to find best location to send query to
 
 ## Peer to peer network TODO CFE
 
