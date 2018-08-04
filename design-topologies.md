@@ -329,8 +329,8 @@ naming information. Instead of doing a recursive name lookup, the lookup is done
 in Chord. Because the keys are distributed evenly among the nodes of the system,
 the larger a Registree (or registrar?) is, the more nodes it must have. The
 approximate number of keys per node can be determined by IANA (ICANN) to
-regulate how much load a node must expect. As a key in Chord we use the same
-byte stream produced to sign the assertion without the signature meta data.
+regulate how much load a node must expect. As a key in Chord we use the fully
+qualified domain name.
 
 ### Use case
 
@@ -338,22 +338,53 @@ byte stream produced to sign the assertion without the signature meta data.
 
 ### Discussion
 
-TODO CFE
-
-The deeper the naming hierarchy is the better chord
-performs compared to recursive lookup. But in current DNS it would be slower.
-
-How does lookup really works in chord. If it is possible to go several times
-over the ocean to get to the right destination then this would not be a good fit
-for the internet -> too high latency.
-Is it possible to store a key at different possitions? probably not. Can we
-change the key to allow weighted distribution depending on keys popularity?
+The main difference of this topology compared to the current state is the lookup
+process in case of a cache miss and where the data is stored. Lookup latency in
+chord is logarithmic in the number of nodes where as in a recursive lookup it
+depends on the depths of the name in the hierarchy. The lower a name is in the
+hierarchy the better chord performs compared to recursive lookup. But in current
+DNS most of the names are close to the root and thus, a recursive lookup would
+be faster. The amount of time for a lookup in chord is much more unpredictable
+than one in a recursive setup which is more or less constant as the geographical
+location of the data is static whereas in chord it changes for some names when a
+new node joins. There are some suggestions in the paper to decrease latency by
+changing the content and working of the finger table. Mainly by trading space
+for latency. If this system scales up to the needs of a global naming system
+remains to be seen. The assertion publishing complexity is certainly higher as
+the naming authority first has to find out where to push each entry and then
+send it. It also has to notice when a node containing some of its information
+leaves the system and resend these assertions to the successor node. On the one
+hand, it is much harder for an attacker to take down an entire zone because its
+naming information is approximately, uniformly distributed among all nodes. But
+on the other hand, if an attacker targets a specific domain which happens to be
+stored at a weaker node, the naming authority over this name can do nothing to
+prevent the attack as the other node is not under its control (which would allow
+it to increase the number of servers etc.). There must be some kind of
+punishment for a node operator in case it cannot serve its assigned names for
+more than a defined amount of time. This system is also less robust and
+predictable from an operator perspective as the system is much more dynamic.
+E.g. a node might get many more names it must serve in a short amount of time in
+case one or multiple consecutive predecessors leave. In terms of a client's
+privacy nothing changes as her connection point is still the same, a caching
+resolver. For an naming authority it is much harder to troubleshoot problems as
+the system is more dynamic and more steps are involved from where to store the
+different assertions to how to find the correct location, etc. Thus, also the
+cost will increase for a naming authority as its mode of operation is more
+complex and it has to be prepared for locally large changes in a short amount of
+time. But because also every caching resolver is a node of the system, the
+amount of names a naming authority is serving is smaller than before which
+reduces infrastructure cost for it. From a maintainability side, it will be
+similar to current topologies, as naming authorities still have their servers
+locally or externally managed in the cloud.
 
 ### Issue
 
-Maybe some mechanism is needed to store a key at multiple nodes to prevent an
-attacker to easily DDoS an important domain in case it happens to end up at a
-weak node.
+- Maybe some mechanism is needed to store a key at multiple nodes to prevent an
+  attacker to easily DDoS an important domain in case it happens to end up at a
+  weak node.
+- Could we change chord to assign certain nodes more names than others without
+  having assigning several nodes to the same entity which increases lookup path
+  length.
 
 ## P2P on a client level, naming authority push & act as backup?
 
