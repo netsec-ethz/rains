@@ -222,3 +222,13 @@ queried entry is probably not existing. In case of a typo, the client can then
 quickly correct her mistake. Otherwise she has to wait until the naming server
 responds to the forwarded query to obtain a new assertion or the cached
 shard/zone.
+
+## Assertion revocation
+
+In a cloud setting where we need to be able to spin up machines very quickly,
+the opposite might be true as well. Once the demand decreases, less servers are
+needed or servers. Or a specific machine will be re-purposed and will be
+responsible for a different service. In both cases the cloud operator wants to
+remove some assertions from the cache before they expire. Thus, a naming
+authority should be able to push a signed statement to a caching resolver which
+triggers the removal of a mentioned assertion from the cache.
