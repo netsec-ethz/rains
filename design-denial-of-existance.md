@@ -152,7 +152,31 @@ frequency and timing of changes within the shard range.
 | Use as Pos Proof   | yes                    | no                  |
 | Offline signing    | yes                    | yes                 |
 
-## Negative answer with probabilistic bounds
+## Negative answer with Bloom filter
+
+Instead of sending a zone or a shard as a proof of non existence, a naming
+authority might as well send a signed bloom filter. A bloom filter either says
+that an assertion might exist or it certainly does not. In case the bloom
+filter's result is negative, a caching resolver can proof non existence with it.
+Otherwise, it has to send a query to the naming server, which then responds with
+an assertion, shard, zone or a different bloom filter which gives a negative
+response. Depending on the probabilistic bounds of the bloom filter, a naming
+authority can influence the load on its naming servers as the amount of negative
+queries a caching resolver can directly handle depends on it. Large zones cannot
+substitute a zone with a bloom filter as its size becomes to large. A naming
+authority must tradeoff between a bloom filter's size and its accuracy.
+E.g. If there is a bloom filter for each 1000 assertions and the false positive
+rate is 1%, its size is 1.17KB. [https://hur.st/bloomfilter/]
+
+However, in a more dynamic setup, where an authority is allowed to add and
+remove assertions during the validity of a bloom filter, its results cannot be
+totally trusted either and the probabilistic bounds do not hold anymore. In this
+case, the caching resolver should forward all queries which have not a hit in
+the assertion cache.
+
+Another down side of bloom filters is that they do not contain assertions and
+hence, cannot be used to directly serve an assertion. Som analysis of this
+tradeoff would be useful.
 
 ## Internet scenario
 
