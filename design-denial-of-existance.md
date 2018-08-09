@@ -78,7 +78,64 @@ TODO CFE (how detailed?)
 
 ### Shards and Zones
 
-- new shard semantic
+TODO CFE (how detailed?)
+
+### Shard semantic
+
+A section's validity start at the point of the earliest signature validSince
+time and expires at the latest signature validUntil time. Note that there might
+be a time interval in between where no signature is valid. A contained Assertion
+is an assertion present within a shard. A shard is valid from t_sb to t_se and
+without loss of generality an assertion from t_ab to t_ae within the range of
+the shard. Note that contained assertions MAY have different validity times. A
+shard contains a flag indicating if its purpose of denial of existence is valid
+throughout the shard's validity or not. If the flag is set, the following
+statement hold:
+
+- During the validity of the shard, all assertions contained in the shard are
+  valid and no other assertion in the shard's range is valid within this
+  validity period.
+
+In this setting an authority restricts itself to when it is allowed to make
+changes to the shard ranges and thus, to which shard an assertion belongs to and
+changes to an assertion's content. But on the positive side, it allows the
+authority to have stronger guarantees about its namespace. As long as all shards
+and assertions have the same expiration time, an authority can make changes to
+its namespace at these expiration times. Expiring all entries at the same point
+in time results in lots of queries at this time. This might not be feasible for
+large zones. To allow assertions and shards to expire at different points in
+time and still be able to change their content, the authority must make changes
+to its shard ranges and shard contents alternatingly.
+
+If the flag is not set, then the naming authority gets much more freedom when to
+make changes to its namespace. Then the following statements hold true for a
+shard.
+
+- All assertions in range of the shard which are valid at t_sb MUST BE contained
+  in the shard.
+- Any contained assertion without a signature is valid from t_sb until t_se.
+  Thus, no change is allowed to any contained assertion without a signature
+  before t_se.
+- Any contained assertion with a signature is valid until the assertion's
+  signature expires. This allows to make changes to an assertion before the
+  containing shard expires (removing the assertion or make changes to its
+  content).
+- A shard in response to a query asking for a name and type containing an
+  assertion with that name and type with an expired signature means that
+  probably no value for this name and type exist anymore ('probably' because the
+  authoritative naming server might have fail to serve the updated name in time
+  or the caching resolver has not issued a new query for that name and type and
+  forwarded the correct response. This behavior can be detected by looking at
+  the shard issued subsequently. Although there can be false positives close to
+  the change time as the query can arrive before the change at the naming server
+  but after the change at the client).
+- A shard in response to a query asking for a name and type containing no
+  assertion for that name and type means that probably no value for this name
+  and type exist. The same reasoning for 'probably' above applies here too.
+
+After time t_sb a shard is an approximation of which assertions are valid within
+its range and validity time. The quality of the approximation depends on the
+frequency and timing of changes within the shard range.
 
 ## Shards vs NSEC3
 
