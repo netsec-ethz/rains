@@ -10,9 +10,53 @@ non-existing names.
 
 ### Online vs offline signing
 
-### dynamic vs static system
+The least complex approach to proof non-existence of a name is by sending back a
+signed negative assertion of the queried name and type. Drawbacks of this
+approach are that negative assertions cannot be signed in advance, on demand use
+of the private signing key and inefficient caching. As there is an infinite
+amount of non-existing names a zone cannot pre sign all its negative assertions
+which results in a higher per query computational cost. The load on naming
+servers is also increased as most of the negative queries will be forwarded
+because the probability that someone else requests the exact same non-existing
+name from the same caching resolver before the entry is evicted or expired is
+small. There are also some security concerns as the private signing key is used
+on demand. E.g. it allows an attacker to use the naming server as a restricted
+signing oracle. The benefit of offline signing is that it can be done in a more
+secure physically separated facility and provide the newly signed sections once
+before the current ones expire.
+
+### Dynamic vs static system
+
+In a static system, entries are valid for a specific amount of time determined
+by the authority over that namespace. During this time no change is allowed to
+happen in the namespace as they would otherwise conflict denial of existence
+entries. While this system is much easier to reason about, there is high load
+during transition and it is not suited for some use cases such as a cloud
+setting. The flexibility an authority gets by using a dynamic system comes at a
+higher complexity cost and weaker guarantees for denial of existence proofs.
 
 ### Internet vs Cloud setting
+
+A cloud provider must be able to react quickly to changes in load of all the
+different services running on its platform. This means spinning up new machines
+and making them accessible within seconds. This also means that the naming
+system must be able to publish changes within seconds. The advantage of a cloud
+provider is that he has control over his naming servers and caching resolvers.
+The naming servers can push new assertions (and if necessary also shards) to all
+caching resolvers which then directly serve these assertions instead of the
+previously cached shard. Because positive queries have stricter latency
+requirements than negative once, caching resolvers should give preference to
+positive answers which makes it sufficient for a naming server to just push new
+assertions.
+
+In the Internet a naming authority has no control over where entries about its
+namespace are cached and for how long (besides an upper bound due to the
+signature lifetime). Thus, pushing updated information is not an option. But it
+can still provide the new assertions for newly incoming queries. Depending on
+the lifetime of shards, it can tradeoff lower load on its naming servers to
+obtain better user experience through faster changes. Here the problem is that a
+caching resolver who has a cached denial of existence will not issue again a
+query to the naming server until the entry expired.
 
 ## Background
 
