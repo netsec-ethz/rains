@@ -60,15 +60,40 @@ query to the naming server until the entry expired.
 
 ## Background
 
-### NSEC 
+DNSSEC originally used NSEC records to proof denial of existence of a name.
+Because it is trivial to enumerate a zone with NSEC and some people consider
+that as a threat, NSEC3 was introduced. In RAINS shards and zones are used to
+proof non existence of a name. All three proposals proof non existence by
+providing a range. The first two claim that there is no entry within the range
+and the third one explicitly lists all existing entries within that range
+rendering everything else non existent.
+
+### NSEC
+
+TODO CFE (how detailed?)
 
 ### NSEC3
+
+TODO CFE (how detailed?)
 
 ### Shards and Zones
 
 - new shard semantic
 
 ## Shards vs NSEC3
+
+| What               | Shard                  | NSEC3               |
+|--------------------|------------------------|---------------------|
+| Payload            | medium - large         | small               |
+| Range size         | flexible               | to next entry       |
+| Signing time       | range dependent        | many small entries  |
+| Pr[cache hit]      | range dependent        | is there some data? |
+| Cache flexibility  | range dependent        | high                |
+| :Q: response time  | log(n) (Interval tree) | ?                   |
+| Zone enumeration   | trivial                | less-trivial        |
+| Neg Proof about    | values&types per name  | types per name      |
+| Use as Pos Proof   | yes                    | no                  |
+| Offline signing    | yes                    | yes                 |
 
 ## Negative answer with probabilistic bounds
 
