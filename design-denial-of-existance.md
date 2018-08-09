@@ -6,6 +6,14 @@ existing name with a private key corresponding to a delegated public key. But
 how do we handle negative responses as there is a infinite amount of
 non-existing names.
 
+## What are the benefits of negative proofs (denial of non existence)
+
+- To reduce the number of query a naming servers receives when negative proofs
+  are cached
+- Lower latency for a client to obtain an negative answer
+- A way for a client to really know that a name does not exist and not that an
+  attacker is preventing him to obtain this information
+
 ## Tradeoffs
 
 ### Online vs offline signing
@@ -178,8 +186,39 @@ Another down side of bloom filters is that they do not contain assertions and
 hence, cannot be used to directly serve an assertion. Som analysis of this
 tradeoff would be useful.
 
-## Internet scenario
+## Scenarios
 
-## Cloud scenario
+### Online signing of negative results
 
-## Conclusion
+Every query for which no answer is in the assertion cache, a negative proof is
+produced, signed and send back.
+
+### Optimized use of a caching resolver
+
+- In case an assertion is in the cache it is directly sent back to the client.
+- In case there is a shard in range or a zone in the negative cache with the
+  dynamic flag (bit) set, then a query is sent to the authoritative naming
+  server with a new query flag set, asking if the given name and type still does
+  not exist. If the server still has an open connection with the naming server
+  it can directly send it there. Otherwise, there is still a delegation
+  assertion to the naming server together with an ip assertion in the cache to
+  start a new connection (delegation assertions SHOULD/MUST? be kept as long as
+  an entry from a naming server is in the cache to proof its validity). It can
+  then proceed as before. The naming server will then respond to a query with
+  the new flag set with an assertion, in case it now exists or with a new
+  notification message, telling the caching resolver that this name still does
+  not exist and it can forward the shard/zone.
+- In case there is a shard in range or a zone in the negative cache with the
+  dynamic flag (bit) not set, it can directly respond with the shard/zone.
+- In case there is no cache hit, the query is forwarded to the recursive
+  resolver.
+
+### Optimized use of a caching resolver with fast client notification
+
+This approach is similar to the previous one with the only difference, that the
+caching server is sending a notification to the client in case there is a shard
+or zone in the negative cache with the dynamic flag set to inform her that the
+queried entry is probably not existing. In case of a typo, the client can then
+quickly correct her mistake. Otherwise she has to wait until the naming server
+responds to the forwarded query to obtain a new assertion or the cached
+shard/zone.
