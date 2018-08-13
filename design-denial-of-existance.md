@@ -176,6 +176,15 @@ authority must tradeoff between a bloom filter's size and its accuracy.
 E.g. If there is a bloom filter for each 1000 assertions and the false positive
 rate is 1%, its size is 1.17KB. [https://hur.st/bloomfilter/]
 
+Let's assume an assertion's size is 15 bytes (10 FQDM, 1 Context, IP4 4) and
+each shard contains around 100 assertion. If we use bloom filters instead of
+shards in such a setting, then we can reduce the size of a negative proof by
+one order of magnitude depending on the false positive rate. Shard size:
+
+Shard size: 1500B
+n = 100, p = 0.010014655 (1 in 100), m = 959 (120B), k = 7
+n = 100, p = 0.000000998 (1 in 1'002'276) m = 2876 (360B) k = 20
+
 However, in a more dynamic setup, where an authority is allowed to add and
 remove assertions during the validity of a bloom filter, its results cannot be
 totally trusted either and the probabilistic bounds do not hold anymore. In this
