@@ -15,6 +15,7 @@ import (
     "bytes"
     "strings"
     log "github.com/inconshreveable/log15"
+    "github.com/netsec-ethz/rains/rainslib"
 )
 
 var regs = make([]int, 26)
@@ -26,13 +27,17 @@ var base int
 // as ${PREFIX}SymType, of which a reference is passed to the lexer.
 %union{
     str string
+    assertion rainslib.AssertionSection
+    shard rainslib.ShardSection
+    zone rainslib.ZoneSection
 }
 
 // any non-terminal which returns a value needs a type, which is
 // really a field name in the above union struct
-%type <str> zone zoneContent 
-%type <str> shardBody //shardBody shardContent shardRange
-%type <str> assertionBody
+%type <zone> zone
+%type <str> zoneContent 
+%type <str> shard shardBody shardRange shardContent
+%type <str> assertion assertionBody
 %type <str> object name ip4 //ip6 redir deleg nameset 
 //%type <str> cert serv regr regt infra extra next
 %type <str> nameBody ip4Body
@@ -53,48 +58,89 @@ var base int
 %token rangeBegin rangeEnd
 %token lBracket rBracket lParenthesis rParenthesis
 
-%%
+%% /* Grammer rules  */
 
 top :   zone
     {
-        fmt.Printf("%s\n", $1)
+        fmt.Printf("\n%s\n", $1)
     }
     |   zone annotation
     {
-        fmt.Printf("%s (%s)\n", $1,$2)
+        fmt.Printf("\n%s (%s)\n", $1.String(),$2)
     }
 
 zone    : zoneType ID ID lBracket zoneContent rBracket
         {
-            $$ = fmt.Sprintf("zone %s %s [ %s ]", $2, $3, $5)
+            $$ = rainslib.ZoneSection{SubjectZone: $2, Context: $3}
         }
 
 zoneContent : /* empty */
             {
                 $$ = ""
             }
-            | zoneContent assertionBody
+            | zoneContent assertion
             {
                 $$ = fmt.Sprintf("%s %s", $1, $2)
             }
-            | zoneContent shardBody
+            | zoneContent shard
             {
                 $$ = fmt.Sprintf("%s %s", $1, $2)
             }
 
-shardBody   : ID
+shard   : shardBody
+        | shardBody annotation
+        {
+            fmt.Printf("%s (%s)", $1,$2)
+        }
+
+shardBody   : shardType ID ID shardRange lBracket shardContent rBracket
             {
-                 $$ = fmt.Sprintf("S %s ", $1)
+                $$ = fmt.Sprintf("S %s %s %s", $2, $3, $4)
+            }
+            | shardType shardRange lBracket shardContent rBracket
+            {
+                $$ = fmt.Sprintf("S %s ", $2)
+            }
+
+shardRange  : ID ID
+            {
+                $$ = fmt.Sprintf("%s %s", $1, $2)
+            }
+            | rangeBegin ID
+            {
+                $$ = fmt.Sprintf("< %s", $2)
+            }
+            | ID rangeEnd
+            {
+                $$ = fmt.Sprintf("%s >", $1)
+            }
+            | rangeBegin rangeEnd
+            {
+                $$ = fmt.Sprint("< >")
+            }
+
+shardContent : /* empty */
+            {
+                $$ = ""
+            }
+            | shardContent assertion
+            {
+                $$ = fmt.Sprintf("%s %s", $1, $2)
+            }
+
+assertion   : assertionBody
+            | assertionBody annotation
+            {
+                fmt.Printf("%s (%s)", $1,$2)
             }
     
-
 assertionBody   : assertionType ID lBracket object rBracket
                 {
                     $$ = fmt.Sprintf("A %s [ %s ]", $2, $4)
                 }
-                | assertionType ID lBracket object rBracket annotation
+                | assertionType ID ID ID lBracket object rBracket
                 {
-                    $$ = fmt.Sprintf("A %s [ %s ] (%s)", $2, $4, $6)
+                    $$ = fmt.Sprintf("A %s %s %s [ %s ] (%s)", $2, $4, $6)
                 }
 
 object  : name
@@ -199,7 +245,7 @@ signature   : sigType ID ID ID ID ID
                 $6, $7)
             }
 
-%%      /*  start  of  programs  */
+%%      /*  Lexer  */
 
 // The parser expects the lexer to return 0 on EOF.  Give it a name
 // for clarity.
