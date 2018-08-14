@@ -30,7 +30,15 @@ var base int
 
 // any non-terminal which returns a value needs a type, which is
 // really a field name in the above union struct
-%type <str> assertion zone object annotation
+%type <str> zone zoneContent 
+%type <str> shardBody //shardBody shardContent shardRange
+%type <str> assertionBody
+%type <str> object name ip4 //ip6 redir deleg nameset 
+//%type <str> cert serv regr regt infra extra next
+%type <str> nameBody ip4Body
+%type <str> oTypes oType
+
+%type <str> annotation annotationBody signature
 
 // same for terminals
 %token <str> ID
@@ -43,14 +51,7 @@ var base int
 %token sigType
 //special
 %token rangeBegin rangeEnd
-%token '[' ']' '(' ')'
-
-
-%left '|'
-%left '&'
-%left '+'  '-'
-%left '*'  '/'  '%'
-%left UMINUS      /*  supplies  precedence  for  unary  minus  */
+%token lBracket rBracket lParenthesis rParenthesis
 
 %%
 
@@ -58,43 +59,145 @@ top :   zone
     {
         fmt.Printf("%s\n", $1)
     }
-    |   zone '(' annotation ')'
+    |   zone annotation
     {
-        fmt.Printf("%s\n", $1)
+        fmt.Printf("%s (%s)\n", $1,$2)
     }
-	;
 
-zone : zoneType ID ID
-    {
-        $$ = $2
-    }
-     ;
-
-annotation : sigType ID stat
-    {
-        $$ = $2
-    }
-     ;
-
-stat	:   assertionType assertion
+zone    : zoneType ID ID lBracket zoneContent rBracket
         {
-            fmt.Printf( "%s\n", "assertion");
+            $$ = fmt.Sprintf("zone %s %s [ %s ]", $2, $3, $5)
         }
-	;
 
-assertion : ID  object
-        {
-            $$ = $1
-            fmt.Printf( "%s\n", $1);
-        }
-    ;
+zoneContent : /* empty */
+            {
+                $$ = ""
+            }
+            | zoneContent assertionBody
+            {
+                $$ = fmt.Sprintf("%s %s", $1, $2)
+            }
+            | zoneContent shardBody
+            {
+                $$ = fmt.Sprintf("%s %s", $1, $2)
+            }
 
-object : ip4Type ID
+shardBody   : ID
+            {
+                 $$ = fmt.Sprintf("S %s ", $1)
+            }
+    
+
+assertionBody   : assertionType ID lBracket object rBracket
+                {
+                    $$ = fmt.Sprintf("A %s [ %s ]", $2, $4)
+                }
+                | assertionType ID lBracket object rBracket annotation
+                {
+                    $$ = fmt.Sprintf("A %s [ %s ] (%s)", $2, $4, $6)
+                }
+
+object  : name
+        | ip4
+
+name    : nameBody
+        | name nameBody
         {
-            $$ = $2
-            fmt.Printf( "%s\n", $2);
+            $$ = fmt.Sprintf("%s %s", $1, $2)
         }
-    ;
+
+nameBody : nameType ID lBracket oTypes rBracket
+        {
+            $$ = fmt.Sprintf("name %s [%s]", $2, $4)
+        }
+
+oTypes  : oType
+        | oTypes oType
+        {
+            $$ = fmt.Sprintf("%s %s", $1, $2)
+        }
+
+oType   : nameType
+        {
+            $$ = "a Type"
+        }
+        | ip4Type
+        {
+            $$ = "a Type"
+        }
+        | ip6Type
+        {
+            $$ = "a Type"
+        }
+        | redirType
+        {
+            $$ = "a Type"
+        }
+        | delegType
+        {
+            $$ = "a Type"
+        }
+        | namesetType
+        {
+            $$ = "a Type"
+        }
+        | certType
+        {
+            $$ = "a Type"
+        }
+        | srvType
+        {
+            $$ = "a Type"
+        }
+        | regrType
+        {
+            $$ = "a Type"
+        }
+        | regtType
+        {
+            $$ = "a Type"
+        }
+        | infraType
+        {
+            $$ = "a Type"
+        }
+        | extraType
+        {
+            $$ = "a Type"
+        }
+        | nextType
+        {
+            $$ = "a Type"
+        }
+
+ip4     : ip4Body
+        | ip4 ip4Body
+        {
+            $$ = fmt.Sprintf("%s %s", $1, $2)
+        }
+
+ip4Body : ip4Type ID
+        {
+            $$ = fmt.Sprintf("ip4 %s", $2)
+        }
+
+annotation  : lParenthesis annotationBody rParenthesis
+            {
+                $$ = $2
+            }
+
+annotationBody  : signature
+                | annotationBody signature
+
+signature   : sigType ID ID ID ID ID
+            {
+                $$ = fmt.Sprintf("sigMeta %s %s %s %s %s", $2, $3, $4, $5, $6)
+            }
+            | sigType ID ID ID ID ID ID
+            {
+                $$ = fmt.Sprintf("%s %s %s %s %s %s", $2, $3, $4, $5,
+                $6, $7)
+            }
 
 %%      /*  start  of  programs  */
 
@@ -113,8 +216,15 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
     if l.lineNr == len(l.lines) {
         return eof
     }
-    //read data
+    //read data and skip empty lines
     line := l.lines[l.lineNr]
+    for len(line) == 0 {
+        l.lineNr++
+        if l.lineNr == len(l.lines) {
+            return eof
+        }
+        line = l.lines[l.lineNr]
+    }
     word := line[l.linePos]
     //update state
     if l.linePos == len(line)-1 {
@@ -157,10 +267,20 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
 		return extraType
 	case ":next:" :
 		return nextType
+    case ":sig:" :
+        return sigType
     case "<" :
         return rangeBegin
     case ">" :
         return rangeEnd
+    case "[" :
+        return lBracket
+    case "]" :
+        return rBracket
+    case "(" :
+        return lParenthesis
+    case ")" :
+        return rParenthesis
 	default :
         lval.str = word
         return ID
@@ -169,7 +289,7 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
 
 // The parser calls this method on a parse error.
 func (l *ZFPLex) Error(s string) {
-	log.Error("syntax error:", "lineNr", l.lineNr, "linePosition", l.linePos-1,
+	log.Error("syntax error:", "lineNr", l.lineNr+1, "wordNr", l.linePos,
 	"token", l.lines[l.lineNr][l.linePos-1])
 }
 
@@ -194,9 +314,7 @@ func removeComments(scanner *bufio.Scanner) [][]string {
         for ws.Scan() {
             words = append(words, ws.Text())
         } 
-        if len(words) != 0 {
-            lines = append(lines, words)
-        }
+        lines = append(lines, words)
     }
     return lines
 }
