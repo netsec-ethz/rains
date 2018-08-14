@@ -62,8 +62,6 @@ top :   zone
     {
         fmt.Printf("%s\n", $1)
     }
-    |
-        zone zone
 	;
 
 zone : zoneType ID ID
