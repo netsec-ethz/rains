@@ -27,23 +27,37 @@ var base int
 // as ${PREFIX}SymType, of which a reference is passed to the lexer.
 %union{
     str string
-    assertion rainslib.AssertionSection
-    shard rainslib.ShardSection
+    assertion *rainslib.AssertionSection
+    assertions []*rainslib.AssertionSection
+    shard *rainslib.ShardSection
     zone rainslib.ZoneSection
+    sections []rainslib.MessageSectionWithSigForward
+    objects []rainslib.Object
+    object rainslib.Object
+    objectTypes []rainslib.ObjectType
+    objectType rainslib.ObjectType
+    nameObject rainslib.NameObject
+    signatures []rainslib.Signature
+    signature rainslib.Signature
+    shardRange []string
 }
 
 // any non-terminal which returns a value needs a type, which is
 // really a field name in the above union struct
 %type <zone> zone
-%type <str> zoneContent 
-%type <str> shard shardBody shardRange shardContent
-%type <str> assertion assertionBody
-%type <str> object name ip4 //ip6 redir deleg nameset 
+%type <sections> zoneContent  
+%type <shard> shard shardBody 
+%type <shardRange> shardRange
+%type <assertions> shardContent
+%type <assertion> assertion assertionBody
+%type <objects> object name ip4
+%type <nameObject> nameBody   //ip6 redir deleg nameset 
 //%type <str> cert serv regr regt infra extra next
-%type <str> nameBody ip4Body
-%type <str> oTypes oType
-
-%type <str> annotation annotationBody signature
+%type <object> ip4Body
+%type <objectTypes> oTypes 
+%type <objectType> oType
+%type <signatures> annotation annotationBody
+%type <signature>  signature
 
 // same for terminals
 %token <str> ID
@@ -62,7 +76,7 @@ var base int
 
 top :   zone
     {
-        fmt.Printf("\n%s\n", $1)
+        fmt.Printf("\n%s\n", $1.String())
     }
     |   zone annotation
     {
@@ -71,160 +85,203 @@ top :   zone
 
 zone    : zoneType ID ID lBracket zoneContent rBracket
         {
-            $$ = rainslib.ZoneSection{SubjectZone: $2, Context: $3}
+            $$ = rainslib.ZoneSection{
+                                        SubjectZone: $2, 
+                                        Context: $3,
+                                        Content: $5,    
+                                    }
         }
 
 zoneContent : /* empty */
             {
-                $$ = ""
+                $$ = nil
             }
             | zoneContent assertion
             {
-                $$ = fmt.Sprintf("%s %s", $1, $2)
+                $$ = append($1, $2)
             }
             | zoneContent shard
             {
-                $$ = fmt.Sprintf("%s %s", $1, $2)
+                $$ = append($1, $2)
             }
 
 shard   : shardBody
         | shardBody annotation
         {
-            fmt.Printf("%s (%s)", $1,$2)
+            $$ = $1 //TODO CFE add annotation
         }
 
 shardBody   : shardType ID ID shardRange lBracket shardContent rBracket
             {
-                $$ = fmt.Sprintf("S %s %s %s", $2, $3, $4)
+                $$ = &rainslib.ShardSection{
+                                            SubjectZone: $2, 
+                                            Context: $3,
+                                            RangeFrom: $4[0],
+                                            RangeTo: $4[1],
+                                            Content: $6,
+                                        }
             }
             | shardType shardRange lBracket shardContent rBracket
             {
-                $$ = fmt.Sprintf("S %s ", $2)
+                $$ = &rainslib.ShardSection{
+                                            RangeFrom: $2[0],
+                                            RangeTo: $2[1],
+                                            Content: $4,
+                                        }
             }
 
 shardRange  : ID ID
             {
-                $$ = fmt.Sprintf("%s %s", $1, $2)
+                $$ = []string{$1, $2}
             }
             | rangeBegin ID
             {
-                $$ = fmt.Sprintf("< %s", $2)
+                $$ = []string{"<", $2}
             }
             | ID rangeEnd
             {
-                $$ = fmt.Sprintf("%s >", $1)
+                $$ = []string{$1, ">"}
             }
             | rangeBegin rangeEnd
             {
-                $$ = fmt.Sprint("< >")
+                $$ = []string{"<", ">"}
             }
 
 shardContent : /* empty */
             {
-                $$ = ""
+                $$ = nil
             }
             | shardContent assertion
             {
-                $$ = fmt.Sprintf("%s %s", $1, $2)
+                $$ = append($1,$2)
             }
 
 assertion   : assertionBody
             | assertionBody annotation
             {
-                fmt.Printf("%s (%s)", $1,$2)
+                $$ = $1 //TODO CFE add annotation
             }
     
 assertionBody   : assertionType ID lBracket object rBracket
                 {
-                    $$ = fmt.Sprintf("A %s [ %s ]", $2, $4)
+                    $$ = &rainslib.AssertionSection{
+                                                    SubjectName: $2,
+                                                    Content: $4,
+                    }
                 }
                 | assertionType ID ID ID lBracket object rBracket
                 {
-                    $$ = fmt.Sprintf("A %s %s %s [ %s ] (%s)", $2, $4, $6)
+                    $$ = &rainslib.AssertionSection{
+                                                    SubjectZone: $2, 
+                                                    Context: $3,
+                                                    SubjectName: $4,
+                                                    Content: $6,
+                    }
                 }
 
 object  : name
         | ip4
 
 name    : nameBody
+        {
+            $$ = []rainslib.Object{ rainslib.Object{
+                                                    Type: rainslib.OTName,
+                                                    Value: $1,
+                                                    }}
+        }
         | name nameBody
         {
-            $$ = fmt.Sprintf("%s %s", $1, $2)
+            $$ = append($1,rainslib.Object{
+                                            Type: rainslib.OTName,
+                                            Value: $2,
+                                            })
         }
 
 nameBody : nameType ID lBracket oTypes rBracket
         {
-            $$ = fmt.Sprintf("name %s [%s]", $2, $4)
+            $$ = rainslib.NameObject{
+                                        Name: $2,
+                                        Types: $4,
+            }
         }
 
 oTypes  : oType
+        {
+            $$ = []rainslib.ObjectType{$1}
+        }
         | oTypes oType
         {
-            $$ = fmt.Sprintf("%s %s", $1, $2)
+            $$ = append($1,$2)
         }
 
 oType   : nameType
         {
-            $$ = "a Type"
+            $$ = rainslib.OTName
         }
         | ip4Type
         {
-            $$ = "a Type"
+            $$ = rainslib.OTIP4Addr
         }
         | ip6Type
         {
-            $$ = "a Type"
+            $$ = rainslib.OTIP6Addr
         }
         | redirType
         {
-            $$ = "a Type"
+            $$ = rainslib.OTRedirection
         }
         | delegType
         {
-            $$ = "a Type"
+            $$ = rainslib.OTDelegation
         }
         | namesetType
         {
-            $$ = "a Type"
+            $$ = rainslib.OTNameset
         }
         | certType
         {
-            $$ = "a Type"
+            $$ = rainslib.OTCertInfo
         }
         | srvType
         {
-            $$ = "a Type"
+            $$ = rainslib.OTServiceInfo
         }
         | regrType
         {
-            $$ = "a Type"
+            $$ = rainslib.OTRegistrar
         }
         | regtType
         {
-            $$ = "a Type"
+            $$ = rainslib.OTRegistrant
         }
         | infraType
         {
-            $$ = "a Type"
+            $$ = rainslib.OTInfraKey
         }
         | extraType
         {
-            $$ = "a Type"
+            $$ = rainslib.OTExtraKey
         }
         | nextType
         {
-            $$ = "a Type"
+            $$ = rainslib.OTNextKey
         }
 
 ip4     : ip4Body
+        {
+            $$ = []rainslib.Object{$1}
+        }
         | ip4 ip4Body
         {
-            $$ = fmt.Sprintf("%s %s", $1, $2)
+            $$ = append($1,$2)
         }
 
 ip4Body : ip4Type ID
         {
-            $$ = fmt.Sprintf("ip4 %s", $2)
+            $$ = rainslib.Object{
+                                    Type: rainslib.OTIP4Addr,
+                                    Value: $2,
+            }
         }
 
 annotation  : lParenthesis annotationBody rParenthesis
@@ -233,16 +290,22 @@ annotation  : lParenthesis annotationBody rParenthesis
             }
 
 annotationBody  : signature
+                {
+                    $$ = []rainslib.Signature{$1}
+                }
                 | annotationBody signature
+                {
+                    $$ = append($1, $2)
+                }
 
 signature   : sigType ID ID ID ID ID
             {
-                $$ = fmt.Sprintf("sigMeta %s %s %s %s %s", $2, $3, $4, $5, $6)
+                //TODO CFE complicated, lot of casting -> make tokens
+                $$ = rainslib.Signature{}
             }
             | sigType ID ID ID ID ID ID
             {
-                $$ = fmt.Sprintf("%s %s %s %s %s %s", $2, $3, $4, $5,
-                $6, $7)
+                $$ = rainslib.Signature{}
             }
 
 %%      /*  Lexer  */
