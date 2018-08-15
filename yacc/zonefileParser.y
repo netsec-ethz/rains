@@ -9,11 +9,13 @@
 package main
 
 import (
+    "encoding/hex"
 	"bufio"
 	"fmt"
 	"io/ioutil"
     "bytes"
     "strings"
+    "strconv"
     log "github.com/inconshreveable/log15"
     "github.com/netsec-ethz/rains/rainslib"
     "github.com/netsec-ethz/rains/utils/zoneFileParser"
@@ -42,6 +44,9 @@ var base int
     signature rainslib.Signature
     shardRange []string
     publicKey rainslib.PublicKey
+    protocolType rainslib.ProtocolType
+    certUsage rainslib.CertificateUsage
+    hashType rainslib.HashAlgorithmType
 }
 
 // any non-terminal which returns a value needs a type, which is
@@ -52,15 +57,19 @@ var base int
 %type <shardRange> shardRange
 %type <assertions> shardContent
 %type <assertion> assertion assertionBody
-%type <objects> object name ip4 ip6 redir deleg nameset
-%type <nameObject> nameBody   //ip6 redir deleg nameset 
-//%type <str> cert serv regr regt infra extra next
-%type <object> ip4Body ip6Body redirBody delegBody namesetBody
+%type <objects> object name ip4 ip6 redir deleg nameset cert
+%type <objects> srv regr regt infra extra next
+%type <nameObject> nameBody
+%type <object> ip4Body ip6Body redirBody delegBody namesetBody certBody
+%type <object> srvBody regrBody regtBody infraBody extraBody nextBody
 %type <objectTypes> oTypes 
 %type <objectType> oType
 %type <signatures> annotation annotationBody
 %type <signature>  signature signatureMeta
 %type <str> freeText
+%type <protocolType> protocolType
+%type <certUsage> certUsage
+%type <hashType> hashType
 
 // same for terminals
 %token <str> ID
@@ -71,6 +80,8 @@ var base int
 %token srvType regrType regtType infraType extraType nextType
 //annotation types
 %token sigType ed25519Type
+//certificate types
+%token unspecified tls trustAnchor endEntity noHash sha256 sha384 sha512
 //special
 %token rangeBegin rangeEnd
 %token lBracket rBracket lParenthesis rParenthesis
@@ -188,6 +199,13 @@ object  : name
         | redir
         | deleg
         | nameset
+        | cert
+        | srv
+        | regr
+        | regt
+        | infra
+        | extra
+        | next
 
 name    : nameBody
         {
@@ -338,7 +356,7 @@ delegBody : delegType ed25519Type ID ID
         {
             pkey, err := zoneFileParser.DecodeEd25519PublicKeyData($4, $3)
             if  err != nil {
-                log.Error("semantic error:", "error", err)
+                log.Error("semantic error:", "DecodeEd25519PublicKeyData", err)
             }
             $$ = rainslib.Object{
                                     Type: rainslib.OTDelegation,
@@ -361,6 +379,203 @@ namesetBody : namesetType freeText
                                     Type: rainslib.OTNameset,
                                     Value: $2,
                                     }
+            }
+
+cert     : certBody
+        {
+            $$ = []rainslib.Object{$1}
+        }
+        | cert certBody
+        {
+            $$ = append($1,$2)
+        }
+
+certBody : certType protocolType certUsage hashType ID
+        {
+            data, err := hex.DecodeString($5)
+            if err != nil {
+                log.Error("semantic error:", "Decode certificate", err)
+            }
+            cert := rainslib.CertificateObject{
+                Type:     $2,
+                Usage:    $3,
+                HashAlgo: $4,
+                Data:     data,
+            }
+            $$ = rainslib.Object{
+                                    Type: rainslib.OTCertInfo,
+                                    Value: cert,
+                                }
+        }
+
+srv     : srvBody
+        {
+            $$ = []rainslib.Object{$1}
+        }
+        | srv srvBody
+        {
+            $$ = append($1,$2)
+        }
+
+srvBody : srvType ID ID ID
+        {
+            port, err := strconv.Atoi($3)
+            if  err != nil || port < 0 || port > 65535 {
+                log.Error("semantic error:", "error", "Port is not a number or out of range")
+            }
+            priority, err := strconv.Atoi($4)
+            if  err != nil || port < 0 {
+                log.Error("semantic error:", "error", "Priority is not a number or negative")
+            }
+            $$ = rainslib.Object{
+                                    Type: rainslib.OTServiceInfo,
+                                    Value: rainslib.ServiceInfo {
+                                        Name: $2,
+                                        Port: uint16(port),
+                                        Priority: uint(priority),
+                                    },
+            }
+        }
+
+regr     : regrBody
+        {
+            $$ = []rainslib.Object{$1}
+        }
+        | regr regrBody
+        {
+            $$ = append($1,$2)
+        }
+
+regrBody : regrType freeText
+            {
+                $$ = rainslib.Object{
+                                    Type: rainslib.OTRegistrar,
+                                    Value: $2,
+                                    }
+            }
+
+regt     : regtBody
+        {
+            $$ = []rainslib.Object{$1}
+        }
+        | regt regtBody
+        {
+            $$ = append($1,$2)
+        }
+
+regtBody : regtType freeText
+            {
+                $$ = rainslib.Object{
+                                    Type: rainslib.OTRegistrant,
+                                    Value: $2,
+                                    }
+            }
+
+infra     : infraBody
+        {
+            $$ = []rainslib.Object{$1}
+        }
+        | infra infraBody
+        {
+            $$ = append($1,$2)
+        }
+
+infraBody : infraType ed25519Type ID ID
+        {
+            pkey, err := zoneFileParser.DecodeEd25519PublicKeyData($4, $3)
+            if  err != nil {
+                log.Error("semantic error:", "DecodeEd25519PublicKeyData", err)
+            }
+            $$ = rainslib.Object{
+                                    Type: rainslib.OTInfraKey,
+                                    Value: pkey,
+            }
+        }
+
+extra     : extraBody
+        {
+            $$ = []rainslib.Object{$1}
+        }
+        | extra extraBody
+        {
+            $$ = append($1,$2)
+        }
+
+extraBody : extraType ed25519Type ID ID
+        {   //TODO CFE as of now there is only the rains key space. There will
+            //be additional rules in case there are new key spaces 
+            pkey, err := zoneFileParser.DecodeEd25519PublicKeyData($4, $3)
+            if  err != nil {
+                log.Error("semantic error:", "DecodeEd25519PublicKeyData", err)
+            }
+            $$ = rainslib.Object{
+                                    Type: rainslib.OTExtraKey,
+                                    Value: pkey,
+            }
+        }
+
+next     : nextBody
+        {
+            $$ = []rainslib.Object{$1}
+        }
+        | next nextBody
+        {
+            $$ = append($1,$2)
+        }
+
+nextBody : nextType ed25519Type ID ID ID ID
+        {
+            pkey, err := zoneFileParser.DecodeEd25519PublicKeyData($4, $3)
+            if  err != nil {
+                log.Error("semantic error:", "DecodeEd25519PublicKeyData", err)
+            }
+            pkey.ValidSince, err = strconv.ParseInt($5, 10, 64)
+            if  err != nil || pkey.ValidSince < 0 {
+                log.Error("semantic error:", "error", "validSince is not a number or negative")
+            }
+            pkey.ValidUntil, err = strconv.ParseInt($6, 10, 64)
+            if  err != nil || pkey.ValidUntil < 0 {
+                log.Error("semantic error:", "error", "validUntil is not a number or negative")
+            }
+            $$ = rainslib.Object{
+                                    Type: rainslib.OTNextKey,
+                                    Value: pkey,
+            }
+        }
+
+protocolType    : unspecified
+                {
+                    $$ = rainslib.PTUnspecified
+                }
+                | tls
+                {
+                    $$ = rainslib.PTTLS
+                }
+
+certUsage   : trustAnchor
+            {
+                $$ = rainslib.CUTrustAnchor
+            }
+            | endEntity
+            {
+                $$ = rainslib.CUEndEntity
+            }
+
+hashType    : noHash
+            {
+                $$ = rainslib.NoHashAlgo
+            }
+            | sha256
+            {
+                $$ = rainslib.Sha256
+            }
+            | sha384
+            {
+                $$ = rainslib.Sha384
+            }
+            | sha512
+            {
+                $$ = rainslib.Sha512
             }
 
 freeText    : ID
@@ -468,6 +683,22 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
         return sigType
     case ":ed25519:" :
         return ed25519Type
+    case ":unspecified:" :
+        return unspecified
+    case ":tls:" :
+        return tls
+    case ":trustAnchor:" :
+        return trustAnchor
+    case ":endEntity:" :
+        return endEntity
+    case ":noHash:" :
+        return noHash
+    case ":sha256:" :
+        return sha256
+    case ":sha384:" :
+        return sha384
+    case ":sha512:" :
+        return sha512
     case "<" :
         return rangeBegin
     case ">" :

@@ -10,6 +10,21 @@
                         e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
                         ]
                         :A: ch  [ :nameset: Hello How are you ]
-                        
+                        :A: ch  [ :cert: :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
+                        :A: ch  [ :srv: dns 53 0 ]
+                        :A: ch  [ :regr: registrar text ]
+                        :A: ch  [ :regt: registrant info ]
+                        :A: ch  [ :infra: :ed25519: 5
+                        e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
+                        ]
+                        :A: ch  [ :extra: :ed25519: 5
+                        e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
+                        ]
+                        :A: ch  [ :next: :ed25519: 5
+                        e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
+                        100000 20000000 ]
          ]
+         :A: ch  [ :ip4: 192.168.1.10 ]
+         :A: ch  [ :ip4: 192.168.1.10 ]
+         :S: c d [ ]
 ]
