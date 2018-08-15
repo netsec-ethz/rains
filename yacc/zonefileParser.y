@@ -16,6 +16,7 @@ import (
     "strings"
     log "github.com/inconshreveable/log15"
     "github.com/netsec-ethz/rains/rainslib"
+    "github.com/netsec-ethz/rains/utils/zoneFileParser"
 )
 
 var regs = make([]int, 26)
@@ -40,6 +41,7 @@ var base int
     signatures []rainslib.Signature
     signature rainslib.Signature
     shardRange []string
+    publicKey rainslib.PublicKey
 }
 
 // any non-terminal which returns a value needs a type, which is
@@ -50,14 +52,15 @@ var base int
 %type <shardRange> shardRange
 %type <assertions> shardContent
 %type <assertion> assertion assertionBody
-%type <objects> object name ip4
+%type <objects> object name ip4 ip6 redir deleg nameset
 %type <nameObject> nameBody   //ip6 redir deleg nameset 
 //%type <str> cert serv regr regt infra extra next
-%type <object> ip4Body
+%type <object> ip4Body ip6Body redirBody delegBody namesetBody
 %type <objectTypes> oTypes 
 %type <objectType> oType
 %type <signatures> annotation annotationBody
-%type <signature>  signature
+%type <signature>  signature signatureMeta
+%type <str> freeText
 
 // same for terminals
 %token <str> ID
@@ -67,7 +70,7 @@ var base int
 %token nameType ip4Type ip6Type redirType delegType namesetType certType
 %token srvType regrType regtType infraType extraType nextType
 //annotation types
-%token sigType
+%token sigType ed25519Type
 //special
 %token rangeBegin rangeEnd
 %token lBracket rBracket lParenthesis rParenthesis
@@ -181,6 +184,10 @@ assertionBody   : assertionType ID lBracket object rBracket
 
 object  : name
         | ip4
+        | ip6
+        | redir
+        | deleg
+        | nameset
 
 name    : nameBody
         {
@@ -284,6 +291,84 @@ ip4Body : ip4Type ID
             }
         }
 
+ip6     : ip6Body
+        {
+            $$ = []rainslib.Object{$1}
+        }
+        | ip6 ip6Body
+        {
+            $$ = append($1,$2)
+        }
+
+ip6Body : ip6Type ID
+        {
+            $$ = rainslib.Object{
+                                    Type: rainslib.OTIP6Addr,
+                                    Value: $2,
+            }
+        }
+
+redir     : redirBody
+        {
+            $$ = []rainslib.Object{$1}
+        }
+        | redir redirBody
+        {
+            $$ = append($1,$2)
+        }
+
+redirBody : redirType ID
+        {
+            $$ = rainslib.Object{
+                                    Type: rainslib.OTRedirection,
+                                    Value: $2,
+            }
+        }
+
+deleg     : delegBody
+        {
+            $$ = []rainslib.Object{$1}
+        }
+        | deleg delegBody
+        {
+            $$ = append($1,$2)
+        }
+
+delegBody : delegType ed25519Type ID ID
+        {
+            pkey, err := zoneFileParser.DecodeEd25519PublicKeyData($4, $3)
+            if  err != nil {
+                log.Error("semantic error:", "error", err)
+            }
+            $$ = rainslib.Object{
+                                    Type: rainslib.OTDelegation,
+                                    Value: pkey,
+            }
+        }
+
+nameset     : namesetBody
+        {
+            $$ = []rainslib.Object{$1}
+        }
+        | nameset namesetBody
+        {
+            $$ = append($1,$2)
+        }
+
+namesetBody : namesetType freeText
+            {
+                $$ = rainslib.Object{
+                                    Type: rainslib.OTNameset,
+                                    Value: $2,
+                                    }
+            }
+
+freeText    : ID
+            | freeText ID
+            {
+                $$ = $1 + " " + $2
+            }
+
 annotation  : lParenthesis annotationBody rParenthesis
             {
                 $$ = $2
@@ -298,15 +383,18 @@ annotationBody  : signature
                     $$ = append($1, $2)
                 }
 
-signature   : sigType ID ID ID ID ID
-            {
-                //TODO CFE complicated, lot of casting -> make tokens
+signature   : signatureMeta
+            | signatureMeta ID
+            {   
+                //TODO CFE add actual signature to Signature struct
                 $$ = rainslib.Signature{}
             }
-            | sigType ID ID ID ID ID ID
-            {
-                $$ = rainslib.Signature{}
-            }
+
+signatureMeta   : sigType ed25519Type ID ID ID ID
+                {
+                    //TODO CFE complicated, lot of casting -> make tokens
+                    $$ = rainslib.Signature{}
+                }
 
 %%      /*  Lexer  */
 
@@ -378,6 +466,8 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
 		return nextType
     case ":sig:" :
         return sigType
+    case ":ed25519:" :
+        return ed25519Type
     case "<" :
         return rangeBegin
     case ">" :
@@ -398,8 +488,17 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
 
 // The parser calls this method on a parse error.
 func (l *ZFPLex) Error(s string) {
-	log.Error("syntax error:", "lineNr", l.lineNr+1, "wordNr", l.linePos,
-	"token", l.lines[l.lineNr][l.linePos-1])
+    for l.linePos == 0 && l.lineNr > 0 {
+        l.lineNr--
+        l.linePos = len(l.lines[l.lineNr])
+    }
+    if l.linePos == 0 && l.lineNr == 0 {
+        log.Error("syntax error:", "lineNr", 1, "wordNr", 0,
+	    "token", "noToken")
+    } else {
+	    log.Error("syntax error:", "lineNr", l.lineNr+1, "wordNr", l.linePos,
+	    "token", l.lines[l.lineNr][l.linePos-1])
+    }
 }
 
 func main() {
