@@ -111,13 +111,13 @@ The above format in BNF.
 <infra> ::= <infrabody> | <infra> <infrabody>
 <extra> ::= <extrabody> | <extra> <extrabody>
 <next> ::= <nextbody> | <next> <nextbody>
-<namebody> ::= ":name:" <cname> "[" <objectTypes> "]"
+<namebody> ::= ":name:" <alias> "[" <objectTypes> "]"
 <ip6body> ::= ":ip6:" <ip6Addr>
 <ip4body> ::= ":ip4:" <ip4Addr>
 <redirbody> ::= ":redir:" <redirname>
 <delegbody> ::= ":deleg:" ":ed25519:" <keyphase> <publicKeyData>
 <namesetbody> ::= ":nameset:" <freeText>
-<certbody> ::= ":cert:" <protocolType> <certificatUsage> <hashType> <certData>
+<certbody> ::= ":cert:" <protocolType> <certificateUsage> <hashType> <certData>
 <srvbody> ::= ":srv:" <serviceName> <port> <priority>
 <regrbody> ::= ":regr:" <freeText>
 <regtbody> ::= ":regt:" <freeText>
@@ -130,7 +130,7 @@ The above format in BNF.
                  ":infra:" | ":extra:" | ":next:" |
 <freeText> ::= <word> | <freeText> <word>
 <protocolType> ::= ":unspecified:" | ":tls:"
-<certificatUsage> ::= ":trustAnchor:" | ":endEntity:"
+<certificateUsage> ::= ":trustAnchor:" | ":endEntity:"
 <hashType> ::= ":noHash:" | ":sha256:" | ":sha384:" | ":sha512:"
 <annotation> ::= "(" <annotationBody> ")"
 <annotationBody> ::= <signature> | <annotationBody> <signature>

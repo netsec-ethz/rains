@@ -8,7 +8,7 @@
 
 package main
 
-import (  
+import (
 	"bufio"
     "bytes"
     "encoding/hex"
@@ -22,13 +22,15 @@ import (
     "golang.org/x/crypto/ed25519"
 )
 
-//AddSigs adds signatures to section
+//AddSigs adds signatures to section.
 func AddSigs(section rainslib.MessageSectionWithSigForward, signatures []rainslib.Signature) {
     for _, sig := range signatures {
         section.AddSig(sig)
     }
 }
 
+//DecodePublicKeyID converts the keyphase string into an integer and returns a 
+//PublicKeyID struct with the provided keyphase and default algorithm/keyspace.
 func DecodePublicKeyID(keyphase string) (rainslib.PublicKeyID, error) {
     phase, err := strconv.Atoi(keyphase)
 	if err != nil {
@@ -41,8 +43,10 @@ func DecodePublicKeyID(keyphase string) (rainslib.PublicKeyID, error) {
 	}, nil
 }
 
+//DecodeEd25519SignatureData decodes an ed25519 signature which is hex encoded
+//in input and returns it.
 func DecodeEd25519SignatureData(input string) (interface{}, error) {
-    return "notYetImplemented", nil
+    return nil, errors.New("notYetImplemented")
 }
 
 // DecodeEd25519PublicKeyData returns the publicKey or an error in case
@@ -57,16 +61,17 @@ func DecodeEd25519PublicKeyData(pkeyInput string, keyphase string) (rainslib.Pub
 		return rainslib.PublicKey{}, err
 	}
 	if len(pKey) == 32 {
-		publicKey := rainslib.PublicKey{Key: ed25519.PublicKey(pKey), PublicKeyID: publicKeyID}
-		return publicKey, nil
+		return rainslib.PublicKey{Key: ed25519.PublicKey(pKey), PublicKeyID: publicKeyID}, nil
 	}
 	return rainslib.PublicKey{}, fmt.Errorf("wrong public key length: got %d, want: 32", len(pKey))
 }
 
+//DecodeCertificate decodes the provided certificate which is hex encoded and
+//returns it.
 func DecodeCertificate(ptype rainslib.ProtocolType, usage rainslib.CertificateUsage, 
-    hashAlgo rainslib.HashAlgorithmType, certificat string) (rainslib.CertificateObject,
+    hashAlgo rainslib.HashAlgorithmType, certificate string) (rainslib.CertificateObject,
 error) {
-    data, err := hex.DecodeString(certificat)
+    data, err := hex.DecodeString(certificate)
     if err != nil {
         return rainslib.CertificateObject{}, err
     }
@@ -78,6 +83,8 @@ error) {
     }, nil
 }
 
+//DecodeSrv parses portString and priorityString to int64 and returns a
+//serviceInfo object.
 func DecodeSrv(name, portString, priorityString string) (rainslib.ServiceInfo, error) {
     port, err := strconv.Atoi(portString)
     if  err != nil || port < 0 || port > 65535 {
@@ -94,6 +101,7 @@ func DecodeSrv(name, portString, priorityString string) (rainslib.ServiceInfo, e
     }, nil
 }
 
+//DecodeValidity parses validSince and validUntil to int64 and returns them.
 func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
     vsince, err := strconv.ParseInt(validSince, 10, 64)
     if  err != nil || vsince < 0 {
@@ -287,7 +295,7 @@ assertion       : assertionBody
                     AddSigs($1,$2)
                     $$ = $1
                 }
-    
+
 assertionBody   : assertionType ID lBracket objects rBracket
                 {
                     $$ = &rainslib.AssertionSection{
@@ -598,7 +606,7 @@ extra           : extraBody
 
 extraBody       : extraType ed25519Type ID ID
                 {   //TODO CFE as of now there is only the rains key space. There will
-                    //be additional rules in case there are new key spaces 
+                    //be additional rules in case there are new key spaces
                     pkey, err := DecodeEd25519PublicKeyData($4, $3)
                     if  err != nil {
                         log.Error("semantic error:", "DecodeEd25519PublicKeyData", err)
@@ -691,7 +699,7 @@ annotationBody  : signature
 
 signature       : signatureMeta
                 | signatureMeta ID
-                {   
+                {
                     data, err := DecodeEd25519SignatureData($2)
                     if  err != nil {
                         log.Error("semantic error:", "DecodeEd25519SignatureData", err)
@@ -723,7 +731,7 @@ signatureMeta   : sigType ed25519Type rains ID ID ID
 const eof = 0
 
 type ZFPLex struct {
-	lines       [][]string
+    lines       [][]string
     lineNr      int
     linePos     int
 }
@@ -751,38 +759,38 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
     }
     //return token
     switch word {
-	case ":A:" :
+    case ":A:" :
         return assertionType
     case ":S:" :
         return shardType
     case ":Z:" :
         return zoneType
     case ":name:" :
-		return nameType
-	case ":ip6:" :
-		return ip6Type
-	case ":ip4:" :
-		return ip4Type
-	case ":redir:" :
-		return redirType
-	case ":deleg:" :
-		return delegType
-	case ":nameset:" :
-		return namesetType
-	case ":cert:" :
-		return certType
-	case ":srv:" :
-		return srvType
-	case ":regr:" :
-		return regrType
-	case ":regt:" :
-		return regtType
-	case ":infra:" :
-		return infraType
-	case ":extra:" :
-		return extraType
-	case ":next:" :
-		return nextType
+        return nameType
+    case ":ip6:" :
+        return ip6Type
+    case ":ip4:" :
+        return ip4Type
+    case ":redir:" :
+        return redirType
+    case ":deleg:" :
+        return delegType
+    case ":nameset:" :
+        return namesetType
+    case ":cert:" :
+        return certType
+    case ":srv:" :
+        return srvType
+    case ":regr:" :
+        return regrType
+    case ":regt:" :
+        return regtType
+    case ":infra:" :
+        return infraType
+    case ":extra:" :
+        return extraType
+    case ":next:" :
+        return nextType
     case ":sig:" :
         return sigType
     case ":ed25519:" :
@@ -817,10 +825,10 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
         return lParenthesis
     case ")" :
         return rParenthesis
-	default :
+    default :
         lval.str = word
         return ID
-	}
+    }
 }
 
 // The parser calls this method on a parse error.
@@ -831,10 +839,10 @@ func (l *ZFPLex) Error(s string) {
     }
     if l.linePos == 0 && l.lineNr == 0 {
         log.Error("syntax error:", "lineNr", 1, "wordNr", 0,
-	    "token", "noToken")
+        "token", "noToken")
     } else {
-	    log.Error("syntax error:", "lineNr", l.lineNr+1, "wordNr", l.linePos,
-	    "token", l.lines[l.lineNr][l.linePos-1])
+        log.Error("syntax error:", "lineNr", l.lineNr+1, "wordNr", l.linePos,
+        "token", l.lines[l.lineNr][l.linePos-1])
     }
 }
 
@@ -855,7 +863,7 @@ func removeComments(scanner *bufio.Scanner) [][]string {
         inputWithoutComments := strings.Split(scanner.Text(), ";")[0]
         var words []string
         ws := bufio.NewScanner(strings.NewReader(inputWithoutComments))
-	    ws.Split(bufio.ScanWords)
+        ws.Split(bufio.ScanWords)
         for ws.Scan() {
             words = append(words, ws.Text())
         } 

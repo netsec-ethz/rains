@@ -50,7 +50,6 @@ program. Keys are to be specified in a top-level JSON map.
   stored at the provided path
 * `DoPublish`: Sends the signed sections to all authoritative rainsd servers if
   it is set to true
-* ``:
 
 ## Issues
 
