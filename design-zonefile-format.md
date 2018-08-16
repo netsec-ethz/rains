@@ -62,15 +62,15 @@ are not part of the syntax.
 - IP6 := :ip4: ip4
 - IP4 := :ip6: ip6
 - Redir := :redir: name
-- Deleg := :deleg: algorithm publicKey
+- Deleg := :deleg: algorithm keyphase publicKey
 - Nameset := :nameset: expr
 - Cert := :cert: protocolType usageType hashType certificate
-- Srv := :srv: name port
+- Srv := :srv: name port priority
 - Regr := :regr: registrar
 - Regt := :regt: registrant
-- Infra := :infra: algorithm publicKey
-- Extra := :extra: keyspace algorithm publicKey
-- Next := :next: algorithm publicKey validSince validUntil
+- Infra := :infra: algorithm keyphase publicKey
+- Extra := :extra: keyspace algorithm keyphase publicKey
+- Next := :next: algorithm keyphase publicKey validSince validUntil
 - ObjectType := :name:|:ip6:|:ip4:|:redir:|:deleg:|:nameset:|:cert:|:srv:|:regr:|:regt:|:infra:|:extra:|:next:
 
 ### Annotation Format Specification
@@ -84,6 +84,8 @@ are not part of the syntax.
 - SMS := SM signature
 
 ## BNF
+
+The above format in BNF.
 
 <sections> ::= "" | <sections> <assertion> | <sections> <shard> | <sections> <zone>
 <zone> ::= <zoneBody> | <zoneBody> <annotation>
