@@ -42,3 +42,8 @@ _testmain.go
 
 #test coverage files
 coverage.out
+
+#Yacc
+/yacc/y.go
+/yacc/y.output
+/yacc/zonefileParser

@@ -18,9 +18,8 @@ without comments.
 Parentheses "()", brackets "[]" and types (type name between semicolons e.g.
 :ip4:) are static terms. Each term starting with a lowercase character stands
 for an arbitrary string value. The meaning of this value is specified in the
-RAINS data model. (TODO CFE should we specify the string representation per
-type? e.g. public key in hexadecimal while port in decimal etc.) Similar to
-regex we use the following special characters which are not part of the syntax.
+RAINS data model. Similar to regex we use the following special characters which
+are not part of the syntax.
 
 - "{}" to group terms (as parenthesis are part of the syntax)
 - "|" either term on the left or term on the right (not both)
@@ -63,15 +62,15 @@ regex we use the following special characters which are not part of the syntax.
 - IP6 := :ip4: ip4
 - IP4 := :ip6: ip6
 - Redir := :redir: name
-- Deleg := :deleg: algorithm publicKey
+- Deleg := :deleg: algorithm keyphase publicKey
 - Nameset := :nameset: expr
 - Cert := :cert: protocolType usageType hashType certificate
-- Srv := :srv: name port
+- Srv := :srv: name port priority
 - Regr := :regr: registrar
 - Regt := :regt: registrant
-- Infra := :infra: algorithm publicKey
-- Extra := :extra: keyspace algorithm publicKey
-- Next := :next: algorithm publicKey validSince validUntil
+- Infra := :infra: algorithm keyphase publicKey
+- Extra := :extra: keyspace algorithm keyphase publicKey
+- Next := :next: algorithm keyphase publicKey validSince validUntil
 - ObjectType := :name:|:ip6:|:ip4:|:redir:|:deleg:|:nameset:|:cert:|:srv:|:regr:|:regt:|:infra:|:extra:|:next:
 
 ### Annotation Format Specification
@@ -83,6 +82,62 @@ regex we use the following special characters which are not part of the syntax.
 - Signature := SM|SMS
 - SM := :sig: algorithm keyspace keyphase validSince validUntil
 - SMS := SM signature
+
+## BNF
+
+The above format in BNF.
+
+<sections> ::= "" | <sections> <assertion> | <sections> <shard> | <sections> <zone>
+<zone> ::= <zoneBody> | <zoneBody> <annotation>
+<zoneBody> ::= ":Z:" <subjectZone> <context> "[" <zoneContent> "]"
+<zoneContent> ::= "" | <zoneContent> <assertion> | <zoneContent> <shard>
+<shard> ::= <shardBody> | <shardBody> <annotation>
+<shardBody> ::= ":S:" <shardRange> "[" <shardContent> "]" | ":S:" <subjectZone> <context> <shardRange> "[" <shardContent> "]"
+<shardRange> ::= <rangeBegin> <rangeEnd> | <rangeBegin> ">" | "<" <rangeEnd> | "<" ">"
+<shardContent> ::= "" | <shardContent> <assertion>
+<assertion> ::= <assertionBody> | <assertionBody> <annotation>
+<assertionBody> ::= ":A:" <name> "[" <objects> "]" | ":A:" <name> <subjectZone> <context> "[" <objects> "]"
+<objects> ::= <name> | <ip6> | <ip4> | <redir> | <deleg> | <nameset> | <cert> | <srv> | <regr> | <regt> | <infra> | <extra> | <next>
+<name> ::= <namebody> | <name> <namebody>
+<ip6> ::= <ip6body> | <ip6> <ip6body>
+<ip4> ::= <ip4body> | <ip4> <ip4body>
+<redir> ::= <redirbody> | <redir> <redirbody>
+<deleg> ::= <delegbody> | <deleg> <delegbody>
+<nameset> ::= <namesetbody> | <nameset> <namesetbody>
+<cert> ::= <certbody> | <cert> <certbody>
+<srv> ::= <srvbody> | <srv> <srvbody>
+<regr> ::= <regrbody> | <regr> <regrbody>
+<regt> ::= <regtbody> | <regt> <regtbody>
+<infra> ::= <infrabody> | <infra> <infrabody>
+<extra> ::= <extrabody> | <extra> <extrabody>
+<next> ::= <nextbody> | <next> <nextbody>
+<namebody> ::= ":name:" <cname> "[" <objectTypes> "]"
+<ip6body> ::= ":ip6:" <ip6Addr>
+<ip4body> ::= ":ip4:" <ip4Addr>
+<redirbody> ::= ":redir:" <redirname>
+<delegbody> ::= ":deleg:" ":ed25519:" <keyphase> <publicKeyData>
+<namesetbody> ::= ":nameset:" <freeText>
+<certbody> ::= ":cert:" <protocolType> <certificatUsage> <hashType> <certData>
+<srvbody> ::= ":srv:" <serviceName> <port> <priority>
+<regrbody> ::= ":regr:" <freeText>
+<regtbody> ::= ":regt:" <freeText>
+<infrabody> ::= ":infra:" ":ed25519:" <keyphase> <publicKeyData>
+<extrabody> ::= ":extra:" ":ed25519:" <keyphase> <publicKeyData>
+<nextbody> ::= ":next:" ":ed25519:" <keyphase> <publicKeyData> <validFrom> <validSince>
+<objectTypes> ::= <objectType> | <objectTypes> <objectType>
+<objectType> ::= ":name:" | ":ip6:" | ":ip4:" | ":redir:" | ":deleg:" |  
+                 ":nameset:" | ":cert:" | ":srv:" | ":regr:" | ":regt:" |  
+                 ":infra:" | ":extra:" | ":next:" |
+<freeText> ::= <word> | <freeText> <word>
+<protocolType> ::= ":unspecified:" | ":tls:"
+<certificatUsage> ::= ":trustAnchor:" | ":endEntity:"
+<hashType> ::= ":noHash:" | ":sha256:" | ":sha384:" | ":sha512:"
+<annotation> ::= "(" <annotationBody> ")"
+<annotationBody> ::= <signature> | <annotationBody> <signature>
+<signature> ::= <sigMetaData> | <sigMetaData> <signatureData>
+<sigMetaData> ::= ":sig:" ":ed25519:" ":rains:" <keyphase> <validFrom> <validSince>
+
+TODO CFE define the types of some of the non terminals. Most of them are strings.
 
 ## Implementation
 
