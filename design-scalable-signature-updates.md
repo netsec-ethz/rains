@@ -156,10 +156,17 @@ bandwidth utilization, and higher security by reducing possible exploitation
 periods.
 
 Key rollover is not a special case. Instead of renewing one of the key pairs, a
-new key pair can be delegated by the superordinate zone (after it reeived a
+new key pair can be delegated by the superordinate zone (after it received a
 next-key assertion from the subordinate zone). The process of signing assertions
 is the same as if a key pair would have been renewed, with the only difference
-that now the new key pair instead of the renewed one is used.
+that now the new key pair instead of the renewed one is used. To play it safe,
+an authority can send a next key assertion to its superordinate with a new
+keyphase. During a transition period, the authority signs all its entries by
+both the new and the old key (it keeps for each entry two assertions each
+containing one signature so the signature verification in the network stays the
+same). Only entries with the new key are pushed to the authoritative servers.
+The others are kept ready as a backup to react quickly in case something goes
+wrong.
 
 When a zone is delegating its namespace then the delegation assertion schedule
 should take half the time of his superior. This way the zone has enough time to
