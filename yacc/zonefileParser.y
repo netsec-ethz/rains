@@ -132,8 +132,8 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
 
 // any non-terminal which returns a value needs a type, which must be a field 
 // name in the above union struct
-%type <zone>            zone
-%type <sections>        zoneContent
+%type <zone>            zone zoneBody
+%type <sections>        zoneContent sections
 %type <shard>           shard shardBody
 %type <shardRange>      shardRange
 %type <assertions>      shardContent
@@ -175,17 +175,39 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
 
 %% /* Grammer rules  */
 
-top             : zone
+top             : sections
                 {
-                    fmt.Printf("\n%s\n", $1.String())
-                }
-                | zone annotation
-                {   
-                    AddSigs($1,$2)
-                    fmt.Printf("\n%s\n", $1.String())
+                    fmt.Print("\n")
+                    for _,s := range $1 {
+                        fmt.Printf("%s\n", s.String())
+                    }
                 }
 
-zone            : zoneType ID ID lBracket zoneContent rBracket
+sections        : /* empty */
+                {
+                    $$ = nil
+                }
+                | sections assertion
+                {
+                    $$ = append($1, $2)
+                }
+                | sections shard
+                {
+                    $$ = append($1, $2)
+                }
+                | sections zone
+                {
+                    $$ = append($1, $2)
+                }
+
+zone            : zoneBody
+                | zoneBody annotation
+                {
+                    AddSigs($1,$2)
+                    $$ = $1
+                }
+
+zoneBody        : zoneType ID ID lBracket zoneContent rBracket
                 {
                     $$ = &rainslib.ZoneSection{
                         SubjectZone: $2, 

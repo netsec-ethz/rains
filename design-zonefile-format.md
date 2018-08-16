@@ -18,9 +18,8 @@ without comments.
 Parentheses "()", brackets "[]" and types (type name between semicolons e.g.
 :ip4:) are static terms. Each term starting with a lowercase character stands
 for an arbitrary string value. The meaning of this value is specified in the
-RAINS data model. (TODO CFE should we specify the string representation per
-type? e.g. public key in hexadecimal while port in decimal etc.) Similar to
-regex we use the following special characters which are not part of the syntax.
+RAINS data model. Similar to regex we use the following special characters which
+are not part of the syntax.
 
 - "{}" to group terms (as parenthesis are part of the syntax)
 - "|" either term on the left or term on the right (not both)
