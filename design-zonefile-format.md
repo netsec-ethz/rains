@@ -83,6 +83,60 @@ are not part of the syntax.
 - SM := :sig: algorithm keyspace keyphase validSince validUntil
 - SMS := SM signature
 
+## BNF
+
+<sections> ::= "" | <sections> <assertion> | <sections> <shard> | <sections> <zone>
+<zone> ::= <zoneBody> | <zoneBody> <annotation>
+<zoneBody> ::= ":Z:" <subjectZone> <context> "[" <zoneContent> "]"
+<zoneContent> ::= "" | <zoneContent> <assertion> | <zoneContent> <shard>
+<shard> ::= <shardBody> | <shardBody> <annotation>
+<shardBody> ::= ":S:" <shardRange> "[" <shardContent> "]" | ":S:" <subjectZone> <context> <shardRange> "[" <shardContent> "]"
+<shardRange> ::= <rangeBegin> <rangeEnd> | <rangeBegin> ">" | "<" <rangeEnd> | "<" ">"
+<shardContent> ::= "" | <shardContent> <assertion>
+<assertion> ::= <assertionBody> | <assertionBody> <annotation>
+<assertionBody> ::= ":A:" <name> "[" <objects> "]" | ":A:" <name> <subjectZone> <context> "[" <objects> "]"
+<objects> ::= <name> | <ip6> | <ip4> | <redir> | <deleg> | <nameset> | <cert> | <srv> | <regr> | <regt> | <infra> | <extra> | <next>
+<name> ::= <namebody> | <name> <namebody>
+<ip6> ::= <ip6body> | <ip6> <ip6body>
+<ip4> ::= <ip4body> | <ip4> <ip4body>
+<redir> ::= <redirbody> | <redir> <redirbody>
+<deleg> ::= <delegbody> | <deleg> <delegbody>
+<nameset> ::= <namesetbody> | <nameset> <namesetbody>
+<cert> ::= <certbody> | <cert> <certbody>
+<srv> ::= <srvbody> | <srv> <srvbody>
+<regr> ::= <regrbody> | <regr> <regrbody>
+<regt> ::= <regtbody> | <regt> <regtbody>
+<infra> ::= <infrabody> | <infra> <infrabody>
+<extra> ::= <extrabody> | <extra> <extrabody>
+<next> ::= <nextbody> | <next> <nextbody>
+<namebody> ::= ":name:" <cname> "[" <objectTypes> "]"
+<ip6body> ::= ":ip6:" <ip6Addr>
+<ip4body> ::= ":ip4:" <ip4Addr>
+<redirbody> ::= ":redir:" <redirname>
+<delegbody> ::= ":deleg:" ":ed25519:" <keyphase> <publicKeyData>
+<namesetbody> ::= ":nameset:" <freeText>
+<certbody> ::= ":cert:" <protocolType> <certificatUsage> <hashType> <certData>
+<srvbody> ::= ":srv:" <serviceName> <port> <priority>
+<regrbody> ::= ":regr:" <freeText>
+<regtbody> ::= ":regt:" <freeText>
+<infrabody> ::= ":infra:" ":ed25519:" <keyphase> <publicKeyData>
+<extrabody> ::= ":extra:" ":ed25519:" <keyphase> <publicKeyData>
+<nextbody> ::= ":next:" ":ed25519:" <keyphase> <publicKeyData> <validFrom> <validSince>
+<objectTypes> ::= <objectType> | <objectTypes> <objectType>
+<objectType> ::= ":name:" | ":ip6:" | ":ip4:" | ":redir:" | ":deleg:" |  
+                 ":nameset:" | ":cert:" | ":srv:" | ":regr:" | ":regt:" |  
+                 ":infra:" | ":extra:" | ":next:" |
+<freeText> ::= <word> | <freeText> <word>
+<protocolType> ::= ":unspecified:" | ":tls:"
+<certificatUsage> ::= ":trustAnchor:" | ":endEntity:"
+<hashType> ::= ":noHash:" | ":sha256:" | ":sha384:" | ":sha512:"
+<annotation> ::= "(" <annotationBody> ")"
+<annotationBody> ::= <signature> | <annotationBody> <signature>
+<signature> ::= <sigMetaData> | <sigMetaData> <signatureData>
+<sigMetaData> ::= ":sig:" ":ed25519:" ":rains:" <keyphase> <validFrom> <validSince>
+
+TODO CFE define the types of some of the non terminals. Most of them are strings.
+
 ## Implementation
 
 - readLineFunction: reads next line, separates line by comment delimiter,

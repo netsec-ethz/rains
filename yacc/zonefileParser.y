@@ -138,7 +138,7 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
 %type <shardRange>      shardRange
 %type <assertions>      shardContent
 %type <assertion>       assertion assertionBody
-%type <objects>         object name ip4 ip6 redir deleg nameset cert
+%type <objects>         objects name ip4 ip6 redir deleg nameset cert
 %type <objects>         srv regr regt infra extra next
 %type <object>          nameBody ip4Body ip6Body redirBody delegBody namesetBody certBody
 %type <object>          srvBody regrBody regtBody infraBody extraBody nextBody
@@ -288,14 +288,14 @@ assertion       : assertionBody
                     $$ = $1
                 }
     
-assertionBody   : assertionType ID lBracket object rBracket
+assertionBody   : assertionType ID lBracket objects rBracket
                 {
                     $$ = &rainslib.AssertionSection{
                         SubjectName: $2,
                         Content: $4,
                     }
                 }
-                | assertionType ID ID ID lBracket object rBracket
+                | assertionType ID ID ID lBracket objects rBracket
                 {
                     $$ = &rainslib.AssertionSection{
                         SubjectZone: $2, 
@@ -305,9 +305,9 @@ assertionBody   : assertionType ID lBracket object rBracket
                     }
                 }
 
-object          : name
-                | ip4
+objects          : name
                 | ip6
+                | ip4
                 | redir
                 | deleg
                 | nameset
@@ -401,23 +401,6 @@ oType           : nameType
                     $$ = rainslib.OTNextKey
                 }
 
-ip4             : ip4Body
-                {
-                    $$ = []rainslib.Object{$1}
-                }
-                | ip4 ip4Body
-                {
-                    $$ = append($1,$2)
-                }
-
-ip4Body         : ip4Type ID
-                {
-                    $$ = rainslib.Object{
-                        Type: rainslib.OTIP4Addr,
-                        Value: $2,
-                    }
-                }
-
 ip6             : ip6Body
                 {
                     $$ = []rainslib.Object{$1}
@@ -431,6 +414,23 @@ ip6Body         : ip6Type ID
                 {
                     $$ = rainslib.Object{
                         Type: rainslib.OTIP6Addr,
+                        Value: $2,
+                    }
+                }
+
+ip4             : ip4Body
+                {
+                    $$ = []rainslib.Object{$1}
+                }
+                | ip4 ip4Body
+                {
+                    $$ = append($1,$2)
+                }
+
+ip4Body         : ip4Type ID
+                {
+                    $$ = rainslib.Object{
+                        Type: rainslib.OTIP4Addr,
                         Value: $2,
                     }
                 }
