@@ -2,14 +2,10 @@ package zoneFileParser
 
 import (
 	"bufio"
-	"encoding/hex"
-	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/netsec-ethz/rains/rainslib"
-	"golang.org/x/crypto/ed25519"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -136,29 +132,4 @@ func replaceWhitespaces(encoding string) string {
 		words = append(words, scanner.Text())
 	}
 	return strings.Join(words, " ")
-}
-
-// DecodeEd25519PublicKeyData returns the publicKey or an error in case
-// pkeyInput is malformed i.e. it is not in zone file format.
-// FIXME CFE this function is duplicated from zonefileDecoder, this one is
-// needed in the yacc parser
-func DecodeEd25519PublicKeyData(pkeyInput string, keyphase string) (rainslib.PublicKey, error) {
-	phase, err := strconv.Atoi(keyphase)
-	if err != nil {
-		return rainslib.PublicKey{}, errors.New("keyphase is not a number")
-	}
-	publicKeyID := rainslib.PublicKeyID{
-		Algorithm: rainslib.Ed25519,
-		KeyPhase:  phase,
-		KeySpace:  rainslib.RainsKeySpace,
-	}
-	pKey, err := hex.DecodeString(pkeyInput)
-	if err != nil {
-		return rainslib.PublicKey{}, err
-	}
-	if len(pKey) == 32 {
-		publicKey := rainslib.PublicKey{Key: ed25519.PublicKey(pKey), PublicKeyID: publicKeyID}
-		return publicKey, nil
-	}
-	return rainslib.PublicKey{}, fmt.Errorf("wrong public key length: got %d, want: 32", len(pKey))
 }
