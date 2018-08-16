@@ -29,17 +29,28 @@ func AddSigs(section rainslib.MessageSectionWithSigForward, signatures []rainsli
     }
 }
 
+func DecodePublicKeyID(keyphase string) (rainslib.PublicKeyID, error) {
+    phase, err := strconv.Atoi(keyphase)
+	if err != nil {
+		return rainslib.PublicKeyID{}, errors.New("keyphase is not a number")
+	}
+    return rainslib.PublicKeyID{
+		Algorithm: rainslib.Ed25519,
+        KeyPhase:  phase,
+		KeySpace:  rainslib.RainsKeySpace,
+	}, nil
+}
+
+func DecodeEd25519SignatureData(input string) (interface{}, error) {
+    return "notYetImplemented", nil
+}
+
 // DecodeEd25519PublicKeyData returns the publicKey or an error in case
 // pkeyInput is malformed i.e. it is not in zone file format.
 func DecodeEd25519PublicKeyData(pkeyInput string, keyphase string) (rainslib.PublicKey, error) {
-	phase, err := strconv.Atoi(keyphase)
-	if err != nil {
-		return rainslib.PublicKey{}, errors.New("keyphase is not a number")
-	}
-	publicKeyID := rainslib.PublicKeyID{
-		Algorithm: rainslib.Ed25519,
-		KeyPhase:  phase,
-		KeySpace:  rainslib.RainsKeySpace,
+	publicKeyID, err := DecodePublicKeyID(keyphase)
+    if err != nil {
+		return rainslib.PublicKey{}, err
 	}
 	pKey, err := hex.DecodeString(pkeyInput)
 	if err != nil {
@@ -81,6 +92,18 @@ func DecodeSrv(name, portString, priorityString string) (rainslib.ServiceInfo, e
         Port: uint16(port),
         Priority: uint(priority),
     }, nil
+}
+
+func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
+    vsince, err := strconv.ParseInt(validSince, 10, 64)
+    if  err != nil || vsince < 0 {
+        return 0,0, errors.New("validSince is not a number or negative")
+    }
+    vuntil, err := strconv.ParseInt(validUntil, 10, 64)
+    if  err != nil || vuntil < 0 {
+        return 0,0, errors.New("validUntil is not a number or negative")
+    }
+    return vsince, vuntil, nil
 }
 
 %}
@@ -143,6 +166,8 @@ func DecodeSrv(name, portString, priorityString string) (rainslib.ServiceInfo, e
 %token unspecified tls trustAnchor endEntity 
 // Hash algorithm types
 %token noHash sha256 sha384 sha512
+// Key spaces
+%token rains
 // Special shard range markers
 %token rangeBegin rangeEnd
 // Special
@@ -577,17 +602,13 @@ nextBody        : nextType ed25519Type ID ID ID ID
                     if  err != nil {
                         log.Error("semantic error:", "DecodeEd25519PublicKeyData", err)
                     }
-                    pkey.ValidSince, err = strconv.ParseInt($5, 10, 64)
-                    if  err != nil || pkey.ValidSince < 0 {
-                        log.Error("semantic error:", "error", "validSince is not a number or negative")
-                    }
-                    pkey.ValidUntil, err = strconv.ParseInt($6, 10, 64)
-                    if  err != nil || pkey.ValidUntil < 0 {
-                        log.Error("semantic error:", "error", "validUntil is not a number or negative")
+                    pkey.ValidSince, pkey.ValidUntil, err = DecodeValidity($5,$6)
+                    if  err != nil {
+                        log.Error("semantic error:", "error", err)
                     }
                     $$ = rainslib.Object{
-                                            Type: rainslib.OTNextKey,
-                                            Value: pkey,
+                        Type: rainslib.OTNextKey,
+                        Value: pkey,
                     }
                 }
 
@@ -649,20 +670,34 @@ annotationBody  : signature
 signature       : signatureMeta
                 | signatureMeta ID
                 {   
-                    //TODO CFE add actual signature to Signature struct
-                    $$ = rainslib.Signature{}
+                    data, err := DecodeEd25519SignatureData($2)
+                    if  err != nil {
+                        log.Error("semantic error:", "DecodeEd25519SignatureData", err)
+                    }
+                    $1.Data = data
+                    $$ = $1
                 }
 
-signatureMeta   : sigType ed25519Type ID ID ID ID
+signatureMeta   : sigType ed25519Type rains ID ID ID
                 {
-                    //TODO CFE complicated, lot of casting -> make tokens
-                    $$ = rainslib.Signature{ValidSince: 5}
+                    publicKeyID, err := DecodePublicKeyID($4)
+                    if  err != nil {
+                        log.Error("semantic error:", "DecodePublicKeyID", err)
+                    }
+                    validSince, validUntil, err := DecodeValidity($5,$6)
+                    if  err != nil {
+                        log.Error("semantic error:", "DecodeValidity", err)
+                    }
+                    $$ = rainslib.Signature{
+                        PublicKeyID: publicKeyID,
+                        ValidSince: validSince,
+                        ValidUntil: validUntil,
+                    }
                 }
 
 %%      /*  Lexer  */
 
-// The parser expects the lexer to return 0 on EOF.  Give it a name
-// for clarity.
+// The parser expects the lexer to return 0 on EOF.
 const eof = 0
 
 type ZFPLex struct {
@@ -670,7 +705,6 @@ type ZFPLex struct {
     lineNr      int
     linePos     int
 }
-
 
 func (l *ZFPLex) Lex(lval *ZFPSymType) int {
     if l.lineNr == len(l.lines) {
@@ -747,6 +781,8 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
         return sha384
     case ":sha512:" :
         return sha512
+    case ":rains:" :
+        return rains
     case "<" :
         return rangeBegin
     case ">" :
