@@ -277,7 +277,6 @@ func sendMsg(msg rainslib.RainsMessage) error {
 				conn.Close()
 				return err
 			}
-			log.Info(fmt.Sprintf("Written: % 02x", dw.RetrieveReset()))
 			log.Info("Sucessfully published info")
 		default:
 			return fmt.Errorf("unsupported connection information type. actual=%v", server.Type)

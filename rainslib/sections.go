@@ -90,9 +90,11 @@ func (a *AssertionSection) UnmarshalMap(m map[int]interface{}) error {
 			}
 			a.Content = append(a.Content, Object{Type: OTName, Value: no})
 		case OTIP6Addr:
-			a.Content = append(a.Content, Object{Type: OTIP6Addr, Value: net.IPAddr{IP: net.IP(objArr[1].([]byte))}})
+			ip := net.IP(objArr[1].([]byte))
+			a.Content = append(a.Content, Object{Type: OTIP6Addr, Value: ip.String()})
 		case OTIP4Addr:
-			a.Content = append(a.Content, Object{Type: OTIP4Addr, Value: net.IPAddr{IP: net.IP(objArr[1].([]byte))}})
+			ip := net.IP(objArr[1].([]byte))
+			a.Content = append(a.Content, Object{Type: OTIP4Addr, Value: ip.String()})
 		case OTRedirection:
 			a.Content = append(a.Content, Object{Type: OTRedirection, Value: objArr[1]})
 		case OTDelegation:

@@ -132,12 +132,10 @@ func handleConnection(conn net.Conn, dstAddr rainslib.ConnInfo) {
 	var msg rainslib.RainsMessage
 	reader := borat.NewCBORReader(conn)
 	for {
-		log.Info("waiting for input from client") // TODO: delete after testing.
 		if err := reader.Unmarshal(&msg); err != nil {
 			log.Warn(fmt.Sprintf("failed to read from client: %v", err))
 			break
 		}
-		fmt.Printf("received message: %+v\n", msg)
 		deliverCBOR(&msg, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: conn.RemoteAddr().(*net.TCPAddr)})
 	}
 	connCache.CloseAndRemoveConnection(conn)
