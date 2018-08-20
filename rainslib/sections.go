@@ -1129,14 +1129,14 @@ func (q *QuerySection) UnmarshalMap(m map[int]interface{}) error {
 	q.Types = make([]ObjectType, 0)
 	if types, ok := m[10]; ok {
 		for _, qt := range types.([]interface{}) {
-			q.Types = append(q.Types, ObjectType(qt.(int)))
+			q.Types = append(q.Types, ObjectType(qt.(uint64)))
 		}
 	}
-	q.Expiration = m[12].(int64)
+	q.Expiration = int64(m[12].(uint64))
 	q.Options = make([]QueryOption, 0)
 	if opts, ok := m[13]; ok {
 		for _, opt := range opts.([]interface{}) {
-			q.Options = append(q.Options, QueryOption(opt.(int)))
+			q.Options = append(q.Options, QueryOption(opt.(uint64)))
 		}
 	}
 	return nil

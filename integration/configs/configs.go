@@ -12,8 +12,8 @@ var (
     :Z: . . [
         :S: [
             {{ range .L2TLDs }}
-                :A: {{ .TLD }} [ :deleg: ed25519 {{ .PubKey }} :redir: ns.{{ .TLD }} ]
-                :A: ns.{{ .TLD }} [ :srv: ns1.{{ .TLD }} {{ .RedirPort }} 10 ]
+                :A: {{ .TLD }} [ :deleg: ed25519 {{ .PubKey }} :redir: ns.{{ .TLD }}. ]
+                :A: ns.{{ .TLD }} [ :srv: ns1.{{ .TLD }}. {{ .RedirPort }} 10 ]
                 :A: ns1.{{ .TLD }} [ :ip6: ::1 ]
             {{ end }}
         ]

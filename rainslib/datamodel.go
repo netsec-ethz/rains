@@ -85,12 +85,10 @@ func (rm *RainsMessage) UnmarshalCBOR(r *borat.CBORReader) error {
 	if tag != borat.CBORTag(0xE99BA8) {
 		return fmt.Errorf("expected tag for RAINS message but got: %v", tag)
 	}
-	fmt.Printf("Successfully read in tag.\n\n\n")
 	m, err := r.ReadIntMapUntagged()
 	if err != nil {
 		return fmt.Errorf("failed to read map: %v", err)
 	}
-	log.Warn(fmt.Sprintf("\n\n\nRead in map: %v\n\n\n", m))
 	// Read the signatures
 	if sigs, ok := m[0]; ok {
 		rm.Signatures = make([]Signature, 0)
@@ -137,12 +135,9 @@ func (rm *RainsMessage) UnmarshalCBOR(r *borat.CBORReader) error {
 	// read the message sections
 	for _, elem := range m[23].([]interface{}) {
 		elem := elem.([]interface{})
-		fmt.Printf("Element is: %+v\n", elem)
 		t := elem[0].(uint64)
-		fmt.Printf("t is %v\n", t)
 		switch t {
 		case 1:
-			fmt.Printf("Reading assertion section\n\n")
 			// AssertionSection
 			as := &AssertionSection{}
 			if err := as.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
@@ -151,7 +146,6 @@ func (rm *RainsMessage) UnmarshalCBOR(r *borat.CBORReader) error {
 			rm.Content = append(rm.Content, as)
 		case 2:
 			// ShardSection
-			fmt.Printf("Reading shard section\n\n")
 			ss := &ShardSection{}
 			if err := ss.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
@@ -159,7 +153,6 @@ func (rm *RainsMessage) UnmarshalCBOR(r *borat.CBORReader) error {
 			rm.Content = append(rm.Content, ss)
 		case 3:
 			// ZoneSection
-			fmt.Printf("Reading zone section\n\n")
 			zs := &ZoneSection{}
 			if err := zs.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err

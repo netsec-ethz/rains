@@ -270,8 +270,7 @@ func sendMsg(msg rainslib.RainsMessage) error {
 				continue
 			}
 			conns = append(conns, conn)
-			dw := borat.NewDebugWriter(conn)
-			writer := borat.NewCBORWriter(dw)
+			writer := borat.NewCBORWriter(conn)
 			go listen(conn, msg.Token)
 			if err := writer.Marshal(&msg); err != nil {
 				conn.Close()
