@@ -55,7 +55,7 @@ func (r *Resolver) Lookup(name, context string) (*rainslib.RainsMessage, error) 
 		q := r.nameToQuery(name, context, time.Now().Add(15*time.Second).UnixNano(), []rainslib.QueryOption{})
 		return r.forwardQuery(q)
 	default:
-		panic(fmt.Sprintf("Unsupported resolution mode: %v", r.Mode))
+		return nil, fmt.Errorf("Unsupported resolution mode: %v", r.Mode)
 	}
 }
 
@@ -198,7 +198,7 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 				glog.Info("Shard section")
 				return resp, nil
 			default:
-				panic(fmt.Sprintf("got unknown type: %T", section))
+				return nil, fmt.Errorf("got unknown type: %T", section)
 			}
 		}
 		// If we are here, there is some recursion required or there is no answer.

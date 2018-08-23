@@ -568,7 +568,12 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		"context", query.Context, "type", query.Types)
 
 	//negative answer lookup (note that it can occur a positive answer if assertion removed from cache)
-	subject, zone := toSubjectZone(query.Name)
+	subject, zone, err := toSubjectZone(query.Name)
+	if err != nil {
+		sendNotificationMsg(token, sender, rainslib.NTRcvInconsistentMsg, "query name must end with root zone dot '.'")
+		log.Warn("failed to concert query name to subject and zone: %v", err)
+		return
+	}
 	negAssertion, ok := negAssertionCache.Get(zone, query.Context, rainslib.StringInterval{Name: subject})
 	if ok {
 		//TODO CFE For each type check if one of the zone or shards contain the queried
@@ -719,10 +724,10 @@ func handleAddressZoneQueryResponse(zone *rainslib.AddressZoneSection, subjectAd
 
 // toSubjectZone splits a name into a subject and zone.
 // Invariant: name always ends with the '.'.
-func toSubjectZone(name string) (subject, zone string) {
+func toSubjectZone(name string) (subject, zone string, e error) {
 	//TODO CFE use also different heuristics
 	if !strings.HasSuffix(name, ".") {
-		panic("invariant that name ends with '.' is broken")
+		return "", "", fmt.Errorf("invariant that query name ends with '.' is broken: %v", name)
 	}
 	parts := strings.Split(name, ".")
 	if parts[0] == "" {
