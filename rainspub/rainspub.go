@@ -17,6 +17,89 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+//Init starts the zone information publishing process according to the provided config.
+func Init(config Config) {
+	//TODO CFE implement
+}
+
+//publishZone performs the following steps:
+//1) Loads the rains zone file.
+//2) Adds Signature MetaData and perform consistency checks on the zone and its
+//   signatures
+//3) Let rainspub sign the zone
+//4) Query the superordinate zone for the new delegation and push it to all
+//   rains servers
+//5) After rainspub signed the zone, send the signed zone to all rains servers
+//   specified in the config
+//returns an error if something goes wrong
+/*func publishZone(keyPhase int) error {
+	file, err := ioutil.ReadFile(config.ZoneFilePath)
+	if err != nil {
+		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
+		return err
+	}
+	zone, err := parser.DecodeZone(file)
+	if err != nil {
+		log.Error("Was not able to parse zone file.", "error", err)
+		return err
+	}
+	//TODO CFE be able to add multiple signature to a section
+	addSignatureMetaData(zone, keyPhase)
+	if ConsistencyCheck(zone) {
+		return errors.New("Inconsistent section")
+	}
+	//TODO CFE do this in a go routine
+	if err = SignSectionUnsafe(zone, keyPhaseToPath); err != nil {
+		return err
+	}
+	//TODO CFE: query new delegation from superordinate server and push them to all rains servers
+	msg, err := CreateRainsMessage(zone)
+	if err != nil {
+		log.Warn("Was not able to parse the zone to a rains message.", "error", err)
+		return err
+	}
+	connErrors := PublishSections(msg, config.ServerAddresses)
+	for _, connErr := range connErrors {
+		log.Warn("Was not able to send signed zone to this server.", "server", connErr.TCPAddr.String())
+		//TODO CFE: Implement error handling
+	}
+	return nil
+}
+
+//TODO CFE change it such that it can be used as envisioned in the
+//design-scalable-signature-updates.md
+//especially that not all assertions are expiring at the same time
+func addSignatureMetaData(zone *rainslib.ZoneSection, keyPhase int) {
+	signature := rainslib.Signature{
+		PublicKeyID: rainslib.PublicKeyID{
+			Algorithm: rainslib.Ed25519,
+			KeySpace:  rainslib.RainsKeySpace,
+			KeyPhase:  keyPhase,
+		},
+		ValidSince: time.Now().Add(config.ZoneValidSince).Unix(),
+		ValidUntil: time.Now().Add(config.ZoneValidUntil).Unix(),
+	}
+	zone.AddSig(signature)
+	for _, sec := range zone.Content {
+		switch sec := sec.(type) {
+		case *rainslib.AssertionSection:
+			if sec.Content[0].Type == rainslib.OTDelegation {
+				signature.ValidSince = time.Now().Add(config.DelegationValidSince).Unix()
+				signature.ValidUntil = time.Now().Add(config.DelegationValidUntil).Unix()
+			} else {
+				signature.ValidSince = time.Now().Add(config.AssertionValidSince).Unix()
+				signature.ValidUntil = time.Now().Add(config.AssertionValidUntil).Unix()
+			}
+		case *rainslib.ShardSection:
+			signature.ValidSince = time.Now().Add(config.ShardValidSince).Unix()
+			signature.ValidUntil = time.Now().Add(config.ShardValidUntil).Unix()
+		default:
+			log.Error("Invalid zone content")
+		}
+		sec.AddSig(signature)
+	}
+}*/
+
 //ConsistencyCheck returns true if there are no inconsistencies in the section. It
 //also makes sure that the section is sorted
 func ConsistencyCheck(section rainslib.MessageSectionWithSig) bool {
