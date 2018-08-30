@@ -16,7 +16,7 @@ import (
 )
 
 var configPath string
-var zonefilePath = flag.String("zoneFilePath", "", "Path to the zonefile")
+var zonefilePath = flag.String("zonefilePath", "", "Path to the zonefile")
 var authServers addressesFlag
 var privateKeyPath = flag.String("privateKeyPath", "", `Path to a file storing the private keys. 
 Each line contains a key phase and a private key encoded in hexadecimal separated by a space.`)
@@ -78,12 +78,76 @@ func init() {
 //main initializes rainspub
 func main() {
 	if flag.NArg() != 1 {
-		log.Error("Wrong number of arguments, expected 1 (configPath)", "Got", flag.NArg())
+		log.Error("Wrong number of arguments, expected 1 (configPath) after the flags",
+			"Got", flag.NArg())
 	}
 	config, err := loadConfig(flag.Args()[0])
 	if err != nil {
 		return
 	}
+	//Overwrite config with provided cmd line flags
+	if *zonefilePath != "" {
+		config.ZonefilePath = *zonefilePath
+	}
+	if len(authServers) > 0 {
+		config.AuthServers = authServers
+	}
+	if *privateKeyPath != "" {
+		config.PrivateKeyPath = *privateKeyPath
+	}
+	if doSharding.set {
+		config.DoSharding = doSharding.value
+	}
+	if *nofAssertionsPerShard != -1 {
+		config.NofAssertionsPerShard = *nofAssertionsPerShard
+	}
+	if addSignatureMetaData.set {
+		config.AddSignatureMetaData = addSignatureMetaData.value
+	}
+	if signatureAlgorithm != 0 {
+		config.SignatureAlgorithm = rainslib.SignatureAlgorithmType(signatureAlgorithm)
+	}
+	if *keyPhase != -1 {
+		config.KeyPhase = *keyPhase
+	}
+	if *sigValidSince != -1 {
+		config.SigValidSince = time.Duration(*sigValidSince) * time.Second
+	}
+	if *sigValidUntil != -1 {
+		config.SigValidUntil = time.Duration(*sigValidUntil) * time.Second
+	}
+	if *sigSigningInterval != -1 {
+		config.SigSigningInterval = time.Duration(*sigSigningInterval) * time.Second
+	}
+	if doConsistencyCheck.set {
+		config.DoSharding = doSharding.value
+	}
+	if sortShards.set {
+		config.DoConsistencyCheck = doConsistencyCheck.value
+	}
+	if sigNotExpired.set {
+		config.SigNotExpired = sigNotExpired.value
+	}
+	if checkStringFields.set {
+		config.CheckStringFields = checkStringFields.value
+	}
+	if doSigning.set {
+		config.DoSigning = doSigning.value
+	}
+	if signAssertions.set {
+		config.SignAssertions = signAssertions.value
+	}
+	if signShards.set {
+		config.SignShards = signShards.value
+	}
+	if outputFilePath.set {
+		config.OutputFilePath = outputFilePath.value
+	}
+	if doPublish.set {
+		config.DoPublish = doPublish.value
+	}
+
+	//Call rainspub to do the work according to the updated config
 	rainspub.Init(config)
 }
 

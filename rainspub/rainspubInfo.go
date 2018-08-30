@@ -26,6 +26,7 @@ type delegationInfo struct {
 //detail.
 type Config struct {
 	ZonefilePath          string
+	AuthServers           []rainslib.ConnInfo
 	PrivateKeyPath        string
 	DoSharding            bool
 	NofAssertionsPerShard int
