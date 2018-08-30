@@ -37,8 +37,9 @@ _testmain.go
 /example/serverCHPub/serverCHPub
 /example/serverRootPub/serverRootPub
 
-#binary of rainsdig
+#binary of rainsdig and rainspub
 /rainsdig/rainsdig
+/zonepub/zonepub
 
 #test coverage files
 coverage.out

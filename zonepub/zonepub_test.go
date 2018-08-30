@@ -1,4 +1,4 @@
-package zonepub
+package main
 
 import (
 	"net"
