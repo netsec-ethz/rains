@@ -89,8 +89,8 @@ func main() {
 	if *zonefilePath != "" {
 		config.ZonefilePath = *zonefilePath
 	}
-	if len(authServers) > 0 {
-		config.AuthServers = authServers
+	if authServers.set {
+		config.AuthServers = authServers.value
 	}
 	if *privateKeyPath != "" {
 		config.PrivateKeyPath = *privateKeyPath
@@ -104,8 +104,8 @@ func main() {
 	if addSignatureMetaData.set {
 		config.AddSignatureMetaData = addSignatureMetaData.value
 	}
-	if signatureAlgorithm != 0 {
-		config.SignatureAlgorithm = rainslib.SignatureAlgorithmType(signatureAlgorithm)
+	if signatureAlgorithm.set {
+		config.SignatureAlgorithm = signatureAlgorithm.value
 	}
 	if *keyPhase != -1 {
 		config.KeyPhase = *keyPhase
@@ -169,7 +169,10 @@ func loadConfig(configPath string) (rainspub.Config, error) {
 	return config, nil
 }
 
-type addressesFlag []rainslib.ConnInfo
+type addressesFlag struct {
+	set   bool
+	value []rainslib.ConnInfo
+}
 
 func (i *addressesFlag) String() string {
 	return fmt.Sprintf("%s", *i)
@@ -178,9 +181,10 @@ func (i *addressesFlag) String() string {
 func (i *addressesFlag) Set(value string) error {
 	var addresses []string
 	addresses = strings.Split(value, ",")
+	i.set = true
 	for _, addr := range addresses {
 		if tcpAddr, err := net.ResolveTCPAddr("tcp", addr); err == nil {
-			*i = append(*i, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
+			i.value = append(i.value, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
 		} else {
 			return err
 		}
@@ -188,7 +192,10 @@ func (i *addressesFlag) Set(value string) error {
 	return nil
 }
 
-type algorithmFlag rainslib.SignatureAlgorithmType
+type algorithmFlag struct {
+	set   bool
+	value rainslib.SignatureAlgorithmType
+}
 
 func (i *algorithmFlag) String() string {
 	return fmt.Sprintf("%s", *i)
@@ -197,7 +204,8 @@ func (i *algorithmFlag) String() string {
 func (i *algorithmFlag) Set(value string) error {
 	switch value {
 	case ":ed25519:", "ed25519", "1":
-		*i = algorithmFlag(rainslib.Ed25519)
+		i.set = true
+		i.value = rainslib.Ed25519
 	default:
 		return fmt.Errorf("invalid signature algorithm type")
 	}
@@ -226,10 +234,14 @@ func (i *boolFlag) Set(value string) error {
 	return fmt.Errorf("invalid boolean value")
 }
 
+//isTrue returns true if a boolean flag is either true, True, TRUE, T, t or 1 (as in the flag
+//package)
 func isTrue(v string) bool {
-	return v == "true" || v == "ok" || v == "1" || v == "yes" || v == "t"
+	return v == "true" || v == "True" || v == "TRUE" || v == "1" || v == "T" || v == "t"
 }
 
+//isFalse returns true if a boolean flag is either false, False, FALSE, F, f, 0 (as in the flag
+//package)
 func isFalse(v string) bool {
-	return v == "false" || v == "not" || v == "0" || v == "no" || v == "f"
+	return v == "false" || v == "False" || v == "FALSE" || v == "0" || v == "F" || v == "f"
 }
