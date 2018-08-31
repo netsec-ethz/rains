@@ -1,23 +1,24 @@
 package rainspub
 
 import (
-	"encoding/hex"
-	"encoding/json"
-	"errors"
-	"io/ioutil"
+	"fmt"
 	"sort"
 	"time"
+
+	"golang.org/x/crypto/ed25519"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/rainsSiglib"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/protoParser"
-	"golang.org/x/crypto/ed25519"
+	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 )
 
 //Init starts the zone information publishing process according to the provided config.
 func Init(inputConfig Config) {
 	config = inputConfig
+	parser = zoneFileParser.Parser{}
+	signatureEncoder = zoneFileParser.Parser{}
 	publish()
 }
 
@@ -29,7 +30,31 @@ func publish() {
 		return
 	}
 	if config.DoSharding {
-		//groupAssertionsToShards
+		var assertions []*rainslib.AssertionSection
+		zone, context := "", ""
+		for i, section := range sections {
+			switch sec := section.(type) {
+			case *rainslib.ZoneSection:
+				zone = sec.SubjectZone
+				context = sec.Context
+			case *rainslib.ShardSection:
+				if !config.KeepExistingShards {
+					//remove shard
+					sections = append(sections[:i], sections[i+1:]...)
+				}
+			case *rainslib.AssertionSection:
+				assertions = append(assertions, sec)
+			}
+		}
+		if config.MaxShardSize > 0 {
+			//TODO CFE to implement
+		} else if config.NofAssertionsPerShard > 0 {
+			//TODO CFE how to combine the return value with previous set of shard/assertion
+			groupAssertionsToShards(zone, context, assertions, config.NofAssertionsPerShard)
+		} else {
+			log.Error("MaxShardSize or NofAssertionsPerShard must be specified to do sharding")
+			return
+		}
 	}
 	if config.AddSignatureMetaData {
 		//addSignatureMetaData()
@@ -41,20 +66,14 @@ func publish() {
 		//sort shards
 	}
 	if config.DoSigning {
-		_, err = loadPrivateKeys()
-		if err != nil {
+		if err := signSections(sections); err != nil {
 			return
 		}
-		//UnsafeSign()
-	}
-	if config.SignAssertions {
-		//UnsafeSign()
-	}
-	if config.SignShards {
-		//UnsafeSign()
 	}
 	if config.OutputPath != "" {
-		//write zonefile
+		if err := writeZonefile(config.OutputPath, sections); err != nil {
+			log.Error("Was not able to write zonefile to disk", "path", config.OutputPath, "error", err)
+		}
 	}
 	if config.DoPublish {
 		encoding, err := createRainsMessage(sections)
@@ -68,59 +87,40 @@ func publish() {
 	}
 }
 
-//loadZonefile loads the zonefile from disk.
-func loadZonefile() ([]rainslib.MessageSectionWithSigForward, error) {
-	file, err := ioutil.ReadFile(config.ZonefilePath)
+func signSections(sections []rainslib.MessageSectionWithSigForward) error {
+	keys, err := loadPrivateKeys()
 	if err != nil {
-		log.Error("Was not able to read zone file", "path", config.ZonefilePath)
-		return nil, err
+		return err
 	}
-	//FIXME CFE replace with call to yacc generated zonefile parser.
-	zone, err := parser.DecodeZone(file)
-	if err != nil {
-		log.Error("Was not able to parse zone file.", "error", err)
-		return nil, err
+	signingkeyID := rainslib.PublicKeyID{
+		Algorithm: config.SignatureAlgorithm,
+		KeySpace:  rainslib.RainsKeySpace,
+		KeyPhase:  config.KeyPhase,
 	}
-	return []rainslib.MessageSectionWithSigForward{zone}, nil
-}
-
-//loadPrivateKeys reads private keys from the path provided in the config and returns a map from
-//PublicKeyID to the corresponding private key data.
-func loadPrivateKeys() (map[rainslib.PublicKeyID]interface{}, error) {
-	var privateKeys []rainslib.PrivateKey
-	file, err := ioutil.ReadFile(config.PrivateKeyPath)
-	if err != nil {
-		log.Error("Could not open config file...", "path", config.PrivateKeyPath, "error", err)
-		return nil, err
+	if config.SignatureAlgorithm != rainslib.Ed25519 {
+		log.Error("Not supported signature algorithm type")
+		return fmt.Errorf("Not supported signature algorithm type")
 	}
-	if err = json.Unmarshal(file, &privateKeys); err != nil {
-		log.Error("Could not unmarshal json format of private keys", "error", err)
-		return nil, err
-	}
-	output := make(map[rainslib.PublicKeyID]interface{})
-	for _, keyData := range privateKeys {
-		keyString := keyData.Key.(string)
-		privateKey := make([]byte, hex.DecodedLen(len([]byte(keyString))))
-		privateKey, err := hex.DecodeString(keyString)
-		if err != nil {
-			log.Error("Was not able to decode privateKey", "error", err)
-			return nil, err
+	if key := keys[signingkeyID]; key != nil {
+		for _, section := range sections {
+			err := signSectionUnsafe(section, key.(ed25519.PrivateKey))
+			if err != nil {
+				log.Error("Was not able to sign section", "section", section, "error", err)
+			}
 		}
-		if len(privateKey) != ed25519.PrivateKeySize {
-			log.Error("Private key length is incorrect", "expected", ed25519.PrivateKeySize,
-				"actual", len(privateKey))
-			return nil, errors.New("incorrect private key length")
-		}
-		output[keyData.PublicKeyID] = privateKey
+	} else {
+		log.Error("no private key found for provided algo and phase", "algo",
+			config.SignatureAlgorithm, "phase", config.KeyPhase, "keymap", keys)
+		return fmt.Errorf("no private key found for provided algo and phase")
 	}
-	return output, nil
+	return nil
 }
 
 //groupAssertionsToShards creates shards containing a maximum number of different assertion names
 //according to the configuration. Before grouping the assertions, it sorts them. It returns a zone
 //section containing the created shards. The contained shards and assertions still have non empty
 //subjectZone and context values as these values are needed to generate a signatures
-func groupAssertionsToShards(subjectZone, context string, assertions []*rainslib.AssertionSection) *rainslib.ZoneSection {
+func groupAssertionsToShards(subjectZone, context string, assertions []*rainslib.AssertionSection, nofAssertionsPerShard int) *rainslib.ZoneSection {
 	//the assertion compareTo function sorts first by subjectName. Thus we can use it here.
 	sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
 	shards := []rainslib.MessageSectionWithSigForward{}
@@ -136,7 +136,7 @@ func groupAssertionsToShards(subjectZone, context string, assertions []*rainslib
 			nameCount++
 			prevAssertionSubjectName = a.SubjectName
 		}
-		if nameCount > config.NofAssertionsPerShard {
+		if nameCount > nofAssertionsPerShard {
 			shard.RangeFrom = prevShardAssertionSubjectName
 			shard.RangeTo = a.SubjectName
 			shards = append(shards, shard)

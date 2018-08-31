@@ -20,15 +20,16 @@ program. Keys are to be specified in a top-level JSON map.
 * `PrivateKeyPath`: Path to a file storing the private keys. Each line contains a key phase and a
   private key encoded in hexadecimal separated by a space.
 * `DoSharding`: If set to true, all assertions in the zonefile are grouped into shards based on
-  other configuration parameters
-* `KeepExistingShards`: NEW: this option only has an effect when DoSharding is true. If the zonefile
+   MaxShardSize or NofAssertionsPerShard. At least one of them must be specified; if both are,
+   MaxShardSize takes precedence.
+* `KeepExistingShards`: this option only has an effect when DoSharding is true. If the zonefile
   already contains shards and keepExistingShards is true, the shards are kept. Otherwise, all
-  existing shards are removed before the new ones are created.
-* `NofAssertionsPerShard`: this option only has an effect when doSharding is true. Defines the
-  number of assertions per shard if sharding is performed
-* `MaxShardSize`: NEW this option only has an effect when DoSharding is true. Assertions are added
+  existing shards are removed before the new ones are created. The value is in bytes.
+* `MaxShardSize`: this option only has an effect when DoSharding is true. Assertions are added
   to a shard until its size would become larger than maxShardSize. Then the process is repeated with
   a new shard.
+* `NofAssertionsPerShard`: this option only has an effect when doSharding is true. Defines the
+  number of assertions per shard if sharding is performed.
 * `AddSignatureMetaData`: If set to true, signature meta data are added to sections according to
   other configuration parameters
 * `SignatureAlgorithm`: this option only has an effect when AddSignatureMetaData is true. Defines

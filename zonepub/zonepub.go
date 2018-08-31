@@ -21,8 +21,12 @@ var authServers addressesFlag
 var privateKeyPath = flag.String("privateKeyPath", "", `Path to a file storing the private keys. 
 Each line contains a key phase and a private key encoded in hexadecimal separated by a space.`)
 var doSharding boolFlag
+var keepExistingShards boolFlag
 var nofAssertionsPerShard = flag.Int("nofAssertionsPerShard", -1, `Defines the number of assertions
 per shard if sharding is performed`)
+var maxShardSize = flag.Int("maxShardSize", -1, `this option only has an effect when DoSharding is 
+true. Assertions are added to a shard until its size would become larger than maxShardSize. Then the 
+process is repeated with a new shard. The value is in bytes.`)
 var addSignatureMetaData boolFlag
 var signatureAlgorithm algorithmFlag
 var keyPhase = flag.Int("keyPhase", -1, "Defines which private key is used for signing")
@@ -34,6 +38,7 @@ SigSigningInterval for the Signature validUntil values. Assertions' validUntil v
 spread out over this interval. Value must be an int64 representing unix seconds since 1.1.1970`)
 var sigSigningInterval = flag.Int64("sigSigningInterval", -1, `Defines the time interval in seconds 
 over which the assertions' signature lifetimes are uniformly spread out.`)
+var signContainedAssertions boolFlag
 var doConsistencyCheck boolFlag
 var sortShards boolFlag
 var sigNotExpired boolFlag
@@ -54,9 +59,15 @@ func init() {
 	sections in the zone file are forwarded.`)
 	flag.Var(&doSharding, "doSharding", `If set to true, only assertions in the zonefile are 
 	considered and grouped into shards based on configuration`)
+	flag.Var(&keepExistingShards, "keepExistingShards", `this option only has an effect when 
+	DoSharding is true. If the zonefile already contains shards and keepExistingShards is true, the 
+	shards are kept. Otherwise, all existing shards are removed before the new ones are created.`)
 	flag.Var(&addSignatureMetaData, "addSignatureMetaData", `If set to true, adds signature meta 
 	data to sections`)
 	flag.Var(&signatureAlgorithm, "signatureAlgorithm", "Algorithm to be used for signing")
+	flag.Var(&signContainedAssertions, "signContainedAssertions", `this option only has an effect 
+	when AddSignatureMetaData is true. If set to true, all assertions contained in a shard or zone 
+	are signed as well.`)
 	flag.Var(&doConsistencyCheck, "doConsistencyCheck", `Performs all consistency checks if set to 
 	true. The check involves: TODO CFE`)
 	flag.Var(&sortShards, "sortShards", `If set, makes sure that the assertions withing the shard 
@@ -67,8 +78,6 @@ func init() {
 	text fields contain	type markers which are part of the protocol syntax (TODO CFE use more
 	precise	vocabulary)`)
 	flag.Var(&doSigning, "doSigning", "If set, signs all assertions and shards")
-	flag.Var(&signAssertions, "signAssertions", "If set, signs all assertions")
-	flag.Var(&signShards, "signShards", "If set, signs all shards")
 	flag.Var(&doPublish, "doPublish", `If set, sends the signed sections to all authoritative rainsd
 	servers`)
 	flag.Parse()
@@ -97,8 +106,14 @@ func main() {
 	if doSharding.set {
 		config.DoSharding = doSharding.value
 	}
+	if keepExistingShards.set {
+		config.KeepExistingShards = keepExistingShards.value
+	}
 	if *nofAssertionsPerShard != -1 {
 		config.NofAssertionsPerShard = *nofAssertionsPerShard
+	}
+	if *maxShardSize != -1 {
+		config.MaxShardSize = *maxShardSize
 	}
 	if addSignatureMetaData.set {
 		config.AddSignatureMetaData = addSignatureMetaData.value
@@ -117,6 +132,9 @@ func main() {
 	}
 	if *sigSigningInterval != -1 {
 		config.SigSigningInterval = time.Duration(*sigSigningInterval) * time.Second
+	}
+	if signContainedAssertions.set {
+		config.SignContainedAssertions = signContainedAssertions.value
 	}
 	if doConsistencyCheck.set {
 		config.DoConsistencyCheck = doConsistencyCheck.value
