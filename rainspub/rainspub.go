@@ -24,11 +24,7 @@ func Init(inputConfig Config) {
 //publish calls the relevant library function to publish information according to the provided
 //config during initialization.
 func publish() {
-	_, err := loadZonefile()
-	if err != nil {
-		return
-	}
-	_, err := loadPrivateKeys()
+	sections, err := loadZonefile()
 	if err != nil {
 		return
 	}
@@ -45,6 +41,10 @@ func publish() {
 		//sort shards
 	}
 	if config.DoSigning {
+		_, err = loadPrivateKeys()
+		if err != nil {
+			return
+		}
 		//UnsafeSign()
 	}
 	if config.SignAssertions {
@@ -57,7 +57,14 @@ func publish() {
 		//write zonefile
 	}
 	if config.DoPublish {
-		//publish to authoritative servers
+		encoding, err := createRainsMessage(sections)
+		if err != nil {
+			return
+		}
+		unreachableServers := publishSections(encoding)
+		if unreachableServers != nil {
+			log.Warn("Was not able to connect to all authoritative servers", "unreachableServers", unreachableServers)
+		}
 	}
 }
 
@@ -281,10 +288,14 @@ func shardConsistencyCheck(shard *rainslib.ShardSection) bool {
 	return true
 }
 
-//CreateRainsMessage creates a rainsMessage containing the given zone and
+//createRainsMessage creates a rainsMessage containing the given zone and
 //returns the byte representation of this rainsMessage ready to send out.
-func CreateRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
-	msg := rainslib.RainsMessage{Token: rainslib.GenerateToken(), Content: []rainslib.MessageSection{zone}} //no capabilities
+func createRainsMessage(sections []rainslib.MessageSectionWithSigForward) ([]byte, error) {
+	msg := rainslib.RainsMessage{Token: rainslib.GenerateToken()} //no capabilities
+	for _, section := range sections {
+		msg.Content = append(msg.Content, section)
+	}
+	//FIXME CFE use CBOR
 	msgParser := new(protoParser.ProtoParserAndFramer)
 	byteMsg, err := msgParser.Encode(msg)
 	if err != nil {
@@ -293,16 +304,16 @@ func CreateRainsMessage(zone *rainslib.ZoneSection) ([]byte, error) {
 	return byteMsg, nil
 }
 
-//PublishSections establishes connections to all rains servers mentioned in conns. It then sends
-//sections to all of them. It returns the connection information of those servers it was not able to
-//push sections, otherwise nil is returned.
-func PublishSections(sections []byte, conns []rainslib.ConnInfo) []rainslib.ConnInfo {
+//publishSections establishes connections to all authoritative servers according to the config. It
+//then sends sections to all of them. It returns the connection information of those servers it was
+//not able to push sections, otherwise nil is returned.
+func publishSections(sections []byte) []rainslib.ConnInfo {
 	var errorConns []rainslib.ConnInfo
-	results := make(chan *rainslib.ConnInfo, len(conns))
-	for _, conn := range conns {
+	results := make(chan *rainslib.ConnInfo, len(config.AuthServers))
+	for _, conn := range config.AuthServers {
 		go connectAndSendMsg(sections, conn, results)
 	}
-	for i := 0; i < len(conns); i++ {
+	for i := 0; i < len(config.AuthServers); i++ {
 		if errorConn := <-results; errorConn != nil {
 			errorConns = append(errorConns, *errorConn)
 		}
