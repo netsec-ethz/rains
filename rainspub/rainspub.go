@@ -24,6 +24,7 @@ func Init(inputConfig Config) {
 
 //publish calls the relevant library function to publish information according to the provided
 //config during initialization.
+//FIXME CFE this implementation assumes that there is exactly one zone per zonefile.
 func publish() {
 	sections, err := loadZonefile()
 	if err != nil {
@@ -31,16 +32,16 @@ func publish() {
 	}
 	if config.DoSharding {
 		var assertions []*rainslib.AssertionSection
+		var shards []rainslib.MessageSectionWithSigForward
 		zone, context := "", ""
-		for i, section := range sections {
+		for _, section := range sections {
 			switch sec := section.(type) {
 			case *rainslib.ZoneSection:
 				zone = sec.SubjectZone
 				context = sec.Context
 			case *rainslib.ShardSection:
-				if !config.KeepExistingShards {
-					//remove shard
-					sections = append(sections[:i], sections[i+1:]...)
+				if config.KeepExistingShards {
+					shards = append(shards, sec)
 				}
 			case *rainslib.AssertionSection:
 				assertions = append(assertions, sec)
@@ -49,19 +50,28 @@ func publish() {
 		if config.MaxShardSize > 0 {
 			//TODO CFE to implement
 		} else if config.NofAssertionsPerShard > 0 {
-			//TODO CFE how to combine the return value with previous set of shard/assertion
-			groupAssertionsToShards(zone, context, assertions, config.NofAssertionsPerShard)
+			shards = append(shards, groupAssertionsToShards(zone, context, assertions, config.NofAssertionsPerShard)...)
 		} else {
 			log.Error("MaxShardSize or NofAssertionsPerShard must be specified to do sharding")
 			return
 		}
+		//TODO CFE check if sections are small enough to fit into a zone
+		sections = []rainslib.MessageSectionWithSigForward{
+			&rainslib.ZoneSection{
+				SubjectZone: zone,
+				Context:     context,
+				Content:     shards,
+			},
+		}
 	}
 	if config.AddSignatureMetaData {
+		//TODO CFE where to add signature meta data and spreading it uniformly over given interval.
 		//addSignatureMetaData()
 	}
 	if config.DoConsistencyCheck {
 		//consistencyCheck()
 	}
+	//TODO CFE add other two consistency checks
 	if config.SortShards {
 		//sort shards
 	}
@@ -120,7 +130,7 @@ func signSections(sections []rainslib.MessageSectionWithSigForward) error {
 //according to the configuration. Before grouping the assertions, it sorts them. It returns a zone
 //section containing the created shards. The contained shards and assertions still have non empty
 //subjectZone and context values as these values are needed to generate a signatures
-func groupAssertionsToShards(subjectZone, context string, assertions []*rainslib.AssertionSection, nofAssertionsPerShard int) *rainslib.ZoneSection {
+func groupAssertionsToShards(subjectZone, context string, assertions []*rainslib.AssertionSection, nofAssertionsPerShard int) []rainslib.MessageSectionWithSigForward {
 	//the assertion compareTo function sorts first by subjectName. Thus we can use it here.
 	sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
 	shards := []rainslib.MessageSectionWithSigForward{}
@@ -150,12 +160,7 @@ func groupAssertionsToShards(subjectZone, context string, assertions []*rainslib
 	shard.RangeTo = ""
 	shards = append(shards, shard)
 
-	section := &rainslib.ZoneSection{
-		Context:     context,
-		SubjectZone: subjectZone,
-		Content:     shards,
-	}
-	return section
+	return shards
 }
 
 func newShard(subjectZone, context string) *rainslib.ShardSection {
