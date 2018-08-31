@@ -3,10 +3,13 @@ package rainspub
 import (
 	"crypto/tls"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
+	"sort"
+	"strconv"
 	"time"
 
 	log "github.com/inconshreveable/log15"
@@ -18,8 +21,152 @@ import (
 )
 
 //Init starts the zone information publishing process according to the provided config.
-func Init(config Config) {
-	//TODO CFE implement
+func Init(inputConfig Config) {
+	config = inputConfig
+	publish()
+}
+
+//publish calls the relevant library function to publish information according to the provided
+//config during initialization.
+func publish() {
+	_, err := loadZonefile()
+	if err != nil {
+		return
+	}
+	_, err = loadPrivateKeys()
+	if err != nil {
+		return
+	}
+	if config.DoSharding {
+		//groupAssertionsToShards
+	}
+	if config.AddSignatureMetaData {
+		//addSignatureMetaData()
+	}
+	if config.DoConsistencyCheck {
+		//consistencyCheck()
+	}
+	if config.SortShards {
+		//sort shards
+	}
+	if config.DoSigning {
+		//UnsafeSign()
+	}
+	if config.SignAssertions {
+		//UnsafeSign()
+	}
+	if config.SignShards {
+		//UnsafeSign()
+	}
+	if config.OutputPath != "" {
+		//write zonefile
+	}
+	if config.DoPublish {
+		//publish to authoritative servers
+	}
+}
+
+//loadZonefile loads the zonefile from disk.
+func loadZonefile() ([]rainslib.MessageSectionWithSigForward, error) {
+	file, err := ioutil.ReadFile(config.ZonefilePath)
+	if err != nil {
+		log.Error("Was not able to read zone file", "path", config.ZonefilePath)
+		return nil, err
+	}
+	//FIXME CFE replace with call to yacc generated zonefile parser.
+	zone, err := parser.DecodeZone(file)
+	if err != nil {
+		log.Error("Was not able to parse zone file.", "error", err)
+		return nil, err
+	}
+	return []rainslib.MessageSectionWithSigForward{zone}, nil
+}
+
+//loadPrivateKeys reads private keys from the path provided in the config and returns a map from
+//keyphase to ed25519 private key.
+func loadPrivateKeys() (map[int]ed25519.PrivateKey, error) {
+	//FIXME CFE should also contain the type of the private key, add PrivateKeyObject
+	var input map[string][]byte
+	file, err := ioutil.ReadFile(config.PrivateKeyPath)
+	if err != nil {
+		log.Error("Could not open config file...", "path", config.PrivateKeyPath, "error", err)
+		return nil, err
+	}
+	if err = json.Unmarshal(file, &input); err != nil {
+		log.Error("Could not unmarshal json format of private keys", "error", err)
+		return nil, err
+	}
+	var output map[int]ed25519.PrivateKey
+	for key, value := range input {
+		privateKey := make([]byte, hex.DecodedLen(len(value)))
+		length, err := hex.Decode(privateKey, value)
+		if err != nil {
+			log.Error("Was not able to decode privateKey", "error", err)
+			return nil, err
+		}
+		if length != ed25519.PrivateKeySize {
+			log.Error("Private key length is incorrect", "expected", ed25519.PrivateKeySize,
+				"actual", length)
+			return nil, errors.New("incorrect private key length")
+		}
+		keyphase, err := strconv.Atoi(key)
+		if err != nil {
+			log.Error("Was not able to convert keyphase to int", "error", err)
+			return nil, err
+		}
+		output[keyphase] = ed25519.PrivateKey(privateKey)
+	}
+	return output, nil
+}
+
+//groupAssertionsToShards creates shards containing a maximum number of different assertion names
+//according to the configuration. Before grouping the assertions, it sorts them. It returns a zone
+//section containing the created shards. The contained shards and assertions still have non empty
+//subjectZone and context values as these values are needed to generate a signatures
+func groupAssertionsToShards(subjectZone, context string, assertions []*rainslib.AssertionSection) *rainslib.ZoneSection {
+	//the assertion compareTo function sorts first by subjectName. Thus we can use it here.
+	sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
+	shards := []rainslib.MessageSectionWithSigForward{}
+	nameCount := 0
+	prevAssertionSubjectName := ""
+	prevShardAssertionSubjectName := ""
+	shard := newShard(subjectZone, context)
+	for i, a := range assertions {
+		if a.SubjectZone != subjectZone || a.Context != context {
+			//log.Error("assertion's subjectZone or context does not match with the zone's", "assertion", a)
+		}
+		if prevAssertionSubjectName != a.SubjectName {
+			nameCount++
+			prevAssertionSubjectName = a.SubjectName
+		}
+		if nameCount > config.NofAssertionsPerShard {
+			shard.RangeFrom = prevShardAssertionSubjectName
+			shard.RangeTo = a.SubjectName
+			shards = append(shards, shard)
+			nameCount = 1
+			shard = newShard(subjectZone, context)
+			prevShardAssertionSubjectName = assertions[i-1].SubjectName
+		}
+		shard.Content = append(shard.Content, a)
+	}
+	shard.RangeFrom = prevShardAssertionSubjectName
+	shard.RangeTo = ""
+	shards = append(shards, shard)
+
+	section := &rainslib.ZoneSection{
+		Context:     context,
+		SubjectZone: subjectZone,
+		Content:     shards,
+	}
+	return section
+}
+
+func newShard(subjectZone, context string) *rainslib.ShardSection {
+	return &rainslib.ShardSection{
+		SubjectZone: subjectZone,
+		Context:     context,
+		Content:     []*rainslib.AssertionSection{},
+	}
 }
 
 //publishZone performs the following steps:
@@ -33,16 +180,7 @@ func Init(config Config) {
 //   specified in the config
 //returns an error if something goes wrong
 /*func publishZone(keyPhase int) error {
-	file, err := ioutil.ReadFile(config.ZoneFilePath)
-	if err != nil {
-		log.Error("Was not able to read zone file", "path", config.ZoneFilePath)
-		return err
-	}
-	zone, err := parser.DecodeZone(file)
-	if err != nil {
-		log.Error("Was not able to parse zone file.", "error", err)
-		return err
-	}
+
 	//TODO CFE be able to add multiple signature to a section
 	addSignatureMetaData(zone, keyPhase)
 	if ConsistencyCheck(zone) {
@@ -65,44 +203,46 @@ func Init(config Config) {
 	}
 	return nil
 }
-
+*/
 //TODO CFE change it such that it can be used as envisioned in the
 //design-scalable-signature-updates.md
 //especially that not all assertions are expiring at the same time
 func addSignatureMetaData(zone *rainslib.ZoneSection, keyPhase int) {
+	//TODO CFE consider from config, validUntil, validSince, duration
 	signature := rainslib.Signature{
 		PublicKeyID: rainslib.PublicKeyID{
 			Algorithm: rainslib.Ed25519,
 			KeySpace:  rainslib.RainsKeySpace,
 			KeyPhase:  keyPhase,
 		},
-		ValidSince: time.Now().Add(config.ZoneValidSince).Unix(),
-		ValidUntil: time.Now().Add(config.ZoneValidUntil).Unix(),
+		ValidSince: time.Now().Unix(),
+		ValidUntil: time.Now().Unix(),
 	}
 	zone.AddSig(signature)
 	for _, sec := range zone.Content {
 		switch sec := sec.(type) {
 		case *rainslib.AssertionSection:
 			if sec.Content[0].Type == rainslib.OTDelegation {
-				signature.ValidSince = time.Now().Add(config.DelegationValidSince).Unix()
-				signature.ValidUntil = time.Now().Add(config.DelegationValidUntil).Unix()
+				signature.ValidSince = time.Now().Unix()
+				signature.ValidUntil = time.Now().Unix()
 			} else {
-				signature.ValidSince = time.Now().Add(config.AssertionValidSince).Unix()
-				signature.ValidUntil = time.Now().Add(config.AssertionValidUntil).Unix()
+				signature.ValidSince = time.Now().Unix()
+				signature.ValidUntil = time.Now().Unix()
 			}
 		case *rainslib.ShardSection:
-			signature.ValidSince = time.Now().Add(config.ShardValidSince).Unix()
-			signature.ValidUntil = time.Now().Add(config.ShardValidUntil).Unix()
+			signature.ValidSince = time.Now().Unix()
+			signature.ValidUntil = time.Now().Unix()
 		default:
 			log.Error("Invalid zone content")
 		}
 		sec.AddSig(signature)
 	}
-}*/
+}
 
-//ConsistencyCheck returns true if there are no inconsistencies in the section. It
+//consistencyCheck returns true if there are no inconsistencies in the section. It
 //also makes sure that the section is sorted
-func ConsistencyCheck(section rainslib.MessageSectionWithSig) bool {
+func consistencyCheck(section rainslib.MessageSectionWithSig) bool {
+	//TODO consider config.SigNotExpired and config.checkStringFields
 	switch section := section.(type) {
 	case *rainslib.AssertionSection:
 		return rainsSiglib.ValidSectionAndSignature(section)
@@ -156,6 +296,7 @@ func shardConsistencyCheck(shard *rainslib.ShardSection) bool {
 //to sign the section and all contained sections. The section is signed as is. The Caller must make
 //sure that the section is sorted and adheres to the protocol and policies.
 func SignSectionUnsafe(section rainslib.MessageSectionWithSig, keyPhaseToPath map[int]string) error {
+	//consider in config: keyphase, keyAlgorithm,
 	var privateKeys map[int]interface{}
 	for keyPhase, path := range keyPhaseToPath {
 		privateKey, err := loadPrivateKey(path)
@@ -178,27 +319,6 @@ func SignSectionUnsafe(section rainslib.MessageSectionWithSig, keyPhaseToPath ma
 		return errors.New("Signing address assertions not yet implemented")
 	}
 	return nil
-}
-
-//loadPrivateKey loads the zone private key
-//TODO CFE remove when we have air gapping
-func loadPrivateKey(privateKeyPath string) (ed25519.PrivateKey, error) {
-	privKey, err := ioutil.ReadFile(privateKeyPath)
-	if err != nil {
-		log.Error("Was not able to read privateKey", "path", privateKeyPath, "error", err)
-		return nil, err
-	}
-	privateKey := make([]byte, hex.DecodedLen(len(privKey)))
-	i, err := hex.Decode(privateKey, privKey)
-	if err != nil {
-		log.Error("Was not able to decode privateKey", "path", privateKeyPath, "error", err)
-		return nil, err
-	}
-	if i != ed25519.PrivateKeySize {
-		log.Error("Private key length is incorrect", "expected", ed25519.PrivateKeySize, "actual", i)
-		return nil, errors.New("Private key length is incorrect")
-	}
-	return privateKey, nil
 }
 
 //signZone signs the zone and all contained shards and assertions with the zone's private key. It

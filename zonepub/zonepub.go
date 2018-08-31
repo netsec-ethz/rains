@@ -41,7 +41,8 @@ var checkStringFields boolFlag
 var doSigning boolFlag
 var signAssertions boolFlag
 var signShards boolFlag
-var outputFilePath boolFlag
+var outputPath = flag.String("outputPath", "", `If set, a zonefile with the signed sections is 
+generated and stored at the provided path`)
 var doPublish boolFlag
 
 var msgFramer rainslib.MsgFramer
@@ -68,8 +69,6 @@ func init() {
 	flag.Var(&doSigning, "doSigning", "If set, signs all assertions and shards")
 	flag.Var(&signAssertions, "signAssertions", "If set, signs all assertions")
 	flag.Var(&signShards, "signShards", "If set, signs all shards")
-	flag.Var(&outputFilePath, "outputFilePath", `If set, a zonefile with the signed sections is 
-	generated and stored at the provided path`)
 	flag.Var(&doPublish, "doPublish", `If set, sends the signed sections to all authoritative rainsd
 	servers`)
 	flag.Parse()
@@ -120,10 +119,10 @@ func main() {
 		config.SigSigningInterval = time.Duration(*sigSigningInterval) * time.Second
 	}
 	if doConsistencyCheck.set {
-		config.DoSharding = doSharding.value
+		config.DoConsistencyCheck = doConsistencyCheck.value
 	}
 	if sortShards.set {
-		config.DoConsistencyCheck = doConsistencyCheck.value
+		config.SortShards = sortShards.value
 	}
 	if sigNotExpired.set {
 		config.SigNotExpired = sigNotExpired.value
@@ -140,8 +139,8 @@ func main() {
 	if signShards.set {
 		config.SignShards = signShards.value
 	}
-	if outputFilePath.set {
-		config.OutputFilePath = outputFilePath.value
+	if *outputPath != "" {
+		config.OutputPath = *outputPath
 	}
 	if doPublish.set {
 		config.DoPublish = doPublish.value

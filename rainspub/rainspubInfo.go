@@ -6,6 +6,9 @@ import (
 	"github.com/netsec-ethz/rains/rainslib"
 )
 
+//config holds the configuration of the current invocation of rains publisher.
+var config Config
+
 //parser is used to extract assertions from a rains zone file.
 var parser rainslib.ZoneFileParser
 
@@ -43,6 +46,6 @@ type Config struct {
 	DoSigning             bool
 	SignAssertions        bool
 	SignShards            bool
-	OutputFilePath        bool
+	OutputPath            string
 	DoPublish             bool
 }

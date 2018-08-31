@@ -46,7 +46,7 @@ program. Keys are to be specified in a top-level JSON map.
 * `DoSigning`: If set, signs all assertions and shards
 * `SignAssertions`: If set, signs all assertions
 * `SignShards`: If set, signs all shards
-* `OutputFilePath`: If set, a zonefile with the signed sections is generated and
+* `OutputPath`: If not an empty string, a zonefile with the signed sections is generated and
   stored at the provided path
 * `DoPublish`: If set, sends the signed sections to all authoritative rainsd servers
 
