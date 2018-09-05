@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/britram/borat"
+	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 )
@@ -96,7 +97,7 @@ func main() {
 
 		err = sendQuery(msg, msg.Token, connInfo)
 		if err != nil {
-			fmt.Printf("could not frame and send the query, error=%s\n", err)
+			log.Warn(fmt.Sprintf("could not send query: %v", err))
 			os.Exit(1)
 		}
 	}
@@ -127,9 +128,9 @@ func sendQuery(msg rainslib.RainsMessage, token rainslib.Token, connInfo rainsli
 			fmt.Println(zfParser.Encode(section))
 		}
 	case err := <-ec:
-		fmt.Fprintf(os.Stderr, "an error occurred querying the server: %v", err)
+		return fmt.Errorf("an error occurred querying the server: %v", err)
 	case <-time.After(10 * time.Second):
-		fmt.Fprintf(os.Stderr, "timed out waiting for response")
+		return fmt.Errorf("timed out waiting for response")
 	}
 	return nil
 }

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/britram/borat"
-	"github.com/golang/glog"
+	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/rainslib"
 )
 
@@ -84,13 +84,13 @@ func (r *Resolver) forwardQuery(q rainslib.RainsMessage) (*rainslib.RainsMessage
 	}
 	errs := make([]error, 0)
 	for i, forwarder := range r.Forwarders {
-		glog.Infof("Connecting to forwarding resolver #%d: %v", i, forwarder)
+		log.Info(fmt.Sprintf("Connecting to forwarding resolver #%d: %v", i, forwarder))
 		d := &net.Dialer{
 			Timeout: r.DialTimeout,
 		}
 		conn, err := tls.DialWithDialer(d, "tcp", forwarder, &tls.Config{InsecureSkipVerify: r.InsecureTLS})
 		if err != nil {
-			glog.Warningf("Connection to fowarding resolver %d failed: %v", i, err)
+			log.Warn(fmt.Sprintf("Connection to fowarding resolver %d failed: %v", i, err))
 			errs = append(errs, err)
 			continue
 		}
@@ -137,7 +137,7 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 	latestResolver := r.RootNameservers[0] // TODO: try multiple root nameservers.
 	var resp *rainslib.RainsMessage
 	for {
-		glog.Infof("connecting to resolver at address: %s to resolve %q", latestResolver, name)
+		log.Info(fmt.Sprintf("connecting to resolver at address: %s to resolve %q", latestResolver, name))
 		d := &net.Dialer{
 			Timeout: r.DialTimeout,
 		}
@@ -148,7 +148,6 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 		defer conn.Close()
 		writer := borat.NewCBORWriter(conn)
 		q := r.nameToQuery(name, context, time.Now().Add(15*time.Second).Unix(), []rainslib.QueryOption{})
-		glog.Infof("query is: %v", q)
 		if err := writer.Marshal(&q); err != nil {
 			return nil, fmt.Errorf("failed to marshal query to server: %v", err)
 		}
@@ -164,7 +163,6 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 		if len(resp.Content) == 0 {
 			return nil, errors.New("got empty response")
 		}
-		glog.Infof("response was %+v", resp)
 		// The response can either be a redirection chain or a response.
 		redirectMap := make(map[string]string)
 		srvMap := make(map[string]rainslib.ServiceInfo)
@@ -173,7 +171,6 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 			switch section.(type) {
 			case *rainslib.ZoneSection:
 				// If we were given a whole zone it's because we asked for it or it's non-existance proof.
-				glog.Info("Whole zone return")
 				return resp, nil
 			case *rainslib.AssertionSection:
 				as := section.(*rainslib.AssertionSection)
@@ -195,7 +192,6 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 					}
 				}
 			case *rainslib.ShardSection:
-				glog.Info("Shard section")
 				return resp, nil
 			default:
 				return nil, fmt.Errorf("got unknown type: %T", section)

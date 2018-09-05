@@ -590,7 +590,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 	log.Debug("No entry found in negAssertion cache matching the query")
 	trace(token, "no entry found in negative assertion cache")
 
-	//cached answers only?
+	// If cached answers only option is set then stop after looking in the local cache.
 	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
 		log.Debug("Send a notification message back due to query option: 'Cached Answers only'",
 			"destination", sender)

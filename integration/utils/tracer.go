@@ -6,7 +6,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/golang/glog"
+	log "github.com/inconshreveable/log15"
 )
 
 // TraceServer implements a server which clients can send traces to.
@@ -41,7 +41,7 @@ func (ts *TraceServer) Traces() []byte {
 	if !ts.cacheValid {
 		enc, err := json.Marshal(ts.traces)
 		if err != nil {
-			glog.Warningf("failed to marshal traces: %v", err)
+			log.Warn(fmt.Sprintf("failed to marshal traces: %v", err))
 			enc = []byte(fmt.Sprintf("failed to marshal traces: %v", err))
 		}
 		ts.cachedJSON = enc
@@ -55,7 +55,7 @@ func (ts *TraceServer) HandleClients() {
 	for {
 		client, err := ts.sock.Accept()
 		if err != nil {
-			glog.Warningf("failed to accept connection from client: %v", err)
+			log.Warn(fmt.Sprintf("failed to accept connection from client: %v", err))
 			continue
 		}
 		go ts.HandleClient(client)
@@ -68,18 +68,18 @@ func (ts *TraceServer) HandleClient(conn net.Conn) {
 	decoder := json.NewDecoder(conn)
 	var hello map[string]string
 	if err := decoder.Decode(&hello); err != nil {
-		glog.Warningf("handshake with client %v failed, could not decode message: %v", conn.RemoteAddr(), err)
+		log.Warn(fmt.Sprintf("handshake with client %v failed, could not decode message: %v", conn.RemoteAddr(), err))
 		conn.Close()
 		return
 	}
 	if action, ok := hello["action"]; !ok || action != "hello" {
-		glog.Warningf("invalid handshake from client: %v", conn.RemoteAddr())
+		log.Warn(fmt.Sprintf("invalid handshake from client: %v", conn.RemoteAddr()))
 		conn.Close()
 		return
 	}
 	serverID, ok := hello["serverID"]
 	if !ok {
-		glog.Warningf("no serverID specified from client: %v", conn.RemoteAddr())
+		log.Warn(fmt.Sprintf("no serverID specified from client: %v", conn.RemoteAddr()))
 		conn.Close()
 		return
 	}
@@ -92,25 +92,25 @@ func (ts *TraceServer) HandleClient(conn net.Conn) {
 	}
 	encoder := json.NewEncoder(conn)
 	if err := encoder.Encode(resp); err != nil {
-		glog.Warningf("failed to respond to client %q handshake: %v", conn.RemoteAddr(), err)
+		log.Warn(fmt.Sprintf("failed to respond to client %q handshake: %v", conn.RemoteAddr(), err))
 		conn.Close()
 		return
 	}
 	for {
 		var req map[string]string
 		if err := decoder.Decode(&req); err != nil {
-			glog.Warningf("failed to decode message from client %q: %v", conn.RemoteAddr(), err)
+			log.Warn(fmt.Sprintf("failed to decode message from client %q: %v", conn.RemoteAddr(), err))
 			conn.Close()
 			return
 		}
 		token, ok := req["token"]
 		if !ok {
-			glog.Warningf("missing token from client: %v", conn.RemoteAddr())
+			log.Warn(fmt.Sprintf("missing token from client: %v", conn.RemoteAddr()))
 			continue
 		}
 		message, ok := req["message"]
 		if !ok {
-			glog.Warningf("missing message from client: %v", conn.RemoteAddr())
+			log.Warn(fmt.Sprintf("missing message from client: %v", conn.RemoteAddr()))
 			continue
 		}
 		ts.m.Lock()
