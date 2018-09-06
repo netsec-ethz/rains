@@ -392,15 +392,32 @@ type Signature struct {
 	Data interface{}
 }
 
+// UnmarshalArray takes in a CBOR decoded aray and populates Signature.
+func (sig *Signature) UnmarshalArray(in []interface{}) error {
+	if len(in) < 6 {
+		return fmt.Errorf("expected at least 5 items in input array but got %d", len(in))
+	}
+	if in[0] != uint64(1) {
+		return fmt.Errorf("only algorithm ED25519 is supported presently, but got: %d", in[0])
+	}
+	sig.PublicKeyID.Algorithm = Ed25519
+	sig.PublicKeyID.KeyPhase = int(in[1].(uint64))
+	sig.PublicKeyID.KeySpace = KeySpaceID(in[2].(uint64))
+	sig.ValidSince = int64(in[3].(uint64))
+	sig.ValidUntil = int64(in[4].(uint64))
+	sig.Data = in[5]
+	return nil
+}
+
 // MarshalCBOR implements a CBORMarshaler.
-func (s Signature) MarshalCBOR(w *borat.CBORWriter) error {
+func (sig Signature) MarshalCBOR(w *borat.CBORWriter) error {
 	// RAINS signatures have five common elements: the algorithm identifier, a
 	// keyspace identifier, a keyphase identifier, a valid-since timestamp, and
 	// a valid-until timestamp. Signatures are represented as an array of these
 	// five values followed by additional elements containing the signature
 	// data itself, according to the algorithm identifier.
 	res := []interface{}{1, // FIXME: Hardcoded ED25519: there is no way to know what this is yet.
-		int(s.KeySpace), s.KeyPhase, s.ValidSince, s.ValidUntil, s.Data}
+		int(sig.KeySpace), sig.KeyPhase, sig.ValidSince, sig.ValidUntil, sig.Data}
 	return w.WriteArray(res)
 }
 

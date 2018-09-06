@@ -14,39 +14,6 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-// unmarshalSignatures is a helper function that unpacks an unmarshaled CBOR array interface
-// to a pointer to a signature array.
-func unmarshalSignatures(in []interface{}, out *[]Signature) error {
-	for _, sig := range in {
-		sigArr := sig.([]interface{})
-		s := &Signature{}
-		s.KeySpace = KeySpaceID(sigArr[1].(uint64))
-		s.KeyPhase = int(sigArr[2].(uint64))
-		s.ValidSince = int64(sigArr[3].(uint64))
-		s.ValidUntil = int64(sigArr[4].(uint64))
-		switch sigArr[0].(uint64) {
-		case 1:
-			// ED25519
-			s.Algorithm = Ed25519
-			s.Data = sigArr[5].([]byte)
-		case 2:
-			// ED448
-			s.Algorithm = Ed448
-			return fmt.Errorf("Algorithm not supported: ED448")
-		case 3:
-			// ECDSA-256
-			s.Algorithm = Ecdsa256
-			return fmt.Errorf("Algorithm not supported: ECDSA-256")
-		case 4:
-			// ECDSA-384
-			s.Algorithm = Ecdsa384
-			return fmt.Errorf("Algorithm not supported: ECDSA-384")
-		}
-		*out = append(*out, *s)
-	}
-	return nil
-}
-
 //AssertionSection contains information about the assertion.
 type AssertionSection struct {
 	Signatures  []Signature
@@ -61,9 +28,11 @@ type AssertionSection struct {
 // UnmarshalMap provides functionality to unmarshal a map read in by CBOR.
 func (a *AssertionSection) UnmarshalMap(m map[int]interface{}) error {
 	if sigs, ok := m[0]; ok {
-		a.Signatures = make([]Signature, 0)
-		if err := unmarshalSignatures(sigs.([]interface{}), &a.Signatures); err != nil {
-			return err
+		a.Signatures = make([]Signature, len(sigs.([]interface{})))
+		for i, sig := range sigs.([]interface{}) {
+			if err := a.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
+				return err
+			}
 		}
 	}
 	if sn, ok := m[3]; ok {
@@ -512,9 +481,11 @@ type ShardSection struct {
 func (s *ShardSection) UnmarshalMap(m map[int]interface{}) error {
 	s.Signatures = make([]Signature, 0)
 	if sigs, ok := m[0]; ok {
-		s.Signatures = make([]Signature, 0)
-		if err := unmarshalSignatures(sigs.([]interface{}), &s.Signatures); err != nil {
-			return err
+		s.Signatures = make([]Signature, len(sigs.([]interface{})))
+		for i, sig := range sigs.([]interface{}) {
+			if err := s.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
+				return err
+			}
 		}
 	}
 	// SubjectZone
@@ -788,10 +759,15 @@ type ZoneSection struct {
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
+// UnmarshalMap decodes the output from the CBOR decoder into this struct.
 func (z *ZoneSection) UnmarshalMap(m map[int]interface{}) error {
 	if sigs, ok := m[0]; ok {
-		z.Signatures = make([]Signature, 0)
-		unmarshalSignatures(sigs.([]interface{}), &z.Signatures)
+		z.Signatures = make([]Signature, len(sigs.([]interface{})))
+		for i, sig := range sigs.([]interface{}) {
+			if err := z.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
+				return err
+			}
+		}
 	} else {
 		return fmt.Errorf("missing signatures from ZoneSection")
 	}
