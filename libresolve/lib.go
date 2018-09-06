@@ -64,6 +64,7 @@ func (r *Resolver) nameToQuery(name, context string, expTime int64, opts []rains
 	return rainslib.NewQueryMessage(name, context, expTime, types, opts, rainslib.GenerateToken())
 }
 
+// listen waits for one message and passes it back on the provided channel, or an error on the error channel.
 func listen(conn net.Conn, tok rainslib.Token, done chan<- *rainslib.RainsMessage, ec chan<- error) {
 	reader := borat.NewCBORReader(conn)
 	var msg rainslib.RainsMessage
