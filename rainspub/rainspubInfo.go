@@ -12,6 +12,9 @@ var config Config
 //parser is used to extract assertions from a rains zone file.
 var parser rainslib.ZoneFileParser
 
+//signatureEncoder is used to encode signatures
+var signatureEncoder rainslib.SignatureFormatEncoder
+
 //subordinateDelegations is a list of all subordinate zones and the delegation schedule with them.
 var subordinateDelegations []delegationInfo
 

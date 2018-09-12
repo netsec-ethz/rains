@@ -1,8 +1,6 @@
 package rainspub
 
 import (
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"sort"
@@ -13,17 +11,19 @@ import (
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/protoParser"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
-	"golang.org/x/crypto/ed25519"
 )
 
 //Init starts the zone information publishing process according to the provided config.
 func Init(inputConfig Config) {
 	config = inputConfig
+	parser = zoneFileParser.Parser{}
+	signatureEncoder = zoneFileParser.Parser{}
 	publish()
 }
 
 //publish calls the relevant library function to publish information according to the provided
 //config during initialization.
+//FIXME CFE this implementation assumes that there is exactly one zone per zonefile.
 func publish() {
 	zone, err := loadZonefile()
 	if err != nil {
@@ -53,26 +53,18 @@ func publish() {
 		}
 	}
 	if config.AddSignatureMetaData {
+		//TODO CFE where to add signature meta data and spreading it uniformly over given interval.
 		//addSignatureMetaData()
 	}
 	if config.DoConsistencyCheck {
 		//consistencyCheck()
 	}
+	//TODO CFE add other two consistency checks
 	if config.SortShards {
 		//sort shards
 	}
 	if config.DoSigning {
-		_, err = loadPrivateKeys()
-		if err != nil {
-			return
-		}
-		//UnsafeSign()
-	}
-	if config.SignAssertions {
-		//UnsafeSign()
-	}
-	if config.SignShards {
-		//UnsafeSign()
+		//sign section
 	}
 	if config.OutputPath != "" {
 		parser := zoneFileParser.Parser{}
@@ -90,22 +82,6 @@ func publish() {
 			log.Warn("Was not able to connect to all authoritative servers", "unreachableServers", unreachableServers)
 		}
 	}
-}
-
-//loadZonefile loads the zonefile from disk.
-func loadZonefile() (*rainslib.ZoneSection, error) {
-	file, err := ioutil.ReadFile(config.ZonefilePath)
-	if err != nil {
-		log.Error("Was not able to read zone file", "path", config.ZonefilePath)
-		return nil, err
-	}
-	//FIXME CFE replace with call to yacc generated zonefile parser.
-	zone, err := parser.DecodeZone(file)
-	if err != nil {
-		log.Error("Was not able to parse zone file.", "error", err)
-		return nil, err
-	}
-	return zone, nil
 }
 
 //splitZoneContent returns an array of assertions and an array of shards contained in zone.
@@ -129,41 +105,9 @@ func splitZoneContent(zone *rainslib.ZoneSection) ([]*rainslib.AssertionSection,
 	return assertions, shards, nil
 }
 
-//loadPrivateKeys reads private keys from the path provided in the config and returns a map from
-//PublicKeyID to the corresponding private key data.
-func loadPrivateKeys() (map[rainslib.PublicKeyID]interface{}, error) {
-	var privateKeys []rainslib.PrivateKey
-	file, err := ioutil.ReadFile(config.PrivateKeyPath)
-	if err != nil {
-		log.Error("Could not open config file...", "path", config.PrivateKeyPath, "error", err)
-		return nil, err
-	}
-	if err = json.Unmarshal(file, &privateKeys); err != nil {
-		log.Error("Could not unmarshal json format of private keys", "error", err)
-		return nil, err
-	}
-	output := make(map[rainslib.PublicKeyID]interface{})
-	for _, keyData := range privateKeys {
-		keyString := keyData.Key.(string)
-		privateKey := make([]byte, hex.DecodedLen(len([]byte(keyString))))
-		privateKey, err := hex.DecodeString(keyString)
-		if err != nil {
-			log.Error("Was not able to decode privateKey", "error", err)
-			return nil, err
-		}
-		if len(privateKey) != ed25519.PrivateKeySize {
-			log.Error("Private key length is incorrect", "expected", ed25519.PrivateKeySize,
-				"actual", len(privateKey))
-			return nil, errors.New("incorrect private key length")
-		}
-		output[keyData.PublicKeyID] = privateKey
-	}
-	return output, nil
-}
-
 func groupAssertionsToShardsBySize(subjectZone, context string,
 	assertions []*rainslib.AssertionSection, doSort bool) []*rainslib.ShardSection {
-
+	return nil
 }
 
 //groupAssertionsToShardsByNumber creates shards containing a maximum number of different assertion

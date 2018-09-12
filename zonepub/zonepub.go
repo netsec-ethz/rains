@@ -38,6 +38,7 @@ SigSigningInterval for the Signature validUntil values. Assertions' validUntil v
 spread out over this interval. Value must be an int64 representing unix seconds since 1.1.1970`)
 var sigSigningInterval = flag.Int64("sigSigningInterval", -1, `Defines the time interval in seconds 
 over which the assertions' signature lifetimes are uniformly spread out.`)
+var signContainedAssertions boolFlag
 var doConsistencyCheck boolFlag
 var sortShards boolFlag
 var sigNotExpired boolFlag
@@ -64,6 +65,9 @@ func init() {
 	flag.Var(&addSignatureMetaData, "addSignatureMetaData", `If set to true, adds signature meta 
 	data to sections`)
 	flag.Var(&signatureAlgorithm, "signatureAlgorithm", "Algorithm to be used for signing")
+	flag.Var(&signContainedAssertions, "signContainedAssertions", `this option only has an effect 
+	when AddSignatureMetaData is true. If set to true, all assertions contained in a shard or zone 
+	are signed as well.`)
 	flag.Var(&doConsistencyCheck, "doConsistencyCheck", `Performs all consistency checks if set to 
 	true. The check involves: TODO CFE`)
 	flag.Var(&sortShards, "sortShards", `If set, makes sure that the assertions withing the shard 
@@ -74,8 +78,6 @@ func init() {
 	text fields contain	type markers which are part of the protocol syntax (TODO CFE use more
 	precise	vocabulary)`)
 	flag.Var(&doSigning, "doSigning", "If set, signs all assertions and shards")
-	flag.Var(&signAssertions, "signAssertions", "If set, signs all assertions")
-	flag.Var(&signShards, "signShards", "If set, signs all shards")
 	flag.Var(&doPublish, "doPublish", `If set, sends the signed sections to all authoritative rainsd
 	servers`)
 	flag.Parse()
@@ -130,6 +132,9 @@ func main() {
 	}
 	if *sigSigningInterval != -1 {
 		config.SigSigningInterval = time.Duration(*sigSigningInterval) * time.Second
+	}
+	if signContainedAssertions.set {
+		config.SignContainedAssertions = signContainedAssertions.value
 	}
 	if doConsistencyCheck.set {
 		config.DoConsistencyCheck = doConsistencyCheck.value
