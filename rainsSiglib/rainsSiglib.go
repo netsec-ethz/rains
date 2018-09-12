@@ -38,7 +38,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 		log.Debug("Section contain no signatures")
 		return true
 	}
-	if !checkStringFields(s) {
+	if !CheckStringFields(s) {
 		return false //error already logged
 	}
 	s.Sort()
@@ -114,16 +114,28 @@ func ValidSectionAndSignature(s rainslib.MessageSectionWithSig) bool {
 		log.Warn("section is nil")
 		return false
 	}
+	if !CheckSignatureNotExpired(s) {
+		return false
+	}
+	if !CheckStringFields(s) {
+		return false
+	}
+	s.Sort()
+	return true
+}
+
+//CheckSignatureNotExpired returns true if s is nil or all the signatures ValidUntil are in the
+//future
+func CheckSignatureNotExpired(s rainslib.MessageSectionWithSig) bool {
+	if s == nil {
+		return true
+	}
 	for _, sig := range s.AllSigs() {
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Warn("signature is expired", "signature", sig)
 			return false
 		}
 	}
-	if !checkStringFields(s) {
-		return false
-	}
-	s.Sort()
 	return true
 }
 
@@ -203,16 +215,16 @@ func checkMessageStringFields(msg *rainslib.RainsMessage) bool {
 		return false
 	}
 	for _, s := range msg.Content {
-		if !checkStringFields(s) {
+		if !CheckStringFields(s) {
 			return false
 		}
 	}
 	return true
 }
 
-//checkStringFields returns true if non of the string fields of the given section contain a zone
+//CheckStringFields returns true if non of the string fields of the given section contain a zone
 //file type marker. It panics if the interface s contains a type but the interfaces value is nil
-func checkStringFields(s rainslib.MessageSection) bool {
+func CheckStringFields(s rainslib.MessageSection) bool {
 	switch s := s.(type) {
 	case *rainslib.AssertionSection:
 		if containsZoneFileType(s.SubjectName) {
@@ -233,14 +245,14 @@ func checkStringFields(s rainslib.MessageSection) bool {
 			return false
 		}
 		for _, a := range s.Content {
-			if !checkStringFields(a) {
+			if !CheckStringFields(a) {
 				return false
 			}
 		}
 		return !(containsZoneFileType(s.Context) || containsZoneFileType(s.SubjectZone))
 	case *rainslib.ZoneSection:
 		for _, section := range s.Content {
-			if !checkStringFields(section) {
+			if !CheckStringFields(section) {
 				return false
 			}
 		}
@@ -265,7 +277,7 @@ func checkStringFields(s rainslib.MessageSection) bool {
 		return !containsZoneFileType(s.Context)
 	case *rainslib.AddressZoneSection:
 		for _, a := range s.Content {
-			if !checkStringFields(a) {
+			if !CheckStringFields(a) {
 				return false
 			}
 		}

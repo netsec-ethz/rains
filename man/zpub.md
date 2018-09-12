@@ -21,7 +21,6 @@ program. Keys are to be specified in a top-level JSON map.
 * `PrivateKeyPath`: Path to a file storing the private keys. Each line contains a key phase and a
   private key encoded in hexadecimal separated by a space.
 * `DoSharding`: If set to true, all assertions in the zonefile are grouped into shards based on
-<<<<<<< HEAD
   KeepExistingShards and, NofAssertionsPerShard or MaxShardSize parameters. If NofAssertionsPerShard
   and MaxShardSize are set, the latter takes precedence.
 * `KeepExistingShards`: this option only has an effect when DoSharding is true. If the zonefile
@@ -32,20 +31,12 @@ program. Keys are to be specified in a top-level JSON map.
 * `MaxShardSize`: this option only has an effect when DoSharding is true. Assertions are added to a
   shard until its size would become larger than maxShardSize. Then the process is repeated with a
   new shard.
-=======
-   MaxShardSize or NofAssertionsPerShard. At least one of them must be specified; if both are,
-   MaxShardSize takes precedence.
-* `KeepExistingShards`: this option only has an effect when DoSharding is true. If the zonefile
-  already contains shards and keepExistingShards is true, the shards are kept. Otherwise, all
-  existing shards are removed before the new ones are created. The value is in bytes.
-* `MaxShardSize`: this option only has an effect when DoSharding is true. Assertions are added
-  to a shard until its size would become larger than maxShardSize. Then the process is repeated with
-  a new shard.
-* `NofAssertionsPerShard`: this option only has an effect when doSharding is true. Defines the
-  number of assertions per shard if sharding is performed.
->>>>>>> adf3c62bdb980a2c640bbfe959f2ff43673cbb25
 * `AddSignatureMetaData`: If set to true, signature meta data are added to sections according to
   other configuration parameters
+* `AddSigMetaDataToAssertions`: this option only has an effect when AddSignatureMetaData is true. If
+  set to true, signature meta data is added to all assertions contained in a shard or zone.
+* `AddSigMetaDataToShards`: this option only has an effect when AddSignatureMetaData is true. If set
+  to true, signature meta data is added to all shards contained the zone.
 * `SignatureAlgorithm`: this option only has an effect when AddSignatureMetaData is true. Defines
   which algorithm will be used for signing. Together with KeyPhase this uniquely defines which
   private key will be used.
@@ -63,8 +54,6 @@ program. Keys are to be specified in a top-level JSON map.
 * `SigSigningInterval`: this option only has an effect when AddSignatureMetaData is true. Defines
   the time interval in seconds over which the assertions' signature lifetimes are uniformly spread
   out.
-* `SignContainedAssertions`: this option only has an effect when AddSignatureMetaData is true. If
-  set to true, all assertions contained in a shard or zone are signed as well.
 * `DoConsistencyCheck`: if set to true, all consistency checks are performed before signing. The
   check involves: TODO CFE
 * `SortShards`: If set to true, makes sure that all assertions withing the shard are sorted before
@@ -75,6 +64,8 @@ program. Keys are to be specified in a top-level JSON map.
   type markers which are part of the protocol syntax (TODO CFE use more precise
   vocabulary)
 * `DoSigning`: If set to true, all sections with signature meta data are signed.
+* `MaxZoneSize`: this option only has an effect when DoSigning is true. If the zone's size is larger
+  than MaxZoneSize then only the zone's content is signed but not the zone itself.
 * `OutputPath`: If not an empty string, a zonefile with the signed sections is generated and
   stored at the provided path
 * `DoPublish`: If set to true, sends the signed sections to all authoritative rains servers. If the

@@ -38,14 +38,16 @@ SigSigningInterval for the Signature validUntil values. Assertions' validUntil v
 spread out over this interval. Value must be an int64 representing unix seconds since 1.1.1970`)
 var sigSigningInterval = flag.Int64("sigSigningInterval", -1, `Defines the time interval in seconds 
 over which the assertions' signature lifetimes are uniformly spread out.`)
-var signContainedAssertions boolFlag
 var doConsistencyCheck boolFlag
 var sortShards boolFlag
 var sigNotExpired boolFlag
 var checkStringFields boolFlag
 var doSigning boolFlag
-var signAssertions boolFlag
-var signShards boolFlag
+var maxZoneSize = flag.Int("maxZoneSize", -1, `this option only has an effect when DoSigning is
+true. If the zone's size is larger than MaxZoneSize then only the zone's content is signed but not
+the zone itself.`)
+var addSigMetaDataToAssertions boolFlag
+var addSigMetaDataToShards boolFlag
 var outputPath = flag.String("outputPath", "", `If set, a zonefile with the signed sections is 
 generated and stored at the provided path`)
 var doPublish boolFlag
@@ -64,10 +66,13 @@ func init() {
 	shards are kept. Otherwise, all existing shards are removed before the new ones are created.`)
 	flag.Var(&addSignatureMetaData, "addSignatureMetaData", `If set to true, adds signature meta 
 	data to sections`)
+	flag.Var(&addSigMetaDataToAssertions, "addSigMetaDataToAssertions", `this option only has an
+	effect when AddSignatureMetaData is true. If set to true, signature meta data is added to all 
+	assertions contained in a shard or zone.`)
+	flag.Var(&addSigMetaDataToShards, "addSigMetaDataToShards", `this option only has an effect when
+	AddSignatureMetaData is true. If set to true, signature meta data is added to all shards
+	contained the zone.`)
 	flag.Var(&signatureAlgorithm, "signatureAlgorithm", "Algorithm to be used for signing")
-	flag.Var(&signContainedAssertions, "signContainedAssertions", `this option only has an effect 
-	when AddSignatureMetaData is true. If set to true, all assertions contained in a shard or zone 
-	are signed as well.`)
 	flag.Var(&doConsistencyCheck, "doConsistencyCheck", `Performs all consistency checks if set to 
 	true. The check involves: TODO CFE`)
 	flag.Var(&sortShards, "sortShards", `If set, makes sure that the assertions withing the shard 
@@ -118,6 +123,12 @@ func main() {
 	if addSignatureMetaData.set {
 		config.AddSignatureMetaData = addSignatureMetaData.value
 	}
+	if addSigMetaDataToAssertions.set {
+		config.AddSigMetaDataToAssertions = addSigMetaDataToAssertions.value
+	}
+	if addSigMetaDataToShards.set {
+		config.AddSigMetaDataToShards = addSigMetaDataToShards.value
+	}
 	if signatureAlgorithm.set {
 		config.SignatureAlgorithm = signatureAlgorithm.value
 	}
@@ -132,9 +143,6 @@ func main() {
 	}
 	if *sigSigningInterval != -1 {
 		config.SigSigningInterval = time.Duration(*sigSigningInterval) * time.Second
-	}
-	if signContainedAssertions.set {
-		config.SignContainedAssertions = signContainedAssertions.value
 	}
 	if doConsistencyCheck.set {
 		config.DoConsistencyCheck = doConsistencyCheck.value
@@ -151,11 +159,8 @@ func main() {
 	if doSigning.set {
 		config.DoSigning = doSigning.value
 	}
-	if signAssertions.set {
-		config.SignAssertions = signAssertions.value
-	}
-	if signShards.set {
-		config.SignShards = signShards.value
+	if *maxZoneSize != -1 {
+		config.MaxZoneSize = *maxZoneSize
 	}
 	if *outputPath != "" {
 		config.OutputPath = *outputPath
