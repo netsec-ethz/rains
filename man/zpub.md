@@ -14,21 +14,23 @@ location] if not told otherwise by a command line flag.
 The following options can be specified in the configuration file for the rzpub
 program. Keys are to be specified in a top-level JSON map.
 
-* `ZonefilePath`: Path to the zonefile
+* `ZonefilePath`: Path to the zonefile. The zonefile must contain exactly one zoneBody as the top
+  most element according to the zonefile format.
 * `ConfigPath`: Path to the config file
 * `AuthServers`: Authoritative server addresses to which the sections in the zone file are forwarded
 * `PrivateKeyPath`: Path to a file storing the private keys. Each line contains a key phase and a
   private key encoded in hexadecimal separated by a space.
 * `DoSharding`: If set to true, all assertions in the zonefile are grouped into shards based on
-  other configuration parameters
-* `KeepExistingShards`: NEW: this option only has an effect when DoSharding is true. If the zonefile
+  KeepExistingShards and, NofAssertionsPerShard or MaxShardSize parameters. If NofAssertionsPerShard
+  and MaxShardSize are set, the latter takes precedence.
+* `KeepExistingShards`: this option only has an effect when DoSharding is true. If the zonefile
   already contains shards and keepExistingShards is true, the shards are kept. Otherwise, all
   existing shards are removed before the new ones are created.
 * `NofAssertionsPerShard`: this option only has an effect when doSharding is true. Defines the
   number of assertions per shard if sharding is performed
-* `MaxShardSize`: NEW this option only has an effect when DoSharding is true. Assertions are added
-  to a shard until its size would become larger than maxShardSize. Then the process is repeated with
-  a new shard.
+* `MaxShardSize`: this option only has an effect when DoSharding is true. Assertions are added to a
+  shard until its size would become larger than maxShardSize. Then the process is repeated with a
+  new shard.
 * `AddSignatureMetaData`: If set to true, signature meta data are added to sections according to
   other configuration parameters
 * `SignatureAlgorithm`: this option only has an effect when AddSignatureMetaData is true. Defines
@@ -62,4 +64,6 @@ program. Keys are to be specified in a top-level JSON map.
 * `DoSigning`: If set to true, all sections with signature meta data are signed.
 * `OutputPath`: If not an empty string, a zonefile with the signed sections is generated and
   stored at the provided path
-* `DoPublish`: If set to true, sends the signed sections to all authoritative rains servers
+* `DoPublish`: If set to true, sends the signed sections to all authoritative rains servers. If the
+  zone is smaller than the maximum allowed size, the zone is sent. Otherwise, the zone section's
+  content is sent separately such that the maximum message size is not exceeded.

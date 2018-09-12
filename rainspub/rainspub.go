@@ -12,6 +12,7 @@ import (
 	"github.com/netsec-ethz/rains/rainsSiglib"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/protoParser"
+	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -24,12 +25,32 @@ func Init(inputConfig Config) {
 //publish calls the relevant library function to publish information according to the provided
 //config during initialization.
 func publish() {
-	sections, err := loadZonefile()
+	zone, err := loadZonefile()
 	if err != nil {
 		return
 	}
 	if config.DoSharding {
-		//groupAssertionsToShards
+		assertions, shards, err := splitZoneContent(zone)
+		if err != nil {
+			return
+		}
+		var newShards []*rainslib.ShardSection
+		if config.MaxShardSize > 0 {
+			newShards = groupAssertionsToShardsBySize(zone.SubjectZone, zone.Context, assertions,
+				config.SortShards)
+		} else if config.NofAssertionsPerShard > 0 {
+			newShards = groupAssertionsToShardsByNumber(zone.SubjectZone, zone.Context, assertions,
+				config.SortShards)
+		} else {
+			log.Error("MaxShardSize or NofAssertionsPerShard must be positive when DoSharding is set")
+			return
+		}
+		if len(shards) != 0 {
+			shards = append(shards, newShards...)
+			sort.Slice(shards, func(i, j int) bool { return shards[i].CompareTo(shards[j]) < 0 })
+		} else {
+			shards = newShards
+		}
 	}
 	if config.AddSignatureMetaData {
 		//addSignatureMetaData()
@@ -54,10 +75,13 @@ func publish() {
 		//UnsafeSign()
 	}
 	if config.OutputPath != "" {
-		//write zonefile
+		parser := zoneFileParser.Parser{}
+		encoding := parser.Encode(zone)
+		ioutil.WriteFile(config.OutputPath, []byte(encoding), 0600)
 	}
 	if config.DoPublish {
-		encoding, err := createRainsMessage(sections)
+		//TODO check if zone is not too large. If it is, split it up and send content separately.
+		encoding, err := createRainsMessage([]rainslib.MessageSectionWithSigForward{zone})
 		if err != nil {
 			return
 		}
@@ -69,7 +93,7 @@ func publish() {
 }
 
 //loadZonefile loads the zonefile from disk.
-func loadZonefile() ([]rainslib.MessageSectionWithSigForward, error) {
+func loadZonefile() (*rainslib.ZoneSection, error) {
 	file, err := ioutil.ReadFile(config.ZonefilePath)
 	if err != nil {
 		log.Error("Was not able to read zone file", "path", config.ZonefilePath)
@@ -81,7 +105,28 @@ func loadZonefile() ([]rainslib.MessageSectionWithSigForward, error) {
 		log.Error("Was not able to parse zone file.", "error", err)
 		return nil, err
 	}
-	return []rainslib.MessageSectionWithSigForward{zone}, nil
+	return zone, nil
+}
+
+//splitZoneContent returns an array of assertions and an array of shards contained in zone.
+func splitZoneContent(zone *rainslib.ZoneSection) ([]*rainslib.AssertionSection,
+	[]*rainslib.ShardSection, error) {
+	assertions := []*rainslib.AssertionSection{}
+	shards := []*rainslib.ShardSection{}
+	for _, section := range zone.Content {
+		switch s := section.(type) {
+		case *rainslib.AssertionSection:
+			assertions = append(assertions, s)
+		case *rainslib.ShardSection:
+			if config.KeepExistingShards {
+				shards = append(shards, s)
+			}
+		default:
+			log.Error("Invalid zone content", "section", s)
+			return nil, nil, errors.New("Invalid zone content")
+		}
+	}
+	return assertions, shards, nil
 }
 
 //loadPrivateKeys reads private keys from the path provided in the config and returns a map from
@@ -116,21 +161,28 @@ func loadPrivateKeys() (map[rainslib.PublicKeyID]interface{}, error) {
 	return output, nil
 }
 
-//groupAssertionsToShards creates shards containing a maximum number of different assertion names
-//according to the configuration. Before grouping the assertions, it sorts them. It returns a zone
-//section containing the created shards. The contained shards and assertions still have non empty
-//subjectZone and context values as these values are needed to generate a signatures
-func groupAssertionsToShards(subjectZone, context string, assertions []*rainslib.AssertionSection) *rainslib.ZoneSection {
-	//the assertion compareTo function sorts first by subjectName. Thus we can use it here.
-	sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
-	shards := []rainslib.MessageSectionWithSigForward{}
+func groupAssertionsToShardsBySize(subjectZone, context string,
+	assertions []*rainslib.AssertionSection, doSort bool) []*rainslib.ShardSection {
+
+}
+
+//groupAssertionsToShardsByNumber creates shards containing a maximum number of different assertion
+//names according to the configuration. Before grouping the assertions, it sorts them. It returns a
+//zone section containing the created shards. The contained shards and assertions still have non
+//empty subjectZone and context values as these values are needed to generate a signatures
+func groupAssertionsToShardsByNumber(subjectZone, context string,
+	assertions []*rainslib.AssertionSection, doSort bool) []*rainslib.ShardSection {
+	if doSort {
+		sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
+	}
+	shards := []*rainslib.ShardSection{}
 	nameCount := 0
 	prevAssertionSubjectName := ""
 	prevShardAssertionSubjectName := ""
 	shard := newShard(subjectZone, context)
 	for i, a := range assertions {
 		if a.SubjectZone != subjectZone || a.Context != context {
-			//log.Error("assertion's subjectZone or context does not match with the zone's", "assertion", a)
+			log.Error("assertion's subjectZone or context does not match with the zone's", "assertion", a)
 		}
 		if prevAssertionSubjectName != a.SubjectName {
 			nameCount++
@@ -149,13 +201,7 @@ func groupAssertionsToShards(subjectZone, context string, assertions []*rainslib
 	shard.RangeFrom = prevShardAssertionSubjectName
 	shard.RangeTo = ""
 	shards = append(shards, shard)
-
-	section := &rainslib.ZoneSection{
-		Context:     context,
-		SubjectZone: subjectZone,
-		Content:     shards,
-	}
-	return section
+	return shards
 }
 
 func newShard(subjectZone, context string) *rainslib.ShardSection {

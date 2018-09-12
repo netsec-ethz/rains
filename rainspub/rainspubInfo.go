@@ -32,7 +32,9 @@ type Config struct {
 	AuthServers           []rainslib.ConnInfo
 	PrivateKeyPath        string
 	DoSharding            bool
+	KeepExistingShards    bool
 	NofAssertionsPerShard int
+	MaxShardSize          int
 	AddSignatureMetaData  bool
 	SignatureAlgorithm    rainslib.SignatureAlgorithmType
 	KeyPhase              int
