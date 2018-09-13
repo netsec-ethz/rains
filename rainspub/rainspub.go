@@ -29,69 +29,35 @@ func publish() {
 	if err != nil {
 		return
 	}
+	var nofAssertions int
 	if config.DoSharding {
-		if doSharding(zone) != nil {
+		if nofAssertions, err = doSharding(zone); err != nil {
 			log.Error(err.Error())
 			return
 		}
 	}
 	if config.AddSignatureMetaData {
-		//TODO CFE where to add signature meta data and spreading it uniformly over given interval.
-		//addSignatureMetaData()
-	}
-	if config.DoConsistencyCheck {
-		if !rainsSiglib.ValidSectionAndSignature(zone) {
-			log.Error("zone content is not consistent")
+		if err = addSignatureMetaData(zone, nofAssertions); err != nil {
+			log.Error(err.Error())
 			return
 		}
-	} else {
-		if config.SortShards {
-			zone.Sort()
-		}
-		if config.CheckStringFields {
-			if !rainsSiglib.CheckStringFields(zone) {
-				log.Error("zone content is not consistent")
-				return
-			}
-		}
-		if config.SigNotExpired {
-			if !rainsSiglib.CheckSignatureNotExpired(zone) {
-				log.Error("zone content is not consistent")
-				return
-			}
-		}
+	}
+	if !isConsistent(zone) {
+		return
 	}
 	if config.DoSigning {
-		keys, err := loadPrivateKeys()
-		if err != nil {
-			return
-		}
-		if signZone(zone, keys) != nil {
+		if signZone(zone) != nil {
 			log.Error("Was not able to sign zone.")
 			return
 		}
 	}
-	if config.OutputPath != "" {
-		encoding := parser.Encode(zone)
-		ioutil.WriteFile(config.OutputPath, []byte(encoding), 0600)
-	}
-	if config.DoPublish {
-		//TODO check if zone is not too large. If it is, split it up and send content separately.
-		encoding, err := createRainsMessage([]rainslib.MessageSectionWithSigForward{zone})
-		if err != nil {
-			return
-		}
-		unreachableServers := publishSections(encoding)
-		if unreachableServers != nil {
-			log.Warn("Was not able to connect to all authoritative servers", "unreachableServers", unreachableServers)
-		}
-	}
+	publishZone(zone)
 }
 
-func doSharding(zone *rainslib.ZoneSection) error {
+func doSharding(zone *rainslib.ZoneSection) (int, error) {
 	assertions, shards, err := splitZoneContent(zone)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if config.SortShards {
 		sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
@@ -100,12 +66,12 @@ func doSharding(zone *rainslib.ZoneSection) error {
 	if config.MaxShardSize > 0 {
 		newShards, err = groupAssertionsToShardsBySize(zone.SubjectZone, zone.Context, assertions, config.MaxShardSize)
 		if err != nil {
-			return err
+			return 0, err
 		}
 	} else if config.NofAssertionsPerShard > 0 {
 		newShards = groupAssertionsToShardsByNumber(zone.SubjectZone, zone.Context, assertions)
 	} else {
-		return errors.New("MaxShardSize or NofAssertionsPerShard must be positive when DoSharding is set")
+		return 0, errors.New("MaxShardSize or NofAssertionsPerShard must be positive when DoSharding is set")
 	}
 	if len(shards) != 0 {
 		shards = append(shards, newShards...)
@@ -114,13 +80,10 @@ func doSharding(zone *rainslib.ZoneSection) error {
 		shards = newShards
 	}
 	zone.Content = nil
-	for _, a := range assertions {
-		zone.Content = append(zone.Content, a)
-	}
 	for _, s := range shards {
 		zone.Content = append(zone.Content, s)
 	}
-	return nil
+	return len(assertions), nil
 }
 
 //splitZoneContent returns an array of assertions and an array of shards contained in zone.
@@ -208,39 +171,80 @@ func groupAssertionsToShardsByNumber(subjectZone, context string,
 	return shards
 }
 
-//TODO CFE change it such that it can be used as envisioned in the
-//design-scalable-signature-updates.md
-//especially that not all assertions are expiring at the same time
-func addSignatureMetaData(zone *rainslib.ZoneSection, keyPhase int) {
-	//TODO add context and subjectzone to shards and assertions?
-	//TODO CFE consider from config, validUntil, validSince, duration
+func addSignatureMetaData(zone *rainslib.ZoneSection, nofAssertions int) error {
+	waitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofAssertions)
 	signature := rainslib.Signature{
 		PublicKeyID: rainslib.PublicKeyID{
-			Algorithm: rainslib.Ed25519,
+			Algorithm: config.SignatureAlgorithm,
+			KeyPhase:  config.KeyPhase,
 			KeySpace:  rainslib.RainsKeySpace,
-			KeyPhase:  keyPhase,
 		},
-		ValidSince: time.Now().Unix(),
-		ValidUntil: time.Now().Unix(),
+		ValidSince: int64(config.SigValidSince.Seconds()),
+		ValidUntil: int64(config.SigValidUntil.Seconds()),
 	}
-	zone.AddSig(signature)
-	for _, sec := range zone.Content {
-		switch sec := sec.(type) {
-		case *rainslib.AssertionSection:
-			if sec.Content[0].Type == rainslib.OTDelegation {
-				signature.ValidSince = time.Now().Unix()
-				signature.ValidUntil = time.Now().Unix()
-			} else {
-				signature.ValidSince = time.Now().Unix()
-				signature.ValidUntil = time.Now().Unix()
-			}
-		case *rainslib.ShardSection:
-			signature.ValidSince = time.Now().Unix()
-			signature.ValidUntil = time.Now().Unix()
-		default:
-			log.Error("Invalid zone content")
+	for _, section := range zone.Content {
+		shard, ok := section.(*rainslib.ShardSection)
+		if !ok {
+			return errors.New("standalone assertions in a zone are not supported")
 		}
-		sec.AddSig(signature)
+		if config.AddSigMetaDataToShards {
+			shard.AddSig(signature)
+		}
+		if config.AddSigMetaDataToAssertions {
+			for _, assertion := range shard.Content {
+				assertion.AddSig(signature)
+				signature.ValidSince += waitInterval / int64(time.Second)
+				signature.ValidUntil += waitInterval / int64(time.Second)
+			}
+		} else {
+			signature.ValidSince += waitInterval * int64(len(shard.Content)) / int64(time.Second)
+			signature.ValidUntil += waitInterval * int64(len(shard.Content)) / int64(time.Second)
+		}
+	}
+	return nil
+}
+
+func isConsistent(zone *rainslib.ZoneSection) bool {
+	if config.DoConsistencyCheck {
+		if !rainsSiglib.ValidSectionAndSignature(zone) {
+			log.Error("zone content is not consistent")
+			return false
+		}
+	} else {
+		if config.SortShards {
+			zone.Sort()
+		}
+		if config.CheckStringFields {
+			if !rainsSiglib.CheckStringFields(zone) {
+				log.Error("zone content is not consistent")
+				return false
+			}
+		}
+		if config.SigNotExpired {
+			if !rainsSiglib.CheckSignatureNotExpired(zone) {
+				log.Error("zone content is not consistent")
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func publishZone(zone *rainslib.ZoneSection) {
+	if config.OutputPath != "" {
+		encoding := parser.Encode(zone)
+		ioutil.WriteFile(config.OutputPath, []byte(encoding), 0600)
+	}
+	if config.DoPublish {
+		//TODO check if zone is not too large. If it is, split it up and send content separately.
+		encoding, err := createRainsMessage([]rainslib.MessageSectionWithSigForward{zone})
+		if err != nil {
+			return
+		}
+		unreachableServers := publishSections(encoding)
+		if unreachableServers != nil {
+			log.Warn("Was not able to connect to all authoritative servers", "unreachableServers", unreachableServers)
+		}
 	}
 }
 

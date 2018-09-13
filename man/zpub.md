@@ -43,7 +43,7 @@ program. Keys are to be specified in a top-level JSON map.
 * `KeyPhase`: this option only has an effect when AddSignatureMetaData is true. Defines the key
   phase in which the sections will be signed. Together with KeyPhase this uniquely defines which
   private key will be used.
-* `SigValidSince`: this option only has an effect when AddSignatureMetaData is true.Defines the
+* `SigValidSince`: this option only has an effect when AddSignatureMetaData is true. Defines the
   starting point of the SigSigningInterval for the Signature validSince values. Assertions'
   validSince values are uniformly spread out over this interval. Value must be an int64 representing
   unix seconds since 1.1.1970.
