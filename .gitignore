@@ -41,6 +41,9 @@ _testmain.go
 /rainsdig/rainsdig
 /zonepub/zonepub
 
+#zonepub test file
+/zonepub/data/newZonefile.txt
+
 #test coverage files
 coverage.out
 

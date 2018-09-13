@@ -97,6 +97,7 @@ func (p Parser) EncodeSection(s rainslib.MessageSection) string {
 	return replaceWhitespaces(encoding)
 }
 
+//GetEncoding returns an encoding in zonefile format
 func GetEncoding(s rainslib.MessageSection, forSigning bool) string {
 	encoding := ""
 	switch s := s.(type) {
@@ -112,8 +113,6 @@ func GetEncoding(s rainslib.MessageSection, forSigning bool) string {
 		encoding = encodeNotification(s)
 	case *rainslib.AddressAssertionSection:
 		encoding = encodeAddressAssertion(s)
-	case *rainslib.AddressZoneSection:
-		encoding = encodeAddressZone(s)
 	case *rainslib.AddressQuerySection:
 		encoding = encodeAddressQuery(s)
 	default:

@@ -38,6 +38,7 @@ func validSubject(subject string) bool {
 // decodeZone expects as input a scanner holding the data of a zone represented in the zone file format.
 // It returns all assertions present in the zone file or an error in case the zone file is malformed.
 // The error indicates what value was expected and in which line of the input the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeZone(scanner *WordScanner) ([]*rainslib.AssertionSection, error) {
 	assertions := []*rainslib.AssertionSection{}
 	scanner.Scan()
@@ -83,6 +84,7 @@ func decodeZone(scanner *WordScanner) ([]*rainslib.AssertionSection, error) {
 // It returns all assertions present in the shard or an error in case the
 // scanner holds a malformed shard i.e. it is not in zone file format
 // The context and sujectZone are inherited from the zone containing the shard.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeShard(context, subjectZone string, scanner *WordScanner) ([]*rainslib.AssertionSection, error) {
 	if scanner.Text() != ":S:" {
 		return nil, fmt.Errorf("expected shard ':S:' but got %s", scanner.TextLine())
@@ -115,6 +117,7 @@ func decodeShard(context, subjectZone string, scanner *WordScanner) ([]*rainslib
 // decodeZone2 expects as input a scanner holding the data of a zone represented in the zone file
 // format. It returns a zone or an error in case the zone file is malformed. The error indicates
 // what value was expected and in which line of the input the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeZone2(scanner *WordScanner) (*rainslib.ZoneSection, error) {
 	scanner.Scan()
 	if scanner.Text() != ":Z:" {
@@ -162,6 +165,7 @@ func decodeZone2(scanner *WordScanner) (*rainslib.ZoneSection, error) {
 // format starts (i.e. scanner.Text() must return :S:) It returns the shard or an error in case the
 // scanner holds a malformed shard i.e. it is not in zone file format The context and sujectZone are
 // inherited from the zone containing the shard.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeShard2(context, subjectZone string, scanner *WordScanner) (*rainslib.ShardSection, error) {
 	if scanner.Text() != ":S:" {
 		return nil, fmt.Errorf("expected shard ':S:' but got %s", scanner.TextLine())
@@ -198,6 +202,7 @@ func decodeShard2(context, subjectZone string, scanner *WordScanner) (*rainslib.
 // assertion i.e. it is not in zone file format The context and sujectZone are
 // inherited from the zone containing the assertion.  The error indicates what
 // value was expected and in which line of the input the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeAssertion(context, zone string, scanner *WordScanner) (*rainslib.AssertionSection, error) {
 	if scanner.Text() != ":A:" {
 		return nil, fmt.Errorf("error decoding assertion: expected ':A:' but got %s", scanner.TextLine())
@@ -233,6 +238,7 @@ func decodeAssertion(context, zone string, scanner *WordScanner) (*rainslib.Asse
 // in case the scanner holds a malformed object i.e. it is not in zone file
 // format The error indicates what value was expected and in which line of the
 // input the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeObjects(scanner *WordScanner) ([]rainslib.Object, error) {
 	scanner.Scan()
 	objects := []rainslib.Object{}
@@ -326,6 +332,7 @@ func decodeObjects(scanner *WordScanner) ([]rainslib.Object, error) {
 // error in case the scanner holds a malformed nameObject i.e. it is not in zone
 // file format The error indicates what value was expected and in which line of
 // the input the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeNameObject(scanner *WordScanner) (rainslib.NameObject, error) {
 	if scanner.Text() != ":name:" {
 		return rainslib.NameObject{}, fmt.Errorf("expected ':name:' but got %s", scanner.TextLine())
@@ -382,6 +389,7 @@ func decodeNameObject(scanner *WordScanner) (rainslib.NameObject, error) {
 // or an error in case the scanner holds a malformed srvInfo object i.e. it is
 // not in zone file format The error indicates what value was expected and in
 // which line of the input the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeServiceInfo(scanner *WordScanner) (rainslib.ServiceInfo, error) {
 	if scanner.Text() != ":srv:" {
 		return rainslib.ServiceInfo{}, fmt.Errorf("failed parsing serviceInfo, expected :SRV: but got %s", scanner.TextLine())
@@ -411,6 +419,7 @@ func decodeServiceInfo(scanner *WordScanner) (rainslib.ServiceInfo, error) {
 // scanner holds a malformed certificate object i.e. it is not in zone file
 // format The error indicates what value was expected and in which line of the
 // input the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeFreeText(scanner *WordScanner) (string, error) {
 	text := ""
 	scanner.Scan()
@@ -429,6 +438,7 @@ func decodeFreeText(scanner *WordScanner) (string, error) {
 // object or an error in case the scanner holds a malformed certificate object
 // i.e. it is not in zone file format The error indicates what value was
 // expected and in which line of the input the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeCertObject(scanner *WordScanner) (rainslib.CertificateObject, error) {
 	if scanner.Text() != ":cert:" {
 		return rainslib.CertificateObject{}, fmt.Errorf("expected ':cert:' but got %s", scanner.TextLine())
@@ -466,6 +476,7 @@ func decodeCertObject(scanner *WordScanner) (rainslib.CertificateObject, error) 
 // the input holds a malformed protocol type i.e. it is not in zone file format
 // The error indicates what value was expected and in which line of the input
 // the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeCertPT(certType string) (rainslib.ProtocolType, error) {
 	switch certType {
 	case unspecified:
@@ -481,6 +492,7 @@ func decodeCertPT(certType string) (rainslib.ProtocolType, error) {
 // the input holds a malformed usage type i.e. it is not in zone file format The
 // error indicates what value was expected and in which line of the input the
 // error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeCertUsage(usageType string) (rainslib.CertificateUsage, error) {
 	switch usageType {
 	case cuTrustAnchor:
@@ -496,6 +508,7 @@ func decodeCertUsage(usageType string) (rainslib.CertificateUsage, error) {
 // input holds a malformed hash algorithm type i.e. it is not in zone file
 // format The error indicates what value was expected and in which line of the
 // input the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeCertHashType(hashType string) (rainslib.HashAlgorithmType, error) {
 	switch hashType {
 	case haNone:
@@ -516,6 +529,7 @@ func decodeCertHashType(hashType string) (rainslib.HashAlgorithmType, error) {
 // delegation object or an error in case the scanner holds a malformed
 // delegation object i.e. it is not in zone file format The error indicates
 // what value was expected and in which line of the input the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeDelegationKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	if scanner.Text() != ":deleg:" {
 		return rainslib.PublicKey{}, fmt.Errorf("expected ':deleg:' but got %s", scanner.TextLine())
@@ -529,6 +543,7 @@ func decodeDelegationKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 // object or an error in case the scanner holds a malformed infraKey object
 // i.e. it is not in zone file format The error indicates what value was
 // expected and in which line of the input the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeInfraKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	if scanner.Text() != ":infra:" {
 		return rainslib.PublicKey{}, fmt.Errorf("expected ':infra:' but got %s", scanner.TextLine())
@@ -542,6 +557,7 @@ func decodeInfraKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 // externalKey object or an error in case the scanner holds a malformed
 // externalKey object i.e. it is not in zone file format The error indicates
 // what value was expected and in which line of the input the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeExternalKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	if scanner.Text() != ":extra:" {
 		return rainslib.PublicKey{}, fmt.Errorf("expected :extra: but got: %s", scanner.TextLine())
@@ -568,6 +584,7 @@ func decodeExternalKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 // object or an error in case the scanner holds a malformed nextKey object i.e.
 // it is not in zone file format The error indicates what value was expected
 // and in which line of the input the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeNextKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	if scanner.Text() != ":next:" {
 		return rainslib.PublicKey{}, fmt.Errorf("expected :next: but got %s", scanner.TextLine())
@@ -597,6 +614,7 @@ func decodeNextKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 // algorithm type or malformed public key data i.e. it is not in zone file
 // format The error indicates what value was expected and in which line of the
 // input the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeSigAlgoAndData(scanner *WordScanner) (rainslib.PublicKey, error) {
 	keyAlgoType, err := decodeKeyAlgoType(scanner.Text())
 	if err != nil {
@@ -625,6 +643,7 @@ func decodeSigAlgoAndData(scanner *WordScanner) (rainslib.PublicKey, error) {
 // the input holds a malformed signature algorithm type i.e. it is not in zone
 // file format The error indicates what value was expected and in which line of
 // the input the error occurred.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeKeyAlgoType(keyAlgoType string) (rainslib.SignatureAlgorithmType, error) {
 	switch keyAlgoType {
 	case keyAlgoed25519:
@@ -642,6 +661,7 @@ func decodeKeyAlgoType(keyAlgoType string) (rainslib.SignatureAlgorithmType, err
 
 // decodeEd25519PublicKeyData returns the publicKey or an error in case
 // pkeyInput is malformed i.e. it is not in zone file format.
+// Deprecated: Use the the yacc generated zonefile parser instead
 func decodeEd25519PublicKeyData(pkeyInput string, publicKey rainslib.PublicKey) (rainslib.PublicKey, error) {
 	pKey, err := hex.DecodeString(pkeyInput)
 	if err != nil {
