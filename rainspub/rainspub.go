@@ -37,7 +37,6 @@ func publish() {
 			log.Error(err.Error())
 			return
 		}
-		log.Info("Sharding completed successfully")
 	}
 	if config.AddSignatureMetaData {
 		if err = addSignatureMetaData(zone, nofAssertions); err != nil {
@@ -103,6 +102,10 @@ func splitZoneContent(zone *rainslib.ZoneSection) ([]*rainslib.AssertionSection,
 		case *rainslib.ShardSection:
 			if config.KeepExistingShards {
 				shards = append(shards, s)
+			} else {
+				for _, a := range s.Content {
+					assertions = append(assertions, a)
+				}
 			}
 		default:
 			log.Error("Invalid zone content", "section", s)
@@ -117,33 +120,53 @@ func splitZoneContent(zone *rainslib.ZoneSection) ([]*rainslib.AssertionSection,
 func groupAssertionsToShardsBySize(subjectZone, context string,
 	assertions []*rainslib.AssertionSection, maxSize int) ([]*rainslib.ShardSection, error) {
 	shards := []*rainslib.ShardSection{}
+	sameNameAssertions := groupAssertionByName(assertions)
 	prevShardAssertionSubjectName := ""
 	shard := &rainslib.ShardSection{}
-	for i, a := range assertions {
-		shard.Content = append(shard.Content, a)
+	for i, sameNameA := range sameNameAssertions {
+		shard.Content = append(shard.Content, sameNameA...)
 		//FIXME CFE replace with cbor parser
 		if length := len(parser.Encode(shard)); length > maxSize {
-			shard.Content = shard.Content[:len(shard.Content)-1]
+			shard.Content = shard.Content[:len(shard.Content)-len(sameNameA)]
 			if len(shard.Content) == 0 {
-				log.Error("Assertion is larger than maxShardSize", "assertion", a, "length", length, "maxShardSize", maxSize)
-				return nil, errors.New("Assertion is too long")
+				log.Error("Assertions with the same name are larger than maxShardSize",
+					"assertions", sameNameA, "length", length, "maxShardSize", maxSize)
+				return nil, errors.New("Assertions with the same name are too long")
 			}
 			shard.RangeFrom = prevShardAssertionSubjectName
-			shard.RangeTo = a.SubjectName
+			shard.RangeTo = sameNameA[0].SubjectName
 			shards = append(shards, shard)
 			shard = &rainslib.ShardSection{}
-			prevShardAssertionSubjectName = assertions[i-1].SubjectName
-			shard.Content = append(shard.Content, a)
+			prevShardAssertionSubjectName = sameNameAssertions[i-1][0].SubjectName
+			shard.Content = append(shard.Content, sameNameA...)
 			if length := len(parser.Encode(shard)); length > maxSize {
-				log.Error("Assertion is larger than maxShardSize", "assertion", a, "length", length, "maxShardSize", maxSize)
-				return nil, errors.New("Assertion is too long")
+				log.Error("Assertions with the same name are larger than maxShardSize",
+					"assertions", sameNameA, "length", length, "maxShardSize", maxSize)
+				return nil, errors.New("Assertions with the same name are too long")
 			}
 		}
 	}
 	shard.RangeFrom = prevShardAssertionSubjectName
 	shard.RangeTo = ""
 	shards = append(shards, shard)
+	log.Info("Sharding by size completed successfully")
 	return shards, nil
+}
+
+//groupAssertionByName returns a slice where each entry is a slice of assertions having the same
+//subject name.
+func groupAssertionByName(assertions []*rainslib.AssertionSection) [][]*rainslib.AssertionSection {
+	var output [][]*rainslib.AssertionSection
+	for i := 0; i < len(assertions); i++ {
+		sameName := []*rainslib.AssertionSection{assertions[i]}
+		name := assertions[i].SubjectName
+		for i++; i < len(assertions) && assertions[i].SubjectName == name; i++ {
+			sameName = append(sameName, assertions[i])
+		}
+		output = append(output, sameName)
+		i--
+	}
+	return output
 }
 
 //groupAssertionsToShardsByNumber creates shards containing a maximum number of different assertion
@@ -173,6 +196,7 @@ func groupAssertionsToShardsByNumber(subjectZone, context string,
 	shard.RangeFrom = prevShardAssertionSubjectName
 	shard.RangeTo = ""
 	shards = append(shards, shard)
+	log.Info("Sharding by number completed successfully")
 	return shards
 }
 

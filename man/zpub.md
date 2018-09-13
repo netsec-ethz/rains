@@ -27,7 +27,8 @@ program. Keys are to be specified in a top-level JSON map.
   already contains shards and keepExistingShards is true, the shards are kept. Otherwise, all
   existing shards are removed before the new ones are created.
 * `NofAssertionsPerShard`: this option only has an effect when doSharding is true. Defines the
-  number of assertions per shard if sharding is performed
+  number of assertions with different names per shard if sharding is performed. Because the number
+  of assertions per name can varies, shards may have different sizes.
 * `MaxShardSize`: this option only has an effect when DoSharding is true. Assertions are added to a
   shard until its size would become larger than maxShardSize. Then the process is repeated with a
   new shard.
