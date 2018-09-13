@@ -66,7 +66,7 @@ type Parser struct{}
 //Encode returns the given section represented in the zone file format if it is a zoneSection.
 //In all other cases it returns the section in a displayable format similar to the zone file format
 func (p Parser) Encode(s rainslib.MessageSection) string {
-	return getEncoding(s, true)
+	return GetEncoding(s, true)
 }
 
 //Decode returns all assertions contained in the given zonefile
@@ -93,11 +93,11 @@ func (p Parser) EncodeMessage(msg *rainslib.RainsMessage) string {
 //It must have already been verified that the section does not contain malicious content
 //Signature meta data is not added
 func (p Parser) EncodeSection(s rainslib.MessageSection) string {
-	encoding := getEncoding(s, true)
+	encoding := GetEncoding(s, true)
 	return replaceWhitespaces(encoding)
 }
 
-func getEncoding(s rainslib.MessageSection, forSigning bool) string {
+func GetEncoding(s rainslib.MessageSection, forSigning bool) string {
 	encoding := ""
 	switch s := s.(type) {
 	case *rainslib.AssertionSection:

@@ -10,13 +10,14 @@ import (
 	"github.com/netsec-ethz/rains/rainsSiglib"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/protoParser"
+	"github.com/netsec-ethz/rains/utils/yaccZonefileParser"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 )
 
 //Init starts the zone information publishing process according to the provided config.
 func Init(inputConfig Config) {
 	config = inputConfig
-	parser = zoneFileParser.Parser{}
+	parser = yaccZonefileParser.Parser{}
 	signatureEncoder = zoneFileParser.Parser{}
 	publish()
 }

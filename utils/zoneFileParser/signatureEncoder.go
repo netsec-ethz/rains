@@ -14,7 +14,7 @@ import (
 func encodeMessage(m *rainslib.RainsMessage) string {
 	content := []string{}
 	for _, section := range m.Content {
-		content = append(content, getEncoding(section, true))
+		content = append(content, GetEncoding(section, true))
 	}
 	return fmt.Sprintf(":M: %s %s [\n%s\n]", encodeCapabilities(m.Capabilities), m.Token.String(), strings.Join(content, "\n"))
 }
