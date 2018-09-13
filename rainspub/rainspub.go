@@ -30,18 +30,21 @@ func publish() {
 	if err != nil {
 		return
 	}
+	log.Info("Zonefile successful loaded")
 	var nofAssertions int
 	if config.DoSharding {
 		if nofAssertions, err = doSharding(zone); err != nil {
 			log.Error(err.Error())
 			return
 		}
+		log.Info("Sharding completed successfully")
 	}
 	if config.AddSignatureMetaData {
 		if err = addSignatureMetaData(zone, nofAssertions); err != nil {
 			log.Error(err.Error())
 			return
 		}
+		log.Info("Adding Signature meta data completed successfully")
 	}
 	if !isConsistent(zone) {
 		return
@@ -51,6 +54,7 @@ func publish() {
 			log.Error("Was not able to sign zone.")
 			return
 		}
+		log.Info("Signing completed successfully")
 	}
 	publishZone(zone)
 }
@@ -234,7 +238,12 @@ func isConsistent(zone *rainslib.ZoneSection) bool {
 func publishZone(zone *rainslib.ZoneSection) {
 	if config.OutputPath != "" {
 		encoding := parser.Encode(zone)
-		ioutil.WriteFile(config.OutputPath, []byte(encoding), 0600)
+		err := ioutil.WriteFile(config.OutputPath, []byte(encoding), 0600)
+		if err != nil {
+			log.Error(err.Error())
+		} else {
+			log.Info("Writing updated zonefile to disk completed successfully")
+		}
 	}
 	if config.DoPublish {
 		//TODO check if zone is not too large. If it is, split it up and send content separately.
@@ -245,6 +254,8 @@ func publishZone(zone *rainslib.ZoneSection) {
 		unreachableServers := publishSections(encoding)
 		if unreachableServers != nil {
 			log.Warn("Was not able to connect to all authoritative servers", "unreachableServers", unreachableServers)
+		} else {
+			log.Info("publishing to server completed successfully")
 		}
 	}
 }

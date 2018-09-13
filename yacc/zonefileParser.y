@@ -106,7 +106,11 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
     return vsince, vuntil, nil
 }
 
+//Result gets stored in this variable
+var output []rainslib.MessageSectionWithSigForward
+
 %}
+
 
 // fields inside this union end up as the fields in a structure known
 // as ${PREFIX}SymType, of which a reference is passed to the lexer.
@@ -177,10 +181,7 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
 
 top             : sections
                 {
-                    fmt.Print("\n")
-                    for _,s := range $1 {
-                        fmt.Printf("%s\n", s.String())
-                    }
+                    output = $1
                 }
 
 sections        : /* empty */
