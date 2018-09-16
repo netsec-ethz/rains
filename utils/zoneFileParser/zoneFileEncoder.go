@@ -33,7 +33,7 @@ func encodeZone(z *rainslib.ZoneSection, addZoneAndContext bool) string {
 		if len(sigs) == 1 {
 			return fmt.Sprintf("%s] ( %s )\n", zone, sigs[0])
 		}
-		return fmt.Sprintf("%s] ( \n%s%s\n )\n", zone, indent4, strings.Join(sigs, "\n"+indent4))
+		return fmt.Sprintf("%s] ( \n%s%s\n  )\n", zone, indent4, strings.Join(sigs, "\n"+indent4))
 	}
 	return fmt.Sprintf("%s]\n", zone)
 }
@@ -58,6 +58,16 @@ func encodeShard(s *rainslib.ShardSection, context, subjectZone, indent string, 
 	for _, assertion := range s.Content {
 		shard += encodeAssertion(assertion, context, subjectZone, indent+indent4, addZoneAndContext)
 	}
+	if s.Signatures != nil {
+		var sigs []string
+		for _, sig := range s.Signatures {
+			sigs = append(sigs, encodeEd25519Signature(sig))
+		}
+		if len(sigs) == 1 {
+			return fmt.Sprintf("%s%s%s] ( %s )\n", indent, shard, indent, sigs[0])
+		}
+		return fmt.Sprintf("%s%s%s] ( \n%s%s\n%s  )\n", indent, shard, indent, indent+indent4, strings.Join(sigs, "\n"+indent+indent4), indent)
+	}
 	return fmt.Sprintf("%s%s%s]\n", indent, shard, indent)
 }
 
@@ -70,10 +80,22 @@ func encodeAssertion(a *rainslib.AssertionSection, context, zone, indent string,
 	} else {
 		assertion = fmt.Sprintf("%s%s %s [ ", indent, TypeAssertion, a.SubjectName)
 	}
-	if len(a.Content) > 1 {
-		return fmt.Sprintf("%s\n%s\n%s]\n", assertion, encodeObjects(a.Content, indent+indent4), indent)
+	signature := ""
+	if a.Signatures != nil {
+		var sigs []string
+		for _, sig := range a.Signatures {
+			sigs = append(sigs, encodeEd25519Signature(sig))
+		}
+		if len(sigs) == 1 {
+			signature = fmt.Sprintf(" ( %s )\n", sigs[0])
+		} else {
+			signature = fmt.Sprintf(" ( \n%s%s\n%s)\n", indent+indent4, strings.Join(sigs, "\n"+indent+indent4), indent)
+		}
 	}
-	return fmt.Sprintf("%s%s ]\n", assertion, encodeObjects(a.Content, ""))
+	if len(a.Content) > 1 {
+		return fmt.Sprintf("%s\n%s\n%s]%s", assertion, encodeObjects(a.Content, indent+indent4), indent, signature)
+	}
+	return fmt.Sprintf("%s%s ]%s", assertion, encodeObjects(a.Content, ""), signature)
 }
 
 //encodeObjects returns o in zonefile format.
