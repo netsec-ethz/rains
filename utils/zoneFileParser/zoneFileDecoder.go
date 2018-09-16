@@ -244,73 +244,73 @@ func decodeObjects(scanner *WordScanner) ([]rainslib.Object, error) {
 	objects := []rainslib.Object{}
 	for scanner.Text() != "]" {
 		switch scanner.Text() {
-		case typeName:
+		case TypeName:
 			nameObject, err := decodeNameObject(scanner)
 			if err != nil {
 				return nil, err
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTName, Value: nameObject})
-		case typeIP6:
+		case TypeIP6:
 			scanner.Scan()
 			objects = append(objects, rainslib.Object{Type: rainslib.OTIP6Addr, Value: scanner.Text()})
-		case typeIP4:
+		case TypeIP4:
 			scanner.Scan()
 			objects = append(objects, rainslib.Object{Type: rainslib.OTIP4Addr, Value: scanner.Text()})
-		case typeRedirection:
+		case TypeRedirection:
 			scanner.Scan()
 			objects = append(objects, rainslib.Object{Type: rainslib.OTRedirection, Value: scanner.Text()})
-		case typeDelegation:
+		case TypeDelegation:
 			delegation, err := decodeDelegationKey(scanner)
 			if err != nil {
 				return nil, err
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTDelegation, Value: delegation})
-		case typeNameSet:
+		case TypeNameSet:
 			ft, err := decodeFreeText(scanner)
 			if err != nil {
 				return nil, fmt.Errorf("failed reading free text for typeNameSet: %v", err)
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTNameset, Value: rainslib.NamesetExpression(ft)})
 			continue
-		case typeCertificate:
+		case TypeCertificate:
 			cert, err := decodeCertObject(scanner)
 			if err != nil {
 				return nil, err
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTCertInfo, Value: cert})
-		case typeServiceInfo:
+		case TypeServiceInfo:
 			srvInfo, err := decodeServiceInfo(scanner)
 			if err != nil {
 				return nil, err
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTServiceInfo, Value: srvInfo})
-		case typeRegistrar:
+		case TypeRegistrar:
 			ft, err := decodeFreeText(scanner)
 			if err != nil {
 				return nil, fmt.Errorf("failed reading free text for typeRegistrar: %v", err)
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTRegistrar, Value: ft})
 			continue
-		case typeRegistrant:
+		case TypeRegistrant:
 			ft, err := decodeFreeText(scanner)
 			if err != nil {
 				return nil, fmt.Errorf("failed reading free text for typeRegistrant: %v", err)
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTRegistrant, Value: ft})
 			continue
-		case typeInfraKey:
+		case TypeInfraKey:
 			infrastructureKey, err := decodeInfraKey(scanner)
 			if err != nil {
 				return nil, err
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTInfraKey, Value: infrastructureKey})
-		case typeExternalKey:
+		case TypeExternalKey:
 			extraKey, err := decodeExternalKey(scanner)
 			if err != nil {
 				return nil, err
 			}
 			objects = append(objects, rainslib.Object{Type: rainslib.OTExtraKey, Value: extraKey})
-		case typeNextKey:
+		case TypeNextKey:
 			nextKey, err := decodeNextKey(scanner)
 			if err != nil {
 				return nil, err
@@ -479,9 +479,9 @@ func decodeCertObject(scanner *WordScanner) (rainslib.CertificateObject, error) 
 // Deprecated: Use the the yacc generated zonefile parser instead
 func decodeCertPT(certType string) (rainslib.ProtocolType, error) {
 	switch certType {
-	case unspecified:
+	case TypeUnspecified:
 		return rainslib.PTUnspecified, nil
-	case ptTLS:
+	case TypePTTLS:
 		return rainslib.PTTLS, nil
 	default:
 		return rainslib.ProtocolType(-1), fmt.Errorf("non existing certificate protocol type: %s", certType)
@@ -495,9 +495,9 @@ func decodeCertPT(certType string) (rainslib.ProtocolType, error) {
 // Deprecated: Use the the yacc generated zonefile parser instead
 func decodeCertUsage(usageType string) (rainslib.CertificateUsage, error) {
 	switch usageType {
-	case cuTrustAnchor:
+	case TypeCUTrustAnchor:
 		return rainslib.CUTrustAnchor, nil
-	case cuEndEntity:
+	case TypeCUEndEntity:
 		return rainslib.CUEndEntity, nil
 	default:
 		return rainslib.CertificateUsage(-1), fmt.Errorf("non existing certificate usage type: %s", usageType)
@@ -511,13 +511,13 @@ func decodeCertUsage(usageType string) (rainslib.CertificateUsage, error) {
 // Deprecated: Use the the yacc generated zonefile parser instead
 func decodeCertHashType(hashType string) (rainslib.HashAlgorithmType, error) {
 	switch hashType {
-	case haNone:
+	case TypeNoHash:
 		return rainslib.NoHashAlgo, nil
-	case haSha256:
+	case TypeSha256:
 		return rainslib.Sha256, nil
-	case haSha384:
+	case TypeSha384:
 		return rainslib.Sha384, nil
-	case haSha512:
+	case TypeSha512:
 		return rainslib.Sha512, nil
 	default:
 		return rainslib.HashAlgorithmType(-1), fmt.Errorf("non existing certificate hash algorithm type: %s", hashType)
@@ -565,7 +565,7 @@ func decodeExternalKey(scanner *WordScanner) (rainslib.PublicKey, error) {
 	scanner.Scan()
 	var keySpace rainslib.KeySpaceID
 	switch scanner.Text() {
-	case ksRains:
+	case TypeKSRains:
 		keySpace = rainslib.RainsKeySpace
 	default:
 		return rainslib.PublicKey{}, fmt.Errorf("expected known key type but got: %s", scanner.TextLine())
@@ -646,7 +646,7 @@ func decodeSigAlgoAndData(scanner *WordScanner) (rainslib.PublicKey, error) {
 // Deprecated: Use the the yacc generated zonefile parser instead
 func decodeKeyAlgoType(keyAlgoType string) (rainslib.SignatureAlgorithmType, error) {
 	switch keyAlgoType {
-	case keyAlgoed25519:
+	case TypeEd25519:
 		return rainslib.Ed25519, nil
 	case keyAlgoed448:
 		return rainslib.Ed448, nil

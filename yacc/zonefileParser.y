@@ -19,6 +19,7 @@ import (
     "strings"
     log "github.com/inconshreveable/log15"
     "github.com/netsec-ethz/rains/rainslib"
+    "github.com/netsec-ethz/rains/utils/zoneFileParser"
     "golang.org/x/crypto/ed25519"
 )
 
@@ -752,59 +753,59 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
     }
     //return token
     switch word {
-	case ":A:" :
+	case zoneFileParser.TypeAssertion :
         return assertionType
-    case ":S:" :
+    case zoneFileParser.TypeShard :
         return shardType
-    case ":Z:" :
+    case zoneFileParser.TypeZone :
         return zoneType
-    case ":name:" :
+    case zoneFileParser.TypeName :
 		return nameType
-	case ":ip6:" :
+	case zoneFileParser.TypeIP6 :
 		return ip6Type
-	case ":ip4:" :
+	case zoneFileParser.TypeIP4 :
 		return ip4Type
-	case ":redir:" :
+	case zoneFileParser.TypeRedirection :
 		return redirType
-	case ":deleg:" :
+	case zoneFileParser.TypeDelegation :
 		return delegType
-	case ":nameset:" :
+	case zoneFileParser.TypeNameSet :
 		return namesetType
-	case ":cert:" :
+	case zoneFileParser.TypeCertificate :
 		return certType
-	case ":srv:" :
+	case zoneFileParser.TypeServiceInfo :
 		return srvType
-	case ":regr:" :
+	case zoneFileParser.TypeRegistrar :
 		return regrType
-	case ":regt:" :
+	case zoneFileParser.TypeRegistrant :
 		return regtType
-	case ":infra:" :
+	case zoneFileParser.TypeInfraKey :
 		return infraType
-	case ":extra:" :
+	case zoneFileParser.TypeExternalKey :
 		return extraType
-	case ":next:" :
+	case zoneFileParser.TypeNextKey :
 		return nextType
-    case ":sig:" :
+    case zoneFileParser.TypeSignature :
         return sigType
-    case ":ed25519:" :
+    case zoneFileParser.TypeEd25519 :
         return ed25519Type
-    case ":unspecified:" :
+    case zoneFileParser.TypeUnspecified :
         return unspecified
-    case ":tls:" :
+    case zoneFileParser.TypePTTLS :
         return tls
-    case ":trustAnchor:" :
+    case zoneFileParser.TypeCUTrustAnchor :
         return trustAnchor
-    case ":endEntity:" :
+    case zoneFileParser.TypeCUEndEntity :
         return endEntity
-    case ":noHash:" :
+    case zoneFileParser.TypeNoHash :
         return noHash
-    case ":sha256:" :
+    case zoneFileParser.TypeSha256 :
         return sha256
-    case ":sha384:" :
+    case zoneFileParser.TypeSha384 :
         return sha384
-    case ":sha512:" :
+    case zoneFileParser.TypeSha512 :
         return sha512
-    case ":rains:" :
+    case zoneFileParser.TypeKSRains :
         return rains
     case "<" :
         return rangeBegin

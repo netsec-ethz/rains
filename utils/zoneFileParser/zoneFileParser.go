@@ -11,48 +11,53 @@ import (
 )
 
 const (
-	typeName        = ":name:"
-	typeIP6         = ":ip6:"
-	typeIP4         = ":ip4:"
-	typeRedirection = ":redir:"
-	typeDelegation  = ":deleg:"
-	typeNameSet     = ":nameset:"
-	typeCertificate = ":cert:"
-	typeServiceInfo = ":srv:"
-	typeRegistrar   = ":regr:"
-	typeRegistrant  = ":regt:"
-	typeInfraKey    = ":infra:"
-	typeExternalKey = ":extra:"
-	typeNextKey     = ":next:"
-	keyAlgoed25519  = "ed25519"
-	keyAlgoed448    = "ed448"
-	keyAlgoecdsa256 = "ecdsa256"
-	keyAlgoecdsa384 = "ecdsa384"
-	unspecified     = "unspecified"
-	ptTLS           = "tls"
-	cuTrustAnchor   = "trustAnchor"
-	cuEndEntity     = "endEntity"
-	haNone          = "noHashAlgo"
-	haSha256        = "sha256"
-	haSha384        = "sha384"
-	haSha512        = "sha512"
-	otName          = "name"
-	otIP6           = "ip6"
-	otIP4           = "ip4"
-	otRedirection   = "redir"
-	otDelegation    = "deleg"
-	otNameSet       = "nameset"
-	otCertificate   = "cert"
-	otServiceInfo   = "srv"
-	otRegistrar     = "regr"
-	otRegistrant    = "regt"
-	otInfraKey      = "infra"
-	otExternalKey   = "extra"
-	otNextKey       = "next"
-	ksRains         = "rains"
-	indent4         = "    "
-	indent8         = indent4 + indent4
-	indent12        = indent8 + indent4
+	TypeAssertion     = ":A:"
+	TypeShard         = ":S:"
+	TypeZone          = ":Z:"
+	TypeSignature     = ":sig:"
+	TypeName          = ":name:"
+	TypeIP6           = ":ip6:"
+	TypeIP4           = ":ip4:"
+	TypeRedirection   = ":redir:"
+	TypeDelegation    = ":deleg:"
+	TypeNameSet       = ":nameset:"
+	TypeCertificate   = ":cert:"
+	TypeServiceInfo   = ":srv:"
+	TypeRegistrar     = ":regr:"
+	TypeRegistrant    = ":regt:"
+	TypeInfraKey      = ":infra:"
+	TypeExternalKey   = ":extra:"
+	TypeNextKey       = ":next:"
+	TypeEd25519       = ":ed25519:"
+	TypeUnspecified   = ":unspecified:"
+	TypePTTLS         = ":tls:"
+	TypeCUTrustAnchor = ":trustAnchor:"
+	TypeCUEndEntity   = ":endEntity:"
+	TypeNoHash        = ":noHash:"
+	TypeSha256        = ":sha256:"
+	TypeSha384        = ":sha384:"
+	TypeSha512        = ":sha512:"
+	TypeKSRains       = ":rains:"
+	keyAlgoed448      = "ed448"
+	keyAlgoecdsa256   = "ecdsa256"
+	keyAlgoecdsa384   = "ecdsa384"
+	otName            = "name"
+	otIP6             = "ip6"
+	otIP4             = "ip4"
+	otRedirection     = "redir"
+	otDelegation      = "deleg"
+	otNameSet         = "nameset"
+	otCertificate     = "cert"
+	otServiceInfo     = "srv"
+	otRegistrar       = "regr"
+	otRegistrant      = "regt"
+	otInfraKey        = "infra"
+	otExternalKey     = "extra"
+	otNextKey         = "next"
+
+	indent4  = "    "
+	indent8  = indent4 + indent4
+	indent12 = indent8 + indent4
 )
 
 func init() {
@@ -102,9 +107,9 @@ func GetEncoding(s rainslib.MessageSection, forSigning bool) string {
 	encoding := ""
 	switch s := s.(type) {
 	case *rainslib.AssertionSection:
-		encoding = encodeAssertion(s, s.Context, s.SubjectZone, indent4)
+		encoding = encodeAssertion(s, s.Context, s.SubjectZone, "", forSigning)
 	case *rainslib.ShardSection:
-		encoding = encodeShard(s, s.Context, s.SubjectZone, forSigning)
+		encoding = encodeShard(s, s.Context, s.SubjectZone, "", forSigning)
 	case *rainslib.ZoneSection:
 		encoding = encodeZone(s, forSigning)
 	case *rainslib.QuerySection:

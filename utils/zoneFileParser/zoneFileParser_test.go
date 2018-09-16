@@ -38,8 +38,8 @@ func TestGetEncodingErrors(t *testing.T) {
 		{rainslib.MessageSection(&rainslib.Object{}), ""},
 	}
 	for _, test := range tests {
-		if getEncoding(test.input, true) != test.want {
-			t.Errorf("Encoding incorrect. expected=%v, actual=%s", test.want, getEncoding(test.input, true))
+		if GetEncoding(test.input, true) != test.want {
+			t.Errorf("Encoding incorrect. expected=%v, actual=%s", test.want, GetEncoding(test.input, true))
 		}
 	}
 }
