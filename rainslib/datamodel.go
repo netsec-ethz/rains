@@ -472,30 +472,33 @@ type RainsMsgParser interface {
 
 //ZoneFileParser is the interface for all parsers of zone files for RAINS
 type ZoneFileParser interface {
-	//Decode takes as input the content of a zoneFile.
-	//It returns all contained assertions or an error in case of failure
-	Decode(zoneFile []byte) ([]*AssertionSection, error)
+	//Decode takes as input a byte string of section(s) in zonefile format. It returns a slice of
+	//all contained assertions, shards, and zones in the provided order or an error in case of
+	//failure.
+	Decode(zoneFile []byte) ([]MessageSectionWithSigForward, error)
 
-	//DecodeZone takes as input the content of a zoneFile.
-	//It returns the zone exactly as it is in the zonefile or an error in case of failure
+	//DecodeZone takes as input a byte string of one zone in zonefile format. It returns the zone
+	//exactly as it is in the zonefile or an error in case of failure.
 	DecodeZone(zoneFile []byte) (*ZoneSection, error)
 
-	//Encode returns the given section represented in the zone file format if it is a zoneSection.
-	//In all other cases it returns the section in a displayable format similar to the zone file format
+	//Encode returns the given section represented in zone file format if it is an assertion, shard,
+	//or zone. In all other cases it returns the section in a displayable format similar to the zone
+	//file format
 	Encode(section MessageSection) string
 }
 
-//SignatureFormatEncoder is used to deterministically transform a RainsMessage into a byte format that can be signed.
+//SignatureFormatEncoder is used to deterministically transform a RainsMessage or Section into a
+//byte string that is ready for signing.
 type SignatureFormatEncoder interface {
-	//EncodeMessage transforms the given msg into a signable format.
-	//It must have already been verified that the msg does not contain malicious content.
-	//Signature meta data is not added
-	EncodeMessage(msg *RainsMessage) string
+	//EncodeMessage transforms the given msg into a signable format.The signature meta data
+	//must be present on the section. This method does not check for illegitimate content. The
+	//returned byte string is ready for signing.
+	EncodeMessage(msg *RainsMessage) []byte
 
-	//EncodeSection transforms the given msg into a signable format
-	//It must have already been verified that the section does not contain malicious content
-	//Signature meta data is not added
-	EncodeSection(section MessageSection) string
+	//EncodeSection transforms the given section into a signable format. The signature meta data
+	//must be present on the section. This method does not check for illegitimate content. The
+	//returned byte string is ready for signing.
+	EncodeSection(section MessageSectionWithSig) []byte
 }
 
 //MsgFramer is used to frame and deframe rains messages and send or receive them on the initialized stream.
