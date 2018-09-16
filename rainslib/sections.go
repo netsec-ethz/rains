@@ -419,6 +419,149 @@ func (s *ShardSection) NeededKeys(keysNeeded map[SignatureMetaData]bool) {
 	}
 }
 
+//Pshard contains information about a pshard
+type PshardSection struct {
+	Signatures    []Signature
+	SubjectZone   string
+	Context       string
+	RangeFrom     string
+	RangeTo       string
+	Datastructure DataStructure
+	validSince    int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	validUntil    int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+}
+
+//AllSigs returns the pshard's signatures
+func (s *PshardSection) AllSigs() []Signature {
+	return s.Signatures
+}
+
+//Sigs returns s's signatures in keyspace
+func (s *PshardSection) Sigs(keySpace KeySpaceID) []Signature {
+	return filterSigs(s.Signatures, keySpace)
+}
+
+//AddSig adds the given signature
+func (s *PshardSection) AddSig(sig Signature) {
+	s.Signatures = append(s.Signatures, sig)
+}
+
+//DeleteSig deletes ith signature
+func (s *PshardSection) DeleteSig(i int) {
+	s.Signatures = append(s.Signatures[:i], s.Signatures[i+1:]...)
+}
+
+//GetContext returns the context of the pshard
+func (s *PshardSection) GetContext() string {
+	return s.Context
+}
+
+//GetSubjectZone returns the zone of the pshard
+func (s *PshardSection) GetSubjectZone() string {
+	return s.SubjectZone
+}
+
+//Begin returns the begining of the interval of this pshard.
+func (s *PshardSection) Begin() string {
+	return s.RangeFrom
+}
+
+//End returns the end of the interval of this pshard.
+func (s *PshardSection) End() string {
+	return s.RangeTo
+}
+
+//UpdateValidity updates the validity of this pshard if the validity period is extended.
+//It makes sure that the validity is never larger than maxValidity
+func (s *PshardSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+	if s.validSince == 0 {
+		s.validSince = math.MaxInt64
+	}
+	if validSince < s.validSince {
+		if validSince > time.Now().Add(maxValidity).Unix() {
+			s.validSince = time.Now().Add(maxValidity).Unix()
+			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", s.validSince,
+				"newValidSince", validSince, "maxValidity", maxValidity)
+		} else {
+			s.validSince = validSince
+		}
+	}
+	if validUntil > s.validUntil {
+		if validUntil > time.Now().Add(maxValidity).Unix() {
+			s.validUntil = time.Now().Add(maxValidity).Unix()
+			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", s.validSince,
+				"newValidSince", validSince, "maxValidity", maxValidity)
+		} else {
+			s.validUntil = validUntil
+		}
+	}
+}
+
+//ValidSince returns the earliest validSince date of all contained signatures
+func (s *PshardSection) ValidSince() int64 {
+	return s.validSince
+}
+
+//ValidUntil returns the latest validUntil date of all contained signatures
+func (s *PshardSection) ValidUntil() int64 {
+	return s.validUntil
+}
+
+//Hash returns a string containing all information uniquely identifying a pshard.
+func (s *PshardSection) Hash() string {
+	if s == nil {
+		return "S_nil"
+	}
+	return fmt.Sprintf("S_%s_%s_%s_%s_%v_%v", s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo,
+		s.Datastructure, s.Signatures)
+}
+
+//CompareTo compares two shards and returns 0 if they are equal, 1 if s is greater than shard and -1
+//if s is smaller than shard
+func (s *PshardSection) CompareTo(shard *PshardSection) int {
+	if s.SubjectZone < shard.SubjectZone {
+		return -1
+	} else if s.SubjectZone > shard.SubjectZone {
+		return 1
+	} else if s.Context < shard.Context {
+		return -1
+	} else if s.Context > shard.Context {
+		return 1
+	} else if s.RangeFrom < shard.RangeFrom {
+		return -1
+	} else if s.RangeFrom > shard.RangeFrom {
+		return 1
+	} else if s.RangeTo < shard.RangeTo {
+		return -1
+	} else if s.RangeTo > shard.RangeTo {
+		return 1
+	}
+	//FIXME CFE compare datastructure
+	return 0
+}
+
+//String implements Stringer interface
+func (s *PshardSection) String() string {
+	if s == nil {
+		return "Shard:nil"
+	}
+	return fmt.Sprintf("Shard:[SZ=%s CTX=%s RF=%s RT=%s DS=%v SIG=%v]",
+		s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, s.Datastructure, s.Signatures)
+}
+
+//InRange returns true if subjectName is inside the shard range
+func (s *PshardSection) InRange(subjectName string) bool {
+	return (s.RangeFrom == "" && s.RangeTo == "") || (s.RangeFrom == "" && s.RangeTo > subjectName) ||
+		(s.RangeTo == "" && s.RangeFrom < subjectName) ||
+		(s.RangeFrom < subjectName && s.RangeTo > subjectName)
+}
+
+//IsConsistent returns true if all contained assertions have no subjectZone and context and are
+//within the shards range.
+func (s *PshardSection) IsConsistent() bool {
+	return true
+}
+
 //ZoneSection contains information about the zone
 type ZoneSection struct {
 	Signatures  []Signature
