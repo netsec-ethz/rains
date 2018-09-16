@@ -4,7 +4,7 @@
  */
 
 //line zonefileParser.y:8
-package yaccZonefileParser
+package zoneFileParser
 
 import __yyfmt__ "fmt"
 

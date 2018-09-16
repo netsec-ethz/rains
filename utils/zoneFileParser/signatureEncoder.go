@@ -24,15 +24,6 @@ func encodeAddressAssertion(a *rainslib.AddressAssertionSection) string {
 	return fmt.Sprintf(":AA: %s %s [ %s ]", encodeSubjectAddress(a.SubjectAddr), a.Context, encodeObjects(a.Content, ""))
 }
 
-//encodeAddressZone returns an address zone in signable format (which resembles the zone file format)
-func encodeAddressZone(z *rainslib.AddressZoneSection) string {
-	assertions := make([]string, len(z.Content))
-	for i, a := range z.Content {
-		assertions[i] = encodeAddressAssertion(a)
-	}
-	return fmt.Sprintf(":AZ: %s %s [ %s ]", encodeSubjectAddress(z.SubjectAddr), z.Context, strings.Join(assertions, " "))
-}
-
 //encodeAddressQuery returns an address query in signable format (which resembles the zone file format)
 func encodeAddressQuery(q *rainslib.AddressQuerySection) string {
 	return fmt.Sprintf(":AQ: %s %s %s %d %s", encodeSubjectAddress(q.SubjectAddr), q.Context,
@@ -81,9 +72,9 @@ func encodeObjectTypes(objs []rainslib.ObjectType) string {
 func encodeSubjectAddress(addr *net.IPNet) string {
 	if addr.IP.To4() != nil {
 		//IP4
-		return fmt.Sprintf("%s %s", otIP4, addr.String())
+		return fmt.Sprintf("%s %s", TypeIP4, addr.String())
 	}
 	//IP6
 	prfLength, _ := addr.Mask.Size()
-	return fmt.Sprintf("%s %s/%d", otIP6, hex.EncodeToString([]byte(addr.IP)), prfLength)
+	return fmt.Sprintf("%s %s/%d", TypeIP6, hex.EncodeToString([]byte(addr.IP)), prfLength)
 }

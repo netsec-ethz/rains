@@ -51,7 +51,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 				continue
 			}
 			if key, ok := getPublicKey(keys, sig.GetSignatureMetaData()); ok {
-				if !sig.VerifySignature(key.Key, encodedSection) {
+				if !sig.VerifySignature(key.Key, string(encodedSection)) {
 					log.Warn("Signature does not match", "encoding", encodedSection, "signature", sig)
 					return false
 				}
@@ -98,7 +98,7 @@ func CheckMessageSignatures(msg *rainslib.RainsMessage, publicKey rainslib.Publi
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Debug("signature is expired", "signature", sig)
 			msg.Signatures = append(msg.Signatures[:i], msg.Signatures[i+1:]...)
-		} else if !sig.VerifySignature(publicKey.Key, encodedSection) {
+		} else if !sig.VerifySignature(publicKey.Key, string(encodedSection)) {
 			return false
 		}
 	}
@@ -145,7 +145,7 @@ func CheckSignatureNotExpired(s rainslib.MessageSectionWithSig) bool {
 //section
 func SignSectionUnsafe(s rainslib.MessageSectionWithSig, privateKey interface{}, sig rainslib.Signature, encoder rainslib.SignatureFormatEncoder) bool {
 	log.Debug("Start Signing Section")
-	err := (&sig).SignData(privateKey, encoder.EncodeSection(s))
+	err := (&sig).SignData(privateKey, string(encoder.EncodeSection(s)))
 	if err != nil {
 		return false
 	}
@@ -199,7 +199,7 @@ func SignMessage(msg *rainslib.RainsMessage, privateKey interface{}, sig rainsli
 		return false
 	}
 	msg.Sort()
-	err := (&sig).SignData(privateKey, encoder.EncodeMessage(msg))
+	err := (&sig).SignData(privateKey, string(encoder.EncodeMessage(msg)))
 	if err != nil {
 		return false
 	}

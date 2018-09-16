@@ -16,16 +16,6 @@ func TestEncodeAddressAssertion(t *testing.T) {
 	}
 }
 
-func TestEncodeAddressZone(t *testing.T) {
-	zones, encodings := getAddressZonesAndEncodings()
-	for i, zone := range zones {
-		encodedAZ := encodeAddressZone(zone)
-		if encodedAZ != encodings[i] {
-			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedAZ)
-		}
-	}
-}
-
 func TestEncodeAddressQuery(t *testing.T) {
 	queries, encodings := getAddressQueriesAndEncodings()
 	for i, query := range queries {

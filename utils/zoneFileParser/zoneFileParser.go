@@ -2,6 +2,8 @@ package zoneFileParser
 
 import (
 	"bufio"
+	"bytes"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -38,22 +40,6 @@ const (
 	TypeSha384        = ":sha384:"
 	TypeSha512        = ":sha512:"
 	TypeKSRains       = ":rains:"
-	keyAlgoed448      = "ed448"
-	keyAlgoecdsa256   = "ecdsa256"
-	keyAlgoecdsa384   = "ecdsa384"
-	otName            = "name"
-	otIP6             = "ip6"
-	otIP4             = "ip4"
-	otRedirection     = "redir"
-	otDelegation      = "deleg"
-	otNameSet         = "nameset"
-	otCertificate     = "cert"
-	otServiceInfo     = "srv"
-	otRegistrar       = "regr"
-	otRegistrant      = "regt"
-	otInfraKey        = "infra"
-	otExternalKey     = "extra"
-	otNextKey         = "next"
 
 	indent4  = "    "
 	indent8  = indent4 + indent4
@@ -71,35 +57,42 @@ type Parser struct{}
 //Encode returns the given section represented in the zone file format if it is a zoneSection.
 //In all other cases it returns the section in a displayable format similar to the zone file format
 func (p Parser) Encode(s rainslib.MessageSection) string {
-	return GetEncoding(s, true)
+	return GetEncoding(s, false)
 }
 
 //Decode returns all assertions contained in the given zonefile
-func (p Parser) Decode(zoneFile []byte) ([]*rainslib.AssertionSection, error) {
-	scanner := NewWordScanner(zoneFile)
-	return decodeZone(scanner)
+func (p Parser) Decode(zoneFile []byte) ([]rainslib.MessageSectionWithSigForward, error) {
+	log.Error("Not yet supported")
+	return nil, nil
 }
 
 //DecodeZone returns a zone exactly as it is represented in the zonefile
 func (p Parser) DecodeZone(zoneFile []byte) (*rainslib.ZoneSection, error) {
-	scanner := NewWordScanner(zoneFile)
-	return decodeZone2(scanner)
+	lines := removeComments(bufio.NewScanner(bytes.NewReader(zoneFile)))
+	log.Debug("Preprocessed input", "data", lines)
+	parser := ZFPNewParser()
+	parser.Parse(&ZFPLex{lines: lines})
+	zone, ok := parser.Result()[0].(*rainslib.ZoneSection)
+	if !ok {
+		return nil, errors.New("First element of zonefile is not a zone. (Note, only the first element of the zonefile is considered)")
+	}
+	return zone, nil
 }
 
 //EncodeMessage transforms the given msg into a signable format.
 //It must have already been verified that the msg does not contain malicious content.
 //Signature meta data is not added
-func (p Parser) EncodeMessage(msg *rainslib.RainsMessage) string {
+func (p Parser) EncodeMessage(msg *rainslib.RainsMessage) []byte {
 	encoding := encodeMessage(msg)
-	return replaceWhitespaces(encoding)
+	return []byte(replaceWhitespaces(encoding))
 }
 
 //EncodeSection transforms the given msg into a signable format
 //It must have already been verified that the section does not contain malicious content
 //Signature meta data is not added
-func (p Parser) EncodeSection(s rainslib.MessageSection) string {
+func (p Parser) EncodeSection(s rainslib.MessageSectionWithSig) []byte {
 	encoding := GetEncoding(s, true)
-	return replaceWhitespaces(encoding)
+	return []byte(replaceWhitespaces(encoding))
 }
 
 //GetEncoding returns an encoding in zonefile format

@@ -96,8 +96,8 @@ func TestEncodePublicKey(t *testing.T) {
 		{rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.SignatureAlgorithmType(-1)}}, ""},
 	}
 	for _, test := range tests {
-		if encodePublicKey(test.input) != test.want {
-			t.Errorf("Encoding incorrect. expected=%v, actual=%s", test.want, encodePublicKey(test.input))
+		if encodeEd25519PublicKey(test.input) != test.want {
+			t.Errorf("Encoding incorrect. expected=%v, actual=%s", test.want, encodeEd25519PublicKey(test.input))
 		}
 	}
 }

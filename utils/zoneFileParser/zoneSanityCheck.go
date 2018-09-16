@@ -2,6 +2,7 @@ package zoneFileParser
 
 import (
 	"fmt"
+
 	"github.com/netsec-ethz/rains/rainslib"
 
 	log "github.com/inconshreveable/log15"

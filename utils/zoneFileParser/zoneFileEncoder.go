@@ -41,14 +41,14 @@ func encodeShard(s *rainslib.ShardSection, context, subjectZone, indent string, 
 	}
 	var shard string
 	if addZoneAndContext {
-		shard = fmt.Sprintf("%s%s %s %s %s %s [\n", indent, TypeShard, subjectZone, context, rangeFrom, rangeTo)
+		shard = fmt.Sprintf("%s %s %s %s %s [\n", TypeShard, subjectZone, context, rangeFrom, rangeTo)
 	} else {
-		shard = fmt.Sprintf("%s%s %s %s [\n", indent, TypeShard, rangeFrom, rangeTo)
+		shard = fmt.Sprintf("%s %s %s [\n", TypeShard, rangeFrom, rangeTo)
 	}
 	for _, assertion := range s.Content {
 		shard += encodeAssertion(assertion, context, subjectZone, indent+indent4, addZoneAndContext)
 	}
-	return fmt.Sprintf("%s%s]\n", indent, shard)
+	return fmt.Sprintf("%s%s%s]\n", indent, shard, indent)
 }
 
 //encodeAssertion returns a in zonefile format. If addZoneAndContext is true, the context and
@@ -68,80 +68,85 @@ func encodeAssertion(a *rainslib.AssertionSection, context, zone, indent string,
 
 //encodeObjects returns o in zonefile format.
 func encodeObjects(o []rainslib.Object, indent string) string {
-	objects := ""
+	var objects []string
 	for _, obj := range o {
-		objects += indent
+		object := indent
 		switch obj.Type {
 		case rainslib.OTName:
 			if nameObj, ok := obj.Value.(rainslib.NameObject); ok {
-				objects += fmt.Sprintf("%s     %s\n", TypeName, encodeNameObject(nameObj))
-				continue
+				object += fmt.Sprintf("%s%s", addIndentToType(TypeName), encodeNameObject(nameObj))
+			} else {
+				log.Error("Type assertion failed. Expected rainslib.NameObject", "actualType", fmt.Sprintf("%T", obj.Value))
+				return ""
 			}
-			log.Warn("Type assertion failed. Expected rainslib.NameObject", "actualType", fmt.Sprintf("%T", obj.Value))
-			return ""
 		case rainslib.OTIP6Addr:
-			objects += fmt.Sprintf("%s      %s\n", TypeIP6, obj.Value)
+			object += fmt.Sprintf("%s%s", addIndentToType(TypeIP6), obj.Value)
 		case rainslib.OTIP4Addr:
-			objects += fmt.Sprintf("%s      %s\n", TypeIP4, obj.Value)
+			object += fmt.Sprintf("%s%s", addIndentToType(TypeIP4), obj.Value)
 		case rainslib.OTRedirection:
-			objects += fmt.Sprintf("%s    %s\n", TypeRedirection, obj.Value)
+			object += fmt.Sprintf("%s%s", addIndentToType(TypeRedirection), obj.Value)
 		case rainslib.OTDelegation:
 			if pkey, ok := obj.Value.(rainslib.PublicKey); ok {
-				objects += fmt.Sprintf("%s    %s\n", TypeDelegation, encodePublicKey(pkey))
-				continue
+				object += fmt.Sprintf("%s%s", addIndentToType(TypeDelegation), encodeEd25519PublicKey(pkey))
+			} else {
+				log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+				return ""
 			}
-			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
-			return ""
 		case rainslib.OTNameset:
-			objects += fmt.Sprintf("%s  %s\n", TypeNameSet, obj.Value)
+			object += fmt.Sprintf("%s%s", addIndentToType(TypeNameSet), obj.Value)
 		case rainslib.OTCertInfo:
 			if cert, ok := obj.Value.(rainslib.CertificateObject); ok {
-				objects += fmt.Sprintf("%s     %s\n", TypeCertificate, encodeCertificate(cert))
-				continue
+				object += fmt.Sprintf("%s%s", addIndentToType(TypeCertificate), encodeCertificate(cert))
+			} else {
+				log.Warn("Type assertion failed. Expected rainslib.CertificateObject", "actualType", fmt.Sprintf("%T", obj.Value))
+				return ""
 			}
-			log.Warn("Type assertion failed. Expected rainslib.CertificateObject", "actualType", fmt.Sprintf("%T", obj.Value))
-			return ""
 		case rainslib.OTServiceInfo:
 			if srvInfo, ok := obj.Value.(rainslib.ServiceInfo); ok {
-				objects += fmt.Sprintf("%s      %s %d %d\n", TypeServiceInfo, srvInfo.Name, srvInfo.Port, srvInfo.Priority)
-				continue
+				object += fmt.Sprintf("%s%s %d %d", addIndentToType(TypeServiceInfo), srvInfo.Name, srvInfo.Port, srvInfo.Priority)
+			} else {
+				log.Warn("Type assertion failed. Expected rainslib.ServiceInfo", "actualType", fmt.Sprintf("%T", obj.Value))
+				return ""
 			}
-			log.Warn("Type assertion failed. Expected rainslib.ServiceInfo", "actualType", fmt.Sprintf("%T", obj.Value))
-			return ""
 		case rainslib.OTRegistrar:
-			objects += fmt.Sprintf("%s     %s\n", TypeRegistrar, obj.Value)
+			object += fmt.Sprintf("%s%s", addIndentToType(TypeRegistrar), obj.Value)
 		case rainslib.OTRegistrant:
-			objects += fmt.Sprintf("%s     %s\n", TypeRegistrant, obj.Value)
+			object += fmt.Sprintf("%s%s", addIndentToType(TypeRegistrant), obj.Value)
 		case rainslib.OTInfraKey:
 			if pkey, ok := obj.Value.(rainslib.PublicKey); ok {
-				objects += fmt.Sprintf("%s    %s\n", TypeInfraKey, encodePublicKey(pkey))
-				continue
+				object += fmt.Sprintf("%s%s", addIndentToType(TypeInfraKey), encodeEd25519PublicKey(pkey))
+			} else {
+				log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+				return ""
 			}
-			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
-			return ""
 		case rainslib.OTExtraKey:
 			if pkey, ok := obj.Value.(rainslib.PublicKey); ok {
-				objects += fmt.Sprintf("%s    %s %s\n", TypeExternalKey, encodeKeySpace(pkey.KeySpace), encodePublicKey(pkey))
-				continue
+				object += fmt.Sprintf("%s%s %s", addIndentToType(TypeExternalKey), encodeKeySpace(pkey.KeySpace), encodeEd25519PublicKey(pkey))
+			} else {
+				log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+				return ""
 			}
-			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
-			return ""
 		case rainslib.OTNextKey:
 			if pkey, ok := obj.Value.(rainslib.PublicKey); ok {
-				objects += fmt.Sprintf("%s     %s %d %d\n", TypeNextKey, encodePublicKey(pkey), pkey.ValidSince, pkey.ValidUntil)
-				continue
+				object += fmt.Sprintf("%s%s %d %d", addIndentToType(TypeNextKey), encodeEd25519PublicKey(pkey), pkey.ValidSince, pkey.ValidUntil)
+			} else {
+				log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+				return ""
 			}
-			log.Warn("Type assertion failed. Expected rainslib.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
-			return ""
 		default:
 			log.Warn("Unsupported obj type", "type", fmt.Sprintf("%T", obj.Type))
 			return ""
 		}
+		objects = append(objects, object)
 	}
-	if len(o) > 0 {
-		objects = objects[:len(objects)-1] //remove the last new line
-	}
-	return objects
+	return strings.Join(objects, "\n")
+}
+
+//addIndentToType returns the object type ot with appropriate indent such that the object value start at the same
+//indent.
+func addIndentToType(ot string) string {
+	result := "          "
+	return ot + result[len(ot):]
 }
 
 //encodeNameObject returns no represented as a string in zone file format.
@@ -150,31 +155,31 @@ func encodeNameObject(no rainslib.NameObject) string {
 	for _, oType := range no.Types {
 		switch oType {
 		case rainslib.OTName:
-			nameObject = append(nameObject, otName)
+			nameObject = append(nameObject, TypeName)
 		case rainslib.OTIP6Addr:
-			nameObject = append(nameObject, otIP6)
+			nameObject = append(nameObject, TypeIP6)
 		case rainslib.OTIP4Addr:
-			nameObject = append(nameObject, otIP4)
+			nameObject = append(nameObject, TypeIP4)
 		case rainslib.OTRedirection:
-			nameObject = append(nameObject, otRedirection)
+			nameObject = append(nameObject, TypeRedirection)
 		case rainslib.OTDelegation:
-			nameObject = append(nameObject, otDelegation)
+			nameObject = append(nameObject, TypeDelegation)
 		case rainslib.OTNameset:
-			nameObject = append(nameObject, otNameSet)
+			nameObject = append(nameObject, TypeNameSet)
 		case rainslib.OTCertInfo:
-			nameObject = append(nameObject, otCertificate)
+			nameObject = append(nameObject, TypeCertificate)
 		case rainslib.OTServiceInfo:
-			nameObject = append(nameObject, otServiceInfo)
+			nameObject = append(nameObject, TypeServiceInfo)
 		case rainslib.OTRegistrar:
-			nameObject = append(nameObject, otRegistrar)
+			nameObject = append(nameObject, TypeRegistrar)
 		case rainslib.OTRegistrant:
-			nameObject = append(nameObject, otRegistrant)
+			nameObject = append(nameObject, TypeRegistrant)
 		case rainslib.OTInfraKey:
-			nameObject = append(nameObject, otInfraKey)
+			nameObject = append(nameObject, TypeInfraKey)
 		case rainslib.OTExtraKey:
-			nameObject = append(nameObject, otExternalKey)
+			nameObject = append(nameObject, TypeExternalKey)
 		case rainslib.OTNextKey:
-			nameObject = append(nameObject, otNextKey)
+			nameObject = append(nameObject, TypeNextKey)
 		default:
 			log.Warn("Unsupported object type in nameObject", "actualType", oType, "nameObject", no)
 		}
@@ -182,27 +187,12 @@ func encodeNameObject(no rainslib.NameObject) string {
 	return fmt.Sprintf("%s [ %s ]", no.Name, strings.Join(nameObject, " "))
 }
 
-//encodePublicKey returns pkey represented as a string in zone file format.
-func encodePublicKey(pkey rainslib.PublicKey) string {
-	switch pkey.Algorithm {
-	case rainslib.Ed25519:
-		if key, ok := pkey.Key.(ed25519.PublicKey); ok {
-			return fmt.Sprintf("%s %s", TypeEd25519, hex.EncodeToString(key))
-		}
-		log.Warn("Type assertion failed. Expected rainslib.Ed25519PublicKey", "actualType", fmt.Sprintf("%T", pkey.Key))
-	case rainslib.Ed448:
-		log.Warn("Not yet implemented")
-		return ""
-	case rainslib.Ecdsa256:
-		log.Warn("Not yet implemented")
-		return ""
-	case rainslib.Ecdsa384:
-		log.Warn("Not yet implemented")
-		return ""
-	default:
-		log.Warn("Unsupported signature algorithm type", "actualType", pkey.Algorithm)
-
+//encodeEd25519PublicKey returns pkey represented as a string in zone file format.
+func encodeEd25519PublicKey(pkey rainslib.PublicKey) string {
+	if key, ok := pkey.Key.(ed25519.PublicKey); ok {
+		return fmt.Sprintf("%s %d %s", TypeEd25519, pkey.KeyPhase, hex.EncodeToString(key))
 	}
+	log.Warn("Type assertion failed. Expected rainslib.Ed25519PublicKey", "actualType", fmt.Sprintf("%T", pkey.Key))
 	return ""
 }
 
@@ -252,13 +242,4 @@ func encodeCertificate(cert rainslib.CertificateObject) string {
 		return ""
 	}
 	return fmt.Sprintf("%s %s %s %s", pt, cu, ca, hex.EncodeToString(cert.Data))
-}
-
-//getContextAndZone return the context and subjectZone to be used in contained assertions or shards.
-//if toSign is true it returns the context and subjectZone from the outer section.
-func getContextAndZone(outerContext, outerZone string, containedSection rainslib.MessageSectionWithSigForward, toSign bool) (string, string) {
-	if toSign {
-		return outerContext, outerZone
-	}
-	return containedSection.GetContext(), containedSection.GetSubjectZone()
 }

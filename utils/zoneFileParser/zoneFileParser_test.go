@@ -78,14 +78,14 @@ func TestEncodeSection(t *testing.T) {
 		SubjectName: "ethz",
 	}
 	var tests = []struct {
-		input rainslib.MessageSection
+		input rainslib.MessageSectionWithSigForward
 		want  string
 	}{
 		{assertion, ":A: ethz [ :ip4: 127.0.0.1 ]"},
 	}
 	p := Parser{}
 	for _, test := range tests {
-		if p.EncodeSection(test.input) != test.want {
+		if string(p.EncodeSection(test.input)) != test.want {
 			t.Errorf("parser.EncodeSection() incorrect. expected=%s, actual=%s", test.want, p.EncodeSection(test.input))
 		}
 	}
@@ -112,7 +112,7 @@ func TestEncodeMessage(t *testing.T) {
 	}
 	p := Parser{}
 	for _, test := range tests {
-		if p.EncodeMessage(test.input) != test.want {
+		if string(p.EncodeMessage(test.input)) != test.want {
 			t.Errorf("parser.EncodeSection() incorrect. expected=%s, actual=%s", test.want, p.EncodeMessage(test.input))
 		}
 	}
