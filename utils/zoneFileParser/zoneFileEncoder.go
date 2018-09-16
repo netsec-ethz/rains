@@ -25,6 +25,16 @@ func encodeZone(z *rainslib.ZoneSection, addZoneAndContext bool) string {
 			log.Warn("Unsupported message section type", "msgSection", section)
 		}
 	}
+	if z.Signatures != nil {
+		var sigs []string
+		for _, sig := range z.Signatures {
+			sigs = append(sigs, encodeEd25519Signature(sig))
+		}
+		if len(sigs) == 1 {
+			return fmt.Sprintf("%s] ( %s )\n", zone, sigs[0])
+		}
+		return fmt.Sprintf("%s] ( \n%s%s\n )\n", zone, indent4, strings.Join(sigs, "\n"+indent4))
+	}
 	return fmt.Sprintf("%s]\n", zone)
 }
 
@@ -242,4 +252,12 @@ func encodeCertificate(cert rainslib.CertificateObject) string {
 		return ""
 	}
 	return fmt.Sprintf("%s %s %s %s", pt, cu, ca, hex.EncodeToString(cert.Data))
+}
+
+func encodeEd25519Signature(sig rainslib.Signature) string {
+	signature := fmt.Sprintf("%s %s %s %d %d %d", TypeSignature, TypeEd25519, TypeKSRains, sig.PublicKeyID.KeyPhase, sig.ValidSince, sig.ValidUntil)
+	if pkey, ok := sig.Data.(ed25519.PublicKey); ok {
+		return fmt.Sprintf("%s %s", signature, hex.EncodeToString(pkey))
+	}
+	return signature
 }
