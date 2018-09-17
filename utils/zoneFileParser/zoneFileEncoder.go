@@ -71,6 +71,49 @@ func encodeShard(s *rainslib.ShardSection, context, subjectZone, indent string, 
 	return fmt.Sprintf("%s%s%s]\n", indent, shard, indent)
 }
 
+//encodePshard returns s in zonefile format. If addZoneAndContext is true, the context and subject
+//zone are present for the pshard.
+func encodePshard(s *rainslib.PshardSection, context, subjectZone, indent string, addZoneAndContext bool) string {
+	rangeFrom := s.RangeFrom
+	rangeTo := s.RangeTo
+	if rangeFrom == "" {
+		rangeFrom = "<"
+	}
+	if rangeTo == "" {
+		rangeTo = ">"
+	}
+	var pshard string
+	if addZoneAndContext {
+		pshard = fmt.Sprintf("%s %s %s %s %s %s", TypePshard, subjectZone, context, rangeFrom, rangeTo)
+	} else {
+		pshard = fmt.Sprintf("%s %s %s %s", TypePshard, rangeFrom, rangeTo)
+	}
+	if s.Signatures != nil {
+		var sigs []string
+		for _, sig := range s.Signatures {
+			sigs = append(sigs, encodeEd25519Signature(sig))
+		}
+		if len(sigs) == 1 {
+			return fmt.Sprintf("%s%s ( %s )\n", indent, pshard, sigs[0])
+		}
+		return fmt.Sprintf("%s%s ( \n%s%s\n%s  )\n", indent, pshard, indent+indent4, strings.Join(sigs, "\n"+indent+indent4), indent)
+	}
+	return fmt.Sprintf("%s%s\n", indent, pshard)
+}
+
+//encodeDataStructure returns d in zonefile format.
+func encodeDataStructure(d *rainslib.DataStructure) string {
+	bloomFilter, ok := d.Data.(rainslib.BloomFilter)
+	if !ok {
+		log.Error("Type not yet implemented", "type", fmt.Sprintf("%T", d.Data))
+	}
+	var hashFamily []string
+	for _, hash := range bloomFilter.HashFamily {
+		hashFamily = append(hashFamily, encodeHashAlgo(hash))
+	}
+	return fmt.Sprintf("%s [ %s ] %d %s %s", d.Type, strings.Join(hashFamily, " "), bloomFilter.NofHashFunctions, d.Type, string(bloomFilter.Filter))
+}
+
 //encodeAssertion returns a in zonefile format. If addZoneAndContext is true, the context and
 //subject zone are also present.
 func encodeAssertion(a *rainslib.AssertionSection, context, zone, indent string, addZoneAndContext bool) string {
@@ -260,20 +303,28 @@ func encodeCertificate(cert rainslib.CertificateObject) string {
 		log.Warn("Unsupported certificate usage", "certUsage", cert.Usage)
 		return ""
 	}
-	switch cert.HashAlgo {
+	ca = encodeHashAlgo(cert.HashAlgo)
+	return fmt.Sprintf("%s %s %s %s", pt, cu, ca, hex.EncodeToString(cert.Data))
+}
+
+func encodeHashAlgo(h rainslib.HashAlgorithmType) string {
+	switch h {
 	case rainslib.NoHashAlgo:
-		ca = TypeNoHash
+		return TypeNoHash
 	case rainslib.Sha256:
-		ca = TypeSha256
+		return TypeSha256
 	case rainslib.Sha384:
-		ca = TypeSha384
+		return TypeSha384
 	case rainslib.Sha512:
-		ca = TypeSha512
+		return TypeSha512
+	case rainslib.Fnv64:
+		return TypeFnv64
+	case rainslib.Murmur364:
+		return TypeMurmur364
 	default:
-		log.Warn("Unsupported certificate hash algorithm type", "hashAlgoType", cert.HashAlgo)
+		log.Warn("Unsupported certificate hash algorithm type", "hashAlgoType", h)
 		return ""
 	}
-	return fmt.Sprintf("%s %s %s %s", pt, cu, ca, hex.EncodeToString(cert.Data))
 }
 
 func encodeEd25519Signature(sig rainslib.Signature) string {
