@@ -30,6 +30,24 @@ func AddSigs(section rainslib.MessageSectionWithSigForward, signatures []rainsli
     }
 }
 
+func DecodeBloomFilter(hashAlgos []rainslib.HashAlgorithmType, modeOfOperation rainslib.ModeOfOperationType,
+    nofHashFunctions, filter string) (rainslib.BloomFilter, error) {
+    funcs, err := strconv.Atoi(nofHashFunctions)
+	if err != nil {
+		return rainslib.BloomFilter{}, errors.New("nofHashFunctions is not a number")
+	}
+    decodedFilter, err := hex.DecodeString(filter)
+	if err != nil {
+		return rainslib.BloomFilter{}, err
+	}
+    return rainslib.BloomFilter{
+            HashFamily: hashAlgos,
+            NofHashFunctions: funcs,
+            ModeOfOperation: modeOfOperation,
+            Filter: decodedFilter,
+        }, nil
+}
+
 func DecodePublicKeyID(keyphase string) (rainslib.PublicKeyID, error) {
     phase, err := strconv.Atoi(keyphase)
 	if err != nil {
@@ -120,6 +138,7 @@ var output []rainslib.MessageSectionWithSigForward
     assertion       *rainslib.AssertionSection
     assertions      []*rainslib.AssertionSection
     shard           *rainslib.ShardSection
+    pshard          *rainslib.PshardSection
     zone            *rainslib.ZoneSection
     sections        []rainslib.MessageSectionWithSigForward
     objects         []rainslib.Object
@@ -133,6 +152,9 @@ var output []rainslib.MessageSectionWithSigForward
     protocolType    rainslib.ProtocolType
     certUsage       rainslib.CertificateUsage
     hashType        rainslib.HashAlgorithmType
+    hashTypes       []rainslib.HashAlgorithmType
+    dataStructure   rainslib.DataStructure
+    bfOpMode        rainslib.ModeOfOperationType
 }
 
 // any non-terminal which returns a value needs a type, which must be a field 
@@ -141,6 +163,8 @@ var output []rainslib.MessageSectionWithSigForward
 %type <sections>        zoneContent sections
 %type <shard>           shard shardBody
 %type <shardRange>      shardRange
+%type <pshard>          pshard pshardBody
+%type <dataStructure>   pshardContent bloomFilter
 %type <assertions>      shardContent
 %type <assertion>       assertion assertionBody
 %type <objects>         objects name ip4 ip6 redir deleg nameset cert
@@ -154,12 +178,14 @@ var output []rainslib.MessageSectionWithSigForward
 %type <str>             freeText
 %type <protocolType>    protocolType
 %type <certUsage>       certUsage
+%type <hashTypes>       hashTypes
 %type <hashType>        hashType
+%type <bfOpMode>        bfOpMode
 
 // Terminals
 %token <str> ID
 // Section types
-%token assertionType shardType zoneType
+%token assertionType shardType pshardType zoneType
 // Object types
 %token nameType ip4Type ip6Type redirType delegType namesetType certType
 %token srvType regrType regtType infraType extraType nextType
@@ -170,7 +196,11 @@ var output []rainslib.MessageSectionWithSigForward
 // Certificate types
 %token unspecified tls trustAnchor endEntity 
 // Hash algorithm types
-%token noHash sha256 sha384 sha512
+%token noHash sha256 sha384 sha512 fnv64 murmur364
+// Data structure types
+%token bloomFilterType
+// Bloom filter mode of operations
+%token standard km1 km2
 // Key spaces
 %token rains
 // Special shard range markers
@@ -194,6 +224,10 @@ sections        : /* empty */
                     $$ = append($1, $2)
                 }
                 | sections shard
+                {
+                    $$ = append($1, $2)
+                }
+                | sections pshard
                 {
                     $$ = append($1, $2)
                 }
@@ -281,6 +315,68 @@ shardContent :  /* empty */
                 | shardContent assertion
                 {
                     $$ = append($1,$2)
+                }
+
+pshard          : pshardBody
+                | pshardBody annotation
+                {
+                    AddSigs($1,$2)
+                    $$ = $1
+                }
+
+pshardBody      : pshardType ID ID shardRange pshardContent
+                {
+                    $$ = &rainslib.PshardSection{
+                        SubjectZone: $2, 
+                        Context: $3,
+                        RangeFrom: $4[0],
+                        RangeTo: $4[1],
+                        Datastructure: $5,
+                    }
+                }
+                | shardType shardRange pshardContent
+                {
+                    $$ = &rainslib.PshardSection{
+                        RangeFrom: $2[0],
+                        RangeTo: $2[1],
+                        Datastructure: $3,
+                    }
+                }
+
+pshardContent   : bloomFilter
+
+bloomFilter     : bloomFilterType lBracket hashTypes rBracket ID bfOpMode ID
+                {
+                    bloomFilter, err := DecodeBloomFilter($3, $6, $5,$7)
+                    if  err != nil {
+                        log.Error("semantic error:", "DecodeBloomFilter", err)
+                    }
+                    $$ = rainslib.DataStructure{
+                        Type: rainslib.BloomFilterType,
+                        Data: bloomFilter,
+                    }
+                }
+
+hashTypes       : hashType
+                {
+                    $$ = []rainslib.HashAlgorithmType{$1}
+                }
+                | hashTypes hashType
+                {
+                    $$ = append($1,$2)
+                }
+
+bfOpMode        : standard
+                {
+                    $$ = rainslib.StandardOpType
+                }
+                | km1
+                {
+                    $$ = rainslib.KirschMitzenmacher1
+                }
+                | km2
+                {
+                    $$ = rainslib.KirschMitzenmacher2
                 }
 
 assertion       : assertionBody
@@ -670,6 +766,14 @@ hashType        : noHash
                 {
                     $$ = rainslib.Sha512
                 }
+                | fnv64
+                {
+                    $$ = rainslib.Fnv64
+                }
+                | murmur364
+                {
+                    $$ = rainslib.Murmur364
+                }
 
 freeText        : ID
                 | freeText ID
@@ -757,6 +861,8 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
         return assertionType
     case zoneFileParser.TypeShard :
         return shardType
+    case zoneFileParser.TypePshard :
+        return pshardType
     case zoneFileParser.TypeZone :
         return zoneType
     case zoneFileParser.TypeName :
@@ -805,6 +911,18 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
         return sha384
     case zoneFileParser.TypeSha512 :
         return sha512
+    case zoneFileParser.TypeFnv64 :
+        return fnv64
+    case zoneFileParser.TypeMurmur364 :
+        return murmur364
+    case zoneFileParser.TypeBloomFilter :
+        return bloomFilterType
+    case zoneFileParser.TypeStandard :
+        return standard
+    case zoneFileParser.TypeKM1 :
+        return km1
+    case zoneFileParser.TypeKM2 :
+        return km2
     case zoneFileParser.TypeKSRains :
         return rains
     case "<" :

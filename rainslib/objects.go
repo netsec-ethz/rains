@@ -175,7 +175,7 @@ const (
 	Sha384
 	Sha512
 	Fnv64
-	Murmur3_64
+	Murmur364
 )
 
 //PublicKeyID contains all necessary information to distinguish different public keys from the same

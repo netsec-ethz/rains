@@ -521,6 +521,11 @@ func (s *PshardSection) Hash() string {
 		s.Datastructure, s.Signatures)
 }
 
+//Sort sorts the content of the pshard lexicographically.
+func (s *PshardSection) Sort() {
+	//nothing to sort
+}
+
 //CompareTo compares two shards and returns 0 if they are equal, 1 if s is greater than shard and -1
 //if s is smaller than shard
 func (s *PshardSection) CompareTo(shard *PshardSection) int {
@@ -565,6 +570,11 @@ func (s *PshardSection) InRange(subjectName string) bool {
 //within the shards range.
 func (s *PshardSection) IsConsistent() bool {
 	return true
+}
+
+//NeededKeys adds to keysNeeded key meta data which is necessary to verify all s's signatures.
+func (s *PshardSection) NeededKeys(keysNeeded map[SignatureMetaData]bool) {
+	extractNeededKeys(s, keysNeeded)
 }
 
 //ZoneSection contains information about the zone

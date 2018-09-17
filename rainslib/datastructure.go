@@ -173,7 +173,7 @@ func calcHash(hashType HashAlgorithmType, encoding string) uint64 {
 	case Fnv64:
 		hash := fnv.New64()
 		return hash.Sum64()
-	case Murmur3_64:
+	case Murmur364:
 		return murmur3.Sum64([]byte(encoding))
 	default:
 		log.Error("Unsupported hash algorithm type")

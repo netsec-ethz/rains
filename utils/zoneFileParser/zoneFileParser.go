@@ -15,6 +15,7 @@ import (
 const (
 	TypeAssertion     = ":A:"
 	TypeShard         = ":S:"
+	TypePshard        = ":P:"
 	TypeZone          = ":Z:"
 	TypeSignature     = ":sig:"
 	TypeName          = ":name:"
@@ -39,6 +40,12 @@ const (
 	TypeSha256        = ":sha256:"
 	TypeSha384        = ":sha384:"
 	TypeSha512        = ":sha512:"
+	TypeFnv64         = ":fnv64:"
+	TypeMurmur364     = ":murmur364:"
+	TypeBloomFilter   = ":bloomFilter:"
+	TypeStandard      = ":standard:"
+	TypeKM1           = ":km1:"
+	TypeKM2           = ":km2:"
 	TypeKSRains       = ":rains:"
 
 	indent4  = "    "
