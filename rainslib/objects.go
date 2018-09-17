@@ -156,10 +156,10 @@ const (
 type SignatureAlgorithmType int
 
 const (
-	Ed25519  SignatureAlgorithmType = 1
-	Ed448    SignatureAlgorithmType = 2
-	Ecdsa256 SignatureAlgorithmType = 3
-	Ecdsa384 SignatureAlgorithmType = 4
+	Ed25519 SignatureAlgorithmType = iota + 1
+	Ed448
+	Ecdsa256
+	Ecdsa384
 )
 
 func (sigAlgo SignatureAlgorithmType) String() string {
@@ -170,10 +170,12 @@ func (sigAlgo SignatureAlgorithmType) String() string {
 type HashAlgorithmType int
 
 const (
-	NoHashAlgo HashAlgorithmType = 0
-	Sha256     HashAlgorithmType = 1
-	Sha384     HashAlgorithmType = 2
-	Sha512     HashAlgorithmType = 3
+	NoHashAlgo HashAlgorithmType = iota
+	Sha256
+	Sha384
+	Sha512
+	Fnv64
+	Murmur3_64
 )
 
 //PublicKeyID contains all necessary information to distinguish different public keys from the same

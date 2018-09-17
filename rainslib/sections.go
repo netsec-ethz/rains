@@ -191,6 +191,11 @@ func extractNeededKeys(section MessageSectionWithSig, sigData map[SignatureMetaD
 	}
 }
 
+//BloomFilterEncoding returns a string encoding of the assertion to add to or query a bloom filter
+func (a *AssertionSection) BloomFilterEncoding() string {
+	return fmt.Sprintf("%s.%s %s %d", a.SubjectName, a.SubjectZone, a.Context, a.Content[0].Type)
+}
+
 //ShardSection contains information about the shard
 type ShardSection struct {
 	Signatures  []Signature
