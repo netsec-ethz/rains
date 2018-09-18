@@ -54,7 +54,7 @@ func publish() {
 		createZone(zone, assertions, shards, pshards)
 	}
 	if config.AddSignatureMetaData {
-		if err = addSignatureMetaData(zone, nofAssertions); err != nil {
+		if err = addSignatureMetaData(zone, nofAssertions, len(pshards)); err != nil {
 			log.Error(err.Error())
 			return
 		}
@@ -299,8 +299,11 @@ func createZone(zone *rainslib.ZoneSection, assertions []*rainslib.AssertionSect
 	}
 }
 
-func addSignatureMetaData(zone *rainslib.ZoneSection, nofAssertions int) error {
+//addSignatureMetaData adds signature meta data to the zone content based on the configuration. It
+//assumes, that the zone content is sorted, i.e. pshards come before shards.
+func addSignatureMetaData(zone *rainslib.ZoneSection, nofAssertions, nofPshards int) error {
 	waitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofAssertions)
+	pshardWaitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofPshards)
 	signature := rainslib.Signature{
 		PublicKeyID: rainslib.PublicKeyID{
 			Algorithm: config.SignatureAlgorithm,
@@ -310,11 +313,16 @@ func addSignatureMetaData(zone *rainslib.ZoneSection, nofAssertions int) error {
 		ValidSince: int64(config.SigValidSince.Seconds()),
 		ValidUntil: int64(config.SigValidUntil.Seconds()),
 	}
+	firstShard := true
 	for _, section := range zone.Content {
 		switch s := section.(type) {
 		case *rainslib.AssertionSection:
 			return errors.New("standalone assertions in a zone are not supported")
 		case *rainslib.ShardSection:
+			if firstShard {
+				signature.ValidSince = int64(config.SigValidSince.Seconds())
+				signature.ValidUntil = int64(config.SigValidUntil.Seconds())
+			}
 			if config.AddSigMetaDataToShards {
 				s.AddSig(signature)
 			}
@@ -329,7 +337,11 @@ func addSignatureMetaData(zone *rainslib.ZoneSection, nofAssertions int) error {
 				signature.ValidUntil += waitInterval * int64(len(s.Content)) / int64(time.Second)
 			}
 		case *rainslib.PshardSection:
-			//TODO CFE
+			if config.AddSigMetaDataToPshards {
+				s.AddSig(signature)
+				signature.ValidSince += pshardWaitInterval / int64(time.Second)
+				signature.ValidUntil += pshardWaitInterval / int64(time.Second)
+			}
 		default:
 			return errors.New("unknown section type in zone")
 		}

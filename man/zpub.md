@@ -52,6 +52,8 @@ program. Keys are to be specified in a top-level JSON map.
   set to true, signature meta data is added to all assertions contained in a shard or zone.
 * `AddSigMetaDataToShards`: this option only has an effect when AddSignatureMetaData is true. If set
   to true, signature meta data is added to all shards contained the zone.
+* `AddSigMetaDataPshards`: this option only has an effect when AddSignatureMetaData is true. If set
+  to true, signature meta data is added to all pshards contained the zone.
 * `SignatureAlgorithm`: this option only has an effect when AddSignatureMetaData is true. Defines
   which algorithm will be used for signing. Together with KeyPhase this uniquely defines which
   private key will be used.

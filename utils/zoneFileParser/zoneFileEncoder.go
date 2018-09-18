@@ -21,6 +21,8 @@ func encodeZone(z *rainslib.ZoneSection, addZoneAndContext bool) string {
 			zone += encodeAssertion(section, z.Context, z.SubjectZone, indent4, addZoneAndContext)
 		case *rainslib.ShardSection:
 			zone += encodeShard(section, z.Context, z.SubjectZone, indent4, addZoneAndContext)
+		case *rainslib.PshardSection:
+			zone += encodePshard(section, z.Context, z.SubjectZone, indent4, addZoneAndContext)
 		default:
 			log.Warn("Unsupported message section type", "msgSection", section)
 		}

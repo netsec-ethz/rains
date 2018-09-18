@@ -694,6 +694,14 @@ func (z *ZoneSection) Sort() {
 				return section.CompareTo(a) < 0
 			}
 			return true
+		case *PshardSection:
+			if s, ok := z.Content[j].(*PshardSection); ok {
+				return section.CompareTo(s) < 0
+			}
+			if _, ok := z.Content[j].(*AssertionSection); ok {
+				return false
+			}
+			return true //it is a shard
 		case *ShardSection:
 			if s, ok := z.Content[j].(*ShardSection); ok {
 				return section.CompareTo(s) < 0

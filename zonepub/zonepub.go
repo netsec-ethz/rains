@@ -62,6 +62,7 @@ true. If the zone's size is larger than MaxZoneSize then only the zone's content
 the zone itself.`)
 var addSigMetaDataToAssertions boolFlag
 var addSigMetaDataToShards boolFlag
+var addSigMetaDataToPshards boolFlag
 var outputPath = flag.String("outputPath", "", `If set, a zonefile with the signed sections is 
 generated and stored at the provided path`)
 var doPublish boolFlag
@@ -95,6 +96,9 @@ func init() {
 	assertions contained in a shard or zone.`)
 	flag.Var(&addSigMetaDataToShards, "addSigMetaDataToShards", `this option only has an effect when
 	AddSignatureMetaData is true. If set to true, signature meta data is added to all shards
+	contained the zone.`)
+	flag.Var(&addSigMetaDataToPshards, "addSigMetaDataToPshards", `this option only has an effect
+	when AddSignatureMetaData is true. If set to true, signature meta data is added to all pshards
 	contained the zone.`)
 	flag.Var(&signatureAlgorithm, "signatureAlgorithm", "Algorithm to be used for signing")
 	flag.Var(&doConsistencyCheck, "doConsistencyCheck", `Performs all consistency checks if set to 
@@ -173,6 +177,9 @@ func main() {
 	}
 	if addSigMetaDataToShards.set {
 		config.AddSigMetaDataToShards = addSigMetaDataToShards.value
+	}
+	if addSigMetaDataToPshards.set {
+		config.AddSigMetaDataToPshards = addSigMetaDataToPshards.value
 	}
 	if signatureAlgorithm.set {
 		config.SignatureAlgorithm = signatureAlgorithm.value

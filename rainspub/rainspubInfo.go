@@ -48,6 +48,7 @@ type Config struct {
 	AddSignatureMetaData       bool
 	AddSigMetaDataToAssertions bool
 	AddSigMetaDataToShards     bool
+	AddSigMetaDataToPshards    bool
 	SignatureAlgorithm         rainslib.SignatureAlgorithmType
 	KeyPhase                   int
 	SigValidSince              time.Duration
