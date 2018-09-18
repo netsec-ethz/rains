@@ -78,7 +78,7 @@ func init() {
 	flag.Var(&keepExistingShards, "keepExistingShards", `this option only has an effect when 
 	DoSharding is true. If the zonefile already contains shards and keepExistingShards is true, the 
 	shards are kept. Otherwise, all existing shards are removed before the new ones are created.`)
-	flag.Var(&doPsharding, "keepExistingPshards", `If set to true, all assertions in the zonefile
+	flag.Var(&doPsharding, "doPsharding", `If set to true, all assertions in the zonefile
 	are grouped into pshards based on KeepExistingPshards, NofAssertionsPerPshard, Hashfamily,
 	NofHashFunctions, BFOpMode, and BloomFilterSize parameters.`)
 	flag.Var(&keepExistingPshards, "keepExistingPshards", `this option only has an effect when 
@@ -87,7 +87,7 @@ func init() {
 	created.`)
 	flag.Var(&hashfamily, "hashfamily", `A list of hash algorithm identifiers present in the hash
 	family.`)
-	flag.Var(&bfOpModeFlag, "bfOpModeFlag", `Bloom filter's mode of operation`)
+	flag.Var(&bFOpMode, "bfOpModeFlag", `Bloom filter's mode of operation`)
 	flag.Var(&addSignatureMetaData, "addSignatureMetaData", `If set to true, adds signature meta 
 	data to sections`)
 	flag.Var(&addSigMetaDataToAssertions, "addSigMetaDataToAssertions", `this option only has an
@@ -276,14 +276,14 @@ func (i *hashFamilyFlag) Set(value string) error {
 		switch algo {
 		case zoneFileParser.TypeSha256:
 			i.value = append(i.value, rainslib.Sha256)
-		case zoneFileParser.TypeSha2384:
+		case zoneFileParser.TypeSha384:
 			i.value = append(i.value, rainslib.Sha384)
 		case zoneFileParser.TypeSha512:
 			i.value = append(i.value, rainslib.Sha512)
 		case zoneFileParser.TypeFnv64:
 			i.value = append(i.value, rainslib.Fnv64)
 		case zoneFileParser.TypeMurmur364:
-			i.value = append(i.value, rainslib.TypeMurmur364)
+			i.value = append(i.value, rainslib.Murmur364)
 		default:
 			return errors.New("unknown hash algorithm type")
 		}
@@ -328,7 +328,7 @@ func (i *bfOpModeFlag) Set(value string) error {
 	case zoneFileParser.TypeKM1, "km1", "1":
 		i.set = true
 		i.value = rainslib.KirschMitzenmacher1
-	case zoneFileParser.TypeKM1, "km2", "2":
+	case zoneFileParser.TypeKM2, "km2", "2":
 		i.set = true
 		i.value = rainslib.KirschMitzenmacher2
 	default:

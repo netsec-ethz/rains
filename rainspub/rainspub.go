@@ -6,6 +6,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/netsec-ethz/rains/utils/bitarray"
+
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/rainsSiglib"
 	"github.com/netsec-ethz/rains/rainslib"
@@ -30,12 +32,26 @@ func publish() {
 		return
 	}
 	log.Info("Zonefile successful loaded")
-	var nofAssertions int
+	assertions, shards, pshards, err := splitZoneContent(zone)
+	nofAssertions := len(assertions)
+	if err != nil {
+		return
+	}
 	if config.DoSharding {
-		if nofAssertions, err = doSharding(zone); err != nil {
+		if shards, err = doSharding(zone, assertions, shards); err != nil {
 			log.Error(err.Error())
 			return
 		}
+		assertions = nil
+	}
+	if config.DoPsharding {
+		if pshards, err = doPsharding(zone, assertions, pshards); err != nil {
+			log.Error(err.Error())
+			return
+		}
+	}
+	if config.DoSharding || config.DoPsharding {
+		createZone(zone, assertions, shards, pshards)
 	}
 	if config.AddSignatureMetaData {
 		if err = addSignatureMetaData(zone, nofAssertions); err != nil {
@@ -55,38 +71,6 @@ func publish() {
 		log.Info("Signing completed successfully")
 	}
 	publishZone(zone)
-}
-
-func doSharding(zone *rainslib.ZoneSection) (int, error) {
-	assertions, shards, pshards, err := splitZoneContent(zone)
-	if err != nil {
-		return 0, err
-	}
-	if config.SortShards {
-		sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
-	}
-	var newShards []*rainslib.ShardSection
-	if config.MaxShardSize > 0 {
-		newShards, err = groupAssertionsToShardsBySize(zone.SubjectZone, zone.Context, assertions, config.MaxShardSize)
-		if err != nil {
-			return 0, err
-		}
-	} else if config.NofAssertionsPerShard > 0 {
-		newShards = groupAssertionsToShardsByNumber(zone.SubjectZone, zone.Context, assertions)
-	} else {
-		return 0, errors.New("MaxShardSize or NofAssertionsPerShard must be positive when DoSharding is set")
-	}
-	if len(shards) != 0 {
-		shards = append(shards, newShards...)
-		sort.Slice(shards, func(i, j int) bool { return shards[i].CompareTo(shards[j]) < 0 })
-	} else {
-		shards = newShards
-	}
-	zone.Content = nil
-	for _, s := range shards {
-		zone.Content = append(zone.Content, s)
-	}
-	return len(assertions), nil
 }
 
 //splitZoneContent returns an array of assertions and an array of shards contained in zone.
@@ -115,6 +99,53 @@ func splitZoneContent(zone *rainslib.ZoneSection) ([]*rainslib.AssertionSection,
 		}
 	}
 	return assertions, shards, pshards, nil
+}
+
+func doSharding(zone *rainslib.ZoneSection, assertions []*rainslib.AssertionSection,
+	shards []*rainslib.ShardSection) ([]*rainslib.ShardSection, error) {
+	if config.SortShards {
+		sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
+	}
+	var newShards []*rainslib.ShardSection
+	var err error
+	if config.MaxShardSize > 0 {
+		newShards, err = groupAssertionsToShardsBySize(zone.SubjectZone, zone.Context, assertions,
+			config.MaxShardSize)
+		if err != nil {
+			return nil, err
+		}
+	} else if config.NofAssertionsPerShard > 0 {
+		newShards = groupAssertionsToShardsByNumber(zone.SubjectZone, zone.Context, assertions)
+	} else {
+		return nil, errors.New("MaxShardSize or NofAssertionsPerShard must be positive when DoSharding is set")
+	}
+	if len(shards) != 0 {
+		shards = append(shards, newShards...)
+		sort.Slice(shards, func(i, j int) bool { return shards[i].CompareTo(shards[j]) < 0 })
+	} else {
+		shards = newShards
+	}
+	return shards, nil
+}
+
+func doPsharding(zone *rainslib.ZoneSection, assertions []*rainslib.AssertionSection,
+	pshards []*rainslib.PshardSection) ([]*rainslib.PshardSection, error) {
+	var newPshards []*rainslib.PshardSection
+	var err error
+	if config.NofAssertionsPerPshard > 0 {
+		if newPshards, err = groupAssertionsToPshards(zone.SubjectZone, zone.Context, assertions); err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, errors.New("NofAssertionsPerPshard must be positive when DoPsharding is set")
+	}
+	if len(pshards) != 0 {
+		pshards = append(pshards, newPshards...)
+		sort.Slice(pshards, func(i, j int) bool { return pshards[i].CompareTo(pshards[j]) < 0 })
+	} else {
+		pshards = newPshards
+	}
+	return pshards, nil
 }
 
 //groupAssertionsToShardsBySize groups assertions into shards such that each shard is not exceeding
@@ -202,6 +233,72 @@ func groupAssertionsToShardsByNumber(subjectZone, context string,
 	return shards
 }
 
+//groupAssertionsToShardsByNumber creates shards containing a maximum number of different assertion
+//names according to the configuration. It returns a slice of the created shards.
+func groupAssertionsToPshards(subjectZone, context string,
+	assertions []*rainslib.AssertionSection) ([]*rainslib.PshardSection, error) {
+	pshards := []*rainslib.PshardSection{}
+	nameCount := 0
+	prevAssertionSubjectName := ""
+	prevShardAssertionSubjectName := ""
+	pshard := &rainslib.PshardSection{}
+	bloomFilter := getBloomFilter()
+	for i, a := range assertions {
+		if prevAssertionSubjectName != a.SubjectName {
+			nameCount++
+			prevAssertionSubjectName = a.SubjectName
+		}
+		if nameCount > config.NofAssertionsPerPshard {
+			pshard.RangeFrom = prevShardAssertionSubjectName
+			pshard.RangeTo = a.SubjectName
+			pshard.Datastructure.Data = bloomFilter
+			pshards = append(pshards, pshard)
+			nameCount = 1
+			pshard = &rainslib.PshardSection{}
+			bloomFilter = getBloomFilter()
+			prevShardAssertionSubjectName = assertions[i-1].SubjectName
+		}
+		if err := bloomFilter.AddAssertion(a); err != nil {
+			return nil, err
+		}
+	}
+	pshard.RangeFrom = prevShardAssertionSubjectName
+	pshard.RangeTo = ""
+	pshards = append(pshards, pshard)
+	log.Info("Sharding by number completed successfully")
+	return pshards, nil
+}
+
+func getBloomFilter() rainslib.BloomFilter {
+	var size int
+	if config.BloomFilterSize%8 == 0 {
+		size = config.BloomFilterSize % 8
+	} else {
+		size = (config.BloomFilterSize/8 + 1) * 8
+	}
+	return rainslib.BloomFilter{
+		HashFamily:       config.Hashfamily,
+		NofHashFunctions: config.NofHashFunctions,
+		ModeOfOperation:  config.BFOpMode,
+		Filter:           make(bitarray.BitArray, size),
+	}
+}
+
+//createZone overwrites zone with assertions, pshards and shards in the correct order.
+func createZone(zone *rainslib.ZoneSection, assertions []*rainslib.AssertionSection,
+	shards []*rainslib.ShardSection, pshards []*rainslib.PshardSection) {
+	zone.Content = nil
+	for _, a := range assertions {
+		zone.Content = append(zone.Content, a)
+	}
+	for _, s := range pshards {
+		zone.Content = append(zone.Content, s)
+	}
+	for _, s := range shards {
+		zone.Content = append(zone.Content, s)
+	}
+}
+
 func addSignatureMetaData(zone *rainslib.ZoneSection, nofAssertions int) error {
 	waitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofAssertions)
 	signature := rainslib.Signature{
@@ -214,23 +311,29 @@ func addSignatureMetaData(zone *rainslib.ZoneSection, nofAssertions int) error {
 		ValidUntil: int64(config.SigValidUntil.Seconds()),
 	}
 	for _, section := range zone.Content {
-		shard, ok := section.(*rainslib.ShardSection)
-		if !ok {
+		switch s := section.(type) {
+		case *rainslib.AssertionSection:
 			return errors.New("standalone assertions in a zone are not supported")
-		}
-		if config.AddSigMetaDataToShards {
-			shard.AddSig(signature)
-		}
-		if config.AddSigMetaDataToAssertions {
-			for _, assertion := range shard.Content {
-				assertion.AddSig(signature)
-				signature.ValidSince += waitInterval / int64(time.Second)
-				signature.ValidUntil += waitInterval / int64(time.Second)
+		case *rainslib.ShardSection:
+			if config.AddSigMetaDataToShards {
+				s.AddSig(signature)
 			}
-		} else {
-			signature.ValidSince += waitInterval * int64(len(shard.Content)) / int64(time.Second)
-			signature.ValidUntil += waitInterval * int64(len(shard.Content)) / int64(time.Second)
+			if config.AddSigMetaDataToAssertions {
+				for _, assertion := range s.Content {
+					assertion.AddSig(signature)
+					signature.ValidSince += waitInterval / int64(time.Second)
+					signature.ValidUntil += waitInterval / int64(time.Second)
+				}
+			} else {
+				signature.ValidSince += waitInterval * int64(len(s.Content)) / int64(time.Second)
+				signature.ValidUntil += waitInterval * int64(len(s.Content)) / int64(time.Second)
+			}
+		case *rainslib.PshardSection:
+			//TODO CFE
+		default:
+			return errors.New("unknown section type in zone")
 		}
+
 	}
 	return nil
 }
