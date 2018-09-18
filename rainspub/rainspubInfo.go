@@ -38,6 +38,13 @@ type Config struct {
 	KeepExistingShards         bool
 	NofAssertionsPerShard      int
 	MaxShardSize               int
+	DoPsharding                bool
+	KeepExistingPshards        bool
+	NofAssertionsPerPshard     int
+	Hashfamily                 []rainslib.HashAlgorithmType
+	NofHashFunctions           int
+	BFOpMode                   rainslib.ModeOfOperationType
+	BloomFilterSize            int
 	AddSignatureMetaData       bool
 	AddSigMetaDataToAssertions bool
 	AddSigMetaDataToShards     bool

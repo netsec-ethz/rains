@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/rainspub"
+	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 )
 
 var configPath string
@@ -27,6 +29,18 @@ per shard if sharding is performed`)
 var maxShardSize = flag.Int("maxShardSize", -1, `this option only has an effect when DoSharding is 
 true. Assertions are added to a shard until its size would become larger than maxShardSize. Then the
 process is repeated with a new shard.`)
+var doPsharding boolFlag
+var keepExistingPshards boolFlag
+var nofAssertionsPerPshard = flag.Int("nofAssertionsPerPshard", -1, `this option only has an effect
+when doPsharding is true. Defines the number of assertions with different names per pshard if
+sharding is performed. Because the number of assertions per name can vary, shards may have different
+sizes.`)
+var hashfamily hashFamilyFlag
+var nofHashFunctions = flag.Int("nofHashFunctions", -1, `The number of hash functions used to add to
+and query the bloom filter.`)
+var bFOpMode bfOpModeFlag
+var bloomFilterSize = flag.Int("bloomFilterSize", -1, `Number of bits in the bloom filter. It will
+be rounded up to the next multiple of eight.`)
 var addSignatureMetaData boolFlag
 var signatureAlgorithm algorithmFlag
 var keyPhase = flag.Int("keyPhase", -1, "Defines which private key is used for signing")
@@ -64,6 +78,16 @@ func init() {
 	flag.Var(&keepExistingShards, "keepExistingShards", `this option only has an effect when 
 	DoSharding is true. If the zonefile already contains shards and keepExistingShards is true, the 
 	shards are kept. Otherwise, all existing shards are removed before the new ones are created.`)
+	flag.Var(&doPsharding, "keepExistingPshards", `If set to true, all assertions in the zonefile
+	are grouped into pshards based on KeepExistingPshards, NofAssertionsPerPshard, Hashfamily,
+	NofHashFunctions, BFOpMode, and BloomFilterSize parameters.`)
+	flag.Var(&keepExistingPshards, "keepExistingPshards", `this option only has an effect when 
+	DoPsharding is true. If the zonefile already contains pshards and keepExistingPshards is true,
+	the pshards are kept. Otherwise, all existing pshards are removed before the new ones are
+	created.`)
+	flag.Var(&hashfamily, "hashfamily", `A list of hash algorithm identifiers present in the hash
+	family.`)
+	flag.Var(&bfOpModeFlag, "bfOpModeFlag", `Bloom filter's mode of operation`)
 	flag.Var(&addSignatureMetaData, "addSignatureMetaData", `If set to true, adds signature meta 
 	data to sections`)
 	flag.Var(&addSigMetaDataToAssertions, "addSigMetaDataToAssertions", `this option only has an
@@ -119,6 +143,27 @@ func main() {
 	}
 	if *maxShardSize != -1 {
 		config.MaxShardSize = *maxShardSize
+	}
+	if doPsharding.set {
+		config.DoPsharding = doPsharding.value
+	}
+	if keepExistingPshards.set {
+		config.KeepExistingPshards = keepExistingPshards.value
+	}
+	if *nofAssertionsPerPshard != -1 {
+		config.NofAssertionsPerPshard = *nofAssertionsPerPshard
+	}
+	if hashfamily.set {
+		config.Hashfamily = hashfamily.value
+	}
+	if *nofHashFunctions != -1 {
+		config.NofHashFunctions = *nofHashFunctions
+	}
+	if bFOpMode.set {
+		config.BFOpMode = bFOpMode.value
+	}
+	if *bloomFilterSize != -1 {
+		config.BloomFilterSize = *bloomFilterSize
 	}
 	if addSignatureMetaData.set {
 		config.AddSignatureMetaData = addSignatureMetaData.value
@@ -214,6 +259,38 @@ func (i *addressesFlag) Set(value string) error {
 	return nil
 }
 
+type hashFamilyFlag struct {
+	set   bool
+	value []rainslib.HashAlgorithmType
+}
+
+func (i *hashFamilyFlag) String() string {
+	return fmt.Sprintf("%s", *i)
+}
+
+func (i *hashFamilyFlag) Set(value string) error {
+	var algos []string
+	algos = strings.Split(value, ",")
+	i.set = true
+	for _, algo := range algos {
+		switch algo {
+		case zoneFileParser.TypeSha256:
+			i.value = append(i.value, rainslib.Sha256)
+		case zoneFileParser.TypeSha2384:
+			i.value = append(i.value, rainslib.Sha384)
+		case zoneFileParser.TypeSha512:
+			i.value = append(i.value, rainslib.Sha512)
+		case zoneFileParser.TypeFnv64:
+			i.value = append(i.value, rainslib.Fnv64)
+		case zoneFileParser.TypeMurmur364:
+			i.value = append(i.value, rainslib.TypeMurmur364)
+		default:
+			return errors.New("unknown hash algorithm type")
+		}
+	}
+	return nil
+}
+
 type algorithmFlag struct {
 	set   bool
 	value rainslib.SignatureAlgorithmType
@@ -225,11 +302,37 @@ func (i *algorithmFlag) String() string {
 
 func (i *algorithmFlag) Set(value string) error {
 	switch value {
-	case ":ed25519:", "ed25519", "1":
+	case zoneFileParser.TypeEd25519, "ed25519", "1":
 		i.set = true
 		i.value = rainslib.Ed25519
 	default:
 		return fmt.Errorf("invalid signature algorithm type")
+	}
+	return nil
+}
+
+type bfOpModeFlag struct {
+	set   bool
+	value rainslib.ModeOfOperationType
+}
+
+func (i *bfOpModeFlag) String() string {
+	return fmt.Sprintf("%s", *i)
+}
+
+func (i *bfOpModeFlag) Set(value string) error {
+	switch value {
+	case zoneFileParser.TypeStandard, "standard", "0":
+		i.set = true
+		i.value = rainslib.StandardOpType
+	case zoneFileParser.TypeKM1, "km1", "1":
+		i.set = true
+		i.value = rainslib.KirschMitzenmacher1
+	case zoneFileParser.TypeKM1, "km2", "2":
+		i.set = true
+		i.value = rainslib.KirschMitzenmacher2
+	default:
+		return fmt.Errorf("invalid bloom filter mode of operation type")
 	}
 	return nil
 }
