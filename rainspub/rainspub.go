@@ -58,7 +58,7 @@ func publish() {
 }
 
 func doSharding(zone *rainslib.ZoneSection) (int, error) {
-	assertions, shards, err := splitZoneContent(zone)
+	assertions, shards, pshards, err := splitZoneContent(zone)
 	if err != nil {
 		return 0, err
 	}
@@ -91,9 +91,10 @@ func doSharding(zone *rainslib.ZoneSection) (int, error) {
 
 //splitZoneContent returns an array of assertions and an array of shards contained in zone.
 func splitZoneContent(zone *rainslib.ZoneSection) ([]*rainslib.AssertionSection,
-	[]*rainslib.ShardSection, error) {
+	[]*rainslib.ShardSection, []*rainslib.PshardSection, error) {
 	assertions := []*rainslib.AssertionSection{}
 	shards := []*rainslib.ShardSection{}
+	pshards := []*rainslib.PshardSection{}
 	for _, section := range zone.Content {
 		switch s := section.(type) {
 		case *rainslib.AssertionSection:
@@ -106,12 +107,14 @@ func splitZoneContent(zone *rainslib.ZoneSection) ([]*rainslib.AssertionSection,
 					assertions = append(assertions, a)
 				}
 			}
+		case *rainslib.PshardSection:
+			pshards = append(pshards, s)
 		default:
 			log.Error("Invalid zone content", "section", s)
-			return nil, nil, errors.New("Invalid zone content")
+			return nil, nil, nil, errors.New("Invalid zone content")
 		}
 	}
-	return assertions, shards, nil
+	return assertions, shards, pshards, nil
 }
 
 //groupAssertionsToShardsBySize groups assertions into shards such that each shard is not exceeding

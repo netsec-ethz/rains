@@ -20,6 +20,7 @@ import (
     log "github.com/inconshreveable/log15"
     "github.com/netsec-ethz/rains/rainslib"
     "github.com/netsec-ethz/rains/utils/zoneFileParser"
+    "github.com/netsec-ethz/rains/utils/bitarray"
     "golang.org/x/crypto/ed25519"
 )
 
@@ -44,7 +45,7 @@ func DecodeBloomFilter(hashAlgos []rainslib.HashAlgorithmType, modeOfOperation r
             HashFamily: hashAlgos,
             NofHashFunctions: funcs,
             ModeOfOperation: modeOfOperation,
-            Filter: decodedFilter,
+            Filter: bitarray.BitArray(decodedFilter),
         }, nil
 }
 
@@ -264,6 +265,10 @@ zoneContent     : /* empty */
                 {
                     $$ = append($1, $2)
                 }
+                | zoneContent pshard
+                {
+                    $$ = append($1, $2)
+                }
 
 shard           : shardBody
                 | shardBody annotation
@@ -334,7 +339,7 @@ pshardBody      : pshardType ID ID shardRange pshardContent
                         Datastructure: $5,
                     }
                 }
-                | shardType shardRange pshardContent
+                | pshardType shardRange pshardContent
                 {
                     $$ = &rainslib.PshardSection{
                         RangeFrom: $2[0],

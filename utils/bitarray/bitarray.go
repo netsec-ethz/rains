@@ -3,7 +3,7 @@ package bitarray
 import "errors"
 
 //Bitarray datastructure
-type BitArray []uint8
+type BitArray []byte
 
 //SetBit sets the ith bit. Returns an error if i is out of bound
 func (b BitArray) SetBit(i int) error {

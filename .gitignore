@@ -49,5 +49,6 @@ coverage.out
 
 #Yacc
 /yacc/y.go
+/yacc/zoneFileDecoderGenerated.go
 /yacc/y.output
 /yacc/zonefileParser

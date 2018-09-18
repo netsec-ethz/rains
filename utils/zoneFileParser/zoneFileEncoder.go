@@ -84,9 +84,11 @@ func encodePshard(s *rainslib.PshardSection, context, subjectZone, indent string
 	}
 	var pshard string
 	if addZoneAndContext {
-		pshard = fmt.Sprintf("%s %s %s %s %s %s", TypePshard, subjectZone, context, rangeFrom, rangeTo)
+		pshard = fmt.Sprintf("%s %s %s %s %s %s", TypePshard, subjectZone, context, rangeFrom,
+			rangeTo, encodeBloomFilter(s.Datastructure))
 	} else {
-		pshard = fmt.Sprintf("%s %s %s %s", TypePshard, rangeFrom, rangeTo)
+		pshard = fmt.Sprintf("%s %s %s %s", TypePshard, rangeFrom, rangeTo,
+			encodeBloomFilter(s.Datastructure))
 	}
 	if s.Signatures != nil {
 		var sigs []string
@@ -101,8 +103,8 @@ func encodePshard(s *rainslib.PshardSection, context, subjectZone, indent string
 	return fmt.Sprintf("%s%s\n", indent, pshard)
 }
 
-//encodeDataStructure returns d in zonefile format.
-func encodeDataStructure(d *rainslib.DataStructure) string {
+//encodeBloomFilter returns d containing a bloom filter in zonefile format.
+func encodeBloomFilter(d rainslib.DataStructure) string {
 	bloomFilter, ok := d.Data.(rainslib.BloomFilter)
 	if !ok {
 		log.Error("Type not yet implemented", "type", fmt.Sprintf("%T", d.Data))
@@ -111,7 +113,19 @@ func encodeDataStructure(d *rainslib.DataStructure) string {
 	for _, hash := range bloomFilter.HashFamily {
 		hashFamily = append(hashFamily, encodeHashAlgo(hash))
 	}
-	return fmt.Sprintf("%s [ %s ] %d %s %s", d.Type, strings.Join(hashFamily, " "), bloomFilter.NofHashFunctions, d.Type, string(bloomFilter.Filter))
+	opMode := ""
+	switch bloomFilter.ModeOfOperation {
+	case rainslib.StandardOpType:
+		opMode = TypeStandard
+	case rainslib.KirschMitzenmacher1:
+		opMode = TypeKM1
+	case rainslib.KirschMitzenmacher2:
+		opMode = TypeKM2
+	default:
+		log.Error("Unsupported mode of operation", "modeOfOperation", bloomFilter.ModeOfOperation)
+	}
+	return fmt.Sprintf("%s [ %s ] %d %s %s", TypeBloomFilter, strings.Join(hashFamily, " "),
+		bloomFilter.NofHashFunctions, opMode, hex.EncodeToString(bloomFilter.Filter))
 }
 
 //encodeAssertion returns a in zonefile format. If addZoneAndContext is true, the context and

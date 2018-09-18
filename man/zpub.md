@@ -28,10 +28,24 @@ program. Keys are to be specified in a top-level JSON map.
   existing shards are removed before the new ones are created.
 * `NofAssertionsPerShard`: this option only has an effect when doSharding is true. Defines the
   number of assertions with different names per shard if sharding is performed. Because the number
-  of assertions per name can varies, shards may have different sizes.
+  of assertions per name can vary, shards may have different sizes.
 * `MaxShardSize`: this option only has an effect when DoSharding is true. Assertions are added to a
   shard until its size would become larger than maxShardSize. Then the process is repeated with a
   new shard.
+* `DoPsharding` : If set to true, all assertions in the zonefile are grouped into pshards based on
+  KeepExistingPshards, NofAssertionsPerPshard, Hashfamily, NofHashFunctions, BFOpMode, and
+  BloomFilterSize parameters.
+* `KeepExistingPshards`: this option only has an effect when DoPsharding is true. If the zonefile
+  already contains pshards and keepExistingPshards is true, the pshards are kept. Otherwise, all
+  existing pshards are removed before the new ones are created.
+* `NofAssertionsPerPshard`: this option only has an effect when doPsharding is true. Defines the
+  number of assertions with different names per pshard if sharding is performed. Because the number
+  of assertions per name can vary, shards may have different sizes.
+* `Hashfamily` : A list of hash algorithm identifiers present in the hash family.
+* `NofHashFunctions` : The number of hash functions used to add to and query the bloom filter.
+* `BFOpMode` : Bloom filter's mode of operation
+* `BloomFilterSize` : Number of bits in the bloom filter. It will be rounded up to the next multiple
+  of eight.
 * `AddSignatureMetaData`: If set to true, signature meta data are added to sections according to
   other configuration parameters
 * `AddSigMetaDataToAssertions`: this option only has an effect when AddSignatureMetaData is true. If
