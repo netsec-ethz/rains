@@ -42,12 +42,17 @@ func publish() {
 			log.Error(err.Error())
 			return
 		}
-		assertions = nil
+		if !config.DoPsharding {
+			assertions = nil
+		}
 	}
 	if config.DoPsharding {
 		if pshards, err = doPsharding(zone, assertions, pshards); err != nil {
 			log.Error(err.Error())
 			return
+		}
+		if config.DoSharding {
+			assertions = nil
 		}
 	}
 	if config.DoSharding || config.DoPsharding {
@@ -92,7 +97,9 @@ func splitZoneContent(zone *rainslib.ZoneSection) ([]*rainslib.AssertionSection,
 				}
 			}
 		case *rainslib.PshardSection:
-			pshards = append(pshards, s)
+			if config.KeepExistingPshards {
+				pshards = append(pshards, s)
+			}
 		default:
 			log.Error("Invalid zone content", "section", s)
 			return nil, nil, nil, errors.New("Invalid zone content")
@@ -264,6 +271,7 @@ func groupAssertionsToPshards(subjectZone, context string,
 	}
 	pshard.RangeFrom = prevShardAssertionSubjectName
 	pshard.RangeTo = ""
+	pshard.Datastructure.Data = bloomFilter
 	pshards = append(pshards, pshard)
 	log.Info("Sharding by number completed successfully")
 	return pshards, nil
@@ -272,7 +280,7 @@ func groupAssertionsToPshards(subjectZone, context string,
 func getBloomFilter() rainslib.BloomFilter {
 	var size int
 	if config.BloomFilterSize%8 == 0 {
-		size = config.BloomFilterSize % 8
+		size = config.BloomFilterSize / 8
 	} else {
 		size = (config.BloomFilterSize/8 + 1) * 8
 	}

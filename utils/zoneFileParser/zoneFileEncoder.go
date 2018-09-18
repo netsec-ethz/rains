@@ -109,7 +109,7 @@ func encodePshard(s *rainslib.PshardSection, context, subjectZone, indent string
 func encodeBloomFilter(d rainslib.DataStructure) string {
 	bloomFilter, ok := d.Data.(rainslib.BloomFilter)
 	if !ok {
-		log.Error("Type not yet implemented", "type", fmt.Sprintf("%T", d.Data))
+		log.Error("Data Type is not a bloom filter", "type", fmt.Sprintf("%T", d.Data))
 	}
 	var hashFamily []string
 	for _, hash := range bloomFilter.HashFamily {
