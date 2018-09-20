@@ -793,11 +793,13 @@ func mergeSubjectZone(subject, zone string) string {
 //assertionCacheMapKey returns the key for assertionCacheImpl.cache based on the assertion
 func assertionCacheMapKey(name, zone, context string, oType rainslib.ObjectType) string {
 	key := fmt.Sprintf("%s %s %d", mergeSubjectZone(name, zone), context, oType)
+	log.Debug("assertionCacheMapKey", "key", key)
 	return key
 }
 
 func assertionCacheMapKeyFQDN(fqdn, context string, oType rainslib.ObjectType) string {
 	key := fmt.Sprintf("%s %s %d", fqdn, context, oType)
+	log.Debug("assertionCacheMapKeyFQDN", "key", key)
 	return key
 }
 
@@ -890,13 +892,16 @@ func zoneHierarchy(fqdn string) []string {
 // If strict is true then only a direct match for the provided FQDN is looked up.
 // Otherwise, a search up the domain name hierarchy is performed to get the topmost match.
 func (c *assertionCacheImpl) Get(fqdn, context string, objType rainslib.ObjectType, strict bool) ([]*rainslib.AssertionSection, bool) {
+	log.Debug("get", "fqdn", fqdn)
 	var v interface{}
 	var ok bool
 	if strict {
 		v, ok = c.cache.Get(assertionCacheMapKeyFQDN(fqdn, context, objType))
 	} else {
 		hierarchy := zoneHierarchy(fqdn)
+		log.Debug("hierarchy is", "hierarchy", hierarchy)
 		for _, fqdn := range hierarchy {
+			log.Debug("trying get with fqdn", "fqdn", fqdn)
 			v, ok = c.cache.Get(assertionCacheMapKeyFQDN(fqdn, context, objType))
 			if ok {
 				break
