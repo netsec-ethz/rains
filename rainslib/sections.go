@@ -957,6 +957,43 @@ func (q *QuerySection) String() string {
 		q.Context, q.Name, q.Types, q.Expiration, q.Options)
 }
 
+type AssertionUpdateSection struct {
+	Name       string
+	HashType   HashAlgorithmType
+	HashValue  []byte
+	Expiration int64 //unix seconds
+	Options    []QueryOption
+}
+
+//String implements Stringer interface
+func (q *AssertionUpdateSection) String() string {
+	if q == nil {
+		return "AssertionUpdateQuery:nil"
+	}
+	return fmt.Sprintf("AssertionUpdateQuery:[NA=%s HTYPE=%v VAL=%s EXP=%d OPT=%v]",
+		q.Name, q.HashType, hex.EncodeToString(q.HashValue), q.Expiration, q.Options)
+}
+
+type NonExistenceUpdateSection struct {
+	Context     string
+	Name        string
+	ObjectTypes []ObjectType
+	HashType    HashAlgorithmType
+	HashValue   []byte
+	Expiration  int64 //unix seconds
+	Options     []QueryOption
+}
+
+//String implements Stringer interface
+func (q *NonExistenceUpdateSection) String() string {
+	if q == nil {
+		return "AssertionUpdateQuery:nil"
+	}
+	return fmt.Sprintf("AssertionUpdateQuery:[CTX=%s NA=%s OTYPE=%v HTYPE=%v VAL=%s EXP=%d OPT=%v]",
+		q.Context, q.Name, q.ObjectTypes, q.HashType, hex.EncodeToString(q.HashValue), q.Expiration,
+		q.Options)
+}
+
 //AddressAssertionSection contains information about the address assertion
 type AddressAssertionSection struct {
 	Signatures  []Signature
