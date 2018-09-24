@@ -14,7 +14,7 @@ import (
 
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/rainspub"
-	"github.com/netsec-ethz/rains/utils/zoneFileParser"
+	parser "github.com/netsec-ethz/rains/utils/zoneFileParser"
 )
 
 var configPath string
@@ -281,15 +281,15 @@ func (i *hashFamilyFlag) Set(value string) error {
 	i.set = true
 	for _, algo := range algos {
 		switch algo {
-		case zoneFileParser.TypeSha256:
+		case parser.TypeSha256:
 			i.value = append(i.value, rainslib.Sha256)
-		case zoneFileParser.TypeSha384:
+		case parser.TypeSha384:
 			i.value = append(i.value, rainslib.Sha384)
-		case zoneFileParser.TypeSha512:
+		case parser.TypeSha512:
 			i.value = append(i.value, rainslib.Sha512)
-		case zoneFileParser.TypeFnv64:
+		case parser.TypeFnv64:
 			i.value = append(i.value, rainslib.Fnv64)
-		case zoneFileParser.TypeMurmur364:
+		case parser.TypeMurmur364:
 			i.value = append(i.value, rainslib.Murmur364)
 		default:
 			return errors.New("unknown hash algorithm type")
@@ -309,7 +309,7 @@ func (i *algorithmFlag) String() string {
 
 func (i *algorithmFlag) Set(value string) error {
 	switch value {
-	case zoneFileParser.TypeEd25519, "ed25519", "1":
+	case parser.TypeEd25519, "ed25519", "1":
 		i.set = true
 		i.value = rainslib.Ed25519
 	default:
@@ -329,13 +329,13 @@ func (i *bfOpModeFlag) String() string {
 
 func (i *bfOpModeFlag) Set(value string) error {
 	switch value {
-	case zoneFileParser.TypeStandard, "standard", "0":
+	case parser.TypeStandard, "standard", "0":
 		i.set = true
 		i.value = rainslib.StandardOpType
-	case zoneFileParser.TypeKM1, "km1", "1":
+	case parser.TypeKM1, "km1", "1":
 		i.set = true
 		i.value = rainslib.KirschMitzenmacher1
-	case zoneFileParser.TypeKM2, "km2", "2":
+	case parser.TypeKM2, "km2", "2":
 		i.set = true
 		i.value = rainslib.KirschMitzenmacher2
 	default:

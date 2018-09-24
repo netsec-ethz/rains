@@ -1,4 +1,4 @@
-package zoneFileParser
+package parser
 
 import (
 	"encoding/hex"
@@ -14,7 +14,11 @@ func TestEncodeDecode(t *testing.T) {
 	parser := Parser{}
 	zoneFile := parser.Encode(zones[0])
 
-	assertions, err := parser.Decode([]byte(zoneFile))
+	decode, err := parser.Decode([]byte(zoneFile))
+	assertions := []*rainslib.AssertionSection{}
+	for _, a := range decode {
+		assertions = append(assertions, a.(*rainslib.AssertionSection))
+	}
 	if err != nil {
 		t.Error(err)
 	}

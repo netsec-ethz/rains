@@ -1,4 +1,4 @@
-package zoneFileParser
+package parser
 
 import (
 	"encoding/hex"
@@ -24,16 +24,28 @@ func encodeAddressAssertion(a *rainslib.AddressAssertionSection) string {
 	return fmt.Sprintf(":AA: %s %s [ %s ]", encodeSubjectAddress(a.SubjectAddr), a.Context, encodeObjects(a.Content, ""))
 }
 
-//encodeAddressQuery returns an address query in signable format (which resembles the zone file format)
+//encodeAddressQuery returns an encoding which resembles the zone file format
 func encodeAddressQuery(q *rainslib.AddressQuerySection) string {
 	return fmt.Sprintf(":AQ: %s %s %s %d %s", encodeSubjectAddress(q.SubjectAddr), q.Context,
 		encodeObjectTypes(q.Types), q.Expiration, encodeQueryOptions(q.Options))
 }
 
-//encodeQuery returns a query in signable format (which resembles the zone file format)
+//encodeQuery returns an encoding which resembles the zone file format
 func encodeQuery(q *rainslib.QuerySection) string {
 	return fmt.Sprintf(":Q: %s %s %s %d %s", q.Context, q.Name, encodeObjectTypes(q.Types),
 		q.Expiration, encodeQueryOptions(q.Options))
+}
+
+//encodeAssertionUpdateQuery returns an encoding which resembles the zone file format
+func encodeAssertionUpdateQuery(q *rainslib.AssertionUpdateSection) string {
+	return fmt.Sprintf(":AUQ: %s %v %s %d %s", q.Name, q.HashType, hex.EncodeToString(q.HashValue),
+		q.Expiration, encodeQueryOptions(q.Options))
+}
+
+//encodeNonExistenceUpdateQuery returns an encoding which resembles the zone file format
+func encodeNonExistenceUpdateQuery(q *rainslib.NonExistenceUpdateSection) string {
+	return fmt.Sprintf(":NUQ: %s %s %s %v %s %d %s", q.Context, q.Name, encodeObjectTypes(q.ObjectTypes),
+		q.HashType, hex.EncodeToString(q.HashValue), q.Expiration, encodeQueryOptions(q.Options))
 }
 
 //encodeNotification returns a notification in signable format (which resembles the zone file format)

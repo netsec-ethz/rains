@@ -19,7 +19,7 @@ func loadZonefile() (*rainslib.ZoneSection, error) {
 		return nil, err
 	}
 	//FIXME CFE replace with call to yacc generated zonefile parser.
-	zone, err := parser.DecodeZone(file)
+	zone, err := zfParser.DecodeZone(file)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)
 		return nil, err

@@ -1,4 +1,4 @@
-package zoneFileParser
+package parser
 
 import (
 	"bufio"
@@ -84,7 +84,6 @@ func (p Parser) DecodeZone(zoneFile []byte) (*rainslib.ZoneSection, error) {
 		return nil, errors.New("First element of zonefile is not a zone. (Note, only the first element of the zonefile is considered)")
 	}
 	return zone, nil
-	return nil, nil
 }
 
 //EncodeMessage transforms the given msg into a signable format.
@@ -137,8 +136,4 @@ func replaceWhitespaces(encoding string) string {
 		words = append(words, scanner.Text())
 	}
 	return strings.Join(words, " ")
-}
-
-func Test() string {
-	return ""
 }

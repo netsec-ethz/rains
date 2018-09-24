@@ -18,8 +18,8 @@ import (
 //Init starts the zone information publishing process according to the provided config.
 func Init(inputConfig Config) {
 	config = inputConfig
-	parser = zoneFileParser.Parser{}
-	signatureEncoder = zoneFileParser.Parser{}
+	zfParser = parser.Parser{}
+	signatureEncoder = parser.Parser{}
 	publish()
 }
 
@@ -166,7 +166,7 @@ func groupAssertionsToShardsBySize(subjectZone, context string,
 	for i, sameNameA := range sameNameAssertions {
 		shard.Content = append(shard.Content, sameNameA...)
 		//FIXME CFE replace with cbor parser
-		if length := len(parser.Encode(shard)); length > maxSize {
+		if length := len(zfParser.Encode(shard)); length > maxSize {
 			shard.Content = shard.Content[:len(shard.Content)-len(sameNameA)]
 			if len(shard.Content) == 0 {
 				log.Error("Assertions with the same name are larger than maxShardSize",
@@ -179,7 +179,7 @@ func groupAssertionsToShardsBySize(subjectZone, context string,
 			shard = &rainslib.ShardSection{}
 			prevShardAssertionSubjectName = sameNameAssertions[i-1][0].SubjectName
 			shard.Content = append(shard.Content, sameNameA...)
-			if length := len(parser.Encode(shard)); length > maxSize {
+			if length := len(zfParser.Encode(shard)); length > maxSize {
 				log.Error("Assertions with the same name are larger than maxShardSize",
 					"assertions", sameNameA, "length", length, "maxShardSize", maxSize)
 				return nil, errors.New("Assertions with the same name are too long")
@@ -386,7 +386,7 @@ func isConsistent(zone *rainslib.ZoneSection) bool {
 
 func publishZone(zone *rainslib.ZoneSection) {
 	if config.OutputPath != "" {
-		encoding := parser.Encode(zone)
+		encoding := zfParser.Encode(zone)
 		err := ioutil.WriteFile(config.OutputPath, []byte(encoding), 0600)
 		if err != nil {
 			log.Error(err.Error())

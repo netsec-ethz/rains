@@ -10,7 +10,7 @@ import (
 var config Config
 
 //parser is used to extract assertions from a rains zone file.
-var parser rainslib.ZoneFileParser
+var zfParser rainslib.ZoneFileParser
 
 //signatureEncoder is used to encode signatures
 var signatureEncoder rainslib.SignatureFormatEncoder

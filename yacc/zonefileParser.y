@@ -862,73 +862,73 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
     }
     //return token
     switch word {
-	case zoneFileParser.TypeAssertion :
+	case parser.TypeAssertion :
         return assertionType
-    case zoneFileParser.TypeShard :
+    case parser.TypeShard :
         return shardType
-    case zoneFileParser.TypePshard :
+    case parser.TypePshard :
         return pshardType
-    case zoneFileParser.TypeZone :
+    case parser.TypeZone :
         return zoneType
-    case zoneFileParser.TypeName :
+    case parser.TypeName :
 		return nameType
-	case zoneFileParser.TypeIP6 :
+	case parser.TypeIP6 :
 		return ip6Type
-	case zoneFileParser.TypeIP4 :
+	case parser.TypeIP4 :
 		return ip4Type
-	case zoneFileParser.TypeRedirection :
+	case parser.TypeRedirection :
 		return redirType
-	case zoneFileParser.TypeDelegation :
+	case parser.TypeDelegation :
 		return delegType
-	case zoneFileParser.TypeNameSet :
+	case parser.TypeNameSet :
 		return namesetType
-	case zoneFileParser.TypeCertificate :
+	case parser.TypeCertificate :
 		return certType
-	case zoneFileParser.TypeServiceInfo :
+	case parser.TypeServiceInfo :
 		return srvType
-	case zoneFileParser.TypeRegistrar :
+	case parser.TypeRegistrar :
 		return regrType
-	case zoneFileParser.TypeRegistrant :
+	case parser.TypeRegistrant :
 		return regtType
-	case zoneFileParser.TypeInfraKey :
+	case parser.TypeInfraKey :
 		return infraType
-	case zoneFileParser.TypeExternalKey :
+	case parser.TypeExternalKey :
 		return extraType
-	case zoneFileParser.TypeNextKey :
+	case parser.TypeNextKey :
 		return nextType
-    case zoneFileParser.TypeSignature :
+    case parser.TypeSignature :
         return sigType
-    case zoneFileParser.TypeEd25519 :
+    case parser.TypeEd25519 :
         return ed25519Type
-    case zoneFileParser.TypeUnspecified :
+    case parser.TypeUnspecified :
         return unspecified
-    case zoneFileParser.TypePTTLS :
+    case parser.TypePTTLS :
         return tls
-    case zoneFileParser.TypeCUTrustAnchor :
+    case parser.TypeCUTrustAnchor :
         return trustAnchor
-    case zoneFileParser.TypeCUEndEntity :
+    case parser.TypeCUEndEntity :
         return endEntity
-    case zoneFileParser.TypeNoHash :
+    case parser.TypeNoHash :
         return noHash
-    case zoneFileParser.TypeSha256 :
+    case parser.TypeSha256 :
         return sha256
-    case zoneFileParser.TypeSha384 :
+    case parser.TypeSha384 :
         return sha384
-    case zoneFileParser.TypeSha512 :
+    case parser.TypeSha512 :
         return sha512
-    case zoneFileParser.TypeFnv64 :
+    case parser.TypeFnv64 :
         return fnv64
-    case zoneFileParser.TypeMurmur364 :
+    case parser.TypeMurmur364 :
         return murmur364
-    case zoneFileParser.TypeBloomFilter :
+    case parser.TypeBloomFilter :
         return bloomFilterType
-    case zoneFileParser.TypeStandard :
+    case parser.TypeStandard :
         return standard
-    case zoneFileParser.TypeKM1 :
+    case parser.TypeKM1 :
         return km1
-    case zoneFileParser.TypeKM2 :
+    case parser.TypeKM2 :
         return km2
-    case zoneFileParser.TypeKSRains :
+    case parser.TypeKSRains :
         return rains
     case "<" :
         return rangeBegin

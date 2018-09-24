@@ -1,4 +1,4 @@
-package zoneFileParser
+package parser
 
 import (
 	"testing"

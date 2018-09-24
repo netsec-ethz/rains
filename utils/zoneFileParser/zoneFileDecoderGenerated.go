@@ -1,5 +1,5 @@
 //line zonefileParser.y:8
-package zoneFileParser
+package parser
 
 import __yyfmt__ "fmt"
 
@@ -10,13 +10,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"strconv"
-	"strings"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/bitarray"
+
+	"io/ioutil"
+	"strconv"
+	"strings"
+
 	"golang.org/x/crypto/ed25519"
 )
 
