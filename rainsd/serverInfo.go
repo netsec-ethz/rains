@@ -30,6 +30,9 @@ var cert tls.Certificate
 //sigEncoder is used to translate a message or section into a signable format
 var sigEncoder rainslib.SignatureFormatEncoder
 
+// globalTracer is used to report traces to the tracing server.
+var globalTracer *Tracer
+
 //rainsdConfig lists possible configurations of a rains server
 type rainsdConfig struct {
 	//general

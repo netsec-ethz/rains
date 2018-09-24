@@ -9,10 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 )
 
-//AssertionSection contains information about the assertion
+//AssertionSection contains information about the assertion.
 type AssertionSection struct {
 	Signatures  []Signature
 	SubjectName string
@@ -21,6 +23,278 @@ type AssertionSection struct {
 	Content     []Object
 	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+}
+
+// UnmarshalMap provides functionality to unmarshal a map read in by CBOR.
+func (a *AssertionSection) UnmarshalMap(m map[int]interface{}) error {
+	if sigs, ok := m[0]; ok {
+		a.Signatures = make([]Signature, len(sigs.([]interface{})))
+		for i, sig := range sigs.([]interface{}) {
+			if err := a.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
+				return err
+			}
+		}
+	}
+	if sn, ok := m[3]; ok {
+		a.SubjectName = sn.(string)
+	}
+	if sz, ok := m[4]; ok {
+		a.SubjectZone = sz.(string)
+	}
+	if ctx, ok := m[6]; ok {
+		a.Context = ctx.(string)
+	}
+	if _, ok := m[7]; !ok {
+		return fmt.Errorf("assertion does not contain any objects")
+	}
+	a.Content = make([]Object, 0)
+	for _, object := range m[7].([]interface{}) {
+		objArr := object.([]interface{})
+		switch ObjectType(objArr[0].(uint64)) {
+		case OTName:
+			no := NameObject{Types: make([]ObjectType, 0)}
+			no.Name = objArr[1].(string)
+			for _, ot := range objArr[2].([]interface{}) {
+				no.Types = append(no.Types, ObjectType(ot.(int)))
+			}
+			a.Content = append(a.Content, Object{Type: OTName, Value: no})
+		case OTIP6Addr:
+			ip := net.IP(objArr[1].([]byte))
+			a.Content = append(a.Content, Object{Type: OTIP6Addr, Value: ip.String()})
+		case OTIP4Addr:
+			ip := net.IP(objArr[1].([]byte))
+			a.Content = append(a.Content, Object{Type: OTIP4Addr, Value: ip.String()})
+		case OTRedirection:
+			a.Content = append(a.Content, Object{Type: OTRedirection, Value: objArr[1]})
+		case OTDelegation:
+			alg := objArr[1].(uint64)
+			ks := KeySpaceID(objArr[2].(uint64))
+			kp := int(objArr[3].(uint64))
+			vs := int64(objArr[4].(uint64))
+			vu := int64(objArr[5].(uint64))
+			var key interface{}
+			switch SignatureAlgorithmType(alg) {
+			case Ed25519:
+				key = ed25519.PublicKey(objArr[6].([]byte))
+			case Ecdsa256:
+				return fmt.Errorf("unsupported algorithm: %v", alg)
+			case Ecdsa384:
+				return fmt.Errorf("unsupported algorithm: %v", alg)
+			default:
+				return fmt.Errorf("unsupported algorithm: %v", alg)
+			}
+			pkey := PublicKey{
+				PublicKeyID: PublicKeyID{
+					Algorithm: SignatureAlgorithmType(alg),
+					KeySpace:  ks,
+					KeyPhase:  kp,
+				},
+				ValidSince: vs,
+				ValidUntil: vu,
+				Key:        key,
+			}
+			a.Content = append(a.Content, Object{Type: OTDelegation, Value: pkey})
+		case OTNameset:
+			a.Content = append(a.Content, Object{Type: OTNameset, Value: NamesetExpression(objArr[1].(string))})
+		case OTCertInfo:
+			co := CertificateObject{
+				Type:     ProtocolType(objArr[1].(int)),
+				Usage:    CertificateUsage(objArr[2].(int)),
+				HashAlgo: HashAlgorithmType(objArr[3].(int)),
+				Data:     objArr[4].([]byte),
+			}
+			a.Content = append(a.Content, Object{Type: OTCertInfo, Value: co})
+		case OTServiceInfo:
+			si := ServiceInfo{
+				Name:     objArr[1].(string),
+				Port:     uint16(objArr[2].(uint64)),
+				Priority: uint(objArr[3].(uint64)),
+			}
+			a.Content = append(a.Content, Object{Type: OTServiceInfo, Value: si})
+		case OTRegistrar:
+			a.Content = append(a.Content, Object{Type: OTRegistrar, Value: objArr[2].(string)})
+		case OTRegistrant:
+			a.Content = append(a.Content, Object{Type: OTRegistrant, Value: objArr[2].(string)})
+		case OTInfraKey:
+			alg := objArr[1]
+			ks := objArr[2].(KeySpaceID)
+			kp := objArr[3].(int)
+			vs := objArr[4].(int64)
+			vu := objArr[5].(int64)
+			var key interface{}
+			switch alg.(SignatureAlgorithmType) {
+			case Ed25519:
+				key = ed25519.PublicKey(objArr[6].([]byte))
+			case Ecdsa256:
+				return fmt.Errorf("unsupported algorithm: %v", alg)
+			case Ecdsa384:
+				return fmt.Errorf("unsupported algorithm: %v", alg)
+			default:
+				return fmt.Errorf("unsupported algorithm: %v", alg)
+			}
+			pkey := PublicKey{
+				PublicKeyID: PublicKeyID{
+					Algorithm: alg.(SignatureAlgorithmType),
+					KeySpace:  ks,
+					KeyPhase:  kp,
+				},
+				ValidSince: vs,
+				ValidUntil: vu,
+				Key:        key,
+			}
+			a.Content = append(a.Content, Object{Type: OTInfraKey, Value: pkey})
+		case OTExtraKey:
+			alg := objArr[1].(SignatureAlgorithmType)
+			ks := objArr[2].(KeySpaceID)
+			var key interface{}
+			switch alg {
+			case Ed25519:
+				key = ed25519.PublicKey(objArr[3].([]byte))
+			case Ecdsa256:
+				return fmt.Errorf("unsupported algorithm: %v", alg)
+			case Ecdsa384:
+				return fmt.Errorf("unsupported algorithm: %v", alg)
+			default:
+				return fmt.Errorf("unsupported algorithm: %v", alg)
+			}
+			pk := PublicKey{
+				PublicKeyID: PublicKeyID{
+					Algorithm: alg,
+					KeySpace:  ks,
+				},
+				Key: key,
+			}
+			a.Content = append(a.Content, Object{Type: OTExtraKey, Value: pk})
+		case OTNextKey:
+			// TODO: Implement OTNextKey.
+		}
+	}
+	return nil
+}
+
+// MarshalCBOR implements the CBORMarshaler interface.
+func (a *AssertionSection) MarshalCBOR(w *borat.CBORWriter) error {
+	m := make(map[int]interface{})
+	if len(a.Signatures) > 0 {
+		m[0] = a.Signatures
+	}
+	if a.SubjectName != "" {
+		m[3] = a.SubjectName
+	}
+	if a.SubjectZone != "" {
+		m[4] = a.SubjectZone
+	}
+	if a.Context != "" {
+		m[6] = a.Context
+	}
+	objs := make([][]interface{}, 0)
+	for _, object := range a.Content {
+		res, err := objectToArrayCBOR(object)
+		if err != nil {
+			return err
+		}
+		objs = append(objs, res)
+	}
+	m[7] = objs
+	return w.WriteIntMap(m)
+}
+
+func objectToArrayCBOR(object Object) ([]interface{}, error) {
+	var res []interface{}
+	switch object.Type {
+	case OTName:
+		no, ok := object.Value.(NameObject)
+		if !ok {
+			return nil, fmt.Errorf("expected OTName to be NameObject but got: %T", object.Value)
+		}
+		ots := make([]int, len(no.Types))
+		for i, ot := range no.Types {
+			ots[i] = int(ot)
+		}
+		res = []interface{}{OTName, no.Name, ots}
+	case OTIP6Addr:
+		addrStr := object.Value.(string)
+		addr := net.ParseIP(addrStr)
+		res = []interface{}{OTIP6Addr, []byte(addr)}
+	case OTIP4Addr:
+		addrStr := object.Value.(string)
+		addr := net.ParseIP(addrStr)
+		res = []interface{}{OTIP4Addr, []byte(addr)}
+	case OTRedirection:
+		res = []interface{}{OTRedirection, object.Value}
+	case OTDelegation:
+		pkey, ok := object.Value.(PublicKey)
+		if !ok {
+			return nil, fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", object.Value)
+		}
+		// TODO: ValidSince and ValidUntil should be tagged.
+		b := pubkeyToCBORBytes(pkey)
+		res = []interface{}{OTDelegation, int(pkey.Algorithm), int(pkey.KeySpace), pkey.KeyPhase, pkey.ValidSince, pkey.ValidUntil, b}
+	case OTNameset:
+		nse, ok := object.Value.(NamesetExpression)
+		if !ok {
+			return nil, fmt.Errorf("expected OTNameset value to be NamesetExpression but got: %T", object.Value)
+		}
+		res = []interface{}{OTNameset, string(nse)}
+	case OTCertInfo:
+		co, ok := object.Value.(CertificateObject)
+		if !ok {
+			return nil, fmt.Errorf("expected OTCertInfo object to be CertificateObject, but got: %T", object.Value)
+		}
+		res = []interface{}{OTCertInfo, int(co.Type), int(co.Usage), int(co.HashAlgo), co.Data}
+	case OTServiceInfo:
+		si, ok := object.Value.(ServiceInfo)
+		if !ok {
+			return nil, fmt.Errorf("expected OTServiceInfo object to be ServiceInfo, but got: %T", object.Value)
+		}
+		res = []interface{}{OTServiceInfo, si.Name, si.Port, si.Priority}
+	case OTRegistrar:
+		rstr, ok := object.Value.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected OTRegistrar object to be string but got: %T", object.Value)
+		}
+		res = []interface{}{OTRegistrar, rstr}
+	case OTRegistrant:
+		rstr, ok := object.Value.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected OTRegistrant object to be string but got: %T", object.Value)
+		}
+		res = []interface{}{OTRegistrant, rstr}
+	case OTInfraKey:
+		pkey, ok := object.Value.(PublicKey)
+		if !ok {
+			return nil, fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", object.Value)
+		}
+		// TODO: ValidSince and ValidUntl should be tagged.
+		b := pubkeyToCBORBytes(pkey)
+		res = []interface{}{OTInfraKey, int(pkey.Algorithm), int(pkey.KeySpace), pkey.KeyPhase, pkey.ValidSince, pkey.ValidUntil, b}
+	case OTExtraKey:
+		pkey, ok := object.Value.(PublicKey)
+		if !ok {
+			return nil, fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", object.Value)
+		}
+		b := pubkeyToCBORBytes(pkey)
+		res = []interface{}{OTExtraKey, int(pkey.Algorithm), int(pkey.KeySpace), b}
+	case OTNextKey:
+	default:
+		return nil, fmt.Errorf("unknown object type: %v", object.Type)
+	}
+	return res, nil
+}
+
+func pubkeyToCBORBytes(p PublicKey) []byte {
+	switch p.Algorithm {
+	case Ed25519:
+		return []byte(p.Key.(ed25519.PublicKey))
+	case Ed448:
+		panic("Unsupported algorithm.")
+	case Ecdsa256:
+		panic("Unsupported algorithm.")
+	case Ecdsa384:
+		panic("Unsupported algorithm.")
+	default:
+		panic("Unsupported algorithm.")
+	}
 }
 
 //AllSigs returns all assertion's signatures
@@ -201,6 +475,62 @@ type ShardSection struct {
 	Content     []*AssertionSection
 	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+}
+
+// UnmarshalMap converts a CBOR decoded map to this ShardSection.
+func (s *ShardSection) UnmarshalMap(m map[int]interface{}) error {
+	s.Signatures = make([]Signature, 0)
+	if sigs, ok := m[0]; ok {
+		s.Signatures = make([]Signature, len(sigs.([]interface{})))
+		for i, sig := range sigs.([]interface{}) {
+			if err := s.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
+				return err
+			}
+		}
+	}
+	// SubjectZone
+	if sz, ok := m[4]; ok {
+		s.SubjectZone = sz.(string)
+	}
+	// Context
+	if ctx, ok := m[6]; ok {
+		s.Context = ctx.(string)
+	}
+	// RangeFrom/RangeTo
+	if sr, ok := m[11]; ok {
+		srange := sr.([]interface{})
+		s.RangeFrom = srange[0].(string)
+		s.RangeTo = srange[1].(string)
+	}
+	// Content
+	if cont, ok := m[7]; ok {
+		s.Content = make([]*AssertionSection, 0)
+		for _, obj := range cont.([]interface{}) {
+			as := &AssertionSection{}
+			as.UnmarshalMap(obj.(map[int]interface{}))
+			s.Content = append(s.Content, as)
+		}
+	}
+	return nil
+}
+
+// MarshalCBOR implements the CBORMarshaler interface.
+func (s *ShardSection) MarshalCBOR(w *borat.CBORWriter) error {
+	fmt.Printf("Called MarshalCBOR on ShardSection")
+	m := make(map[int]interface{})
+	if len(s.Signatures) > 0 {
+		m[0] = s.Signatures
+	}
+	if s.SubjectZone != "" {
+		m[4] = s.SubjectZone
+	}
+	if s.Context != "" {
+		m[6] = s.Context
+	}
+	m[11] = []string{s.RangeFrom, s.RangeTo}
+	// TODO: Assertions SHOULD be sorted by name in ascending lexicographic order.
+	m[7] = s.Content
+	return w.WriteIntMap(m)
 }
 
 //AllSigs returns the shard's signatures
@@ -427,6 +757,64 @@ type ZoneSection struct {
 	Content     []MessageSectionWithSigForward
 	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+}
+
+// UnmarshalMap decodes the output from the CBOR decoder into this struct.
+func (z *ZoneSection) UnmarshalMap(m map[int]interface{}) error {
+	if sigs, ok := m[0]; ok {
+		z.Signatures = make([]Signature, len(sigs.([]interface{})))
+		for i, sig := range sigs.([]interface{}) {
+			if err := z.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
+				return err
+			}
+		}
+	} else {
+		return fmt.Errorf("missing signatures from ZoneSection")
+	}
+	if sz, ok := m[4]; ok {
+		z.SubjectZone = sz.(string)
+	} else {
+		return fmt.Errorf("missing SubjectZone from ZoneSection")
+	}
+	if ctx, ok := m[6]; ok {
+		z.Context = ctx.(string)
+	} else {
+		return fmt.Errorf("missing Context from ZoneSection")
+	}
+	// Content is an array of ShardSections and / or AssertionSections.
+	if content, ok := m[23]; ok {
+		z.Content = make([]MessageSectionWithSigForward, 0)
+		for _, item := range content.([]interface{}) {
+			m := item.(map[int]interface{})
+			if _, ok := m[11]; ok {
+				// ShardSection.
+				ss := &ShardSection{}
+				if err := ss.UnmarshalMap(m); err != nil {
+					return fmt.Errorf("failed to unmarshal ShardSection map in ZoneSection: %v", err)
+				}
+				z.Content = append(z.Content, ss)
+			} else {
+				// AssertionSection.
+				as := &AssertionSection{}
+				if err := as.UnmarshalMap(m); err != nil {
+					return fmt.Errorf("failed to unmarshal AssertionSection map in ZoneSection: %v", err)
+				}
+				z.Content = append(z.Content, as)
+			}
+		}
+	} else {
+		return fmt.Errorf("missing content for ZoneSection")
+	}
+	return nil
+}
+
+func (z *ZoneSection) MarshalCBOR(w *borat.CBORWriter) error {
+	m := make(map[int]interface{})
+	m[23] = z.Content
+	m[0] = z.Signatures
+	m[4] = z.SubjectZone
+	m[6] = z.Context
+	return w.WriteIntMap(m)
 }
 
 //AllSigs returns the zone's signatures
@@ -710,6 +1098,45 @@ type QuerySection struct {
 	Options    []QueryOption
 }
 
+// UnmarshalMap unpacks a CBOR marshaled map to this struct.
+func (q *QuerySection) UnmarshalMap(m map[int]interface{}) error {
+	q.Name = m[8].(string)
+	q.Context = m[6].(string)
+	q.Types = make([]ObjectType, 0)
+	if types, ok := m[10]; ok {
+		for _, qt := range types.([]interface{}) {
+			q.Types = append(q.Types, ObjectType(qt.(uint64)))
+		}
+	}
+	q.Expiration = int64(m[12].(uint64))
+	q.Options = make([]QueryOption, 0)
+	if opts, ok := m[13]; ok {
+		for _, opt := range opts.([]interface{}) {
+			q.Options = append(q.Options, QueryOption(opt.(uint64)))
+		}
+	}
+	return nil
+}
+
+// MarshalCBOR implements the CBORMarshaler interface.
+func (q *QuerySection) MarshalCBOR(w *borat.CBORWriter) error {
+	m := make(map[int]interface{})
+	m[8] = q.Name
+	m[6] = q.Context
+	qtypes := make([]int, len(q.Types))
+	for i, qtype := range q.Types {
+		qtypes[i] = int(qtype)
+	}
+	m[10] = qtypes
+	m[12] = q.Expiration
+	qopts := make([]int, len(q.Options))
+	for i, qopt := range q.Options {
+		qopts[i] = int(qopt)
+	}
+	m[13] = qopts
+	return w.WriteIntMap(m)
+}
+
 //GetContext returns q's context
 func (q *QuerySection) GetContext() string {
 	return q.Context
@@ -799,6 +1226,35 @@ type AddressAssertionSection struct {
 	Content     []Object
 	validSince  int64
 	validUntil  int64
+}
+
+// MarshalCBOR implements the CBORMarshaler interface.
+func (a *AddressAssertionSection) MarshalCBOR(w *borat.CBORWriter) error {
+	m := make(map[int]interface{})
+	m[0] = a.Signatures
+	var af int
+	subAddr := a.SubjectAddr
+	if subAddr.IP.To4() == nil {
+		af = 2 // for IPv6 address.
+	} else {
+		af = 3 // for IPv4 address.
+	}
+	_, plen := subAddr.Mask.Size()
+	sa := []interface{}{af, plen, []byte(subAddr.IP)}
+	m[5] = sa
+	if a.Context != "" {
+		m[6] = a.Context
+	}
+	objs := make([][]interface{}, 0)
+	for _, object := range a.Content {
+		res, err := objectToArrayCBOR(object)
+		if err != nil {
+			return err
+		}
+		objs = append(objs, res)
+	}
+	m[7] = objs
+	return w.WriteIntMap(m)
 }
 
 //AllSigs return the assertion's signatures
@@ -1209,6 +1665,33 @@ type NotificationSection struct {
 	Token Token
 	Type  NotificationType
 	Data  string
+}
+
+// UnmarshalMap unpacks a CBOR unmarshaled map to this object.
+func (n *NotificationSection) UnmarshalMap(m map[int]interface{}) error {
+	if tok, ok := m[2]; ok {
+		n.Token = Token(tok.([16]byte))
+	} else {
+		return fmt.Errorf("key [2] for token not found in map: %v", m)
+	}
+	if not, ok := m[21]; ok {
+		n.Type = NotificationType(not.(int))
+	} else {
+		return fmt.Errorf("key [21] for NotificationType not found in map: %v", m)
+	}
+	if data, ok := m[22]; ok {
+		n.Data = string(data.(string))
+	}
+	return nil
+}
+
+// MarshalCBOR implements the CBORMarshaler interface.
+func (n *NotificationSection) MarshalCBOR(w *borat.CBORWriter) error {
+	m := make(map[int]interface{})
+	m[2] = n.Token
+	m[21] = int(n.Type)
+	m[22] = n.Data
+	return w.WriteIntMap(m)
 }
 
 //Sort sorts the content of the notification lexicographically.
