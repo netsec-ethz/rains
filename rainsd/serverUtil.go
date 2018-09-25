@@ -20,7 +20,7 @@ import (
 )
 
 //InitServer initializes the server
-func InitServer(configPath string, logLevel int) error {
+func InitServer(configPath, traceAddr, traceSrvID string, logLevel int) error {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(logLevel), h))
 	msgParser = new(protoParser.ProtoParserAndFramer)
@@ -50,7 +50,25 @@ func InitServer(configPath string, logLevel int) error {
 	log.Debug("Successfully initiated queues and goroutines working on it")
 	initEngine()
 	log.Debug("Successfully initiated engine")
+	// Initialize the tracer
+	if traceAddr != "" {
+		t, err := NewTracer(traceSrvID, traceAddr)
+		if err != nil {
+			return fmt.Errorf("failed to initialize the tracer: %v", err)
+		}
+		globalTracer = t
+		go t.SendLoop()
+	}
+	log.Debug("successfully initialized tracer")
 	return nil
+}
+
+// trace is a wrapper function which all callees wishing to submit a trace should use,
+// as it will only send the trace if a tracer server is connected.
+func trace(tok rainslib.Token, msg string) {
+	if globalTracer != nil {
+		globalTracer.SendMessage(tok, msg)
+	}
 }
 
 //LoadConfig loads and stores server configuration

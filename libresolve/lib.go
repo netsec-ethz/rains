@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/britram/borat"
+	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/rainslib"
-	"github.com/netsec-ethz/rains/utils/protoParser"
 )
 
 type ResolutionMode int
@@ -55,7 +55,7 @@ func (r *Resolver) Lookup(name, context string) (*rainslib.RainsMessage, error) 
 		q := r.nameToQuery(name, context, time.Now().Add(15*time.Second).UnixNano(), []rainslib.QueryOption{})
 		return r.forwardQuery(q)
 	default:
-		panic(fmt.Sprintf("Unsupported resolution mode: %v", r.Mode))
+		return nil, fmt.Errorf("Unsupported resolution mode: %v", r.Mode)
 	}
 }
 
@@ -64,66 +64,46 @@ func (r *Resolver) nameToQuery(name, context string, expTime int64, opts []rains
 	return rainslib.NewQueryMessage(name, context, expTime, types, opts, rainslib.GenerateToken())
 }
 
-// waitResponse listens on the given parserframer until a message with the
-// specified token is received. If there is an error, it will be sent on
-// the error channel.
-func (r *Resolver) waitResponse(pf protoParser.ProtoParserAndFramer, token rainslib.Token, done chan *rainslib.RainsMessage, ec chan error) {
-	for pf.DeFrame() {
-		tok, err := pf.Token(pf.Data())
-		if err != nil {
-			ec <- fmt.Errorf("failed to get token from message: %v", err)
-			if r.FailFast {
-				return
-			}
-		}
-		msg, err := pf.Decode(pf.Data())
-		if err != nil {
-			ec <- fmt.Errorf("failed to parse bytes to RAINS message: %v", err)
-			if r.FailFast {
-				return
-			}
-		}
-		if tok != token {
-			ec <- fmt.Errorf("expected message with token %v but got %v", token, tok)
-			if r.FailFast {
-				return
-			}
-		} else {
-			done <- &msg
-			return
-		}
+// listen waits for one message and passes it back on the provided channel, or an error on the error channel.
+func listen(conn net.Conn, tok rainslib.Token, done chan<- *rainslib.RainsMessage, ec chan<- error) {
+	reader := borat.NewCBORReader(conn)
+	var msg rainslib.RainsMessage
+	if err := reader.Unmarshal(&msg); err != nil {
+		ec <- fmt.Errorf("failed to unmarshal response: %v", err)
+		return
 	}
+	if msg.Token != tok {
+		ec <- fmt.Errorf("token response mismatch: got %v, want %v", msg.Token, tok)
+		return
+	}
+	done <- &msg
 }
 
 func (r *Resolver) forwardQuery(q rainslib.RainsMessage) (*rainslib.RainsMessage, error) {
 	if len(r.Forwarders) == 0 {
-		return nil, errors.New("forwarders must be specified to use this mode.")
+		return nil, errors.New("forwarders must be specified to use this mode")
 	}
 	errs := make([]error, 0)
 	for i, forwarder := range r.Forwarders {
-		glog.Infof("Connecting to forwarding resolver #%d: %v", i, forwarder)
+		log.Info(fmt.Sprintf("Connecting to forwarding resolver #%d: %v", i, forwarder))
 		d := &net.Dialer{
 			Timeout: r.DialTimeout,
 		}
 		conn, err := tls.DialWithDialer(d, "tcp", forwarder, &tls.Config{InsecureSkipVerify: r.InsecureTLS})
 		if err != nil {
-			glog.Warningf("Connection to fowarding resolver %d failed: %v", i, err)
+			log.Warn(fmt.Sprintf("Connection to fowarding resolver %d failed: %v", i, err))
 			errs = append(errs, err)
 			continue
 		}
 		defer conn.Close()
-		pf := protoParser.ProtoParserAndFramer{}
-		pf.InitStreams(conn, conn)
-		b, err := pf.Encode(q)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode message: %v", err)
-		}
-		if err := pf.Frame(b); err != nil {
-			return nil, fmt.Errorf("failed to frame message: %v", err)
+		writer := borat.NewCBORWriter(conn)
+		if err := writer.Marshal(q); err != nil {
+			errs = append(errs, fmt.Errorf("failed to marshal message to server: %v", err))
+			continue
 		}
 		done := make(chan *rainslib.RainsMessage)
 		ec := make(chan error)
-		go r.waitResponse(pf, q.Token, done, ec)
+		go listen(conn, q.Token, done, ec)
 		select {
 		case msg := <-done:
 			return msg, nil
@@ -158,7 +138,7 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 	latestResolver := r.RootNameservers[0] // TODO: try multiple root nameservers.
 	var resp *rainslib.RainsMessage
 	for {
-		glog.Infof("connecting to resolver at address: %s to resolve %q", latestResolver, name)
+		log.Info(fmt.Sprintf("connecting to resolver at address: %s to resolve %q", latestResolver, name))
 		d := &net.Dialer{
 			Timeout: r.DialTimeout,
 		}
@@ -167,20 +147,14 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 			return nil, fmt.Errorf("failed to connect to resolver: %v", err)
 		}
 		defer conn.Close()
-		pf := protoParser.ProtoParserAndFramer{}
-		pf.InitStreams(conn, conn)
+		writer := borat.NewCBORWriter(conn)
 		q := r.nameToQuery(name, context, time.Now().Add(15*time.Second).Unix(), []rainslib.QueryOption{})
-		glog.Infof("query is: %v", q)
-		b, err := pf.Encode(q)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encode query: %v", err)
-		}
-		if err := pf.Frame(b); err != nil {
-			return nil, fmt.Errorf("failed to frame message: %v", err)
+		if err := writer.Marshal(&q); err != nil {
+			return nil, fmt.Errorf("failed to marshal query to server: %v", err)
 		}
 		done := make(chan *rainslib.RainsMessage)
 		ec := make(chan error)
-		go r.waitResponse(pf, q.Token, done, ec)
+		go listen(conn, q.Token, done, ec)
 		select {
 		case msg := <-done:
 			resp = msg
@@ -190,7 +164,6 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 		if len(resp.Content) == 0 {
 			return nil, errors.New("got empty response")
 		}
-		glog.Infof("response was %+v", resp)
 		// The response can either be a redirection chain or a response.
 		redirectMap := make(map[string]string)
 		srvMap := make(map[string]rainslib.ServiceInfo)
@@ -219,6 +192,10 @@ func (r *Resolver) recursiveResolve(name, context string) (*rainslib.RainsMessag
 						concreteMap[sz] = fmt.Sprintf("[%s]", obj.Value.(string))
 					}
 				}
+			case *rainslib.ShardSection:
+				return resp, nil
+			default:
+				return nil, fmt.Errorf("got unknown type: %T", section)
 			}
 		}
 		// If we are here, there is some recursion required or there is no answer.

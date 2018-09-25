@@ -50,9 +50,11 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 	msg, err := msgParser.Decode(message)
 	if err != nil {
 		sendNotificationMsg(msg.Token, sender, rainslib.NTBadMessage, "")
+		log.Debug("bad message", "token", msg.Token)
 		return
 	}
 	log.Debug("Parsed Message", "msg", msg)
+	trace(msg.Token, fmt.Sprintf("received raw message"))
 
 	//TODO CFE get infrastructure key from cache and if not present send a infra query, add a new cache for whole messages to wait for missing public keys
 	if !rainsSiglib.CheckMessageSignatures(&msg, rainslib.PublicKey{}, sigEncoder) {
@@ -66,15 +68,19 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.AddressAssertionSection, *rainslib.AddressZoneSection:
 			if !isZoneBlacklisted(m.(rainslib.MessageSectionWithSig).GetSubjectZone()) {
 				addMsgSectionToQueue(m, msg.Token, sender)
+				trace(msg.Token, fmt.Sprintf("added message section to queue: %v", m))
 			}
 		case *rainslib.QuerySection, *rainslib.AddressQuerySection:
 			log.Debug(fmt.Sprintf("add %T to normal queue", m))
 			normalChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
+			trace(msg.Token, fmt.Sprintf("sent query section %v to normal channel", m))
 		case *rainslib.NotificationSection:
 			log.Debug("Add notification to notification queue", "token", msg.Token)
 			notificationChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
+			trace(msg.Token, fmt.Sprintf("sent notification section %v to notification channel", m))
 		default:
 			log.Warn(fmt.Sprintf("unsupported message section type %T", m))
+			trace(msg.Token, fmt.Sprintf("unsupported message section type: %T", m))
 			return
 		}
 	}

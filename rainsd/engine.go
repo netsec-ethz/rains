@@ -469,22 +469,21 @@ func processQuery(msgSender msgSectionSender) {
 
 // queryTransitiveClosure fetches the missing records when a :redir: record is encountered.
 // Note: the redirection value must be an FQDN otherwise we can't look it up yet.
-func queryTransitiveClosure(as []*rainslib.AssertionSection, qCtx string) []*rainslib.AssertionSection {
+func queryTransitiveClosure(as *[]*rainslib.AssertionSection, qCtx string) {
 	unresolved := make(map[string]bool)
 	ctr := 0
-	for _, as := range as {
+	for _, as := range *as {
 		for _, o := range as.Content {
 			if o.Type == rainslib.OTRedirection {
 				unresolved[o.Value.(string)] = true
-				ctr += 1
+				ctr++
 			}
 		}
 	}
 	for ctr > 0 {
-		for name, _ := range unresolved {
-			log.Debug("processing unresolved name", "name", name)
+		for name := range unresolved {
 			delete(unresolved, name)
-			ctr -= 1
+			ctr--
 			res := make([]*rainslib.AssertionSection, 0)
 			if asserts, ok := assertionsCache.Get(name, qCtx, rainslib.OTRedirection, true); ok {
 				res = append(res, asserts...)
@@ -507,61 +506,74 @@ func queryTransitiveClosure(as []*rainslib.AssertionSection, qCtx string) []*rai
 					if obj.Type == rainslib.OTRedirection {
 						log.Debug("Adding redirection target", "from", name, "to", obj.Value.(string), "unresolved", unresolved)
 						unresolved[obj.Value.(string)] = true
-						ctr += 1
+						ctr++
 					}
 					if obj.Type == rainslib.OTServiceInfo {
 						sin := obj.Value.(rainslib.ServiceInfo)
 						log.Debug("Adding serviceinfo target", "from", name, "to", sin.Name, "unresolved", unresolved)
 						unresolved[sin.Name] = true
-						ctr += 1
+						ctr++
 					}
 				}
 			}
 			for _, a := range res {
 				log.Debug("Adding assertion for transitive closure", "assertion", a)
-				as = append(as, a)
+				*as = append(*as, a)
 			}
 		}
 	}
-	return as
 }
 
-// query directly answers the query if the result is cached.
-// Otherwise it issues a new query and adds this query to the pendingQueries Cache.
+//query directly answers the query if the result is cached. Otherwise it issues
+//a new query and adds this query to the pendingQueries Cache.
 func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Start processing query", "query", query)
-	subject, zone, err := fqdnToSubjectZone(query.Name)
-	if err != nil {
-		log.Warn("Bad query fqdn", "err", err)
-		sendNotificationMsg(token, sender, rainslib.NTBadMessage, fmt.Sprintf("specified name %q was not a FQDN: %v", query.Name, err))
-		return
-	}
-	log.Debug("processing query", "subject", subject, "zone", zone)
-	// Lookup positive.
+	trace(token, fmt.Sprintf("Processing QuerySection for name: %v, types: %v", query.Name, query.Types))
+
 	assertions := []rainslib.MessageSection{}
+	assertionSet := make(map[string]bool)
+	asKey := func(a *rainslib.AssertionSection) string {
+		return fmt.Sprintf("%s_%s_%s", a.SubjectName, a.SubjectZone, a.Context)
+	}
+
 	for _, t := range query.Types {
-		fqdn := mergeSubjectZone(subject, zone)
-		if asserts, ok := assertionsCache.Get(fqdn, query.Context, t, false); ok {
-			log.Debug("before transitiveClosure", "assertlen", len(asserts))
-			asserts = queryTransitiveClosure(asserts, query.Context)
-			log.Debug("after transitiveClosure", "assertLen", len(asserts))
+		if asserts, ok := assertionsCache.Get(query.Name, query.Context, t, false); ok {
+			trace(token, fmt.Sprintf("received from cache: %v", asserts))
 			//TODO implement a more elaborate policy to filter returned assertions instead
 			//of sending all non expired once back.
+			log.Debug(fmt.Sprintf("before transitive closure: %v", asserts))
+			queryTransitiveClosure(&asserts, query.Context)
+			log.Debug(fmt.Sprintf("after transitive closure: %v", asserts))
 			for _, a := range asserts {
+				if _, ok := assertionSet[asKey(a)]; ok {
+					continue
+				}
 				if a.ValidUntil() > time.Now().Unix() {
+					trace(token, fmt.Sprintf("appending valid assertion %v to response", a))
+					log.Debug(fmt.Sprintf("appending valid assertion: %v", a))
 					assertions = append(assertions, a)
+					assertionSet[asKey(a)] = true
 				}
 			}
 		}
 	}
 	if len(assertions) > 0 {
-		log.Debug("sending", "assertLen", len(assertions))
 		sendSections(assertions, token, sender)
+		trace(token, fmt.Sprintf("successfully sent response assertions: %v", assertions))
 		log.Info("Finished handling query by sending assertion from cache", "query", query)
 		return
 	}
-	log.Debug("Query cache miss", "subject", subject, "zone", zone, "context", query.Context, "type", query.Types)
-	// Lookup negative (includes cache misses).
+	trace(token, "no entry found in assertion cache")
+	log.Debug("No entry found in assertion cache", "name", query.Name,
+		"context", query.Context, "type", query.Types)
+
+	//negative answer lookup (note that it can occur a positive answer if assertion removed from cache)
+	subject, zone, err := toSubjectZone(query.Name)
+	if err != nil {
+		sendNotificationMsg(token, sender, rainslib.NTRcvInconsistentMsg, "query name must end with root zone dot '.'")
+		log.Warn("failed to concert query name to subject and zone: %v", err)
+		return
+	}
 	negAssertion, ok := negAssertionCache.Get(zone, query.Context, rainslib.StringInterval{Name: subject})
 	if ok {
 		//TODO CFE For each type check if one of the zone or shards contain the queried
@@ -571,26 +583,33 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		//e.g. using gob encoding. alternatively we could also count the number of contained
 		//elements.
 		sendSection(negAssertion[0], token, sender)
-		log.Info("Handled negative assertion", "query", query)
+		trace(token, fmt.Sprintf("found negative assertion matching query: %v", negAssertion[0]))
+		log.Info("Finished handling query by sending shard or zone from cache", "query", query)
 		return
 	}
 	log.Debug("No entry found in negAssertion cache matching the query")
-	// Cache lookup only mode.
+	trace(token, "no entry found in negative assertion cache")
+
+	// If cached answers only option is set then stop after looking in the local cache.
 	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
 		log.Debug("Send a notification message back due to query option: 'Cached Answers only'",
 			"destination", sender)
 		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
+		trace(token, "returned no assertion available message due to CachedAnswersOnly query option")
 		log.Info("Finished handling query (unsuccessful, cached answers only) ", "query", query)
 		return
 	}
-	// Forward query.
-	// XXX: Forwarding does not really work it just sends to a random port and hangs.
+
+	trace(token, "forwarding query")
+	//forward query (no answer in cache)
 	var delegate rainslib.ConnInfo
 	if iterativeLookupAllowed() {
 		if conns := redirectCache.GetConnsInfo(query.Name); len(conns) > 0 {
 			//TODO CFE design policy which server to choose (same as pending query callback?)
 			delegate = conns[0]
 		} else {
+			sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
+			log.Error("no delegate found to send query to")
 			return
 		}
 	} else {
@@ -615,7 +634,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 	if isNew {
 		if pendingQueries.AddToken(tok, validUntil, delegate, query.Name, query.Context, query.Types) {
 			newQuery := &rainslib.QuerySection{
-				Name:       fmt.Sprintf("%s.%s", subject, zone),
+				Name:       query.Name,
 				Context:    query.Context,
 				Expiration: validUntil,
 				Types:      query.Types,
@@ -703,33 +722,24 @@ func handleAddressZoneQueryResponse(zone *rainslib.AddressZoneSection, subjectAd
 	return true
 }
 
-// TODO(rayhaan): Move to dedicated utils package.
-func validFQDN(fqdn string) bool {
-	if !strings.HasSuffix(fqdn, ".") {
-		return false
+// toSubjectZone splits a name into a subject and zone.
+// Invariant: name always ends with the '.'.
+func toSubjectZone(name string) (subject, zone string, e error) {
+	//TODO CFE use also different heuristics
+	if !strings.HasSuffix(name, ".") {
+		return "", "", fmt.Errorf("invariant that query name ends with '.' is broken: %v", name)
 	}
-	if fqdn == "." {
-		return true
+	parts := strings.Split(name, ".")
+	if parts[0] == "" {
+		zone = "."
+		subject = ""
+		return
 	}
-	labels := strings.Split(fqdn, ".")
-	for i := 0; i < len(labels)-1; i++ {
-		if len(labels[i]) == 0 {
-			return false
-		}
-	}
-	return true
-}
+	subject = parts[0]
+	zone = strings.Join(parts[1:], ".")
 
-// TODO(rayhaan): Move to dedicated utils package.
-func fqdnToSubjectZone(fqdn string) (string, string, error) {
-	if !validFQDN(fqdn) {
-		return "", "", fmt.Errorf("%q is not a valid FQDN", fqdn)
-	}
-	labels := strings.Split(fqdn, ".")
-	if len(labels) == 2 {
-		return labels[0], ".", nil
-	}
-	return labels[0], strings.Join(labels[1:len(labels)-1], ".") + ".", nil
+	log.Debug("Split into zone and name", "subject", subject, "zone", zone)
+	return
 }
 
 //handleShardOrZoneQueryResponse checks if section.Content contains an assertion with subjectName,

@@ -33,10 +33,68 @@ are not part of the syntax.
 - "<" represents the nil value of a shard's rangeFrom
 - ">" represents the nil value of a shard's rangeTo
 
+<<<<<<< HEAD
 
 ## BNF of the zonefile format
 
 <sections> ::= "" | <sections> <assertion> | <sections> <shard> | <sections> <pshard> | <sections> <zone>
+=======
+### Zone Format Specification
+
+- Zone := Z|ZA
+- Z := :Z: subject-zone context [ {Assertion|Shard}* ]
+- ZA := Z ( Annotation* )
+
+### Shard Format Specification
+
+- Shard := BS|CS|BSA|CSA
+- BS := :S: subject-zone context rangeFrom rangeUntil [ Assertion* ]
+- CS := :S: rangeFrom rangeUntil [ Assertion* ]
+- BSA := BS ( Annotation* )
+- CSA := CS ( Annotation* )
+
+### Assertion Format Specification
+
+- Assertion := BA|CA|BAA|CAA
+- BA := :A: subject-name subject-zone context [ Object+ ]
+- CA := :A: subject-name [ Object+ ]
+- BAA := BA ( Annotation* )
+- CAA := CA ( Annotation* )
+
+### Object Format Specification
+
+- Object := Name|IP6|IP4|Redir|Deleg|Nameset|Cert|Srv|Regr|Regt|Infra|Extra|Next
+- Name := :name: name [ ObjectType+ ]
+- IP6 := :ip4: ip4
+- IP4 := :ip6: ip6
+- Redir := :redir: name
+- Deleg := :deleg: algorithm keyphase publicKey
+- Nameset := :nameset: expr
+- Cert := :cert: protocolType usageType hashType certificate
+- Srv := :srv: name port priority
+- Regr := :regr: registrar
+- Regt := :regt: registrant
+- Infra := :infra: algorithm keyphase publicKey
+- Extra := :extra: keyspace algorithm keyphase publicKey
+- Next := :next: algorithm keyphase publicKey validSince validUntil
+- ObjectType := :name:|:ip6:|:ip4:|:redir:|:deleg:|:nameset:|:cert:|:srv:|:regr:|:regt:|:infra:|:extra:|:next:
+
+### Annotation Format Specification
+
+- Annotation := Signature
+
+### Signature Format Specification
+
+- Signature := SM|SMS
+- SM := :sig: algorithm keyspace keyphase validSince validUntil
+- SMS := SM signature
+
+## BNF
+
+The above format in BNF.
+
+<sections> ::= "" | <sections> <assertion> | <sections> <shard> | <sections> <zone>
+>>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 <zone> ::= <zoneBody> | <zoneBody> <annotation>
 <zoneBody> ::= ":Z:" <subjectZone> <context> "[" <zoneContent> "]"
 <zoneContent> ::= "" | <zoneContent> <assertion> | <zoneContent> <shard>
@@ -44,11 +102,14 @@ are not part of the syntax.
 <shardBody> ::= ":S:" <shardRange> "[" <shardContent> "]" | ":S:" <subjectZone> <context> <shardRange> "[" <shardContent> "]"
 <shardRange> ::= <rangeBegin> <rangeEnd> | <rangeBegin> ">" | "<" <rangeEnd> | "<" ">"
 <shardContent> ::= "" | <shardContent> <assertion>
+<<<<<<< HEAD
 <pshard> ::= <pshardBody> | <pshardBody> <annotation>
 <pshardBody> ::= ":P:" <shardRange> <pshardContent> | ":P:" <subjectZone> <context> <shardRange> <pshardContent>
 <pshardContent> ::= <bloomFilter>
 <bloomFilter> ::= :bloomFilter: "[" <hashTypes> "]" <nofHashFunctions> <bfOpMode> <bloomFilterData>
 <hashTypes> ::= <hashType> | <hashTypes> <hashType>
+=======
+>>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 <assertion> ::= <assertionBody> | <assertionBody> <annotation>
 <assertionBody> ::= ":A:" <name> "[" <objects> "]" | ":A:" <name> <subjectZone> <context> "[" <objects> "]"
 <objects> ::= <name> | <ip6> | <ip4> | <redir> | <deleg> | <nameset> | <cert> | <srv> | <regr> | <regt> | <infra> | <extra> | <next>
@@ -65,13 +126,21 @@ are not part of the syntax.
 <infra> ::= <infrabody> | <infra> <infrabody>
 <extra> ::= <extrabody> | <extra> <extrabody>
 <next> ::= <nextbody> | <next> <nextbody>
+<<<<<<< HEAD
 <namebody> ::= ":name:" <cname> "[" <objectTypes> "]"
+=======
+<namebody> ::= ":name:" <alias> "[" <objectTypes> "]"
+>>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 <ip6body> ::= ":ip6:" <ip6Addr>
 <ip4body> ::= ":ip4:" <ip4Addr>
 <redirbody> ::= ":redir:" <redirname>
 <delegbody> ::= ":deleg:" ":ed25519:" <keyphase> <publicKeyData>
 <namesetbody> ::= ":nameset:" <freeText>
+<<<<<<< HEAD
 <certbody> ::= ":cert:" <protocolType> <certificatUsage> <hashType> <certData>
+=======
+<certbody> ::= ":cert:" <protocolType> <certificateUsage> <hashType> <certData>
+>>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 <srvbody> ::= ":srv:" <serviceName> <port> <priority>
 <regrbody> ::= ":regr:" <freeText>
 <regtbody> ::= ":regt:" <freeText>
@@ -84,9 +153,14 @@ are not part of the syntax.
                  ":infra:" | ":extra:" | ":next:" |
 <freeText> ::= <word> | <freeText> <word>
 <protocolType> ::= ":unspecified:" | ":tls:"
+<<<<<<< HEAD
 <certificatUsage> ::= ":trustAnchor:" | ":endEntity:"
 <hashType> ::= ":noHash:" | ":sha256:" | ":sha384:" | ":sha512:" | ":fnv64:" | ":murmur364:"
 <bfOpMode> ::= ":standard:" | ":km1:" | ":km2:"
+=======
+<certificateUsage> ::= ":trustAnchor:" | ":endEntity:"
+<hashType> ::= ":noHash:" | ":sha256:" | ":sha384:" | ":sha512:"
+>>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 <annotation> ::= "(" <annotationBody> ")"
 <annotationBody> ::= <signature> | <annotationBody> <signature>
 <signature> ::= <sigMetaData> | <sigMetaData> <signatureData>

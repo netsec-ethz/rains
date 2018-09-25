@@ -7,20 +7,18 @@ package rainsd
 import (
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
-	"github.com/golang/glog"
 	log "github.com/inconshreveable/log15"
 
+	"github.com/britram/borat"
 	"github.com/netsec-ethz/rains/rainslib"
-	"github.com/netsec-ethz/rains/utils/protoParser"
 )
 
 //sendTo sends message to the specified receiver.
 func sendTo(message rainslib.RainsMessage, receiver rainslib.ConnInfo, retries, backoffMilliSeconds int) (err error) {
-	var framer rainslib.MsgFramer
-
 	conns, ok := connCache.GetConnection(receiver)
 	if !ok {
 		conn, err := createConnection(receiver)
@@ -40,17 +38,10 @@ func sendTo(message rainslib.RainsMessage, receiver rainslib.ConnInfo, retries, 
 		//add capabilities to message
 		message.Capabilities = []rainslib.Capability{rainslib.Capability(capabilityHash)}
 	}
-	msg, err := msgParser.Encode(message)
-	if err != nil {
-		log.Warn("Cannot encode message", "message", message, "error", err)
-		return err
-	}
-	framer = new(protoParser.ProtoParserAndFramer)
 	for _, conn := range conns {
-		framer.InitStreams(nil, conn)
-		err = framer.Frame(msg)
-		if err != nil {
-			log.Warn("Was not able to frame or send the message", "Error", err, "connections", conns, "receiver", receiver)
+		writer := borat.NewCBORWriter(conn)
+		if err := writer.Marshal(&message); err != nil {
+			log.Warn(fmt.Sprintf("failed to marshal message to conn: %v", err))
 			connCache.CloseAndRemoveConnection(conn)
 			continue
 		}
@@ -81,7 +72,6 @@ func createConnection(receiver rainslib.ConnInfo) (net.Conn, error) {
 //Listen listens for incoming connections and creates a go routine for each connection.
 func Listen() {
 	srvLogger := log.New("addr", serverConnInfo.String())
-	glog.Infof("Starting listen in rainsd library")
 	switch serverConnInfo.Type {
 	case rainslib.TCP:
 		srvLogger.Info("Start TCP listener")
@@ -114,18 +104,41 @@ func Listen() {
 	}
 }
 
+func deliverCBOR(msg *rainslib.RainsMessage, sender rainslib.ConnInfo) {
+	// TODO: Check length of message.
+	processCapability(msg.Capabilities, sender, msg.Token)
+	//handle message content
+	for _, m := range msg.Content {
+		switch m := m.(type) {
+		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.AddressAssertionSection, *rainslib.AddressZoneSection:
+			if !isZoneBlacklisted(m.(rainslib.MessageSectionWithSig).GetSubjectZone()) {
+				addMsgSectionToQueue(m, msg.Token, sender)
+			}
+		case *rainslib.QuerySection, *rainslib.AddressQuerySection:
+			log.Debug(fmt.Sprintf("add %T to normal queue", m))
+			normalChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
+		case *rainslib.NotificationSection:
+			log.Debug("Add notification to notification queue", "token", msg.Token)
+			notificationChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
+		default:
+			log.Warn(fmt.Sprintf("unsupported message section type %T", m))
+			return
+		}
+	}
+}
+
 //handleConnection deframes all incoming messages on conn and passes them to the inbox along with the dstAddr
 func handleConnection(conn net.Conn, dstAddr rainslib.ConnInfo) {
-	var framer rainslib.MsgFramer
-	framer = new(protoParser.ProtoParserAndFramer)
-	framer.InitStreams(conn, nil)
-	for framer.DeFrame() {
-		log.Info("Received a message", "sender", dstAddr)
-		deliver(framer.Data(), dstAddr)
-		conn.SetDeadline(time.Now().Add(Config.TCPTimeout))
+	var msg rainslib.RainsMessage
+	reader := borat.NewCBORReader(conn)
+	for {
+		if err := reader.Unmarshal(&msg); err != nil {
+			log.Warn(fmt.Sprintf("failed to read from client: %v", err))
+			break
+		}
+		deliverCBOR(&msg, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: conn.RemoteAddr().(*net.TCPAddr)})
 	}
 	connCache.CloseAndRemoveConnection(conn)
-	log.Debug("connection removed from cache", "remoteAddr", conn.RemoteAddr())
 }
 
 //isIPBlacklisted returns true if addr is blacklisted

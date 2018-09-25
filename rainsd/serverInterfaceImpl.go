@@ -899,9 +899,9 @@ func (c *assertionCacheImpl) Get(fqdn, context string, objType rainslib.ObjectTy
 		v, ok = c.cache.Get(assertionCacheMapKeyFQDN(fqdn, context, objType))
 	} else {
 		hierarchy := zoneHierarchy(fqdn)
-		log.Debug("hierarchy is ", "hierarchy", hierarchy)
+		log.Debug("hierarchy is", "hierarchy", hierarchy)
 		for _, fqdn := range hierarchy {
-			log.Info("Trying get with fqdn", "fqdn", fqdn)
+			log.Debug("trying get with fqdn", "fqdn", fqdn)
 			v, ok = c.cache.Get(assertionCacheMapKeyFQDN(fqdn, context, objType))
 			if ok {
 				break

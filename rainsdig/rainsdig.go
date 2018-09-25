@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
@@ -12,10 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
-
 	"github.com/netsec-ethz/rains/rainslib"
-	"github.com/netsec-ethz/rains/utils/protoParser"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 )
 
@@ -40,9 +38,6 @@ var msgFramer rainslib.MsgFramer
 var zfParser rainslib.ZoneFileParser
 
 func init() {
-	parserAndFramer := new(protoParser.ProtoParserAndFramer)
-	msgParser = parserAndFramer
-	msgFramer = parserAndFramer
 	zfParser = zoneFileParser.Parser{}
 	//TODO CFE this list should be generated from internal constants
 	flag.Var(&queryOptions, "qopt", `specifies which query options are added to the query. Several query options are allowed. The sequence in which they are given determines the priority in descending order. Supported values are:
@@ -98,16 +93,11 @@ func main() {
 			qt = []rainslib.ObjectType{rainslib.ObjectType(*queryType)}
 		}
 
-		message := rainslib.NewQueryMessage(*name, *context, *expires, qt, queryOptions, rainslib.GenerateToken())
-		msg, err := msgParser.Encode(message)
-		if err != nil {
-			fmt.Printf("could not encode the query, error=%s\n", err)
-			os.Exit(1)
-		}
+		msg := rainslib.NewQueryMessage(*name, *context, *expires, qt, queryOptions, rainslib.GenerateToken())
 
-		err = sendQuery(msg, message.Token, connInfo)
+		err = sendQuery(msg, msg.Token, connInfo)
 		if err != nil {
-			fmt.Printf("could not frame and send the query, error=%s\n", err)
+			log.Warn(fmt.Sprintf("could not send query: %v", err))
 			os.Exit(1)
 		}
 	}
@@ -115,30 +105,32 @@ func main() {
 
 //sendQuery creates a connection with connInfo, frames msg and writes it to the connection.
 //It then waits for the response which it then outputs to the command line and if specified additionally stores to a file.
-func sendQuery(msg []byte, token rainslib.Token, connInfo rainslib.ConnInfo) error {
+func sendQuery(msg rainslib.RainsMessage, token rainslib.Token, connInfo rainslib.ConnInfo) error {
 	conn, err := createConnection(connInfo)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-	msgFramer.InitStreams(conn, conn)
-	done := make(chan rainslib.RainsMessage)
-	go listen(conn, token, done)
 
-	err = msgFramer.Frame(msg)
-	if err != nil {
-		return err
+	done := make(chan rainslib.RainsMessage)
+	ec := make(chan error)
+	go listen(conn, token, done, ec)
+
+	writer := borat.NewCBORWriter(conn)
+	if err := writer.Marshal(&msg); err != nil {
+		return fmt.Errorf("failed to marshal message: %v", err)
 	}
-	result := <-done // wait for answer
-	for _, section := range result.Content {
-		//FIXME CFE validate signature before displaying information, for that we need root publicKey, obtaining out of band?
-		switch section := section.(type) {
-		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.QuerySection, *rainslib.NotificationSection,
-			*rainslib.AddressAssertionSection, *rainslib.AddressQuerySection, *rainslib.AddressZoneSection:
+
+	select {
+	case msg := <-done:
+		for _, section := range msg.Content {
+			// TODO: validate signatures.
 			fmt.Println(zfParser.Encode(section))
-		default:
-			log.Warn("got unexpected section type", "type", fmt.Sprintf("%T", section))
 		}
+	case err := <-ec:
+		return fmt.Errorf("an error occurred querying the server: %v", err)
+	case <-time.After(10 * time.Second):
+		return fmt.Errorf("timed out waiting for response")
 	}
 	return nil
 }
@@ -153,33 +145,18 @@ func createConnection(connInfo rainslib.ConnInfo) (conn net.Conn, err error) {
 	}
 }
 
-//listen receives incoming messages. If the message's token matches the query's token, it sends the message back over the channel otherwise it discards the message.
-func listen(conn net.Conn, token rainslib.Token, done chan<- rainslib.RainsMessage) {
-	for msgFramer.DeFrame() {
-		tok, err := msgParser.Token(msgFramer.Data())
-		if err != nil {
-			log.Warn("Was not able to extract the token", "message", hex.EncodeToString(msgFramer.Data()), "error", err)
-			continue
-		}
-		msg, err := msgParser.Decode(msgFramer.Data())
-		if err != nil {
-			log.Warn("Was not able to decode received message", "message", hex.EncodeToString(msgFramer.Data()), "error", err)
-			if tok == token {
-				done <- msg
-				return
-			}
-			continue
-		}
-		if tok == token {
-			done <- msg
-			return
-		} else if n, ok := msg.Content[0].(*rainslib.NotificationSection); ok && n.Token == token {
-			done <- msg
-			return
-		}
-		log.Debug("Token of sent query does not match the token of the received message", "queryToken", token, "recvToken", msg.Token)
+func listen(conn net.Conn, tok rainslib.Token, done chan<- rainslib.RainsMessage, ec chan<- error) {
+	reader := borat.NewCBORReader(conn)
+	var msg rainslib.RainsMessage
+	if err := reader.Unmarshal(&msg); err != nil {
+		ec <- fmt.Errorf("failed to unmarshal response: %v", err)
+		return
 	}
-	done <- rainslib.RainsMessage{}
+	if msg.Token != tok {
+		ec <- fmt.Errorf("token response mismatch: got %v, want %v", msg.Token, tok)
+		return
+	}
+	done <- msg
 }
 
 //qoptFlag defines the query options flag. It allows a user to specify multiple query options and their priority (by input sequence)
