@@ -9,7 +9,7 @@ import (
 	"os"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/rainsd"
+	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
 )
 
 var (

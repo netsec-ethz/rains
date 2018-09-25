@@ -5,7 +5,6 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/rainspub"
 )
 
 var (
@@ -25,18 +24,18 @@ func main() {
 			log.Crit("all other paramters must be specified if -config is not.")
 			return
 		}
-		err := rainspub.InitFromFlags(*serverHost, *zoneFile, *privKey, *validDuration, *serverPort)
+		err := publisher.InitFromFlags(*serverHost, *zoneFile, *privKey, *validDuration, *serverPort)
 		if err != nil {
 			log.Error("Error on startup", "error", err)
 		}
 	} else {
-		err := rainspub.InitRainspub(*config)
+		err := publisher.InitRainspub(*config)
 		if err != nil {
 			log.Error("Error on startup", "error", err)
 			panic(err)
 		}
 	}
-	err := rainspub.PublishInformation()
+	err := publisher.PublishInformation()
 	if err != nil {
 		log.Error("Was not able to publish information", "error", err)
 	}

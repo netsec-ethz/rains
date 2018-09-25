@@ -6,8 +6,8 @@ package main
 		input  string
 		errMsg string
 	}{
-		{"test/rainspub.conf", ""},
-		{"wrongPath/rainspub.conf", "open wrongPath/rainspub.conf: no such file or directory"},       //trigger error
+		{"test/publisher.conf", ""},
+		{"wrongPath/publisher.conf", "open wrongPath/publisher.conf: no such file or directory"},       //trigger error
 		{"test/rainspubWrongPath.conf", "open WrongPath/zonePrivate.key: no such file or directory"}, //trigger error
 	}
 	for i, test := range tests {
@@ -29,7 +29,7 @@ func TestPublishInformation(t *testing.T) {
 		errMsg string
 	}{
 		{"test/rainspub2.conf", ""},                                                        //no errors
-		{"test/rainspub.conf", "open zoneFiles/chZoneFile.txt: no such file or directory"}, //load assertion error
+		{"test/publisher.conf", "open zoneFiles/chZoneFile.txt: no such file or directory"}, //load assertion error
 	}
 	for i, test := range tests {
 		Init(test.input)
@@ -41,7 +41,7 @@ func TestPublishInformation(t *testing.T) {
 }
 
 func TestCreateRainsMessage(t *testing.T) {
-	Init("test/rainspub.conf")
+	Init("test/publisher.conf")
 	a := getAssertionWithTwoIPObjects()
 	var tests = []struct {
 		input  *rainslib.ZoneSection
@@ -89,8 +89,8 @@ func TestLoadConfig(t *testing.T) {
 		input  string
 		errMsg string
 	}{
-		{"test/rainspub.conf", ""},
-		{"notExist/rainspub.conf", "open notExist/rainspub.conf: no such file or directory"},
+		{"test/publisher.conf", ""},
+		{"notExist/publisher.conf", "open notExist/publisher.conf: no such file or directory"},
 		{"test/malformed.conf", "unexpected end of JSON input"},
 	}
 	for i, test := range tests {

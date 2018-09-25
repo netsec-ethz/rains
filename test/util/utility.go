@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
 	"golang.org/x/crypto/ed25519"
 )
 

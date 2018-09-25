@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
 )
 
 const nofZones = 1000000

@@ -13,8 +13,8 @@ import (
 
 	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/rainslib"
-	"github.com/netsec-ethz/rains/utils/zoneFileParser"
+	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
 
 var anyQuery = []rainslib.ObjectType{rainslib.OTName, rainslib.OTIP4Addr,
@@ -38,7 +38,7 @@ var msgFramer rainslib.MsgFramer
 var zfParser rainslib.ZoneFileParser
 
 func init() {
-	zfParser = zoneFileParser.Parser{}
+	zfParser = zonefile.Parser{}
 	//TODO CFE this list should be generated from internal constants
 	flag.Var(&queryOptions, "qopt", `specifies which query options are added to the query. Several query options are allowed. The sequence in which they are given determines the priority in descending order. Supported values are:
 	1: Minimize end-to-end latency

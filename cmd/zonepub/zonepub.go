@@ -12,9 +12,9 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
-	"github.com/netsec-ethz/rains/rainslib"
-	"github.com/netsec-ethz/rains/rainspub"
-	parser "github.com/netsec-ethz/rains/utils/zoneFileParser"
+	"github.com/netsec-ethz/rains/internal/pkg/publisher"
+	parser "github.com/netsec-ethz/rains/internal/pkg/zonefile"
+	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
 )
 
 var configPath string
@@ -222,21 +222,21 @@ func main() {
 	}
 
 	//Call rainspub to do the work according to the updated config
-	server := rainspub.New(config)
+	server := publisher.New(config)
 	server.Publish()
 }
 
 //loadConfig loads configuration information from configPath
-func loadConfig(configPath string) (rainspub.Config, error) {
-	var config rainspub.Config
+func loadConfig(configPath string) (publisher.Config, error) {
+	var config publisher.Config
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Error("Could not open config file...", "path", configPath, "error", err)
-		return rainspub.Config{}, err
+		return publisher.Config{}, err
 	}
 	if err = json.Unmarshal(file, &config); err != nil {
 		log.Error("Could not unmarshal json format of config", "error", err)
-		return rainspub.Config{}, err
+		return publisher.Config{}, err
 	}
 	config.MetaDataConf.SigValidSince *= time.Second
 	config.MetaDataConf.SigValidUntil *= time.Second
