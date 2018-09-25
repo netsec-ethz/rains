@@ -1,5 +1,7 @@
 # rainspub Design
 
+TODO CFE, Design is deprecated. Rewrite README
+
 `rainspub` takes input in the form of RAINS zonefiles (see
 [the zonefile definition](../DESIGN-NOTES.md#zonefiles)) and a keypair for a zone,
 generates signed assertions, shards, and zones, and publishes these to a set

@@ -6,81 +6,93 @@ import (
 	"sort"
 	"time"
 
-	"github.com/netsec-ethz/rains/utils/bitarray"
-	"github.com/netsec-ethz/rains/utils/protoParser"
-
 	log "github.com/inconshreveable/log15"
+
 	"github.com/netsec-ethz/rains/rainsSiglib"
 	"github.com/netsec-ethz/rains/rainslib"
+	"github.com/netsec-ethz/rains/utils/bitarray"
+	"github.com/netsec-ethz/rains/utils/protoParser"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 )
 
-//Init starts the zone information publishing process according to the provided config.
-func Init(inputConfig Config) {
-	config = inputConfig
-	zfParser = parser.Parser{}
-	signatureEncoder = parser.Parser{}
-	publish()
+//Rainspub represents the publishing process of a zone authority. It can be configured to do
+//anything from just one step to the whole process of publishing information to the zone's
+//authoritative servers.
+type Rainspub struct {
+	Config     Config
+	zfParser   rainslib.ZoneFileParser
+	sigEncoder rainslib.SignatureFormatEncoder
 }
 
-//publish calls the relevant library function to publish information according to the provided
-//config during initialization.
-//this implementation assumes that there is exactly one zone per zonefile.
-func publish() {
-	zone, err := loadZonefile()
+//New creates a Rainspub instance and returns a pointer to it.
+func New(config Config) *Rainspub {
+	return &Rainspub{
+		Config:     config,
+		zfParser:   parser.Parser{},
+		sigEncoder: parser.Parser{},
+	}
+}
+
+//Publish performs various tasks of a zone's publishing process to rains servers according to its
+//configuration. This implementation assumes that there is exactly one zone per zonefile.
+func (r *Rainspub) Publish() {
+	zone, err := loadZonefile(r.Config.ZonefilePath, r.zfParser)
 	if err != nil {
 		return
 	}
 	log.Info("Zonefile successful loaded")
-	assertions, shards, pshards, err := splitZoneContent(zone)
+	assertions, shards, pshards, err := splitZoneContent(zone,
+		r.Config.ShardingConf.KeepExistingShards, r.Config.PShardingConf.KeepExistingPshards)
 	nofAssertions := len(assertions)
 	if err != nil {
 		return
 	}
-	if config.DoSharding {
-		if shards, err = doSharding(zone, assertions, shards); err != nil {
+	if r.Config.ShardingConf.DoSharding {
+		if shards, err = doSharding(zone, assertions, shards, r.Config.ShardingConf, r.zfParser,
+			r.Config.ConsistencyConf.SortShards); err != nil {
 			log.Error(err.Error())
 			return
 		}
-		if !config.DoPsharding {
+		if !r.Config.PShardingConf.DoPsharding {
 			assertions = nil
 		}
 	}
-	if config.DoPsharding {
-		if pshards, err = doPsharding(zone, assertions, pshards); err != nil {
+	if r.Config.PShardingConf.DoPsharding {
+		if pshards, err = doPsharding(zone, assertions, pshards, r.Config.PShardingConf); err != nil {
 			log.Error(err.Error())
 			return
 		}
-		if config.DoSharding {
+		if r.Config.ShardingConf.DoSharding {
 			assertions = nil
 		}
 	}
-	if config.DoSharding || config.DoPsharding {
+	if r.Config.ShardingConf.DoSharding || r.Config.PShardingConf.DoPsharding {
 		createZone(zone, assertions, shards, pshards)
 	}
-	if config.AddSignatureMetaData {
-		if err = addSignatureMetaData(zone, nofAssertions, len(pshards)); err != nil {
+	if r.Config.MetaDataConf.AddSignatureMetaData {
+		if err = addSignatureMetaData(zone, nofAssertions, len(pshards), r.Config.MetaDataConf); err != nil {
 			log.Error(err.Error())
 			return
 		}
 		log.Info("Adding Signature meta data completed successfully")
 	}
-	if !isConsistent(zone) {
+	if !isConsistent(zone, r.Config.ConsistencyConf) {
 		return
 	}
-	if config.DoSigning {
-		if signZone(zone) != nil {
+	if r.Config.DoSigning {
+		if signZone(zone, r.Config.PrivateKeyPath, r.sigEncoder) != nil {
 			log.Error("Was not able to sign zone.")
 			return
 		}
 		log.Info("Signing completed successfully")
 	}
-	publishZone(zone)
+	r.publishZone(zone, r.Config)
 }
 
-//splitZoneContent returns an array of assertions and an array of shards contained in zone.
-func splitZoneContent(zone *rainslib.ZoneSection) ([]*rainslib.AssertionSection,
-	[]*rainslib.ShardSection, []*rainslib.PshardSection, error) {
+//splitZoneContent returns assertions, pshards and shards contained in zone as three separate
+//slices.
+func splitZoneContent(zone *rainslib.ZoneSection, keepShards, keepPshards bool) (
+	[]*rainslib.AssertionSection, []*rainslib.ShardSection, []*rainslib.PshardSection, error) {
 	assertions := []*rainslib.AssertionSection{}
 	shards := []*rainslib.ShardSection{}
 	pshards := []*rainslib.PshardSection{}
@@ -89,7 +101,7 @@ func splitZoneContent(zone *rainslib.ZoneSection) ([]*rainslib.AssertionSection,
 		case *rainslib.AssertionSection:
 			assertions = append(assertions, s)
 		case *rainslib.ShardSection:
-			if config.KeepExistingShards {
+			if keepShards {
 				shards = append(shards, s)
 			} else {
 				for _, a := range s.Content {
@@ -97,7 +109,7 @@ func splitZoneContent(zone *rainslib.ZoneSection) ([]*rainslib.AssertionSection,
 				}
 			}
 		case *rainslib.PshardSection:
-			if config.KeepExistingPshards {
+			if keepPshards {
 				pshards = append(pshards, s)
 			}
 		default:
@@ -109,20 +121,21 @@ func splitZoneContent(zone *rainslib.ZoneSection) ([]*rainslib.AssertionSection,
 }
 
 func doSharding(zone *rainslib.ZoneSection, assertions []*rainslib.AssertionSection,
-	shards []*rainslib.ShardSection) ([]*rainslib.ShardSection, error) {
-	if config.SortShards {
+	shards []*rainslib.ShardSection, config ShardingConfig, encoder rainslib.ZoneFileParser,
+	sortShards bool) ([]*rainslib.ShardSection, error) {
+	if sortShards {
 		sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
 	}
 	var newShards []*rainslib.ShardSection
 	var err error
 	if config.MaxShardSize > 0 {
 		newShards, err = groupAssertionsToShardsBySize(zone.SubjectZone, zone.Context, assertions,
-			config.MaxShardSize)
+			config, encoder)
 		if err != nil {
 			return nil, err
 		}
 	} else if config.NofAssertionsPerShard > 0 {
-		newShards = groupAssertionsToShardsByNumber(zone.SubjectZone, zone.Context, assertions)
+		newShards = groupAssertionsToShardsByNumber(zone.SubjectZone, zone.Context, assertions, config)
 	} else {
 		return nil, errors.New("MaxShardSize or NofAssertionsPerShard must be positive when DoSharding is set")
 	}
@@ -136,11 +149,11 @@ func doSharding(zone *rainslib.ZoneSection, assertions []*rainslib.AssertionSect
 }
 
 func doPsharding(zone *rainslib.ZoneSection, assertions []*rainslib.AssertionSection,
-	pshards []*rainslib.PshardSection) ([]*rainslib.PshardSection, error) {
+	pshards []*rainslib.PshardSection, conf PShardingConfig) ([]*rainslib.PshardSection, error) {
 	var newPshards []*rainslib.PshardSection
 	var err error
-	if config.NofAssertionsPerPshard > 0 {
-		if newPshards, err = groupAssertionsToPshards(zone.SubjectZone, zone.Context, assertions); err != nil {
+	if conf.NofAssertionsPerPshard > 0 {
+		if newPshards, err = groupAssertionsToPshards(zone.SubjectZone, zone.Context, assertions, conf); err != nil {
 			return nil, err
 		}
 	} else {
@@ -157,20 +170,20 @@ func doPsharding(zone *rainslib.ZoneSection, assertions []*rainslib.AssertionSec
 
 //groupAssertionsToShardsBySize groups assertions into shards such that each shard is not exceeding
 //maxSize. It returns a slice of the created shards.
-func groupAssertionsToShardsBySize(subjectZone, context string,
-	assertions []*rainslib.AssertionSection, maxSize int) ([]*rainslib.ShardSection, error) {
+func groupAssertionsToShardsBySize(subjectZone, context string, assertions []*rainslib.AssertionSection,
+	config ShardingConfig, encoder rainslib.ZoneFileParser) ([]*rainslib.ShardSection, error) {
 	shards := []*rainslib.ShardSection{}
-	sameNameAssertions := groupAssertionByName(assertions)
+	sameNameAssertions := groupAssertionByName(assertions, config)
 	prevShardAssertionSubjectName := ""
 	shard := &rainslib.ShardSection{}
 	for i, sameNameA := range sameNameAssertions {
 		shard.Content = append(shard.Content, sameNameA...)
 		//FIXME CFE replace with cbor parser
-		if length := len(zfParser.Encode(shard)); length > maxSize {
+		if length := len(encoder.Encode(shard)); length > config.MaxShardSize {
 			shard.Content = shard.Content[:len(shard.Content)-len(sameNameA)]
 			if len(shard.Content) == 0 {
 				log.Error("Assertions with the same name are larger than maxShardSize",
-					"assertions", sameNameA, "length", length, "maxShardSize", maxSize)
+					"assertions", sameNameA, "length", length, "maxShardSize", config.MaxShardSize)
 				return nil, errors.New("Assertions with the same name are too long")
 			}
 			shard.RangeFrom = prevShardAssertionSubjectName
@@ -179,9 +192,9 @@ func groupAssertionsToShardsBySize(subjectZone, context string,
 			shard = &rainslib.ShardSection{}
 			prevShardAssertionSubjectName = sameNameAssertions[i-1][0].SubjectName
 			shard.Content = append(shard.Content, sameNameA...)
-			if length := len(zfParser.Encode(shard)); length > maxSize {
+			if length := len(encoder.Encode(shard)); length > config.MaxShardSize {
 				log.Error("Assertions with the same name are larger than maxShardSize",
-					"assertions", sameNameA, "length", length, "maxShardSize", maxSize)
+					"assertions", sameNameA, "length", length, "maxShardSize", config.MaxShardSize)
 				return nil, errors.New("Assertions with the same name are too long")
 			}
 		}
@@ -195,7 +208,8 @@ func groupAssertionsToShardsBySize(subjectZone, context string,
 
 //groupAssertionByName returns a slice where each entry is a slice of assertions having the same
 //subject name.
-func groupAssertionByName(assertions []*rainslib.AssertionSection) [][]*rainslib.AssertionSection {
+func groupAssertionByName(assertions []*rainslib.AssertionSection,
+	config ShardingConfig) [][]*rainslib.AssertionSection {
 	var output [][]*rainslib.AssertionSection
 	for i := 0; i < len(assertions); i++ {
 		sameName := []*rainslib.AssertionSection{assertions[i]}
@@ -212,7 +226,7 @@ func groupAssertionByName(assertions []*rainslib.AssertionSection) [][]*rainslib
 //groupAssertionsToShardsByNumber creates shards containing a maximum number of different assertion
 //names according to the configuration. It returns a slice of the created shards.
 func groupAssertionsToShardsByNumber(subjectZone, context string,
-	assertions []*rainslib.AssertionSection) []*rainslib.ShardSection {
+	assertions []*rainslib.AssertionSection, config ShardingConfig) []*rainslib.ShardSection {
 	shards := []*rainslib.ShardSection{}
 	nameCount := 0
 	prevAssertionSubjectName := ""
@@ -242,14 +256,14 @@ func groupAssertionsToShardsByNumber(subjectZone, context string,
 
 //groupAssertionsToShardsByNumber creates shards containing a maximum number of different assertion
 //names according to the configuration. It returns a slice of the created shards.
-func groupAssertionsToPshards(subjectZone, context string,
-	assertions []*rainslib.AssertionSection) ([]*rainslib.PshardSection, error) {
+func groupAssertionsToPshards(subjectZone, context string, assertions []*rainslib.AssertionSection,
+	config PShardingConfig) ([]*rainslib.PshardSection, error) {
 	pshards := []*rainslib.PshardSection{}
 	nameCount := 0
 	prevAssertionSubjectName := ""
 	prevShardAssertionSubjectName := ""
 	pshard := &rainslib.PshardSection{}
-	bloomFilter := getBloomFilter()
+	bloomFilter := newBloomFilter(config.BloomFilterConf)
 	for i, a := range assertions {
 		if prevAssertionSubjectName != a.SubjectName {
 			nameCount++
@@ -262,7 +276,7 @@ func groupAssertionsToPshards(subjectZone, context string,
 			pshards = append(pshards, pshard)
 			nameCount = 1
 			pshard = &rainslib.PshardSection{}
-			bloomFilter = getBloomFilter()
+			bloomFilter = newBloomFilter(config.BloomFilterConf)
 			prevShardAssertionSubjectName = assertions[i-1].SubjectName
 		}
 		if err := bloomFilter.AddAssertion(a); err != nil {
@@ -277,7 +291,8 @@ func groupAssertionsToPshards(subjectZone, context string,
 	return pshards, nil
 }
 
-func getBloomFilter() rainslib.BloomFilter {
+//newBloomFilter returns a newly created bloom filter of the given
+func newBloomFilter(config BloomFilterConfig) rainslib.BloomFilter {
 	var size int
 	if config.BloomFilterSize%8 == 0 {
 		size = config.BloomFilterSize / 8
@@ -309,7 +324,8 @@ func createZone(zone *rainslib.ZoneSection, assertions []*rainslib.AssertionSect
 
 //addSignatureMetaData adds signature meta data to the zone content based on the configuration. It
 //assumes, that the zone content is sorted, i.e. pshards come before shards.
-func addSignatureMetaData(zone *rainslib.ZoneSection, nofAssertions, nofPshards int) error {
+func addSignatureMetaData(zone *rainslib.ZoneSection, nofAssertions, nofPshards int,
+	config MetaDataConfig) error {
 	waitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofAssertions)
 	pshardWaitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofPshards)
 	signature := rainslib.Signature{
@@ -358,7 +374,7 @@ func addSignatureMetaData(zone *rainslib.ZoneSection, nofAssertions, nofPshards 
 	return nil
 }
 
-func isConsistent(zone *rainslib.ZoneSection) bool {
+func isConsistent(zone *rainslib.ZoneSection, config ConsistencyConfig) bool {
 	if config.DoConsistencyCheck {
 		if !rainsSiglib.ValidSectionAndSignature(zone) {
 			log.Error("zone content is not consistent")
@@ -384,9 +400,9 @@ func isConsistent(zone *rainslib.ZoneSection) bool {
 	return true
 }
 
-func publishZone(zone *rainslib.ZoneSection) {
+func (r *Rainspub) publishZone(zone *rainslib.ZoneSection, config Config) {
 	if config.OutputPath != "" {
-		encoding := zfParser.Encode(zone)
+		encoding := r.zfParser.Encode(zone)
 		err := ioutil.WriteFile(config.OutputPath, []byte(encoding), 0600)
 		if err != nil {
 			log.Error(err.Error())
@@ -400,7 +416,7 @@ func publishZone(zone *rainslib.ZoneSection) {
 		if err != nil {
 			return
 		}
-		unreachableServers := publishSections(encoding)
+		unreachableServers := publishSections(encoding, config.AuthServers)
 		if unreachableServers != nil {
 			log.Warn("Was not able to connect to all authoritative servers", "unreachableServers", unreachableServers)
 		} else {
@@ -425,16 +441,17 @@ func createRainsMessage(sections []rainslib.MessageSectionWithSigForward) ([]byt
 	return byteMsg, nil
 }
 
-//publishSections establishes connections to all authoritative servers according to the config. It
+//publishSections establishes connections to all authoritative servers according to the r.Config. It
 //then sends sections to all of them. It returns the connection information of those servers it was
 //not able to push sections, otherwise nil is returned.
-func publishSections(sections []byte) []rainslib.ConnInfo {
+func publishSections(sections []byte,
+	authServers []rainslib.ConnInfo) []rainslib.ConnInfo {
 	var errorConns []rainslib.ConnInfo
-	results := make(chan *rainslib.ConnInfo, len(config.AuthServers))
-	for _, conn := range config.AuthServers {
+	results := make(chan *rainslib.ConnInfo, len(authServers))
+	for _, conn := range authServers {
 		go connectAndSendMsg(sections, conn, results)
 	}
-	for i := 0; i < len(config.AuthServers); i++ {
+	for i := 0; i < len(authServers); i++ {
 		if errorConn := <-results; errorConn != nil {
 			errorConns = append(errorConns, *errorConn)
 		}
