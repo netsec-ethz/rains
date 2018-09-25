@@ -1,28 +1,20 @@
 package rainspub
 
 import (
-<<<<<<< HEAD
-=======
-	"crypto/tls"
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 	"errors"
 	"io/ioutil"
 	"sort"
 	"time"
 
 	"github.com/netsec-ethz/rains/utils/bitarray"
+	"github.com/netsec-ethz/rains/utils/protoParser"
 
-<<<<<<< HEAD
 	log "github.com/inconshreveable/log15"
-=======
-	"github.com/britram/borat"
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 	"github.com/netsec-ethz/rains/rainsSiglib"
 	"github.com/netsec-ethz/rains/rainslib"
 	"github.com/netsec-ethz/rains/utils/zoneFileParser"
 )
 
-<<<<<<< HEAD
 //Init starts the zone information publishing process according to the provided config.
 func Init(inputConfig Config) {
 	config = inputConfig
@@ -36,13 +28,6 @@ func Init(inputConfig Config) {
 //this implementation assumes that there is exactly one zone per zonefile.
 func publish() {
 	zone, err := loadZonefile()
-=======
-//InitRainspub initializes rainspub
-func InitRainspub(configPath string) error {
-	h := log.CallerFileHandler(log.StdoutHandler)
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, h))
-	err := loadConfig(configPath)
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 	if err != nil {
 		return
 	}
@@ -52,7 +37,6 @@ func InitRainspub(configPath string) error {
 	if err != nil {
 		return
 	}
-<<<<<<< HEAD
 	if config.DoSharding {
 		if shards, err = doSharding(zone, assertions, shards); err != nil {
 			log.Error(err.Error())
@@ -92,12 +76,6 @@ func InitRainspub(configPath string) error {
 		log.Info("Signing completed successfully")
 	}
 	publishZone(zone)
-=======
-	p := zoneFileParser.Parser{}
-	parser = p
-	signatureEncoder = p
-	return nil
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 }
 
 //splitZoneContent returns an array of assertions and an array of shards contained in zone.
@@ -127,14 +105,7 @@ func splitZoneContent(zone *rainslib.ZoneSection) ([]*rainslib.AssertionSection,
 			return nil, nil, nil, errors.New("Invalid zone content")
 		}
 	}
-<<<<<<< HEAD
 	return assertions, shards, pshards, nil
-=======
-	p := zoneFileParser.Parser{}
-	parser = p
-	signatureEncoder = p
-	return nil
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 }
 
 func doSharding(zone *rainslib.ZoneSection, assertions []*rainslib.AssertionSection,
@@ -155,24 +126,15 @@ func doSharding(zone *rainslib.ZoneSection, assertions []*rainslib.AssertionSect
 	} else {
 		return nil, errors.New("MaxShardSize or NofAssertionsPerShard must be positive when DoSharding is set")
 	}
-<<<<<<< HEAD
 	if len(shards) != 0 {
 		shards = append(shards, newShards...)
 		sort.Slice(shards, func(i, j int) bool { return shards[i].CompareTo(shards[j]) < 0 })
 	} else {
 		shards = newShards
-=======
-
-	msg := rainslib.RainsMessage{
-		Token:        rainslib.GenerateToken(),
-		Content:      []rainslib.MessageSection{zone},
-		Capabilities: []rainslib.Capability{rainslib.TLSOverTCP},
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 	}
 	return shards, nil
 }
 
-<<<<<<< HEAD
 func doPsharding(zone *rainslib.ZoneSection, assertions []*rainslib.AssertionSection,
 	pshards []*rainslib.PshardSection) ([]*rainslib.PshardSection, error) {
 	var newPshards []*rainslib.PshardSection
@@ -183,12 +145,6 @@ func doPsharding(zone *rainslib.ZoneSection, assertions []*rainslib.AssertionSec
 		}
 	} else {
 		return nil, errors.New("NofAssertionsPerPshard must be positive when DoPsharding is set")
-=======
-	err = sendMsg(msg)
-	if err != nil {
-		log.Warn("Was not able to send signed zone.", "error", err)
-		return err
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 	}
 	if len(pshards) != 0 {
 		pshards = append(pshards, newPshards...)
@@ -453,7 +409,6 @@ func publishZone(zone *rainslib.ZoneSection) {
 	}
 }
 
-<<<<<<< HEAD
 //createRainsMessage creates a rainsMessage containing the given zone and
 //returns the byte representation of this rainsMessage ready to send out.
 func createRainsMessage(sections []rainslib.MessageSectionWithSigForward) ([]byte, error) {
@@ -485,93 +440,4 @@ func publishSections(sections []byte) []rainslib.ConnInfo {
 		}
 	}
 	return errorConns
-=======
-//sendMsg sends the given zone to rains servers specified in the configuration
-func sendMsg(msg rainslib.RainsMessage) error {
-	//TODO CFE use certificate for tls
-	var conns []net.Conn
-	conf := &tls.Config{
-		InsecureSkipVerify: true,
-	}
-	for _, server := range config.ServerAddresses {
-		switch server.Type {
-		case rainslib.TCP:
-			conn, err := tls.Dial(server.TCPAddr.Network(), server.String(), conf)
-			if err != nil {
-				log.Error("Was not able to establish a connection.", "server", server, "error", err)
-				continue
-			}
-			conns = append(conns, conn)
-			writer := borat.NewCBORWriter(conn)
-			go listen(conn, msg.Token)
-			if err := writer.Marshal(&msg); err != nil {
-				conn.Close()
-				return err
-			}
-			log.Info("Sucessfully published info")
-		default:
-			return fmt.Errorf("unsupported connection information type. actual=%v", server.Type)
-		}
-	}
-	time.Sleep(2 * time.Second)
-	for _, conn := range conns {
-		conn.Close()
-		log.Debug("connection closed")
-	}
-	return nil
-}
-
-//listen receives incoming messages. If the message's token matches the query's token, it handles
-//the response.
-func listen(conn net.Conn, token rainslib.Token) {
-	var msg rainslib.RainsMessage
-
-	reader := borat.NewCBORReader(conn)
-
-	if err := reader.Unmarshal(&msg); err != nil {
-		log.Warn("Error unmarshaling: %v", err)
-		return
-	}
-
-	if msg.Token != token {
-		log.Warn("Token mismatch, got: %v, want: %v", msg.Token, token)
-		return
-	}
-
-	if n, ok := msg.Content[0].(*rainslib.NotificationSection); ok {
-		handleResponse(n)
-	}
-}
-
-//handleResponse handles the received notification message and returns true if the connection can
-//be closed.
-func handleResponse(n *rainslib.NotificationSection) {
-	switch n.Type {
-	case rainslib.NTHeartbeat, rainslib.NTNoAssertionsExist, rainslib.NTNoAssertionAvail:
-	//nop
-	case rainslib.NTCapHashNotKnown:
-	//TODO CFE send back the whole capability list in an empty message
-	case rainslib.NTBadMessage:
-		log.Error("Sent msg was malformed", "data", n.Data)
-	case rainslib.NTRcvInconsistentMsg:
-		log.Error("Sent msg was inconsistent", "data", n.Data)
-	case rainslib.NTMsgTooLarge:
-		log.Error("Sent msg was too large", "data", n.Data)
-		//What should we do in this case. apparently it is not possible to send a zone because
-		//it is too large. send shards instead?
-	case rainslib.NTUnspecServerErr:
-		log.Error("Unspecified error of other server", "data", n.Data)
-		//TODO CFE resend?
-	case rainslib.NTServerNotCapable:
-		log.Error("Other server was not capable", "data", n.Data)
-		//TODO CFE when can this occur?
-	default:
-		log.Error("Received non existing notification type")
-	}
-}
-
-//capabilityIsHash returns true if capabilities are represented as a hash.
-func capabilityIsHash(capabilities string) bool {
-	return !strings.HasPrefix(capabilities, "urn:")
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 }

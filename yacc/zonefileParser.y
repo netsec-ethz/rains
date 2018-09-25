@@ -8,11 +8,7 @@
 
 package main
 
-<<<<<<< HEAD
 import (  
-=======
-import (
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 	"bufio"
     "bytes"
     "encoding/hex"
@@ -23,26 +19,18 @@ import (
     "strings"
     log "github.com/inconshreveable/log15"
     "github.com/netsec-ethz/rains/rainslib"
-<<<<<<< HEAD
     "github.com/netsec-ethz/rains/utils/zoneFileParser"
     "github.com/netsec-ethz/rains/utils/bitarray"
     "golang.org/x/crypto/ed25519"
 )
 
 //AddSigs adds signatures to section
-=======
-    "golang.org/x/crypto/ed25519"
-)
-
-//AddSigs adds signatures to section.
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 func AddSigs(section rainslib.MessageSectionWithSigForward, signatures []rainslib.Signature) {
     for _, sig := range signatures {
         section.AddSig(sig)
     }
 }
 
-<<<<<<< HEAD
 func DecodeBloomFilter(hashAlgos []rainslib.HashAlgorithmType, modeOfOperation rainslib.ModeOfOperationType,
     nofHashFunctions, filter string) (rainslib.BloomFilter, error) {
     funcs, err := strconv.Atoi(nofHashFunctions)
@@ -61,10 +49,6 @@ func DecodeBloomFilter(hashAlgos []rainslib.HashAlgorithmType, modeOfOperation r
         }, nil
 }
 
-=======
-//DecodePublicKeyID converts the keyphase string into an integer and returns a 
-//PublicKeyID struct with the provided keyphase and default algorithm/keyspace.
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 func DecodePublicKeyID(keyphase string) (rainslib.PublicKeyID, error) {
     phase, err := strconv.Atoi(keyphase)
 	if err != nil {
@@ -77,15 +61,8 @@ func DecodePublicKeyID(keyphase string) (rainslib.PublicKeyID, error) {
 	}, nil
 }
 
-<<<<<<< HEAD
 func DecodeEd25519SignatureData(input string) (interface{}, error) {
     return "notYetImplemented", nil
-=======
-//DecodeEd25519SignatureData decodes an ed25519 signature which is hex encoded
-//in input and returns it.
-func DecodeEd25519SignatureData(input string) (interface{}, error) {
-    return nil, errors.New("notYetImplemented")
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 }
 
 // DecodeEd25519PublicKeyData returns the publicKey or an error in case
@@ -100,29 +77,16 @@ func DecodeEd25519PublicKeyData(pkeyInput string, keyphase string) (rainslib.Pub
 		return rainslib.PublicKey{}, err
 	}
 	if len(pKey) == 32 {
-<<<<<<< HEAD
 		publicKey := rainslib.PublicKey{Key: ed25519.PublicKey(pKey), PublicKeyID: publicKeyID}
 		return publicKey, nil
-=======
-		return rainslib.PublicKey{Key: ed25519.PublicKey(pKey), PublicKeyID: publicKeyID}, nil
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 	}
 	return rainslib.PublicKey{}, fmt.Errorf("wrong public key length: got %d, want: 32", len(pKey))
 }
 
-<<<<<<< HEAD
 func DecodeCertificate(ptype rainslib.ProtocolType, usage rainslib.CertificateUsage, 
     hashAlgo rainslib.HashAlgorithmType, certificat string) (rainslib.CertificateObject,
 error) {
     data, err := hex.DecodeString(certificat)
-=======
-//DecodeCertificate decodes the provided certificate which is hex encoded and
-//returns it.
-func DecodeCertificate(ptype rainslib.ProtocolType, usage rainslib.CertificateUsage, 
-    hashAlgo rainslib.HashAlgorithmType, certificate string) (rainslib.CertificateObject,
-error) {
-    data, err := hex.DecodeString(certificate)
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
     if err != nil {
         return rainslib.CertificateObject{}, err
     }
@@ -134,11 +98,6 @@ error) {
     }, nil
 }
 
-<<<<<<< HEAD
-=======
-//DecodeSrv parses portString and priorityString to int64 and returns a
-//serviceInfo object.
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 func DecodeSrv(name, portString, priorityString string) (rainslib.ServiceInfo, error) {
     port, err := strconv.Atoi(portString)
     if  err != nil || port < 0 || port > 65535 {
@@ -155,10 +114,6 @@ func DecodeSrv(name, portString, priorityString string) (rainslib.ServiceInfo, e
     }, nil
 }
 
-<<<<<<< HEAD
-=======
-//DecodeValidity parses validSince and validUntil to int64 and returns them.
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
     vsince, err := strconv.ParseInt(validSince, 10, 64)
     if  err != nil || vsince < 0 {
@@ -171,17 +126,12 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
     return vsince, vuntil, nil
 }
 
-<<<<<<< HEAD
 //Result gets stored in this variable
 var output []rainslib.MessageSectionWithSigForward
 
 %}
 
 
-=======
-%}
-
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 // fields inside this union end up as the fields in a structure known
 // as ${PREFIX}SymType, of which a reference is passed to the lexer.
 %union{
@@ -189,10 +139,7 @@ var output []rainslib.MessageSectionWithSigForward
     assertion       *rainslib.AssertionSection
     assertions      []*rainslib.AssertionSection
     shard           *rainslib.ShardSection
-<<<<<<< HEAD
     pshard          *rainslib.PshardSection
-=======
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
     zone            *rainslib.ZoneSection
     sections        []rainslib.MessageSectionWithSigForward
     objects         []rainslib.Object
@@ -206,12 +153,9 @@ var output []rainslib.MessageSectionWithSigForward
     protocolType    rainslib.ProtocolType
     certUsage       rainslib.CertificateUsage
     hashType        rainslib.HashAlgorithmType
-<<<<<<< HEAD
     hashTypes       []rainslib.HashAlgorithmType
     dataStructure   rainslib.DataStructure
     bfOpMode        rainslib.ModeOfOperationType
-=======
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 }
 
 // any non-terminal which returns a value needs a type, which must be a field 
@@ -220,11 +164,8 @@ var output []rainslib.MessageSectionWithSigForward
 %type <sections>        zoneContent sections
 %type <shard>           shard shardBody
 %type <shardRange>      shardRange
-<<<<<<< HEAD
 %type <pshard>          pshard pshardBody
 %type <dataStructure>   pshardContent bloomFilter
-=======
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 %type <assertions>      shardContent
 %type <assertion>       assertion assertionBody
 %type <objects>         objects name ip4 ip6 redir deleg nameset cert
@@ -238,22 +179,14 @@ var output []rainslib.MessageSectionWithSigForward
 %type <str>             freeText
 %type <protocolType>    protocolType
 %type <certUsage>       certUsage
-<<<<<<< HEAD
 %type <hashTypes>       hashTypes
 %type <hashType>        hashType
 %type <bfOpMode>        bfOpMode
-=======
-%type <hashType>        hashType
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 
 // Terminals
 %token <str> ID
 // Section types
-<<<<<<< HEAD
 %token assertionType shardType pshardType zoneType
-=======
-%token assertionType shardType zoneType
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 // Object types
 %token nameType ip4Type ip6Type redirType delegType namesetType certType
 %token srvType regrType regtType infraType extraType nextType
@@ -264,15 +197,11 @@ var output []rainslib.MessageSectionWithSigForward
 // Certificate types
 %token unspecified tls trustAnchor endEntity 
 // Hash algorithm types
-<<<<<<< HEAD
 %token noHash sha256 sha384 sha512 fnv64 murmur364
 // Data structure types
 %token bloomFilterType
 // Bloom filter mode of operations
 %token standard km1 km2
-=======
-%token noHash sha256 sha384 sha512
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 // Key spaces
 %token rains
 // Special shard range markers
@@ -284,14 +213,7 @@ var output []rainslib.MessageSectionWithSigForward
 
 top             : sections
                 {
-<<<<<<< HEAD
                     output = $1
-=======
-                    fmt.Print("\n")
-                    for _,s := range $1 {
-                        fmt.Printf("%s\n", s.String())
-                    }
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
                 }
 
 sections        : /* empty */
@@ -306,13 +228,10 @@ sections        : /* empty */
                 {
                     $$ = append($1, $2)
                 }
-<<<<<<< HEAD
                 | sections pshard
                 {
                     $$ = append($1, $2)
                 }
-=======
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
                 | sections zone
                 {
                     $$ = append($1, $2)
@@ -346,13 +265,10 @@ zoneContent     : /* empty */
                 {
                     $$ = append($1, $2)
                 }
-<<<<<<< HEAD
                 | zoneContent pshard
                 {
                     $$ = append($1, $2)
                 }
-=======
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 
 shard           : shardBody
                 | shardBody annotation
@@ -406,7 +322,6 @@ shardContent :  /* empty */
                     $$ = append($1,$2)
                 }
 
-<<<<<<< HEAD
 pshard          : pshardBody
                 | pshardBody annotation
                 {
@@ -469,19 +384,13 @@ bfOpMode        : standard
                     $$ = rainslib.KirschMitzenmacher2
                 }
 
-=======
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 assertion       : assertionBody
                 | assertionBody annotation
                 {
                     AddSigs($1,$2)
                     $$ = $1
                 }
-<<<<<<< HEAD
     
-=======
-
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 assertionBody   : assertionType ID lBracket objects rBracket
                 {
                     $$ = &rainslib.AssertionSection{
@@ -792,11 +701,7 @@ extra           : extraBody
 
 extraBody       : extraType ed25519Type ID ID
                 {   //TODO CFE as of now there is only the rains key space. There will
-<<<<<<< HEAD
                     //be additional rules in case there are new key spaces 
-=======
-                    //be additional rules in case there are new key spaces
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
                     pkey, err := DecodeEd25519PublicKeyData($4, $3)
                     if  err != nil {
                         log.Error("semantic error:", "DecodeEd25519PublicKeyData", err)
@@ -866,7 +771,6 @@ hashType        : noHash
                 {
                     $$ = rainslib.Sha512
                 }
-<<<<<<< HEAD
                 | fnv64
                 {
                     $$ = rainslib.Fnv64
@@ -875,8 +779,6 @@ hashType        : noHash
                 {
                     $$ = rainslib.Murmur364
                 }
-=======
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 
 freeText        : ID
                 | freeText ID
@@ -900,11 +802,7 @@ annotationBody  : signature
 
 signature       : signatureMeta
                 | signatureMeta ID
-<<<<<<< HEAD
                 {   
-=======
-                {
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
                     data, err := DecodeEd25519SignatureData($2)
                     if  err != nil {
                         log.Error("semantic error:", "DecodeEd25519SignatureData", err)
@@ -936,11 +834,7 @@ signatureMeta   : sigType ed25519Type rains ID ID ID
 const eof = 0
 
 type ZFPLex struct {
-<<<<<<< HEAD
 	lines       [][]string
-=======
-    lines       [][]string
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
     lineNr      int
     linePos     int
 }
@@ -968,7 +862,6 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
     }
     //return token
     switch word {
-<<<<<<< HEAD
 	case parser.TypeAssertion :
         return assertionType
     case parser.TypeShard :
@@ -1036,61 +929,6 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
     case parser.TypeKM2 :
         return km2
     case parser.TypeKSRains :
-=======
-    case ":A:" :
-        return assertionType
-    case ":S:" :
-        return shardType
-    case ":Z:" :
-        return zoneType
-    case ":name:" :
-        return nameType
-    case ":ip6:" :
-        return ip6Type
-    case ":ip4:" :
-        return ip4Type
-    case ":redir:" :
-        return redirType
-    case ":deleg:" :
-        return delegType
-    case ":nameset:" :
-        return namesetType
-    case ":cert:" :
-        return certType
-    case ":srv:" :
-        return srvType
-    case ":regr:" :
-        return regrType
-    case ":regt:" :
-        return regtType
-    case ":infra:" :
-        return infraType
-    case ":extra:" :
-        return extraType
-    case ":next:" :
-        return nextType
-    case ":sig:" :
-        return sigType
-    case ":ed25519:" :
-        return ed25519Type
-    case ":unspecified:" :
-        return unspecified
-    case ":tls:" :
-        return tls
-    case ":trustAnchor:" :
-        return trustAnchor
-    case ":endEntity:" :
-        return endEntity
-    case ":noHash:" :
-        return noHash
-    case ":sha256:" :
-        return sha256
-    case ":sha384:" :
-        return sha384
-    case ":sha512:" :
-        return sha512
-    case ":rains:" :
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
         return rains
     case "<" :
         return rangeBegin
@@ -1104,17 +942,10 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
         return lParenthesis
     case ")" :
         return rParenthesis
-<<<<<<< HEAD
 	default :
         lval.str = word
         return ID
 	}
-=======
-    default :
-        lval.str = word
-        return ID
-    }
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
 }
 
 // The parser calls this method on a parse error.
@@ -1125,17 +956,10 @@ func (l *ZFPLex) Error(s string) {
     }
     if l.linePos == 0 && l.lineNr == 0 {
         log.Error("syntax error:", "lineNr", 1, "wordNr", 0,
-<<<<<<< HEAD
 	    "token", "noToken")
     } else {
 	    log.Error("syntax error:", "lineNr", l.lineNr+1, "wordNr", l.linePos,
 	    "token", l.lines[l.lineNr][l.linePos-1])
-=======
-        "token", "noToken")
-    } else {
-        log.Error("syntax error:", "lineNr", l.lineNr+1, "wordNr", l.linePos,
-        "token", l.lines[l.lineNr][l.linePos-1])
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
     }
 }
 
@@ -1156,11 +980,7 @@ func removeComments(scanner *bufio.Scanner) [][]string {
         inputWithoutComments := strings.Split(scanner.Text(), ";")[0]
         var words []string
         ws := bufio.NewScanner(strings.NewReader(inputWithoutComments))
-<<<<<<< HEAD
 	    ws.Split(bufio.ScanWords)
-=======
-        ws.Split(bufio.ScanWords)
->>>>>>> f9cef41a62a90e1fd2a956900cac5cef131b6cd0
         for ws.Scan() {
             words = append(words, ws.Text())
         } 
