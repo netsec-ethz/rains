@@ -4,21 +4,22 @@ import (
 	"log"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
 )
 
 const nofZones = 1000000
 
 func main() {
-	var channels [nofZones]chan rainslib.MessageSection
+	var channels [nofZones]chan sections.MessageSection
 	for i := range channels {
-		channels[i] = make(chan rainslib.MessageSection)
+		channels[i] = make(chan sections.MessageSection)
 		go worker(channels[i])
 	}
-	query := &rainslib.QuerySection{
+	query := &sections.QuerySection{
 		Name:       "example.com",
 		Context:    ".",
-		Types:      []rainslib.ObjectType{rainslib.OTRegistrant},
+		Types:      []object.ObjectType{object.OTRegistrant},
 		Expiration: 1000000,
 	}
 	start := time.Now()
@@ -32,12 +33,12 @@ func main() {
 	log.Printf("Sending and receiving took %s", elapsed)
 }
 
-func worker(input chan rainslib.MessageSection) {
-	a := &rainslib.AssertionSection{
+func worker(input chan sections.MessageSection) {
+	a := &sections.AssertionSection{
 		SubjectName: "example",
 		SubjectZone: "ch.",
 		Context:     ".",
-		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTRegistrant, Value: "Test registrant"}},
+		Content:     []object.Object{object.Object{Type: object.OTRegistrant, Value: "Test registrant"}},
 	}
 	<-input
 	//Simulates work on server side

@@ -44,13 +44,13 @@ func TestCreateRainsMessage(t *testing.T) {
 	Init("test/publisher.conf")
 	a := getAssertionWithTwoIPObjects()
 	var tests = []struct {
-		input  *rainslib.ZoneSection
+		input  *sections.ZoneSection
 		errMsg string
 	}{
-		{&rainslib.ZoneSection{SubjectZone: "ch", Context: ".", Content: []rainslib.MessageSectionWithSigForward{
-			&rainslib.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "",
-				Content: []*rainslib.AssertionSection{a}}}}, ""},
-		{&rainslib.ZoneSection{SubjectZone: "ch", Context: ".", Content: []rainslib.MessageSectionWithSigForward{new(rainslib.ZoneSection)}},
+		{&sections.ZoneSection{SubjectZone: "ch", Context: ".", Content: []sections.MessageSectionWithSigForward{
+			&sections.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "",
+				Content: []*sections.AssertionSection{a}}}}, ""},
+		{&sections.ZoneSection{SubjectZone: "ch", Context: ".", Content: []sections.MessageSectionWithSigForward{new(sections.ZoneSection)}},
 			"Unsupported section type"},
 	}
 	for i, test := range tests {
@@ -78,9 +78,9 @@ func TestLoadConfig(t *testing.T) {
 		DelegationValidSince: -1 * time.Hour,
 		ShardValidSince:      0,
 		ZoneValidSince:       0,
-		ServerAddresses: []rainslib.ConnInfo{
-			rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr},
-			rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr2},
+		ServerAddresses: []connection.ConnInfo{
+			connection.ConnInfo{Type: connection.TCP, TCPAddr: tcpAddr},
+			connection.ConnInfo{Type: connection.TCP, TCPAddr: tcpAddr2},
 		},
 		ZoneFilePath:       "zoneFiles/chZoneFile.txt",
 		ZonePrivateKeyPath: []string{"test/zonePrivate.key"},
@@ -104,9 +104,9 @@ func TestLoadConfig(t *testing.T) {
 	}
 }
 
-func getAssertionWithTwoIPObjects() *rainslib.AssertionSection {
-	return &rainslib.AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".",
-		Content: []rainslib.Object{rainslib.Object{Type: rainslib.OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"},
-			rainslib.Object{Type: rainslib.OTIP4Addr, Value: "129.132.128.139"}}}
+func getAssertionWithTwoIPObjects() *sections.AssertionSection {
+	return &sections.AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".",
+		Content: []object.Object{object.Object{Type: object.OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"},
+			object.Object{Type: object.OTIP4Addr, Value: "129.132.128.139"}}}
 }
 */

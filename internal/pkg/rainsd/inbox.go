@@ -1,13 +1,15 @@
 package rainsd
 
 import (
-	"fmt"
 	"strings"
+
+	"github.com/netsec-ethz/rains/internal/pkg/token"
 
 	log "github.com/inconshreveable/log15"
 
-	"github.com/netsec-ethz/rains/internal/pkg/siglib"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
 )
 
 //incoming messages are buffered in one of these channels until they get processed by a worker go routine
@@ -40,16 +42,17 @@ func initQueuesAndWorkers(done chan bool) error {
 
 //deliver pushes all incoming messages to the prio or normal channel.
 //A message is added to the priority channel if it is the response to a non-expired delegation query
-func deliver(message []byte, sender rainslib.ConnInfo) {
+func deliver(message []byte, sender connection.ConnInfo) {
 	//check message length
 	if uint(len(message)) > Config.MaxMsgByteLength {
-		token, _ := msgParser.Token(message)
-		sendNotificationMsg(token, sender, rainslib.NTMsgTooLarge, "")
+		//FIXME CFE
+		//token, _ := msgParser.Token(message)
+		//sendNotificationMsg(token, sender, sections.NTMsgTooLarge, "")
 		return
 	}
-	msg, err := msgParser.Decode(message)
+	/*msg, err := msgParser.Decode(message)
 	if err != nil {
-		sendNotificationMsg(msg.Token, sender, rainslib.NTBadMessage, "")
+		sendNotificationMsg(msg.Token, sender, sections.NTBadMessage, "")
 		log.Debug("bad message", "token", msg.Token)
 		return
 	}
@@ -57,7 +60,7 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 	trace(msg.Token, fmt.Sprintf("received raw message"))
 
 	//TODO CFE get infrastructure key from cache and if not present send a infra query, add a new cache for whole messages to wait for missing public keys
-	if !siglib.CheckMessageSignatures(&msg, rainslib.PublicKey{}, sigEncoder) {
+	if !siglib.CheckMessageSignatures(&msg, keys.PublicKey{}, sigEncoder) {
 	}
 
 	processCapability(msg.Capabilities, sender, msg.Token)
@@ -65,16 +68,16 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 	//handle message content
 	for _, m := range msg.Content {
 		switch m := m.(type) {
-		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.AddressAssertionSection, *rainslib.AddressZoneSection:
-			if !isZoneBlacklisted(m.(rainslib.MessageSectionWithSig).GetSubjectZone()) {
+		case *sections.AssertionSection, *sections.ShardSection, *sections.ZoneSection, *sections.AddressAssertionSection, *sections.AddressZoneSection:
+			if !isZoneBlacklisted(m.(sections.MessageSectionWithSig).GetSubjectZone()) {
 				addMsgSectionToQueue(m, msg.Token, sender)
 				trace(msg.Token, fmt.Sprintf("added message section to queue: %v", m))
 			}
-		case *rainslib.QuerySection, *rainslib.AddressQuerySection:
+		case *sections.QuerySection, *sections.AddressQuerySection:
 			log.Debug(fmt.Sprintf("add %T to normal queue", m))
 			normalChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
 			trace(msg.Token, fmt.Sprintf("sent query section %v to normal channel", m))
-		case *rainslib.NotificationSection:
+		case *sections.NotificationSection:
 			log.Debug("Add notification to notification queue", "token", msg.Token)
 			notificationChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
 			trace(msg.Token, fmt.Sprintf("sent notification section %v to notification channel", m))
@@ -83,12 +86,12 @@ func deliver(message []byte, sender rainslib.ConnInfo) {
 			trace(msg.Token, fmt.Sprintf("unsupported message section type: %T", m))
 			return
 		}
-	}
+	}*/
 }
 
 //processCapability processes capabilities and sends a notification back to the sender if the hash
 //is not understood.
-func processCapability(caps []rainslib.Capability, sender rainslib.ConnInfo, token rainslib.Token) {
+func processCapability(caps []message.Capability, sender connection.ConnInfo, token token.Token) {
 	log.Debug("Process capabilities", "capabilities", caps)
 	if len(caps) > 0 {
 		isHash := !strings.HasPrefix(string(caps[0]), "urn:")
@@ -96,7 +99,7 @@ func processCapability(caps []rainslib.Capability, sender rainslib.ConnInfo, tok
 			if caps, ok := capabilities.Get([]byte(caps[0])); ok {
 				addCapabilityAndRespond(sender, caps)
 			} else { //capability hash not understood
-				sendNotificationMsg(token, sender, rainslib.NTCapHashNotKnown, capabilityHash)
+				sendNotificationMsg(token, sender, sections.NTCapHashNotKnown, capabilityHash)
 			}
 		} else {
 			addCapabilityAndRespond(sender, caps)
@@ -106,14 +109,14 @@ func processCapability(caps []rainslib.Capability, sender rainslib.ConnInfo, tok
 
 //addCapabilityAndRespond adds caps to the connection cache entry of sender and sends its own
 //capabilities back if it has not already received capability information on this connection.
-func addCapabilityAndRespond(sender rainslib.ConnInfo, caps []rainslib.Capability) {
+func addCapabilityAndRespond(sender connection.ConnInfo, caps []message.Capability) {
 	if !connCache.AddCapabilityList(sender, caps) {
-		sendCapability(sender, []rainslib.Capability{rainslib.Capability(capabilityHash)})
+		sendCapability(sender, []message.Capability{message.Capability(capabilityHash)})
 	}
 }
 
 //addMsgSectionToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg section to the prio cache, otherwise to the normal cache.
-func addMsgSectionToQueue(msgSection rainslib.MessageSection, tok rainslib.Token, sender rainslib.ConnInfo) {
+func addMsgSectionToQueue(msgSection sections.MessageSection, tok token.Token, sender connection.ConnInfo) {
 	if pendingKeys.ContainsToken(tok) {
 		log.Debug("add section with signature to priority queue", "token", tok)
 		prioChannel <- msgSectionSender{Sender: sender, Section: msgSection, Token: tok}

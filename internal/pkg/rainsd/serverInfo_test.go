@@ -9,10 +9,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/token"
+
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeCounter"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeHashMap"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/lruCache"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -20,9 +28,9 @@ func TestCapabilityCache(t *testing.T) {
 	//TODO CFE remove these manually added entries once there is a working add implementation
 	cache := lruCache.New()
 	cache.GetOrAdd("e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745",
-		[]rainslib.Capability{rainslib.TLSOverTCP}, true)
+		[]message.Capability{message.TLSOverTCP}, true)
 	cache.GetOrAdd("76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71",
-		[]rainslib.Capability{rainslib.NoCapability}, false)
+		[]message.Capability{message.NoCapability}, false)
 	counter := safeCounter.New(10)
 	counter.Add(2)
 	var tests = []struct {
@@ -40,14 +48,14 @@ func TestCapabilityCache(t *testing.T) {
 		if !ok {
 			t.Errorf("%d: Get did not returned contained element.", i)
 		}
-		if !reflect.DeepEqual(caps, []rainslib.Capability{rainslib.TLSOverTCP}) {
+		if !reflect.DeepEqual(caps, []message.Capability{message.TLSOverTCP}) {
 			t.Errorf("%d: Returned element is wrong", i)
 		}
 		caps, ok = c.Get([]byte("76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71"))
 		if !ok {
 			t.Errorf("%d: Get did not returned contained element.", i)
 		}
-		if !reflect.DeepEqual(caps, []rainslib.Capability{rainslib.NoCapability}) {
+		if !reflect.DeepEqual(caps, []message.Capability{message.NoCapability}) {
 			t.Errorf("%d: Returned element is wrong", i)
 		}
 	}
@@ -74,9 +82,9 @@ func TestConnectionCache(t *testing.T) {
 		conn1, _ := net.Dial("tcp", tcpAddr)
 		conn2, _ := net.Dial("tcp", tcpAddr2)
 		conn3, _ := net.Dial("tcp", tcpAddr3)
-		connInfo1 := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: conn1.RemoteAddr().(*net.TCPAddr)}
-		connInfo2 := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: conn2.RemoteAddr().(*net.TCPAddr)}
-		connInfo3 := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: conn3.RemoteAddr().(*net.TCPAddr)}
+		connInfo1 := connection.ConnInfo{Type: connection.TCP, TCPAddr: conn1.RemoteAddr().(*net.TCPAddr)}
+		connInfo2 := connection.ConnInfo{Type: connection.TCP, TCPAddr: conn2.RemoteAddr().(*net.TCPAddr)}
+		connInfo3 := connection.ConnInfo{Type: connection.TCP, TCPAddr: conn3.RemoteAddr().(*net.TCPAddr)}
 		c.AddConnection(conn1)
 		c.AddConnection(conn2)
 		if c.Len() != 2 {
@@ -107,7 +115,7 @@ func TestConnectionCache(t *testing.T) {
 			t.Errorf("%d: Connection is not active or msg received is wrong", i)
 		}
 		//test adding capability
-		capabilityList := []rainslib.Capability{rainslib.TLSOverTCP}
+		capabilityList := []message.Capability{message.TLSOverTCP}
 		ok = c.AddCapabilityList(connInfo2, capabilityList)
 		if !ok {
 			t.Errorf("%d: Was not able to add capability list to connection2", i)
@@ -171,7 +179,7 @@ func TestZoneKeyCache(t *testing.T) {
 		}
 		//Add delegationAssertions
 		for j := 0; j < 3; j++ {
-			ok := c.Add(delegationsCH[j], delegationsCH[j].Content[0].Value.(rainslib.PublicKey), false)
+			ok := c.Add(delegationsCH[j], delegationsCH[j].Content[0].Value.(keys.PublicKey), false)
 			if c.Len() != j+1 {
 				t.Errorf("%d:Delegation was not added to cache expected=%d actual=%d", i, j, c.Len())
 			}
@@ -179,7 +187,7 @@ func TestZoneKeyCache(t *testing.T) {
 				t.Errorf("%d:Wrong return value expected=true actual=%v", i, ok)
 			}
 		}
-		ok := c.Add(delegationsORG[0], delegationsORG[0].Content[0].Value.(rainslib.PublicKey), false)
+		ok := c.Add(delegationsORG[0], delegationsORG[0].Content[0].Value.(keys.PublicKey), false)
 		if c.Len() != 4 {
 			t.Errorf("%d:Delegation was not added to cache expected=%d actual=%d", i, 4, c.Len())
 		}
@@ -190,24 +198,24 @@ func TestZoneKeyCache(t *testing.T) {
 		signatures := getSignatureMetaData()
 		for j := 0; j < 3; j++ {
 			pkey, a, ok := c.Get("ch", ".", signatures[j])
-			if !ok || pkey.CompareTo(delegationsCH[j].Content[0].Value.(rainslib.PublicKey)) != 0 ||
+			if !ok || pkey.CompareTo(delegationsCH[j].Content[0].Value.(keys.PublicKey)) != 0 ||
 				!reflect.DeepEqual(a, delegationsCH[j]) {
 				t.Errorf("%d:Get returned unexpected value actual=(%v,%v)", i, pkey, ok)
 			}
 		}
 		pkey, a, ok := c.Get("org", ".", signatures[0])
-		if !ok || pkey.CompareTo(delegationsORG[0].Content[0].Value.(rainslib.PublicKey)) != 0 ||
+		if !ok || pkey.CompareTo(delegationsORG[0].Content[0].Value.(keys.PublicKey)) != 0 ||
 			!reflect.DeepEqual(a, delegationsORG[0]) {
 			t.Errorf("%d:Get returned unexpected value actual=(%v,%v)", i, pkey, ok)
 		}
 		for j := 3; j < 3; j++ {
 			pkey, a, ok = c.Get("ch", ".", signatures[j])
-			if ok || pkey.CompareTo(rainslib.PublicKey{}) != 0 || a != nil {
+			if ok || pkey.CompareTo(keys.PublicKey{}) != 0 || a != nil {
 				t.Errorf("%d:Get should not return public key actual=(%v,%v)", i, pkey, ok)
 			}
 		}
 		//lru removal
-		ok = c.Add(delegationsORG[1], delegationsORG[1].Content[0].Value.(rainslib.PublicKey), false)
+		ok = c.Add(delegationsORG[1], delegationsORG[1].Content[0].Value.(keys.PublicKey), false)
 		if c.Len() != 3 {
 			t.Errorf("%d:lru removal deleted not enough keys expected=%d actual=%d", i, 2, c.Len())
 		}
@@ -219,7 +227,7 @@ func TestZoneKeyCache(t *testing.T) {
 			t.Errorf("%d:Wrong entries where removed", i)
 		}
 		//Removal of expired keys
-		c.Add(delegationsCH[3], delegationsCH[3].Content[0].Value.(rainslib.PublicKey), false)
+		c.Add(delegationsCH[3], delegationsCH[3].Content[0].Value.(keys.PublicKey), false)
 		if c.Len() != 4 {
 			t.Errorf("%d:Was not able to add expired delegation. expected=%d actual=%d", i, 3, c.Len())
 		}
@@ -228,12 +236,12 @@ func TestZoneKeyCache(t *testing.T) {
 			t.Errorf("%d:Was not able to remove expired delegation. expected=%d actual=%d", i, 2, c.Len())
 		}
 		//Test selfsigned root delegation
-		ok = c.Add(delegationsORG[4], delegationsORG[4].Content[0].Value.(rainslib.PublicKey), false)
+		ok = c.Add(delegationsORG[4], delegationsORG[4].Content[0].Value.(keys.PublicKey), false)
 		if c.Len() != 4 {
 			t.Errorf("%d:Delegation was not added to cache expected=%d actual=%d", i, 3, c.Len())
 		}
 		pkey, a, ok = c.Get(".", ".", signatures[0])
-		if !ok || pkey.CompareTo(delegationsORG[4].Content[0].Value.(rainslib.PublicKey)) != 0 ||
+		if !ok || pkey.CompareTo(delegationsORG[4].Content[0].Value.(keys.PublicKey)) != 0 ||
 			!reflect.DeepEqual(a, delegationsORG[4]) {
 			t.Errorf("%d:Get returned unexpected value actual=(%v,%v)", i, pkey, ok)
 		}
@@ -243,17 +251,17 @@ func TestZoneKeyCache(t *testing.T) {
 //FIXME CFE we cannot test if the cache logs correctly when the maximum number of delegations per
 //zone is reached. Should we return a value if so in which form (object, error)?
 func TestPendingKeyCache(t *testing.T) {
-	a0 := &rainslib.AssertionSection{SubjectZone: "com", Context: "."}
-	s1 := &rainslib.ShardSection{SubjectZone: "com", Context: "."}
-	z2 := &rainslib.ZoneSection{SubjectZone: "ch", Context: "."}
-	a3 := &rainslib.AssertionSection{SubjectZone: "ch", Context: "."}
+	a0 := &sections.AssertionSection{SubjectZone: "com", Context: "."}
+	s1 := &sections.ShardSection{SubjectZone: "com", Context: "."}
+	z2 := &sections.ZoneSection{SubjectZone: "ch", Context: "."}
+	a3 := &sections.AssertionSection{SubjectZone: "ch", Context: "."}
 	m := []sectionWithSigSender{
-		sectionWithSigSender{Section: a0, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
-		sectionWithSigSender{Section: s1, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
-		sectionWithSigSender{Section: z2, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
-		sectionWithSigSender{Section: a3, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
+		sectionWithSigSender{Section: a0, Sender: connection.ConnInfo{}, Token: token.GenerateToken()},
+		sectionWithSigSender{Section: s1, Sender: connection.ConnInfo{}, Token: token.GenerateToken()},
+		sectionWithSigSender{Section: z2, Sender: connection.ConnInfo{}, Token: token.GenerateToken()},
+		sectionWithSigSender{Section: a3, Sender: connection.ConnInfo{}, Token: token.GenerateToken()},
 	}
-	tokens := []rainslib.Token{rainslib.GenerateToken(), rainslib.GenerateToken()}
+	tokens := []token.Token{token.GenerateToken(), token.GenerateToken()}
 	var tests = []struct {
 		input pendingKeyCache
 	}{
@@ -269,7 +277,7 @@ func TestPendingKeyCache(t *testing.T) {
 		//Add: different cacheValues and same cacheValue, same Algo, different Hash
 		expectedValues := []bool{true, false, true}
 		for j := 0; j < 3; j++ {
-			sendQuery := c.Add(m[j], rainslib.Ed25519, 1)
+			sendQuery := c.Add(m[j], keys.Ed25519, 1)
 			if c.Len() != j+1 {
 				t.Errorf("%d.%d:section was not added to the cache. len=%d", i, j, c.Len())
 			}
@@ -279,7 +287,7 @@ func TestPendingKeyCache(t *testing.T) {
 		}
 		//check that no matter what the new section is, it gets dropped in case the cache is full
 		for j := 0; j < len(m); j++ {
-			sendQuery := c.Add(m[j], rainslib.Ed25519, 1)
+			sendQuery := c.Add(m[j], keys.Ed25519, 1)
 			if c.Len() != 3 {
 				t.Errorf("%d.%d:section was added to the cache. len=%d", i, j, c.Len())
 			}
@@ -288,20 +296,20 @@ func TestPendingKeyCache(t *testing.T) {
 			}
 		}
 		//Add token to cache entries
-		ok := c.AddToken(rainslib.GenerateToken(), time.Now().Add(time.Second).Unix(), rainslib.ConnInfo{}, "de", ".")
+		ok := c.AddToken(token.GenerateToken(), time.Now().Add(time.Second).Unix(), connection.ConnInfo{}, "de", ".")
 		if ok {
 			t.Errorf("%d:token added to non existing entry. len=%d", i, c.Len())
 		}
-		ok = c.AddToken(tokens[0], time.Now().Add(time.Second).Unix(), rainslib.ConnInfo{}, "com", ".")
+		ok = c.AddToken(tokens[0], time.Now().Add(time.Second).Unix(), connection.ConnInfo{}, "com", ".")
 		if !ok {
 			t.Errorf("%d:wrong return value of addToken()", i)
 		}
-		ok = c.AddToken(tokens[1], time.Now().Add(time.Second).Unix(), rainslib.ConnInfo{}, "ch", ".")
+		ok = c.AddToken(tokens[1], time.Now().Add(time.Second).Unix(), connection.ConnInfo{}, "ch", ".")
 		if !ok {
 			t.Errorf("%d:wrong return value of addToken()", i)
 		}
 		//Check if token in cache
-		newToken := rainslib.GenerateToken()
+		newToken := token.GenerateToken()
 		if c.ContainsToken(newToken) {
 			t.Errorf("%d:wrong return value of ContainsToken() actual=%v", i, newToken)
 		}
@@ -312,7 +320,7 @@ func TestPendingKeyCache(t *testing.T) {
 			t.Errorf("%d:wrong return value of ContainsToken() actual=%v", i, c.ContainsToken(tokens[1]))
 		}
 		//Check removal by token
-		v := c.GetAndRemoveByToken(rainslib.GenerateToken())
+		v := c.GetAndRemoveByToken(token.GenerateToken())
 		if v != nil || c.Len() != 3 {
 			t.Errorf("%d:Entry removed from cache with non matching token. len=%d", i, c.Len())
 		}
@@ -323,21 +331,21 @@ func TestPendingKeyCache(t *testing.T) {
 		}
 		//Check remaining Add() cases: same cacheValue and different algo type or phase;
 		//same cacheValue, same algo, same hash
-		sendQuery := c.Add(m[3], rainslib.Ed448, 1) //different algo type
+		sendQuery := c.Add(m[3], keys.Ed448, 1) //different algo type
 		if c.Len() != 2 {
 			t.Errorf("%d:section was not added to the cache. len=%d", i, c.Len())
 		}
 		if sendQuery {
 			t.Errorf("%d:incorrect Add() return value. expected=false actual=%v", i, sendQuery)
 		}
-		sendQuery = c.Add(m[3], rainslib.Ed448, 1) //duplicate
+		sendQuery = c.Add(m[3], keys.Ed448, 1) //duplicate
 		if c.Len() != 2 {
 			t.Errorf("%d:same section was added again to the cache. len=%d", i, c.Len())
 		}
 		if sendQuery {
 			t.Errorf("%d:incorrect Add() return value. expected=false actual=%v", i, sendQuery)
 		}
-		sendQuery = c.Add(m[3], rainslib.Ed25519, 0) //different phase
+		sendQuery = c.Add(m[3], keys.Ed25519, 0) //different phase
 		if c.Len() != 3 {
 			t.Errorf("%d:section was not added to the cache. len=%d", i, c.Len())
 		}
@@ -346,50 +354,50 @@ func TestPendingKeyCache(t *testing.T) {
 		}
 		//Check GetAndRemove()
 		//non existing elements
-		v = c.GetAndRemove("none contained zone", ".", rainslib.Ed25519, 0)
+		v = c.GetAndRemove("none contained zone", ".", keys.Ed25519, 0)
 		if v != nil || c.Len() != 3 {
 			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
 		}
-		v = c.GetAndRemove("ch", "non contained context", rainslib.Ed448, 0)
+		v = c.GetAndRemove("ch", "non contained context", keys.Ed448, 0)
 		if v != nil || c.Len() != 3 {
 			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
 		}
-		v = c.GetAndRemove("ch", ".", rainslib.Ed448, 0)
+		v = c.GetAndRemove("ch", ".", keys.Ed448, 0)
 		if v != nil || c.Len() != 3 {
 			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
 		}
-		v = c.GetAndRemove("ch", ".", rainslib.Ed25519, 2)
+		v = c.GetAndRemove("ch", ".", keys.Ed25519, 2)
 		if v != nil || c.Len() != 3 {
 			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
 		}
 		//actual remove
-		v = c.GetAndRemove("ch", ".", rainslib.Ed448, 1)
+		v = c.GetAndRemove("ch", ".", keys.Ed448, 1)
 		if c.Len() != 2 || len(v) != 1 || v[0] != m[3] {
 			t.Errorf("%d:GetAndRemove() wrong return values. len=%d expectedValue= %v returnValue=%v", i, c.Len(), m[3], v[0])
 		}
-		v = c.GetAndRemove("ch", ".", rainslib.Ed25519, 0)
+		v = c.GetAndRemove("ch", ".", keys.Ed25519, 0)
 		if c.Len() != 1 || len(v) != 1 || v[0] != m[3] {
 			t.Errorf("%d:GetAndRemove() wrong return values. len=%d expectedValue= %v returnValue=%v", i, c.Len(), m[3], v[0])
 		}
-		v = c.GetAndRemove("ch", ".", rainslib.Ed25519, 1)
+		v = c.GetAndRemove("ch", ".", keys.Ed25519, 1)
 		if c.Len() != 0 || len(v) != 1 || v[0] != m[2] {
 			t.Errorf("%d:GetAndRemove() wrong return values. len=%d expectedValue= %v returnValue=%v", i, c.Len(), m[2], v[0])
 		}
 		//correct cleanup of hash map keys
-		sendQuery = c.Add(m[0], rainslib.Ed25519, 0)
+		sendQuery = c.Add(m[0], keys.Ed25519, 0)
 		if c.Len() != 1 {
 			t.Errorf("%d:section was not added to the cache. len=%d", i, c.Len())
 		}
 		if !sendQuery {
 			t.Errorf("%d:incorrect Add() return value. expected=true actual=%v", i, sendQuery)
 		}
-		ok = c.AddToken(tokens[0], time.Now().Unix(), rainslib.ConnInfo{}, "com", ".")
+		ok = c.AddToken(tokens[0], time.Now().Unix(), connection.ConnInfo{}, "com", ".")
 		if !ok {
 			t.Errorf("%d:wrong return value of addToken().", i)
 		}
 		time.Sleep(2 * time.Second)
 		//resend after expiration
-		sendQuery = c.Add(m[0], rainslib.Ed25519, 0)
+		sendQuery = c.Add(m[0], keys.Ed25519, 0)
 		if c.Len() != 1 {
 			t.Errorf("%d:same section was added again to the cache. len=%d", i, c.Len())
 		}
@@ -405,27 +413,27 @@ func TestPendingKeyCache(t *testing.T) {
 }
 
 func TestPendingQueryCache(t *testing.T) {
-	a0 := &rainslib.AssertionSection{
+	a0 := &sections.AssertionSection{
 		SubjectName: "example",
 		SubjectZone: "com",
 		Context:     ".",
-		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTIP4Addr, Value: "192.0.2.0"}},
+		Content:     []object.Object{object.Object{Type: object.OTIP4Addr, Value: "192.0.2.0"}},
 	}
-	a1 := &rainslib.AssertionSection{
+	a1 := &sections.AssertionSection{
 		SubjectName: "example",
 		SubjectZone: "com",
 		Context:     ".",
-		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTIP4Addr, Value: "203.0.113.0"}},
+		Content:     []object.Object{object.Object{Type: object.OTIP4Addr, Value: "203.0.113.0"}},
 	}
-	s0 := &rainslib.ShardSection{SubjectZone: "net", RangeFrom: "e", RangeTo: "f"}
-	q0 := &rainslib.QuerySection{Name: "example.net", Context: ".", Types: []rainslib.ObjectType{2}}
-	q1 := &rainslib.QuerySection{Name: "example.com", Context: ".", Types: []rainslib.ObjectType{2}}
+	s0 := &sections.ShardSection{SubjectZone: "net", RangeFrom: "e", RangeTo: "f"}
+	q0 := &sections.QuerySection{Name: "example.net", Context: ".", Types: []object.ObjectType{2}}
+	q1 := &sections.QuerySection{Name: "example.com", Context: ".", Types: []object.ObjectType{2}}
 	m := []msgSectionSender{
-		msgSectionSender{Section: q0, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
-		msgSectionSender{Section: q0, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
-		msgSectionSender{Section: q1, Sender: rainslib.ConnInfo{}, Token: rainslib.GenerateToken()},
+		msgSectionSender{Section: q0, Sender: connection.ConnInfo{}, Token: token.GenerateToken()},
+		msgSectionSender{Section: q0, Sender: connection.ConnInfo{}, Token: token.GenerateToken()},
+		msgSectionSender{Section: q1, Sender: connection.ConnInfo{}, Token: token.GenerateToken()},
 	}
-	tokens := []rainslib.Token{rainslib.GenerateToken(), rainslib.GenerateToken(), rainslib.GenerateToken()}
+	tokens := []token.Token{token.GenerateToken(), token.GenerateToken(), token.GenerateToken()}
 	var tests = []struct {
 		input pendingQueryCache
 	}{
@@ -460,33 +468,33 @@ func TestPendingQueryCache(t *testing.T) {
 			}
 		}
 		//Add token to cache entries
-		ok := c.AddToken(rainslib.GenerateToken(), time.Now().Add(time.Second).Unix(),
-			rainslib.ConnInfo{}, "example.com", ".", []rainslib.ObjectType{3})
+		ok := c.AddToken(token.GenerateToken(), time.Now().Add(time.Second).Unix(),
+			connection.ConnInfo{}, "example.com", ".", []object.ObjectType{3})
 		if ok {
 			t.Errorf("%d:token added to non existing entry. len=%d", i, c.Len())
 		}
-		ok = c.AddToken(rainslib.GenerateToken(), time.Now().Add(time.Second).Unix(),
-			rainslib.ConnInfo{}, "example.com", "nonExistingContext", []rainslib.ObjectType{2})
+		ok = c.AddToken(token.GenerateToken(), time.Now().Add(time.Second).Unix(),
+			connection.ConnInfo{}, "example.com", "nonExistingContext", []object.ObjectType{2})
 		if ok {
 			t.Errorf("%d:token added to non existing entry. len=%d", i, c.Len())
 		}
-		ok = c.AddToken(rainslib.GenerateToken(), time.Now().Add(time.Second).Unix(),
-			rainslib.ConnInfo{}, "nonExistingName", ".", []rainslib.ObjectType{2})
+		ok = c.AddToken(token.GenerateToken(), time.Now().Add(time.Second).Unix(),
+			connection.ConnInfo{}, "nonExistingName", ".", []object.ObjectType{2})
 		if ok {
 			t.Errorf("%d:token added to non existing entry. len=%d", i, c.Len())
 		}
-		ok = c.AddToken(tokens[0], time.Now().Add(time.Second).Unix(), rainslib.ConnInfo{}, q0.Name,
+		ok = c.AddToken(tokens[0], time.Now().Add(time.Second).Unix(), connection.ConnInfo{}, q0.Name,
 			q0.Context, q0.Types)
 		if !ok {
 			t.Errorf("%d:wrong return value of addToken()", i)
 		}
-		ok = c.AddToken(tokens[1], time.Now().Add(time.Second).Unix(), rainslib.ConnInfo{}, q1.Name,
+		ok = c.AddToken(tokens[1], time.Now().Add(time.Second).Unix(), connection.ConnInfo{}, q1.Name,
 			q1.Context, q1.Types)
 		if !ok {
 			t.Errorf("%d:wrong return value of addToken()", i)
 		}
 		//Get Query based on token
-		query, ok := c.GetQuery(rainslib.GenerateToken())
+		query, ok := c.GetQuery(token.GenerateToken())
 		if ok {
 			t.Errorf("%d.0:wrong return value of GetQuery() expected=[nil false] actual=[%v %v]", i, ok, query)
 		}
@@ -500,7 +508,7 @@ func TestPendingQueryCache(t *testing.T) {
 		}
 		//Add answers to cache entries
 		deadline := time.Now().Add(time.Second).UnixNano()
-		ok = c.AddAnswerByToken(a0, rainslib.GenerateToken(), deadline)
+		ok = c.AddAnswerByToken(a0, token.GenerateToken(), deadline)
 		if ok {
 			t.Errorf("%d.0:wrong return value of AddAnswerByToken() expected=false actual=%v", i, ok)
 		}
@@ -522,7 +530,7 @@ func TestPendingQueryCache(t *testing.T) {
 			t.Errorf("%d.4:wrong return value of AddAnswerByToken() ok=%v", i, ok)
 		}
 		//Token update
-		ok = c.UpdateToken(rainslib.GenerateToken(), rainslib.GenerateToken())
+		ok = c.UpdateToken(token.GenerateToken(), token.GenerateToken())
 		if !ok {
 			t.Errorf("%d.0:wrong return value of UpdateToken() ok=%v", i, ok)
 		}
@@ -535,7 +543,7 @@ func TestPendingQueryCache(t *testing.T) {
 			t.Errorf("%d.2:wrong return value of UpdateToken() ok=%v", i, ok)
 		}
 		//Check removal by token and get correct responses.
-		sectionSenders, answers := c.GetAndRemoveByToken(rainslib.GenerateToken(), deadline)
+		sectionSenders, answers := c.GetAndRemoveByToken(token.GenerateToken(), deadline)
 		if sectionSenders != nil || answers != nil {
 			t.Errorf("%d.0:wrong return value of GetAndRemoveByToken() queries=%v answers=%v", i,
 				sectionSenders, answers)
@@ -658,7 +666,7 @@ func TestAssertionCache(t *testing.T) {
 			t.Errorf("%d:Was not able to get correct assertion from cache expected=%s actual=%s", i, assertions, a)
 		}
 		//Test Add with multiple objects
-		aORG[1].Content = append(aORG[1].Content, rainslib.Object{Type: rainslib.OTIP4Addr, Value: "192.0.2.0"})
+		aORG[1].Content = append(aORG[1].Content, object.Object{Type: object.OTIP4Addr, Value: "192.0.2.0"})
 		if ok := c.Add(aORG[1], aORG[1].ValidUntil(), true); ok || c.Len() != 3 {
 			//All external assertions are removed because they have the same name, zone, ctx and type
 			t.Errorf("%d:Assertion was not added to cache expected=%d actual=%d", i, 3, c.Len())
@@ -668,7 +676,7 @@ func TestAssertionCache(t *testing.T) {
 		if c.Len() != 0 {
 			t.Errorf("%d:Was not able to remove elements of zone '.' from cache.", i)
 		}
-		sections = consistCache.Get(".", ".", rainslib.TotalInterval{})
+		sections = consistCache.Get(".", ".", sections.TotalInterval{})
 		if len(sections) != 0 {
 			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
 		}
@@ -679,7 +687,7 @@ func TestAssertionCache(t *testing.T) {
 		if c.Len() != 0 {
 			t.Errorf("%d:Was not able to remove elements of zone '.' from cache.", i)
 		}
-		sections = consistCache.Get(".", ".", rainslib.TotalInterval{})
+		sections = consistCache.Get(".", ".", sections.TotalInterval{})
 		if len(sections) != 0 {
 			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
 		}
@@ -693,18 +701,18 @@ func TestAssertionCache(t *testing.T) {
 		if c.Len() != 1 || a[0] != aORG[0] {
 			t.Errorf("%d:Was not able to remove correct elements of zone '.' from cache.", i)
 		}
-		sections = consistCache.Get("com", ".", rainslib.TotalInterval{})
+		sections = consistCache.Get("com", ".", sections.TotalInterval{})
 		if len(sections) != 0 {
 			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
 		}
-		sections = consistCache.Get(".", ".", rainslib.TotalInterval{})
+		sections = consistCache.Get(".", ".", sections.TotalInterval{})
 		if len(sections) != 1 || sections[0] != aORG[0] {
 			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
 		}
 		//Test RemoveExpired for internal and external elements
 		c.Add(aORG[3], aORG[3].ValidUntil(), true)
 		c.Add(assertions[3], assertions[3].ValidUntil(), false)
-		sections = consistCache.Get(".", ".", rainslib.TotalInterval{})
+		sections = consistCache.Get(".", ".", sections.TotalInterval{})
 		if len(sections) != 3 {
 			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
 		}
@@ -714,7 +722,7 @@ func TestAssertionCache(t *testing.T) {
 		if c.Len() != 1 || a[0] != aORG[0] {
 			t.Errorf("%d:Was not able to remove correct expired elements from cache.", i)
 		}
-		sections = consistCache.Get(".", ".", rainslib.TotalInterval{})
+		sections = consistCache.Get(".", ".", sections.TotalInterval{})
 		if len(sections) != 1 || sections[0] != aORG[0] {
 			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
 		}
@@ -823,7 +831,7 @@ func TestNegAssertionCache(t *testing.T) {
 		c.AddShard(shards[4], shards[4].ValidUntil(), false)
 		c.AddShard(shards[0], shards[0].ValidUntil(), false)
 		c.RemoveExpiredValues()
-		s, ok = c.Get(shards[0].SubjectZone, shards[0].Context, rainslib.TotalInterval{})
+		s, ok = c.Get(shards[0].SubjectZone, shards[0].Context, sections.TotalInterval{})
 		if c.Len() != 1 || s[0] != shards[0] {
 			t.Errorf("%d:Was not able to remove correct expired elements from cache.", i)
 		}
@@ -870,17 +878,17 @@ func TestConsistencyCache(t *testing.T) {
 		}
 		//Get border case: point is on the interval border (interval borders are exclusive)
 		sections = c.Get(shards[0].SubjectZone, shards[0].Context,
-			rainslib.StringInterval{Name: shards[0].End()})
+			object.StringInterval{Name: shards[0].End()})
 		if len(sections) != 0 {
 			t.Errorf("%d:Border should be excluding. actual=%v", i, sections)
 		}
-		sections = c.Get(zones[2].SubjectZone, zones[2].Context, rainslib.StringInterval{Name: "m"})
+		sections = c.Get(zones[2].SubjectZone, zones[2].Context, object.StringInterval{Name: "m"})
 		if len(sections) != 1 || sections[0] != zones[2] {
 			t.Errorf("%d:Not the correct sections have been returned or added. actual=%v", i, sections)
 		}
 		//Test Remove
 		c.Remove(zones[2])
-		sections = c.Get(zones[2].SubjectZone, zones[2].Context, rainslib.StringInterval{Name: "m"})
+		sections = c.Get(zones[2].SubjectZone, zones[2].Context, object.StringInterval{Name: "m"})
 		if len(sections) != 0 {
 			t.Errorf("%d:Not the correct element was removed. actual=%v", i, sections)
 		}
@@ -900,8 +908,8 @@ func TestConsistencyCache(t *testing.T) {
 func TestRedirectionCache(t *testing.T) {
 	tcpAddr0, _ := net.ResolveTCPAddr("tcp", "192.0.2.0:80")
 	tcpAddr1, _ := net.ResolveTCPAddr("tcp", "192.0.2.0:443")
-	connInfo0 := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr0}
-	connInfo1 := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr1}
+	connInfo0 := connection.ConnInfo{Type: connection.TCP, TCPAddr: tcpAddr0}
+	connInfo1 := connection.ConnInfo{Type: connection.TCP, TCPAddr: tcpAddr1}
 	exp := time.Now().Add(time.Hour).Unix()
 	var tests = []struct {
 		input redirectionCache
@@ -1022,11 +1030,11 @@ func TestNameCtxTypesKey(t *testing.T) {
 	var tests = []struct {
 		name    string
 		context string
-		types   []rainslib.ObjectType
+		types   []object.ObjectType
 		output  string
 	}{
 		{"example.com", ".", nil, "example.com . nil"},
-		{"example.com", ".", []rainslib.ObjectType{5, 8, 1, 6}, "example.com . [1 5 6 8]"},
+		{"example.com", ".", []object.ObjectType{5, 8, 1, 6}, "example.com . [1 5 6 8]"},
 	}
 	for i, test := range tests {
 		if nameCtxTypesKey(test.name, test.context, test.types) != test.output {
@@ -1055,11 +1063,11 @@ func TestZoneCtxKey(t *testing.T) {
 
 func TestAlgoPhaseKey(t *testing.T) {
 	var tests = []struct {
-		algoType rainslib.SignatureAlgorithmType
+		algoType algorithmTypes.SignatureAlgorithmType
 		phase    int
 		output   string
 	}{
-		{rainslib.Ed25519, 2, "1 2"},
+		{keys.Ed25519, 2, "1 2"},
 	}
 	for i, test := range tests {
 		if algoPhaseKey(test.algoType, test.phase) != test.output {
@@ -1071,15 +1079,15 @@ func TestAlgoPhaseKey(t *testing.T) {
 
 func TestSectionWithSigSenderHash(t *testing.T) {
 	tcpAddr, _ := net.ResolveTCPAddr("tcp", "192.0.2.0:80")
-	token := rainslib.GenerateToken()
+	token := token.GenerateToken()
 	var tests = []struct {
 		input  sectionWithSigSender
 		output string
 	}{
 		{
 			sectionWithSigSender{
-				Section: &rainslib.AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "context"},
-				Sender:  rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr},
+				Section: &sections.AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "context"},
+				Sender:  connection.ConnInfo{Type: connection.TCP, TCPAddr: tcpAddr},
 				Token:   token,
 			},
 			fmt.Sprintf("1_192.0.2.0:80_A_name_zone_context_[]_[]_%s", hex.EncodeToString(token[:])),
@@ -1093,16 +1101,16 @@ func TestSectionWithSigSenderHash(t *testing.T) {
 	}
 }
 
-func getExampleDelgations(tld string) []*rainslib.AssertionSection {
-	a1 := &rainslib.AssertionSection{
+func getExampleDelgations(tld string) []*sections.AssertionSection {
+	a1 := &sections.AssertionSection{
 		SubjectName: tld,
 		SubjectZone: ".",
 		Context:     ".",
-		Content: []rainslib.Object{
-			rainslib.Object{
-				Type: rainslib.OTDelegation,
-				Value: rainslib.PublicKey{
-					PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519, KeyPhase: 0},
+		Content: []object.Object{
+			object.Object{
+				Type: object.OTDelegation,
+				Value: keys.PublicKey{
+					PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
 					ValidSince:  time.Now().Unix(),
 					ValidUntil:  time.Now().Add(24 * time.Hour).Unix(),
 					Key:         ed25519.PublicKey([]byte("TestKey")),
@@ -1110,15 +1118,15 @@ func getExampleDelgations(tld string) []*rainslib.AssertionSection {
 			},
 		},
 	}
-	a2 := &rainslib.AssertionSection{ //same key phase as a1 but different key and validity period
+	a2 := &sections.AssertionSection{ //same key phase as a1 but different key and validity period
 		SubjectName: tld,
 		SubjectZone: ".",
 		Context:     ".",
-		Content: []rainslib.Object{
-			rainslib.Object{
-				Type: rainslib.OTDelegation,
-				Value: rainslib.PublicKey{
-					PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519, KeyPhase: 0},
+		Content: []object.Object{
+			object.Object{
+				Type: object.OTDelegation,
+				Value: keys.PublicKey{
+					PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
 					ValidSince:  time.Now().Add(25 * time.Hour).Unix(),
 					ValidUntil:  time.Now().Add(48 * time.Hour).Unix(),
 					Key:         ed25519.PublicKey([]byte("TestKey2")),
@@ -1126,15 +1134,15 @@ func getExampleDelgations(tld string) []*rainslib.AssertionSection {
 			},
 		},
 	}
-	a3 := &rainslib.AssertionSection{ //different keyphase, everything else the same as a1
+	a3 := &sections.AssertionSection{ //different keyphase, everything else the same as a1
 		SubjectName: tld,
 		SubjectZone: ".",
 		Context:     ".",
-		Content: []rainslib.Object{
-			rainslib.Object{
-				Type: rainslib.OTDelegation,
-				Value: rainslib.PublicKey{
-					PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519, KeyPhase: 1},
+		Content: []object.Object{
+			object.Object{
+				Type: object.OTDelegation,
+				Value: keys.PublicKey{
+					PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 1},
 					ValidSince:  time.Now().Unix(),
 					ValidUntil:  time.Now().Add(24 * time.Hour).Unix(),
 					Key:         ed25519.PublicKey([]byte("TestKey")),
@@ -1143,15 +1151,15 @@ func getExampleDelgations(tld string) []*rainslib.AssertionSection {
 		},
 	}
 	//expired delegation assertion
-	a4 := &rainslib.AssertionSection{ //different keyphase, everything else the same as a1
+	a4 := &sections.AssertionSection{ //different keyphase, everything else the same as a1
 		SubjectName: tld,
 		SubjectZone: ".",
 		Context:     ".",
-		Content: []rainslib.Object{
-			rainslib.Object{
-				Type: rainslib.OTDelegation,
-				Value: rainslib.PublicKey{
-					PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519, KeyPhase: 1},
+		Content: []object.Object{
+			object.Object{
+				Type: object.OTDelegation,
+				Value: keys.PublicKey{
+					PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 1},
 					ValidSince:  time.Now().Add(-2 * time.Hour).Unix(),
 					ValidUntil:  time.Now().Add(-1 * time.Hour).Unix(),
 					Key:         ed25519.PublicKey([]byte("TestKey")),
@@ -1159,15 +1167,15 @@ func getExampleDelgations(tld string) []*rainslib.AssertionSection {
 			},
 		},
 	}
-	a5 := &rainslib.AssertionSection{ //different keyphase, everything else the same as a1
+	a5 := &sections.AssertionSection{ //different keyphase, everything else the same as a1
 		SubjectName: "@",
 		SubjectZone: ".",
 		Context:     ".",
-		Content: []rainslib.Object{
-			rainslib.Object{
-				Type: rainslib.OTDelegation,
-				Value: rainslib.PublicKey{
-					PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519, KeyPhase: 0},
+		Content: []object.Object{
+			object.Object{
+				Type: object.OTDelegation,
+				Value: keys.PublicKey{
+					PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
 					ValidSince:  time.Now().Unix(),
 					ValidUntil:  time.Now().Add(24 * time.Hour).Unix(),
 					Key:         ed25519.PublicKey([]byte("TestKey")),
@@ -1180,96 +1188,96 @@ func getExampleDelgations(tld string) []*rainslib.AssertionSection {
 	a3.UpdateValidity(time.Now().Unix(), time.Now().Add(24*time.Hour).Unix(), 24*time.Hour)
 	a4.UpdateValidity(time.Now().Add(-2*time.Hour).Unix(), time.Now().Add(-1*time.Hour).Unix(), time.Hour)
 	a5.UpdateValidity(time.Now().Unix(), time.Now().Add(24*time.Hour).Unix(), 24*time.Hour)
-	return []*rainslib.AssertionSection{a1, a2, a3, a4, a5}
+	return []*sections.AssertionSection{a1, a2, a3, a4, a5}
 }
 
-func getSignatureMetaData() []rainslib.SignatureMetaData {
+func getSignatureMetaData() []signature.SignatureMetaData {
 	//signature in the interval of the above public keys
-	s1 := rainslib.SignatureMetaData{
-		PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519, KeyPhase: 0},
+	s1 := signature.SignatureMetaData{
+		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
 		ValidSince:  time.Now().Add(23 * time.Hour).Unix(),
 		ValidUntil:  time.Now().Add(24*time.Hour + 30*time.Minute).Unix(),
 	}
-	s2 := rainslib.SignatureMetaData{
-		PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519, KeyPhase: 0},
+	s2 := signature.SignatureMetaData{
+		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
 		ValidSince:  time.Now().Add(24*time.Hour + 30*time.Minute).Unix(),
 		ValidUntil:  time.Now().Add(30 * time.Hour).Unix(),
 	}
-	s3 := rainslib.SignatureMetaData{
-		PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519, KeyPhase: 1},
+	s3 := signature.SignatureMetaData{
+		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 1},
 		ValidSince:  time.Now().Add(23 * time.Hour).Unix(),
 		ValidUntil:  time.Now().Add(24*time.Hour + 30*time.Minute).Unix(),
 	}
 	//signature not in the interval of the above public keys
-	s4 := rainslib.SignatureMetaData{
-		PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519, KeyPhase: 0},
+	s4 := signature.SignatureMetaData{
+		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
 		ValidSince:  time.Now().Add(-2 * time.Hour).Unix(),
 		ValidUntil:  time.Now().Add(-1 * time.Hour).Unix(),
 	}
-	s5 := rainslib.SignatureMetaData{
-		PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519, KeyPhase: 0},
+	s5 := signature.SignatureMetaData{
+		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
 		ValidSince:  time.Now().Add(48*time.Hour + 1).Unix(),
 		ValidUntil:  time.Now().Add(50 * time.Hour).Unix(),
 	}
-	s6 := rainslib.SignatureMetaData{
-		PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519, KeyPhase: 0},
+	s6 := signature.SignatureMetaData{
+		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
 		ValidSince:  time.Now().Add(24*time.Hour + 1).Unix(),
 		ValidUntil:  time.Now().Add(25*time.Hour - 1).Unix(),
 	}
 
-	return []rainslib.SignatureMetaData{s1, s2, s3, s4, s5, s6}
+	return []signature.SignatureMetaData{s1, s2, s3, s4, s5, s6}
 }
 
-func getAssertions() []*rainslib.AssertionSection {
-	s0 := &rainslib.AssertionSection{
+func getAssertions() []*sections.AssertionSection {
+	s0 := &sections.AssertionSection{
 		SubjectName: "b",
 		SubjectZone: "ch",
 		Context:     ".",
 	}
-	s1 := &rainslib.AssertionSection{
+	s1 := &sections.AssertionSection{
 		SubjectName: "e",
 		SubjectZone: "ch",
 		Context:     ".",
 	}
-	s2 := &rainslib.AssertionSection{
+	s2 := &sections.AssertionSection{
 		SubjectName: "a",
 		SubjectZone: "org",
 		Context:     ".",
 	}
-	s3 := &rainslib.AssertionSection{
+	s3 := &sections.AssertionSection{
 		SubjectName: "b",
 		SubjectZone: "org",
 		Context:     "test-cch",
 	}
-	return []*rainslib.AssertionSection{s0, s1, s2, s3}
+	return []*sections.AssertionSection{s0, s1, s2, s3}
 }
 
-func getShards() []*rainslib.ShardSection {
-	s0 := &rainslib.ShardSection{
+func getShards() []*sections.ShardSection {
+	s0 := &sections.ShardSection{
 		SubjectZone: "ch",
 		Context:     ".",
 		RangeFrom:   "a",
 		RangeTo:     "c",
 	}
-	s1 := &rainslib.ShardSection{
+	s1 := &sections.ShardSection{
 		SubjectZone: "ch",
 		Context:     ".",
 		RangeFrom:   "a",
 		RangeTo:     "b",
 	}
-	s2 := &rainslib.ShardSection{
+	s2 := &sections.ShardSection{
 		SubjectZone: "ch",
 		Context:     ".",
 		RangeFrom:   "c",
 		RangeTo:     "f",
 	}
-	s3 := &rainslib.ShardSection{
+	s3 := &sections.ShardSection{
 		SubjectZone: "org",
 		Context:     ".",
 		RangeFrom:   "c",
 		RangeTo:     "z",
 	}
-	s4 := &rainslib.ShardSection{
+	s4 := &sections.ShardSection{
 		SubjectZone: "net",
 		Context:     ".",
 		RangeFrom:   "s",
@@ -1280,24 +1288,24 @@ func getShards() []*rainslib.ShardSection {
 	s2.UpdateValidity(time.Now().Unix(), time.Now().Add(24*time.Hour).Unix(), 24*time.Hour)
 	s3.UpdateValidity(time.Now().Add(-2*time.Hour).Unix(), time.Now().Add(-1*time.Hour).Unix(), time.Hour)
 	s4.UpdateValidity(time.Now().Add(-2*time.Hour).Unix(), time.Now().Add(-1*time.Hour).Unix(), time.Hour)
-	return []*rainslib.ShardSection{s0, s1, s2, s3, s4}
+	return []*sections.ShardSection{s0, s1, s2, s3, s4}
 }
 
-func getZones() []*rainslib.ZoneSection {
-	s0 := &rainslib.ZoneSection{
+func getZones() []*sections.ZoneSection {
+	s0 := &sections.ZoneSection{
 		SubjectZone: "ch",
 		Context:     ".",
 	}
-	s1 := &rainslib.ZoneSection{
+	s1 := &sections.ZoneSection{
 		SubjectZone: "org",
 		Context:     ".",
 	}
-	s2 := &rainslib.ZoneSection{
+	s2 := &sections.ZoneSection{
 		SubjectZone: "org",
 		Context:     "test-cch",
 	}
 	s0.UpdateValidity(time.Now().Unix(), time.Now().Add(24*time.Hour).Unix(), 24*time.Hour)
 	s1.UpdateValidity(time.Now().Unix(), time.Now().Add(48*time.Hour).Unix(), 48*time.Hour)
 	s2.UpdateValidity(time.Now().Add(-2*time.Hour).Unix(), time.Now().Add(-1*time.Hour).Unix(), time.Hour)
-	return []*rainslib.ZoneSection{s0, s1, s2}
+	return []*sections.ZoneSection{s0, s1, s2}
 }

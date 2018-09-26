@@ -9,6 +9,7 @@ import (
 
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
 )
 
 //encodeMessage returns a rains message as a string in signable format (which resembles the zone file format)
@@ -21,36 +22,36 @@ func encodeMessage(m *message.RainsMessage) string {
 }
 
 //encodeAddressAssertion returns an address assertion in signable format (which resembles the zone file format)
-func encodeAddressAssertion(a *section.AddressAssertionSection) string {
+func encodeAddressAssertion(a *sections.AddressAssertionSection) string {
 	return fmt.Sprintf(":AA: %s %s [ %s ]", encodeSubjectAddress(a.SubjectAddr), a.Context, encodeObjects(a.Content, ""))
 }
 
 //encodeAddressQuery returns an encoding which resembles the zone file format
-func encodeAddressQuery(q *section.AddressQuerySection) string {
+func encodeAddressQuery(q *sections.AddressQuerySection) string {
 	return fmt.Sprintf(":AQ: %s %s %s %d %s", encodeSubjectAddress(q.SubjectAddr), q.Context,
 		encodeObjectTypes(q.Types), q.Expiration, encodeQueryOptions(q.Options))
 }
 
 //encodeQuery returns an encoding which resembles the zone file format
-func encodeQuery(q *section.QuerySection) string {
+func encodeQuery(q *sections.QuerySection) string {
 	return fmt.Sprintf(":Q: %s %s %s %d %s", q.Context, q.Name, encodeObjectTypes(q.Types),
 		q.Expiration, encodeQueryOptions(q.Options))
 }
 
 //encodeAssertionUpdateQuery returns an encoding which resembles the zone file format
-func encodeAssertionUpdateQuery(q *section.AssertionUpdateSection) string {
+func encodeAssertionUpdateQuery(q *sections.AssertionUpdateSection) string {
 	return fmt.Sprintf(":AUQ: %s %v %s %d %s", q.Name, q.HashType, hex.EncodeToString(q.HashValue),
 		q.Expiration, encodeQueryOptions(q.Options))
 }
 
 //encodeNonExistenceUpdateQuery returns an encoding which resembles the zone file format
-func encodeNonExistenceUpdateQuery(q *section.NonExistenceUpdateSection) string {
+func encodeNonExistenceUpdateQuery(q *sections.NonExistenceUpdateSection) string {
 	return fmt.Sprintf(":NUQ: %s %s %s %v %s %d %s", q.Context, q.Name, encodeObjectTypes(q.ObjectTypes),
 		q.HashType, hex.EncodeToString(q.HashValue), q.Expiration, encodeQueryOptions(q.Options))
 }
 
 //encodeNotification returns a notification in signable format (which resembles the zone file format)
-func encodeNotification(n *section.NotificationSection) string {
+func encodeNotification(n *sections.NotificationSection) string {
 	return fmt.Sprintf(":N: %s %s %s", n.Token.String(), strconv.Itoa(int(n.Type)), n.Data)
 }
 
@@ -64,7 +65,7 @@ func encodeCapabilities(caps []message.Capability) string {
 }
 
 //encodeQueryOptions returns query options separated by space in signable format (which resembles the zone file format)
-func encodeQueryOptions(qopts []section.QueryOption) string {
+func encodeQueryOptions(qopts []sections.QueryOption) string {
 	encodedQO := make([]string, len(qopts))
 	for i, qopt := range qopts {
 		encodedQO[i] = strconv.Itoa(int(qopt))

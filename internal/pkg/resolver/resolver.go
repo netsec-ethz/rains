@@ -9,9 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/token"
+
 	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
 )
 
 type ResolutionMode int
@@ -47,27 +51,27 @@ func New(rootNS, forwarders []string, mode ResolutionMode, insecureTLS bool) *Se
 	}
 }
 
-func (r *Server) Lookup(name, context string) (*rainslib.RainsMessage, error) {
+func (r *Server) Lookup(name, context string) (*message.RainsMessage, error) {
 	switch r.Mode {
 	case ResolutionModeRecursive:
 		return r.recursiveResolve(name, context)
 	case ResolutionModeForwarding:
-		q := r.nameToQuery(name, context, time.Now().Add(15*time.Second).UnixNano(), []rainslib.QueryOption{})
+		q := r.nameToQuery(name, context, time.Now().Add(15*time.Second).UnixNano(), []sections.QueryOption{})
 		return r.forwardQuery(q)
 	default:
 		return nil, fmt.Errorf("Unsupported resolution mode: %v", r.Mode)
 	}
 }
 
-func (r *Server) nameToQuery(name, context string, expTime int64, opts []rainslib.QueryOption) rainslib.RainsMessage {
-	types := []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr, rainslib.OTDelegation, rainslib.OTServiceInfo, rainslib.OTRedirection}
-	return rainslib.NewQueryMessage(name, context, expTime, types, opts, rainslib.GenerateToken())
+func (r *Server) nameToQuery(name, context string, expTime int64, opts []sections.QueryOption) message.RainsMessage {
+	types := []object.ObjectType{object.OTIP4Addr, object.OTIP6Addr, object.OTDelegation, object.OTServiceInfo, object.OTRedirection}
+	return object.NewQueryMessage(name, context, expTime, types, opts, token.GenerateToken())
 }
 
 // listen waits for one message and passes it back on the provided channel, or an error on the error channel.
-func listen(conn net.Conn, tok rainslib.Token, done chan<- *rainslib.RainsMessage, ec chan<- error) {
+func listen(conn net.Conn, tok token.Token, done chan<- *message.RainsMessage, ec chan<- error) {
 	reader := borat.NewCBORReader(conn)
-	var msg rainslib.RainsMessage
+	var msg message.RainsMessage
 	if err := reader.Unmarshal(&msg); err != nil {
 		ec <- fmt.Errorf("failed to unmarshal response: %v", err)
 		return
@@ -79,7 +83,7 @@ func listen(conn net.Conn, tok rainslib.Token, done chan<- *rainslib.RainsMessag
 	done <- &msg
 }
 
-func (r *Server) forwardQuery(q rainslib.RainsMessage) (*rainslib.RainsMessage, error) {
+func (r *Server) forwardQuery(q message.RainsMessage) (*message.RainsMessage, error) {
 	if len(r.Forwarders) == 0 {
 		return nil, errors.New("forwarders must be specified to use this mode")
 	}
@@ -101,7 +105,7 @@ func (r *Server) forwardQuery(q rainslib.RainsMessage) (*rainslib.RainsMessage, 
 			errs = append(errs, fmt.Errorf("failed to marshal message to server: %v", err))
 			continue
 		}
-		done := make(chan *rainslib.RainsMessage)
+		done := make(chan *message.RainsMessage)
 		ec := make(chan error)
 		go listen(conn, q.Token, done, ec)
 		select {
@@ -134,9 +138,9 @@ func NameToLabels(name string) ([]string, error) {
 }
 
 // recursiveResolve starts at the root and follows delegations until it receives an answer.
-func (r *Server) recursiveResolve(name, context string) (*rainslib.RainsMessage, error) {
+func (r *Server) recursiveResolve(name, context string) (*message.RainsMessage, error) {
 	latestResolver := r.RootNameservers[0] // TODO: try multiple root nameservers.
-	var resp *rainslib.RainsMessage
+	var resp *message.RainsMessage
 	for {
 		log.Info(fmt.Sprintf("connecting to resolver at address: %s to resolve %q", latestResolver, name))
 		d := &net.Dialer{
@@ -148,11 +152,11 @@ func (r *Server) recursiveResolve(name, context string) (*rainslib.RainsMessage,
 		}
 		defer conn.Close()
 		writer := borat.NewCBORWriter(conn)
-		q := r.nameToQuery(name, context, time.Now().Add(15*time.Second).Unix(), []rainslib.QueryOption{})
+		q := r.nameToQuery(name, context, time.Now().Add(15*time.Second).Unix(), []sections.QueryOption{})
 		if err := writer.Marshal(&q); err != nil {
 			return nil, fmt.Errorf("failed to marshal query to server: %v", err)
 		}
-		done := make(chan *rainslib.RainsMessage)
+		done := make(chan *message.RainsMessage)
 		ec := make(chan error)
 		go listen(conn, q.Token, done, ec)
 		select {
@@ -166,33 +170,33 @@ func (r *Server) recursiveResolve(name, context string) (*rainslib.RainsMessage,
 		}
 		// The response can either be a redirection chain or a response.
 		redirectMap := make(map[string]string)
-		srvMap := make(map[string]rainslib.ServiceInfo)
+		srvMap := make(map[string]object.ServiceInfo)
 		concreteMap := make(map[string]string)
 		for _, section := range resp.Content {
 			switch section.(type) {
-			case *rainslib.ZoneSection:
+			case *sections.ZoneSection:
 				// If we were given a whole zone it's because we asked for it or it's non-existance proof.
 				return resp, nil
-			case *rainslib.AssertionSection:
-				as := section.(*rainslib.AssertionSection)
+			case *sections.AssertionSection:
+				as := section.(*sections.AssertionSection)
 				sz := mergeSubjectZone(as.SubjectName, as.SubjectZone)
 				if sz == name {
 					return resp, nil
 				}
 				for _, obj := range as.Content {
 					switch obj.Type {
-					case rainslib.OTRedirection:
+					case object.OTRedirection:
 						redirectMap[sz] = obj.Value.(string)
-					case rainslib.OTServiceInfo:
-						si := obj.Value.(rainslib.ServiceInfo)
+					case object.OTServiceInfo:
+						si := obj.Value.(object.ServiceInfo)
 						srvMap[sz] = si
-					case rainslib.OTIP4Addr:
+					case object.OTIP4Addr:
 						concreteMap[sz] = obj.Value.(string)
-					case rainslib.OTIP6Addr:
+					case object.OTIP6Addr:
 						concreteMap[sz] = fmt.Sprintf("[%s]", obj.Value.(string))
 					}
 				}
-			case *rainslib.ShardSection:
+			case *sections.ShardSection:
 				return resp, nil
 			default:
 				return nil, fmt.Errorf("got unknown type: %T", section)

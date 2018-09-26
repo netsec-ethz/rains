@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/britram/borat"
-	"github.com/fehlmach/rains/rainslib"
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
@@ -78,17 +78,17 @@ func listen(conn net.Conn, token token.Token, success chan<- bool) {
 
 }
 
-func waitForResponse(conn net.Conn, token rainslib.Token, serverError chan<- bool) {
+func waitForResponse(conn net.Conn, token token.Token, serverError chan<- bool) {
 	reader := borat.NewCBORReader(conn)
-	var msg rainslib.RainsMessage
+	var msg message.RainsMessage
 	if err := reader.Unmarshal(&msg); err != nil {
 		log.Warn("Was not able to decode received message", "error", err)
 		serverError <- false
 		return
 	}
 	//Rainspub only accepts notification messages in response to published information.
-	if n, ok := msg.Content[0].(*rainslib.NotificationSection); ok && n.Token == token {
-		if handleResponse(conn, msg.Content[0].(*rainslib.NotificationSection)) {
+	if n, ok := msg.Content[0].(*sections.NotificationSection); ok && n.Token == token {
+		if handleResponse(conn, msg.Content[0].(*sections.NotificationSection)) {
 			conn.Close()
 			serverError <- true
 			return
@@ -103,24 +103,24 @@ func waitForResponse(conn net.Conn, token rainslib.Token, serverError chan<- boo
 
 //handleResponse handles the received notification message and returns true if the connection can
 //be closed.
-func handleResponse(conn net.Conn, n *rainslib.NotificationSection) bool {
+func handleResponse(conn net.Conn, n *sections.NotificationSection) bool {
 	switch n.Type {
-	case rainslib.NTHeartbeat, rainslib.NTNoAssertionsExist, rainslib.NTNoAssertionAvail:
+	case sections.NTHeartbeat, sections.NTNoAssertionsExist, sections.NTNoAssertionAvail:
 	//nop
-	case rainslib.NTCapHashNotKnown:
+	case sections.NTCapHashNotKnown:
 	//TODO CFE send back the whole capability list in an empty message
-	case rainslib.NTBadMessage:
+	case sections.NTBadMessage:
 		log.Error("Sent msg was malformed", "data", n.Data)
-	case rainslib.NTRcvInconsistentMsg:
+	case sections.NTRcvInconsistentMsg:
 		log.Error("Sent msg was inconsistent", "data", n.Data)
-	case rainslib.NTMsgTooLarge:
+	case sections.NTMsgTooLarge:
 		log.Error("Sent msg was too large", "data", n.Data)
 		//What should we do in this case. apparently it is not possible to send a zone because
 		//it is too large. send shards instead?
-	case rainslib.NTUnspecServerErr:
+	case sections.NTUnspecServerErr:
 		log.Error("Unspecified error of other server", "data", n.Data)
 		//TODO CFE resend?
-	case rainslib.NTServerNotCapable:
+	case sections.NTServerNotCapable:
 		log.Error("Other server was not capable", "data", n.Data)
 		//TODO CFE when can this occur?
 	default:

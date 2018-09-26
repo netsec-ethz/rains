@@ -81,23 +81,23 @@ type Parser struct{}
 
 //Encode returns the given section represented in the zone file format if it is a zoneSection.
 //In all other cases it returns the section in a displayable format similar to the zone file format
-func (p Parser) Encode(s message.MessageSection) string {
+func (p Parser) Encode(s sections.MessageSection) string {
 	return GetEncoding(s, false)
 }
 
 //Decode returns all assertions contained in the given zonefile
-func (p Parser) Decode(zoneFile []byte) ([]section.MessageSectionWithSigForward, error) {
+func (p Parser) Decode(zoneFile []byte) ([]sections.MessageSectionWithSigForward, error) {
 	log.Error("Not yet supported")
 	return nil, nil
 }
 
 //DecodeZone returns a zone exactly as it is represented in the zonefile
-func (p Parser) DecodeZone(zoneFile []byte) (*section.ZoneSection, error) {
+func (p Parser) DecodeZone(zoneFile []byte) (*sections.ZoneSection, error) {
 	lines := removeComments(bufio.NewScanner(bytes.NewReader(zoneFile)))
 	log.Debug("Preprocessed input", "data", lines)
 	parser := ZFPNewParser()
 	parser.Parse(&ZFPLex{lines: lines})
-	zone, ok := parser.Result()[0].(*section.ZoneSection)
+	zone, ok := parser.Result()[0].(*sections.ZoneSection)
 	if !ok {
 		return nil, errors.New("First element of zonefile is not a zone. (Note, only the first element of the zonefile is considered)")
 	}
@@ -115,28 +115,28 @@ func (p Parser) EncodeMessage(msg *message.RainsMessage) []byte {
 //EncodeSection transforms the given msg into a signable format
 //It must have already been verified that the section does not contain malicious content
 //Signature meta data is not added
-func (p Parser) EncodeSection(s section.MessageSectionWithSig) []byte {
+func (p Parser) EncodeSection(s sections.MessageSectionWithSig) []byte {
 	encoding := GetEncoding(s, true)
 	return []byte(replaceWhitespaces(encoding))
 }
 
 //GetEncoding returns an encoding in zonefile format
-func GetEncoding(s message.MessageSection, forSigning bool) string {
+func GetEncoding(s sections.MessageSection, forSigning bool) string {
 	encoding := ""
 	switch s := s.(type) {
-	case *section.AssertionSection:
+	case *sections.AssertionSection:
 		encoding = encodeAssertion(s, s.Context, s.SubjectZone, "", forSigning)
-	case *section.ShardSection:
+	case *sections.ShardSection:
 		encoding = encodeShard(s, s.Context, s.SubjectZone, "", forSigning)
-	case *section.ZoneSection:
+	case *sections.ZoneSection:
 		encoding = encodeZone(s, forSigning)
-	case *section.QuerySection:
+	case *sections.QuerySection:
 		encoding = encodeQuery(s)
-	case *section.NotificationSection:
+	case *sections.NotificationSection:
 		encoding = encodeNotification(s)
-	case *section.AddressAssertionSection:
+	case *sections.AddressAssertionSection:
 		encoding = encodeAddressAssertion(s)
-	case *section.AddressQuerySection:
+	case *sections.AddressQuerySection:
 		encoding = encodeAddressQuery(s)
 	default:
 		log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))

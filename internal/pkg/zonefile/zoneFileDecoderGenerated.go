@@ -1,45 +1,49 @@
 //line zonefileParser.y:8
 package zonefile
 
-import __yyfmt__ "fmt"
-
-//line zonefileParser.y:9
 import (
 	"bufio"
 	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	__yyfmt__ "fmt"
 
-	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
-
+//line zonefileParser.y:9
 	"io/ioutil"
 	"strconv"
 	"strings"
 
+	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"golang.org/x/crypto/ed25519"
 )
 
 //AddSigs adds signatures to section
-func AddSigs(section rainslib.MessageSectionWithSigForward, signatures []rainslib.Signature) {
+func AddSigs(section sections.MessageSectionWithSigForward, signatures []signature.Signature) {
 	for _, sig := range signatures {
 		section.AddSig(sig)
 	}
 }
 
-func DecodeBloomFilter(hashAlgos []rainslib.HashAlgorithmType, modeOfOperation rainslib.ModeOfOperationType,
-	nofHashFunctions, filter string) (rainslib.BloomFilter, error) {
+func DecodeBloomFilter(hashAlgos []algorithmTypes.HashAlgorithmType,
+	modeOfOperation sections.ModeOfOperationType,
+	nofHashFunctions, filter string) (sections.BloomFilter, error) {
 	funcs, err := strconv.Atoi(nofHashFunctions)
 	if err != nil {
-		return rainslib.BloomFilter{}, errors.New("nofHashFunctions is not a number")
+		return sections.BloomFilter{}, errors.New("nofHashFunctions is not a number")
 	}
 	decodedFilter, err := hex.DecodeString(filter)
 	if err != nil {
-		return rainslib.BloomFilter{}, err
+		return sections.BloomFilter{}, err
 	}
-	return rainslib.BloomFilter{
+	return sections.BloomFilter{
 		HashFamily:       hashAlgos,
 		NofHashFunctions: funcs,
 		ModeOfOperation:  modeOfOperation,
@@ -47,15 +51,15 @@ func DecodeBloomFilter(hashAlgos []rainslib.HashAlgorithmType, modeOfOperation r
 	}, nil
 }
 
-func DecodePublicKeyID(keyphase string) (rainslib.PublicKeyID, error) {
+func DecodePublicKeyID(keyphase string) (keys.PublicKeyID, error) {
 	phase, err := strconv.Atoi(keyphase)
 	if err != nil {
-		return rainslib.PublicKeyID{}, errors.New("keyphase is not a number")
+		return keys.PublicKeyID{}, errors.New("keyphase is not a number")
 	}
-	return rainslib.PublicKeyID{
-		Algorithm: rainslib.Ed25519,
+	return keys.PublicKeyID{
+		Algorithm: algorithmTypes.Ed25519,
 		KeyPhase:  phase,
-		KeySpace:  rainslib.RainsKeySpace,
+		KeySpace:  keys.RainsKeySpace,
 	}, nil
 }
 
@@ -65,30 +69,30 @@ func DecodeEd25519SignatureData(input string) (interface{}, error) {
 
 // DecodeEd25519PublicKeyData returns the publicKey or an error in case
 // pkeyInput is malformed i.e. it is not in zone file format.
-func DecodeEd25519PublicKeyData(pkeyInput string, keyphase string) (rainslib.PublicKey, error) {
+func DecodeEd25519PublicKeyData(pkeyInput string, keyphase string) (keys.PublicKey, error) {
 	publicKeyID, err := DecodePublicKeyID(keyphase)
 	if err != nil {
-		return rainslib.PublicKey{}, err
+		return keys.PublicKey{}, err
 	}
 	pKey, err := hex.DecodeString(pkeyInput)
 	if err != nil {
-		return rainslib.PublicKey{}, err
+		return keys.PublicKey{}, err
 	}
 	if len(pKey) == 32 {
-		publicKey := rainslib.PublicKey{Key: ed25519.PublicKey(pKey), PublicKeyID: publicKeyID}
+		publicKey := keys.PublicKey{Key: ed25519.PublicKey(pKey), PublicKeyID: publicKeyID}
 		return publicKey, nil
 	}
-	return rainslib.PublicKey{}, fmt.Errorf("wrong public key length: got %d, want: 32", len(pKey))
+	return keys.PublicKey{}, fmt.Errorf("wrong public key length: got %d, want: 32", len(pKey))
 }
 
-func DecodeCertificate(ptype rainslib.ProtocolType, usage rainslib.CertificateUsage,
-	hashAlgo rainslib.HashAlgorithmType, certificat string) (rainslib.CertificateObject,
+func DecodeCertificate(ptype object.ProtocolType, usage object.CertificateUsage,
+	hashAlgo algorithmTypes.HashAlgorithmType, certificat string) (object.CertificateObject,
 	error) {
 	data, err := hex.DecodeString(certificat)
 	if err != nil {
-		return rainslib.CertificateObject{}, err
+		return object.CertificateObject{}, err
 	}
-	return rainslib.CertificateObject{
+	return object.CertificateObject{
 		Type:     ptype,
 		Usage:    usage,
 		HashAlgo: hashAlgo,
@@ -96,16 +100,16 @@ func DecodeCertificate(ptype rainslib.ProtocolType, usage rainslib.CertificateUs
 	}, nil
 }
 
-func DecodeSrv(name, portString, priorityString string) (rainslib.ServiceInfo, error) {
+func DecodeSrv(name, portString, priorityString string) (object.ServiceInfo, error) {
 	port, err := strconv.Atoi(portString)
 	if err != nil || port < 0 || port > 65535 {
-		return rainslib.ServiceInfo{}, errors.New("Port is not a number or out of range")
+		return object.ServiceInfo{}, errors.New("Port is not a number or out of range")
 	}
 	priority, err := strconv.Atoi(priorityString)
 	if err != nil || port < 0 {
-		return rainslib.ServiceInfo{}, errors.New("Priority is not a number or negative")
+		return object.ServiceInfo{}, errors.New("Priority is not a number or negative")
 	}
-	return rainslib.ServiceInfo{
+	return object.ServiceInfo{
 		Name:     name,
 		Port:     uint16(port),
 		Priority: uint(priority),
@@ -125,32 +129,32 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
 }
 
 //Result gets stored in this variable
-var output []rainslib.MessageSectionWithSigForward
+var output []sections.MessageSectionWithSigForward
 
 //line zonefileParser.y:137
 type ZFPSymType struct {
 	yys           int
 	str           string
-	assertion     *rainslib.AssertionSection
-	assertions    []*rainslib.AssertionSection
-	shard         *rainslib.ShardSection
-	pshard        *rainslib.PshardSection
-	zone          *rainslib.ZoneSection
-	sections      []rainslib.MessageSectionWithSigForward
-	objects       []rainslib.Object
-	object        rainslib.Object
-	objectTypes   []rainslib.ObjectType
-	objectType    rainslib.ObjectType
-	signatures    []rainslib.Signature
-	signature     rainslib.Signature
+	assertion     *sections.AssertionSection
+	assertions    []*sections.AssertionSection
+	shard         *sections.ShardSection
+	pshard        *sections.PshardSection
+	zone          *sections.ZoneSection
+	sections      []sections.MessageSectionWithSigForward
+	objects       []object.Object
+	object        object.Object
+	objectTypes   []object.ObjectType
+	objectType    object.ObjectType
+	signatures    []signature.Signature
+	signature     signature.Signature
 	shardRange    []string
-	publicKey     rainslib.PublicKey
-	protocolType  rainslib.ProtocolType
-	certUsage     rainslib.CertificateUsage
-	hashType      rainslib.HashAlgorithmType
-	hashTypes     []rainslib.HashAlgorithmType
-	dataStructure rainslib.DataStructure
-	bfOpMode      rainslib.ModeOfOperationType
+	publicKey     keys.PublicKey
+	protocolType  object.ProtocolType
+	certUsage     object.CertificateUsage
+	hashType      algorithmTypes.HashAlgorithmType
+	hashTypes     []algorithmTypes.HashAlgorithmType
+	dataStructure sections.DataStructure
+	bfOpMode      sections.ModeOfOperationType
 }
 
 const ID = 57346
@@ -597,7 +601,7 @@ type ZFPLexer interface {
 type ZFPParser interface {
 	Parse(ZFPLexer) int
 	Lookahead() int
-	Result() []rainslib.MessageSectionWithSigForward
+	Result() []sections.MessageSectionWithSigForward
 }
 
 type ZFPParserImpl struct {
@@ -610,7 +614,7 @@ func (p *ZFPParserImpl) Lookahead() int {
 	return p.char
 }
 
-func (p *ZFPParserImpl) Result() []rainslib.MessageSectionWithSigForward {
+func (p *ZFPParserImpl) Result() []sections.MessageSectionWithSigForward {
 	return output
 }
 func ZFPNewParser() ZFPParser {
@@ -962,7 +966,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-6 : ZFPpt+1]
 		//line zonefileParser.y:248
 		{
-			ZFPVAL.zone = &rainslib.ZoneSection{
+			ZFPVAL.zone = &sections.ZoneSection{
 				SubjectZone: ZFPDollar[2].str,
 				Context:     ZFPDollar[3].str,
 				Content:     ZFPDollar[5].sections,
@@ -1003,7 +1007,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-7 : ZFPpt+1]
 		//line zonefileParser.y:281
 		{
-			ZFPVAL.shard = &rainslib.ShardSection{
+			ZFPVAL.shard = &sections.ShardSection{
 				SubjectZone: ZFPDollar[2].str,
 				Context:     ZFPDollar[3].str,
 				RangeFrom:   ZFPDollar[4].shardRange[0],
@@ -1015,7 +1019,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-5 : ZFPpt+1]
 		//line zonefileParser.y:291
 		{
-			ZFPVAL.shard = &rainslib.ShardSection{
+			ZFPVAL.shard = &sections.ShardSection{
 				RangeFrom: ZFPDollar[2].shardRange[0],
 				RangeTo:   ZFPDollar[2].shardRange[1],
 				Content:   ZFPDollar[4].assertions,
@@ -1068,7 +1072,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-5 : ZFPpt+1]
 		//line zonefileParser.y:333
 		{
-			ZFPVAL.pshard = &rainslib.PshardSection{
+			ZFPVAL.pshard = &sections.PshardSection{
 				SubjectZone:   ZFPDollar[2].str,
 				Context:       ZFPDollar[3].str,
 				RangeFrom:     ZFPDollar[4].shardRange[0],
@@ -1080,7 +1084,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-3 : ZFPpt+1]
 		//line zonefileParser.y:343
 		{
-			ZFPVAL.pshard = &rainslib.PshardSection{
+			ZFPVAL.pshard = &sections.PshardSection{
 				RangeFrom:     ZFPDollar[2].shardRange[0],
 				RangeTo:       ZFPDollar[2].shardRange[1],
 				Datastructure: ZFPDollar[3].dataStructure,
@@ -1094,8 +1098,8 @@ ZFPdefault:
 			if err != nil {
 				log.Error("semantic error:", "DecodeBloomFilter", err)
 			}
-			ZFPVAL.dataStructure = rainslib.DataStructure{
-				Type: rainslib.BloomFilterType,
+			ZFPVAL.dataStructure = sections.DataStructure{
+				Type: sections.BloomFilterType,
 				Data: bloomFilter,
 			}
 		}
@@ -1103,7 +1107,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:366
 		{
-			ZFPVAL.hashTypes = []rainslib.HashAlgorithmType{ZFPDollar[1].hashType}
+			ZFPVAL.hashTypes = []algorithmTypes.HashAlgorithmType{ZFPDollar[1].hashType}
 		}
 	case 31:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1115,19 +1119,19 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:375
 		{
-			ZFPVAL.bfOpMode = rainslib.StandardOpType
+			ZFPVAL.bfOpMode = sections.StandardOpType
 		}
 	case 33:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:379
 		{
-			ZFPVAL.bfOpMode = rainslib.KirschMitzenmacher1
+			ZFPVAL.bfOpMode = sections.KirschMitzenmacher1
 		}
 	case 34:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:383
 		{
-			ZFPVAL.bfOpMode = rainslib.KirschMitzenmacher2
+			ZFPVAL.bfOpMode = sections.KirschMitzenmacher2
 		}
 	case 36:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1140,7 +1144,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-5 : ZFPpt+1]
 		//line zonefileParser.y:395
 		{
-			ZFPVAL.assertion = &rainslib.AssertionSection{
+			ZFPVAL.assertion = &sections.AssertionSection{
 				SubjectName: ZFPDollar[2].str,
 				Content:     ZFPDollar[4].objects,
 			}
@@ -1149,7 +1153,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-7 : ZFPpt+1]
 		//line zonefileParser.y:402
 		{
-			ZFPVAL.assertion = &rainslib.AssertionSection{
+			ZFPVAL.assertion = &sections.AssertionSection{
 				SubjectZone: ZFPDollar[2].str,
 				Context:     ZFPDollar[3].str,
 				SubjectName: ZFPDollar[4].str,
@@ -1160,7 +1164,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:426
 		{
-			ZFPVAL.objects = []rainslib.Object{ZFPDollar[1].object}
+			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 53:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1172,9 +1176,9 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-5 : ZFPpt+1]
 		//line zonefileParser.y:435
 		{
-			ZFPVAL.object = rainslib.Object{
-				Type: rainslib.OTName,
-				Value: rainslib.NameObject{
+			ZFPVAL.object = object.Object{
+				Type: object.OTName,
+				Value: object.NameObject{
 					Name:  ZFPDollar[2].str,
 					Types: ZFPDollar[4].objectTypes,
 				},
@@ -1184,7 +1188,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:446
 		{
-			ZFPVAL.objectTypes = []rainslib.ObjectType{ZFPDollar[1].objectType}
+			ZFPVAL.objectTypes = []object.ObjectType{ZFPDollar[1].objectType}
 		}
 	case 56:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1196,85 +1200,85 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:455
 		{
-			ZFPVAL.objectType = rainslib.OTName
+			ZFPVAL.objectType = object.OTName
 		}
 	case 58:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:459
 		{
-			ZFPVAL.objectType = rainslib.OTIP4Addr
+			ZFPVAL.objectType = object.OTIP4Addr
 		}
 	case 59:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:463
 		{
-			ZFPVAL.objectType = rainslib.OTIP6Addr
+			ZFPVAL.objectType = object.OTIP6Addr
 		}
 	case 60:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:467
 		{
-			ZFPVAL.objectType = rainslib.OTRedirection
+			ZFPVAL.objectType = object.OTRedirection
 		}
 	case 61:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:471
 		{
-			ZFPVAL.objectType = rainslib.OTDelegation
+			ZFPVAL.objectType = object.OTDelegation
 		}
 	case 62:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:475
 		{
-			ZFPVAL.objectType = rainslib.OTNameset
+			ZFPVAL.objectType = object.OTNameset
 		}
 	case 63:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:479
 		{
-			ZFPVAL.objectType = rainslib.OTCertInfo
+			ZFPVAL.objectType = object.OTCertInfo
 		}
 	case 64:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:483
 		{
-			ZFPVAL.objectType = rainslib.OTServiceInfo
+			ZFPVAL.objectType = object.OTServiceInfo
 		}
 	case 65:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:487
 		{
-			ZFPVAL.objectType = rainslib.OTRegistrar
+			ZFPVAL.objectType = object.OTRegistrar
 		}
 	case 66:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:491
 		{
-			ZFPVAL.objectType = rainslib.OTRegistrant
+			ZFPVAL.objectType = object.OTRegistrant
 		}
 	case 67:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:495
 		{
-			ZFPVAL.objectType = rainslib.OTInfraKey
+			ZFPVAL.objectType = object.OTInfraKey
 		}
 	case 68:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:499
 		{
-			ZFPVAL.objectType = rainslib.OTExtraKey
+			ZFPVAL.objectType = object.OTExtraKey
 		}
 	case 69:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:503
 		{
-			ZFPVAL.objectType = rainslib.OTNextKey
+			ZFPVAL.objectType = object.OTNextKey
 		}
 	case 70:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:508
 		{
-			ZFPVAL.objects = []rainslib.Object{ZFPDollar[1].object}
+			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 71:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1286,8 +1290,8 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
 		//line zonefileParser.y:517
 		{
-			ZFPVAL.object = rainslib.Object{
-				Type:  rainslib.OTIP6Addr,
+			ZFPVAL.object = object.Object{
+				Type:  object.OTIP6Addr,
 				Value: ZFPDollar[2].str,
 			}
 		}
@@ -1295,7 +1299,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:525
 		{
-			ZFPVAL.objects = []rainslib.Object{ZFPDollar[1].object}
+			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 74:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1307,8 +1311,8 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
 		//line zonefileParser.y:534
 		{
-			ZFPVAL.object = rainslib.Object{
-				Type:  rainslib.OTIP4Addr,
+			ZFPVAL.object = object.Object{
+				Type:  object.OTIP4Addr,
 				Value: ZFPDollar[2].str,
 			}
 		}
@@ -1316,7 +1320,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:542
 		{
-			ZFPVAL.objects = []rainslib.Object{ZFPDollar[1].object}
+			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 77:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1328,8 +1332,8 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
 		//line zonefileParser.y:551
 		{
-			ZFPVAL.object = rainslib.Object{
-				Type:  rainslib.OTRedirection,
+			ZFPVAL.object = object.Object{
+				Type:  object.OTRedirection,
 				Value: ZFPDollar[2].str,
 			}
 		}
@@ -1337,7 +1341,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:559
 		{
-			ZFPVAL.objects = []rainslib.Object{ZFPDollar[1].object}
+			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 80:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1353,8 +1357,8 @@ ZFPdefault:
 			if err != nil {
 				log.Error("semantic error:", "DecodeEd25519PublicKeyData", err)
 			}
-			ZFPVAL.object = rainslib.Object{
-				Type:  rainslib.OTDelegation,
+			ZFPVAL.object = object.Object{
+				Type:  object.OTDelegation,
 				Value: pkey,
 			}
 		}
@@ -1362,7 +1366,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:580
 		{
-			ZFPVAL.objects = []rainslib.Object{ZFPDollar[1].object}
+			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 83:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1374,8 +1378,8 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
 		//line zonefileParser.y:589
 		{
-			ZFPVAL.object = rainslib.Object{
-				Type:  rainslib.OTNameset,
+			ZFPVAL.object = object.Object{
+				Type:  object.OTNameset,
 				Value: ZFPDollar[2].str,
 			}
 		}
@@ -1383,7 +1387,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:597
 		{
-			ZFPVAL.objects = []rainslib.Object{ZFPDollar[1].object}
+			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 86:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1399,8 +1403,8 @@ ZFPdefault:
 			if err != nil {
 				log.Error("semantic error:", "Decode certificate", err)
 			}
-			ZFPVAL.object = rainslib.Object{
-				Type:  rainslib.OTCertInfo,
+			ZFPVAL.object = object.Object{
+				Type:  object.OTCertInfo,
 				Value: cert,
 			}
 		}
@@ -1408,7 +1412,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:618
 		{
-			ZFPVAL.objects = []rainslib.Object{ZFPDollar[1].object}
+			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 89:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1424,8 +1428,8 @@ ZFPdefault:
 			if err != nil {
 				log.Error("semantic error:", "error", err)
 			}
-			ZFPVAL.object = rainslib.Object{
-				Type:  rainslib.OTServiceInfo,
+			ZFPVAL.object = object.Object{
+				Type:  object.OTServiceInfo,
 				Value: srv,
 			}
 		}
@@ -1433,7 +1437,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:639
 		{
-			ZFPVAL.objects = []rainslib.Object{ZFPDollar[1].object}
+			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 92:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1445,8 +1449,8 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
 		//line zonefileParser.y:648
 		{
-			ZFPVAL.object = rainslib.Object{
-				Type:  rainslib.OTRegistrar,
+			ZFPVAL.object = object.Object{
+				Type:  object.OTRegistrar,
 				Value: ZFPDollar[2].str,
 			}
 		}
@@ -1454,7 +1458,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:656
 		{
-			ZFPVAL.objects = []rainslib.Object{ZFPDollar[1].object}
+			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 95:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1466,8 +1470,8 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
 		//line zonefileParser.y:665
 		{
-			ZFPVAL.object = rainslib.Object{
-				Type:  rainslib.OTRegistrant,
+			ZFPVAL.object = object.Object{
+				Type:  object.OTRegistrant,
 				Value: ZFPDollar[2].str,
 			}
 		}
@@ -1475,7 +1479,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:673
 		{
-			ZFPVAL.objects = []rainslib.Object{ZFPDollar[1].object}
+			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 98:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1491,8 +1495,8 @@ ZFPdefault:
 			if err != nil {
 				log.Error("semantic error:", "DecodeEd25519PublicKeyData", err)
 			}
-			ZFPVAL.object = rainslib.Object{
-				Type:  rainslib.OTInfraKey,
+			ZFPVAL.object = object.Object{
+				Type:  object.OTInfraKey,
 				Value: pkey,
 			}
 		}
@@ -1500,7 +1504,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:694
 		{
-			ZFPVAL.objects = []rainslib.Object{ZFPDollar[1].object}
+			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 101:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1517,8 +1521,8 @@ ZFPdefault:
 			if err != nil {
 				log.Error("semantic error:", "DecodeEd25519PublicKeyData", err)
 			}
-			ZFPVAL.object = rainslib.Object{
-				Type:  rainslib.OTExtraKey,
+			ZFPVAL.object = object.Object{
+				Type:  object.OTExtraKey,
 				Value: pkey,
 			}
 		}
@@ -1526,7 +1530,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:716
 		{
-			ZFPVAL.objects = []rainslib.Object{ZFPDollar[1].object}
+			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 104:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1546,8 +1550,8 @@ ZFPdefault:
 			if err != nil {
 				log.Error("semantic error:", "error", err)
 			}
-			ZFPVAL.object = rainslib.Object{
-				Type:  rainslib.OTNextKey,
+			ZFPVAL.object = object.Object{
+				Type:  object.OTNextKey,
 				Value: pkey,
 			}
 		}
@@ -1555,61 +1559,61 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:741
 		{
-			ZFPVAL.protocolType = rainslib.PTUnspecified
+			ZFPVAL.protocolType = object.PTUnspecified
 		}
 	case 107:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:745
 		{
-			ZFPVAL.protocolType = rainslib.PTTLS
+			ZFPVAL.protocolType = object.PTTLS
 		}
 	case 108:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:750
 		{
-			ZFPVAL.certUsage = rainslib.CUTrustAnchor
+			ZFPVAL.certUsage = object.CUTrustAnchor
 		}
 	case 109:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:754
 		{
-			ZFPVAL.certUsage = rainslib.CUEndEntity
+			ZFPVAL.certUsage = object.CUEndEntity
 		}
 	case 110:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:759
 		{
-			ZFPVAL.hashType = rainslib.NoHashAlgo
+			ZFPVAL.hashType = algorithmTypes.NoHashAlgo
 		}
 	case 111:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:763
 		{
-			ZFPVAL.hashType = rainslib.Sha256
+			ZFPVAL.hashType = algorithmTypes.Sha256
 		}
 	case 112:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:767
 		{
-			ZFPVAL.hashType = rainslib.Sha384
+			ZFPVAL.hashType = algorithmTypes.Sha384
 		}
 	case 113:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:771
 		{
-			ZFPVAL.hashType = rainslib.Sha512
+			ZFPVAL.hashType = algorithmTypes.Sha512
 		}
 	case 114:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:775
 		{
-			ZFPVAL.hashType = rainslib.Fnv64
+			ZFPVAL.hashType = algorithmTypes.Fnv64
 		}
 	case 115:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:779
 		{
-			ZFPVAL.hashType = rainslib.Murmur364
+			ZFPVAL.hashType = algorithmTypes.Murmur364
 		}
 	case 117:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1627,7 +1631,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:795
 		{
-			ZFPVAL.signatures = []rainslib.Signature{ZFPDollar[1].signature}
+			ZFPVAL.signatures = []signature.Signature{ZFPDollar[1].signature}
 		}
 	case 120:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1658,7 +1662,7 @@ ZFPdefault:
 			if err != nil {
 				log.Error("semantic error:", "DecodeValidity", err)
 			}
-			ZFPVAL.signature = rainslib.Signature{
+			ZFPVAL.signature = signature.Signature{
 				PublicKeyID: publicKeyID,
 				ValidSince:  validSince,
 				ValidUntil:  validUntil,

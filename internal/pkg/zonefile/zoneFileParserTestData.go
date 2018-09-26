@@ -5,122 +5,128 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
 
 	"golang.org/x/crypto/ed25519"
 )
 
 type objectIndent struct {
-	Objects [][]rainslib.Object
+	Objects [][]object.Object
 	Indents []string
 }
 
 //getObjectsAndEncodings returns a slice of options and a slice of their encodings used for testing
 func getObjectsAndEncodings() (objectIndent, []string) {
 	//objects
-	objects := [][]rainslib.Object{}
-	nameObjectContent := rainslib.NameObject{
+	objects := [][]object.Object{}
+	nameObjectContent := object.NameObject{
 		Name:  "ethz2.ch",
-		Types: []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr},
+		Types: []object.ObjectType{object.OTIP4Addr, object.OTIP6Addr},
 	}
 	pubKey, _, _ := ed25519.GenerateKey(nil)
-	publicKey := rainslib.PublicKey{
-		PublicKeyID: rainslib.PublicKeyID{
-			KeySpace:  rainslib.RainsKeySpace,
-			Algorithm: rainslib.Ed25519,
+	publicKey := keys.PublicKey{
+		PublicKeyID: keys.PublicKeyID{
+			KeySpace:  keys.RainsKeySpace,
+			Algorithm: algorithmTypes.Ed25519,
 		},
 		Key: pubKey,
 	}
-	publicKeyWithValidity := rainslib.PublicKey{
-		PublicKeyID: rainslib.PublicKeyID{
-			KeySpace:  rainslib.RainsKeySpace,
-			Algorithm: rainslib.Ed25519,
+	publicKeyWithValidity := keys.PublicKey{
+		PublicKeyID: keys.PublicKeyID{
+			KeySpace:  keys.RainsKeySpace,
+			Algorithm: algorithmTypes.Ed25519,
 		},
 		Key:        pubKey,
 		ValidSince: 1000,
 		ValidUntil: 20000,
 	}
-	certificate0 := rainslib.CertificateObject{
-		Type:     rainslib.PTTLS,
-		HashAlgo: rainslib.Sha256,
-		Usage:    rainslib.CUEndEntity,
+	certificate0 := object.CertificateObject{
+		Type:     object.PTTLS,
+		HashAlgo: algorithmTypes.Sha256,
+		Usage:    object.CUEndEntity,
 		Data:     []byte("certData"),
 	}
-	certificate1 := rainslib.CertificateObject{
-		Type:     rainslib.PTUnspecified,
-		HashAlgo: rainslib.Sha512,
-		Usage:    rainslib.CUTrustAnchor,
+	certificate1 := object.CertificateObject{
+		Type:     object.PTUnspecified,
+		HashAlgo: algorithmTypes.Sha512,
+		Usage:    object.CUTrustAnchor,
 		Data:     []byte("certData"),
 	}
-	certificate2 := rainslib.CertificateObject{
-		Type:     rainslib.PTUnspecified,
-		HashAlgo: rainslib.Sha384,
-		Usage:    rainslib.CUTrustAnchor,
+	certificate2 := object.CertificateObject{
+		Type:     object.PTUnspecified,
+		HashAlgo: algorithmTypes.Sha384,
+		Usage:    object.CUTrustAnchor,
 		Data:     []byte("certData"),
 	}
-	certificate3 := rainslib.CertificateObject{
-		Type:     rainslib.PTUnspecified,
-		HashAlgo: rainslib.NoHashAlgo,
-		Usage:    rainslib.CUTrustAnchor,
+	certificate3 := object.CertificateObject{
+		Type:     object.PTUnspecified,
+		HashAlgo: algorithmTypes.NoHashAlgo,
+		Usage:    object.CUTrustAnchor,
 		Data:     []byte("certData"),
 	}
-	serviceInfo := rainslib.ServiceInfo{
+	serviceInfo := object.ServiceInfo{
 		Name:     "lookup",
 		Port:     49830,
 		Priority: 1,
 	}
 
-	nameObject0 := rainslib.Object{Type: rainslib.OTName, Value: nameObjectContent}
+	nameObject0 := object.Object{Type: object.OTName, Value: nameObjectContent}
 	nameObjectEncoding0 := ":name:     ethz2.ch [ ip4 ip6 ]\n"
-	ip6Object0 := rainslib.Object{Type: rainslib.OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"}
+	ip6Object0 := object.Object{Type: object.OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"}
 	ip6ObjectEncoding0 := ":ip6:      2001:0db8:85a3:0000:0000:8a2e:0370:7334\n"
-	ip4Object0 := rainslib.Object{Type: rainslib.OTIP4Addr, Value: "127.0.0.1"}
+	ip4Object0 := object.Object{Type: object.OTIP4Addr, Value: "127.0.0.1"}
 	ip4ObjectEncoding0 := ":ip4:      127.0.0.1\n"
-	redirObject0 := rainslib.Object{Type: rainslib.OTRedirection, Value: "ns.ethz.ch"}
+	redirObject0 := object.Object{Type: object.OTRedirection, Value: "ns.ethz.ch"}
 	redirObjectEncoding0 := ":redir:    ns.ethz.ch\n"
-	delegObject0 := rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}
+	delegObject0 := object.Object{Type: object.OTDelegation, Value: publicKey}
 	delegObjectEncoding0 := fmt.Sprintf(":deleg:    ed25519 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
-	nameSetObject0 := rainslib.Object{Type: rainslib.OTNameset, Value: rainslib.NamesetExpression("Would be an expression")}
+	nameSetObject0 := object.Object{Type: object.OTNameset, Value: object.NamesetExpression("Would be an expression")}
 	nameSetObjectEncoding0 := ":nameset:  Would be an expression\n"
-	certObject0 := rainslib.Object{Type: rainslib.OTCertInfo, Value: certificate0}
+	certObject0 := object.Object{Type: object.OTCertInfo, Value: certificate0}
 	certObjectEncoding0 := fmt.Sprintf(":cert:     tls endEntity sha256 %s\n", hex.EncodeToString(certificate0.Data))
-	certObject1 := rainslib.Object{Type: rainslib.OTCertInfo, Value: certificate1}
+	certObject1 := object.Object{Type: object.OTCertInfo, Value: certificate1}
 	certObjectEncoding1 := fmt.Sprintf(":cert:     unspecified trustAnchor sha512 %s\n", hex.EncodeToString(certificate1.Data))
-	certObject2 := rainslib.Object{Type: rainslib.OTCertInfo, Value: certificate2}
+	certObject2 := object.Object{Type: object.OTCertInfo, Value: certificate2}
 	certObjectEncoding2 := fmt.Sprintf(":cert:     unspecified trustAnchor sha384 %s\n", hex.EncodeToString(certificate2.Data))
-	certObject3 := rainslib.Object{Type: rainslib.OTCertInfo, Value: certificate3}
+	certObject3 := object.Object{Type: object.OTCertInfo, Value: certificate3}
 	certObjectEncoding3 := fmt.Sprintf(":cert:     unspecified trustAnchor noHashAlgo %s\n", hex.EncodeToString(certificate3.Data))
-	serviceInfoObject0 := rainslib.Object{Type: rainslib.OTServiceInfo, Value: serviceInfo}
+	serviceInfoObject0 := object.Object{Type: object.OTServiceInfo, Value: serviceInfo}
 	serviceInfoObjectEncoding0 := ":srv:      lookup 49830 1\n"
-	registrarObject0 := rainslib.Object{Type: rainslib.OTRegistrar, Value: "Registrar information"}
+	registrarObject0 := object.Object{Type: object.OTRegistrar, Value: "Registrar information"}
 	registrarObjectEncoding0 := ":regr:     Registrar information\n"
-	registrantObject0 := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}
+	registrantObject0 := object.Object{Type: object.OTRegistrant, Value: "Registrant information"}
 	registrantObjectEncoding0 := ":regt:     Registrant information\n"
-	infraObject0 := rainslib.Object{Type: rainslib.OTInfraKey, Value: publicKey}
+	infraObject0 := object.Object{Type: object.OTInfraKey, Value: publicKey}
 	infraObjectEncoding0 := fmt.Sprintf(":infra:    ed25519 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
-	extraObject0 := rainslib.Object{Type: rainslib.OTExtraKey, Value: publicKey}
+	extraObject0 := object.Object{Type: object.OTExtraKey, Value: publicKey}
 	extraObjectEncoding0 := fmt.Sprintf(":extra:    rains ed25519 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
-	nextObject0 := rainslib.Object{Type: rainslib.OTNextKey, Value: publicKeyWithValidity}
+	nextObject0 := object.Object{Type: object.OTNextKey, Value: publicKeyWithValidity}
 	nextObjectEncoding0 := fmt.Sprintf(":next:     ed25519 %s 1000 20000\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
 
-	objects = append(objects, []rainslib.Object{nameObject0, ip6Object0, ip4Object0, redirObject0, delegObject0, nameSetObject0, certObject0, serviceInfoObject0,
+	objects = append(objects, []object.Object{nameObject0, ip6Object0, ip4Object0, redirObject0, delegObject0, nameSetObject0, certObject0, serviceInfoObject0,
 		registrarObject0, registrantObject0, infraObject0, extraObject0, nextObject0})
-	objects = append(objects, []rainslib.Object{nameObject0})
-	objects = append(objects, []rainslib.Object{ip6Object0})
-	objects = append(objects, []rainslib.Object{ip4Object0})
-	objects = append(objects, []rainslib.Object{redirObject0})
-	objects = append(objects, []rainslib.Object{delegObject0})
-	objects = append(objects, []rainslib.Object{nameSetObject0})
-	objects = append(objects, []rainslib.Object{certObject0})
-	objects = append(objects, []rainslib.Object{serviceInfoObject0})
-	objects = append(objects, []rainslib.Object{registrarObject0})
-	objects = append(objects, []rainslib.Object{registrantObject0})
-	objects = append(objects, []rainslib.Object{infraObject0})
-	objects = append(objects, []rainslib.Object{extraObject0})
-	objects = append(objects, []rainslib.Object{nextObject0})
-	objects = append(objects, []rainslib.Object{certObject1})
-	objects = append(objects, []rainslib.Object{certObject2})
-	objects = append(objects, []rainslib.Object{certObject3})
+	objects = append(objects, []object.Object{nameObject0})
+	objects = append(objects, []object.Object{ip6Object0})
+	objects = append(objects, []object.Object{ip4Object0})
+	objects = append(objects, []object.Object{redirObject0})
+	objects = append(objects, []object.Object{delegObject0})
+	objects = append(objects, []object.Object{nameSetObject0})
+	objects = append(objects, []object.Object{certObject0})
+	objects = append(objects, []object.Object{serviceInfoObject0})
+	objects = append(objects, []object.Object{registrarObject0})
+	objects = append(objects, []object.Object{registrantObject0})
+	objects = append(objects, []object.Object{infraObject0})
+	objects = append(objects, []object.Object{extraObject0})
+	objects = append(objects, []object.Object{nextObject0})
+	objects = append(objects, []object.Object{certObject1})
+	objects = append(objects, []object.Object{certObject2})
+	objects = append(objects, []object.Object{certObject3})
 
 	//encodings
 	encodings := []string{}
@@ -158,11 +164,11 @@ func getObjectsAndEncodings() (objectIndent, []string) {
 }
 
 //getSignature returns a signature. Currently it is not used for encoding. It is used to test that encoder can handle unnecessary content on sections
-func getSignature() rainslib.Signature {
-	return rainslib.Signature{
-		PublicKeyID: rainslib.PublicKeyID{
-			KeySpace:  rainslib.RainsKeySpace,
-			Algorithm: rainslib.Ed25519,
+func getSignature() signature.Signature {
+	return signature.Signature{
+		PublicKeyID: keys.PublicKeyID{
+			KeySpace:  keys.RainsKeySpace,
+			Algorithm: algorithmTypes.Ed25519,
 		},
 		ValidSince: 1000,
 		ValidUntil: 2000,
@@ -170,38 +176,38 @@ func getSignature() rainslib.Signature {
 }
 
 //getAssertionAndEncodings returns a slice of assertions and a slice of their encodings used for testing
-func getAssertionAndEncodings(indent string) ([]*rainslib.AssertionSection, []string) {
+func getAssertionAndEncodings(indent string) ([]*sections.AssertionSection, []string) {
 	//assertions
-	assertions := []*rainslib.AssertionSection{}
+	assertions := []*sections.AssertionSection{}
 	objectIndents, objEncodings := getObjectsAndEncodings()
 
-	assertion0 := &rainslib.AssertionSection{
+	assertion0 := &sections.AssertionSection{
 		Content:     objectIndents.Objects[0],
 		Context:     "",
 		SubjectName: "ethz",
 		SubjectZone: "",
-		Signatures:  []rainslib.Signature{},
+		Signatures:  []signature.Signature{},
 	}
-	assertion1 := &rainslib.AssertionSection{
+	assertion1 := &sections.AssertionSection{
 		Content:     objectIndents.Objects[0],
 		Context:     ".",
 		SubjectName: "ethz",
 		SubjectZone: "ch",
-		Signatures:  []rainslib.Signature{getSignature()},
+		Signatures:  []signature.Signature{getSignature()},
 	}
-	assertion2 := &rainslib.AssertionSection{
+	assertion2 := &sections.AssertionSection{
 		Content:     objectIndents.Objects[1],
 		Context:     "",
 		SubjectName: "ethz",
 		SubjectZone: "",
-		Signatures:  []rainslib.Signature{},
+		Signatures:  []signature.Signature{},
 	}
-	assertion3 := &rainslib.AssertionSection{
+	assertion3 := &sections.AssertionSection{
 		Content:     objectIndents.Objects[2],
 		Context:     "",
 		SubjectName: "ethz",
 		SubjectZone: "",
-		Signatures:  []rainslib.Signature{},
+		Signatures:  []signature.Signature{},
 	}
 	assertions = append(assertions, assertion0)
 	assertions = append(assertions, assertion1)
@@ -219,49 +225,49 @@ func getAssertionAndEncodings(indent string) ([]*rainslib.AssertionSection, []st
 }
 
 //getShardAndEncodings returns a slice of shards and a slice of their encodings used for testing
-func getShardAndEncodings() ([]*rainslib.ShardSection, []string) {
+func getShardAndEncodings() ([]*sections.ShardSection, []string) {
 	//shards
-	shards := []*rainslib.ShardSection{}
+	shards := []*sections.ShardSection{}
 	assertions, assertionEncodings := getAssertionAndEncodings(indent8)
 
-	shard0 := &rainslib.ShardSection{
-		Content:     []*rainslib.AssertionSection{assertions[0]},
+	shard0 := &sections.ShardSection{
+		Content:     []*sections.AssertionSection{assertions[0]},
 		Context:     "",
 		SubjectZone: "",
 		RangeFrom:   "",
 		RangeTo:     "",
-		Signatures:  []rainslib.Signature{getSignature()},
+		Signatures:  []signature.Signature{getSignature()},
 	}
-	shard1 := &rainslib.ShardSection{
-		Content:     []*rainslib.AssertionSection{assertions[0]},
+	shard1 := &sections.ShardSection{
+		Content:     []*sections.AssertionSection{assertions[0]},
 		Context:     "",
 		SubjectZone: "",
 		RangeFrom:   "aaa",
 		RangeTo:     "zzz",
-		Signatures:  []rainslib.Signature{getSignature()},
+		Signatures:  []signature.Signature{getSignature()},
 	}
-	shard2 := &rainslib.ShardSection{
-		Content:     []*rainslib.AssertionSection{assertions[0]},
+	shard2 := &sections.ShardSection{
+		Content:     []*sections.AssertionSection{assertions[0]},
 		Context:     ".",
 		SubjectZone: "ch",
 		RangeFrom:   "aaa",
 		RangeTo:     "zzz",
-		Signatures:  []rainslib.Signature{getSignature()},
+		Signatures:  []signature.Signature{getSignature()},
 	}
-	shard3 := &rainslib.ShardSection{
-		Content:     []*rainslib.AssertionSection{assertions[0], assertions[0]},
+	shard3 := &sections.ShardSection{
+		Content:     []*sections.AssertionSection{assertions[0], assertions[0]},
 		Context:     ".",
 		SubjectZone: "ethz.ch",
 		RangeFrom:   "",
 		RangeTo:     "",
-		Signatures:  []rainslib.Signature{getSignature()},
+		Signatures:  []signature.Signature{getSignature()},
 	}
-	shard4 := &rainslib.ShardSection{
+	shard4 := &sections.ShardSection{
 		Context:     ".",
 		SubjectZone: "ethz.ch",
 		RangeFrom:   "cd",
 		RangeTo:     "ef",
-		Signatures:  []rainslib.Signature{getSignature()},
+		Signatures:  []signature.Signature{getSignature()},
 	}
 	shards = append(shards, shard0)
 	shards = append(shards, shard1)
@@ -281,22 +287,22 @@ func getShardAndEncodings() ([]*rainslib.ShardSection, []string) {
 }
 
 //getZonesAndEncodings returns a slice of zones and a slice of their encodings used for testing
-func getZonesAndEncodings() ([]*rainslib.ZoneSection, []string) {
+func getZonesAndEncodings() ([]*sections.ZoneSection, []string) {
 	//zones
-	zones := []*rainslib.ZoneSection{}
+	zones := []*sections.ZoneSection{}
 	assertions, assertionEncodings := getAssertionAndEncodings(indent4)
 	shards, shardEncodings := getShardAndEncodings()
 
-	zone0 := &rainslib.ZoneSection{
-		Content:     []rainslib.MessageSectionWithSigForward{assertions[0], shards[1]},
+	zone0 := &sections.ZoneSection{
+		Content:     []sections.MessageSectionWithSigForward{assertions[0], shards[1]},
 		Context:     ".",
 		SubjectZone: "ch.",
-		Signatures:  []rainslib.Signature{getSignature()},
+		Signatures:  []signature.Signature{getSignature()},
 	}
-	zone1 := &rainslib.ZoneSection{
+	zone1 := &sections.ZoneSection{
 		Context:     ".",
 		SubjectZone: "ch.",
-		Signatures:  []rainslib.Signature{getSignature()},
+		Signatures:  []signature.Signature{getSignature()},
 	}
 
 	zones = append(zones, zone0)
@@ -311,15 +317,15 @@ func getZonesAndEncodings() ([]*rainslib.ZoneSection, []string) {
 }
 
 //getQueriesAndEncodings returns a slice of queries and a slice of their encodings used for testing
-func getQueriesAndEncodings() ([]*rainslib.QuerySection, []string) {
+func getQueriesAndEncodings() ([]*sections.QuerySection, []string) {
 	//addressqueries
-	queries := []*rainslib.QuerySection{}
-	query := &rainslib.QuerySection{
+	queries := []*sections.QuerySection{}
+	query := &sections.QuerySection{
 		Context:    ".",
 		Expiration: 159159,
 		Name:       "ethz.ch",
-		Options:    []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
-		Types:      []rainslib.ObjectType{rainslib.OTIP4Addr},
+		Options:    []sections.QueryOption{sections.QOMinE2ELatency, sections.QOMinInfoLeakage},
+		Types:      []object.ObjectType{object.OTIP4Addr},
 	}
 	queries = append(queries, query)
 
@@ -331,31 +337,31 @@ func getQueriesAndEncodings() ([]*rainslib.QuerySection, []string) {
 }
 
 //getAddressAssertionsAndEncodings returns a slice of address assertins and a slice of their encodings used for testing
-func getAddressAssertionsAndEncodings() ([]*rainslib.AddressAssertionSection, []string) {
+func getAddressAssertionsAndEncodings() ([]*sections.AddressAssertionSection, []string) {
 	//addressAssertions
-	addressAssertions := []*rainslib.AddressAssertionSection{}
-	nameObjectContent := rainslib.NameObject{
+	addressAssertions := []*sections.AddressAssertionSection{}
+	nameObjectContent := object.NameObject{
 		Name:  "ethz2.ch",
-		Types: []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr},
+		Types: []object.ObjectType{object.OTIP4Addr, object.OTIP6Addr},
 	}
-	publicKey := rainslib.PublicKey{
-		PublicKeyID: rainslib.PublicKeyID{
-			KeySpace:  rainslib.RainsKeySpace,
-			Algorithm: rainslib.Ed25519,
+	publicKey := keys.PublicKey{
+		PublicKeyID: keys.PublicKeyID{
+			KeySpace:  keys.RainsKeySpace,
+			Algorithm: algorithmTypes.Ed25519,
 		},
 		Key:        ed25519.PublicKey([]byte("01234567890123456789012345678901")),
 		ValidSince: 10000,
 		ValidUntil: 50000,
 	}
-	nameObject := rainslib.Object{Type: rainslib.OTName, Value: nameObjectContent}
-	redirObject := rainslib.Object{Type: rainslib.OTRedirection, Value: "ns.ethz.ch"}
-	delegObject := rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}
-	registrantObject := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}
+	nameObject := object.Object{Type: object.OTName, Value: nameObjectContent}
+	redirObject := object.Object{Type: object.OTRedirection, Value: "ns.ethz.ch"}
+	delegObject := object.Object{Type: object.OTDelegation, Value: publicKey}
+	registrantObject := object.Object{Type: object.OTRegistrant, Value: "Registrant information"}
 
-	signature := rainslib.Signature{
-		PublicKeyID: rainslib.PublicKeyID{
-			KeySpace:  rainslib.RainsKeySpace,
-			Algorithm: rainslib.Ed25519,
+	sig := signature.Signature{
+		PublicKeyID: keys.PublicKeyID{
+			KeySpace:  keys.RainsKeySpace,
+			Algorithm: algorithmTypes.Ed25519,
 		},
 		ValidSince: 1000,
 		ValidUntil: 2000,
@@ -364,23 +370,23 @@ func getAddressAssertionsAndEncodings() ([]*rainslib.AddressAssertionSection, []
 	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
 	_, subjectAddress2, _ := net.ParseCIDR("127.0.0.1/24")
 	_, subjectAddress3, _ := net.ParseCIDR("2001:db8::/128")
-	addressAssertion1 := &rainslib.AddressAssertionSection{
+	addressAssertion1 := &sections.AddressAssertionSection{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
-		Content:     []rainslib.Object{nameObject},
-		Signatures:  []rainslib.Signature{signature},
+		Content:     []object.Object{nameObject},
+		Signatures:  []signature.Signature{sig},
 	}
-	addressAssertion2 := &rainslib.AddressAssertionSection{
+	addressAssertion2 := &sections.AddressAssertionSection{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
-		Content:     []rainslib.Object{redirObject, delegObject, registrantObject},
-		Signatures:  []rainslib.Signature{signature},
+		Content:     []object.Object{redirObject, delegObject, registrantObject},
+		Signatures:  []signature.Signature{sig},
 	}
-	addressAssertion3 := &rainslib.AddressAssertionSection{
+	addressAssertion3 := &sections.AddressAssertionSection{
 		SubjectAddr: subjectAddress3,
 		Context:     ".",
-		Content:     []rainslib.Object{nameObject},
-		Signatures:  []rainslib.Signature{signature},
+		Content:     []object.Object{nameObject},
+		Signatures:  []signature.Signature{sig},
 	}
 	addressAssertions = append(addressAssertions, addressAssertion1)
 	addressAssertions = append(addressAssertions, addressAssertion2)
@@ -396,14 +402,14 @@ func getAddressAssertionsAndEncodings() ([]*rainslib.AddressAssertionSection, []
 }
 
 //getAddressZonesAndEncodings returns a slice of address zones and a slice of their encodings used for testing
-func getAddressZonesAndEncodings() ([]*rainslib.AddressZoneSection, []string) {
+func getAddressZonesAndEncodings() ([]*sections.AddressZoneSection, []string) {
 	//addressZones
-	addressZones := []*rainslib.AddressZoneSection{}
+	addressZones := []*sections.AddressZoneSection{}
 	assertions, assertionEncodings := getAddressAssertionsAndEncodings()
-	addressZone := &rainslib.AddressZoneSection{
+	addressZone := &sections.AddressZoneSection{
 		SubjectAddr: assertions[1].SubjectAddr,
 		Context:     ".",
-		Content:     []*rainslib.AddressAssertionSection{assertions[0], assertions[1], assertions[2]},
+		Content:     []*sections.AddressAssertionSection{assertions[0], assertions[1], assertions[2]},
 		Signatures:  assertions[1].Signatures,
 	}
 	addressZones = append(addressZones, addressZone)
@@ -417,16 +423,16 @@ func getAddressZonesAndEncodings() ([]*rainslib.AddressZoneSection, []string) {
 }
 
 //getAddressQueriesAndEncodings returns a slice of address queries and a slice of their encodings used for testing
-func getAddressQueriesAndEncodings() ([]*rainslib.AddressQuerySection, []string) {
+func getAddressQueriesAndEncodings() ([]*sections.AddressQuerySection, []string) {
 	//addressqueries
-	addressQueries := []*rainslib.AddressQuerySection{}
+	addressQueries := []*sections.AddressQuerySection{}
 	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
-	addressQuery := &rainslib.AddressQuerySection{
+	addressQuery := &sections.AddressQuerySection{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Expiration:  7564859,
-		Types:       []rainslib.ObjectType{rainslib.OTName},
-		Options:     []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
+		Types:       []object.ObjectType{object.OTName},
+		Options:     []sections.QueryOption{sections.QOMinE2ELatency, sections.QOMinInfoLeakage},
 	}
 	addressQueries = append(addressQueries, addressQuery)
 
@@ -438,14 +444,14 @@ func getAddressQueriesAndEncodings() ([]*rainslib.AddressQuerySection, []string)
 }
 
 //getNotificationsAndEncodings returns a slice of notifications and a slice of their encodings used for testing
-func getNotificationsAndEncodings() ([]*rainslib.NotificationSection, []string) {
+func getNotificationsAndEncodings() ([]*sections.NotificationSection, []string) {
 	//addressqueries
-	notifications := []*rainslib.NotificationSection{}
-	token := rainslib.GenerateToken()
+	notifications := []*sections.NotificationSection{}
+	token := token.GenerateToken()
 	encodedToken := hex.EncodeToString(token[:])
-	notification := &rainslib.NotificationSection{
+	notification := &sections.NotificationSection{
 		Token: token,
-		Type:  rainslib.NTNoAssertionsExist,
+		Type:  sections.NTNoAssertionsExist,
 		Data:  "Notification information",
 	}
 	notifications = append(notifications, notification)
@@ -458,9 +464,9 @@ func getNotificationsAndEncodings() ([]*rainslib.NotificationSection, []string) 
 }
 
 //getMessagesAndEncodings returns a slice of messages and a slice of their encodings used for testing
-func getMessagesAndEncodings() ([]*rainslib.RainsMessage, []string) {
+func getMessagesAndEncodings() ([]*message.RainsMessage, []string) {
 	//messages
-	messages := []*rainslib.RainsMessage{}
+	messages := []*message.RainsMessage{}
 	assertions, assertionencodings := getAssertionAndEncodings(indent4)
 	shards, shardencodings := getShardAndEncodings()
 	zones, zoneencodings := getZonesAndEncodings()
@@ -470,62 +476,62 @@ func getMessagesAndEncodings() ([]*rainslib.RainsMessage, []string) {
 	aqueries, aqueryencodings := getAddressQueriesAndEncodings()
 	notifs, notifsencoding := getNotificationsAndEncodings()
 
-	token := rainslib.GenerateToken()
-	capabilities := []rainslib.Capability{rainslib.Capability("capa1"), rainslib.Capability("capa2")}
+	token := token.GenerateToken()
+	capabilities := []message.Capability{message.Capability("capa1"), message.Capability("capa2")}
 	encodedToken := hex.EncodeToString(token[:])
-	message0 := &rainslib.RainsMessage{
+	message0 := &message.RainsMessage{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []rainslib.MessageSection{assertions[0]},
-		Signatures:   []rainslib.Signature{getSignature()},
+		Content:      []sections.MessageSection{assertions[0]},
+		Signatures:   []signature.Signature{getSignature()},
 	}
-	message1 := &rainslib.RainsMessage{
+	message1 := &message.RainsMessage{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []rainslib.MessageSection{shards[0]},
-		Signatures:   []rainslib.Signature{getSignature()},
+		Content:      []sections.MessageSection{shards[0]},
+		Signatures:   []signature.Signature{getSignature()},
 	}
-	message2 := &rainslib.RainsMessage{
+	message2 := &message.RainsMessage{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []rainslib.MessageSection{zones[1]},
-		Signatures:   []rainslib.Signature{getSignature()},
+		Content:      []sections.MessageSection{zones[1]},
+		Signatures:   []signature.Signature{getSignature()},
 	}
-	message3 := &rainslib.RainsMessage{
+	message3 := &message.RainsMessage{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []rainslib.MessageSection{queries[0]},
-		Signatures:   []rainslib.Signature{getSignature()},
+		Content:      []sections.MessageSection{queries[0]},
+		Signatures:   []signature.Signature{getSignature()},
 	}
-	message4 := &rainslib.RainsMessage{
+	message4 := &message.RainsMessage{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []rainslib.MessageSection{aassertions[0]},
-		Signatures:   []rainslib.Signature{getSignature()},
+		Content:      []sections.MessageSection{aassertions[0]},
+		Signatures:   []signature.Signature{getSignature()},
 	}
-	message5 := &rainslib.RainsMessage{
+	message5 := &message.RainsMessage{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []rainslib.MessageSection{azones[0]},
-		Signatures:   []rainslib.Signature{getSignature()},
+		Content:      []sections.MessageSection{azones[0]},
+		Signatures:   []signature.Signature{getSignature()},
 	}
-	message6 := &rainslib.RainsMessage{
+	message6 := &message.RainsMessage{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []rainslib.MessageSection{aqueries[0]},
-		Signatures:   []rainslib.Signature{getSignature()},
+		Content:      []sections.MessageSection{aqueries[0]},
+		Signatures:   []signature.Signature{getSignature()},
 	}
-	message7 := &rainslib.RainsMessage{
+	message7 := &message.RainsMessage{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []rainslib.MessageSection{notifs[0]},
-		Signatures:   []rainslib.Signature{getSignature()},
+		Content:      []sections.MessageSection{notifs[0]},
+		Signatures:   []signature.Signature{getSignature()},
 	}
-	message8 := &rainslib.RainsMessage{
+	message8 := &message.RainsMessage{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []rainslib.MessageSection{queries[0], aqueries[0]},
-		Signatures:   []rainslib.Signature{getSignature()},
+		Content:      []sections.MessageSection{queries[0], aqueries[0]},
+		Signatures:   []signature.Signature{getSignature()},
 	}
 	messages = append(messages, message0)
 	messages = append(messages, message1)

@@ -11,14 +11,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/token"
+
 	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
 
-var anyQuery = []rainslib.ObjectType{rainslib.OTName, rainslib.OTIP4Addr,
-	rainslib.OTIP6Addr, rainslib.OTDelegation, rainslib.OTServiceInfo, rainslib.OTRedirection}
+var anyQuery = []object.ObjectType{object.OTName, object.OTIP4Addr,
+	object.OTIP6Addr, object.OTDelegation, object.OTServiceInfo, object.OTRedirection}
 
 //TODO add default values to description
 var revLookup = flag.String("x", "", "Reverse lookup, addr is an IPv4 address in dotted-decimal notation, or a colon-delimited IPv6 address.")
@@ -33,9 +37,9 @@ var filePath = flag.String("filePath", "", "specifies a file path where the quer
 var insecureTLS = flag.Bool("insecureTLS", false, "when set it does not check the validity of the server's TLS certificate.")
 var queryOptions qoptFlag
 
-var msgParser rainslib.RainsMsgParser
-var msgFramer rainslib.MsgFramer
-var zfParser rainslib.ZoneFileParser
+var msgParser sections.RainsMsgParser
+var msgFramer object.MsgFramer
+var zfParser sections.ZoneFileParser
 
 func init() {
 	zfParser = zonefile.Parser{}
@@ -84,16 +88,16 @@ func main() {
 			fmt.Printf("serverAddr malformed, error=%v\n", err)
 			os.Exit(1)
 		}
-		connInfo := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr}
+		connInfo := connection.ConnInfo{Type: connection.TCP, TCPAddr: tcpAddr}
 
-		var qt []rainslib.ObjectType
+		var qt []object.ObjectType
 		if *queryType == -1 {
 			qt = anyQuery
 		} else {
-			qt = []rainslib.ObjectType{rainslib.ObjectType(*queryType)}
+			qt = []object.ObjectType{object.ObjectType(*queryType)}
 		}
 
-		msg := rainslib.NewQueryMessage(*name, *context, *expires, qt, queryOptions, rainslib.GenerateToken())
+		msg := object.NewQueryMessage(*name, *context, *expires, qt, queryOptions, token.GenerateToken())
 
 		err = sendQuery(msg, msg.Token, connInfo)
 		if err != nil {
@@ -105,14 +109,14 @@ func main() {
 
 //sendQuery creates a connection with connInfo, frames msg and writes it to the connection.
 //It then waits for the response which it then outputs to the command line and if specified additionally stores to a file.
-func sendQuery(msg rainslib.RainsMessage, token rainslib.Token, connInfo rainslib.ConnInfo) error {
+func sendQuery(msg message.RainsMessage, token token.Token, connInfo connection.ConnInfo) error {
 	conn, err := createConnection(connInfo)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 
-	done := make(chan rainslib.RainsMessage)
+	done := make(chan message.RainsMessage)
 	ec := make(chan error)
 	go listen(conn, token, done, ec)
 
@@ -136,18 +140,18 @@ func sendQuery(msg rainslib.RainsMessage, token rainslib.Token, connInfo rainsli
 }
 
 //createConnection returns a newly created connection with connInfo or an error
-func createConnection(connInfo rainslib.ConnInfo) (conn net.Conn, err error) {
+func createConnection(connInfo connection.ConnInfo) (conn net.Conn, err error) {
 	switch connInfo.Type {
-	case rainslib.TCP:
+	case connection.TCP:
 		return tls.Dial(connInfo.TCPAddr.Network(), connInfo.String(), &tls.Config{InsecureSkipVerify: *insecureTLS})
 	default:
 		return nil, errors.New("unsupported Network address type")
 	}
 }
 
-func listen(conn net.Conn, tok rainslib.Token, done chan<- rainslib.RainsMessage, ec chan<- error) {
+func listen(conn net.Conn, tok token.Token, done chan<- message.RainsMessage, ec chan<- error) {
 	reader := borat.NewCBORReader(conn)
-	var msg rainslib.RainsMessage
+	var msg message.RainsMessage
 	if err := reader.Unmarshal(&msg); err != nil {
 		ec <- fmt.Errorf("failed to unmarshal response: %v", err)
 		return
@@ -160,7 +164,7 @@ func listen(conn net.Conn, tok rainslib.Token, done chan<- rainslib.RainsMessage
 }
 
 //qoptFlag defines the query options flag. It allows a user to specify multiple query options and their priority (by input sequence)
-type qoptFlag []rainslib.QueryOption
+type qoptFlag []sections.QueryOption
 
 func (i *qoptFlag) String() string {
 	list := []string{}
@@ -174,21 +178,21 @@ func (i *qoptFlag) String() string {
 func (i *qoptFlag) Set(value string) error {
 	switch value {
 	case "1":
-		*i = append(*i, rainslib.QOMinE2ELatency)
+		*i = append(*i, sections.QOMinE2ELatency)
 	case "2":
-		*i = append(*i, rainslib.QOMinLastHopAnswerSize)
+		*i = append(*i, object.QOMinLastHopAnswerSize)
 	case "3":
-		*i = append(*i, rainslib.QOMinInfoLeakage)
+		*i = append(*i, sections.QOMinInfoLeakage)
 	case "4":
-		*i = append(*i, rainslib.QOCachedAnswersOnly)
+		*i = append(*i, object.QOCachedAnswersOnly)
 	case "5":
-		*i = append(*i, rainslib.QOExpiredAssertionsOk)
+		*i = append(*i, object.QOExpiredAssertionsOk)
 	case "6":
-		*i = append(*i, rainslib.QOTokenTracing)
+		*i = append(*i, object.QOTokenTracing)
 	case "7":
-		*i = append(*i, rainslib.QONoVerificationDelegation)
+		*i = append(*i, object.QONoVerificationDelegation)
 	case "8":
-		*i = append(*i, rainslib.QONoProactiveCaching)
+		*i = append(*i, object.QONoProactiveCaching)
 	default:
 		return fmt.Errorf("There is no query option for value: %s", value)
 	}

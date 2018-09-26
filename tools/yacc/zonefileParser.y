@@ -30,21 +30,21 @@ import (
 //AddSigs adds signatures to section
 func AddSigs(section sections.MessageSectionWithSigForward, signatures []signature.Signature) {
     for _, sig := range signatures {
-        section.AddSig(sig)
+        sections.AddSig(sig)
     }
 }
 
-func DecodeBloomFilter(hashAlgos []algorithmTypes.HashAlgorithmType, modeOfOperation section.ModeOfOperationType,
-    nofHashFunctions, filter string) (section.BloomFilter, error) {
+func DecodeBloomFilter(hashAlgos []algorithmTypes.HashAlgorithmType, modeOfOperation sections.ModeOfOperationType,
+    nofHashFunctions, filter string) (sections.BloomFilter, error) {
     funcs, err := strconv.Atoi(nofHashFunctions)
 	if err != nil {
-		return section.BloomFilter{}, errors.New("nofHashFunctions is not a number")
+		return sections.BloomFilter{}, errors.New("nofHashFunctions is not a number")
 	}
     decodedFilter, err := hex.DecodeString(filter)
 	if err != nil {
-		return section.BloomFilter{}, err
+		return sections.BloomFilter{}, err
 	}
-    return section.BloomFilter{
+    return sections.BloomFilter{
             HashFamily: hashAlgos,
             NofHashFunctions: funcs,
             ModeOfOperation: modeOfOperation,
@@ -130,7 +130,7 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
 }
 
 //Result gets stored in this variable
-var output []section.MessageSectionWithSigForward
+var output []sections.MessageSectionWithSigForward
 
 %}
 
@@ -139,12 +139,12 @@ var output []section.MessageSectionWithSigForward
 // as ${PREFIX}SymType, of which a reference is passed to the lexer.
 %union{
     str             string
-    assertion       *section.AssertionSection
-    assertions      []*section.AssertionSection
-    shard           *section.ShardSection
-    pshard          *section.PshardSection
-    zone            *section.ZoneSection
-    sections        []section.MessageSectionWithSigForward
+    assertion       *sections.AssertionSection
+    assertions      []*sections.AssertionSection
+    shard           *sections.ShardSection
+    pshard          *sections.PshardSection
+    zone            *sections.ZoneSection
+    sections        []sections.MessageSectionWithSigForward
     objects         []object.Object
     object          object.Object
     objectTypes     []object.ObjectType

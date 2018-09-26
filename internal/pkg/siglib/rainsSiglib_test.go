@@ -8,57 +8,63 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
 	parser "github.com/netsec-ethz/rains/internal/pkg/zonefile"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
 	"golang.org/x/crypto/ed25519"
 )
 
 func TestEncodeAndDecode(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
-	nameObjectContent := rainslib.NameObject{
+	nameObjectContent := object.NameObject{
 		Name:  "ethz2.ch",
-		Types: []rainslib.ObjectType{rainslib.OTIP4Addr, rainslib.OTIP6Addr},
+		Types: []object.ObjectType{object.OTIP4Addr, object.OTIP6Addr},
 	}
 
-	publicKey := rainslib.PublicKey{
-		PublicKeyID: rainslib.PublicKeyID{
-			KeySpace:  rainslib.RainsKeySpace,
-			Algorithm: rainslib.Ed25519,
+	publicKey := keys.PublicKey{
+		PublicKeyID: keys.PublicKeyID{
+			KeySpace:  keys.RainsKeySpace,
+			Algorithm: keys.Ed25519,
 		},
 		Key:        ed25519.PublicKey([]byte("01234567890123456789012345678901")),
 		ValidSince: 10000,
 		ValidUntil: 50000,
 	}
-	certificate := rainslib.CertificateObject{
-		Type:     rainslib.PTTLS,
-		HashAlgo: rainslib.Sha256,
-		Usage:    rainslib.CUEndEntity,
+	certificate := object.CertificateObject{
+		Type:     object.PTTLS,
+		HashAlgo: algorithmTypes.Sha256,
+		Usage:    object.CUEndEntity,
 		Data:     []byte("certData"),
 	}
-	serviceInfo := rainslib.ServiceInfo{
+	serviceInfo := object.ServiceInfo{
 		Name:     "lookup",
 		Port:     49830,
 		Priority: 1,
 	}
 
-	nameObject := rainslib.Object{Type: rainslib.OTName, Value: nameObjectContent}
-	ip6Object := rainslib.Object{Type: rainslib.OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"}
-	ip4Object := rainslib.Object{Type: rainslib.OTIP4Addr, Value: "127.0.0.1"}
-	redirObject := rainslib.Object{Type: rainslib.OTRedirection, Value: "ns.ethz.ch"}
-	delegObject := rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}
-	nameSetObject := rainslib.Object{Type: rainslib.OTNameset, Value: rainslib.NamesetExpression("Would be an expression")}
-	certObject := rainslib.Object{Type: rainslib.OTCertInfo, Value: certificate}
-	serviceInfoObject := rainslib.Object{Type: rainslib.OTServiceInfo, Value: serviceInfo}
-	registrarObject := rainslib.Object{Type: rainslib.OTRegistrar, Value: "Registrar information"}
-	registrantObject := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}
-	infraObject := rainslib.Object{Type: rainslib.OTInfraKey, Value: publicKey}
-	extraObject := rainslib.Object{Type: rainslib.OTExtraKey, Value: publicKey}
-	nextKey := rainslib.Object{Type: rainslib.OTNextKey, Value: publicKey}
+	nameObject := object.Object{Type: object.OTName, Value: nameObjectContent}
+	ip6Object := object.Object{Type: object.OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"}
+	ip4Object := object.Object{Type: object.OTIP4Addr, Value: "127.0.0.1"}
+	redirObject := object.Object{Type: object.OTRedirection, Value: "ns.ethz.ch"}
+	delegObject := object.Object{Type: object.OTDelegation, Value: publicKey}
+	nameSetObject := object.Object{Type: object.OTNameset, Value: object.NamesetExpression("Would be an expression")}
+	certObject := object.Object{Type: object.OTCertInfo, Value: certificate}
+	serviceInfoObject := object.Object{Type: object.OTServiceInfo, Value: serviceInfo}
+	registrarObject := object.Object{Type: object.OTRegistrar, Value: "Registrar information"}
+	registrantObject := object.Object{Type: object.OTRegistrant, Value: "Registrant information"}
+	infraObject := object.Object{Type: object.OTInfraKey, Value: publicKey}
+	extraObject := object.Object{Type: object.OTExtraKey, Value: publicKey}
+	nextKey := object.Object{Type: object.OTNextKey, Value: publicKey}
 
-	signature := rainslib.Signature{
-		PublicKeyID: rainslib.PublicKeyID{
-			KeySpace:  rainslib.RainsKeySpace,
-			Algorithm: rainslib.Ed25519,
+	signature := signature.Signature{
+		PublicKeyID: keys.PublicKeyID{
+			KeySpace:  keys.RainsKeySpace,
+			Algorithm: keys.Ed25519,
 		},
 		ValidSince: time.Now().Unix(),
 		ValidUntil: time.Now().Add(24 * time.Hour).Unix(),
@@ -68,76 +74,76 @@ func TestEncodeAndDecode(t *testing.T) {
 	_, subjectAddress2, _ := net.ParseCIDR("127.0.0.1/24")
 	_, subjectAddress3, _ := net.ParseCIDR("2001:db8::/32")
 
-	assertion := &rainslib.AssertionSection{
-		Content: []rainslib.Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject, registrarObject,
+	assertion := &sections.AssertionSection{
+		Content: []object.Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject, registrarObject,
 			registrantObject, infraObject, extraObject, nextKey},
 		Context:     ".",
 		SubjectName: "ethz",
 		SubjectZone: "ch",
 	}
 
-	shard := &rainslib.ShardSection{
-		Content:     []*rainslib.AssertionSection{assertion},
+	shard := &sections.ShardSection{
+		Content:     []*sections.AssertionSection{assertion},
 		Context:     ".",
 		SubjectZone: "ch",
 		RangeFrom:   "aaa",
 		RangeTo:     "zzz",
 	}
 
-	zone := &rainslib.ZoneSection{
-		Content:     []rainslib.MessageSectionWithSigForward{assertion, shard},
+	zone := &sections.ZoneSection{
+		Content:     []sections.MessageSectionWithSigForward{assertion, shard},
 		Context:     ".",
 		SubjectZone: "ch",
 	}
 
-	query := &rainslib.QuerySection{
+	query := &sections.QuerySection{
 		Context:    ".",
 		Expiration: 159159,
 		Name:       "ethz.ch",
-		Options:    []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
-		Types:      []rainslib.ObjectType{rainslib.OTIP4Addr},
+		Options:    []sections.QueryOption{sections.QOMinE2ELatency, sections.QOMinInfoLeakage},
+		Types:      []object.ObjectType{object.OTIP4Addr},
 	}
 
-	notification := &rainslib.NotificationSection{
-		Token: rainslib.GenerateToken(),
-		Type:  rainslib.NTNoAssertionsExist,
+	notification := &sections.NotificationSection{
+		Token: token.GenerateToken(),
+		Type:  sections.NTNoAssertionsExist,
 		Data:  "Notification information",
 	}
 
-	addressAssertion1 := &rainslib.AddressAssertionSection{
+	addressAssertion1 := &sections.AddressAssertionSection{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
-		Content:     []rainslib.Object{nameObject},
+		Content:     []object.Object{nameObject},
 	}
 
-	addressAssertion2 := &rainslib.AddressAssertionSection{
+	addressAssertion2 := &sections.AddressAssertionSection{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
-		Content:     []rainslib.Object{redirObject, delegObject, registrantObject},
+		Content:     []object.Object{redirObject, delegObject, registrantObject},
 	}
 
-	addressAssertion3 := &rainslib.AddressAssertionSection{
+	addressAssertion3 := &sections.AddressAssertionSection{
 		SubjectAddr: subjectAddress3,
 		Context:     ".",
-		Content:     []rainslib.Object{redirObject, delegObject, registrantObject},
+		Content:     []object.Object{redirObject, delegObject, registrantObject},
 	}
 
-	addressZone := &rainslib.AddressZoneSection{
+	addressZone := &sections.AddressZoneSection{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
-		Content:     []*rainslib.AddressAssertionSection{addressAssertion1, addressAssertion2, addressAssertion3},
+		Content:     []*sections.AddressAssertionSection{addressAssertion1, addressAssertion2, addressAssertion3},
 	}
 
-	addressQuery := &rainslib.AddressQuerySection{
+	addressQuery := &sections.AddressQuerySection{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Expiration:  7564859,
-		Types:       []rainslib.ObjectType{rainslib.OTName},
-		Options:     []rainslib.QueryOption{rainslib.QOMinE2ELatency, rainslib.QOMinInfoLeakage},
+		Types:       []object.ObjectType{object.OTName},
+		Options:     []sections.QueryOption{sections.QOMinE2ELatency, sections.QOMinInfoLeakage},
 	}
 
-	message := rainslib.RainsMessage{
-		Content: []rainslib.MessageSection{
+	message := message.RainsMessage{
+		Content: []sections.MessageSection{
 			assertion,
 			shard,
 			zone,
@@ -149,23 +155,23 @@ func TestEncodeAndDecode(t *testing.T) {
 			addressZone,
 			addressQuery,
 		},
-		Token:        rainslib.GenerateToken(),
-		Capabilities: []rainslib.Capability{rainslib.Capability("Test"), rainslib.Capability("Yes!")},
+		Token:        token.GenerateToken(),
+		Capabilities: []message.Capability{message.Capability("Test"), message.Capability("Yes!")},
 	}
 
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	pKey := rainslib.PublicKey{
-		PublicKeyID: rainslib.PublicKeyID{
-			KeySpace:  rainslib.RainsKeySpace,
-			Algorithm: rainslib.Ed25519,
+	pKey := keys.PublicKey{
+		PublicKeyID: keys.PublicKeyID{
+			KeySpace:  keys.RainsKeySpace,
+			Algorithm: keys.Ed25519,
 		},
 		ValidSince: time.Now().Add(-24 * time.Hour).Unix(),
 		ValidUntil: time.Now().Add(24 * time.Hour).Unix(),
 		Key:        genPublicKey,
 	}
-	pKeys := make(map[rainslib.PublicKeyID][]rainslib.PublicKey)
-	pKeys[rainslib.PublicKeyID{Algorithm: pKey.Algorithm}] = []rainslib.PublicKey{pKey}
-	maxValidity := rainslib.MaxCacheValidity{
+	pKeys := make(map[keys.PublicKeyID][]keys.PublicKey)
+	pKeys[keys.PublicKeyID{Algorithm: pKey.Algorithm}] = []keys.PublicKey{pKey}
+	maxValidity := object.MaxCacheValidity{
 		AssertionValidity:        30 * time.Hour,
 		ShardValidity:            30 * time.Hour,
 		ZoneValidity:             30 * time.Hour,
@@ -248,22 +254,22 @@ func TestEncodeAndDecode(t *testing.T) {
 func TestCheckSectionSignaturesErrors(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
 	encoder := new(parser.Parser)
-	maxVal := rainslib.MaxCacheValidity{AddressAssertionValidity: time.Hour}
-	keys := make(map[rainslib.PublicKeyID][]rainslib.PublicKey)
-	keys1 := make(map[rainslib.PublicKeyID][]rainslib.PublicKey)
-	keys1[rainslib.PublicKeyID{Algorithm: rainslib.Ed25519}] = []rainslib.PublicKey{}
+	maxVal := object.MaxCacheValidity{AddressAssertionValidity: time.Hour}
+	keys := make(map[keys.PublicKeyID][]keys.PublicKey)
+	keys1 := make(map[keys.PublicKeyID][]keys.PublicKey)
+	keys1[keys.PublicKeyID{Algorithm: keys.Ed25519}] = []keys.PublicKey{}
 	var tests = []struct {
-		input           rainslib.MessageSectionWithSig
-		inputPublicKeys map[rainslib.PublicKeyID][]rainslib.PublicKey
+		input           sections.MessageSectionWithSig
+		inputPublicKeys map[keys.PublicKeyID][]keys.PublicKey
 		want            bool
 	}{
-		{nil, nil, false},                                                                                                                                               //msg nil
-		{&rainslib.AssertionSection{}, nil, false},                                                                                                                      //pkeys nil
-		{&rainslib.AssertionSection{}, keys, true},                                                                                                                      //no signatures
-		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{}}, SubjectName: ":ip55:"}, keys, false},                                        //checkStringField false
-		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{}}}, keys, false},                                                               //no matching algotype in keys
-		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519}}}}, keys1, true}, //sig expired
-		{&rainslib.AssertionSection{Signatures: []rainslib.Signature{rainslib.Signature{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519},
+		{nil, nil, false},                                                                                                                                         //msg nil
+		{&sections.AssertionSection{}, nil, false},                                                                                                                //pkeys nil
+		{&sections.AssertionSection{}, keys, true},                                                                                                                //no signatures
+		{&sections.AssertionSection{Signatures: []signature.Signature{signature.Signature{}}, SubjectName: ":ip55:"}, keys, false},                                //checkStringField false
+		{&sections.AssertionSection{Signatures: []signature.Signature{signature.Signature{}}}, keys, false},                                                       //no matching algotype in keys
+		{&sections.AssertionSection{Signatures: []signature.Signature{signature.Signature{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519}}}}, keys1, true}, //sig expired
+		{&sections.AssertionSection{Signatures: []signature.Signature{signature.Signature{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
 			ValidUntil: time.Now().Add(time.Second).Unix()}}}, keys1, false}, //VerifySignature invalid
 	}
 	for _, test := range tests {
@@ -276,21 +282,21 @@ func TestCheckSectionSignaturesErrors(t *testing.T) {
 func TestCheckMessageSignaturesErrors(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
 	encoder := new(parser.Parser)
-	message := rainslib.GetMessage()
-	message2 := rainslib.GetMessage()
-	message2.Capabilities = []rainslib.Capability{rainslib.Capability(":ip:")}
-	message3 := rainslib.GetMessage()
-	message3.Signatures = []rainslib.Signature{rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}}
+	message := object.GetMessage()
+	message2 := object.GetMessage()
+	message2.Capabilities = []message.Capability{message.Capability(":ip:")}
+	message3 := object.GetMessage()
+	message3.Signatures = []signature.Signature{signature.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}}
 	var tests = []struct {
-		input          *rainslib.RainsMessage
-		inputPublicKey rainslib.PublicKey
+		input          *message.RainsMessage
+		inputPublicKey keys.PublicKey
 		want           bool
 	}{
-		{nil, rainslib.PublicKey{}, false},                      //msg nil
-		{&message, rainslib.PublicKey{}, false},                 //sig expired
-		{&rainslib.RainsMessage{}, rainslib.PublicKey{}, false}, //no sig
-		{&message2, rainslib.PublicKey{}, false},                //TextField of Content invalid
-		{&message3, rainslib.PublicKey{}, false},                //signature invalid
+		{nil, keys.PublicKey{}, false},                     //msg nil
+		{&message, keys.PublicKey{}, false},                //sig expired
+		{&message.RainsMessage{}, keys.PublicKey{}, false}, //no sig
+		{&message2, keys.PublicKey{}, false},               //TextField of Content invalid
+		{&message3, keys.PublicKey{}, false},               //signature invalid
 	}
 	for _, test := range tests {
 		if CheckMessageSignatures(test.input, test.inputPublicKey, encoder) != test.want {
@@ -302,33 +308,33 @@ func TestCheckMessageSignaturesErrors(t *testing.T) {
 func TestSignSection(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
 	encoder := new(parser.Parser)
-	sections := rainslib.GetMessage().Content
+	sections := object.GetMessage().Content
 	_, pkey, _ := ed25519.GenerateKey(nil)
 	var tests = []struct {
-		input           rainslib.MessageSectionWithSig
+		input           sections.MessageSectionWithSig
 		inputPrivateKey interface{}
-		inputSig        rainslib.Signature
+		inputSig        signature.Signature
 		want            bool
 	}{
-		{nil, nil, rainslib.Signature{}, false},
+		{nil, nil, signature.Signature{}, false},
 		{
-			sections[0].(rainslib.MessageSectionWithSig),
+			sections[0].(sections.MessageSectionWithSig),
 			pkey,
-			rainslib.Signature{
-				PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519},
+			signature.Signature{
+				PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
 				ValidUntil:  time.Now().Add(time.Second).Unix(),
 			},
 			true,
 		},
-		{sections[0].(rainslib.MessageSectionWithSig), pkey, rainslib.Signature{ValidUntil: time.Now().Unix() - 100}, false},
-		{&rainslib.AssertionSection{SubjectName: ":ip:"}, pkey, rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
-		{sections[0].(rainslib.MessageSectionWithSig), nil, rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+		{sections[0].(sections.MessageSectionWithSig), pkey, signature.Signature{ValidUntil: time.Now().Unix() - 100}, false},
+		{&sections.AssertionSection{SubjectName: ":ip:"}, pkey, signature.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+		{sections[0].(sections.MessageSectionWithSig), nil, signature.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
 	}
 	for _, test := range tests {
 		if SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder) != test.want {
 			t.Errorf("expected=%v, actual=%v, value=%v", test.want, SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder), test.input)
 		}
-		if test.want && test.input.Sigs(rainslib.RainsKeySpace)[0].Data == nil {
+		if test.want && test.input.Sigs(keys.RainsKeySpace)[0].Data == nil {
 			t.Error("msg.Signature does not contain generated signature data")
 		}
 	}
@@ -337,28 +343,28 @@ func TestSignSection(t *testing.T) {
 func TestSignMessage(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
 	encoder := new(parser.Parser)
-	message := rainslib.GetMessage()
+	message := object.GetMessage()
 	_, pkey, _ := ed25519.GenerateKey(nil)
 	var tests = []struct {
-		input           *rainslib.RainsMessage
+		input           *message.RainsMessage
 		inputPrivateKey interface{}
-		inputSig        rainslib.Signature
+		inputSig        signature.Signature
 		want            bool
 	}{
-		{nil, nil, rainslib.Signature{}, false},
+		{nil, nil, signature.Signature{}, false},
 		{
 			&message,
 			pkey,
-			rainslib.Signature{
-				PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519},
+			signature.Signature{
+				PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
 				ValidUntil:  time.Now().Add(time.Second).Unix(),
 			},
 			true,
 		},
-		{&message, pkey, rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix() - 100}, false},
-		{&rainslib.RainsMessage{Capabilities: []rainslib.Capability{rainslib.Capability(":ip:")}}, pkey,
-			rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
-		{&rainslib.RainsMessage{}, nil, rainslib.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+		{&message, pkey, signature.Signature{ValidUntil: time.Now().Add(time.Second).Unix() - 100}, false},
+		{&message.RainsMessage{Capabilities: []message.Capability{message.Capability(":ip:")}}, pkey,
+			signature.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+		{&message.RainsMessage{}, nil, signature.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
 	}
 	for _, test := range tests {
 		if SignMessage(test.input, test.inputPrivateKey, test.inputSig, encoder) != test.want {
@@ -372,15 +378,15 @@ func TestSignMessage(t *testing.T) {
 
 func TestCheckMessageStringFields(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
-	message := rainslib.GetMessage()
+	message := object.GetMessage()
 	var tests = []struct {
-		input *rainslib.RainsMessage
+		input *message.RainsMessage
 		want  bool
 	}{
 		{nil, false},
 		{&message, true},
-		{&rainslib.RainsMessage{Capabilities: []rainslib.Capability{rainslib.Capability(":ip:")}}, false},
-		{&rainslib.RainsMessage{Content: []rainslib.MessageSection{&rainslib.AssertionSection{SubjectName: ":ip:"}}}, false},
+		{&message.RainsMessage{Capabilities: []message.Capability{message.Capability(":ip:")}}, false},
+		{&message.RainsMessage{Content: []sections.MessageSection{&sections.AssertionSection{SubjectName: ":ip:"}}}, false},
 	}
 	for _, test := range tests {
 		if checkMessageStringFields(test.input) != test.want {
@@ -391,9 +397,9 @@ func TestCheckMessageStringFields(t *testing.T) {
 
 func TestCheckStringFields(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
-	sections := rainslib.GetMessage().Content
+	sections := object.GetMessage().Content
 	var tests = []struct {
-		input rainslib.MessageSection
+		input sections.MessageSection
 		want  bool
 	}{
 		{nil, false},
@@ -406,26 +412,26 @@ func TestCheckStringFields(t *testing.T) {
 		{sections[6], true},
 		{sections[8], true},
 		{sections[9], true},
-		{&rainslib.AssertionSection{SubjectName: ":ip:"}, false},
-		{&rainslib.AssertionSection{Context: ":ip:"}, false},
-		{&rainslib.AssertionSection{SubjectZone: ":ip:"}, false},
-		{&rainslib.AssertionSection{Content: []rainslib.Object{rainslib.Object{Type: rainslib.OTRegistrar, Value: ":ip55:"}}}, false},
-		{&rainslib.ShardSection{Context: ":ip:"}, false},
-		{&rainslib.ShardSection{SubjectZone: ":ip:"}, false},
-		{&rainslib.ShardSection{RangeFrom: ":ip:"}, false},
-		{&rainslib.ShardSection{RangeTo: ":ip:"}, false},
-		{&rainslib.ShardSection{Content: []*rainslib.AssertionSection{&rainslib.AssertionSection{SubjectName: ":ip:"}}}, false},
-		{&rainslib.ZoneSection{SubjectZone: ":ip:"}, false},
-		{&rainslib.ZoneSection{Context: ":ip:"}, false},
-		{&rainslib.ZoneSection{Content: []rainslib.MessageSectionWithSigForward{&rainslib.AssertionSection{SubjectName: ":ip:"}}}, false},
-		{&rainslib.QuerySection{Context: ":ip:"}, false},
-		{&rainslib.QuerySection{Name: ":ip:"}, false},
-		{&rainslib.NotificationSection{Data: ":ip:"}, false},
-		{&rainslib.AddressQuerySection{Context: ":ip:"}, false},
-		{&rainslib.AddressAssertionSection{Context: ":ip:"}, false},
-		{&rainslib.AddressAssertionSection{Content: []rainslib.Object{rainslib.Object{Type: rainslib.OTRegistrant, Value: ":ip55:"}}}, false},
-		{&rainslib.AddressZoneSection{Context: ":ip:"}, false},
-		{&rainslib.AddressZoneSection{Content: []*rainslib.AddressAssertionSection{&rainslib.AddressAssertionSection{Context: ":ip:"}}}, false},
+		{&sections.AssertionSection{SubjectName: ":ip:"}, false},
+		{&sections.AssertionSection{Context: ":ip:"}, false},
+		{&sections.AssertionSection{SubjectZone: ":ip:"}, false},
+		{&sections.AssertionSection{Content: []object.Object{object.Object{Type: object.OTRegistrar, Value: ":ip55:"}}}, false},
+		{&sections.ShardSection{Context: ":ip:"}, false},
+		{&sections.ShardSection{SubjectZone: ":ip:"}, false},
+		{&sections.ShardSection{RangeFrom: ":ip:"}, false},
+		{&sections.ShardSection{RangeTo: ":ip:"}, false},
+		{&sections.ShardSection{Content: []*sections.AssertionSection{&sections.AssertionSection{SubjectName: ":ip:"}}}, false},
+		{&sections.ZoneSection{SubjectZone: ":ip:"}, false},
+		{&sections.ZoneSection{Context: ":ip:"}, false},
+		{&sections.ZoneSection{Content: []sections.MessageSectionWithSigForward{&sections.AssertionSection{SubjectName: ":ip:"}}}, false},
+		{&sections.QuerySection{Context: ":ip:"}, false},
+		{&sections.QuerySection{Name: ":ip:"}, false},
+		{&sections.NotificationSection{Data: ":ip:"}, false},
+		{&sections.AddressQuerySection{Context: ":ip:"}, false},
+		{&sections.AddressAssertionSection{Context: ":ip:"}, false},
+		{&sections.AddressAssertionSection{Content: []object.Object{object.Object{Type: object.OTRegistrant, Value: ":ip55:"}}}, false},
+		{&sections.AddressZoneSection{Context: ":ip:"}, false},
+		{&sections.AddressZoneSection{Content: []*sections.AddressAssertionSection{&sections.AddressAssertionSection{Context: ":ip:"}}}, false},
 	}
 	for _, test := range tests {
 		if checkStringFields(test.input) != test.want {
@@ -437,19 +443,19 @@ func TestCheckStringFields(t *testing.T) {
 func TestCheckObjectFields(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
 	var tests = []struct {
-		input []rainslib.Object
+		input []object.Object
 		want  bool
 	}{
 		{nil, true},
-		{[]rainslib.Object{}, true},
-		{rainslib.GetAllValidObjects(), true},
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTName, Value: rainslib.NameObject{Name: ":ip55:"}}}, false},
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTRedirection, Value: ":ip55:"}}, false},
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTNameset, Value: rainslib.NamesetExpression(":ip55:")}}, false},
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTServiceInfo, Value: rainslib.ServiceInfo{Name: ":ip55:"}}}, false},
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTRegistrar, Value: ":ip55:"}}, false},
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTRegistrant, Value: ":ip55:"}}, false},
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.ObjectType(-1), Value: nil}}, false},
+		{[]object.Object{}, true},
+		{object.GetAllValidObjects(), true},
+		{[]object.Object{object.Object{Type: object.OTName, Value: object.NameObject{Name: ":ip55:"}}}, false},
+		{[]object.Object{object.Object{Type: object.OTRedirection, Value: ":ip55:"}}, false},
+		{[]object.Object{object.Object{Type: object.OTNameset, Value: object.NamesetExpression(":ip55:")}}, false},
+		{[]object.Object{object.Object{Type: object.OTServiceInfo, Value: object.ServiceInfo{Name: ":ip55:"}}}, false},
+		{[]object.Object{object.Object{Type: object.OTRegistrar, Value: ":ip55:"}}, false},
+		{[]object.Object{object.Object{Type: object.OTRegistrant, Value: ":ip55:"}}, false},
+		{[]object.Object{object.Object{Type: object.ObjectType(-1), Value: nil}}, false},
 	}
 	for _, test := range tests {
 		if checkObjectFields(test.input) != test.want {
@@ -461,28 +467,28 @@ func TestCheckObjectFields(t *testing.T) {
 func TestCheckCapabilites(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
 	var tests = []struct {
-		input []rainslib.Capability
+		input []message.Capability
 		want  bool
 	}{
 		{nil, true},
-		{[]rainslib.Capability{}, true},
-		{[]rainslib.Capability{rainslib.Capability("")}, true},
-		{[]rainslib.Capability{rainslib.Capability("Good")}, true},
-		{[]rainslib.Capability{rainslib.Capability(":ip: bad")}, false},
-		{[]rainslib.Capability{rainslib.Capability(":ip:")}, false},
-		{[]rainslib.Capability{rainslib.Capability("bad :ip: test")}, false},
-		{[]rainslib.Capability{rainslib.Capability("bad\t:ip:\ttest")}, false},
-		{[]rainslib.Capability{rainslib.Capability("bad\n:ip:\ntest")}, false},
-		{[]rainslib.Capability{rainslib.Capability("bad\n:ip:\ttest")}, false},
-		{[]rainslib.Capability{rainslib.Capability("bad test :ip:")}, false},
-		{[]rainslib.Capability{rainslib.Capability("bad test\n\n :ip:")}, false},
-		{[]rainslib.Capability{rainslib.Capability("as:Good:dh")}, true},
-		{[]rainslib.Capability{rainslib.Capability("as:Good: dh")}, true},
-		{[]rainslib.Capability{rainslib.Capability("as :Good:dh")}, true},
-		{[]rainslib.Capability{rainslib.Capability(" :: ")}, true},
-		{[]rainslib.Capability{rainslib.Capability("::")}, true},
-		{[]rainslib.Capability{rainslib.Capability("::"), rainslib.Capability(":ip4:Good")}, true},
-		{[]rainslib.Capability{rainslib.Capability("::"), rainslib.Capability(":ip4: Good")}, false},
+		{[]message.Capability{}, true},
+		{[]message.Capability{message.Capability("")}, true},
+		{[]message.Capability{message.Capability("Good")}, true},
+		{[]message.Capability{message.Capability(":ip: bad")}, false},
+		{[]message.Capability{message.Capability(":ip:")}, false},
+		{[]message.Capability{message.Capability("bad :ip: test")}, false},
+		{[]message.Capability{message.Capability("bad\t:ip:\ttest")}, false},
+		{[]message.Capability{message.Capability("bad\n:ip:\ntest")}, false},
+		{[]message.Capability{message.Capability("bad\n:ip:\ttest")}, false},
+		{[]message.Capability{message.Capability("bad test :ip:")}, false},
+		{[]message.Capability{message.Capability("bad test\n\n :ip:")}, false},
+		{[]message.Capability{message.Capability("as:Good:dh")}, true},
+		{[]message.Capability{message.Capability("as:Good: dh")}, true},
+		{[]message.Capability{message.Capability("as :Good:dh")}, true},
+		{[]message.Capability{message.Capability(" :: ")}, true},
+		{[]message.Capability{message.Capability("::")}, true},
+		{[]message.Capability{message.Capability("::"), message.Capability(":ip4:Good")}, true},
+		{[]message.Capability{message.Capability("::"), message.Capability(":ip4: Good")}, false},
 	}
 	for _, test := range tests {
 		if checkCapabilites(test.input) != test.want {
@@ -539,8 +545,8 @@ func benchmarkSignAssertions(zonefileName string, b *testing.B) {
 		return
 	}
 	_, pkey, _ := ed25519.GenerateKey(nil)
-	sig := rainslib.Signature{
-		PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519},
+	sig := signature.Signature{
+		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
 		ValidUntil:  time.Now().Add(time.Hour).Unix(),
 	}
 	for n := 0; n < b.N; n++ {
@@ -578,8 +584,8 @@ func benchmarkSignShard(zonefileName string, assertionsPerShard int, b *testing.
 	}
 	shards := shardAssertions(assertions, assertionsPerShard)
 	_, pkey, _ := ed25519.GenerateKey(nil)
-	sig := rainslib.Signature{
-		PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519},
+	sig := signature.Signature{
+		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
 		ValidUntil:  time.Now().Add(time.Hour).Unix(),
 	}
 	for n := 0; n < b.N; n++ {
@@ -616,14 +622,14 @@ func benchmarkSignZone(zonefileName string, assertionsPerShard int, b *testing.B
 		return
 	}
 	shards := shardAssertions(assertions, assertionsPerShard)
-	zone := &rainslib.ZoneSection{
+	zone := &sections.ZoneSection{
 		Context:     assertions[0].Context,
 		SubjectZone: assertions[0].SubjectZone,
 		Content:     shards,
 	}
 	_, pkey, _ := ed25519.GenerateKey(nil)
-	sig := rainslib.Signature{
-		PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519},
+	sig := signature.Signature{
+		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
 		ValidUntil:  time.Now().Add(time.Hour).Unix(),
 	}
 	for n := 0; n < b.N; n++ {
@@ -640,10 +646,10 @@ func BenchmarkSignZone100(b *testing.B) { benchmarkSignZone("test/zonefile100000
 //zone is signed containing 100 shards containing each 1000 assertions
 func BenchmarkSignZone1000(b *testing.B) { benchmarkSignZone("test/zonefile100000", 1000, b) }
 
-func shardAssertions(assertions []*rainslib.AssertionSection, assertionsPerShard int) []rainslib.MessageSectionWithSigForward {
-	var shards []rainslib.MessageSectionWithSigForward
+func shardAssertions(assertions []*sections.AssertionSection, assertionsPerShard int) []sections.MessageSectionWithSigForward {
+	var shards []sections.MessageSectionWithSigForward
 	for i := 0; i < len(assertions); i++ {
-		shard := &rainslib.ShardSection{
+		shard := &sections.ShardSection{
 			Context:     assertions[i].Context,
 			SubjectZone: assertions[i].SubjectZone,
 			RangeFrom:   "aaaaa",

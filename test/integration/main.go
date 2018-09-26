@@ -22,8 +22,12 @@ import (
 	"time"
 
 	"github.com/fehlmach/rains/utils/zoneFileParser"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
+	"github.com/netsec-ethz/rains/internal/util"
 	"github.com/netsec-ethz/rains/test/integration/configs"
 	"github.com/netsec-ethz/rains/test/integration/runner"
 	"github.com/netsec-ethz/rains/test/integration/utils"
@@ -432,10 +436,10 @@ func verifyRainsDigRoot(output string, subKeys map[string]string) error {
 			content := assertion.Content
 			for _, object := range content {
 				switch object.Type {
-				case rainslib.OTDelegation:
-					value, ok := object.Value.(rainslib.PublicKey)
+				case object.OTDelegation:
+					value, ok := object.Value.(keys.PublicKey)
 					if !ok {
-						return fmt.Errorf("expected value type of rainslib.PublicKey but got %T: %v", object.Value, object.Value)
+						return fmt.Errorf("expected value type of keys.PublicKey but got %T: %v", object.Value, object.Value)
 					}
 					keyBytes := []byte(value.Key.(ed25519.PublicKey))
 					wantBytes, err := hex.DecodeString(key)
@@ -634,20 +638,20 @@ func CreateDelegationAssertion(zone, context, outPath, gobOut string) error {
 	if err != nil {
 		return err
 	}
-	pkey := rainslib.PublicKey{
-		PublicKeyID: rainslib.PublicKeyID{
-			KeySpace:  rainslib.RainsKeySpace,
-			Algorithm: rainslib.Ed25519,
+	pkey := keys.PublicKey{
+		PublicKeyID: keys.PublicKeyID{
+			KeySpace:  keys.RainsKeySpace,
+			Algorithm: keys.Ed25519,
 		},
 		Key:        publicKey,
 		ValidSince: time.Now().Unix(),
 		ValidUntil: time.Now().Add(*validity).Unix(),
 	}
-	assertion := &rainslib.AssertionSection{
+	assertion := &sections.AssertionSection{
 		Context:     context,
 		SubjectZone: zone,
 		SubjectName: "@",
-		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation, Value: pkey}},
+		Content:     []object.Object{object.Object{Type: object.OTDelegation, Value: pkey}},
 	}
 	if ok := addSignature(assertion, privateKey); !ok {
 		return errors.New("Was not able to sign the assertion")
@@ -656,17 +660,17 @@ func CreateDelegationAssertion(zone, context, outPath, gobOut string) error {
 	if err := utils.StoreKeyPair(publicKey, privateKey, outPath); err != nil {
 		return err
 	}
-	// rainslib.Save saves the .gob file.
-	return rainslib.Save(gobOut, assertion)
+	// util.Save saves the .gob file.
+	return util.Save(gobOut, assertion)
 }
 
 // addSignature signs the section with the public key and adds the resulting
 // signature to the section.
-func addSignature(a rainslib.MessageSectionWithSig, key ed25519.PrivateKey) bool {
-	signature := rainslib.Signature{
-		PublicKeyID: rainslib.PublicKeyID{
-			Algorithm: rainslib.Ed25519,
-			KeySpace:  rainslib.RainsKeySpace,
+func addSignature(a sections.MessageSectionWithSig, key ed25519.PrivateKey) bool {
+	signature := signature.Signature{
+		PublicKeyID: keys.PublicKeyID{
+			Algorithm: keys.Ed25519,
+			KeySpace:  keys.RainsKeySpace,
 		},
 		ValidSince: time.Now().Unix(),
 		ValidUntil: time.Now().Add(*validity).Unix(),
@@ -681,13 +685,13 @@ func SignDelegation(delegationPath, privateKeyPath string) error {
 	if err != nil {
 		return err
 	}
-	delegation := &rainslib.AssertionSection{}
-	err = rainslib.Load(delegationPath, delegation)
+	delegation := &sections.AssertionSection{}
+	err = util.Load(delegationPath, delegation)
 	if err != nil {
 		return err
 	}
 	if ok := addSignature(delegation, privateKey); !ok {
 		return errors.New("Was not able to sign and add signature")
 	}
-	return rainslib.Save(delegationPath, delegation)
+	return util.Save(delegationPath, delegation)
 }

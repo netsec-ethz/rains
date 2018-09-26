@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/netsec-ethz/rains/internal/pkg/token"
+
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
 )
 
 // Tracer implements functionality to send metrics to the logging server.
@@ -19,7 +20,7 @@ type Tracer struct {
 }
 
 // SendMessage places a message in the buffer to be sent asynchronously.
-func (t *Tracer) SendMessage(token rainslib.Token, message string) {
+func (t *Tracer) SendMessage(token token.Token, message string) {
 	m := make(map[string]string)
 	m["serverID"] = t.serverID
 	m["token"] = fmt.Sprintf("%v", token)

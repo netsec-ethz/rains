@@ -14,11 +14,13 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/britram/borat"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
 )
 
 //sendTo sends message to the specified receiver.
-func sendTo(message rainslib.RainsMessage, receiver rainslib.ConnInfo, retries, backoffMilliSeconds int) (err error) {
+func sendTo(msg message.RainsMessage, receiver connection.ConnInfo, retries, backoffMilliSeconds int) (err error) {
 	conns, ok := connCache.GetConnection(receiver)
 	if !ok {
 		conn, err := createConnection(receiver)
@@ -31,16 +33,16 @@ func sendTo(message rainslib.RainsMessage, receiver rainslib.ConnInfo, retries, 
 		connCache.AddConnection(conn)
 		//handle connection
 		if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-			go handleConnection(conn, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
+			go handleConnection(conn, connection.ConnInfo{Type: connection.TCP, TCPAddr: tcpAddr})
 		} else {
 			log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 		}
 		//add capabilities to message
-		message.Capabilities = []rainslib.Capability{rainslib.Capability(capabilityHash)}
+		msg.Capabilities = []message.Capability{message.Capability(capabilityHash)}
 	}
 	for _, conn := range conns {
 		writer := borat.NewCBORWriter(conn)
-		if err := writer.Marshal(&message); err != nil {
+		if err := writer.Marshal(&msg); err != nil {
 			log.Warn(fmt.Sprintf("failed to marshal message to conn: %v", err))
 			connCache.CloseAndRemoveConnection(conn)
 			continue
@@ -50,16 +52,16 @@ func sendTo(message rainslib.RainsMessage, receiver rainslib.ConnInfo, retries, 
 	}
 	if retries > 0 {
 		time.Sleep(time.Duration(backoffMilliSeconds) * time.Millisecond)
-		return sendTo(message, receiver, retries-1, 2*backoffMilliSeconds)
+		return sendTo(msg, receiver, retries-1, 2*backoffMilliSeconds)
 	}
 	log.Error("Was not able to send the message. No retries left.", "receiver", receiver)
 	return errors.New("Was not able to send the mesage. No retries left")
 }
 
 //createConnection establishes a connection with receiver
-func createConnection(receiver rainslib.ConnInfo) (net.Conn, error) {
+func createConnection(receiver connection.ConnInfo) (net.Conn, error) {
 	switch receiver.Type {
-	case rainslib.TCP:
+	case connection.TCP:
 		dialer := &net.Dialer{
 			KeepAlive: Config.KeepAlivePeriod,
 		}
@@ -73,7 +75,7 @@ func createConnection(receiver rainslib.ConnInfo) (net.Conn, error) {
 func Listen() {
 	srvLogger := log.New("addr", serverConnInfo.String())
 	switch serverConnInfo.Type {
-	case rainslib.TCP:
+	case connection.TCP:
 		srvLogger.Info("Start TCP listener")
 		tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}, InsecureSkipVerify: true}
 		listener, err := tls.Listen(serverConnInfo.TCPAddr.Network(), serverConnInfo.String(), tlsConfig)
@@ -94,7 +96,7 @@ func Listen() {
 			}
 			connCache.AddConnection(conn)
 			if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-				go handleConnection(conn, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
+				go handleConnection(conn, connection.ConnInfo{Type: connection.TCP, TCPAddr: tcpAddr})
 			} else {
 				log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 			}
@@ -104,20 +106,20 @@ func Listen() {
 	}
 }
 
-func deliverCBOR(msg *rainslib.RainsMessage, sender rainslib.ConnInfo) {
+func deliverCBOR(msg *message.RainsMessage, sender connection.ConnInfo) {
 	// TODO: Check length of message.
 	processCapability(msg.Capabilities, sender, msg.Token)
 	//handle message content
 	for _, m := range msg.Content {
 		switch m := m.(type) {
-		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.AddressAssertionSection, *rainslib.AddressZoneSection:
-			if !isZoneBlacklisted(m.(rainslib.MessageSectionWithSig).GetSubjectZone()) {
+		case *sections.AssertionSection, *sections.ShardSection, *sections.ZoneSection, *sections.AddressAssertionSection, *sections.AddressZoneSection:
+			if !isZoneBlacklisted(m.(sections.MessageSectionWithSig).GetSubjectZone()) {
 				addMsgSectionToQueue(m, msg.Token, sender)
 			}
-		case *rainslib.QuerySection, *rainslib.AddressQuerySection:
+		case *sections.QuerySection, *sections.AddressQuerySection:
 			log.Debug(fmt.Sprintf("add %T to normal queue", m))
 			normalChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
-		case *rainslib.NotificationSection:
+		case *sections.NotificationSection:
 			log.Debug("Add notification to notification queue", "token", msg.Token)
 			notificationChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
 		default:
@@ -128,15 +130,15 @@ func deliverCBOR(msg *rainslib.RainsMessage, sender rainslib.ConnInfo) {
 }
 
 //handleConnection deframes all incoming messages on conn and passes them to the inbox along with the dstAddr
-func handleConnection(conn net.Conn, dstAddr rainslib.ConnInfo) {
-	var msg rainslib.RainsMessage
+func handleConnection(conn net.Conn, dstAddr connection.ConnInfo) {
+	var msg message.RainsMessage
 	reader := borat.NewCBORReader(conn)
 	for {
 		if err := reader.Unmarshal(&msg); err != nil {
 			log.Warn(fmt.Sprintf("failed to read from client: %v", err))
 			break
 		}
-		deliverCBOR(&msg, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: conn.RemoteAddr().(*net.TCPAddr)})
+		deliverCBOR(&msg, connection.ConnInfo{Type: connection.TCP, TCPAddr: conn.RemoteAddr().(*net.TCPAddr)})
 	}
 	connCache.CloseAndRemoveConnection(conn)
 }

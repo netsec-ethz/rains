@@ -10,8 +10,12 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/fehlmach/rains/utils/zoneFileParser"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
+	"github.com/netsec-ethz/rains/internal/util"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -24,20 +28,20 @@ func CreateDelegationAssertion(context, zone string) error {
 		return err
 	}
 	log.Debug("Generated root public Key", "publicKey", publicKey)
-	pkey := rainslib.PublicKey{
-		PublicKeyID: rainslib.PublicKeyID{
-			KeySpace:  rainslib.RainsKeySpace,
-			Algorithm: rainslib.Ed25519,
+	pkey := keys.PublicKey{
+		PublicKeyID: keys.PublicKeyID{
+			KeySpace:  keys.RainsKeySpace,
+			Algorithm: keys.Ed25519,
 		},
 		Key:        publicKey,
 		ValidSince: time.Now().Unix(),
 		ValidUntil: time.Now().Add(30 * 24 * time.Hour).Unix(),
 	}
-	assertion := &rainslib.AssertionSection{
+	assertion := &sections.AssertionSection{
 		Context:     context,
 		SubjectZone: zone,
 		SubjectName: "@",
-		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation, Value: pkey}},
+		Content:     []object.Object{object.Object{Type: object.OTDelegation, Value: pkey}},
 	}
 	if zone == "." {
 		if ok := addSignature(assertion, privateKey); !ok {
@@ -49,9 +53,9 @@ func CreateDelegationAssertion(context, zone string) error {
 	}
 	//Store root zone file
 	if zone == "." {
-		err = rainslib.Save("tmp/selfSignedRootDelegationAssertion.gob", assertion)
+		err = util.Save("tmp/selfSignedRootDelegationAssertion.gob", assertion)
 	} else {
-		err = rainslib.Save("tmp/delegationAssertion.gob", assertion)
+		err = util.Save("tmp/delegationAssertion.gob", assertion)
 	}
 	if err != nil {
 		log.Error("Was not able to encode the assertion", "assertion", assertion)
@@ -60,11 +64,11 @@ func CreateDelegationAssertion(context, zone string) error {
 }
 
 //addSignature signs the section with the public key and adds the resulting signature to the section
-func addSignature(a rainslib.MessageSectionWithSig, key ed25519.PrivateKey) bool {
-	signature := rainslib.Signature{
-		PublicKeyID: rainslib.PublicKeyID{
-			Algorithm: rainslib.Ed25519,
-			KeySpace:  rainslib.RainsKeySpace,
+func addSignature(a sections.MessageSectionWithSig, key ed25519.PrivateKey) bool {
+	signature := signature.Signature{
+		PublicKeyID: keys.PublicKeyID{
+			Algorithm: keys.Ed25519,
+			KeySpace:  keys.RainsKeySpace,
 		},
 		//FIXME CFE add validity times to config
 		ValidSince: time.Now().Unix(),
@@ -96,15 +100,15 @@ func SignDelegation(delegationPath, privateKeyPath string) error {
 	if err != nil {
 		return err
 	}
-	delegation := &rainslib.AssertionSection{}
-	err = rainslib.Load(delegationPath, delegation)
+	delegation := &sections.AssertionSection{}
+	err = util.Load(delegationPath, delegation)
 	if err != nil {
 		return err
 	}
 	if ok := addSignature(delegation, privateKey); !ok {
 		return errors.New("Was not able to sign and add signature")
 	}
-	err = rainslib.Save(delegationPath, delegation)
+	err = util.Save(delegationPath, delegation)
 	if err != nil {
 		log.Error("Was not able to encode and store the delegation", "delegation", delegation, "error", err)
 	}

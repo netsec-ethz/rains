@@ -9,6 +9,8 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
@@ -414,7 +416,7 @@ func (r *Rainspub) publishZone(zone *sections.ZoneSection, config Config) {
 	}
 	if config.DoPublish {
 		//TODO check if zone is not too large. If it is, split it up and send content separately.
-		msg := sections.RainsMessage{
+		msg := message.RainsMessage{
 			Token:   token.GenerateToken(),
 			Content: []sections.MessageSection{zone},
 			//TODO CFE maybe add capabilities
@@ -431,7 +433,7 @@ func (r *Rainspub) publishZone(zone *sections.ZoneSection, config Config) {
 //publishSections establishes connections to all authoritative servers according to the r.Config. It
 //then sends sections to all of them. It returns the connection information of those servers it was
 //not able to push sections, otherwise nil is returned.
-func publishSections(msg sections.RainsMessage, authServers []connection.ConnInfo) []connection.ConnInfo {
+func publishSections(msg message.RainsMessage, authServers []connection.ConnInfo) []connection.ConnInfo {
 	var errorConns []connection.ConnInfo
 	results := make(chan *connection.ConnInfo, len(authServers))
 	for _, conn := range authServers {

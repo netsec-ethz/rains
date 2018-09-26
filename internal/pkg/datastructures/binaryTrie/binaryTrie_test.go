@@ -5,31 +5,34 @@ import (
 	"testing"
 
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/set"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
 
 	log "github.com/inconshreveable/log15"
 )
 
 func TestAddAndFind(t *testing.T) {
 
-	publicKey := rainslib.PublicKey{
-		PublicKeyID: rainslib.PublicKeyID{
-			Algorithm: rainslib.Ed25519,
+	publicKey := keys.PublicKey{
+		PublicKeyID: keys.PublicKeyID{
+			Algorithm: keys.Ed25519,
 		},
 		Key:        []byte("TestKey"),
 		ValidSince: 10000,
 		ValidUntil: 50000,
 	}
 
-	nameObject := rainslib.Object{Type: rainslib.OTName, Value: "ethz2.ch"}
-	redirObject := rainslib.Object{Type: rainslib.OTRedirection, Value: "ns.ethz.ch"}
-	delegObject := rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}
-	registrantObject := rainslib.Object{Type: rainslib.OTRegistrant, Value: "Registrant information"}
+	nameObject := object.Object{Type: object.OTName, Value: "ethz2.ch"}
+	redirObject := object.Object{Type: object.OTRedirection, Value: "ns.ethz.ch"}
+	delegObject := object.Object{Type: object.OTDelegation, Value: publicKey}
+	registrantObject := object.Object{Type: object.OTRegistrant, Value: "Registrant information"}
 
-	signature := rainslib.Signature{
-		PublicKeyID: rainslib.PublicKeyID{
-			KeySpace:  rainslib.RainsKeySpace,
-			Algorithm: rainslib.Ed25519,
+	signature := signature.Signature{
+		PublicKeyID: keys.PublicKeyID{
+			KeySpace:  keys.RainsKeySpace,
+			Algorithm: keys.Ed25519,
 		},
 		ValidSince: 1000,
 		ValidUntil: 1000000000,
@@ -45,104 +48,104 @@ func TestAddAndFind(t *testing.T) {
 	_, subjectAddress7, _ := net.ParseCIDR("10AA::/9")
 	_, subjectAddress8, _ := net.ParseCIDR("10AA::/6")
 
-	addressAssertion1 := &rainslib.AddressAssertionSection{
+	addressAssertion1 := &sections.AddressAssertionSection{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
-		Content:     []rainslib.Object{nameObject},
-		Signatures:  []rainslib.Signature{signature},
+		Content:     []object.Object{nameObject},
+		Signatures:  []signature.Signature{signature},
 	}
 
-	addressAssertion2 := &rainslib.AddressAssertionSection{
+	addressAssertion2 := &sections.AddressAssertionSection{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
-		Content:     []rainslib.Object{redirObject, delegObject, registrantObject},
-		Signatures:  []rainslib.Signature{signature},
+		Content:     []object.Object{redirObject, delegObject, registrantObject},
+		Signatures:  []signature.Signature{signature},
 	}
 
-	addressZone1 := &rainslib.AddressZoneSection{
+	addressZone1 := &sections.AddressZoneSection{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
-		Content:     []*rainslib.AddressAssertionSection{addressAssertion1, addressAssertion2},
-		Signatures:  []rainslib.Signature{signature},
+		Content:     []*sections.AddressAssertionSection{addressAssertion1, addressAssertion2},
+		Signatures:  []signature.Signature{signature},
 	}
 
-	addressZone2 := &rainslib.AddressZoneSection{
+	addressZone2 := &sections.AddressZoneSection{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
-		Content:     []*rainslib.AddressAssertionSection{addressAssertion1, addressAssertion2},
-		Signatures:  []rainslib.Signature{signature},
+		Content:     []*sections.AddressAssertionSection{addressAssertion1, addressAssertion2},
+		Signatures:  []signature.Signature{signature},
 	}
 
-	addressAssertion3 := &rainslib.AddressAssertionSection{
+	addressAssertion3 := &sections.AddressAssertionSection{
 		SubjectAddr: subjectAddress5,
 		Context:     ".",
-		Content:     []rainslib.Object{nameObject},
-		Signatures:  []rainslib.Signature{signature},
+		Content:     []object.Object{nameObject},
+		Signatures:  []signature.Signature{signature},
 	}
 
-	addressAssertion4 := &rainslib.AddressAssertionSection{
+	addressAssertion4 := &sections.AddressAssertionSection{
 		SubjectAddr: subjectAddress6,
 		Context:     ".",
-		Content:     []rainslib.Object{redirObject, delegObject, registrantObject},
-		Signatures:  []rainslib.Signature{signature},
+		Content:     []object.Object{redirObject, delegObject, registrantObject},
+		Signatures:  []signature.Signature{signature},
 	}
 
-	addressZone3 := &rainslib.AddressZoneSection{
+	addressZone3 := &sections.AddressZoneSection{
 		SubjectAddr: subjectAddress5,
 		Context:     ".",
-		Content:     []*rainslib.AddressAssertionSection{addressAssertion3, addressAssertion4},
-		Signatures:  []rainslib.Signature{signature},
+		Content:     []*sections.AddressAssertionSection{addressAssertion3, addressAssertion4},
+		Signatures:  []signature.Signature{signature},
 	}
 
-	addressZone4 := &rainslib.AddressZoneSection{
+	addressZone4 := &sections.AddressZoneSection{
 		SubjectAddr: subjectAddress6,
 		Context:     ".",
-		Content:     []*rainslib.AddressAssertionSection{addressAssertion3, addressAssertion4},
-		Signatures:  []rainslib.Signature{signature},
+		Content:     []*sections.AddressAssertionSection{addressAssertion3, addressAssertion4},
+		Signatures:  []signature.Signature{signature},
 	}
 
 	/*
 	* IPv4
 	 */
 
-	trie := &TrieNode{assertions: make(map[rainslib.ObjectType]*set.Set)}
+	trie := &TrieNode{assertions: make(map[object.ObjectType]*set.Set)}
 	trie.zones = set.New()
-	trie.assertions[rainslib.OTName] = set.New()
-	trie.assertions[rainslib.OTRedirection] = set.New()
-	trie.assertions[rainslib.OTRegistrant] = set.New()
-	trie.assertions[rainslib.OTDelegation] = set.New()
+	trie.assertions[object.OTName] = set.New()
+	trie.assertions[object.OTRedirection] = set.New()
+	trie.assertions[object.OTRegistrant] = set.New()
+	trie.assertions[object.OTDelegation] = set.New()
 
 	trie.AddAddressAssertion(addressAssertion1)
-	a, z, ok := trie.Get(subjectAddress1, []rainslib.ObjectType{rainslib.OTName})
+	a, z, ok := trie.Get(subjectAddress1, []object.ObjectType{object.OTName})
 	if a != addressAssertion1 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Added AddressAssertion not returned by the cache")
 	}
 	trie.AddAddressZone(addressZone2)
-	a, z, ok = trie.Get(subjectAddress2, []rainslib.ObjectType{})
+	a, z, ok = trie.Get(subjectAddress2, []object.ObjectType{})
 	if z != addressZone2 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Added AddressZone not returned by the cache")
 	}
-	a, z, ok = trie.Get(subjectAddress3, []rainslib.ObjectType{})
+	a, z, ok = trie.Get(subjectAddress3, []object.ObjectType{})
 	if z != addressZone2 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Less specific AddressZone not returned by the trie")
 	}
-	a, z, ok = trie.Get(subjectAddress4, []rainslib.ObjectType{})
+	a, z, ok = trie.Get(subjectAddress4, []object.ObjectType{})
 	if ok {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("No entry should be returned. There is no less specific one")
 	}
 
 	trie.AddAddressZone(addressZone1)
-	a, z, ok = trie.Get(subjectAddress1, []rainslib.ObjectType{rainslib.OTName})
+	a, z, ok = trie.Get(subjectAddress1, []object.ObjectType{object.OTName})
 	if a != addressAssertion1 || z != nil {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Assertions have priority over zone")
 	}
 
-	a, z, ok = trie.Get(subjectAddress1, []rainslib.ObjectType{rainslib.OTDelegation})
+	a, z, ok = trie.Get(subjectAddress1, []object.ObjectType{object.OTDelegation})
 	if a != nil || z != addressZone1 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Assertion should not be returned. The type does not match.")
@@ -152,44 +155,44 @@ func TestAddAndFind(t *testing.T) {
 	* IPv6
 	 */
 
-	trie = &TrieNode{assertions: make(map[rainslib.ObjectType]*set.Set)}
+	trie = &TrieNode{assertions: make(map[object.ObjectType]*set.Set)}
 	trie.zones = set.New()
-	trie.assertions[rainslib.OTName] = set.New()
-	trie.assertions[rainslib.OTRedirection] = set.New()
-	trie.assertions[rainslib.OTRegistrant] = set.New()
-	trie.assertions[rainslib.OTDelegation] = set.New()
+	trie.assertions[object.OTName] = set.New()
+	trie.assertions[object.OTRedirection] = set.New()
+	trie.assertions[object.OTRegistrant] = set.New()
+	trie.assertions[object.OTDelegation] = set.New()
 
 	trie.AddAddressAssertion(addressAssertion3)
-	a, z, ok = trie.Get(subjectAddress5, []rainslib.ObjectType{rainslib.OTName})
+	a, z, ok = trie.Get(subjectAddress5, []object.ObjectType{object.OTName})
 	if a != addressAssertion3 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Added AddressAssertion not returned by the cache")
 	}
 	trie.AddAddressZone(addressZone4)
-	a, z, ok = trie.Get(subjectAddress6, []rainslib.ObjectType{})
+	a, z, ok = trie.Get(subjectAddress6, []object.ObjectType{})
 	if z != addressZone4 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Added AddressZone not returned by the cache")
 	}
-	a, z, ok = trie.Get(subjectAddress7, []rainslib.ObjectType{})
+	a, z, ok = trie.Get(subjectAddress7, []object.ObjectType{})
 	if z != addressZone4 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Less specific AddressZone not returned by the trie")
 	}
-	a, z, ok = trie.Get(subjectAddress8, []rainslib.ObjectType{})
+	a, z, ok = trie.Get(subjectAddress8, []object.ObjectType{})
 	if ok {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("No entry should be returned. There is no less specific one")
 	}
 
 	trie.AddAddressZone(addressZone3)
-	a, z, ok = trie.Get(subjectAddress5, []rainslib.ObjectType{rainslib.OTName})
+	a, z, ok = trie.Get(subjectAddress5, []object.ObjectType{object.OTName})
 	if a != addressAssertion3 || z != nil {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Assertions have priority over zone")
 	}
 
-	a, z, ok = trie.Get(subjectAddress5, []rainslib.ObjectType{rainslib.OTDelegation})
+	a, z, ok = trie.Get(subjectAddress5, []object.ObjectType{object.OTDelegation})
 	if a != nil || z != addressZone3 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Assertion should not be returned. The type does not match.")

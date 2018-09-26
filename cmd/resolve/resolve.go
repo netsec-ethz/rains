@@ -9,7 +9,7 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/netsec-ethz/rains/internal/pkg/resolver"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
 )
 
 var (
@@ -43,8 +43,8 @@ func main() {
 	for i, section := range result.Content {
 		glog.Infof("Printing section %d", i)
 		switch section.(type) {
-		case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.QuerySection, *rainslib.NotificationSection,
-			*rainslib.AddressAssertionSection, *rainslib.AddressQuerySection, *rainslib.AddressZoneSection:
+		case *sections.AssertionSection, *sections.ShardSection, *sections.ZoneSection, *sections.QuerySection, *sections.NotificationSection,
+			*sections.AddressAssertionSection, *sections.AddressQuerySection, *sections.AddressZoneSection:
 			parser := zoneFileParser.Parser{}
 			fmt.Printf("%s\n", parser.Encode(section))
 		default:

@@ -3,7 +3,7 @@ package zonefile
 import (
 	"testing"
 
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
 )
 
 func TestEncodeAddressAssertion(t *testing.T) {
@@ -58,11 +58,11 @@ func TestMessageEncoding(t *testing.T) {
 
 func TestEncodeCapabilities(t *testing.T) {
 	var tests = []struct {
-		input []rainslib.Capability
+		input []message.Capability
 		want  string
 	}{
-		{[]rainslib.Capability{rainslib.Capability("capa1")}, "[ capa1 ]"},
-		{[]rainslib.Capability{rainslib.Capability("capa1"), rainslib.Capability("capa2")}, "[ capa1 capa2 ]"},
+		{[]message.Capability{message.Capability("capa1")}, "[ capa1 ]"},
+		{[]message.Capability{message.Capability("capa1"), message.Capability("capa2")}, "[ capa1 capa2 ]"},
 	}
 	for _, test := range tests {
 		if encodeCapabilities(test.input) != test.want {

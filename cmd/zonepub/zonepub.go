@@ -12,9 +12,11 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
 	parser "github.com/netsec-ethz/rains/internal/pkg/zonefile"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
 )
 
 var configPath string
@@ -67,7 +69,7 @@ var outputPath = flag.String("outputPath", "", `If set, a zonefile with the sign
 generated and stored at the provided path`)
 var doPublish boolFlag
 
-var msgFramer rainslib.MsgFramer
+var msgFramer object.MsgFramer
 
 func init() {
 	h := log.CallerFileHandler(log.StdoutHandler)
@@ -246,7 +248,7 @@ func loadConfig(configPath string) (publisher.Config, error) {
 
 type addressesFlag struct {
 	set   bool
-	value []rainslib.ConnInfo
+	value []connection.ConnInfo
 }
 
 func (i *addressesFlag) String() string {
@@ -259,7 +261,7 @@ func (i *addressesFlag) Set(value string) error {
 	i.set = true
 	for _, addr := range addresses {
 		if tcpAddr, err := net.ResolveTCPAddr("tcp", addr); err == nil {
-			i.value = append(i.value, rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr})
+			i.value = append(i.value, connection.ConnInfo{Type: connection.TCP, TCPAddr: tcpAddr})
 		} else {
 			return err
 		}
@@ -269,7 +271,7 @@ func (i *addressesFlag) Set(value string) error {
 
 type hashFamilyFlag struct {
 	set   bool
-	value []rainslib.HashAlgorithmType
+	value []algorithmTypes.HashAlgorithmType
 }
 
 func (i *hashFamilyFlag) String() string {
@@ -283,15 +285,15 @@ func (i *hashFamilyFlag) Set(value string) error {
 	for _, algo := range algos {
 		switch algo {
 		case parser.TypeSha256:
-			i.value = append(i.value, rainslib.Sha256)
+			i.value = append(i.value, algorithmTypes.Sha256)
 		case parser.TypeSha384:
-			i.value = append(i.value, rainslib.Sha384)
+			i.value = append(i.value, algorithmTypes.Sha384)
 		case parser.TypeSha512:
-			i.value = append(i.value, rainslib.Sha512)
+			i.value = append(i.value, algorithmTypes.Sha512)
 		case parser.TypeFnv64:
-			i.value = append(i.value, rainslib.Fnv64)
+			i.value = append(i.value, algorithmTypes.Fnv64)
 		case parser.TypeMurmur364:
-			i.value = append(i.value, rainslib.Murmur364)
+			i.value = append(i.value, algorithmTypes.Murmur364)
 		default:
 			return errors.New("unknown hash algorithm type")
 		}
@@ -301,7 +303,7 @@ func (i *hashFamilyFlag) Set(value string) error {
 
 type algorithmFlag struct {
 	set   bool
-	value rainslib.SignatureAlgorithmType
+	value algorithmTypes.SignatureAlgorithmType
 }
 
 func (i *algorithmFlag) String() string {
@@ -312,7 +314,7 @@ func (i *algorithmFlag) Set(value string) error {
 	switch value {
 	case parser.TypeEd25519, "ed25519", "1":
 		i.set = true
-		i.value = rainslib.Ed25519
+		i.value = keys.Ed25519
 	default:
 		return fmt.Errorf("invalid signature algorithm type")
 	}
@@ -321,7 +323,7 @@ func (i *algorithmFlag) Set(value string) error {
 
 type bfOpModeFlag struct {
 	set   bool
-	value rainslib.ModeOfOperationType
+	value object.ModeOfOperationType
 }
 
 func (i *bfOpModeFlag) String() string {
@@ -332,13 +334,13 @@ func (i *bfOpModeFlag) Set(value string) error {
 	switch value {
 	case parser.TypeStandard, "standard", "0":
 		i.set = true
-		i.value = rainslib.StandardOpType
+		i.value = sections.StandardOpType
 	case parser.TypeKM1, "km1", "1":
 		i.set = true
-		i.value = rainslib.KirschMitzenmacher1
+		i.value = sections.KirschMitzenmacher1
 	case parser.TypeKM2, "km2", "2":
 		i.set = true
-		i.value = rainslib.KirschMitzenmacher2
+		i.value = sections.KirschMitzenmacher2
 	default:
 		return fmt.Errorf("invalid bloom filter mode of operation type")
 	}

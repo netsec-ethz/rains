@@ -8,7 +8,11 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/shirou/gopsutil/cpu"
 )
 
@@ -29,7 +33,7 @@ func assert(ss sectionWithSigSender, isAuthoritative bool) {
 	log.Debug("Adding assertion to cache", "assertion", ss)
 	if enoughSystemRessources && sectionIsInconsistent(ss.Section) {
 		log.Warn("section is inconsistent with cached elements.", "section", ss.Section)
-		sendNotificationMsg(ss.Token, ss.Sender, rainslib.NTRcvInconsistentMsg, "")
+		sendNotificationMsg(ss.Token, ss.Sender, sections.NTRcvInconsistentMsg, "")
 		return
 	}
 	addSectionToCache(ss.Section, isAuthoritative)
@@ -40,19 +44,19 @@ func assert(ss sectionWithSigSender, isAuthoritative bool) {
 
 //sectionIsInconsistent returns true if section is not consistent with cached element which are valid
 //at the same time.
-func sectionIsInconsistent(section rainslib.MessageSectionWithSig) bool {
+func sectionIsInconsistent(section sections.MessageSectionWithSig) bool {
 	//TODO CFE There are new run time checks. Add Todo's for those that are not yet implemented
 	//TODO CFE drop a shard or zone if it is not sorted.
 	switch section := section.(type) {
-	case *rainslib.AssertionSection:
+	case *sections.AssertionSection:
 		return !isAssertionConsistent(section)
-	case *rainslib.ShardSection:
+	case *sections.ShardSection:
 		return !isShardConsistent(section)
-	case *rainslib.ZoneSection:
+	case *sections.ZoneSection:
 		return !isZoneConsistent(section)
-	case *rainslib.AddressAssertionSection:
+	case *sections.AddressAssertionSection:
 		return !isAddressAssertionConsistent(section)
-	case *rainslib.AddressZoneSection:
+	case *sections.AddressZoneSection:
 		return !isAddressZoneConsistent(section)
 	default:
 		log.Error("Not supported message section with sig. This case must be prevented beforehand")
@@ -62,25 +66,25 @@ func sectionIsInconsistent(section rainslib.MessageSectionWithSig) bool {
 
 //sectionIsInconsistent returns true if section is not consistent with cached element which are valid
 //at the same time.
-func addSectionToCache(section rainslib.MessageSectionWithSig, isAuthoritative bool) {
+func addSectionToCache(section sections.MessageSectionWithSig, isAuthoritative bool) {
 	switch section := section.(type) {
-	case *rainslib.AssertionSection:
+	case *sections.AssertionSection:
 		if shouldAssertionBeCached(section) {
 			addAssertionToCache(section, isAuthoritative)
 		}
-	case *rainslib.ShardSection:
+	case *sections.ShardSection:
 		if shouldShardBeCached(section) {
 			addShardToCache(section, isAuthoritative)
 		}
-	case *rainslib.ZoneSection:
+	case *sections.ZoneSection:
 		if shouldZoneBeCached(section) {
 			addZoneToCache(section, isAuthoritative)
 		}
-	case *rainslib.AddressAssertionSection:
+	case *sections.AddressAssertionSection:
 		if shouldAddressAssertionBeCached(section) {
 			addAddressAssertionToCache(section, isAuthoritative)
 		}
-	case *rainslib.AddressZoneSection:
+	case *sections.AddressZoneSection:
 		if shouldAddressZoneBeCached(section) {
 			addAddressZoneToCache(section, isAuthoritative)
 		}
@@ -90,35 +94,35 @@ func addSectionToCache(section rainslib.MessageSectionWithSig, isAuthoritative b
 }
 
 //shouldAssertionBeCached returns true if assertion should be cached
-func shouldAssertionBeCached(assertion *rainslib.AssertionSection) bool {
+func shouldAssertionBeCached(assertion *sections.AssertionSection) bool {
 	log.Info("Assertion will be cached", "assertion", assertion)
 	//TODO CFE implement when necessary
 	return true
 }
 
 //shouldShardBeCached returns true if shard should be cached
-func shouldShardBeCached(shard *rainslib.ShardSection) bool {
+func shouldShardBeCached(shard *sections.ShardSection) bool {
 	log.Info("Shard will be cached", "shard", shard)
 	//TODO CFE implement when necessary
 	return true
 }
 
 //shouldZoneBeCached returns true if zone should be cached
-func shouldZoneBeCached(zone *rainslib.ZoneSection) bool {
+func shouldZoneBeCached(zone *sections.ZoneSection) bool {
 	log.Info("Zone will be cached", "zone", zone)
 	//TODO CFE implement when necessary
 	return true
 }
 
 //shouldAddressAssertionBeCached returns true if assertion should be cached
-func shouldAddressAssertionBeCached(assertion *rainslib.AddressAssertionSection) bool {
+func shouldAddressAssertionBeCached(assertion *sections.AddressAssertionSection) bool {
 	log.Info("Assertion will be cached", "AddressAssertion", assertion)
 	//TODO CFE implement when necessary
 	return true
 }
 
 //shouldAddressZoneBeCached returns true if zone should be cached
-func shouldAddressZoneBeCached(zone *rainslib.AddressZoneSection) bool {
+func shouldAddressZoneBeCached(zone *sections.AddressZoneSection) bool {
 	log.Info("Zone will be cached", "AddressZone", zone)
 	//TODO CFE implement when necessary
 	return true
@@ -126,12 +130,12 @@ func shouldAddressZoneBeCached(zone *rainslib.AddressZoneSection) bool {
 
 //addAssertionToCache adds a to the assertion cache and to the public key cache in case a holds a
 //public key.
-func addAssertionToCache(a *rainslib.AssertionSection, isAuthoritative bool) {
+func addAssertionToCache(a *sections.AssertionSection, isAuthoritative bool) {
 	assertionsCache.Add(a, a.ValidUntil(), isAuthoritative)
 	log.Debug("Added assertion to cache", "assertion", *a)
 	for _, obj := range a.Content {
-		if obj.Type == rainslib.OTDelegation {
-			if publicKey, ok := obj.Value.(rainslib.PublicKey); ok {
+		if obj.Type == object.OTDelegation {
+			if publicKey, ok := obj.Value.(keys.PublicKey); ok {
 				publicKey.ValidSince = a.ValidSince()
 				publicKey.ValidUntil = a.ValidUntil()
 				ok := zoneKeyCache.Add(a, publicKey, isAuthoritative)
@@ -148,7 +152,7 @@ func addAssertionToCache(a *rainslib.AssertionSection, isAuthoritative bool) {
 
 //addShardToCache adds shard to the negAssertion cache and all contained assertions to the
 //assertionsCache.
-func addShardToCache(shard *rainslib.ShardSection, isAuthoritative bool) {
+func addShardToCache(shard *sections.ShardSection, isAuthoritative bool) {
 	negAssertionCache.AddShard(shard, shard.ValidUntil(), isAuthoritative)
 	log.Debug("Added shard to cache", "shard", *shard)
 	for _, assertion := range shard.Content {
@@ -161,17 +165,17 @@ func addShardToCache(shard *rainslib.ShardSection, isAuthoritative bool) {
 
 //addZoneToCache adds zone and all contained shards to the negAssertion cache and all contained
 //assertions to the assertionCache.
-func addZoneToCache(zone *rainslib.ZoneSection, isAuthoritative bool) {
+func addZoneToCache(zone *sections.ZoneSection, isAuthoritative bool) {
 	negAssertionCache.AddZone(zone, zone.ValidUntil(), isAuthoritative)
 	log.Debug("Added zone to cache", "zone", *zone)
 	for _, section := range zone.Content {
 		switch section := section.(type) {
-		case *rainslib.AssertionSection:
+		case *sections.AssertionSection:
 			if shouldAssertionBeCached(section) {
 				a := section.Copy(zone.Context, zone.SubjectZone)
 				addAssertionToCache(a, isAuthoritative)
 			}
-		case *rainslib.ShardSection:
+		case *sections.ShardSection:
 			if shouldShardBeCached(section) {
 				s := section.Copy(zone.Context, zone.SubjectZone)
 				addShardToCache(s, isAuthoritative)
@@ -183,14 +187,14 @@ func addZoneToCache(zone *rainslib.ZoneSection, isAuthoritative bool) {
 }
 
 //addAddressAssertionToCache adds a to the addressSection cache.
-func addAddressAssertionToCache(a *rainslib.AddressAssertionSection, isAuthoritative bool) {
+func addAddressAssertionToCache(a *sections.AddressAssertionSection, isAuthoritative bool) {
 	if err := getAddressCache(a.SubjectAddr, a.Context).AddAddressAssertion(a); err != nil {
 		log.Warn("Was not able to add addressAssertion to cache", "addressAssertion", a)
 	}
 }
 
 //addAddressZoneToCache adds zone and all contained addressAssertions to the addressSection cache.
-func addAddressZoneToCache(zone *rainslib.AddressZoneSection, isAuthoritative bool) {
+func addAddressZoneToCache(zone *sections.AddressZoneSection, isAuthoritative bool) {
 	if err := getAddressCache(zone.SubjectAddr, zone.Context).AddAddressZone(zone); err != nil {
 		log.Warn("Was not able to add addressZone to cache", "addressZone", zone)
 	}
@@ -221,13 +225,13 @@ func pendingQueriesCallback(swss sectionWithSigSender) {
 	}
 	if isAnswerToQuery(swss.Section, query) {
 		switch section := swss.Section.(type) {
-		case *rainslib.AssertionSection, *rainslib.AddressAssertionSection:
+		case *sections.AssertionSection, *sections.AddressAssertionSection:
 			sendAssertionAnswer(section, query, swss.Token)
-		case *rainslib.ShardSection:
+		case *sections.ShardSection:
 			sendShardAnswer(section, query, swss.Token)
-		case *rainslib.ZoneSection:
+		case *sections.ZoneSection:
 			sendZoneAnswer(section, query, swss.Token)
-		case *rainslib.AddressZoneSection:
+		case *sections.AddressZoneSection:
 			//TODO CFE implement if necessary
 		default:
 			log.Error("Not supported message section with sig. This case must be prevented beforehand")
@@ -235,79 +239,79 @@ func pendingQueriesCallback(swss sectionWithSigSender) {
 	}
 	//Delegation case
 	switch section := swss.Section.(type) {
-	case *rainslib.AssertionSection:
+	case *sections.AssertionSection:
 		zoneAndName := fmt.Sprintf("%s.%s", section.SubjectName, section.SubjectZone)
 		if iterativeLookupAllowed() {
-			if _, ok := rainslib.ContainsType(section.Content, rainslib.OTDelegation); ok {
+			if _, ok := object.ContainsType(section.Content, object.OTDelegation); ok {
 				if sendToRedirect(zoneAndName, section.Context, swss.Token, query) {
 					return
 				}
 			}
-			if _, ok := rainslib.ContainsType(section.Content, rainslib.OTRedirection); ok {
+			if _, ok := object.ContainsType(section.Content, object.OTRedirection); ok {
 				if sendToRedirect(zoneAndName, section.Context, swss.Token, query) {
 					return
 				}
 			}
-			if o, ok := rainslib.ContainsType(section.Content, rainslib.OTIP6Addr); ok {
+			if o, ok := object.ContainsType(section.Content, object.OTIP6Addr); ok {
 				if resendPendingQuery(query, swss.Token, zoneAndName, o.Value.(string),
 					time.Now().Add(Config.QueryValidity).Unix()) {
 					return
 				}
 			}
-			if o, ok := rainslib.ContainsType(section.Content, rainslib.OTIP4Addr); ok {
+			if o, ok := object.ContainsType(section.Content, object.OTIP4Addr); ok {
 				if resendPendingQuery(query, swss.Token, zoneAndName, o.Value.(string),
 					time.Now().Add(Config.QueryValidity).Unix()) {
 					return
 				}
 			}
 		}
-	case *rainslib.AddressAssertionSection:
-	case *rainslib.ShardSection, *rainslib.ZoneSection, *rainslib.AddressZoneSection:
+	case *sections.AddressAssertionSection:
+	case *sections.ShardSection, *sections.ZoneSection, *sections.AddressZoneSection:
 	default:
 		log.Error("Not supported message section with sig. This case must be prevented beforehand")
 	}
 	sectionSenders, _ := pendingQueries.GetAndRemoveByToken(swss.Token, 0)
 	for _, ss := range sectionSenders {
-		sendNotificationMsg(ss.Token, ss.Sender, rainslib.NTNoAssertionAvail, "")
+		sendNotificationMsg(ss.Token, ss.Sender, sections.NTNoAssertionAvail, "")
 		log.Warn("Was not able to use answer to query.", "query", query, "token", swss.Token,
 			"sender", swss.Sender, "section", swss.Section)
 	}
 }
 
 //isAnswerToQuery returns true if section answers the query.
-func isAnswerToQuery(section rainslib.MessageSectionWithSig, query rainslib.MessageSection) bool {
+func isAnswerToQuery(section sections.MessageSectionWithSig, query sections.MessageSection) bool {
 	switch section := section.(type) {
-	case *rainslib.AssertionSection:
-		if q, ok := query.(*rainslib.QuerySection); ok {
+	case *sections.AssertionSection:
+		if q, ok := query.(*sections.QuerySection); ok {
 			if q.Name == fmt.Sprintf("%s.%s", section.SubjectName, section.SubjectZone) {
 				for _, oType := range q.Types {
-					if _, ok := rainslib.ContainsType(section.Content, oType); ok {
+					if _, ok := object.ContainsType(section.Content, oType); ok {
 						return true
 					}
 				}
 			}
 		}
 		return false
-	case *rainslib.ShardSection:
-		if q, ok := query.(*rainslib.QuerySection); ok {
+	case *sections.ShardSection:
+		if q, ok := query.(*sections.QuerySection); ok {
 			if name, ok := getSubjectName(q.Name, section.SubjectZone); ok {
 				return section.InRange(name)
 			}
 		}
 		return false
-	case *rainslib.ZoneSection:
-		if q, ok := query.(*rainslib.QuerySection); ok {
+	case *sections.ZoneSection:
+		if q, ok := query.(*sections.QuerySection); ok {
 			if _, ok := getSubjectName(q.Name, section.SubjectZone); ok {
 				return true
 			}
 		}
 		return false
-	case *rainslib.AddressAssertionSection:
+	case *sections.AddressAssertionSection:
 		//TODO CFE implement the host address and network address case if delegation is a response
 		//or not.
-		_, ok := query.(*rainslib.AddressQuerySection)
+		_, ok := query.(*sections.AddressQuerySection)
 		return ok
-	case *rainslib.AddressZoneSection:
+	case *sections.AddressZoneSection:
 		//TODO CFE only implement if necessary
 	default:
 		log.Error("Not supported message section with sig. This case must be prevented beforehand")
@@ -330,7 +334,7 @@ func getSubjectName(queryName, subjectZone string) (string, bool) {
 
 //sendAssertionAnswer sends all assertions arrived during a configurable waitTime back to all
 //pending queries waiting on token.
-func sendAssertionAnswer(section rainslib.MessageSectionWithSig, query rainslib.MessageSection, token rainslib.Token) {
+func sendAssertionAnswer(section sections.MessageSectionWithSig, query sections.MessageSection, token token.Token) {
 	waitTime := 10 * time.Millisecond
 	deadline := time.Now().Add(waitTime).UnixNano()
 	pendingQueries.AddAnswerByToken(section, token, deadline)
@@ -343,35 +347,35 @@ func sendAssertionAnswer(section rainslib.MessageSectionWithSig, query rainslib.
 
 //sendShardAnswer sends either section or contained assertions answering query back to all pending
 //queries waiting on token.
-func sendShardAnswer(section *rainslib.ShardSection, query rainslib.MessageSection, token rainslib.Token) {
-	name, _ := getSubjectName(query.(*rainslib.QuerySection).Name, section.SubjectZone)
-	answers := section.AssertionsByNameAndTypes(name, query.(*rainslib.QuerySection).Types)
+func sendShardAnswer(section *sections.ShardSection, query sections.MessageSection, token token.Token) {
+	name, _ := getSubjectName(query.(*sections.QuerySection).Name, section.SubjectZone)
+	answers := section.AssertionsByNameAndTypes(name, query.(*sections.QuerySection).Types)
 	sectionSenders, _ := pendingQueries.GetAndRemoveByToken(token, 0)
-	var sections []rainslib.MessageSection
+	var secs []sections.MessageSection
 	if len(answers) > 0 {
-		sections = make([]rainslib.MessageSection, len(answers))
+		secs = make([]sections.MessageSection, len(answers))
 		for i := 0; i < len(answers); i++ {
-			sections[i] = answers[i]
+			secs[i] = answers[i]
 		}
 	} else {
-		sections = append(sections, section)
+		secs = append(secs, section)
 	}
 	for _, ss := range sectionSenders {
-		sendSections(sections, ss.Token, ss.Sender)
+		sendSections(secs, ss.Token, ss.Sender)
 	}
 }
 
 //sendZoneAnswer sends either section or contained assertions or shards answering query back to all
 //pending queries waiting on token.
-func sendZoneAnswer(section *rainslib.ZoneSection, query rainslib.MessageSection, token rainslib.Token) {
-	name, _ := getSubjectName(query.(*rainslib.QuerySection).Name, section.SubjectZone)
-	assertions, shards := section.SectionsByNameAndTypes(name, query.(*rainslib.QuerySection).Types)
+func sendZoneAnswer(section *sections.ZoneSection, query sections.MessageSection, token token.Token) {
+	name, _ := getSubjectName(query.(*sections.QuerySection).Name, section.SubjectZone)
+	assertions, shards := section.SectionsByNameAndTypes(name, query.(*sections.QuerySection).Types)
 	sectionSenders, _ := pendingQueries.GetAndRemoveByToken(token, 0)
-	var sections []rainslib.MessageSection
+	var secs []sections.MessageSection
 	if len(assertions) > 0 {
-		sections = make([]rainslib.MessageSection, len(assertions))
+		secs = make([]sections.MessageSection, len(assertions))
 		for i := 0; i < len(assertions); i++ {
-			sections[i] = assertions[i]
+			secs[i] = assertions[i]
 		}
 	} else if len(shards) > 0 {
 		shortestShard := shards[0]
@@ -380,12 +384,12 @@ func sendZoneAnswer(section *rainslib.ZoneSection, query rainslib.MessageSection
 				shortestShard = s
 			}
 		}
-		sections = append(sections, shortestShard)
+		secs = append(secs, shortestShard)
 	} else {
-		sections = append(sections, section)
+		secs = append(secs, section)
 	}
 	for _, ss := range sectionSenders {
-		sendSections(sections, ss.Token, ss.Sender)
+		sendSections(secs, ss.Token, ss.Sender)
 	}
 }
 
@@ -393,11 +397,11 @@ func sendZoneAnswer(section *rainslib.ZoneSection, query rainslib.MessageSection
 //In case there is no connection information stored for name an IP query is sent to a super ordinate
 //zone. It then updates token in the redirect cache to the token of the newly sent query.
 //Return true if it was able to send a query and update the token
-func sendToRedirect(name, context string, token rainslib.Token, query rainslib.MessageSection) bool {
+func sendToRedirect(name, context string, oldToken token.Token, query sections.MessageSection) bool {
 	//TODO CFE policy to pick connInfo
 	if conns := redirectCache.GetConnsInfo(name); len(conns) > 0 {
-		tok := rainslib.GenerateToken()
-		if pendingQueries.UpdateToken(token, tok) {
+		tok := token.GenerateToken()
+		if pendingQueries.UpdateToken(oldToken, tok) {
 			sendSection(query, tok, conns[0])
 			return true
 		}
@@ -412,13 +416,13 @@ func sendToRedirect(name, context string, token rainslib.Token, query rainslib.M
 			name = "."
 		}
 		if conns := redirectCache.GetConnsInfo(name); len(conns) > 0 {
-			tok := rainslib.GenerateToken()
-			if pendingQueries.UpdateToken(token, tok) {
-				newQuery := &rainslib.QuerySection{
+			tok := token.GenerateToken()
+			if pendingQueries.UpdateToken(oldToken, tok) {
+				newQuery := &sections.QuerySection{
 					Name:       redirectName,
 					Context:    context,
 					Expiration: time.Now().Add(Config.QueryValidity).Unix(),
-					Types:      []rainslib.ObjectType{rainslib.OTIP6Addr, rainslib.OTIP4Addr},
+					Types:      []object.ObjectType{object.OTIP6Addr, object.OTIP4Addr},
 				}
 				sendSection(newQuery, tok, conns[0])
 				return true
@@ -432,14 +436,14 @@ func sendToRedirect(name, context string, token rainslib.Token, query rainslib.M
 //resendPendingQuery resends query to a connInfo retrieved from the redirectCache based on name.
 //Token is updated in the cache. ipAddr is the response to a IP query with token. True is returned
 //if the token could have been updated in the cache and the new query is sent out.
-func resendPendingQuery(query rainslib.MessageSection, token rainslib.Token, name, ipAddr string,
+func resendPendingQuery(query sections.MessageSection, oldToken token.Token, name, ipAddr string,
 	expiration int64) bool {
 	//TODO CFE which port to choose?
 	if tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%v:%d", ipAddr, 5022)); err != nil {
-		connInfo := rainslib.ConnInfo{Type: rainslib.TCP, TCPAddr: tcpAddr}
+		connInfo := connection.ConnInfo{Type: connection.TCP, TCPAddr: tcpAddr}
 		if redirectCache.AddConnInfo(name, connInfo, expiration) {
-			tok := rainslib.GenerateToken()
-			if pendingQueries.UpdateToken(token, tok) {
+			tok := token.GenerateToken()
+			if pendingQueries.UpdateToken(oldToken, tok) {
 				sendSection(query, tok, connInfo)
 				return true
 			}
@@ -458,9 +462,9 @@ func iterativeLookupAllowed() bool {
 //processQuery processes msgSender containing a query section
 func processQuery(msgSender msgSectionSender) {
 	switch section := msgSender.Section.(type) {
-	case *rainslib.QuerySection:
+	case *sections.QuerySection:
 		query(section, msgSender.Sender, msgSender.Token)
-	case *rainslib.AddressQuerySection:
+	case *sections.AddressQuerySection:
 		addressQuery(section, msgSender.Sender, msgSender.Token)
 	default:
 		log.Error("Not supported query message section. This case must be prevented beforehand")
@@ -469,12 +473,12 @@ func processQuery(msgSender msgSectionSender) {
 
 // queryTransitiveClosure fetches the missing records when a :redir: record is encountered.
 // Note: the redirection value must be an FQDN otherwise we can't look it up yet.
-func queryTransitiveClosure(as *[]*rainslib.AssertionSection, qCtx string) {
+func queryTransitiveClosure(as *[]*sections.AssertionSection, qCtx string) {
 	unresolved := make(map[string]bool)
 	ctr := 0
 	for _, as := range *as {
 		for _, o := range as.Content {
-			if o.Type == rainslib.OTRedirection {
+			if o.Type == object.OTRedirection {
 				unresolved[o.Value.(string)] = true
 				ctr++
 			}
@@ -484,18 +488,18 @@ func queryTransitiveClosure(as *[]*rainslib.AssertionSection, qCtx string) {
 		for name := range unresolved {
 			delete(unresolved, name)
 			ctr--
-			res := make([]*rainslib.AssertionSection, 0)
-			if asserts, ok := assertionsCache.Get(name, qCtx, rainslib.OTRedirection, true); ok {
+			res := make([]*sections.AssertionSection, 0)
+			if asserts, ok := assertionsCache.Get(name, qCtx, object.OTRedirection, true); ok {
 				res = append(res, asserts...)
 			}
-			if asserts, ok := assertionsCache.Get(name, qCtx, rainslib.OTServiceInfo, true); ok {
+			if asserts, ok := assertionsCache.Get(name, qCtx, object.OTServiceInfo, true); ok {
 				unresolved[name] = true
 				res = append(res, asserts...)
 			}
-			if asserts, ok := assertionsCache.Get(name, qCtx, rainslib.OTIP4Addr, true); ok {
+			if asserts, ok := assertionsCache.Get(name, qCtx, object.OTIP4Addr, true); ok {
 				res = append(res, asserts...)
 			}
-			if asserts, ok := assertionsCache.Get(name, qCtx, rainslib.OTIP6Addr, true); ok {
+			if asserts, ok := assertionsCache.Get(name, qCtx, object.OTIP6Addr, true); ok {
 				res = append(res, asserts...)
 			}
 			if len(res) == 0 {
@@ -503,13 +507,13 @@ func queryTransitiveClosure(as *[]*rainslib.AssertionSection, qCtx string) {
 			}
 			for _, resAssert := range res {
 				for _, obj := range resAssert.Content {
-					if obj.Type == rainslib.OTRedirection {
+					if obj.Type == object.OTRedirection {
 						log.Debug("Adding redirection target", "from", name, "to", obj.Value.(string), "unresolved", unresolved)
 						unresolved[obj.Value.(string)] = true
 						ctr++
 					}
-					if obj.Type == rainslib.OTServiceInfo {
-						sin := obj.Value.(rainslib.ServiceInfo)
+					if obj.Type == object.OTServiceInfo {
+						sin := obj.Value.(object.ServiceInfo)
 						log.Debug("Adding serviceinfo target", "from", name, "to", sin.Name, "unresolved", unresolved)
 						unresolved[sin.Name] = true
 						ctr++
@@ -526,19 +530,19 @@ func queryTransitiveClosure(as *[]*rainslib.AssertionSection, qCtx string) {
 
 //query directly answers the query if the result is cached. Otherwise it issues
 //a new query and adds this query to the pendingQueries Cache.
-func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
+func query(query *sections.QuerySection, sender connection.ConnInfo, oldToken token.Token) {
 	log.Debug("Start processing query", "query", query)
-	trace(token, fmt.Sprintf("Processing QuerySection for name: %v, connection: %v", query.Name, query.Types))
+	trace(oldToken, fmt.Sprintf("Processing QuerySection for name: %v, connection: %v", query.Name, query.Types))
 
-	assertions := []rainslib.MessageSection{}
+	assertions := []sections.MessageSection{}
 	assertionSet := make(map[string]bool)
-	asKey := func(a *rainslib.AssertionSection) string {
+	asKey := func(a *sections.AssertionSection) string {
 		return fmt.Sprintf("%s_%s_%s", a.SubjectName, a.SubjectZone, a.Context)
 	}
 
 	for _, t := range query.Types {
 		if asserts, ok := assertionsCache.Get(query.Name, query.Context, t, false); ok {
-			trace(token, fmt.Sprintf("received from cache: %v", asserts))
+			trace(oldToken, fmt.Sprintf("received from cache: %v", asserts))
 			//TODO implement a more elaborate policy to filter returned assertions instead
 			//of sending all non expired once back.
 			log.Debug(fmt.Sprintf("before transitive closure: %v", asserts))
@@ -549,7 +553,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 					continue
 				}
 				if a.ValidUntil() > time.Now().Unix() {
-					trace(token, fmt.Sprintf("appending valid assertion %v to response", a))
+					trace(oldToken, fmt.Sprintf("appending valid assertion %v to response", a))
 					log.Debug(fmt.Sprintf("appending valid assertion: %v", a))
 					assertions = append(assertions, a)
 					assertionSet[asKey(a)] = true
@@ -558,23 +562,23 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		}
 	}
 	if len(assertions) > 0 {
-		sendSections(assertions, token, sender)
-		trace(token, fmt.Sprintf("successfully sent response assertions: %v", assertions))
+		sendSections(assertions, oldToken, sender)
+		trace(oldToken, fmt.Sprintf("successfully sent response assertions: %v", assertions))
 		log.Info("Finished handling query by sending assertion from cache", "query", query)
 		return
 	}
-	trace(token, "no entry found in assertion cache")
+	trace(oldToken, "no entry found in assertion cache")
 	log.Debug("No entry found in assertion cache", "name", query.Name,
 		"context", query.Context, "type", query.Types)
 
 	//negative answer lookup (note that it can occur a positive answer if assertion removed from cache)
 	subject, zone, err := toSubjectZone(query.Name)
 	if err != nil {
-		sendNotificationMsg(token, sender, rainslib.NTRcvInconsistentMsg, "query name must end with root zone dot '.'")
+		sendNotificationMsg(oldToken, sender, sections.NTRcvInconsistentMsg, "query name must end with root zone dot '.'")
 		log.Warn("failed to concert query name to subject and zone: %v", err)
 		return
 	}
-	negAssertion, ok := negAssertionCache.Get(zone, query.Context, rainslib.StringInterval{Name: subject})
+	negAssertion, ok := negAssertionCache.Get(zone, query.Context, sections.StringInterval{Name: subject})
 	if ok {
 		//TODO CFE For each type check if one of the zone or shards contain the queried
 		//assertion. If there is at least one assertion answer with it. If no assertion is
@@ -582,33 +586,33 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		//element. shortest according to what? size in bytes? how to efficiently determine that.
 		//e.g. using gob encoding. alternatively we could also count the number of contained
 		//elements.
-		sendSection(negAssertion[0], token, sender)
-		trace(token, fmt.Sprintf("found negative assertion matching query: %v", negAssertion[0]))
+		sendSection(negAssertion[0], oldToken, sender)
+		trace(oldToken, fmt.Sprintf("found negative assertion matching query: %v", negAssertion[0]))
 		log.Info("Finished handling query by sending shard or zone from cache", "query", query)
 		return
 	}
 	log.Debug("No entry found in negAssertion cache matching the query")
-	trace(token, "no entry found in negative assertion cache")
+	trace(oldToken, "no entry found in negative assertion cache")
 
 	// If cached answers only option is set then stop after looking in the local cache.
-	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
+	if query.ContainsOption(sections.QOCachedAnswersOnly) {
 		log.Debug("Send a notification message back due to query option: 'Cached Answers only'",
 			"destination", sender)
-		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
-		trace(token, "returned no assertion available message due to CachedAnswersOnly query option")
+		sendNotificationMsg(oldToken, sender, sections.NTNoAssertionAvail, "")
+		trace(oldToken, "returned no assertion available message due to CachedAnswersOnly query option")
 		log.Info("Finished handling query (unsuccessful, cached answers only) ", "query", query)
 		return
 	}
 
-	trace(token, "forwarding query")
+	trace(oldToken, "forwarding query")
 	//forward query (no answer in cache)
-	var delegate rainslib.ConnInfo
+	var delegate connection.ConnInfo
 	if iterativeLookupAllowed() {
 		if conns := redirectCache.GetConnsInfo(query.Name); len(conns) > 0 {
 			//TODO CFE design policy which server to choose (same as pending query callback?)
 			delegate = conns[0]
 		} else {
-			sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
+			sendNotificationMsg(oldToken, sender, sections.NTNoAssertionAvail, "")
 			log.Error("no delegate found to send query to")
 			return
 		}
@@ -616,24 +620,24 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 		delegate = getRootAddr()
 	}
 	if delegate.Equal(serverConnInfo) {
-		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
+		sendNotificationMsg(oldToken, sender, sections.NTNoAssertionAvail, "")
 		log.Error("Stop processing query. I am authoritative and have no answer in cache")
 		return
 	}
 	//we have a valid delegation
-	tok := token
-	if !query.ContainsOption(rainslib.QOTokenTracing) {
-		tok = rainslib.GenerateToken()
+	tok := oldToken
+	if !query.ContainsOption(sections.QOTokenTracing) {
+		tok = token.GenerateToken()
 	}
 	validUntil := time.Now().Add(Config.QueryValidity).Unix() //Upper bound for forwarded query expiration time
 	if query.Expiration < validUntil {
 		validUntil = query.Expiration
 	}
-	isNew := pendingQueries.Add(msgSectionSender{Section: query, Sender: sender, Token: token})
+	isNew := pendingQueries.Add(msgSectionSender{Section: query, Sender: sender, Token: oldToken})
 	log.Info("Added query into to pending query cache", "query", query)
 	if isNew {
 		if pendingQueries.AddToken(tok, validUntil, delegate, query.Name, query.Context, query.Types) {
-			newQuery := &rainslib.QuerySection{
+			newQuery := &sections.QuerySection{
 				Name:       query.Name,
 				Context:    query.Context,
 				Expiration: validUntil,
@@ -650,42 +654,42 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 
 //addressQuery directly answers the query if the result is cached. Otherwise it issues a new query
 //and adds this query to the pendingQueries Cache.
-func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
+func addressQuery(query *sections.AddressQuerySection, sender connection.ConnInfo, oldToken token.Token) {
 	//FIXME CFE make it compatible with the new caches
 	log.Debug("Start processing address query", "addressQuery", query)
 	assertion, zone, ok := getAddressCache(query.SubjectAddr, query.Context).Get(query.SubjectAddr, query.Types)
 	//TODO CFE add heuristic which assertion to return
 	if ok {
 		if assertion != nil {
-			sendSection(assertion, token, sender)
+			sendSection(assertion, oldToken, sender)
 			log.Debug("Finished handling query by sending address assertion from cache", "query", query)
 			return
 		}
 		if zone != nil && handleAddressZoneQueryResponse(zone, query.SubjectAddr, query.Context,
-			query.Types, sender, token) {
+			query.Types, sender, oldToken) {
 			log.Debug("Finished handling query by sending address zone from cache", "query", query)
 			return
 		}
 	}
 	log.Debug("No entry found in address cache matching the query")
 
-	if query.ContainsOption(rainslib.QOCachedAnswersOnly) {
+	if query.ContainsOption(sections.QOCachedAnswersOnly) {
 		log.Debug("Send a notification message back to the sender due to query option: 'Cached Answers only'")
-		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
+		sendNotificationMsg(oldToken, sender, sections.NTNoAssertionAvail, "")
 		log.Debug("Finished handling query (unsuccessful) ", "query", query)
 		return
 	}
 
 	delegate := getRootAddr()
 	if delegate.Equal(serverConnInfo) {
-		sendNotificationMsg(token, sender, rainslib.NTNoAssertionAvail, "")
+		sendNotificationMsg(oldToken, sender, sections.NTNoAssertionAvail, "")
 		log.Error("Stop processing query. I am authoritative and have no answer in cache")
 		return
 	}
 	//we have a valid delegation
-	tok := token
-	if !query.ContainsOption(rainslib.QOTokenTracing) {
-		tok = rainslib.GenerateToken()
+	tok := oldToken
+	if !query.ContainsOption(sections.QOTokenTracing) {
+		tok = token.GenerateToken()
 	}
 	newQuery := *query
 	//Upper bound for forwarded query expiration time
@@ -694,7 +698,7 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 	}
 	//FIXME CFE allow multiple connection
 	//FIXME CFE only send query if not already in cache.
-	pendingQueries.Add(msgSectionSender{Section: query, Sender: sender, Token: token})
+	pendingQueries.Add(msgSectionSender{Section: query, Sender: sender, Token: oldToken})
 	log.Debug("Added query into to pending query cache", "query", query)
 	sendSection(&newQuery, tok, delegate)
 }
@@ -703,12 +707,12 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 //subjectAddr and context. If it does not find an entry it sends the addressZone back to the querier
 //and returns true. Otherwise it checks if the entry has an unexpired signature. In that case it
 //sends the addressAssertion back to the querier and returns true, otherwise it return false
-func handleAddressZoneQueryResponse(zone *rainslib.AddressZoneSection, subjectAddr *net.IPNet,
-	context string, queryType []rainslib.ObjectType, sender rainslib.ConnInfo, token rainslib.Token) bool {
+func handleAddressZoneQueryResponse(zone *sections.AddressZoneSection, subjectAddr *net.IPNet,
+	context string, queryType []object.ObjectType, sender connection.ConnInfo, token token.Token) bool {
 	for _, a := range zone.Content {
 		//TODO CFE handle case where assertion can have multiple connection
 		if a.SubjectAddr == subjectAddr && a.Context == context && a.Content[0].Type == queryType[0] {
-			for _, sig := range a.Sigs(rainslib.RainsKeySpace) {
+			for _, sig := range a.Sigs(keys.RainsKeySpace) {
 				//TODO CFE only check for this condition when queryoption 5 is not set
 				if sig.ValidUntil > time.Now().Unix() {
 					sendSection(a, token, sender)
@@ -746,18 +750,18 @@ func toSubjectZone(name string) (subject, zone string, e error) {
 //subjectZone and context. If it does not find an entry it sends the section back to the querier and
 //returns true. Otherwise it checks if the entry has an unexpired signature. In that case it sends
 //the assertion back to the querier and returns true, otherwise it return false
-func handleShardOrZoneQueryResponse(section rainslib.MessageSectionWithSigForward, subjectName, subjectZone,
-	context string, queryType rainslib.ObjectType, sender rainslib.ConnInfo, token rainslib.Token) bool {
-	assertions := []*rainslib.AssertionSection{}
+func handleShardOrZoneQueryResponse(section sections.MessageSectionWithSigForward, subjectName, subjectZone,
+	context string, queryType object.ObjectType, sender connection.ConnInfo, token token.Token) bool {
+	assertions := []*sections.AssertionSection{}
 	switch section := section.(type) {
-	case *rainslib.ShardSection:
+	case *sections.ShardSection:
 		assertions = section.Content
-	case *rainslib.ZoneSection:
+	case *sections.ZoneSection:
 		for _, sec := range section.Content {
 			switch sec := sec.(type) {
-			case *rainslib.AssertionSection:
+			case *sections.AssertionSection:
 				assertions = append(assertions, sec)
-			case *rainslib.ShardSection:
+			case *sections.ShardSection:
 				assertions = append(assertions, sec.Content...)
 			default:
 				log.Warn(fmt.Sprintf("Unsupported zone.Content Expected assertion or shard. actual=%T", section))
@@ -778,14 +782,14 @@ func handleShardOrZoneQueryResponse(section rainslib.MessageSectionWithSigForwar
 //subjectZone and context. If it does not find an entry it returns (false, false). Otherwise it
 //checks if the entry has an unexpired signature. In that case it sends the assertion back to the
 //querier and returns (true, true), otherwise it return (true, false)
-func containedAssertionQueryResponse(assertions []*rainslib.AssertionSection, subjectName, subjectZone,
-	context string, queryType rainslib.ObjectType, sender rainslib.ConnInfo, token rainslib.Token) (
+func containedAssertionQueryResponse(assertions []*sections.AssertionSection, subjectName, subjectZone,
+	context string, queryType object.ObjectType, sender connection.ConnInfo, token token.Token) (
 	entryFound bool, hasSig bool) {
 	for _, a := range assertions {
 		//TODO CFE handle case where assertion can have multiple connection
 		if a.SubjectName == subjectName && a.SubjectZone == subjectZone &&
 			a.Context == context && a.Content[0].Type == queryType {
-			for _, sig := range a.Sigs(rainslib.RainsKeySpace) {
+			for _, sig := range a.Sigs(keys.RainsKeySpace) {
 				//TODO CFE only check for this condition when queryoption 5 is not set
 				if sig.ValidUntil > time.Now().Unix() {
 					sendSection(a, token, sender)

@@ -38,27 +38,27 @@ func TestLoadPrivateKeys(t *testing.T) {
 	zonePrivateKey, _ := loadPrivateKey("test/zonePrivate.key")
 	a := getAssertionWithTwoIPObjects()
 	var tests = []struct {
-		input   *rainslib.ZoneSection
-		keyAlgo rainslib.SignatureAlgorithmType
+		input   *sections.ZoneSection
+		keyAlgo algorithmTypes.SignatureAlgorithmType
 		privKey interface{}
 		errMsg  string
 	}{
-		{&rainslib.ZoneSection{SubjectZone: "ch", Context: ".", Content: []rainslib.MessageSectionWithSigForward{
-			&rainslib.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "",
-				Content: []*rainslib.AssertionSection{a}}}}, rainslib.Ed25519, zonePrivateKey, ""},
-		{nil, rainslib.Ed25519, nil, "zone is nil"},                                                      //zone is nil error
-		{new(rainslib.ZoneSection), rainslib.Ed25519, nil, "Was not able to sign and add the signature"}, //signSection return error
-		{&rainslib.ZoneSection{SubjectZone: "ch", Context: ".", Content: []rainslib.MessageSectionWithSigForward{
-			new(rainslib.AssertionSection)}}, rainslib.Ed25519, zonePrivateKey,
-			"Zone contained unexpected type expected=*ShardSection actual=*rainslib.AssertionSection"}, //invalid zone content error
+		{&sections.ZoneSection{SubjectZone: "ch", Context: ".", Content: []sections.MessageSectionWithSigForward{
+			&sections.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "",
+				Content: []*sections.AssertionSection{a}}}}, keys.Ed25519, zonePrivateKey, ""},
+		{nil, keys.Ed25519, nil, "zone is nil"},                                                      //zone is nil error
+		{new(sections.ZoneSection), keys.Ed25519, nil, "Was not able to sign and add the signature"}, //signSection return error
+		{&sections.ZoneSection{SubjectZone: "ch", Context: ".", Content: []sections.MessageSectionWithSigForward{
+			new(sections.AssertionSection)}}, keys.Ed25519, zonePrivateKey,
+			"Zone contained unexpected type expected=*ShardSection actual=*sections.AssertionSection"}, //invalid zone content error
 	}
 	for i, test := range tests {
 		err := signZone(test.input, test.keyAlgo, test.privKey)
 		if err != nil && err.Error() != test.errMsg {
 			t.Errorf("%d: signZone() wrong error message. expected=%s, actual=%s", i, test.errMsg, err.Error())
 		}
-		if err == nil && (test.input.Signatures[0].Data == nil || test.input.Content[0].Sigs(rainslib.RainsKeySpace)[0].Data == nil ||
-			test.input.Content[0].(*rainslib.ShardSection).Content[0].Signatures[0].Data == nil) {
+		if err == nil && (test.input.Signatures[0].Data == nil || test.input.Content[0].Sigs(keys.RainsKeySpace)[0].Data == nil ||
+			test.input.Content[0].(*sections.ShardSection).Content[0].Signatures[0].Data == nil) {
 			t.Errorf("%d: signZone() did not add signature to all sections.", i)
 		}
 	}
@@ -68,22 +68,22 @@ func TestSignShard(t *testing.T) {
 	InitRainspub("test/rainspub.conf")
 	a := getAssertionWithTwoIPObjects()
 	var tests = []struct {
-		input   *rainslib.ShardSection
-		keyAlgo rainslib.SignatureAlgorithmType
+		input   *sections.ShardSection
+		keyAlgo algorithmTypes.SignatureAlgorithmType
 		privKey interface{}
 		errMsg  string
 	}{
-		{&rainslib.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "",
-			Content: []*rainslib.AssertionSection{a}}, rainslib.Ed25519, zonePrivateKey, ""},
-		{nil, rainslib.Ed25519, nil, "shard is nil"},                                                      //shard is nil error
-		{new(rainslib.ShardSection), rainslib.Ed25519, nil, "Was not able to sign and add the signature"}, //signSection return error
+		{&sections.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "",
+			Content: []*sections.AssertionSection{a}}, keys.Ed25519, zonePrivateKey, ""},
+		{nil, keys.Ed25519, nil, "shard is nil"},                                                      //shard is nil error
+		{new(sections.ShardSection), keys.Ed25519, nil, "Was not able to sign and add the signature"}, //signSection return error
 	}
 	for i, test := range tests {
 		err := signShard(test.input, test.keyAlgo, test.privKey)
 		if err != nil && err.Error() != test.errMsg {
 			t.Errorf("%d: signZone() wrong error message. expected=%s, actual=%s", i, test.errMsg, err.Error())
 		}
-		if err == nil && (test.input.Content[0].Sigs(rainslib.RainsKeySpace)[0].Data == nil ||
+		if err == nil && (test.input.Content[0].Sigs(keys.RainsKeySpace)[0].Data == nil ||
 			test.input.Content[0].Signatures[0].Data == nil) {
 			t.Errorf("%d: signZone() did not add signature to all sections.", i)
 		}
@@ -94,22 +94,22 @@ func TestSignAssertion(t *testing.T) {
 	InitRainspub("test/rainspub.conf")
 	a1 := getAssertionWithTwoIPObjects()
 	pubKey, _, _ := ed25519.GenerateKey(nil)
-	publicKey := rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{KeySpace: rainslib.RainsKeySpace, Algorithm: rainslib.Ed25519}, Key: pubKey}
-	a2 := &rainslib.AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".",
-		Content: []rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation, Value: publicKey}}}
+	publicKey := keys.PublicKey{PublicKeyID: keys.PublicKeyID{KeySpace: keys.RainsKeySpace, Algorithm: keys.Ed25519}, Key: pubKey}
+	a2 := &sections.AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".",
+		Content: []object.Object{object.Object{Type: object.OTDelegation, Value: publicKey}}}
 	var tests = []struct {
-		input      []*rainslib.AssertionSection
-		keyAlgo    rainslib.SignatureAlgorithmType
+		input      []*sections.AssertionSection
+		keyAlgo    algorithmTypes.SignatureAlgorithmType
 		privKey    interface{}
 		validSince int64
 		validUntil int64
 		errMsg     string
 	}{
-		{[]*rainslib.AssertionSection{a1}, rainslib.Ed25519, zonePrivateKey, time.Now().Unix(), time.Now().Add(86400 * time.Hour).Unix(), ""},
-		{[]*rainslib.AssertionSection{a2}, rainslib.Ed25519, zonePrivateKey, time.Now().Add(-1 * time.Hour).Unix(),
+		{[]*sections.AssertionSection{a1}, keys.Ed25519, zonePrivateKey, time.Now().Unix(), time.Now().Add(86400 * time.Hour).Unix(), ""},
+		{[]*sections.AssertionSection{a2}, keys.Ed25519, zonePrivateKey, time.Now().Add(-1 * time.Hour).Unix(),
 			time.Now().Add(86439 * time.Hour).Unix(), ""},
-		{[]*rainslib.AssertionSection{nil}, rainslib.Ed25519, nil, 0, 0, "assertion is nil"},                          //assertion is nil error
-		{[]*rainslib.AssertionSection{a2}, rainslib.Ed25519, nil, 0, 0, "Was not able to sign and add the signature"}, //signSection return error
+		{[]*sections.AssertionSection{nil}, keys.Ed25519, nil, 0, 0, "assertion is nil"},                          //assertion is nil error
+		{[]*sections.AssertionSection{a2}, keys.Ed25519, nil, 0, 0, "Was not able to sign and add the signature"}, //signSection return error
 	}
 	for i, test := range tests {
 		err := signAssertions(test.input, test.keyAlgo, test.privKey)
@@ -132,17 +132,17 @@ func TestSendMessage(t *testing.T) {
 	go rainsd.Listen()
 	time.Sleep(time.Second / 10)
 	a := getAssertionWithTwoIPObjects()
-	zone := &rainslib.ZoneSection{SubjectZone: "ch", Context: ".", Content: []rainslib.MessageSectionWithSigForward{
-		&rainslib.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "", Content: []*rainslib.AssertionSection{a}}}}
+	zone := &sections.ZoneSection{SubjectZone: "ch", Context: ".", Content: []sections.MessageSectionWithSigForward{
+		&sections.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "", Content: []*sections.AssertionSection{a}}}}
 	msg, _ := createRainsMessage(zone)
 	var tests = []struct {
 		input  []byte
-		conns  []rainslib.ConnInfo
+		conns  []connection.ConnInfo
 		errMsg string
 	}{
 		{msg, config.ServerAddresses, ""},
 		{nil, config.ServerAddresses, "EOF"},
-		{msg, []rainslib.ConnInfo{rainslib.ConnInfo{Type: rainslib.NetworkAddrType(-1)}}, "unsupported connection information type. actual=-1"},
+		{msg, []connection.ConnInfo{connection.ConnInfo{Type: connection.NetworkAddrType(-1)}}, "unsupported connection information type. actual=-1"},
 	}
 	for i, test := range tests {
 		config.ServerAddresses = test.conns
@@ -154,8 +154,8 @@ func TestSendMessage(t *testing.T) {
 	}
 }
 
-func getAssertionWithTwoIPObjects() *rainslib.AssertionSection {
-	return &rainslib.AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".",
-		Content: []rainslib.Object{rainslib.Object{Type: rainslib.OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"},
-			rainslib.Object{Type: rainslib.OTIP4Addr, Value: "129.132.128.139"}}}
+func getAssertionWithTwoIPObjects() *sections.AssertionSection {
+	return &sections.AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".",
+		Content: []object.Object{object.Object{Type: object.OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"},
+			object.Object{Type: object.OTIP4Addr, Value: "129.132.128.139"}}}
 }*/

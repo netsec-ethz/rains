@@ -7,10 +7,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/token"
+
 	log "github.com/inconshreveable/log15"
 
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
 
 //verify verifies msgSender.Section
@@ -21,16 +26,16 @@ import (
 func verify(msgSender msgSectionSender) {
 	log.Info(fmt.Sprintf("Verify %T", msgSender.Section), "msgSection", msgSender.Section)
 	switch msgSender.Section.(type) {
-	case *rainslib.AssertionSection, *rainslib.ShardSection, *rainslib.ZoneSection,
-		*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection:
+	case *sections.AssertionSection, *sections.ShardSection, *sections.ZoneSection,
+		*sections.AddressAssertionSection, *sections.AddressZoneSection:
 		sectionSender := sectionWithSigSender{
-			Section: msgSender.Section.(rainslib.MessageSectionWithSig),
+			Section: msgSender.Section.(sections.MessageSectionWithSig),
 			Sender:  msgSender.Sender,
 			Token:   msgSender.Token,
 		}
 		verifySection(sectionSender)
-	case *rainslib.AddressQuerySection, *rainslib.QuerySection:
-		verifyQuery(msgSender.Section.(rainslib.MessageSectionQuery), msgSender)
+	case *sections.AddressQuerySection, *sections.QuerySection:
+		verifyQuery(msgSender.Section.(sections.MessageSectionQuery), msgSender)
 	default:
 		log.Warn("Not supported Msg section to verify", "msgSection", msgSender)
 	}
@@ -40,17 +45,17 @@ func verify(msgSender msgSectionSender) {
 //consistent, all nonexpired signatures verify and there is at least one non expired signature.
 func verifySection(sectionSender sectionWithSigSender) {
 	if !sectionSender.Section.IsConsistent() {
-		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg,
+		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, sections.NTRcvInconsistentMsg,
 			"contained section has context or subjectZone")
 		return //already logged, that contained section is invalid
 	}
 	if contextInvalid(sectionSender.Section.GetContext()) {
-		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg,
+		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, sections.NTRcvInconsistentMsg,
 			"invalid context")
 		return //already logged, that context is invalid
 	}
-	if zone, ok := sectionSender.Section.(*rainslib.ZoneSection); ok && !containedShardsAreConsistent(zone) {
-		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, rainslib.NTRcvInconsistentMsg,
+	if zone, ok := sectionSender.Section.(*sections.ZoneSection); ok && !containedShardsAreConsistent(zone) {
+		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, sections.NTRcvInconsistentMsg,
 			"contained sections are inconsistent with outer section")
 		return //already logged, that the zone is internally invalid
 	}
@@ -63,9 +68,9 @@ func verifySection(sectionSender sectionWithSigSender) {
 }
 
 //verifyQuery forwards the received query to be processed if it is consistent and not expired.
-func verifyQuery(query rainslib.MessageSectionQuery, msgSender msgSectionSender) {
+func verifyQuery(query sections.MessageSectionQuery, msgSender msgSectionSender) {
 	if contextInvalid(query.GetContext()) {
-		sendNotificationMsg(msgSender.Token, msgSender.Sender, rainslib.NTRcvInconsistentMsg, "invalid context")
+		sendNotificationMsg(msgSender.Token, msgSender.Sender, sections.NTRcvInconsistentMsg, "invalid context")
 		return //already logged, that context is invalid
 	}
 	if !isQueryExpired(query.GetExpiration()) {
@@ -98,7 +103,7 @@ func isQueryExpired(expires int64) bool {
 //public keys is missing.
 func verifySignatures(sectionSender sectionWithSigSender) bool {
 	section := sectionSender.Section
-	keysNeeded := make(map[rainslib.SignatureMetaData]bool)
+	keysNeeded := make(map[signature.SignatureMetaData]bool)
 	section.NeededKeys(keysNeeded)
 	log.Debug("verifySignatures", "KeysNeeded", keysNeeded)
 	publicKeys, missingKeys, ok := publicKeysPresent(section.GetSubjectZone(), section.GetContext(), keysNeeded)
@@ -113,10 +118,10 @@ func verifySignatures(sectionSender sectionWithSigSender) bool {
 
 //publicKeysPresent returns true if all public keys are already cached for sigs.
 //It also returns the set of cached publicKeys and a set of the missing publicKey identifiers
-func publicKeysPresent(zone, context string, sigMetaData map[rainslib.SignatureMetaData]bool) (
-	map[rainslib.PublicKeyID][]rainslib.PublicKey, map[rainslib.SignatureMetaData]bool, bool) {
-	keys := make(map[rainslib.PublicKeyID][]rainslib.PublicKey)
-	missingKeys := make(map[rainslib.SignatureMetaData]bool)
+func publicKeysPresent(zone, context string, sigMetaData map[signature.SignatureMetaData]bool) (
+	map[keys.PublicKeyID][]keys.PublicKey, map[signature.SignatureMetaData]bool, bool) {
+	keys := make(map[keys.PublicKeyID][]keys.PublicKey)
+	missingKeys := make(map[signature.SignatureMetaData]bool)
 
 	if _, _, err := net.ParseCIDR(zone); err != nil {
 		//Assertion, Shard or Zone
@@ -152,15 +157,15 @@ func publicKeysPresent(zone, context string, sigMetaData map[rainslib.SignatureM
 }
 
 //addZoneAndContextToContainedSections adds subjectZone and context to all contained sections.
-func addZoneAndContextToContainedSections(section rainslib.MessageSectionWithSig) {
+func addZoneAndContextToContainedSections(section sections.MessageSectionWithSig) {
 	switch section := section.(type) {
-	case *rainslib.AssertionSection, *rainslib.AddressAssertionSection:
+	case *sections.AssertionSection, *sections.AddressAssertionSection:
 		//no contained sections
-	case *rainslib.ShardSection:
+	case *sections.ShardSection:
 		section.AddZoneAndContextToAssertions()
-	case *rainslib.ZoneSection:
+	case *sections.ZoneSection:
 		section.AddZoneAndContextToSections()
-	case *rainslib.AddressZoneSection:
+	case *sections.AddressZoneSection:
 		for _, a := range section.Content {
 			a.Context = section.Context
 		}
@@ -172,15 +177,15 @@ func addZoneAndContextToContainedSections(section rainslib.MessageSectionWithSig
 //validSignature validates section's signatures and strips all expired signatures away. Returns
 //false if there are no signatures left (not considering internal sections) or if at least one
 //signature is invalid (due to incorrect signature)
-func validSignature(section rainslib.MessageSectionWithSig, keys map[rainslib.PublicKeyID][]rainslib.PublicKey) bool {
+func validSignature(section sections.MessageSectionWithSig, keys map[keys.PublicKeyID][]keys.PublicKey) bool {
 	switch section := section.(type) {
-	case *rainslib.AssertionSection, *rainslib.AddressAssertionSection:
+	case *sections.AssertionSection, *sections.AddressAssertionSection:
 		return validateSignatures(section, keys)
-	case *rainslib.ShardSection:
+	case *sections.ShardSection:
 		return validShardSignatures(section, keys)
-	case *rainslib.ZoneSection:
+	case *sections.ZoneSection:
 		return validZoneSignatures(section, keys)
-	case *rainslib.AddressZoneSection:
+	case *sections.AddressZoneSection:
 		return validAddressZoneSignatures(section, keys)
 	default:
 		log.Warn("Not supported Msg Section")
@@ -190,21 +195,21 @@ func validSignature(section rainslib.MessageSectionWithSig, keys map[rainslib.Pu
 
 //validateSignatures returns true if all non expired signatures of section are valid and there is at
 //least one signature valid before Config.MaxValidity. It removes valid signatures that are expired
-func validateSignatures(section rainslib.MessageSectionWithSig, keys map[rainslib.PublicKeyID][]rainslib.PublicKey) bool {
-	if !siglib.CheckSectionSignatures(section, keys, sigEncoder, Config.MaxCacheValidity) {
+func validateSignatures(section sections.MessageSectionWithSig, keyMap map[keys.PublicKeyID][]keys.PublicKey) bool {
+	if !siglib.CheckSectionSignatures(section, keyMap, sigEncoder, Config.MaxCacheValidity) {
 		return false //already logged
 	}
 	if section.ValidSince() == math.MaxInt64 {
 		log.Info("No signature is valid before the MaxValidity date in the future.")
 		return false
 	}
-	return len(section.Sigs(rainslib.RainsKeySpace)) > 0
+	return len(section.Sigs(keys.RainsKeySpace)) > 0
 }
 
 //validShardSignatures validates all signatures on the shard and contained assertions. It returns
 //false if there is a signatures that does not verify. It removes the context and subjectZone of all
 //contained assertions (which were necessary for signature verification)
-func validShardSignatures(section *rainslib.ShardSection, keys map[rainslib.PublicKeyID][]rainslib.PublicKey) bool {
+func validShardSignatures(section *sections.ShardSection, keys map[keys.PublicKeyID][]keys.PublicKey) bool {
 	if !validateSignatures(section, keys) || !validContainedAssertions(section.Content, keys) {
 		return false
 	}
@@ -214,17 +219,17 @@ func validShardSignatures(section *rainslib.ShardSection, keys map[rainslib.Publ
 //validZoneSignatures validates all signatures on the zone and contained assertions and shards. It
 //returns false if there is a signatures that does not verify. It removes the subjectZone and
 //context of all contained assertions and shards (which were necessary for signature verification)
-func validZoneSignatures(zone *rainslib.ZoneSection, keys map[rainslib.PublicKeyID][]rainslib.PublicKey) bool {
+func validZoneSignatures(zone *sections.ZoneSection, keys map[keys.PublicKeyID][]keys.PublicKey) bool {
 	if !validateSignatures(zone, keys) {
 		return false
 	}
 	for _, section := range zone.Content {
 		switch sec := section.(type) {
-		case *rainslib.AssertionSection:
-			if !validContainedAssertions([]*rainslib.AssertionSection{sec}, keys) {
+		case *sections.AssertionSection:
+			if !validContainedAssertions([]*sections.AssertionSection{sec}, keys) {
 				return false
 			}
-		case *rainslib.ShardSection:
+		case *sections.ShardSection:
 			if !siglib.CheckSectionSignatures(sec, keys, sigEncoder, Config.MaxCacheValidity) ||
 				!validContainedAssertions(sec.Content, keys) {
 				return false
@@ -242,7 +247,7 @@ func validZoneSignatures(zone *rainslib.ZoneSection, keys map[rainslib.PublicKey
 //validContainedAssertions validates all signatures on assertions. It returns false if there is a
 //signature that does not verify. It removes the subjectZone and context of all contained assertions
 //(which were necessary for signature verification)
-func validContainedAssertions(assertions []*rainslib.AssertionSection, keys map[rainslib.PublicKeyID][]rainslib.PublicKey) bool {
+func validContainedAssertions(assertions []*sections.AssertionSection, keys map[keys.PublicKeyID][]keys.PublicKey) bool {
 	for _, assertion := range assertions {
 		if !siglib.CheckSectionSignatures(assertion, keys, sigEncoder, Config.MaxCacheValidity) {
 			return false
@@ -256,7 +261,7 @@ func validContainedAssertions(assertions []*rainslib.AssertionSection, keys map[
 //validAddressZoneSignatures validates all signatures on the address zone and contained
 //addressAssertions. It returns false if there is a signatures that does not verify. It removes the
 //context of all contained addressAssertions (which was necessary for signature verification)
-func validAddressZoneSignatures(section *rainslib.AddressZoneSection, keys map[rainslib.PublicKeyID][]rainslib.PublicKey) bool {
+func validAddressZoneSignatures(section *sections.AddressZoneSection, keys map[keys.PublicKeyID][]keys.PublicKey) bool {
 	if !validateSignatures(section, keys) {
 		return false
 	}
@@ -271,22 +276,22 @@ func validAddressZoneSignatures(section *rainslib.AddressZoneSection, keys map[r
 
 //handleMissingKeys adds sectionSender to the pending key cache and sends a delegation query if
 //necessary
-func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[rainslib.SignatureMetaData]bool) {
+func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[signature.SignatureMetaData]bool) {
 	section := sectionSender.Section
 	log.Info("Some public keys are missing. Add section to pending signature cache",
 		"#missingKeys", len(missingKeys), "section", section)
 	for k := range missingKeys {
 		log.Info("MissingKeys", "key", k)
 		if sendQuery := pendingKeys.Add(sectionSender, k.Algorithm, k.KeyPhase); sendQuery {
-			token := rainslib.GenerateToken()
-			exp := getQueryValidity(section.Sigs(rainslib.RainsKeySpace))
+			token := token.GenerateToken()
+			exp := getQueryValidity(section.Sigs(keys.RainsKeySpace))
 			if ok := pendingKeys.AddToken(token, exp, sectionSender.Sender,
 				section.GetSubjectZone(), section.GetContext()); ok {
-				query := &rainslib.QuerySection{
+				query := &sections.QuerySection{
 					Name:       section.GetSubjectZone(),
 					Context:    section.GetContext(),
 					Expiration: exp,
-					Types:      []rainslib.ObjectType{rainslib.OTDelegation},
+					Types:      []object.ObjectType{object.OTDelegation},
 				}
 				sendSection(query, token, getRootAddr())
 				continue
@@ -299,7 +304,7 @@ func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[rains
 
 //getQueryValidity returns the expiration value for a delegation query. It is either a configured
 //upper bound or if smaller the longest validity time of all present signatures.
-func getQueryValidity(sigs []rainslib.Signature) (validity int64) {
+func getQueryValidity(sigs []signature.Signature) (validity int64) {
 	for _, sig := range sigs {
 		if sig.ValidUntil > validity {
 			validity = sig.ValidUntil

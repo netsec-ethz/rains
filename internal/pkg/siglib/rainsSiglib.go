@@ -16,6 +16,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/sections"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
+	"github.com/netsec-ethz/rains/internal/util"
 )
 
 //CheckSectionSignatures verifies all signatures on the section. Expired signatures are removed.
@@ -29,7 +30,7 @@ import (
 //5) sign the encoding and compare the resulting signature data with the signature data received with the section. The encoding of the
 //   signature meta data is added in the verifySignature() method
 func CheckSectionSignatures(s sections.MessageSectionWithSig, pkeys map[keys.PublicKeyID][]keys.PublicKey, encoder encoder.SignatureFormatEncoder,
-	maxVal sections.MaxCacheValidity) bool {
+	maxVal util.MaxCacheValidity) bool {
 	log.Debug(fmt.Sprintf("Check %T signature", s), "section", s)
 	if s == nil {
 		log.Warn("section is nil")
@@ -61,7 +62,7 @@ func CheckSectionSignatures(s sections.MessageSectionWithSig, pkeys map[keys.Pub
 					return false
 				}
 				log.Debug("Signature was valid")
-				sections.UpdateSectionValidity(s, key.ValidSince, key.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
+				util.UpdateSectionValidity(s, key.ValidSince, key.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
 			} else {
 				log.Warn("No time overlapping publicKey in keys for signature", "keys", keys, "signature", sig)
 				return false
@@ -170,7 +171,7 @@ func SignSectionUnsafe(s sections.MessageSectionWithSig, privateKey interface{},
 //5) sign the encoding and add it to the signature which will then be added to the section. The encoding of the
 //   signature meta data is added in the verifySignature() method
 func SignSection(s sections.MessageSectionWithSig, privateKey interface{}, sig signature.Signature,
-	encoder signature.SignatureFormatEncoder) bool {
+	encoder encoder.SignatureFormatEncoder) bool {
 	s.AddSig(sig)
 	if !ValidSectionAndSignature(s) {
 		return false
@@ -189,8 +190,8 @@ func SignSection(s sections.MessageSectionWithSig, privateKey interface{}, sig s
 //4) encode message
 //5) sign the encoding and add it to the signature which will then be added to the message. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func SignMessage(msg *message.Signature, privateKey interface{}, sig signature.Signature,
-	encoder signature.SignatureFormatEncoder) bool {
+func SignMessage(msg *message.RainsMessage, privateKey interface{}, sig signature.Signature,
+	encoder encoder.SignatureFormatEncoder) bool {
 	log.Debug("Sign Message")
 	if msg == nil {
 		log.Warn("msg is nil")
@@ -215,7 +216,7 @@ func SignMessage(msg *message.Signature, privateKey interface{}, sig signature.S
 //checkMessageStringFields returns true if the capabilities and all string fields in the contained
 //sections of the given message do not contain a zone file type marker, i.e. not a substring
 //matching regrex expression '\s:\S+:\s'
-func checkMessageStringFields(msg *message.Signature) bool {
+func checkMessageStringFields(msg *message.RainsMessage) bool {
 	if msg == nil || !checkCapabilites(msg.Capabilities) {
 		return false
 	}
@@ -229,9 +230,9 @@ func checkMessageStringFields(msg *message.Signature) bool {
 
 //CheckStringFields returns true if non of the string fields of the given section contain a zone
 //file type marker. It panics if the interface s contains a type but the interfaces value is nil
-func CheckStringFields(s section.MessageSection) bool {
+func CheckStringFields(s sections.MessageSection) bool {
 	switch s := s.(type) {
-	case *section.SignatureAssertionSection:
+	case *sections.AssertionSection:
 		if containsZoneFileType(s.SubjectName) {
 			log.Warn("Section contains a string field with forbidden content", "SubjectName", s.SubjectName)
 			return false
@@ -240,7 +241,7 @@ func CheckStringFields(s section.MessageSection) bool {
 			return false
 		}
 		return !(containsZoneFileType(s.Context) || containsZoneFileType(s.SubjectZone))
-	case *section.SignatureShardSection:
+	case *sections.ShardSection:
 		if containsZoneFileType(s.RangeFrom) {
 			log.Warn("Section contains a string field with forbidden content", "RangeFrom", s.RangeFrom)
 			return false
@@ -255,14 +256,14 @@ func CheckStringFields(s section.MessageSection) bool {
 			}
 		}
 		return !(containsZoneFileType(s.Context) || containsZoneFileType(s.SubjectZone))
-	case *section.SignatureZoneSection:
+	case *sections.ZoneSection:
 		for _, section := range s.Content {
 			if !CheckStringFields(section) {
 				return false
 			}
 		}
 		return !(containsZoneFileType(s.Context) || containsZoneFileType(s.SubjectZone))
-	case *section.SignatureQuerySection:
+	case *sections.QuerySection:
 		if containsZoneFileType(s.Context) {
 			return false
 		}
@@ -270,24 +271,24 @@ func CheckStringFields(s section.MessageSection) bool {
 			log.Warn("Section contains a string field with forbidden content", "QueryName", s.Name)
 			return false
 		}
-	case *section.SignatureNotificationSection:
+	case *sections.NotificationSection:
 		if containsZoneFileType(s.Data) {
 			log.Warn("Section contains a string field with forbidden content", "NotificationData", s.Data)
 			return false
 		}
-	case *section.SignatureAddressAssertionSection:
+	case *sections.AddressAssertionSection:
 		if !checkObjectFields(s.Content) {
 			return false
 		}
 		return !containsZoneFileType(s.Context)
-	case *section.SignatureAddressZoneSection:
+	case *sections.AddressZoneSection:
 		for _, a := range s.Content {
 			if !CheckStringFields(a) {
 				return false
 			}
 		}
 		return !containsZoneFileType(s.Context)
-	case *section.SignatureAddressQuerySection:
+	case *sections.AddressQuerySection:
 		return !containsZoneFileType(s.Context)
 	default:
 		log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))
@@ -367,8 +368,8 @@ func containsZoneFileType(input string) bool {
 	return false
 }
 
-func getPublicKey(keys []keys.PublicKey, sigMetaData signature.SignatureMetaData) (keys.PublicKey, bool) {
-	for _, key := range keys {
+func getPublicKey(pkeys []keys.PublicKey, sigMetaData signature.SignatureMetaData) (keys.PublicKey, bool) {
+	for _, key := range pkeys {
 		if key.ValidSince <= sigMetaData.ValidUntil && key.ValidUntil >= sigMetaData.ValidSince {
 			return key, true
 		}

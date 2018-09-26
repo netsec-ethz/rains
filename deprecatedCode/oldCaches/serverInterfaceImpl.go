@@ -7,14 +7,14 @@ package oldCaches
 //It also reduces the time sections have to stay in the pendingSignatureCache in times of high load
 /*type activeTokenCache interface {
 	//isPriority returns true and removes token from the cache if the section containing token has high priority
-	IsPriority(token rainslib.Token) bool
+	IsPriority(token token.Token) bool
 	//AddToken adds token to the datastructure. The first incoming section with the same token will be processed with high priority
 	//expiration is the query expiration time which determines how long the token is treated with high priority.
 	//It returns false if the cache is full and the token is not added to the cache.
-	AddToken(token rainslib.Token, expiration int64) bool
+	AddToken(token token.Token, expiration int64) bool
 	//DeleteExpiredElements removes all expired tokens from the data structure and logs their information
 	//It returns all expired tokens
-	DeleteExpiredElements() []rainslib.Token
+	DeleteExpiredElements() []token.Token
 }
 
 //
@@ -22,7 +22,7 @@ package oldCaches
 //
 type activeTokenCacheImpl struct {
 	//activeTokenCache maps tokens to their expiration time
-	activeTokenCache map[rainslib.Token]int64
+	activeTokenCache map[token.Token]int64
 	maxElements      uint
 	elementCount     uint
 	//elemCountLock protects elementCount from simultaneous access. It must not be locked during a modifying call to the cache or the set data structure.
@@ -33,7 +33,7 @@ type activeTokenCacheImpl struct {
 }
 
 //isPriority returns true and removes token from the cache if the section containing token has high priority and is not yet expired
-func (c *activeTokenCacheImpl) IsPriority(token rainslib.Token) bool {
+func (c *activeTokenCacheImpl) IsPriority(token token.Token) bool {
 	c.cacheLock.RLock()
 	if exp, ok := c.activeTokenCache[token]; ok {
 		c.cacheLock.RUnlock()
@@ -55,7 +55,7 @@ func (c *activeTokenCacheImpl) IsPriority(token rainslib.Token) bool {
 //AddToken adds token to the datastructure. The first incoming section with the same token will be processed with high priority
 //expiration is the query expiration time which determines how long the token is treated with high priority.
 //It returns false if the cache is full and the token is not added to the cache.
-func (c *activeTokenCacheImpl) AddToken(token rainslib.Token, expiration int64) bool {
+func (c *activeTokenCacheImpl) AddToken(token token.Token, expiration int64) bool {
 	c.elemCountLock.Lock()
 	defer c.elemCountLock.Unlock()
 	if c.elementCount < c.maxElements {
@@ -70,8 +70,8 @@ func (c *activeTokenCacheImpl) AddToken(token rainslib.Token, expiration int64) 
 
 //DeleteExpiredElements removes all expired tokens from the data structure and logs their information
 //Returns all expired tokens
-func (c *activeTokenCacheImpl) DeleteExpiredElements() []rainslib.Token {
-	tokens := []rainslib.Token{}
+func (c *activeTokenCacheImpl) DeleteExpiredElements() []token.Token {
+	tokens := []token.Token{}
 	c.elemCountLock.Lock()
 	c.cacheLock.Lock()
 	defer c.elemCountLock.Unlock()
@@ -111,7 +111,7 @@ func (c *activeTokenCacheImpl) DeleteExpiredElements() []rainslib.Token {
 //Add adds an assertion together with a validity to the cache.
 //Returns true if cache did not already contain an entry for the given context,zone, name and objType
 //If the cache is full it removes an external assertionCacheValue according to some metric.
-func (c *assertionCacheImpl) Add(context, zone, name string, objType rainslib.ObjectType, internal bool, value assertionCacheValue) bool {
+func (c *assertionCacheImpl) Add(context, zone, name string, objType object.ObjectType, internal bool, value assertionCacheValue) bool {
 	set := setDataStruct.New()
 	set.Add(value)
 	ok := c.assertionCache.Add(set, internal, context, zone, name, objType.String())
@@ -145,7 +145,7 @@ func (c *assertionCacheImpl) Add(context, zone, name string, objType rainslib.Ob
 	return c.Add(context, zone, name, objType, internal, value)
 }
 
-func addAssertionToRangeMap(c *assertionCacheImpl, context, zone, name string, objType rainslib.ObjectType, internal bool, value assertionCacheValue) {
+func addAssertionToRangeMap(c *assertionCacheImpl, context, zone, name string, objType object.ObjectType, internal bool, value assertionCacheValue) {
 	c.rangeMapLock.Lock()
 	elem := elemAndValidity{
 		elemAndValidTo: elemAndValidTo{
@@ -195,7 +195,7 @@ func handleAssertionCacheSize(c *assertionCacheImpl) {
 }
 
 //deleteAssertionFromRangeMap deletes the given assertion from the rangeMap. Return true if it was able to delete the element
-func deleteAssertionFromRangeMap(c *assertionCacheImpl, assertion *rainslib.AssertionSection, validSince, validUntil int64) bool {
+func deleteAssertionFromRangeMap(c *assertionCacheImpl, assertion *sections.AssertionSection, validSince, validUntil int64) bool {
 	c.rangeMapLock.RLock()
 	e, ok := c.rangeMap[contextAndZone{Context: assertion.Context, Zone: assertion.SubjectZone}]
 	c.rangeMapLock.RUnlock()
@@ -217,8 +217,8 @@ func deleteAssertionFromRangeMap(c *assertionCacheImpl, assertion *rainslib.Asse
 
 //Get returns true and a set of assertions matching the given key if there exists some. Otherwise false is returned
 //If expiredAllowed is false, then no expired assertions will be returned
-func (c *assertionCacheImpl) Get(context, zone, name string, objType rainslib.ObjectType, expiredAllowed bool) ([]*rainslib.AssertionSection, bool) {
-	assertions := []*rainslib.AssertionSection{}
+func (c *assertionCacheImpl) Get(context, zone, name string, objType object.ObjectType, expiredAllowed bool) ([]*sections.AssertionSection, bool) {
+	assertions := []*sections.AssertionSection{}
 	v, ok := c.assertionCache.Get(context, zone, name, objType.String())
 	if ok {
 		if set, ok := v.(setContainer); ok {
@@ -241,7 +241,7 @@ func (c *assertionCacheImpl) Get(context, zone, name string, objType rainslib.Ob
 }
 
 //GetInRange returns true and a set of valid assertions in the given interval matching the given context and zone if there are any. Otherwise false is returned
-func (c *assertionCacheImpl) GetInRange(context, zone string, interval rainslib.Interval) ([]*rainslib.AssertionSection, bool) {
+func (c *assertionCacheImpl) GetInRange(context, zone string, interval sections.Interval) ([]*sections.AssertionSection, bool) {
 	c.rangeMapLock.RLock()
 	sortedList, ok := c.rangeMap[contextAndZone{Context: context, Zone: zone}]
 	c.rangeMapLock.RUnlock()
@@ -362,7 +362,7 @@ func updateAssertionCacheRangeMapping(c *assertionCacheImpl) {
 }
 
 //Remove deletes the given assertion from the cache. Returns true if it was able to remove at least one assertion
-func (c *assertionCacheImpl) Remove(assertion *rainslib.AssertionSection) bool {
+func (c *assertionCacheImpl) Remove(assertion *sections.AssertionSection) bool {
 	//CFE FIXME This does not work if we have several connection per assertion
 	return deleteAssertions(c, true, assertion.Context, assertion.SubjectZone, assertion.SubjectName, assertion.Content[0].Type.String()) > 0
 }
@@ -434,7 +434,7 @@ func handleNegElementCacheSize(c *negativeAssertionCacheImpl) {
 		if ok {
 			//FIXME CFE another go routine might also have a pointer to the data structure behind this entry. Then the count might be off...
 			c.cache.Remove(key[0], key[1])
-			v, _ := v.(rangeQueryDataStruct).Get(rainslib.TotalInterval{})
+			v, _ := v.(rangeQueryDataStruct).Get(sections.TotalInterval{})
 			c.elemCountLock.Lock()
 			c.elementCount -= uint(len(v))
 			c.elemCountLock.Unlock()
@@ -443,7 +443,7 @@ func handleNegElementCacheSize(c *negativeAssertionCacheImpl) {
 }
 
 //Get returns true and the shortest sections with the longest validity of a given context and zone containing the name if there exists one. Otherwise false is returned
-func (c *negativeAssertionCacheImpl) Get(context, zone string, interval rainslib.Interval) (rainslib.MessageSectionWithSig, bool) {
+func (c *negativeAssertionCacheImpl) Get(context, zone string, interval sections.Interval) (sections.MessageSectionWithSig, bool) {
 	sections, ok := c.GetAll(context, zone, interval)
 	if ok {
 		//TODO CFE return shortest shard, how to find out how large a shard is, store number of assertions to it?
@@ -456,13 +456,13 @@ func (c *negativeAssertionCacheImpl) Get(context, zone string, interval rainslib
 
 //GetAll returns true and all sections of a given context and zone which intersect with the given Range if there is at least one. Otherwise false is returned
 //if beginRange and endRange are an empty string then the zone and all shards of that context and zone are returned
-func (c *negativeAssertionCacheImpl) GetAll(context, zone string, interval rainslib.Interval) ([]rainslib.MessageSectionWithSig, bool) {
+func (c *negativeAssertionCacheImpl) GetAll(context, zone string, interval sections.Interval) ([]sections.MessageSectionWithSig, bool) {
 	v, ok := c.cache.Get(context, zone)
 	if !ok {
 		return nil, false
 	}
 	if rq, ok := v.(rangeQueryDataStruct); ok {
-		sections := []rainslib.MessageSectionWithSig{}
+		sections := []sections.MessageSectionWithSig{}
 		if intervals, ok := rq.Get(interval); ok && len(intervals) > 0 {
 			for _, element := range intervals {
 				if val, ok := element.(negativeAssertionCacheValue); ok && val.validUntil > time.Now().Unix() && val.validSince < time.Now().Unix() {
@@ -493,7 +493,7 @@ func (c *negativeAssertionCacheImpl) RemoveExpiredValues() {
 		if ok { //check if element is still contained
 			rq, ok := v.(rangeQueryDataStruct)
 			if ok { //check that cache element is a range query data structure
-				vals, ok := rq.Get(rainslib.TotalInterval{})
+				vals, ok := rq.Get(sections.TotalInterval{})
 				allRemoved := true
 				if ok {
 					//check validity of all contained elements and remove expired once
@@ -550,7 +550,7 @@ type sectionList struct {
 }
 
 //Add inserts item into the data structure
-func (l *sectionList) Add(item rainslib.Interval) bool {
+func (l *sectionList) Add(item sections.Interval) bool {
 	l.listLock.Lock()
 	defer l.listLock.Unlock()
 	for e := l.list.Front(); e != nil; e = e.Next() {
@@ -563,7 +563,7 @@ func (l *sectionList) Add(item rainslib.Interval) bool {
 }
 
 //Delete deletes item from the data structure
-func (l *sectionList) Delete(item rainslib.Interval) bool {
+func (l *sectionList) Delete(item sections.Interval) bool {
 	l.listLock.Lock()
 	defer l.listLock.Unlock()
 	for e := l.list.Front(); e != nil; e = e.Next() {
@@ -576,12 +576,12 @@ func (l *sectionList) Delete(item rainslib.Interval) bool {
 }
 
 //Get returns true and all intervals which intersect with item if there are any. Otherwise false is returned
-func (l *sectionList) Get(item rainslib.Interval) ([]rainslib.Interval, bool) {
-	intervals := []rainslib.Interval{}
+func (l *sectionList) Get(item sections.Interval) ([]sections.Interval, bool) {
+	intervals := []sections.Interval{}
 	l.listLock.RLock()
 	defer l.listLock.RUnlock()
 	for e := l.list.Front(); e != nil; e = e.Next() {
-		val := e.Value.(rainslib.Interval)
+		val := e.Value.(sections.Interval)
 		if val.Begin() < item.End() || val.End() > item.Begin() {
 			intervals = append(intervals, val)
 		}
@@ -648,7 +648,7 @@ func (s *sortedAssertionMetaData) Len() int {
 }
 
 //Get returns all assertion meta data which are in the given interval
-func (s *sortedAssertionMetaData) Get(interval rainslib.Interval) []elemAndValidity {
+func (s *sortedAssertionMetaData) Get(interval sections.Interval) []elemAndValidity {
 	s.assertionsLock.RLock()
 	defer s.assertionsLock.RUnlock()
 	elements := []elemAndValidity{}
@@ -685,7 +685,7 @@ type negAssertionCacheValue struct {
 }
 
 type sectionExpiration struct {
-	section    rainslib.MessageSectionWithSigForward
+	section    sections.MessageSectionWithSigForward
 	expiration int64
 }
 
@@ -711,21 +711,21 @@ type negativeAssertionCacheImpl struct {
 //Add adds shard together with an expiration time (number of seconds since 01.01.1970) to
 //the cache. It returns false if the cache is full and a non internal element has been removed
 //according to some strategy.
-func (c *negativeAssertionCacheImpl) AddShard(shard *rainslib.ShardSection, expiration int64, isInternal bool) bool {
+func (c *negativeAssertionCacheImpl) AddShard(shard *sections.ShardSection, expiration int64, isInternal bool) bool {
 	return add(c, shard, expiration, isInternal)
 }
 
 //Add adds zone together with an expiration time (number of seconds since 01.01.1970) to
 //the cache. It returns false if the cache is full and a non internal element has been removed
 //according to some strategy.
-func (c *negativeAssertionCacheImpl) AddZone(zone *rainslib.ZoneSection, expiration int64, isInternal bool) bool {
+func (c *negativeAssertionCacheImpl) AddZone(zone *sections.ZoneSection, expiration int64, isInternal bool) bool {
 	return add(c, zone, expiration, isInternal)
 }
 
 //add adds section together with an expiration time (number of seconds since 01.01.1970) to
 //the cache. It returns false if the cache is full and an element was removed according to least
 //recently used strategy.
-func add(c *negativeAssertionCacheImpl, section rainslib.MessageSectionWithSigForward, expiration int64, isInternal bool) bool {
+func add(c *negativeAssertionCacheImpl, section sections.MessageSectionWithSigForward, expiration int64, isInternal bool) bool {
 	isFull := false
 	cacheLRUValue := negAssertionLRUCacheValue{ctxMap: safeHashMap.New(), zone: section.GetSubjectZone()}
 	v, _ := c.zoneMap.GetOrAdd(section.GetSubjectZone(), &cacheLRUValue)
@@ -790,7 +790,7 @@ func add(c *negativeAssertionCacheImpl, section rainslib.MessageSectionWithSigFo
 //Get returns true and a set of shards and zones matching subjectZone and context and overlap with
 //interval if there exist some. When context is the empty string, a random context is chosen.
 //Otherwise nil and false is returned.
-func (c *negativeAssertionCacheImpl) Get(subjectZone, context string, interval rainslib.Interval) ([]rainslib.MessageSectionWithSigForward, bool) {
+func (c *negativeAssertionCacheImpl) Get(subjectZone, context string, interval sections.Interval) ([]sections.MessageSectionWithSigForward, bool) {
 	v, ok := c.zoneMap.Get(subjectZone)
 	if !ok {
 		return nil, false
@@ -823,7 +823,7 @@ func (c *negativeAssertionCacheImpl) Get(subjectZone, context string, interval r
 	if value.deleted {
 		return nil, false
 	}
-	var sections []rainslib.MessageSectionWithSigForward
+	var sections []sections.MessageSectionWithSigForward
 	for _, sec := range value.sections {
 		if sec.section.Begin() < interval.End() && sec.section.End() > interval.Begin() {
 			sections = append(sections, sec.section)
@@ -1105,19 +1105,19 @@ type setContainer interface {
 	//Add appends item to the current set if not already contained.
 	//It returns false if it was not able to add the element because the underlying datastructure
 	//was deleted in the meantime
-	Add(item rainslib.Hashable) bool
+	Add(item algorithmTypes.Hashable) bool
 
 	//Delete removes item from the set.
 	//Returns true if it was able to delete the element.
-	Delete(item rainslib.Hashable) bool
+	Delete(item algorithmTypes.Hashable) bool
 
 	//GetAll returns all elements contained in the set.
 	//If the underlying datastructure is deleted, the empty list is returned
-	GetAll() []rainslib.Hashable
+	GetAll() []algorithmTypes.Hashable
 
 	//GetAllAndDelete returns all set elements and deletes the underlying datastructure.
 	//If the underlying datastructure is already deleted, the empty list is returned.
-	GetAllAndDelete() []rainslib.Hashable
+	GetAllAndDelete() []algorithmTypes.Hashable
 
 	//Len returns the number of elements in the set.
 	Len() int
@@ -1128,11 +1128,11 @@ type pendingQueryCache interface {
 	//Add adds connection information together with a token and a validity to the cache.
 	//Returns true and a newly generated token for the query to be sent out if cache does not contain a valid entry for context,zone,name,objType.Otherwise false is returned
 	//If the cache is full it removes a pendingQueryCacheValue according to some metric.
-	Add(context, zone, name string, objType []rainslib.ObjectType, value pendingQuerySetValue) (bool, rainslib.Token)
+	Add(context, zone, name string, objType []object.ObjectType, value pendingQuerySetValue) (bool, token.Token)
 	//GetAllAndDelete returns true and all valid pendingQuerySetValues associated with the given token if there are any. Otherwise false
 	//We simultaneously obtained all elements and close the set data structure. Then we remove the entry from the cache. If in the meantime an Add operation happened,
 	//then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
-	GetAllAndDelete(token rainslib.Token) ([]pendingQuerySetValue, bool)
+	GetAllAndDelete(token token.Token) ([]pendingQuerySetValue, bool)
 	//RemoveExpiredValues goes through the cache and removes all expired values and tokens. If for a given context and zone there is no value left it removes the entry from cache.
 	RemoveExpiredValues()
 	//Len returns the number of elements in the cache.
@@ -1144,13 +1144,13 @@ type elemAndValidTo struct {
 	context    string
 	zone       string
 	name       string
-	objType    rainslib.ObjectType
+	objType    object.ObjectType
 }
 
 //pendingSignatureCacheValue is the value received from the pendingQuery cache
 type pendingQuerySetValue struct {
-	connInfo   rainslib.ConnInfo
-	token      rainslib.Token //Token from the received query
+	connInfo   connection.ConnInfo
+	token      token.Token //Token from the received query
 	validUntil int64
 }
 
@@ -1161,7 +1161,7 @@ func (p pendingQuerySetValue) Hash() string {
 //pendingSignatureCacheValue is the value received from the pendingQuery cache
 type pendingQueryCacheValue struct {
 	set   setContainer
-	token rainslib.Token //Token of this servers query
+	token token.Token //Token of this servers query
 }
 
 
@@ -1190,10 +1190,10 @@ type pendingQueryCacheImpl struct {
 //Add adds connection information together with a token and a validity to the cache.
 //Returns true if cache does not contain a valid entry for context,zone,name,objType else return false
 //If the cache is full it removes a pendingQueryCacheValue according to some metric.
-func (c *pendingQueryCacheImpl) Add(context, zone, name string, objType []rainslib.ObjectType, value pendingQuerySetValue) (bool, rainslib.Token) {
+func (c *pendingQueryCacheImpl) Add(context, zone, name string, objType []object.ObjectType, value pendingQuerySetValue) (bool, token.Token) {
 	set := setDataStruct.New()
 	set.Add(value)
-	token := rainslib.GenerateToken()
+	token := token.GenerateToken()
 	cacheValue := pendingQueryCacheValue{set: set, token: token}
 	ok := c.callBackCache.Add(cacheValue, false, context, zone, name, fmt.Sprintf("%v", objType))
 	if ok {
@@ -1260,7 +1260,7 @@ func handlePendingQueryCacheSize(c *pendingQueryCacheImpl) {
 //GetAllAndDelete returns true and all valid pendingQueryCacheValues associated with the given token if there are any. Otherwise false
 //We remove the entry from the cache and from the activeToken map. Then we simultaneously obtained all elements from the set data structure and close it.
 //If in the meantime an Add operation happened, then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
-func (c *pendingQueryCacheImpl) GetAllAndDelete(token rainslib.Token) ([]pendingQuerySetValue, bool) {
+func (c *pendingQueryCacheImpl) GetAllAndDelete(token token.Token) ([]pendingQuerySetValue, bool) {
 	sendInfos := []pendingQuerySetValue{}
 	deleteCount := uint(0)
 	c.activeTokenLock.RLock()

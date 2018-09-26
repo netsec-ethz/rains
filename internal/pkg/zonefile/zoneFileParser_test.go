@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
 func TestEncodeDecode(t *testing.T) {
@@ -15,15 +18,15 @@ func TestEncodeDecode(t *testing.T) {
 	zoneFile := parser.Encode(zones[0])
 
 	decode, err := parser.Decode([]byte(zoneFile))
-	assertions := []*rainslib.AssertionSection{}
+	assertions := []*sections.AssertionSection{}
 	for _, a := range decode {
-		assertions = append(assertions, a.(*rainslib.AssertionSection))
+		assertions = append(assertions, a.(*sections.AssertionSection))
 	}
 	if err != nil {
 		t.Error(err)
 	}
 
-	containedAssertions := []*rainslib.AssertionSection{zones[0].Content[0].(*rainslib.AssertionSection), zones[0].Content[1].(*rainslib.ShardSection).Content[0]}
+	containedAssertions := []*sections.AssertionSection{zones[0].Content[0].(*sections.AssertionSection), zones[0].Content[1].(*sections.ShardSection).Content[0]}
 	for i, a := range assertions {
 		//contained section must not have a context or subjectZone, thus to compare it, inherit the value from the zone
 		containedAssertions[i].Context = zones[0].Context
@@ -36,10 +39,10 @@ func TestEncodeDecode(t *testing.T) {
 
 func TestGetEncodingErrors(t *testing.T) {
 	var tests = []struct {
-		input rainslib.MessageSection
+		input sections.MessageSection
 		want  string
 	}{
-		{rainslib.MessageSection(&rainslib.Object{}), ""},
+		{sections.MessageSection(&object.Object{}), ""},
 	}
 	for _, test := range tests {
 		if GetEncoding(test.input, true) != test.want {
@@ -77,12 +80,12 @@ func TestReplaceWhitespaces(t *testing.T) {
 }
 
 func TestEncodeSection(t *testing.T) {
-	assertion := &rainslib.AssertionSection{
-		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTIP4Addr, Value: "127.0.0.1"}},
+	assertion := &sections.AssertionSection{
+		Content:     []object.Object{object.Object{Type: object.OTIP4Addr, Value: "127.0.0.1"}},
 		SubjectName: "ethz",
 	}
 	var tests = []struct {
-		input rainslib.MessageSectionWithSigForward
+		input sections.MessageSectionWithSigForward
 		want  string
 	}{
 		{assertion, ":A: ethz [ :ip4: 127.0.0.1 ]"},
@@ -96,20 +99,20 @@ func TestEncodeSection(t *testing.T) {
 }
 
 func TestEncodeMessage(t *testing.T) {
-	assertion := &rainslib.AssertionSection{
-		Content:     []rainslib.Object{rainslib.Object{Type: rainslib.OTIP4Addr, Value: "127.0.0.1"}},
+	assertion := &sections.AssertionSection{
+		Content:     []object.Object{object.Object{Type: object.OTIP4Addr, Value: "127.0.0.1"}},
 		SubjectName: "ethz",
 	}
-	token := rainslib.GenerateToken()
-	capabilities := []rainslib.Capability{rainslib.Capability("capa1"), rainslib.Capability("capa2")}
+	token := token.GenerateToken()
+	capabilities := []message.Capability{message.Capability("capa1"), message.Capability("capa2")}
 	encodedToken := hex.EncodeToString(token[:])
-	message := &rainslib.RainsMessage{
+	message := &message.RainsMessage{
 		Capabilities: capabilities,
 		Token:        token,
-		Content:      []rainslib.MessageSection{assertion},
+		Content:      []sections.MessageSection{assertion},
 	}
 	var tests = []struct {
-		input *rainslib.RainsMessage
+		input *message.RainsMessage
 		want  string
 	}{
 		{message, fmt.Sprintf(":M: [ capa1 capa2 ] %s [ :A: ethz [ :ip4: 127.0.0.1 ] ]", encodedToken)},

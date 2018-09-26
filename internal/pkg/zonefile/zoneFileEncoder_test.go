@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
 
 	"golang.org/x/crypto/ed25519"
 )
@@ -52,28 +54,28 @@ func TestEncodeZones(t *testing.T) {
 
 func TestEncodeNameObject(t *testing.T) {
 	var tests = []struct {
-		input rainslib.NameObject
+		input object.NameObject
 		want  string
 	}{
-		{rainslib.NameObject{
+		{object.NameObject{
 			Name: "name.ethz.ch",
-			Types: []rainslib.ObjectType{
-				rainslib.OTName,
-				rainslib.OTIP6Addr,
-				rainslib.OTIP4Addr,
-				rainslib.OTRedirection,
-				rainslib.OTDelegation,
-				rainslib.OTNameset,
-				rainslib.OTCertInfo,
-				rainslib.OTServiceInfo,
-				rainslib.OTRegistrar,
-				rainslib.OTRegistrant,
-				rainslib.OTInfraKey,
-				rainslib.OTExtraKey,
-				rainslib.OTNextKey,
+			Types: []object.ObjectType{
+				object.OTName,
+				object.OTIP6Addr,
+				object.OTIP4Addr,
+				object.OTRedirection,
+				object.OTDelegation,
+				object.OTNameset,
+				object.OTCertInfo,
+				object.OTServiceInfo,
+				object.OTRegistrar,
+				object.OTRegistrant,
+				object.OTInfraKey,
+				object.OTExtraKey,
+				object.OTNextKey,
 			},
 		}, "name.ethz.ch [ name ip6 ip4 redir deleg nameset cert srv regr regt infra extra next ]"},
-		{rainslib.NameObject{Name: "ethz.ch", Types: []rainslib.ObjectType{rainslib.ObjectType(-1)}}, "ethz.ch [  ]"},
+		{object.NameObject{Name: "ethz.ch", Types: []object.ObjectType{object.ObjectType(-1)}}, "ethz.ch [  ]"},
 	}
 	for _, test := range tests {
 		if encodeNameObject(test.input) != test.want {
@@ -85,15 +87,15 @@ func TestEncodeNameObject(t *testing.T) {
 func TestEncodePublicKey(t *testing.T) {
 	pkey, _, _ := ed25519.GenerateKey(nil)
 	var tests = []struct {
-		input rainslib.PublicKey
+		input keys.PublicKey
 		want  string
 	}{
-		{rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519}, Key: pkey}, fmt.Sprintf("ed25519 %s", hex.EncodeToString(pkey))},
-		{rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed25519}, Key: []byte(" ")}, ""},
-		{rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ed448}}, ""},
-		{rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ecdsa256}}, ""},
-		{rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.Ecdsa384}}, ""},
-		{rainslib.PublicKey{PublicKeyID: rainslib.PublicKeyID{Algorithm: rainslib.SignatureAlgorithmType(-1)}}, ""},
+		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519}, Key: pkey}, fmt.Sprintf("ed25519 %s", hex.EncodeToString(pkey))},
+		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519}, Key: []byte(" ")}, ""},
+		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed448}}, ""},
+		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: object.Ecdsa256}}, ""},
+		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: object.Ecdsa384}}, ""},
+		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.SignatureAlgorithmType(-1)}}, ""},
 	}
 	for _, test := range tests {
 		if encodeEd25519PublicKey(test.input) != test.want {
@@ -104,11 +106,11 @@ func TestEncodePublicKey(t *testing.T) {
 
 func TestEncodeKeySpace(t *testing.T) {
 	var tests = []struct {
-		input rainslib.KeySpaceID
+		input object.KeySpaceID
 		want  string
 	}{
-		{rainslib.RainsKeySpace, "rains"},
-		{rainslib.KeySpaceID(-1), ""},
+		{keys.RainsKeySpace, "rains"},
+		{object.KeySpaceID(-1), ""},
 	}
 	for _, test := range tests {
 		if encodeKeySpace(test.input) != test.want {
@@ -119,12 +121,12 @@ func TestEncodeKeySpace(t *testing.T) {
 
 func TestEncodeCertificateErrors(t *testing.T) {
 	var tests = []struct {
-		input rainslib.CertificateObject
+		input object.CertificateObject
 		want  string
 	}{
-		{rainslib.CertificateObject{Type: rainslib.ProtocolType(-1)}, ""},
-		{rainslib.CertificateObject{Type: rainslib.PTTLS, Usage: rainslib.CertificateUsage(-1)}, ""},
-		{rainslib.CertificateObject{Type: rainslib.PTTLS, Usage: rainslib.CUTrustAnchor, HashAlgo: rainslib.HashAlgorithmType(-1)}, ""},
+		{object.CertificateObject{Type: object.ProtocolType(-1)}, ""},
+		{object.CertificateObject{Type: object.PTTLS, Usage: object.CertificateUsage(-1)}, ""},
+		{object.CertificateObject{Type: object.PTTLS, Usage: object.CUTrustAnchor, HashAlgo: algorithmTypes.HashAlgorithmType(-1)}, ""},
 	}
 	for _, test := range tests {
 		if encodeCertificate(test.input) != test.want {
@@ -135,18 +137,18 @@ func TestEncodeCertificateErrors(t *testing.T) {
 
 func TestEncodeObjectErrors(t *testing.T) {
 	var tests = []struct {
-		input []rainslib.Object
+		input []object.Object
 		want  string
 	}{
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTName}}, ""},
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTDelegation}}, ""},
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTCertInfo}}, ""},
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTServiceInfo}}, ""},
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTInfraKey}}, ""},
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTExtraKey}}, ""},
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTNextKey}}, ""},
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.OTNextKey}}, ""},
-		{[]rainslib.Object{rainslib.Object{Type: rainslib.ObjectType(-1)}}, ""},
+		{[]object.Object{object.Object{Type: object.OTName}}, ""},
+		{[]object.Object{object.Object{Type: object.OTDelegation}}, ""},
+		{[]object.Object{object.Object{Type: object.OTCertInfo}}, ""},
+		{[]object.Object{object.Object{Type: object.OTServiceInfo}}, ""},
+		{[]object.Object{object.Object{Type: object.OTInfraKey}}, ""},
+		{[]object.Object{object.Object{Type: object.OTExtraKey}}, ""},
+		{[]object.Object{object.Object{Type: object.OTNextKey}}, ""},
+		{[]object.Object{object.Object{Type: object.OTNextKey}}, ""},
+		{[]object.Object{object.Object{Type: object.ObjectType(-1)}}, ""},
 	}
 	for _, test := range tests {
 		if encodeObjects(test.input, "") != test.want {
