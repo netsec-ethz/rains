@@ -295,7 +295,7 @@ func CheckObjects(objs1, objs2 []Object, t *testing.T) {
 				t.Errorf("Object Value name Name mismatch at position %d", i)
 			}
 			if len(n1.Types) != len(n2.Types) {
-				t.Error("Object Value name types length mismatch")
+				t.Error("Object Value name connection length mismatch")
 			}
 			for j, t1 := range n1.Types {
 				if t1 != n2.Types[j] {

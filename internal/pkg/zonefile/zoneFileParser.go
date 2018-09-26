@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -63,16 +64,16 @@ type ZoneFileParser interface {
 	//Decode takes as input a byte string of section(s) in zonefile format. It returns a slice of
 	//all contained assertions, shards, and zones in the provided order or an error in case of
 	//failure.
-	Decode(zoneFile []byte) ([]MessageSectionWithSigForward, error)
+	Decode(zoneFile []byte) ([]sections.MessageSectionWithSigForward, error)
 
 	//DecodeZone takes as input a byte string of one zone in zonefile format. It returns the zone
 	//exactly as it is in the zonefile or an error in case of failure.
-	DecodeZone(zoneFile []byte) (*ZoneSection, error)
+	DecodeZone(zoneFile []byte) (*sections.ZoneSection, error)
 
 	//Encode returns the given section represented in zone file format if it is an assertion, shard,
 	//or zone. In all other cases it returns the section in a displayable format similar to the zone
 	//file format
-	Encode(section MessageSection) string
+	Encode(section sections.MessageSection) string
 }
 
 //Parser can be used to parse RAINS zone files
@@ -80,23 +81,23 @@ type Parser struct{}
 
 //Encode returns the given section represented in the zone file format if it is a zoneSection.
 //In all other cases it returns the section in a displayable format similar to the zone file format
-func (p Parser) Encode(s rainslib.MessageSection) string {
+func (p Parser) Encode(s message.MessageSection) string {
 	return GetEncoding(s, false)
 }
 
 //Decode returns all assertions contained in the given zonefile
-func (p Parser) Decode(zoneFile []byte) ([]rainslib.MessageSectionWithSigForward, error) {
+func (p Parser) Decode(zoneFile []byte) ([]section.MessageSectionWithSigForward, error) {
 	log.Error("Not yet supported")
 	return nil, nil
 }
 
 //DecodeZone returns a zone exactly as it is represented in the zonefile
-func (p Parser) DecodeZone(zoneFile []byte) (*rainslib.ZoneSection, error) {
+func (p Parser) DecodeZone(zoneFile []byte) (*section.ZoneSection, error) {
 	lines := removeComments(bufio.NewScanner(bytes.NewReader(zoneFile)))
 	log.Debug("Preprocessed input", "data", lines)
 	parser := ZFPNewParser()
 	parser.Parse(&ZFPLex{lines: lines})
-	zone, ok := parser.Result()[0].(*rainslib.ZoneSection)
+	zone, ok := parser.Result()[0].(*section.ZoneSection)
 	if !ok {
 		return nil, errors.New("First element of zonefile is not a zone. (Note, only the first element of the zonefile is considered)")
 	}
@@ -106,7 +107,7 @@ func (p Parser) DecodeZone(zoneFile []byte) (*rainslib.ZoneSection, error) {
 //EncodeMessage transforms the given msg into a signable format.
 //It must have already been verified that the msg does not contain malicious content.
 //Signature meta data is not added
-func (p Parser) EncodeMessage(msg *rainslib.RainsMessage) []byte {
+func (p Parser) EncodeMessage(msg *message.RainsMessage) []byte {
 	encoding := encodeMessage(msg)
 	return []byte(replaceWhitespaces(encoding))
 }
@@ -114,28 +115,28 @@ func (p Parser) EncodeMessage(msg *rainslib.RainsMessage) []byte {
 //EncodeSection transforms the given msg into a signable format
 //It must have already been verified that the section does not contain malicious content
 //Signature meta data is not added
-func (p Parser) EncodeSection(s rainslib.MessageSectionWithSig) []byte {
+func (p Parser) EncodeSection(s section.MessageSectionWithSig) []byte {
 	encoding := GetEncoding(s, true)
 	return []byte(replaceWhitespaces(encoding))
 }
 
 //GetEncoding returns an encoding in zonefile format
-func GetEncoding(s rainslib.MessageSection, forSigning bool) string {
+func GetEncoding(s message.MessageSection, forSigning bool) string {
 	encoding := ""
 	switch s := s.(type) {
-	case *rainslib.AssertionSection:
+	case *section.AssertionSection:
 		encoding = encodeAssertion(s, s.Context, s.SubjectZone, "", forSigning)
-	case *rainslib.ShardSection:
+	case *section.ShardSection:
 		encoding = encodeShard(s, s.Context, s.SubjectZone, "", forSigning)
-	case *rainslib.ZoneSection:
+	case *section.ZoneSection:
 		encoding = encodeZone(s, forSigning)
-	case *rainslib.QuerySection:
+	case *section.QuerySection:
 		encoding = encodeQuery(s)
-	case *rainslib.NotificationSection:
+	case *section.NotificationSection:
 		encoding = encodeNotification(s)
-	case *rainslib.AddressAssertionSection:
+	case *section.AddressAssertionSection:
 		encoding = encodeAddressAssertion(s)
-	case *rainslib.AddressQuerySection:
+	case *section.AddressQuerySection:
 		encoding = encodeAddressQuery(s)
 	default:
 		log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))

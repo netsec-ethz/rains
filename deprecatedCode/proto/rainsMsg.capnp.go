@@ -4,6 +4,7 @@ package proto
 
 import (
 	strconv "strconv"
+
 	capnp "zombiezen.com/go/capnproto2"
 	text "zombiezen.com/go/capnproto2/encoding/text"
 	schemas "zombiezen.com/go/capnproto2/schemas"
@@ -1039,7 +1040,7 @@ func (s QuerySection) SetTypes(v capnp.Int32List) error {
 	return s.Struct.SetPtr(2, v.List.ToPtr())
 }
 
-// NewTypes sets the types field to a newly
+// NewTypes sets the connection field to a newly
 // allocated capnp.Int32List, preferring placement in s's segment.
 func (s QuerySection) NewTypes(n int32) (capnp.Int32List, error) {
 	l, err := capnp.NewInt32List(s.Struct.Segment(), n)
@@ -1457,7 +1458,7 @@ func (s AddressQuerySection) SetTypes(v capnp.Int32List) error {
 	return s.Struct.SetPtr(2, v.List.ToPtr())
 }
 
-// NewTypes sets the types field to a newly
+// NewTypes sets the connection field to a newly
 // allocated capnp.Int32List, preferring placement in s's segment.
 func (s AddressQuerySection) NewTypes(n int32) (capnp.Int32List, error) {
 	l, err := capnp.NewInt32List(s.Struct.Segment(), n)

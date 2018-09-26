@@ -1,7 +1,6 @@
 package util
 
 import (
-	"crypto/rand"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
 
 	"golang.org/x/crypto/ed25519"
 )
@@ -19,14 +19,13 @@ func init() {
 	gob.RegisterName("ed25519.PublicKey", ed25519.PublicKey{})
 }
 
-//GenerateToken generates a new unique Token
-func GenerateToken() Token {
-	token := [16]byte{}
-	_, err := rand.Read(token[:])
-	if err != nil {
-		log.Warn("Error during random token generation", "error", err)
-	}
-	return Token(token)
+//MaxCacheValidity defines the maximum duration each section containing signatures can be valid, starting from time.Now()
+type MaxCacheValidity struct {
+	AssertionValidity        time.Duration
+	ShardValidity            time.Duration
+	ZoneValidity             time.Duration
+	AddressAssertionValidity time.Duration
+	AddressZoneValidity      time.Duration
 }
 
 //Save stores the object to the file located at the specified path gob encoded.
@@ -93,7 +92,7 @@ func UpdateSectionValidity(section MessageSectionWithSig, pkeyValidSince, pkeyVa
 }
 
 //NewQueryMessage creates a new message containing a query body with values obtained from the input parameter
-func NewQueryMessage(name, context string, expTime int64, objType []ObjectType,
+func NewQueryMessage(name, context string, expTime int64, objType []object.ObjectType,
 	queryOptions []QueryOption, token Token) RainsMessage {
 	query := QuerySection{
 		Context:    context,
@@ -140,14 +139,4 @@ func NewNotificationsMessage(tokens []Token, types []NotificationType, data []st
 func NewNotificationMessage(token Token, t NotificationType, data string) RainsMessage {
 	msg, _ := NewNotificationsMessage([]Token{token}, []NotificationType{t}, []string{data})
 	return msg
-}
-
-//ContainsType returns the first object with oType and true if objects contains at least one
-func ContainsType(objects []Object, oType ObjectType) (Object, bool) {
-	for _, o := range objects {
-		if o.Type == oType {
-			return o, true
-		}
-	}
-	return Object{}, false
 }

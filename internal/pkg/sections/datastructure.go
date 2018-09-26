@@ -37,14 +37,14 @@ func (d DataStructure) CompareTo(ds DataStructure) int {
 	return 0
 }
 
-//DataStructureType enumerates data structure types for pshards
+//DataStructureType enumerates data structure connection for pshards
 type DataStructureType int
 
 const (
 	BloomFilterType DataStructureType = iota + 1
 )
 
-//ModeOfOperationType enumerates mode of operation types for pshards
+//ModeOfOperationType enumerates mode of operation connection for pshards
 type ModeOfOperationType int
 
 const (

@@ -18,30 +18,33 @@ import (
     "strconv"
     "strings"
     log "github.com/inconshreveable/log15"
-    "github.com/netsec-ethz/rains/internal/pkg/rainslib"
+    "github.com/netsec-ethz/rains/internal/pkg/signature"
+    "github.com/netsec-ethz/rains/internal/pkg/sections"
+    "github.com/netsec-ethz/rains/internal/pkg/object"
     "github.com/netsec-ethz/rains/internal/pkg/zonefile"
+    "github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
     "github.com/netsec-ethz/rains/internal/pkg/utils/bitarray"
     "golang.org/x/crypto/ed25519"
 )
 
 //AddSigs adds signatures to section
-func AddSigs(section rainslib.MessageSectionWithSigForward, signatures []rainslib.Signature) {
+func AddSigs(section sections.MessageSectionWithSigForward, signatures []signature.Signature) {
     for _, sig := range signatures {
         section.AddSig(sig)
     }
 }
 
-func DecodeBloomFilter(hashAlgos []rainslib.HashAlgorithmType, modeOfOperation rainslib.ModeOfOperationType,
-    nofHashFunctions, filter string) (rainslib.BloomFilter, error) {
+func DecodeBloomFilter(hashAlgos []algorithmTypes.HashAlgorithmType, modeOfOperation section.ModeOfOperationType,
+    nofHashFunctions, filter string) (section.BloomFilter, error) {
     funcs, err := strconv.Atoi(nofHashFunctions)
 	if err != nil {
-		return rainslib.BloomFilter{}, errors.New("nofHashFunctions is not a number")
+		return section.BloomFilter{}, errors.New("nofHashFunctions is not a number")
 	}
     decodedFilter, err := hex.DecodeString(filter)
 	if err != nil {
-		return rainslib.BloomFilter{}, err
+		return section.BloomFilter{}, err
 	}
-    return rainslib.BloomFilter{
+    return section.BloomFilter{
             HashFamily: hashAlgos,
             NofHashFunctions: funcs,
             ModeOfOperation: modeOfOperation,
@@ -49,15 +52,15 @@ func DecodeBloomFilter(hashAlgos []rainslib.HashAlgorithmType, modeOfOperation r
         }, nil
 }
 
-func DecodePublicKeyID(keyphase string) (rainslib.PublicKeyID, error) {
+func DecodePublicKeyID(keyphase string) (keys.PublicKeyID, error) {
     phase, err := strconv.Atoi(keyphase)
 	if err != nil {
-		return rainslib.PublicKeyID{}, errors.New("keyphase is not a number")
+		return keys.PublicKeyID{}, errors.New("keyphase is not a number")
 	}
-    return rainslib.PublicKeyID{
-		Algorithm: rainslib.Ed25519,
+    return keys.PublicKeyID{
+		Algorithm: keys.Ed25519,
         KeyPhase:  phase,
-		KeySpace:  rainslib.RainsKeySpace,
+		KeySpace:  keys.RainsKeySpace,
 	}, nil
 }
 
@@ -67,30 +70,30 @@ func DecodeEd25519SignatureData(input string) (interface{}, error) {
 
 // DecodeEd25519PublicKeyData returns the publicKey or an error in case
 // pkeyInput is malformed i.e. it is not in zone file format.
-func DecodeEd25519PublicKeyData(pkeyInput string, keyphase string) (rainslib.PublicKey, error) {
+func DecodeEd25519PublicKeyData(pkeyInput string, keyphase string) (keys.PublicKey, error) {
 	publicKeyID, err := DecodePublicKeyID(keyphase)
     if err != nil {
-		return rainslib.PublicKey{}, err
+		return keys.PublicKey{}, err
 	}
 	pKey, err := hex.DecodeString(pkeyInput)
 	if err != nil {
-		return rainslib.PublicKey{}, err
+		return keys.PublicKey{}, err
 	}
 	if len(pKey) == 32 {
-		publicKey := rainslib.PublicKey{Key: ed25519.PublicKey(pKey), PublicKeyID: publicKeyID}
+		publicKey := keys.PublicKey{Key: ed25519.PublicKey(pKey), PublicKeyID: publicKeyID}
 		return publicKey, nil
 	}
-	return rainslib.PublicKey{}, fmt.Errorf("wrong public key length: got %d, want: 32", len(pKey))
+	return keys.PublicKey{}, fmt.Errorf("wrong public key length: got %d, want: 32", len(pKey))
 }
 
-func DecodeCertificate(ptype rainslib.ProtocolType, usage rainslib.CertificateUsage, 
-    hashAlgo rainslib.HashAlgorithmType, certificat string) (rainslib.CertificateObject,
+func DecodeCertificate(ptype object.ProtocolType, usage object.CertificateUsage, 
+    hashAlgo algorithmTypes.HashAlgorithmType, certificat string) (object.CertificateObject,
 error) {
     data, err := hex.DecodeString(certificat)
     if err != nil {
-        return rainslib.CertificateObject{}, err
+        return object.CertificateObject{}, err
     }
-    return rainslib.CertificateObject{
+    return object.CertificateObject{
         Type:     ptype,
         Usage:    usage,
         HashAlgo: hashAlgo,
@@ -98,16 +101,16 @@ error) {
     }, nil
 }
 
-func DecodeSrv(name, portString, priorityString string) (rainslib.ServiceInfo, error) {
+func DecodeSrv(name, portString, priorityString string) (object.ServiceInfo, error) {
     port, err := strconv.Atoi(portString)
     if  err != nil || port < 0 || port > 65535 {
-        return rainslib.ServiceInfo{}, errors.New("Port is not a number or out of range")
+        return object.ServiceInfo{}, errors.New("Port is not a number or out of range")
     }
     priority, err := strconv.Atoi(priorityString)
     if  err != nil || port < 0 {
-        return rainslib.ServiceInfo{}, errors.New("Priority is not a number or negative")
+        return object.ServiceInfo{}, errors.New("Priority is not a number or negative")
     }
-    return rainslib.ServiceInfo {
+    return object.ServiceInfo {
         Name: name,
         Port: uint16(port),
         Priority: uint(priority),
@@ -127,7 +130,7 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
 }
 
 //Result gets stored in this variable
-var output []rainslib.MessageSectionWithSigForward
+var output []section.MessageSectionWithSigForward
 
 %}
 
@@ -136,26 +139,26 @@ var output []rainslib.MessageSectionWithSigForward
 // as ${PREFIX}SymType, of which a reference is passed to the lexer.
 %union{
     str             string
-    assertion       *rainslib.AssertionSection
-    assertions      []*rainslib.AssertionSection
-    shard           *rainslib.ShardSection
-    pshard          *rainslib.PshardSection
-    zone            *rainslib.ZoneSection
-    sections        []rainslib.MessageSectionWithSigForward
-    objects         []rainslib.Object
-    object          rainslib.Object
-    objectTypes     []rainslib.ObjectType
-    objectType      rainslib.ObjectType
-    signatures      []rainslib.Signature
-    signature       rainslib.Signature
+    assertion       *section.AssertionSection
+    assertions      []*section.AssertionSection
+    shard           *section.ShardSection
+    pshard          *section.PshardSection
+    zone            *section.ZoneSection
+    sections        []section.MessageSectionWithSigForward
+    objects         []object.Object
+    object          object.Object
+    objectTypes     []object.ObjectType
+    objectType      object.ObjectType
+    signatures      []signature.Signature
+    signature       signature.Signature
     shardRange      []string
-    publicKey       rainslib.PublicKey
-    protocolType    rainslib.ProtocolType
-    certUsage       rainslib.CertificateUsage
-    hashType        rainslib.HashAlgorithmType
-    hashTypes       []rainslib.HashAlgorithmType
-    dataStructure   rainslib.DataStructure
-    bfOpMode        rainslib.ModeOfOperationType
+    publicKey       keys.PublicKey
+    protocolType    object.ProtocolType
+    certUsage       object.CertificateUsage
+    hashType        algorithmTypes.HashAlgorithmType
+    hashTypes       []algorithmTypes.HashAlgorithmType
+    dataStructure   sections.DataStructure
+    bfOpMode        sections.ModeOfOperationType
 }
 
 // any non-terminal which returns a value needs a type, which must be a field 
@@ -246,7 +249,7 @@ zone            : zoneBody
 
 zoneBody        : zoneType ID ID lBracket zoneContent rBracket
                 {
-                    $$ = &rainslib.ZoneSection{
+                    $$ = &sections.ZoneSection{
                         SubjectZone: $2, 
                         Context: $3,
                         Content: $5,    
@@ -279,7 +282,7 @@ shard           : shardBody
 
 shardBody       : shardType ID ID shardRange lBracket shardContent rBracket
                 {
-                    $$ = &rainslib.ShardSection{
+                    $$ = &sections.ShardSection{
                         SubjectZone: $2, 
                         Context: $3,
                         RangeFrom: $4[0],
@@ -289,7 +292,7 @@ shardBody       : shardType ID ID shardRange lBracket shardContent rBracket
                 }
                 | shardType shardRange lBracket shardContent rBracket
                 {
-                    $$ = &rainslib.ShardSection{
+                    $$ = &sections.ShardSection{
                         RangeFrom: $2[0],
                         RangeTo: $2[1],
                         Content: $4,
@@ -331,7 +334,7 @@ pshard          : pshardBody
 
 pshardBody      : pshardType ID ID shardRange pshardContent
                 {
-                    $$ = &rainslib.PshardSection{
+                    $$ = &sections.PshardSection{
                         SubjectZone: $2, 
                         Context: $3,
                         RangeFrom: $4[0],
@@ -341,7 +344,7 @@ pshardBody      : pshardType ID ID shardRange pshardContent
                 }
                 | pshardType shardRange pshardContent
                 {
-                    $$ = &rainslib.PshardSection{
+                    $$ = &sections.PshardSection{
                         RangeFrom: $2[0],
                         RangeTo: $2[1],
                         Datastructure: $3,
@@ -356,15 +359,15 @@ bloomFilter     : bloomFilterType lBracket hashTypes rBracket ID bfOpMode ID
                     if  err != nil {
                         log.Error("semantic error:", "DecodeBloomFilter", err)
                     }
-                    $$ = rainslib.DataStructure{
-                        Type: rainslib.BloomFilterType,
+                    $$ = sections.DataStructure{
+                        Type: sections.BloomFilterType,
                         Data: bloomFilter,
                     }
                 }
 
 hashTypes       : hashType
                 {
-                    $$ = []rainslib.HashAlgorithmType{$1}
+                    $$ = []algorithmTypes.HashAlgorithmType{$1}
                 }
                 | hashTypes hashType
                 {
@@ -373,15 +376,15 @@ hashTypes       : hashType
 
 bfOpMode        : standard
                 {
-                    $$ = rainslib.StandardOpType
+                    $$ = sections.StandardOpType
                 }
                 | km1
                 {
-                    $$ = rainslib.KirschMitzenmacher1
+                    $$ = sections.KirschMitzenmacher1
                 }
                 | km2
                 {
-                    $$ = rainslib.KirschMitzenmacher2
+                    $$ = sections.KirschMitzenmacher2
                 }
 
 assertion       : assertionBody
@@ -393,14 +396,14 @@ assertion       : assertionBody
     
 assertionBody   : assertionType ID lBracket objects rBracket
                 {
-                    $$ = &rainslib.AssertionSection{
+                    $$ = &sections.AssertionSection{
                         SubjectName: $2,
                         Content: $4,
                     }
                 }
                 | assertionType ID ID ID lBracket objects rBracket
                 {
-                    $$ = &rainslib.AssertionSection{
+                    $$ = &sections.AssertionSection{
                         SubjectZone: $2, 
                         Context: $3,
                         SubjectName: $4,
@@ -424,7 +427,7 @@ objects          : name
 
 name            : nameBody
                 {
-                    $$ = []rainslib.Object{$1}
+                    $$ = []object.Object{$1}
                 }
                 | name nameBody
                 {
@@ -433,9 +436,9 @@ name            : nameBody
 
 nameBody        : nameType ID lBracket oTypes rBracket
                 {
-                    $$ = rainslib.Object{
-                        Type: rainslib.OTName,
-                        Value: rainslib.NameObject{
+                    $$ = object.Object{
+                        Type: object.OTName,
+                        Value: object.NameObject{
                             Name: $2,
                             Types: $4,
                         },
@@ -444,7 +447,7 @@ nameBody        : nameType ID lBracket oTypes rBracket
 
 oTypes          : oType
                 {
-                    $$ = []rainslib.ObjectType{$1}
+                    $$ = []object.ObjectType{$1}
                 }
                 | oTypes oType
                 {
@@ -453,60 +456,60 @@ oTypes          : oType
 
 oType           : nameType
                 {
-                    $$ = rainslib.OTName
+                    $$ = object.OTName
                 }
                 | ip4Type
                 {
-                    $$ = rainslib.OTIP4Addr
+                    $$ = object.OTIP4Addr
                 }
                 | ip6Type
                 {
-                    $$ = rainslib.OTIP6Addr
+                    $$ = object.OTIP6Addr
                 }
                 | redirType
                 {
-                    $$ = rainslib.OTRedirection
+                    $$ = object.OTRedirection
                 }
                 | delegType
                 {
-                    $$ = rainslib.OTDelegation
+                    $$ = object.OTDelegation
                 }
                 | namesetType
                 {
-                    $$ = rainslib.OTNameset
+                    $$ = object.OTNameset
                 }
                 | certType
                 {
-                    $$ = rainslib.OTCertInfo
+                    $$ = object.OTCertInfo
                 }
                 | srvType
                 {
-                    $$ = rainslib.OTServiceInfo
+                    $$ = object.OTServiceInfo
                 }
                 | regrType
                 {
-                    $$ = rainslib.OTRegistrar
+                    $$ = object.OTRegistrar
                 }
                 | regtType
                 {
-                    $$ = rainslib.OTRegistrant
+                    $$ = object.OTRegistrant
                 }
                 | infraType
                 {
-                    $$ = rainslib.OTInfraKey
+                    $$ = object.OTInfraKey
                 }
                 | extraType
                 {
-                    $$ = rainslib.OTExtraKey
+                    $$ = object.OTExtraKey
                 }
                 | nextType
                 {
-                    $$ = rainslib.OTNextKey
+                    $$ = object.OTNextKey
                 }
 
 ip6             : ip6Body
                 {
-                    $$ = []rainslib.Object{$1}
+                    $$ = []object.Object{$1}
                 }
                 | ip6 ip6Body
                 {
@@ -515,15 +518,15 @@ ip6             : ip6Body
 
 ip6Body         : ip6Type ID
                 {
-                    $$ = rainslib.Object{
-                        Type: rainslib.OTIP6Addr,
+                    $$ = object.Object{
+                        Type: object.OTIP6Addr,
                         Value: $2,
                     }
                 }
 
 ip4             : ip4Body
                 {
-                    $$ = []rainslib.Object{$1}
+                    $$ = []object.Object{$1}
                 }
                 | ip4 ip4Body
                 {
@@ -532,15 +535,15 @@ ip4             : ip4Body
 
 ip4Body         : ip4Type ID
                 {
-                    $$ = rainslib.Object{
-                        Type: rainslib.OTIP4Addr,
+                    $$ = object.Object{
+                        Type: object.OTIP4Addr,
                         Value: $2,
                     }
                 }
 
 redir             : redirBody
                 {
-                    $$ = []rainslib.Object{$1}
+                    $$ = []object.Object{$1}
                 }
                 | redir redirBody
                 {
@@ -549,15 +552,15 @@ redir             : redirBody
 
 redirBody       : redirType ID
                 {
-                    $$ = rainslib.Object{
-                        Type: rainslib.OTRedirection,
+                    $$ = object.Object{
+                        Type: object.OTRedirection,
                         Value: $2,
                     }
                 }
 
 deleg           : delegBody
                 {
-                    $$ = []rainslib.Object{$1}
+                    $$ = []object.Object{$1}
                 }
                 | deleg delegBody
                 {
@@ -570,15 +573,15 @@ delegBody       : delegType ed25519Type ID ID
                     if  err != nil {
                         log.Error("semantic error:", "DecodeEd25519PublicKeyData", err)
                     }
-                    $$ = rainslib.Object{
-                        Type: rainslib.OTDelegation,
+                    $$ = object.Object{
+                        Type: object.OTDelegation,
                         Value: pkey,
                     }
                 }
 
 nameset         : namesetBody
                 {
-                    $$ = []rainslib.Object{$1}
+                    $$ = []object.Object{$1}
                 }
                 | nameset namesetBody
                 {
@@ -587,15 +590,15 @@ nameset         : namesetBody
 
 namesetBody     : namesetType freeText
                 {
-                    $$ = rainslib.Object{
-                        Type: rainslib.OTNameset,
+                    $$ = object.Object{
+                        Type: object.OTNameset,
                         Value: $2,
                     }
                 }
 
 cert            : certBody
                 {
-                    $$ = []rainslib.Object{$1}
+                    $$ = []object.Object{$1}
                 }
                 | cert certBody
                 {
@@ -608,15 +611,15 @@ certBody :      certType protocolType certUsage hashType ID
                     if err != nil {
                         log.Error("semantic error:", "Decode certificate", err)
                     }
-                    $$ = rainslib.Object{
-                        Type: rainslib.OTCertInfo,
+                    $$ = object.Object{
+                        Type: object.OTCertInfo,
                         Value: cert,
                     }
                 }
 
 srv             : srvBody
                 {
-                    $$ = []rainslib.Object{$1}
+                    $$ = []object.Object{$1}
                 }
                 | srv srvBody
                 {
@@ -629,15 +632,15 @@ srvBody         : srvType ID ID ID
                     if err != nil {
                         log.Error("semantic error:", "error", err)
                     }
-                    $$ = rainslib.Object{
-                        Type: rainslib.OTServiceInfo,
+                    $$ = object.Object{
+                        Type: object.OTServiceInfo,
                         Value: srv,
                     }
                 }
 
 regr            : regrBody
                 {
-                    $$ = []rainslib.Object{$1}
+                    $$ = []object.Object{$1}
                 }
                 | regr regrBody
                 {
@@ -646,15 +649,15 @@ regr            : regrBody
 
 regrBody        : regrType freeText
                 {
-                    $$ = rainslib.Object{
-                        Type: rainslib.OTRegistrar,
+                    $$ = object.Object{
+                        Type: object.OTRegistrar,
                         Value: $2,
                     }
                 }
 
 regt            : regtBody
                 {
-                    $$ = []rainslib.Object{$1}
+                    $$ = []object.Object{$1}
                 }
                 | regt regtBody
                 {
@@ -663,15 +666,15 @@ regt            : regtBody
 
 regtBody        : regtType freeText
                 {
-                    $$ = rainslib.Object{
-                        Type: rainslib.OTRegistrant,
+                    $$ = object.Object{
+                        Type: object.OTRegistrant,
                         Value: $2,
                     }
                 }
 
 infra           : infraBody
                 {
-                    $$ = []rainslib.Object{$1}
+                    $$ = []object.Object{$1}
                 }
                 | infra infraBody
                 {
@@ -684,15 +687,15 @@ infraBody       : infraType ed25519Type ID ID
                     if  err != nil {
                         log.Error("semantic error:", "DecodeEd25519PublicKeyData", err)
                     }
-                    $$ = rainslib.Object{
-                        Type: rainslib.OTInfraKey,
+                    $$ = object.Object{
+                        Type: object.OTInfraKey,
                         Value: pkey,
                     }
                 }
 
 extra           : extraBody
                 {
-                    $$ = []rainslib.Object{$1}
+                    $$ = []object.Object{$1}
                 }
                 | extra extraBody
                 {
@@ -706,15 +709,15 @@ extraBody       : extraType ed25519Type ID ID
                     if  err != nil {
                         log.Error("semantic error:", "DecodeEd25519PublicKeyData", err)
                     }
-                    $$ = rainslib.Object{
-                        Type: rainslib.OTExtraKey,
+                    $$ = object.Object{
+                        Type: object.OTExtraKey,
                         Value: pkey,
                     }
                 }
 
 next            : nextBody
                 {
-                    $$ = []rainslib.Object{$1}
+                    $$ = []object.Object{$1}
                 }
                 | next nextBody
                 {
@@ -731,53 +734,53 @@ nextBody        : nextType ed25519Type ID ID ID ID
                     if  err != nil {
                         log.Error("semantic error:", "error", err)
                     }
-                    $$ = rainslib.Object{
-                        Type: rainslib.OTNextKey,
+                    $$ = object.Object{
+                        Type: object.OTNextKey,
                         Value: pkey,
                     }
                 }
 
 protocolType    : unspecified
                 {
-                    $$ = rainslib.PTUnspecified
+                    $$ = object.PTUnspecified
                 }
                 | tls
                 {
-                    $$ = rainslib.PTTLS
+                    $$ = object.PTTLS
                 }
 
 certUsage       : trustAnchor
                 {
-                    $$ = rainslib.CUTrustAnchor
+                    $$ = object.CUTrustAnchor
                 }
                 | endEntity
                 {
-                    $$ = rainslib.CUEndEntity
+                    $$ = object.CUEndEntity
                 }
 
 hashType        : noHash
                 {
-                    $$ = rainslib.NoHashAlgo
+                    $$ = algorithmTypes.NoHashAlgo
                 }
                 | sha256
                 {
-                    $$ = rainslib.Sha256
+                    $$ = algorithmTypes.Sha256
                 }
                 | sha384
                 {
-                    $$ = rainslib.Sha384
+                    $$ = algorithmTypes.Sha384
                 }
                 | sha512
                 {
-                    $$ = rainslib.Sha512
+                    $$ = algorithmTypes.Sha512
                 }
                 | fnv64
                 {
-                    $$ = rainslib.Fnv64
+                    $$ = algorithmTypes.Fnv64
                 }
                 | murmur364
                 {
-                    $$ = rainslib.Murmur364
+                    $$ = algorithmTypes.Murmur364
                 }
 
 freeText        : ID
@@ -793,7 +796,7 @@ annotation      : lParenthesis annotationBody rParenthesis
 
 annotationBody  : signature
                 {
-                    $$ = []rainslib.Signature{$1}
+                    $$ = []signature.Signature{$1}
                 }
                 | annotationBody signature
                 {
@@ -821,7 +824,7 @@ signatureMeta   : sigType ed25519Type rains ID ID ID
                     if  err != nil {
                         log.Error("semantic error:", "DecodeValidity", err)
                     }
-                    $$ = rainslib.Signature{
+                    $$ = signature.Signature{
                         PublicKeyID: publicKeyID,
                         ValidSince: validSince,
                         ValidUntil: validUntil,

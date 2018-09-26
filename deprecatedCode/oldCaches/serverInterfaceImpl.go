@@ -205,7 +205,7 @@ func deleteAssertionFromRangeMap(c *assertionCacheImpl, assertion *rainslib.Asse
 				context: assertion.Context,
 				zone:    assertion.SubjectZone,
 				name:    assertion.SubjectName,
-				//FIXME CFE when assertion can contain several types. Delete all of them from
+				//FIXME CFE when assertion can contain several connection. Delete all of them from
 				objType:    assertion.Content[0].Type,
 				validUntil: validUntil,
 			},
@@ -363,7 +363,7 @@ func updateAssertionCacheRangeMapping(c *assertionCacheImpl) {
 
 //Remove deletes the given assertion from the cache. Returns true if it was able to remove at least one assertion
 func (c *assertionCacheImpl) Remove(assertion *rainslib.AssertionSection) bool {
-	//CFE FIXME This does not work if we have several types per assertion
+	//CFE FIXME This does not work if we have several connection per assertion
 	return deleteAssertions(c, true, assertion.Context, assertion.SubjectZone, assertion.SubjectName, assertion.Content[0].Type.String()) > 0
 }
 */
@@ -1202,7 +1202,7 @@ func (c *pendingQueryCacheImpl) Add(context, zone, name string, objType []rainsl
 			context: context,
 			zone:    zone,
 			name:    name,
-			//FIXME CFE allow multiple types
+			//FIXME CFE allow multiple connection
 			objType:    objType[0],
 			validUntil: value.validUntil,
 		}

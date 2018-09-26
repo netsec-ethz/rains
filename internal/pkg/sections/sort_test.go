@@ -156,7 +156,7 @@ func sortedAssertions(nof int) []*AssertionSection {
 	for i := 0; i < nof; i++ {
 		for j := 0; j < nof; j++ {
 			for k := 0; k < nof; k++ {
-				//TODO CFE extend this test when we support multiple types per assertion
+				//TODO CFE extend this test when we support multiple connection per assertion
 				for l := 0; l < 78; l++ {
 					assertions = append(assertions, &AssertionSection{
 						SubjectName: strconv.Itoa(i),
@@ -179,7 +179,7 @@ func sortedShards(nof int) []*ShardSection {
 		for j := 0; j < nof; j++ {
 			for k := 0; k < nof; k++ {
 				for l := 0; l < nof; l++ {
-					//TODO CFE extend this test when we support multiple types per assertion
+					//TODO CFE extend this test when we support multiple connection per assertion
 					for m := 0; m < 312; m++ {
 						shards = append(shards, &ShardSection{
 							SubjectZone: strconv.Itoa(i),
@@ -203,7 +203,7 @@ func sortedZones(nof int) []*ZoneSection {
 	shards := sortedShards(2)
 	for i := 0; i < nof; i++ {
 		for j := 0; j < nof; j++ {
-			//TODO CFE extend this test when we support multiple types per assertion
+			//TODO CFE extend this test when we support multiple connection per assertion
 			for l := 0; l < 9751; l++ {
 				zones = append(zones, &ZoneSection{
 					SubjectZone: strconv.Itoa(i),
@@ -231,7 +231,7 @@ func sortedQueries(nof int) []*QuerySection {
 			for k := 0; k < 13; k++ {
 				for l := 0; l < nof; l++ {
 					for m := 0; m < 8; m++ {
-						//TODO CFE extend this test when we support multiple types per assertion
+						//TODO CFE extend this test when we support multiple connection per assertion
 						queries = append(queries, &QuerySection{
 							Context:    strconv.Itoa(i),
 							Name:       strconv.Itoa(j),
@@ -242,7 +242,7 @@ func sortedQueries(nof int) []*QuerySection {
 					}
 					for m := 0; m < 7; m++ {
 						for n := m + 1; n < 8; n++ {
-							//TODO CFE extend this test when we support multiple types per assertion
+							//TODO CFE extend this test when we support multiple connection per assertion
 							queries = append(queries, &QuerySection{
 								Context:    strconv.Itoa(i),
 								Name:       strconv.Itoa(j),
@@ -276,7 +276,7 @@ func sortedAddressAssertions(nof int) []*AddressAssertionSection {
 		_, subjectAddress, _ := net.ParseCIDR(fmt.Sprintf("%d.0.0.1/32", i))
 		_, subjectAddress2, _ := net.ParseCIDR(fmt.Sprintf("%d::/64", i))
 		for j := 0; j < nof; j++ {
-			//TODO CFE extend this test when we support multiple types per assertion
+			//TODO CFE extend this test when we support multiple connection per assertion
 			for l := 0; l < 78; l++ {
 				assertions = append(assertions, &AddressAssertionSection{
 					SubjectAddr: subjectAddress,
@@ -286,7 +286,7 @@ func sortedAddressAssertions(nof int) []*AddressAssertionSection {
 			}
 		}
 		for j := 0; j < nof; j++ {
-			//TODO CFE extend this test when we support multiple types per assertion
+			//TODO CFE extend this test when we support multiple connection per assertion
 			for l := 0; l < 78; l++ {
 				assertions = append(assertions, &AddressAssertionSection{
 					SubjectAddr: subjectAddress2,
@@ -316,7 +316,7 @@ func sortedAddressZones(nof int) []*AddressZoneSection {
 		_, subjectAddress, _ := net.ParseCIDR(fmt.Sprintf("%d.0.0.1/32", i))
 		_, subjectAddress2, _ := net.ParseCIDR(fmt.Sprintf("%d::/64", i))
 		for j := 0; j < nof; j++ {
-			//TODO CFE extend this test when we support multiple types per assertion
+			//TODO CFE extend this test when we support multiple connection per assertion
 			for l := 0; l < 1405; l++ {
 				zones = append(zones, &AddressZoneSection{
 					SubjectAddr: subjectAddress,
@@ -326,7 +326,7 @@ func sortedAddressZones(nof int) []*AddressZoneSection {
 			}
 		}
 		for j := 0; j < nof; j++ {
-			//TODO CFE extend this test when we support multiple types per assertion
+			//TODO CFE extend this test when we support multiple connection per assertion
 			for l := 0; l < 1405; l++ {
 				zones = append(zones, &AddressZoneSection{
 					SubjectAddr: subjectAddress2,
@@ -357,7 +357,7 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 			for k := 0; k < 13; k++ {
 				for l := 0; l < nof; l++ {
 					for m := 0; m < 8; m++ {
-						//TODO CFE extend this test when we support multiple types per assertion
+						//TODO CFE extend this test when we support multiple connection per assertion
 						queries = append(queries, &AddressQuerySection{
 							SubjectAddr: subjectAddress,
 							Context:     strconv.Itoa(j),
@@ -368,7 +368,7 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 					}
 					for m := 0; m < 7; m++ {
 						for n := m + 1; n < 8; n++ {
-							//TODO CFE extend this test when we support multiple types per assertion
+							//TODO CFE extend this test when we support multiple connection per assertion
 							queries = append(queries, &AddressQuerySection{
 								SubjectAddr: subjectAddress,
 								Context:     strconv.Itoa(j),
@@ -385,7 +385,7 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 			for k := 0; k < 13; k++ {
 				for l := 0; l < nof; l++ {
 					for m := 0; m < 8; m++ {
-						//TODO CFE extend this test when we support multiple types per assertion
+						//TODO CFE extend this test when we support multiple connection per assertion
 						queries = append(queries, &AddressQuerySection{
 							SubjectAddr: subjectAddress2,
 							Context:     strconv.Itoa(j),

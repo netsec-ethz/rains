@@ -623,7 +623,7 @@ func (c *pendingQueryCacheImpl) Add(sectionSender msgSectionSender) bool {
 }
 
 //AddToken adds token to the token map where the value of the map corresponds to the cache entry
-//matching the given (fully qualified) name, context and types (sorted). Token is added to the map
+//matching the given (fully qualified) name, context and connection (sorted). Token is added to the map
 //and the cache entry's token, expiration and sendTo fields are updated only if a matching cache
 //entry exists. True is returned if the entry is updated.
 func (c *pendingQueryCacheImpl) AddToken(token rainslib.Token, expiration int64,

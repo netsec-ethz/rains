@@ -4,7 +4,6 @@ import (
 	"container/list"
 	"fmt"
 	"sync"
-	"time"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -273,13 +272,4 @@ func (c *Cache) GetLeastRecentlyUsedKey() ([]string, bool) {
 	}
 	val := v.Value.(*entry)
 	return []string{val.context, val.key}, true
-}
-
-//MaxCacheValidity defines the maximum duration each section containing signatures can be valid, starting from time.Now()
-type MaxCacheValidity struct {
-	AssertionValidity        time.Duration
-	ShardValidity            time.Duration
-	ZoneValidity             time.Duration
-	AddressAssertionValidity time.Duration
-	AddressZoneValidity      time.Duration
 }

@@ -528,7 +528,7 @@ func queryTransitiveClosure(as *[]*rainslib.AssertionSection, qCtx string) {
 //a new query and adds this query to the pendingQueries Cache.
 func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainslib.Token) {
 	log.Debug("Start processing query", "query", query)
-	trace(token, fmt.Sprintf("Processing QuerySection for name: %v, types: %v", query.Name, query.Types))
+	trace(token, fmt.Sprintf("Processing QuerySection for name: %v, connection: %v", query.Name, query.Types))
 
 	assertions := []rainslib.MessageSection{}
 	assertionSet := make(map[string]bool)
@@ -578,7 +578,7 @@ func query(query *rainslib.QuerySection, sender rainslib.ConnInfo, token rainsli
 	if ok {
 		//TODO CFE For each type check if one of the zone or shards contain the queried
 		//assertion. If there is at least one assertion answer with it. If no assertion is
-		//contained in a zone or shard for any of the queried types, answer with the shortest
+		//contained in a zone or shard for any of the queried connection, answer with the shortest
 		//element. shortest according to what? size in bytes? how to efficiently determine that.
 		//e.g. using gob encoding. alternatively we could also count the number of contained
 		//elements.
@@ -692,7 +692,7 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 	if newQuery.Expiration > time.Now().Add(Config.AddressQueryValidity).Unix() {
 		newQuery.Expiration = time.Now().Add(Config.AddressQueryValidity).Unix()
 	}
-	//FIXME CFE allow multiple types
+	//FIXME CFE allow multiple connection
 	//FIXME CFE only send query if not already in cache.
 	pendingQueries.Add(msgSectionSender{Section: query, Sender: sender, Token: token})
 	log.Debug("Added query into to pending query cache", "query", query)
@@ -706,7 +706,7 @@ func addressQuery(query *rainslib.AddressQuerySection, sender rainslib.ConnInfo,
 func handleAddressZoneQueryResponse(zone *rainslib.AddressZoneSection, subjectAddr *net.IPNet,
 	context string, queryType []rainslib.ObjectType, sender rainslib.ConnInfo, token rainslib.Token) bool {
 	for _, a := range zone.Content {
-		//TODO CFE handle case where assertion can have multiple types
+		//TODO CFE handle case where assertion can have multiple connection
 		if a.SubjectAddr == subjectAddr && a.Context == context && a.Content[0].Type == queryType[0] {
 			for _, sig := range a.Sigs(rainslib.RainsKeySpace) {
 				//TODO CFE only check for this condition when queryoption 5 is not set
@@ -782,7 +782,7 @@ func containedAssertionQueryResponse(assertions []*rainslib.AssertionSection, su
 	context string, queryType rainslib.ObjectType, sender rainslib.ConnInfo, token rainslib.Token) (
 	entryFound bool, hasSig bool) {
 	for _, a := range assertions {
-		//TODO CFE handle case where assertion can have multiple types
+		//TODO CFE handle case where assertion can have multiple connection
 		if a.SubjectName == subjectName && a.SubjectZone == subjectZone &&
 			a.Context == context && a.Content[0].Type == queryType {
 			for _, sig := range a.Sigs(rainslib.RainsKeySpace) {

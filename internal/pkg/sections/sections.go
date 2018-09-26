@@ -3,20 +3,20 @@ package sections
 import (
 	"encoding/hex"
 	"fmt"
-	"go/token"
 	"math"
 	"net"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
+
+	"github.com/britram/borat"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
-	"github.com/netsec-ethz/rains/internal/pkg/types"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -308,98 +308,98 @@ func (a *AssertionSection) MarshalCBOR(w *borat.CBORWriter) error {
 	return w.WriteIntMap(m)
 }
 
-func objectToArrayCBOR(object object.Object) ([]interface{}, error) {
+func objectToArrayCBOR(obj object.Object) ([]interface{}, error) {
 	var res []interface{}
-	switch object.Type {
-	case OTName:
-		no, ok := object.Value.(NameObject)
+	switch obj.Type {
+	case object.OTName:
+		no, ok := obj.Value.(object.NameObject)
 		if !ok {
-			return nil, fmt.Errorf("expected OTName to be NameObject but got: %T", object.Value)
+			return nil, fmt.Errorf("expected OTName to be NameObject but got: %T", obj.Value)
 		}
 		ots := make([]int, len(no.Types))
 		for i, ot := range no.Types {
 			ots[i] = int(ot)
 		}
-		res = []interface{}{OTName, no.Name, ots}
-	case OTIP6Addr:
-		addrStr := object.Value.(string)
+		res = []interface{}{object.OTName, no.Name, ots}
+	case object.OTIP6Addr:
+		addrStr := obj.Value.(string)
 		addr := net.ParseIP(addrStr)
-		res = []interface{}{OTIP6Addr, []byte(addr)}
-	case OTIP4Addr:
-		addrStr := object.Value.(string)
+		res = []interface{}{object.OTIP6Addr, []byte(addr)}
+	case object.OTIP4Addr:
+		addrStr := obj.Value.(string)
 		addr := net.ParseIP(addrStr)
-		res = []interface{}{OTIP4Addr, []byte(addr)}
-	case OTRedirection:
-		res = []interface{}{OTRedirection, object.Value}
-	case OTDelegation:
-		pkey, ok := object.Value.(PublicKey)
+		res = []interface{}{object.OTIP4Addr, []byte(addr)}
+	case object.OTRedirection:
+		res = []interface{}{object.OTRedirection, obj.Value}
+	case object.OTDelegation:
+		pkey, ok := obj.Value.(keys.PublicKey)
 		if !ok {
-			return nil, fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", object.Value)
+			return nil, fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", obj.Value)
 		}
 		// TODO: ValidSince and ValidUntil should be tagged.
 		b := pubkeyToCBORBytes(pkey)
-		res = []interface{}{OTDelegation, int(pkey.Algorithm), int(pkey.KeySpace), pkey.KeyPhase, pkey.ValidSince, pkey.ValidUntil, b}
-	case OTNameset:
-		nse, ok := object.Value.(NamesetExpression)
+		res = []interface{}{object.OTDelegation, int(pkey.Algorithm), int(pkey.KeySpace), pkey.KeyPhase, pkey.ValidSince, pkey.ValidUntil, b}
+	case object.OTNameset:
+		nse, ok := obj.Value.(object.NamesetExpression)
 		if !ok {
-			return nil, fmt.Errorf("expected OTNameset value to be NamesetExpression but got: %T", object.Value)
+			return nil, fmt.Errorf("expected OTNameset value to be NamesetExpression but got: %T", obj.Value)
 		}
-		res = []interface{}{OTNameset, string(nse)}
-	case OTCertInfo:
-		co, ok := object.Value.(CertificateObject)
+		res = []interface{}{object.OTNameset, string(nse)}
+	case object.OTCertInfo:
+		co, ok := obj.Value.(object.CertificateObject)
 		if !ok {
-			return nil, fmt.Errorf("expected OTCertInfo object to be CertificateObject, but got: %T", object.Value)
+			return nil, fmt.Errorf("expected OTCertInfo object to be CertificateObject, but got: %T", obj.Value)
 		}
-		res = []interface{}{OTCertInfo, int(co.Type), int(co.Usage), int(co.HashAlgo), co.Data}
-	case OTServiceInfo:
-		si, ok := object.Value.(ServiceInfo)
+		res = []interface{}{object.OTCertInfo, int(co.Type), int(co.Usage), int(co.HashAlgo), co.Data}
+	case object.OTServiceInfo:
+		si, ok := obj.Value.(object.ServiceInfo)
 		if !ok {
-			return nil, fmt.Errorf("expected OTServiceInfo object to be ServiceInfo, but got: %T", object.Value)
+			return nil, fmt.Errorf("expected OTServiceInfo object to be ServiceInfo, but got: %T", obj.Value)
 		}
-		res = []interface{}{OTServiceInfo, si.Name, si.Port, si.Priority}
-	case OTRegistrar:
-		rstr, ok := object.Value.(string)
+		res = []interface{}{object.OTServiceInfo, si.Name, si.Port, si.Priority}
+	case object.OTRegistrar:
+		rstr, ok := obj.Value.(string)
 		if !ok {
-			return nil, fmt.Errorf("expected OTRegistrar object to be string but got: %T", object.Value)
+			return nil, fmt.Errorf("expected OTRegistrar object to be string but got: %T", obj.Value)
 		}
-		res = []interface{}{OTRegistrar, rstr}
-	case OTRegistrant:
-		rstr, ok := object.Value.(string)
+		res = []interface{}{object.OTRegistrar, rstr}
+	case object.OTRegistrant:
+		rstr, ok := obj.Value.(string)
 		if !ok {
-			return nil, fmt.Errorf("expected OTRegistrant object to be string but got: %T", object.Value)
+			return nil, fmt.Errorf("expected OTRegistrant object to be string but got: %T", obj.Value)
 		}
-		res = []interface{}{OTRegistrant, rstr}
-	case OTInfraKey:
-		pkey, ok := object.Value.(PublicKey)
+		res = []interface{}{object.OTRegistrant, rstr}
+	case object.OTInfraKey:
+		pkey, ok := obj.Value.(keys.PublicKey)
 		if !ok {
-			return nil, fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", object.Value)
+			return nil, fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", obj.Value)
 		}
 		// TODO: ValidSince and ValidUntl should be tagged.
 		b := pubkeyToCBORBytes(pkey)
-		res = []interface{}{OTInfraKey, int(pkey.Algorithm), int(pkey.KeySpace), pkey.KeyPhase, pkey.ValidSince, pkey.ValidUntil, b}
-	case OTExtraKey:
-		pkey, ok := object.Value.(PublicKey)
+		res = []interface{}{object.OTInfraKey, int(pkey.Algorithm), int(pkey.KeySpace), pkey.KeyPhase, pkey.ValidSince, pkey.ValidUntil, b}
+	case object.OTExtraKey:
+		pkey, ok := obj.Value.(keys.PublicKey)
 		if !ok {
-			return nil, fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", object.Value)
+			return nil, fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", obj.Value)
 		}
 		b := pubkeyToCBORBytes(pkey)
-		res = []interface{}{OTExtraKey, int(pkey.Algorithm), int(pkey.KeySpace), b}
-	case OTNextKey:
+		res = []interface{}{object.OTExtraKey, int(pkey.Algorithm), int(pkey.KeySpace), b}
+	case object.OTNextKey:
 	default:
-		return nil, fmt.Errorf("unknown object type: %v", object.Type)
+		return nil, fmt.Errorf("unknown object type: %v", obj.Type)
 	}
 	return res, nil
 }
 
 func pubkeyToCBORBytes(p keys.PublicKey) []byte {
 	switch p.Algorithm {
-	case Ed25519:
+	case algorithmTypes.Ed25519:
 		return []byte(p.Key.(ed25519.PublicKey))
-	case Ed448:
+	case algorithmTypes.Ed448:
 		panic("Unsupported algorithm.")
-	case Ecdsa256:
+	case algorithmTypes.Ecdsa256:
 		panic("Unsupported algorithm.")
-	case Ecdsa384:
+	case algorithmTypes.Ecdsa384:
 		panic("Unsupported algorithm.")
 	default:
 		panic("Unsupported algorithm.")
@@ -569,7 +569,7 @@ func (a *AssertionSection) NeededKeys(keysNeeded map[signature.SignatureMetaData
 //extractNeededKeys adds all key metadata to sigData which are necessary to verify all section's
 //signatures.
 func extractNeededKeys(section MessageSectionWithSig, sigData map[signature.SignatureMetaData]bool) {
-	for _, sig := range section.Sigs(RainsKeySpace) {
+	for _, sig := range section.Sigs(keys.RainsKeySpace) {
 		sigData[sig.GetSignatureMetaData()] = true
 	}
 }
@@ -796,14 +796,14 @@ func (s *ShardSection) String() string {
 }
 
 //AssertionsByNameAndTypes returns all contained assertions with subjectName and at least one object
-//that has a type contained in types. It is assumed that the contained assertions are sorted by
+//that has a type contained in connection. It is assumed that the contained assertions are sorted by
 //subjectName in ascending order. The returned assertions are pairwise distinct.
 func (s *ShardSection) AssertionsByNameAndTypes(subjectName string, types []object.ObjectType) []*AssertionSection {
 	assertionMap := make(map[string]*AssertionSection)
 	i := sort.Search(len(s.Content), func(i int) bool { return s.Content[i].SubjectName >= subjectName })
 	for ; i < len(s.Content) && s.Content[i].SubjectName == subjectName; i++ {
 		for _, oType := range types {
-			if _, ok := ContainsType(s.Content[i].Content, oType); ok {
+			if _, ok := object.ContainsType(s.Content[i].Content, oType); ok {
 				assertionMap[s.Content[i].Hash()] = s.Content[i]
 				break
 			}
@@ -1029,7 +1029,7 @@ type ZoneSection struct {
 // UnmarshalMap decodes the output from the CBOR decoder into this struct.
 func (z *ZoneSection) UnmarshalMap(m map[int]interface{}) error {
 	if sigs, ok := m[0]; ok {
-		z.Signatures = make([]Signature, len(sigs.([]interface{})))
+		z.Signatures = make([]signature.Signature, len(sigs.([]interface{})))
 		for i, sig := range sigs.([]interface{}) {
 			if err := z.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
 				return err
@@ -1262,7 +1262,7 @@ func (z *ZoneSection) String() string {
 }
 
 //SectionsByNameAndTypes returns all contained assertions with subjectName and at least one object
-//that has a type contained in types together with all contained shards having subjectName in their
+//that has a type contained in connection together with all contained shards having subjectName in their
 //range. It is assumed that the contained sections are sorted as for signing. The returned
 //assertions and shards are pairwise distinct.
 func (z *ZoneSection) SectionsByNameAndTypes(subjectName string, types []object.ObjectType) (
@@ -1280,7 +1280,7 @@ func (z *ZoneSection) SectionsByNameAndTypes(subjectName string, types []object.
 	for ; i < len(z.Content); i++ {
 		if a, ok := z.Content[i].(*AssertionSection); ok && a.SubjectName == subjectName {
 			for _, oType := range types {
-				if _, ok := ContainsType(a.Content, oType); ok {
+				if _, ok := object.ContainsType(a.Content, oType); ok {
 					assertionMap[a.Hash()] = a
 					break
 				}
@@ -1689,7 +1689,7 @@ func (a *AddressAssertionSection) String() string {
 		a.SubjectAddr, a.Context, a.Content, a.Signatures)
 }
 
-//IsConsistent returns false if the addressAssertion contains not allowed object types
+//IsConsistent returns false if the addressAssertion contains not allowed object connection
 func (a *AddressAssertionSection) IsConsistent() bool {
 	for _, o := range a.Content {
 		if invalidObjectType(a.SubjectAddr, o.Type) {
@@ -1706,15 +1706,15 @@ func invalidObjectType(subjectAddr *net.IPNet, objectType object.ObjectType) boo
 	prefixLength, addressLength := subjectAddr.Mask.Size()
 	if addressLength == 32 {
 		if prefixLength == 32 {
-			return objectType != OTName
+			return objectType != object.OTName
 		}
-		return objectType != OTDelegation && objectType != OTRedirection && objectType != OTRegistrant
+		return objectType != object.OTDelegation && objectType != object.OTRedirection && objectType != object.OTRegistrant
 	}
 	if addressLength == 128 {
 		if prefixLength == 128 {
-			return objectType != OTName
+			return objectType != object.OTName
 		}
-		return objectType != OTDelegation && objectType != OTRedirection && objectType != OTRegistrant
+		return objectType != object.OTDelegation && objectType != object.OTRedirection && objectType != object.OTRegistrant
 	}
 	log.Warn("Invalid addressLength", "addressLength", addressLength)
 	return true
@@ -1982,7 +1982,7 @@ type NotificationSection struct {
 // UnmarshalMap unpacks a CBOR unmarshaled map to this object.
 func (n *NotificationSection) UnmarshalMap(m map[int]interface{}) error {
 	if tok, ok := m[2]; ok {
-		n.Token = Token(tok.([16]byte))
+		n.Token = tok.(token.Token)
 	} else {
 		return fmt.Errorf("key [2] for token not found in map: %v", m)
 	}
@@ -2014,17 +2014,9 @@ func (n *NotificationSection) Sort() {
 //CompareTo compares two notifications and returns 0 if they are equal, 1 if n is greater than
 //notification and -1 if n is smaller than notification
 func (n *NotificationSection) CompareTo(notification *NotificationSection) int {
-	if n.Token != notification.Token {
-		for i, b := range n.Token {
-			if b < notification.Token[i] {
-				return -1
-			} else if b > notification.Token[i] {
-				return 1
-			}
-		}
-		log.Error("Token must be different", "t1", n.Token, "t2", notification.Token)
-	}
-	if n.Type < notification.Type {
+	if comp := token.Compare(n.Token, notification.Token); comp != 0 {
+		return comp
+	} else if n.Type < notification.Type {
 		return -1
 	} else if n.Type > notification.Type {
 		return 1
@@ -2084,51 +2076,3 @@ const (
 	QONoVerificationDelegation QueryOption = 7
 	QONoProactiveCaching       QueryOption = 8
 )
-
-//ConnInfo contains address information about one actor of a connection of the declared type
-type ConnInfo struct {
-	//Type determines the network address type
-	Type types.NetworkAddrType
-
-	TCPAddr *net.TCPAddr
-}
-
-//String returns the string representation of the connection information according to its type
-func (c ConnInfo) String() string {
-	switch c.Type {
-	case TCP:
-		return c.TCPAddr.String()
-	default:
-		log.Warn("Unsupported network address", "typeCode", c.Type)
-		return ""
-	}
-}
-
-//NetworkAndAddr returns the network name and addr of the connection separated by space
-func (c ConnInfo) NetworkAndAddr() string {
-	switch c.Type {
-	case TCP:
-		return fmt.Sprintf("%s %s", c.TCPAddr.Network(), c.String())
-	default:
-		log.Warn("Unsupported network address type", "type", c.Type)
-		return ""
-	}
-}
-
-//Hash returns a string containing all information uniquely identifying a ConnInfo.
-func (c ConnInfo) Hash() string {
-	return fmt.Sprintf("%v_%s", c.Type, c.String())
-}
-
-//Equal returns true if both Connection Information have the same existing type and the values corresponding to this type are identical.
-func (c ConnInfo) Equal(conn ConnInfo) bool {
-	if c.Type == conn.Type {
-		switch c.Type {
-		case TCP:
-			return c.TCPAddr.IP.Equal(conn.TCPAddr.IP) && c.TCPAddr.Port == conn.TCPAddr.Port && c.TCPAddr.Zone == conn.TCPAddr.Zone
-		default:
-			log.Warn("Not supported network address type")
-		}
-	}
-	return false
-}

@@ -10,7 +10,12 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/encoder"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
 
 //CheckSectionSignatures verifies all signatures on the section. Expired signatures are removed.
@@ -23,8 +28,8 @@ import (
 //4) encode section
 //5) sign the encoding and compare the resulting signature data with the signature data received with the section. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib.PublicKeyID][]rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder,
-	maxVal rainslib.MaxCacheValidity) bool {
+func CheckSectionSignatures(s sections.MessageSectionWithSig, pkeys map[keys.PublicKeyID][]keys.PublicKey, encoder encoder.SignatureFormatEncoder,
+	maxVal sections.MaxCacheValidity) bool {
 	log.Debug(fmt.Sprintf("Check %T signature", s), "section", s)
 	if s == nil {
 		log.Warn("section is nil")
@@ -34,7 +39,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 		log.Warn("pkeys map is nil")
 		return false
 	}
-	if len(s.Sigs(rainslib.RainsKeySpace)) == 0 {
+	if len(s.Sigs(keys.RainsKeySpace)) == 0 {
 		log.Debug("Section contain no signatures")
 		return true
 	}
@@ -43,7 +48,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 	}
 	s.Sort()
 	encodedSection := encoder.EncodeSection(s)
-	for i, sig := range s.Sigs(rainslib.RainsKeySpace) {
+	for i, sig := range s.Sigs(keys.RainsKeySpace) {
 		if keys, ok := pkeys[sig.PublicKeyID]; ok {
 			if int64(sig.ValidUntil) < time.Now().Unix() {
 				log.Info("signature is expired", "signature", sig)
@@ -56,7 +61,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 					return false
 				}
 				log.Debug("Signature was valid")
-				rainslib.UpdateSectionValidity(s, key.ValidSince, key.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
+				sections.UpdateSectionValidity(s, key.ValidSince, key.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
 			} else {
 				log.Warn("No time overlapping publicKey in keys for signature", "keys", keys, "signature", sig)
 				return false
@@ -79,7 +84,7 @@ func CheckSectionSignatures(s rainslib.MessageSectionWithSig, pkeys map[rainslib
 //4) encode message
 //5) sign the encoding and compare the resulting signature data with the signature data received with the message. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func CheckMessageSignatures(msg *rainslib.RainsMessage, publicKey rainslib.PublicKey, encoder rainslib.SignatureFormatEncoder) bool {
+func CheckMessageSignatures(msg *message.RainsMessage, publicKey keys.PublicKey, encoder encoder.SignatureFormatEncoder) bool {
 	log.Debug("Check Message signature")
 	if msg == nil {
 		log.Warn("msg is nil")
@@ -108,7 +113,7 @@ func CheckMessageSignatures(msg *rainslib.RainsMessage, publicKey rainslib.Publi
 //ValidSectionAndSignature returns true if the section is not nil, all the signatures ValidUntil are
 //in the future, the string fields do not contain  <whitespace>:<non whitespace>:<whitespace>, and
 //the section's content is sorted (by sorting it).
-func ValidSectionAndSignature(s rainslib.MessageSectionWithSig) bool {
+func ValidSectionAndSignature(s sections.MessageSectionWithSig) bool {
 	log.Debug("Validating section and signature before signing")
 	if s == nil {
 		log.Warn("section is nil")
@@ -126,7 +131,7 @@ func ValidSectionAndSignature(s rainslib.MessageSectionWithSig) bool {
 
 //CheckSignatureNotExpired returns true if s is nil or all the signatures ValidUntil are in the
 //future
-func CheckSignatureNotExpired(s rainslib.MessageSectionWithSig) bool {
+func CheckSignatureNotExpired(s sections.MessageSectionWithSig) bool {
 	if s == nil {
 		return true
 	}
@@ -143,7 +148,7 @@ func CheckSignatureNotExpired(s rainslib.MessageSectionWithSig) bool {
 //the given signatures. The shard's or zone's content must already be sorted. It does not check the
 //validity of the signature or the section. Returns false if the signature was not added to the
 //section
-func SignSectionUnsafe(s rainslib.MessageSectionWithSig, privateKey interface{}, sig rainslib.Signature, encoder rainslib.SignatureFormatEncoder) bool {
+func SignSectionUnsafe(s sections.MessageSectionWithSig, privateKey interface{}, sig signature.Signature, encoder encoder.SignatureFormatEncoder) bool {
 	log.Debug("Start Signing Section")
 	err := (&sig).SignData(privateKey, string(encoder.EncodeSection(s)))
 	if err != nil {
@@ -164,8 +169,8 @@ func SignSectionUnsafe(s rainslib.MessageSectionWithSig, privateKey interface{},
 //4) encode section
 //5) sign the encoding and add it to the signature which will then be added to the section. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func SignSection(s rainslib.MessageSectionWithSig, privateKey interface{}, sig rainslib.Signature,
-	encoder rainslib.SignatureFormatEncoder) bool {
+func SignSection(s sections.MessageSectionWithSig, privateKey interface{}, sig signature.Signature,
+	encoder signature.SignatureFormatEncoder) bool {
 	s.AddSig(sig)
 	if !ValidSectionAndSignature(s) {
 		return false
@@ -184,8 +189,8 @@ func SignSection(s rainslib.MessageSectionWithSig, privateKey interface{}, sig r
 //4) encode message
 //5) sign the encoding and add it to the signature which will then be added to the message. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func SignMessage(msg *rainslib.RainsMessage, privateKey interface{}, sig rainslib.Signature,
-	encoder rainslib.SignatureFormatEncoder) bool {
+func SignMessage(msg *message.Signature, privateKey interface{}, sig signature.Signature,
+	encoder signature.SignatureFormatEncoder) bool {
 	log.Debug("Sign Message")
 	if msg == nil {
 		log.Warn("msg is nil")
@@ -210,7 +215,7 @@ func SignMessage(msg *rainslib.RainsMessage, privateKey interface{}, sig rainsli
 //checkMessageStringFields returns true if the capabilities and all string fields in the contained
 //sections of the given message do not contain a zone file type marker, i.e. not a substring
 //matching regrex expression '\s:\S+:\s'
-func checkMessageStringFields(msg *rainslib.RainsMessage) bool {
+func checkMessageStringFields(msg *message.Signature) bool {
 	if msg == nil || !checkCapabilites(msg.Capabilities) {
 		return false
 	}
@@ -224,9 +229,9 @@ func checkMessageStringFields(msg *rainslib.RainsMessage) bool {
 
 //CheckStringFields returns true if non of the string fields of the given section contain a zone
 //file type marker. It panics if the interface s contains a type but the interfaces value is nil
-func CheckStringFields(s rainslib.MessageSection) bool {
+func CheckStringFields(s section.MessageSection) bool {
 	switch s := s.(type) {
-	case *rainslib.AssertionSection:
+	case *section.SignatureAssertionSection:
 		if containsZoneFileType(s.SubjectName) {
 			log.Warn("Section contains a string field with forbidden content", "SubjectName", s.SubjectName)
 			return false
@@ -235,7 +240,7 @@ func CheckStringFields(s rainslib.MessageSection) bool {
 			return false
 		}
 		return !(containsZoneFileType(s.Context) || containsZoneFileType(s.SubjectZone))
-	case *rainslib.ShardSection:
+	case *section.SignatureShardSection:
 		if containsZoneFileType(s.RangeFrom) {
 			log.Warn("Section contains a string field with forbidden content", "RangeFrom", s.RangeFrom)
 			return false
@@ -250,14 +255,14 @@ func CheckStringFields(s rainslib.MessageSection) bool {
 			}
 		}
 		return !(containsZoneFileType(s.Context) || containsZoneFileType(s.SubjectZone))
-	case *rainslib.ZoneSection:
+	case *section.SignatureZoneSection:
 		for _, section := range s.Content {
 			if !CheckStringFields(section) {
 				return false
 			}
 		}
 		return !(containsZoneFileType(s.Context) || containsZoneFileType(s.SubjectZone))
-	case *rainslib.QuerySection:
+	case *section.SignatureQuerySection:
 		if containsZoneFileType(s.Context) {
 			return false
 		}
@@ -265,24 +270,24 @@ func CheckStringFields(s rainslib.MessageSection) bool {
 			log.Warn("Section contains a string field with forbidden content", "QueryName", s.Name)
 			return false
 		}
-	case *rainslib.NotificationSection:
+	case *section.SignatureNotificationSection:
 		if containsZoneFileType(s.Data) {
 			log.Warn("Section contains a string field with forbidden content", "NotificationData", s.Data)
 			return false
 		}
-	case *rainslib.AddressAssertionSection:
+	case *section.SignatureAddressAssertionSection:
 		if !checkObjectFields(s.Content) {
 			return false
 		}
 		return !containsZoneFileType(s.Context)
-	case *rainslib.AddressZoneSection:
+	case *section.SignatureAddressZoneSection:
 		for _, a := range s.Content {
 			if !CheckStringFields(a) {
 				return false
 			}
 		}
 		return !containsZoneFileType(s.Context)
-	case *rainslib.AddressQuerySection:
+	case *section.SignatureAddressQuerySection:
 		return !containsZoneFileType(s.Context)
 	default:
 		log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))
@@ -291,50 +296,50 @@ func CheckStringFields(s rainslib.MessageSection) bool {
 	return true
 }
 
-func checkObjectFields(objs []rainslib.Object) bool {
+func checkObjectFields(objs []object.Object) bool {
 	for _, obj := range objs {
 		switch obj.Type {
-		case rainslib.OTName:
-			if nameObj, ok := obj.Value.(rainslib.NameObject); ok {
+		case object.OTName:
+			if nameObj, ok := obj.Value.(object.NameObject); ok {
 				if containsZoneFileType(nameObj.Name) {
 					log.Warn("Section contains an object with a string field containing forbidden content", "name", nameObj.Name)
 					return false
 				}
 			}
-		case rainslib.OTIP6Addr:
-		case rainslib.OTIP4Addr:
-		case rainslib.OTRedirection:
+		case object.OTIP6Addr:
+		case object.OTIP4Addr:
+		case object.OTRedirection:
 			if containsZoneFileType(obj.Value.(string)) {
 				log.Warn("Section contains an object with a string field containing forbidden content", "redirection", obj.Value)
 				return false
 			}
-		case rainslib.OTDelegation:
-		case rainslib.OTNameset:
-			if containsZoneFileType(string(obj.Value.(rainslib.NamesetExpression))) {
+		case object.OTDelegation:
+		case object.OTNameset:
+			if containsZoneFileType(string(obj.Value.(object.NamesetExpression))) {
 				log.Warn("Section contains an object with a string field containing forbidden content", "nameSetExpr", obj.Value)
 				return false
 			}
-		case rainslib.OTCertInfo:
-		case rainslib.OTServiceInfo:
-			if srvInfo, ok := obj.Value.(rainslib.ServiceInfo); ok {
+		case object.OTCertInfo:
+		case object.OTServiceInfo:
+			if srvInfo, ok := obj.Value.(object.ServiceInfo); ok {
 				if containsZoneFileType(srvInfo.Name) {
 					log.Warn("Section contains an object with a string field containing forbidden content", "srvInfoName", srvInfo.Name)
 					return false
 				}
 			}
-		case rainslib.OTRegistrar:
+		case object.OTRegistrar:
 			if containsZoneFileType(obj.Value.(string)) {
 				log.Warn("Section contains an object with a string field containing forbidden content", "registrar", obj.Value)
 				return false
 			}
-		case rainslib.OTRegistrant:
+		case object.OTRegistrant:
 			if containsZoneFileType(obj.Value.(string)) {
 				log.Warn("Section contains an object with a string field containing forbidden content", "registrant", obj.Value)
 				return false
 			}
-		case rainslib.OTInfraKey:
-		case rainslib.OTExtraKey:
-		case rainslib.OTNextKey:
+		case object.OTInfraKey:
+		case object.OTExtraKey:
+		case object.OTNextKey:
 		default:
 			log.Warn("Unsupported obj type", "type", fmt.Sprintf("%T", obj.Type))
 			return false
@@ -343,7 +348,7 @@ func checkObjectFields(objs []rainslib.Object) bool {
 	return true
 }
 
-func checkCapabilites(caps []rainslib.Capability) bool {
+func checkCapabilites(caps []message.Capability) bool {
 	for _, c := range caps {
 		if containsZoneFileType(string(c)) {
 			return false
@@ -362,11 +367,11 @@ func containsZoneFileType(input string) bool {
 	return false
 }
 
-func getPublicKey(keys []rainslib.PublicKey, sigMetaData rainslib.SignatureMetaData) (rainslib.PublicKey, bool) {
+func getPublicKey(keys []keys.PublicKey, sigMetaData signature.SignatureMetaData) (keys.PublicKey, bool) {
 	for _, key := range keys {
 		if key.ValidSince <= sigMetaData.ValidUntil && key.ValidUntil >= sigMetaData.ValidSince {
 			return key, true
 		}
 	}
-	return rainslib.PublicKey{}, false
+	return keys.PublicKey{}, false
 }

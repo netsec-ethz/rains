@@ -205,7 +205,7 @@ type pendingQueryCache interface {
 	//Add adds sectionSender to the cache and returns false if the query is already in the cache.
 	Add(sectionSender msgSectionSender) bool
 	//AddToken adds token to the token map where the value of the map corresponds to the cache entry
-	//matching the given (fully qualified) name, context and types (sorted). Token is added to the
+	//matching the given (fully qualified) name, context and connection (sorted). Token is added to the
 	//map and the cache entry's token, expiration and sendTo fields are updated only if a matching
 	//cache entry exists. False is returned if no matching cache entry exists.
 	AddToken(token rainslib.Token, expiration int64, sendTo rainslib.ConnInfo, name, context string,

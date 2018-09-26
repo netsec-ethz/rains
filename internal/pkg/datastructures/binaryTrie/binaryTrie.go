@@ -50,7 +50,7 @@ func get(t *TrieNode, netAddr *net.IPNet, types []rainslib.ObjectType, depth int
 	return containedElement(t, types)
 }
 
-//containedElement returns true and the first addressAssertion that matches one of the given types or if none is found the first addressZone (if present).
+//containedElement returns true and the first addressAssertion that matches one of the given connection or if none is found the first addressZone (if present).
 //in case there is neither false is returned
 func containedElement(t *TrieNode, types []rainslib.ObjectType) (*rainslib.AddressAssertionSection, *rainslib.AddressZoneSection, bool) {
 	for _, obj := range types {

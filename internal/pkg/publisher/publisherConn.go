@@ -6,19 +6,22 @@ import (
 	"time"
 
 	"github.com/britram/borat"
+	"github.com/fehlmach/rains/rainslib"
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
 //connectAndSendMsg establishes a connection to server and sends msg. It returns the server info on
 //the result channel if it was not able to send the whole msg to it, else nil.
-func connectAndSendMsg(msg rainslib.RainsMessage, server rainslib.ConnInfo, result chan<- *rainslib.ConnInfo) {
+func connectAndSendMsg(msg message.RainsMessage, server connection.ConnInfo, result chan<- *connection.ConnInfo) {
 	//TODO CFE use certificate for tls
 	conf := &tls.Config{
 		InsecureSkipVerify: true,
 	}
 	switch server.Type {
-	case rainslib.TCP:
+	case connection.TCP:
 		conn, err := tls.Dial(server.TCPAddr.Network(), server.String(), conf)
 		if err != nil {
 			log.Error("Was not able to establish a connection.", "server", server, "error", err)
@@ -49,7 +52,7 @@ func connectAndSendMsg(msg rainslib.RainsMessage, server rainslib.ConnInfo, resu
 
 //listen receives incoming messages for one second. If the message's token matches the query's
 //token, it handles the response.
-func listen(conn net.Conn, token rainslib.Token, success chan<- bool) {
+func listen(conn net.Conn, token token.Token, success chan<- bool) {
 	//close connection after 1 second assuming everything went well
 	deadline := make(chan bool)
 	result := make(chan bool)

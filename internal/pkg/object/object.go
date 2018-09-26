@@ -9,6 +9,7 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
 )
 
 //Object contains a Value of to the specified Type
@@ -50,8 +51,8 @@ func (o Object) CompareTo(object Object) int {
 		} else {
 			logObjectTypeAssertionFailure(object.Type, object.Value)
 		}
-	case PublicKey:
-		if v2, ok := object.Value.(PublicKey); ok {
+	case keys.PublicKey:
+		if v2, ok := object.Value.(keys.PublicKey); ok {
 			return v1.CompareTo(v2)
 		}
 		logObjectTypeAssertionFailure(object.Type, object.Value)
@@ -92,7 +93,7 @@ func logObjectTypeAssertionFailure(t ObjectType, value interface{}) {
 		"objectType", t, "objectValueType", fmt.Sprintf("%T", value))
 }
 
-//ObjectType identifier for object types. ID chosen according to RAINS Protocol Specification
+//ObjectType identifier for object connection. ID chosen according to RAINS Protocol Specification
 type ObjectType int
 
 //String returns the ID as a string
@@ -116,7 +117,7 @@ const (
 	OTNextKey     ObjectType = 13
 )
 
-//NameObject contains a name associated with a name as an alias. Types specifies for which object types the alias is valid
+//NameObject contains a name associated with a name as an alias. Types specifies for which object connection the alias is valid
 type NameObject struct {
 	Name string
 	//Types for which the Name is valid
@@ -217,4 +218,14 @@ func (s ServiceInfo) CompareTo(serviceInfo ServiceInfo) int {
 		return 1
 	}
 	return 0
+}
+
+//ContainsType returns the first object with oType and true if objects contains at least one
+func ContainsType(objects []Object, oType ObjectType) (Object, bool) {
+	for _, o := range objects {
+		if o.Type == oType {
+			return o, true
+		}
+	}
+	return Object{}, false
 }

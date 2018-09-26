@@ -221,7 +221,7 @@ func revParseSignedZone(z *rainslib.ZoneSection) string {
 func revParseSignature(sigs []rainslib.Signature) string {
 	signatures := ""
 	for _, sig := range sigs {
-		//FIXME CFE support all signature data types for encoding
+		//FIXME CFE support all signature data connection for encoding
 		sigDataEnc := sig.Data
 		switch sigData := sig.Data.(type) {
 		case []byte:

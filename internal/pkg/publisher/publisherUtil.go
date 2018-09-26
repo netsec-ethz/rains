@@ -9,8 +9,13 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"github.com/netsec-ethz/rains/internal/pkg/encoder"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -18,7 +23,7 @@ import (
 //detail.
 type Config struct {
 	ZonefilePath    string
-	AuthServers     []rainslib.ConnInfo
+	AuthServers     []connection.ConnInfo
 	PrivateKeyPath  string
 	ShardingConf    ShardingConfig
 	PShardingConf   PShardingConfig
@@ -48,9 +53,9 @@ type PShardingConfig struct {
 
 //BloomFilterConfig specifies the bloom filter's meta data
 type BloomFilterConfig struct {
-	Hashfamily       []rainslib.HashAlgorithmType
+	Hashfamily       []algorithmTypes.HashAlgorithmType
 	NofHashFunctions int
-	BFOpMode         rainslib.ModeOfOperationType
+	BFOpMode         datastructure.ModeOfOperationType
 	BloomFilterSize  int
 }
 
@@ -61,7 +66,7 @@ type MetaDataConfig struct {
 	AddSigMetaDataToAssertions bool
 	AddSigMetaDataToShards     bool
 	AddSigMetaDataToPshards    bool
-	SignatureAlgorithm         rainslib.SignatureAlgorithmType
+	SignatureAlgorithm         algorithmTypes.SignatureAlgorithmType
 	KeyPhase                   int
 	SigValidSince              time.Duration
 	SigValidUntil              time.Duration
@@ -77,7 +82,7 @@ type ConsistencyConfig struct {
 }
 
 //loadZonefile loads the zonefile from disk.
-func loadZonefile(path string, parser rainslib.ZoneFileParser) (*rainslib.ZoneSection, error) {
+func loadZonefile(path string, parser zonefile.ZoneFileParser) (*sections.ZoneSection, error) {
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
 		log.Error("Was not able to read zone file", "path", path)
@@ -94,8 +99,8 @@ func loadZonefile(path string, parser rainslib.ZoneFileParser) (*rainslib.ZoneSe
 
 //loadPrivateKeys reads private keys from the path provided in the config and returns a map from
 //PublicKeyID to the corresponding private key data.
-func loadPrivateKeys(path string) (map[rainslib.PublicKeyID]interface{}, error) {
-	var privateKeys []rainslib.PrivateKey
+func loadPrivateKeys(path string) (map[keys.PublicKeyID]interface{}, error) {
+	var privateKeys []keys.PrivateKey
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
 		log.Error("Could not open config file...", "path", path, "error", err)
@@ -105,7 +110,7 @@ func loadPrivateKeys(path string) (map[rainslib.PublicKeyID]interface{}, error) 
 		log.Error("Could not unmarshal json format of private keys", "error", err)
 		return nil, err
 	}
-	output := make(map[rainslib.PublicKeyID]interface{})
+	output := make(map[keys.PublicKeyID]interface{})
 	for _, keyData := range privateKeys {
 		keyString := keyData.Key.(string)
 		privateKey := make([]byte, hex.DecodedLen(len([]byte(keyString))))
@@ -128,7 +133,7 @@ func loadPrivateKeys(path string) (map[rainslib.PublicKeyID]interface{}, error) 
 //removes the subjectZone and context of the contained assertions and shards after the signatures
 //have been added. It returns an error if it was unable to sign the zone or any of the contained
 //shards and assertions.
-func signZone(zone *rainslib.ZoneSection, path string, encoder rainslib.SignatureFormatEncoder) error {
+func signZone(zone *sections.ZoneSection, path string, encoder encoder.SignatureFormatEncoder) error {
 	if zone == nil {
 		return errors.New("zone is nil")
 	}
@@ -144,13 +149,13 @@ func signZone(zone *rainslib.ZoneSection, path string, encoder rainslib.Signatur
 	}
 	for _, sec := range zone.Content {
 		switch sec := sec.(type) {
-		case *rainslib.AssertionSection:
+		case *sections.AssertionSection:
 			if err := signAssertion(sec, keys, encoder); err != nil {
 				return err
 			}
 			sec.Context = ""
 			sec.SubjectZone = ""
-		case *rainslib.ShardSection:
+		case *sections.ShardSection:
 			if err := signShard(sec, keys, encoder); err != nil {
 				return err
 			}
@@ -166,8 +171,8 @@ func signZone(zone *rainslib.ZoneSection, path string, encoder rainslib.Signatur
 //signShard signs the shard and all contained assertions with the zone's private key. It removes the
 //subjectZone and context of the contained assertions after the signatures have been added. It
 //returns an error if it was unable to sign the shard or any of the assertions.
-func signShard(s *rainslib.ShardSection, keys map[rainslib.PublicKeyID]interface{},
-	encoder rainslib.SignatureFormatEncoder) error {
+func signShard(s *sections.ShardSection, keys map[keys.PublicKeyID]interface{},
+	encoder encoder.SignatureFormatEncoder) error {
 	if s == nil {
 		return errors.New("shard is nil")
 	}
@@ -189,8 +194,8 @@ func signShard(s *rainslib.ShardSection, keys map[rainslib.PublicKeyID]interface
 
 //signAssertion computes the signature data for all contained signatures.
 //It returns an error if it was unable to create all signatures on the assertion.
-func signAssertion(a *rainslib.AssertionSection, keys map[rainslib.PublicKeyID]interface{},
-	encoder rainslib.SignatureFormatEncoder) error {
+func signAssertion(a *sections.AssertionSection, keys map[keys.PublicKeyID]interface{},
+	encoder encoder.SignatureFormatEncoder) error {
 	if a == nil {
 		return errors.New("assertion is nil")
 	}
