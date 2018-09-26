@@ -1,0 +1,195 @@
+package signature
+
+import (
+	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"math/big"
+
+	log "github.com/inconshreveable/log15"
+
+	"github.com/britram/borat"
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"golang.org/x/crypto/ed25519"
+)
+
+//SignatureMetaData contains meta data of the signature
+type SignatureMetaData struct {
+	keys.PublicKeyID
+	//ValidSince defines the time from which on this signature is valid. ValidSince is represented as seconds since the UNIX epoch UTC.
+	ValidSince int64
+	//ValidUntil defines the time after which this signature is not valid anymore. ValidUntil is represented as seconds since the UNIX epoch UTC.
+	ValidUntil int64
+}
+
+func (sig SignatureMetaData) String() string {
+	return fmt.Sprintf("%d %d %d %d %d",
+		sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, sig.KeyPhase)
+}
+
+//Signature contains meta data of the signature and the signature data itself.
+type Signature struct {
+	keys.PublicKeyID
+	//ValidSince defines the time from which on this signature is valid. ValidSince is represented as seconds since the UNIX epoch UTC.
+	ValidSince int64
+	//ValidUntil defines the time after which this signature is not valid anymore. ValidUntil is represented as seconds since the UNIX epoch UTC.
+	ValidUntil int64
+	//Data holds the signature data
+	Data interface{}
+}
+
+// UnmarshalArray takes in a CBOR decoded aray and populates Signature.
+func (sig *Signature) UnmarshalArray(in []interface{}) error {
+	if len(in) < 6 {
+		return fmt.Errorf("expected at least 5 items in input array but got %d", len(in))
+	}
+	if in[0] != uint64(1) {
+		return fmt.Errorf("only algorithm ED25519 is supported presently, but got: %d", in[0])
+	}
+	sig.PublicKeyID.Algorithm = algorithmTypes.Ed25519
+	sig.PublicKeyID.KeyPhase = int(in[1].(uint64))
+	sig.PublicKeyID.KeySpace = keys.KeySpaceID(in[2].(uint64))
+	sig.ValidSince = int64(in[3].(uint64))
+	sig.ValidUntil = int64(in[4].(uint64))
+	sig.Data = in[5]
+	return nil
+}
+
+// MarshalCBOR implements a CBORMarshaler.
+func (sig Signature) MarshalCBOR(w *borat.CBORWriter) error {
+	// RAINS signatures have five common elements: the algorithm identifier, a
+	// keyspace identifier, a keyphase identifier, a valid-since timestamp, and
+	// a valid-until timestamp. Signatures are represented as an array of these
+	// five values followed by additional elements containing the signature
+	// data itself, according to the algorithm identifier.
+	res := []interface{}{1, // FIXME: Hardcoded ED25519: there is no way to know what this is yet.
+		int(sig.KeySpace), sig.KeyPhase, sig.ValidSince, sig.ValidUntil, sig.Data}
+	return w.WriteArray(res)
+}
+
+//GetSignatureMetaData returns the signatures metaData
+func (sig Signature) GetSignatureMetaData() SignatureMetaData {
+	return SignatureMetaData{
+		PublicKeyID: sig.PublicKeyID,
+		ValidSince:  sig.ValidSince,
+		ValidUntil:  sig.ValidUntil,
+	}
+}
+
+//String implements Stringer interface
+func (sig Signature) String() string {
+	data := "notYetImplementedInStringMethod"
+	if sig.Algorithm == algorithmTypes.Ed25519 {
+		if sig.Data == nil {
+			data = "nil"
+		} else {
+			data = hex.EncodeToString(sig.Data.([]byte))
+		}
+	}
+	return fmt.Sprintf("{KS=%d AT=%d VS=%d VU=%d KP=%d data=%s}",
+		sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, sig.KeyPhase, data)
+}
+
+//SignData adds signature meta data to encoding. It then signs the encoding with privateKey and updates sig.Data field with the generated signature
+//In case of an error an error is returned indicating the cause, otherwise nil is returned
+func (sig *Signature) SignData(privateKey interface{}, encoding string) error {
+	if privateKey == nil {
+		log.Warn("PrivateKey is nil")
+		return errors.New("privateKey is nil")
+	}
+	encoding += sig.GetSignatureMetaData().String()
+	data := []byte(encoding)
+	switch sig.Algorithm {
+	case algorithmTypes.Ed25519:
+		if pkey, ok := privateKey.(ed25519.PrivateKey); ok {
+			log.Debug("Sign data", "signature", sig, "privateKey", hex.EncodeToString(privateKey.(ed25519.PrivateKey)), "encoding", encoding)
+			sig.Data = ed25519.Sign(pkey, data)
+			return nil
+		}
+		log.Warn("Could not assert type ed25519.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
+		return errors.New("could not assert type ed25519.PrivateKey")
+	case algorithmTypes.Ed448:
+		return errors.New("ed448 not yet supported in SignData()")
+	case algorithmTypes.Ecdsa256:
+		if pkey, ok := privateKey.(*ecdsa.PrivateKey); ok {
+			hash := sha256.Sum256(data)
+			r, s, err := ecdsa.Sign(rand.Reader, pkey, hash[:])
+			if err != nil {
+				log.Warn("Could not sign data", "error", err)
+				return err
+			}
+			sig.Data = []*big.Int{r, s}
+			return nil
+		}
+		log.Warn("Could not assert type ecdsa.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
+		return errors.New("could not assert type ecdsa.PrivateKey")
+	case algorithmTypes.Ecdsa384:
+		if pkey, ok := privateKey.(*ecdsa.PrivateKey); ok {
+			hash := sha512.Sum384(data)
+			r, s, err := ecdsa.Sign(rand.Reader, pkey, hash[:])
+			if err != nil {
+				log.Warn("Could not sign data", "error", err)
+				return err
+			}
+			sig.Data = []*big.Int{r, s}
+			return nil
+		}
+		log.Warn("Could not cast key to ecdsa.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
+		return errors.New("could not assert type ecdsa.PrivateKey")
+	default:
+		log.Warn("Signature algorithm type not supported", "type", sig.Algorithm)
+		return errors.New("signature algorithm type not supported")
+	}
+}
+
+//VerifySignature adds signature meta data to the encoding. It then signs the encoding with privateKey and compares the resulting signature with the sig.Data.
+//Returns true if there exist signatures and they are identical
+func (sig *Signature) VerifySignature(publicKey interface{}, encoding string) bool {
+	if sig.Data == nil {
+		log.Warn("sig does not contain signature data", "sig", sig)
+		return false
+	}
+	if publicKey == nil {
+		log.Warn("PublicKey is nil")
+		return false
+	}
+	encoding += sig.GetSignatureMetaData().String()
+	data := []byte(encoding)
+	switch sig.Algorithm {
+	case algorithmTypes.Ed25519:
+		if pkey, ok := publicKey.(ed25519.PublicKey); ok {
+			return ed25519.Verify(pkey, data, sig.Data.([]byte))
+		}
+		log.Warn("Could not assert type ed25519.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
+	case algorithmTypes.Ed448:
+		log.Warn("Ed448 not yet Supported!")
+	case algorithmTypes.Ecdsa256:
+		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
+			if sig, ok := sig.Data.([]*big.Int); ok && len(sig) == 2 {
+				hash := sha256.Sum256(data)
+				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])
+			}
+			log.Warn("Could not assert type []*big.Int", "signatureDataType", fmt.Sprintf("%T", sig.Data))
+			return false
+		}
+		log.Warn("Could not assert type ecdsa.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
+	case algorithmTypes.Ecdsa384:
+		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
+			if sig, ok := sig.Data.([]*big.Int); ok && len(sig) == 2 {
+				hash := sha512.Sum384(data)
+				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])
+			}
+			log.Warn("Could not assert type []*big.Int", "signature", sig.Data)
+			return false
+		}
+		log.Warn("Could not assert type ecdsa.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
+	default:
+		log.Warn("Signature algorithm type not supported", "type", sig.Algorithm)
+	}
+	return false
+}

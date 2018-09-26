@@ -12,8 +12,8 @@ import (
 	"fmt"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
 	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
-	"github.com/netsec-ethz/rains/internal/pkg/utils/bitarray"
 
 	"io/ioutil"
 	"strconv"

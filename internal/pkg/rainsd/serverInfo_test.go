@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/utils/lruCache"
-	"github.com/netsec-ethz/rains/internal/pkg/utils/safeCounter"
-	"github.com/netsec-ethz/rains/internal/pkg/utils/safeHashMap"
+	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeCounter"
+	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeHashMap"
+	"github.com/netsec-ethz/rains/internal/pkg/lruCache"
 	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
 	"golang.org/x/crypto/ed25519"
 )

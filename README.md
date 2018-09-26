@@ -28,7 +28,7 @@ design document:
 - The [rainsdig](rainsdig/DESIGN.md) design document
 - The [rainspub](internal/pkg/publisher/DESIGN.md) design document
 - The [rainsfic](rainsfic/DESIGN.md) design document
-- The [rainslib](internal/pkg/rainslib/DESIGN.md) design document
+- The [rainslib](internal/pkg/DESIGN.md) design document
 
 A general project plan for RAINS development is given [here](PROJECT-PLAN.md);
 small matters of programming appear in the 

@@ -12,9 +12,9 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
+	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeCounter"
+	"github.com/netsec-ethz/rains/internal/pkg/lruCache"
 	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
-	"github.com/netsec-ethz/rains/internal/pkg/utils/lruCache"
-	"github.com/netsec-ethz/rains/internal/pkg/utils/safeCounter"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
 
@@ -131,7 +131,7 @@ func loadRootZonePublicKey(keyPath string) error {
 						"zone", a.SubjectZone,
 						"RootPublicKey", c.Value,
 					)
-					keysAdded += 1
+					keysAdded++
 				} else {
 					return fmt.Errorf("Failed to validate signature for assertion: %v", a)
 				}

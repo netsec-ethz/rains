@@ -1,23 +1,24 @@
 //line zonefileParser.y:8
 package zonefile
 
-import __yyfmt__ "fmt"
-
-//line zonefileParser.y:9
 import (
 	"bufio"
 	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
-	"github.com/netsec-ethz/rains/internal/pkg/utils/bitarray"
-	
-	"golang.org/x/crypto/ed25519"
+	__yyfmt__ "fmt"
+
+//line zonefileParser.y:9
 	"io/ioutil"
 	"strconv"
 	"strings"
+
+	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
+	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
+	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
+	"golang.org/x/crypto/ed25519"
 )
 
 //AddSigs adds signatures to section
@@ -595,7 +596,7 @@ type ZFPLexer interface {
 type ZFPParser interface {
 	Parse(ZFPLexer) int
 	Lookahead() int
-    Result() []rainslib.MessageSectionWithSigForward
+	Result() []rainslib.MessageSectionWithSigForward
 }
 
 type ZFPParserImpl struct {
@@ -609,7 +610,7 @@ func (p *ZFPParserImpl) Lookahead() int {
 }
 
 func (p *ZFPParserImpl) Result() []rainslib.MessageSectionWithSigForward {
-    return output
+	return output
 }
 func ZFPNewParser() ZFPParser {
 	return &ZFPParserImpl{}

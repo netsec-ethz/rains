@@ -9,9 +9,9 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 
+	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
 	"github.com/netsec-ethz/rains/internal/pkg/rainslib"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
-	"github.com/netsec-ethz/rains/internal/pkg/utils/bitarray"
 )
 
 //Rainspub represents the publishing process of a zone authority. It can be configured to do

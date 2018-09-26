@@ -58,6 +58,23 @@ func init() {
 	log.Root().SetHandler(h)*/
 }
 
+//ZoneFileParser is the interface for all parsers of zone files for RAINS
+type ZoneFileParser interface {
+	//Decode takes as input a byte string of section(s) in zonefile format. It returns a slice of
+	//all contained assertions, shards, and zones in the provided order or an error in case of
+	//failure.
+	Decode(zoneFile []byte) ([]MessageSectionWithSigForward, error)
+
+	//DecodeZone takes as input a byte string of one zone in zonefile format. It returns the zone
+	//exactly as it is in the zonefile or an error in case of failure.
+	DecodeZone(zoneFile []byte) (*ZoneSection, error)
+
+	//Encode returns the given section represented in zone file format if it is an assertion, shard,
+	//or zone. In all other cases it returns the section in a displayable format similar to the zone
+	//file format
+	Encode(section MessageSection) string
+}
+
 //Parser can be used to parse RAINS zone files
 type Parser struct{}
 

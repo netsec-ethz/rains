@@ -4,10 +4,10 @@ import (
 	"net"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/utils/binaryTrie"
-	"github.com/netsec-ethz/rains/internal/pkg/utils/lruCache"
-	"github.com/netsec-ethz/rains/internal/pkg/utils/safeCounter"
-	"github.com/netsec-ethz/rains/internal/pkg/utils/safeHashMap"
+	"github.com/netsec-ethz/rains/internal/pkg/datastructures/binaryTrie"
+	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeCounter"
+	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeHashMap"
+	"github.com/netsec-ethz/rains/internal/pkg/lruCache"
 )
 
 //connCache stores connections of this server. It is not guaranteed that a returned connection is still active.
