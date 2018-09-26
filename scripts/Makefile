@@ -4,3 +4,4 @@ all:
 	(cd ../cmd/resolve ; go build )
 	(cd ../cmd/zonepub ; go build )
 	(cd ../internal/pkg/rainsd ; go build )
+	(cd ../internal/pkg/zonefile ; go build )

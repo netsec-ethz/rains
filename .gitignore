@@ -51,7 +51,7 @@ _testmain.go
 coverage.out
 
 #Yacc
-/yacc/y.go
-/yacc/zoneFileDecoderGenerated.go
-/yacc/y.output
-/yacc/zonefileParser
+/tools/yacc/y.go
+/tools/yacc/zoneFileDecoderGenerated.go
+/tools/yacc/y.output
+/tools/yacc/zonefileParser

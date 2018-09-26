@@ -5,8 +5,8 @@ all:
 	sed -i 's/package main/package zonefile/g' y.go
 	sed -i 's/"github.com\/netsec-ethz\/rains\/internal\/pkg\/zonefile"//' y.go
 	sed -i 's/zonefile.T/T/g' y.go
-	sed -i '0,/Lookahead()/{s/Lookahead() int/Lookahead() int\n    Result() []section.MessageSectionWithSigForward/}' y.go
-	sed -i 's/func ZFPNewParser()/func (p *ZFPParserImpl) Result() []section.MessageSectionWithSigForward {\n\    return output\n}\nfunc ZFPNewParser()/g' y.go
+	sed -i '0,/Lookahead()/{s/Lookahead() int/Lookahead() int\n    Result() []section.SecWithSigForward/}' y.go
+	sed -i 's/func ZFPNewParser()/func (p *ZFPParserImpl) Result() []section.SecWithSigForward {\n\    return output\n}\nfunc ZFPNewParser()/g' y.go
 	mv y.go zoneFileDecoderGenerated.go
 
 clean:

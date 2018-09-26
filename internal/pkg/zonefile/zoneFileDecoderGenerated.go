@@ -1,18 +1,15 @@
 //line zonefileParser.y:8
 package zonefile
 
+import __yyfmt__ "fmt"
+
+//line zonefileParser.y:9
 import (
 	"bufio"
 	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	__yyfmt__ "fmt"
-
-//line zonefileParser.y:9
-	"io/ioutil"
-	"strconv"
-	"strings"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
@@ -21,13 +18,18 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
+
+	"io/ioutil"
+	"strconv"
+	"strings"
+
 	"golang.org/x/crypto/ed25519"
 )
 
 //AddSigs adds signatures to section
-func AddSigs(section section.SecWithSigForward, signatures []signature.Sig) {
+func AddSigs(sec section.SecWithSigForward, signatures []signature.Sig) {
 	for _, sig := range signatures {
-		section.AddSig(sig)
+		sec.AddSig(sig)
 	}
 }
 

@@ -29,13 +29,13 @@ import (
 )
 
 //AddSigs adds signatures to section
-func AddSigs(section section.MessageSectionWithSigForward, signatures []signature.Signature) {
+func AddSigs(sec section.SecWithSigForward, signatures []signature.Sig) {
     for _, sig := range signatures {
-        section.AddSig(sig)
+        sec.AddSig(sig)
     }
 }
 
-func DecodeBloomFilter(hashAlgos []algorithmTypes.HashAlgorithmType, modeOfOperation section.ModeOfOperationType,
+func DecodeBloomFilter(hashAlgos []algorithmTypes.Hash, modeOfOperation section.ModeOfOperationType,
     nofHashFunctions, filter string) (section.BloomFilter, error) {
     funcs, err := strconv.Atoi(nofHashFunctions)
 	if err != nil {
@@ -88,13 +88,13 @@ func DecodeEd25519PublicKeyData(pkeyInput string, keyphase string) (keys.PublicK
 }
 
 func DecodeCertificate(ptype object.ProtocolType, usage object.CertificateUsage, 
-    hashAlgo algorithmTypes.HashAlgorithmType, certificat string) (object.CertificateObject,
+    hashAlgo algorithmTypes.Hash, certificat string) (object.Certificate,
 error) {
     data, err := hex.DecodeString(certificat)
     if err != nil {
-        return object.CertificateObject{}, err
+        return object.Certificate{}, err
     }
-    return object.CertificateObject{
+    return object.Certificate{
         Type:     ptype,
         Usage:    usage,
         HashAlgo: hashAlgo,
@@ -131,7 +131,7 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
 }
 
 //Result gets stored in this variable
-var output []section.MessageSectionWithSigForward
+var output []section.SecWithSigForward
 
 %}
 
@@ -140,24 +140,24 @@ var output []section.MessageSectionWithSigForward
 // as ${PREFIX}SymType, of which a reference is passed to the lexer.
 %union{
     str             string
-    assertion       *section.AssertionSection
-    assertions      []*section.AssertionSection
-    shard           *section.ShardSection
-    pshard          *section.PshardSection
-    zone            *section.ZoneSection
-    sections        []section.MessageSectionWithSigForward
+    assertion       *section.Assertion
+    assertions      []*section.Assertion
+    shard           *section.Shard
+    pshard          *section.Pshard
+    zone            *section.Zone
+    sections        []section.SecWithSigForward
     objects         []object.Object
     object          object.Object
-    objectTypes     []object.ObjectType
-    objectType      object.ObjectType
-    signatures      []signature.Signature
-    signature       signature.Signature
+    objectTypes     []object.Type
+    objectType      object.Type
+    signatures      []signature.Sig
+    signature       signature.Sig
     shardRange      []string
     publicKey       keys.PublicKey
     protocolType    object.ProtocolType
     certUsage       object.CertificateUsage
-    hashType        algorithmTypes.HashAlgorithmType
-    hashTypes       []algorithmTypes.HashAlgorithmType
+    hashType        algorithmTypes.Hash
+    hashTypes       []algorithmTypes.Hash
     dataStructure   section.DataStructure
     bfOpMode        section.ModeOfOperationType
 }
@@ -250,7 +250,7 @@ zone            : zoneBody
 
 zoneBody        : zoneType ID ID lBracket zoneContent rBracket
                 {
-                    $$ = &section.ZoneSection{
+                    $$ = &section.Zone{
                         SubjectZone: $2, 
                         Context: $3,
                         Content: $5,    
@@ -283,7 +283,7 @@ shard           : shardBody
 
 shardBody       : shardType ID ID shardRange lBracket shardContent rBracket
                 {
-                    $$ = &section.ShardSection{
+                    $$ = &section.Shard{
                         SubjectZone: $2, 
                         Context: $3,
                         RangeFrom: $4[0],
@@ -293,7 +293,7 @@ shardBody       : shardType ID ID shardRange lBracket shardContent rBracket
                 }
                 | shardType shardRange lBracket shardContent rBracket
                 {
-                    $$ = &section.ShardSection{
+                    $$ = &section.Shard{
                         RangeFrom: $2[0],
                         RangeTo: $2[1],
                         Content: $4,
@@ -335,7 +335,7 @@ pshard          : pshardBody
 
 pshardBody      : pshardType ID ID shardRange pshardContent
                 {
-                    $$ = &section.PshardSection{
+                    $$ = &section.Pshard{
                         SubjectZone: $2, 
                         Context: $3,
                         RangeFrom: $4[0],
@@ -345,7 +345,7 @@ pshardBody      : pshardType ID ID shardRange pshardContent
                 }
                 | pshardType shardRange pshardContent
                 {
-                    $$ = &section.PshardSection{
+                    $$ = &section.Pshard{
                         RangeFrom: $2[0],
                         RangeTo: $2[1],
                         Datastructure: $3,
@@ -368,7 +368,7 @@ bloomFilter     : bloomFilterType lBracket hashTypes rBracket ID bfOpMode ID
 
 hashTypes       : hashType
                 {
-                    $$ = []algorithmTypes.HashAlgorithmType{$1}
+                    $$ = []algorithmTypes.Hash{$1}
                 }
                 | hashTypes hashType
                 {
@@ -397,14 +397,14 @@ assertion       : assertionBody
     
 assertionBody   : assertionType ID lBracket objects rBracket
                 {
-                    $$ = &section.AssertionSection{
+                    $$ = &section.Assertion{
                         SubjectName: $2,
                         Content: $4,
                     }
                 }
                 | assertionType ID ID ID lBracket objects rBracket
                 {
-                    $$ = &section.AssertionSection{
+                    $$ = &section.Assertion{
                         SubjectZone: $2, 
                         Context: $3,
                         SubjectName: $4,
@@ -439,7 +439,7 @@ nameBody        : nameType ID lBracket oTypes rBracket
                 {
                     $$ = object.Object{
                         Type: object.OTName,
-                        Value: object.NameObject{
+                        Value: object.Name{
                             Name: $2,
                             Types: $4,
                         },
@@ -448,7 +448,7 @@ nameBody        : nameType ID lBracket oTypes rBracket
 
 oTypes          : oType
                 {
-                    $$ = []object.ObjectType{$1}
+                    $$ = []object.Type{$1}
                 }
                 | oTypes oType
                 {
@@ -797,7 +797,7 @@ annotation      : lParenthesis annotationBody rParenthesis
 
 annotationBody  : signature
                 {
-                    $$ = []signature.Signature{$1}
+                    $$ = []signature.Sig{$1}
                 }
                 | annotationBody signature
                 {
@@ -825,7 +825,7 @@ signatureMeta   : sigType ed25519Type rains ID ID ID
                     if  err != nil {
                         log.Error("semantic error:", "DecodeValidity", err)
                     }
-                    $$ = signature.Signature{
+                    $$ = signature.Sig{
                         PublicKeyID: publicKeyID,
                         ValidSince: validSince,
                         ValidUntil: validUntil,
