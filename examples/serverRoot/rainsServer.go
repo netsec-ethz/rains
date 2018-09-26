@@ -23,7 +23,7 @@ func main() {
 		log.Error("Error on startup. Unsupported logging level", "error", err)
 		panic(err)
 	}
-	err = rainsd.InitServer(serverConfigPath, int(lvl))
+	err = rainsd.InitServer(serverConfigPath, "", "", int(lvl))
 	if err != nil {
 		log.Error("Error on startup", "error", err)
 		panic(err)

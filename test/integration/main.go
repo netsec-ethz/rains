@@ -21,19 +21,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fehlmach/rains/utils/zoneFileParser"
+	log "github.com/inconshreveable/log15"
+	messagediff "gopkg.in/d4l3k/messagediff.v1"
+
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
+	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	"github.com/netsec-ethz/rains/test/integration/configs"
 	"github.com/netsec-ethz/rains/test/integration/runner"
 	"github.com/netsec-ethz/rains/test/integration/utils"
 	"golang.org/x/crypto/ed25519"
-
-	log "github.com/inconshreveable/log15"
 )
 
 var (
@@ -45,7 +47,7 @@ var (
 	ecdsaCurve   = flag.String("ecdsa_curve", "P521", "Which ECDSA curve to use when generating X509 certificates")
 	tracePort    = flag.Int("trace_port", 16000, "Port to listen on for trace server")
 	traceWebPort = flag.Int("trace_web_port", 16001, "Port to listen on for tracing web interface")
-	interactive  = flag.Bool("interactive", true, "Interactive mode")
+	interactive  = flag.Bool("interactive", false, "Interactive mode")
 )
 
 func main() {
@@ -425,21 +427,22 @@ func verifyRainsDigTLD(ctx context.Context, basePath string, RLDs []string, zone
 // verifyRainsDigRoot checks rainsDig's output is correct for the root zone.
 // subKeys is a map from TLD to public key.
 func verifyRainsDigRoot(output string, subKeys map[string]string) error {
-	parser := zoneFileParser.Parser{}
+	parser := zonefile.Parser{}
 	as, err := parser.Decode([]byte(output))
 	if err != nil {
 		return fmt.Errorf("failed to parse rainsDig output: %v", err)
 	}
 	toCheck := len(subKeys)
-	for _, assertion := range as {
+	for _, sec := range as {
+		assertion := sec.(*section.Assertion)
 		if key, ok := subKeys[assertion.SubjectName]; ok {
 			content := assertion.Content
-			for _, object := range content {
-				switch object.Type {
+			for _, obj := range content {
+				switch obj.Type {
 				case object.OTDelegation:
-					value, ok := object.Value.(keys.PublicKey)
+					value, ok := obj.Value.(keys.PublicKey)
 					if !ok {
-						return fmt.Errorf("expected value type of keys.PublicKey but got %T: %v", object.Value, object.Value)
+						return fmt.Errorf("expected value type of keys.PublicKey but got %T: %v", obj.Value, obj.Value)
 					}
 					keyBytes := []byte(value.Key.(ed25519.PublicKey))
 					wantBytes, err := hex.DecodeString(key)
@@ -641,7 +644,7 @@ func CreateDelegationAssertion(zone, context, outPath, gobOut string) error {
 	pkey := keys.PublicKey{
 		PublicKeyID: keys.PublicKeyID{
 			KeySpace:  keys.RainsKeySpace,
-			Algorithm: keys.Ed25519,
+			Algorithm: algorithmTypes.Ed25519,
 		},
 		Key:        publicKey,
 		ValidSince: time.Now().Unix(),
@@ -669,13 +672,13 @@ func CreateDelegationAssertion(zone, context, outPath, gobOut string) error {
 func addSignature(a section.SecWithSig, key ed25519.PrivateKey) bool {
 	signature := signature.Sig{
 		PublicKeyID: keys.PublicKeyID{
-			Algorithm: keys.Ed25519,
+			Algorithm: algorithmTypes.Ed25519,
 			KeySpace:  keys.RainsKeySpace,
 		},
 		ValidSince: time.Now().Unix(),
 		ValidUntil: time.Now().Add(*validity).Unix(),
 	}
-	return siglib.SignSection(a, key, signature, zoneFileParser.Parser{})
+	return siglib.SignSection(a, key, signature, zonefile.Parser{})
 }
 
 // SignDelegation signs the delegation stored at delegationPath with the
