@@ -10,9 +10,6 @@
 _obj
 _test
 
-#Files
-/questions.md
-
 #Large benchmarking files
 *zonefileDeleg1000000
 *zonefile1000000
@@ -35,20 +32,23 @@ _testmain.go
 *.out
 
 #server main() function binary
-/example/serverCH/serverCH
-/example/serverRoot/serverRoot
-/example/serverCHPub/serverCHPub
-/example/serverRootPub/serverRootPub
+/examples/serverCH/serverCH
+/examples/serverRoot/serverRoot
+/examples/serverCHPub/serverCHPub
+/examples/serverRootPub/serverRootPub
 
-#binary of rainsdig and rainspub
-/rainsdig/rainsdig
-/zonepub/zonepub
+#binary of executables
+/cmd/rainsdig/rainsdig
+/cmd/zonepub/zonepub
+/cmd/zoneManager/zoneManager
+/cmd/resolve/resolve
+/cmd/rainsfic/rainsfic
 
 #zonepub test file
-/zonepub/data/newZonefile.txt
+/cmd/zonepub/data/newZonefile.txt
 
 #test coverage files
-coverage.out
+*coverage.out
 
 #Yacc
 /tools/yacc/y.go
