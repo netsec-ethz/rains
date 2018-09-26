@@ -1,49 +1,47 @@
 //line zonefileParser.y:8
 package zonefile
 
-import __yyfmt__ "fmt"
-
-//line zonefileParser.y:9
 import (
 	"bufio"
 	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	__yyfmt__ "fmt"
+
+//line zonefileParser.y:9
+	"io/ioutil"
+	"strconv"
+	"strings"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
-
-	"io/ioutil"
-	"strconv"
-	"strings"
-
 	"golang.org/x/crypto/ed25519"
 )
 
 //AddSigs adds signatures to section
-func AddSigs(section sections.SecWithSigForward, signatures []signature.Sig) {
+func AddSigs(section section.SecWithSigForward, signatures []signature.Sig) {
 	for _, sig := range signatures {
 		section.AddSig(sig)
 	}
 }
 
-func DecodeBloomFilter(hashAlgos []algorithmTypes.Hash, modeOfOperation sections.ModeOfOperationType,
-	nofHashFunctions, filter string) (sections.BloomFilter, error) {
+func DecodeBloomFilter(hashAlgos []algorithmTypes.Hash, modeOfOperation section.ModeOfOperationType,
+	nofHashFunctions, filter string) (section.BloomFilter, error) {
 	funcs, err := strconv.Atoi(nofHashFunctions)
 	if err != nil {
-		return sections.BloomFilter{}, errors.New("nofHashFunctions is not a number")
+		return section.BloomFilter{}, errors.New("nofHashFunctions is not a number")
 	}
 	decodedFilter, err := hex.DecodeString(filter)
 	if err != nil {
-		return sections.BloomFilter{}, err
+		return section.BloomFilter{}, err
 	}
-	return sections.BloomFilter{
+	return section.BloomFilter{
 		HashFamily:       hashAlgos,
 		NofHashFunctions: funcs,
 		ModeOfOperation:  modeOfOperation,
@@ -129,18 +127,18 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
 }
 
 //Result gets stored in this variable
-var output []sections.SecWithSigForward
+var output []section.SecWithSigForward
 
 //line zonefileParser.y:141
 type ZFPSymType struct {
 	yys           int
 	str           string
-	assertion     *sections.Assertion
-	assertions    []*sections.Assertion
-	shard         *sections.Shard
-	pshard        *sections.Pshard
-	zone          *sections.Zone
-	sections      []sections.SecWithSigForward
+	assertion     *section.Assertion
+	assertions    []*section.Assertion
+	shard         *section.Shard
+	pshard        *section.Pshard
+	zone          *section.Zone
+	sections      []section.SecWithSigForward
 	objects       []object.Object
 	object        object.Object
 	objectTypes   []object.Type
@@ -153,8 +151,8 @@ type ZFPSymType struct {
 	certUsage     object.CertificateUsage
 	hashType      algorithmTypes.Hash
 	hashTypes     []algorithmTypes.Hash
-	dataStructure sections.DataStructure
-	bfOpMode      sections.ModeOfOperationType
+	dataStructure section.DataStructure
+	bfOpMode      section.ModeOfOperationType
 }
 
 const ID = 57346
@@ -601,7 +599,7 @@ type ZFPLexer interface {
 type ZFPParser interface {
 	Parse(ZFPLexer) int
 	Lookahead() int
-	Result() []sections.SecWithSigForward
+	Result() []section.SecWithSigForward
 }
 
 type ZFPParserImpl struct {
@@ -614,7 +612,7 @@ func (p *ZFPParserImpl) Lookahead() int {
 	return p.char
 }
 
-func (p *ZFPParserImpl) Result() []sections.SecWithSigForward {
+func (p *ZFPParserImpl) Result() []section.SecWithSigForward {
 	return output
 }
 func ZFPNewParser() ZFPParser {
@@ -966,7 +964,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-6 : ZFPpt+1]
 		//line zonefileParser.y:252
 		{
-			ZFPVAL.zone = &sections.Zone{
+			ZFPVAL.zone = &section.Zone{
 				SubjectZone: ZFPDollar[2].str,
 				Context:     ZFPDollar[3].str,
 				Content:     ZFPDollar[5].sections,
@@ -1007,7 +1005,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-7 : ZFPpt+1]
 		//line zonefileParser.y:285
 		{
-			ZFPVAL.shard = &sections.Shard{
+			ZFPVAL.shard = &section.Shard{
 				SubjectZone: ZFPDollar[2].str,
 				Context:     ZFPDollar[3].str,
 				RangeFrom:   ZFPDollar[4].shardRange[0],
@@ -1019,7 +1017,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-5 : ZFPpt+1]
 		//line zonefileParser.y:295
 		{
-			ZFPVAL.shard = &sections.Shard{
+			ZFPVAL.shard = &section.Shard{
 				RangeFrom: ZFPDollar[2].shardRange[0],
 				RangeTo:   ZFPDollar[2].shardRange[1],
 				Content:   ZFPDollar[4].assertions,
@@ -1072,7 +1070,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-5 : ZFPpt+1]
 		//line zonefileParser.y:337
 		{
-			ZFPVAL.pshard = &sections.Pshard{
+			ZFPVAL.pshard = &section.Pshard{
 				SubjectZone:   ZFPDollar[2].str,
 				Context:       ZFPDollar[3].str,
 				RangeFrom:     ZFPDollar[4].shardRange[0],
@@ -1084,7 +1082,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-3 : ZFPpt+1]
 		//line zonefileParser.y:347
 		{
-			ZFPVAL.pshard = &sections.Pshard{
+			ZFPVAL.pshard = &section.Pshard{
 				RangeFrom:     ZFPDollar[2].shardRange[0],
 				RangeTo:       ZFPDollar[2].shardRange[1],
 				Datastructure: ZFPDollar[3].dataStructure,
@@ -1098,8 +1096,8 @@ ZFPdefault:
 			if err != nil {
 				log.Error("semantic error:", "DecodeBloomFilter", err)
 			}
-			ZFPVAL.dataStructure = sections.DataStructure{
-				Type: sections.BloomFilterType,
+			ZFPVAL.dataStructure = section.DataStructure{
+				Type: section.BloomFilterType,
 				Data: bloomFilter,
 			}
 		}
@@ -1119,19 +1117,19 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:379
 		{
-			ZFPVAL.bfOpMode = sections.StandardOpType
+			ZFPVAL.bfOpMode = section.StandardOpType
 		}
 	case 33:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:383
 		{
-			ZFPVAL.bfOpMode = sections.KirschMitzenmacher1
+			ZFPVAL.bfOpMode = section.KirschMitzenmacher1
 		}
 	case 34:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:387
 		{
-			ZFPVAL.bfOpMode = sections.KirschMitzenmacher2
+			ZFPVAL.bfOpMode = section.KirschMitzenmacher2
 		}
 	case 36:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1144,7 +1142,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-5 : ZFPpt+1]
 		//line zonefileParser.y:399
 		{
-			ZFPVAL.assertion = &sections.Assertion{
+			ZFPVAL.assertion = &section.Assertion{
 				SubjectName: ZFPDollar[2].str,
 				Content:     ZFPDollar[4].objects,
 			}
@@ -1153,7 +1151,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-7 : ZFPpt+1]
 		//line zonefileParser.y:406
 		{
-			ZFPVAL.assertion = &sections.Assertion{
+			ZFPVAL.assertion = &section.Assertion{
 				SubjectZone: ZFPDollar[2].str,
 				Context:     ZFPDollar[3].str,
 				SubjectName: ZFPDollar[4].str,

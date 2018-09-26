@@ -1,0 +1,61 @@
+package section
+
+import (
+	"time"
+
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
+)
+
+//Section can be either an Assertion, Shard, Zone, Query, Notification, AddressAssertion, AddressZone, AddressQuery section
+type Section interface {
+	Sort()
+	String() string
+}
+
+//SecWithSig is an interface for a section protected by a signature. In the current
+//implementation it can be an Assertion, Shard, Zone, AddressAssertion, AddressZone
+type SecWithSig interface {
+	Section
+	AllSigs() []signature.Sig
+	Sigs(keyspace keys.KeySpaceID) []signature.Sig
+	AddSig(sig signature.Sig)
+	DeleteSig(index int)
+	GetContext() string
+	GetSubjectZone() string
+	UpdateValidity(validSince, validUntil int64, maxValidity time.Duration)
+	ValidSince() int64
+	ValidUntil() int64
+	Hash() string
+	IsConsistent() bool
+	NeededKeys(map[signature.MetaData]bool)
+}
+
+//SecWithSigForward can be either an Assertion, Shard or Zone
+type SecWithSigForward interface {
+	SecWithSig
+	Interval
+}
+
+//MessageSectionQuery is the interface for a query section. In the current implementation it can be
+//a query or an addressQuery
+type MessageSectionQuery interface {
+	GetContext() string
+	GetExpiration() int64
+}
+
+//Interval defines an interval over strings
+type Interval interface {
+	//Begin of the interval
+	Begin() string
+	//End of the interval
+	End() string
+}
+
+//Hasher can be implemented by objects that are not natively hashable.
+//For an object to be a map key (or a part thereof), it must be hashable.
+type Hasher interface {
+	//Hash must return a string uniquely identifying the object
+	//It must hold for all objects that o1 == o2 iff o1.Hash() == o2.Hash()
+	Hash() string
+}

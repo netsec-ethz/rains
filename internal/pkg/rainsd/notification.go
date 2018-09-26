@@ -8,31 +8,31 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/message"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
 
 //notify handles incoming notification messages
 func notify(msgSender msgSectionSender) {
 	notifLog := log.New("notificationMsgSection", msgSender.Section)
-	section := msgSender.Section.(*sections.Notification)
-	switch section.Type {
-	case sections.NTHeartbeat:
-	case sections.NTCapHashNotKnown:
-		if len(section.Data) == 0 {
+	sec := msgSender.Section.(*section.Notification)
+	switch sec.Type {
+	case section.NTHeartbeat:
+	case section.NTCapHashNotKnown:
+		if len(sec.Data) == 0 {
 			caps, _ := connCache.GetCapabilityList(serverConnInfo)
 			sendCapability(msgSender.Sender, caps)
 		} else {
-			if capabilityIsHash(section.Data) {
-				if caps, ok := capabilities.Get([]byte(section.Data)); ok {
+			if capabilityIsHash(sec.Data) {
+				if caps, ok := capabilities.Get([]byte(sec.Data)); ok {
 					connCache.AddCapabilityList(msgSender.Sender, caps)
 					ownCaps, _ := connCache.GetCapabilityList(serverConnInfo)
 					sendCapability(msgSender.Sender, ownCaps)
 				} else {
-					sendNotificationMsg(msgSender.Token, msgSender.Sender, sections.NTCapHashNotKnown, capabilityList)
+					sendNotificationMsg(msgSender.Token, msgSender.Sender, section.NTCapHashNotKnown, capabilityList)
 				}
 			} else {
 				cList := []message.Capability{}
-				for _, c := range strings.Split(section.Data, " ") {
+				for _, c := range strings.Split(sec.Data, " ") {
 					cList = append(cList, message.Capability(c))
 				}
 				connCache.AddCapabilityList(msgSender.Sender, cList)
@@ -40,35 +40,35 @@ func notify(msgSender msgSectionSender) {
 				sendCapability(msgSender.Sender, ownCaps)
 			}
 		}
-	case sections.NTBadMessage:
+	case section.NTBadMessage:
 		notifLog.Error("Sent msg was malformed")
 		dropPendingSectionsAndQueries(msgSender.Token,
-			msgSender.Section.(*sections.Notification), true)
-	case sections.NTRcvInconsistentMsg:
+			msgSender.Section.(*section.Notification), true)
+	case section.NTRcvInconsistentMsg:
 		notifLog.Error("Sent msg was inconsistent")
 		dropPendingSectionsAndQueries(msgSender.Token,
-			msgSender.Section.(*sections.Notification), true)
-	case sections.NTMsgTooLarge:
+			msgSender.Section.(*section.Notification), true)
+	case section.NTMsgTooLarge:
 		notifLog.Error("Sent msg was too large")
 		//TODO CFE resend message in smaller chunks
-	case sections.NTNoAssertionsExist:
+	case section.NTNoAssertionsExist:
 		notifLog.Info("Bad request, only clients receive this notification type")
-		sendNotificationMsg(msgSender.Token, msgSender.Sender, sections.NTBadMessage, "")
-	case sections.NTUnspecServerErr:
+		sendNotificationMsg(msgSender.Token, msgSender.Sender, section.NTBadMessage, "")
+	case section.NTUnspecServerErr:
 		notifLog.Error("Unspecified error of other server")
 		dropPendingSectionsAndQueries(msgSender.Token,
-			msgSender.Section.(*sections.Notification), false)
-	case sections.NTServerNotCapable:
+			msgSender.Section.(*section.Notification), false)
+	case section.NTServerNotCapable:
 		notifLog.Error("Other server was not capable")
 		dropPendingSectionsAndQueries(msgSender.Token,
-			msgSender.Section.(*sections.Notification), false)
-	case sections.NTNoAssertionAvail:
+			msgSender.Section.(*section.Notification), false)
+	case section.NTNoAssertionAvail:
 		notifLog.Info("No assertion was available")
 		dropPendingSectionsAndQueries(msgSender.Token,
-			msgSender.Section.(*sections.Notification), false)
+			msgSender.Section.(*section.Notification), false)
 	default:
 		notifLog.Warn("No matching notification type")
-		sendNotificationMsg(msgSender.Token, msgSender.Sender, sections.NTBadMessage, "No matching notification type")
+		sendNotificationMsg(msgSender.Token, msgSender.Sender, section.NTBadMessage, "No matching notification type")
 	}
 }
 
@@ -79,11 +79,11 @@ func capabilityIsHash(capabilities string) bool {
 
 //dropPendingSectionsAndQueries removes all entries from the pending caches matching token and
 //forwards the received notification or unspecServerErr depending on serverError flag
-func dropPendingSectionsAndQueries(token token.Token, notification *sections.Notification,
+func dropPendingSectionsAndQueries(token token.Token, notification *section.Notification,
 	serverError bool) {
 	for _, ss := range pendingKeys.GetAndRemoveByToken(token) {
 		if serverError {
-			sendNotificationMsg(ss.Token, ss.Sender, sections.NTUnspecServerErr, "")
+			sendNotificationMsg(ss.Token, ss.Sender, section.NTUnspecServerErr, "")
 		} else {
 			sendNotificationMsg(ss.Token, ss.Sender, notification.Type, notification.Data)
 		}
@@ -91,7 +91,7 @@ func dropPendingSectionsAndQueries(token token.Token, notification *sections.Not
 	sectionSenders, _ := pendingQueries.GetAndRemoveByToken(token, 0)
 	for _, ss := range sectionSenders {
 		if serverError {
-			sendNotificationMsg(ss.Token, ss.Sender, sections.NTUnspecServerErr, "")
+			sendNotificationMsg(ss.Token, ss.Sender, section.NTUnspecServerErr, "")
 		} else {
 			sendNotificationMsg(ss.Token, ss.Sender, notification.Type, notification.Data)
 		}

@@ -195,7 +195,7 @@ func handleAssertionCacheSize(c *assertionCacheImpl) {
 }
 
 //deleteAssertionFromRangeMap deletes the given assertion from the rangeMap. Return true if it was able to delete the element
-func deleteAssertionFromRangeMap(c *assertionCacheImpl, assertion *sections.AssertionSection, validSince, validUntil int64) bool {
+func deleteAssertionFromRangeMap(c *assertionCacheImpl, assertion *section.AssertionSection, validSince, validUntil int64) bool {
 	c.rangeMapLock.RLock()
 	e, ok := c.rangeMap[contextAndZone{Context: assertion.Context, Zone: assertion.SubjectZone}]
 	c.rangeMapLock.RUnlock()
@@ -217,8 +217,8 @@ func deleteAssertionFromRangeMap(c *assertionCacheImpl, assertion *sections.Asse
 
 //Get returns true and a set of assertions matching the given key if there exists some. Otherwise false is returned
 //If expiredAllowed is false, then no expired assertions will be returned
-func (c *assertionCacheImpl) Get(context, zone, name string, objType object.ObjectType, expiredAllowed bool) ([]*sections.AssertionSection, bool) {
-	assertions := []*sections.AssertionSection{}
+func (c *assertionCacheImpl) Get(context, zone, name string, objType object.ObjectType, expiredAllowed bool) ([]*section.AssertionSection, bool) {
+	assertions := []*section.AssertionSection{}
 	v, ok := c.assertionCache.Get(context, zone, name, objType.String())
 	if ok {
 		if set, ok := v.(setContainer); ok {
@@ -241,7 +241,7 @@ func (c *assertionCacheImpl) Get(context, zone, name string, objType object.Obje
 }
 
 //GetInRange returns true and a set of valid assertions in the given interval matching the given context and zone if there are any. Otherwise false is returned
-func (c *assertionCacheImpl) GetInRange(context, zone string, interval sections.Interval) ([]*sections.AssertionSection, bool) {
+func (c *assertionCacheImpl) GetInRange(context, zone string, interval section.Interval) ([]*section.AssertionSection, bool) {
 	c.rangeMapLock.RLock()
 	sortedList, ok := c.rangeMap[contextAndZone{Context: context, Zone: zone}]
 	c.rangeMapLock.RUnlock()
@@ -362,7 +362,7 @@ func updateAssertionCacheRangeMapping(c *assertionCacheImpl) {
 }
 
 //Remove deletes the given assertion from the cache. Returns true if it was able to remove at least one assertion
-func (c *assertionCacheImpl) Remove(assertion *sections.AssertionSection) bool {
+func (c *assertionCacheImpl) Remove(assertion *section.AssertionSection) bool {
 	//CFE FIXME This does not work if we have several connection per assertion
 	return deleteAssertions(c, true, assertion.Context, assertion.SubjectZone, assertion.SubjectName, assertion.Content[0].Type.String()) > 0
 }
@@ -434,7 +434,7 @@ func handleNegElementCacheSize(c *negativeAssertionCacheImpl) {
 		if ok {
 			//FIXME CFE another go routine might also have a pointer to the data structure behind this entry. Then the count might be off...
 			c.cache.Remove(key[0], key[1])
-			v, _ := v.(rangeQueryDataStruct).Get(sections.TotalInterval{})
+			v, _ := v.(rangeQueryDataStruct).Get(section.TotalInterval{})
 			c.elemCountLock.Lock()
 			c.elementCount -= uint(len(v))
 			c.elemCountLock.Unlock()
@@ -443,7 +443,7 @@ func handleNegElementCacheSize(c *negativeAssertionCacheImpl) {
 }
 
 //Get returns true and the shortest sections with the longest validity of a given context and zone containing the name if there exists one. Otherwise false is returned
-func (c *negativeAssertionCacheImpl) Get(context, zone string, interval sections.Interval) (sections.MessageSectionWithSig, bool) {
+func (c *negativeAssertionCacheImpl) Get(context, zone string, interval section.Interval) (section.MessageSectionWithSig, bool) {
 	sections, ok := c.GetAll(context, zone, interval)
 	if ok {
 		//TODO CFE return shortest shard, how to find out how large a shard is, store number of assertions to it?
@@ -456,13 +456,13 @@ func (c *negativeAssertionCacheImpl) Get(context, zone string, interval sections
 
 //GetAll returns true and all sections of a given context and zone which intersect with the given Range if there is at least one. Otherwise false is returned
 //if beginRange and endRange are an empty string then the zone and all shards of that context and zone are returned
-func (c *negativeAssertionCacheImpl) GetAll(context, zone string, interval sections.Interval) ([]sections.MessageSectionWithSig, bool) {
+func (c *negativeAssertionCacheImpl) GetAll(context, zone string, interval section.Interval) ([]section.MessageSectionWithSig, bool) {
 	v, ok := c.cache.Get(context, zone)
 	if !ok {
 		return nil, false
 	}
 	if rq, ok := v.(rangeQueryDataStruct); ok {
-		sections := []sections.MessageSectionWithSig{}
+		sections := []section.MessageSectionWithSig{}
 		if intervals, ok := rq.Get(interval); ok && len(intervals) > 0 {
 			for _, element := range intervals {
 				if val, ok := element.(negativeAssertionCacheValue); ok && val.validUntil > time.Now().Unix() && val.validSince < time.Now().Unix() {
@@ -493,7 +493,7 @@ func (c *negativeAssertionCacheImpl) RemoveExpiredValues() {
 		if ok { //check if element is still contained
 			rq, ok := v.(rangeQueryDataStruct)
 			if ok { //check that cache element is a range query data structure
-				vals, ok := rq.Get(sections.TotalInterval{})
+				vals, ok := rq.Get(section.TotalInterval{})
 				allRemoved := true
 				if ok {
 					//check validity of all contained elements and remove expired once
@@ -550,7 +550,7 @@ type sectionList struct {
 }
 
 //Add inserts item into the data structure
-func (l *sectionList) Add(item sections.Interval) bool {
+func (l *sectionList) Add(item section.Interval) bool {
 	l.listLock.Lock()
 	defer l.listLock.Unlock()
 	for e := l.list.Front(); e != nil; e = e.Next() {
@@ -563,7 +563,7 @@ func (l *sectionList) Add(item sections.Interval) bool {
 }
 
 //Delete deletes item from the data structure
-func (l *sectionList) Delete(item sections.Interval) bool {
+func (l *sectionList) Delete(item section.Interval) bool {
 	l.listLock.Lock()
 	defer l.listLock.Unlock()
 	for e := l.list.Front(); e != nil; e = e.Next() {
@@ -576,12 +576,12 @@ func (l *sectionList) Delete(item sections.Interval) bool {
 }
 
 //Get returns true and all intervals which intersect with item if there are any. Otherwise false is returned
-func (l *sectionList) Get(item sections.Interval) ([]sections.Interval, bool) {
-	intervals := []sections.Interval{}
+func (l *sectionList) Get(item section.Interval) ([]section.Interval, bool) {
+	intervals := []section.Interval{}
 	l.listLock.RLock()
 	defer l.listLock.RUnlock()
 	for e := l.list.Front(); e != nil; e = e.Next() {
-		val := e.Value.(sections.Interval)
+		val := e.Value.(section.Interval)
 		if val.Begin() < item.End() || val.End() > item.Begin() {
 			intervals = append(intervals, val)
 		}
@@ -648,7 +648,7 @@ func (s *sortedAssertionMetaData) Len() int {
 }
 
 //Get returns all assertion meta data which are in the given interval
-func (s *sortedAssertionMetaData) Get(interval sections.Interval) []elemAndValidity {
+func (s *sortedAssertionMetaData) Get(interval section.Interval) []elemAndValidity {
 	s.assertionsLock.RLock()
 	defer s.assertionsLock.RUnlock()
 	elements := []elemAndValidity{}
@@ -685,7 +685,7 @@ type negAssertionCacheValue struct {
 }
 
 type sectionExpiration struct {
-	section    sections.MessageSectionWithSigForward
+	section    section.MessageSectionWithSigForward
 	expiration int64
 }
 
@@ -711,21 +711,21 @@ type negativeAssertionCacheImpl struct {
 //Add adds shard together with an expiration time (number of seconds since 01.01.1970) to
 //the cache. It returns false if the cache is full and a non internal element has been removed
 //according to some strategy.
-func (c *negativeAssertionCacheImpl) AddShard(shard *sections.ShardSection, expiration int64, isInternal bool) bool {
+func (c *negativeAssertionCacheImpl) AddShard(shard *section.ShardSection, expiration int64, isInternal bool) bool {
 	return add(c, shard, expiration, isInternal)
 }
 
 //Add adds zone together with an expiration time (number of seconds since 01.01.1970) to
 //the cache. It returns false if the cache is full and a non internal element has been removed
 //according to some strategy.
-func (c *negativeAssertionCacheImpl) AddZone(zone *sections.ZoneSection, expiration int64, isInternal bool) bool {
+func (c *negativeAssertionCacheImpl) AddZone(zone *section.ZoneSection, expiration int64, isInternal bool) bool {
 	return add(c, zone, expiration, isInternal)
 }
 
 //add adds section together with an expiration time (number of seconds since 01.01.1970) to
 //the cache. It returns false if the cache is full and an element was removed according to least
 //recently used strategy.
-func add(c *negativeAssertionCacheImpl, section sections.MessageSectionWithSigForward, expiration int64, isInternal bool) bool {
+func add(c *negativeAssertionCacheImpl, section section.MessageSectionWithSigForward, expiration int64, isInternal bool) bool {
 	isFull := false
 	cacheLRUValue := negAssertionLRUCacheValue{ctxMap: safeHashMap.New(), zone: section.GetSubjectZone()}
 	v, _ := c.zoneMap.GetOrAdd(section.GetSubjectZone(), &cacheLRUValue)
@@ -790,7 +790,7 @@ func add(c *negativeAssertionCacheImpl, section sections.MessageSectionWithSigFo
 //Get returns true and a set of shards and zones matching subjectZone and context and overlap with
 //interval if there exist some. When context is the empty string, a random context is chosen.
 //Otherwise nil and false is returned.
-func (c *negativeAssertionCacheImpl) Get(subjectZone, context string, interval sections.Interval) ([]sections.MessageSectionWithSigForward, bool) {
+func (c *negativeAssertionCacheImpl) Get(subjectZone, context string, interval section.Interval) ([]section.MessageSectionWithSigForward, bool) {
 	v, ok := c.zoneMap.Get(subjectZone)
 	if !ok {
 		return nil, false
@@ -823,7 +823,7 @@ func (c *negativeAssertionCacheImpl) Get(subjectZone, context string, interval s
 	if value.deleted {
 		return nil, false
 	}
-	var sections []sections.MessageSectionWithSigForward
+	var sections []section.MessageSectionWithSigForward
 	for _, sec := range value.sections {
 		if sec.section.Begin() < interval.End() && sec.section.End() > interval.Begin() {
 			sections = append(sections, sec.section)
@@ -921,7 +921,7 @@ type pendingSignatureCache interface {
 	//We simultaneously obtained all elements and close the set data structure. Then we remove the entry from the cache. If in the meantime an Add operation happened,
 	//then Add will return false, as the set is already closed and the value is discarded. This case is expected to be rare.
 	GetAllAndDelete(context, zone string) ([]sectionWithSigSender, bool)
-	//RemoveExpiredSections goes through the cache and removes all expired sections. If for a given context and zone there is no section left it removes the entry from cache.
+	//RemoveExpiredSections goes through the cache and removes all expired section. If for a given context and zone there is no section left it removes the entry from cache.
 	RemoveExpiredSections()
 	//Len returns the number of sections in the cache.
 	Len() int
@@ -1041,7 +1041,7 @@ func (c *pendingSignatureCacheImpl) GetAllAndDelete(context, zone string) ([]sec
 	return sections, len(sections) > 0
 }
 
-//RemoveExpiredSections goes through the cache and removes all expired sections. If for a given context and zone there is no section left it removes the entry from cache.
+//RemoveExpiredSections goes through the cache and removes all expired section. If for a given context and zone there is no section left it removes the entry from cache.
 func (c *pendingSignatureCacheImpl) RemoveExpiredSections() {
 	keys := c.cache.Keys()
 	deleteCount := uint(0)

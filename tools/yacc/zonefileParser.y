@@ -19,7 +19,7 @@ import (
     "strings"
     log "github.com/inconshreveable/log15"
     "github.com/netsec-ethz/rains/internal/pkg/signature"
-    "github.com/netsec-ethz/rains/internal/pkg/sections"
+    "github.com/netsec-ethz/rains/internal/pkg/section"
     "github.com/netsec-ethz/rains/internal/pkg/object"
     "github.com/netsec-ethz/rains/internal/pkg/keys"
     "github.com/netsec-ethz/rains/internal/pkg/zonefile"
@@ -29,23 +29,23 @@ import (
 )
 
 //AddSigs adds signatures to section
-func AddSigs(section sections.MessageSectionWithSigForward, signatures []signature.Signature) {
+func AddSigs(section section.MessageSectionWithSigForward, signatures []signature.Signature) {
     for _, sig := range signatures {
         section.AddSig(sig)
     }
 }
 
-func DecodeBloomFilter(hashAlgos []algorithmTypes.HashAlgorithmType, modeOfOperation sections.ModeOfOperationType,
-    nofHashFunctions, filter string) (sections.BloomFilter, error) {
+func DecodeBloomFilter(hashAlgos []algorithmTypes.HashAlgorithmType, modeOfOperation section.ModeOfOperationType,
+    nofHashFunctions, filter string) (section.BloomFilter, error) {
     funcs, err := strconv.Atoi(nofHashFunctions)
 	if err != nil {
-		return sections.BloomFilter{}, errors.New("nofHashFunctions is not a number")
+		return section.BloomFilter{}, errors.New("nofHashFunctions is not a number")
 	}
     decodedFilter, err := hex.DecodeString(filter)
 	if err != nil {
-		return sections.BloomFilter{}, err
+		return section.BloomFilter{}, err
 	}
-    return sections.BloomFilter{
+    return section.BloomFilter{
             HashFamily: hashAlgos,
             NofHashFunctions: funcs,
             ModeOfOperation: modeOfOperation,
@@ -131,7 +131,7 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
 }
 
 //Result gets stored in this variable
-var output []sections.MessageSectionWithSigForward
+var output []section.MessageSectionWithSigForward
 
 %}
 
@@ -140,12 +140,12 @@ var output []sections.MessageSectionWithSigForward
 // as ${PREFIX}SymType, of which a reference is passed to the lexer.
 %union{
     str             string
-    assertion       *sections.AssertionSection
-    assertions      []*sections.AssertionSection
-    shard           *sections.ShardSection
-    pshard          *sections.PshardSection
-    zone            *sections.ZoneSection
-    sections        []sections.MessageSectionWithSigForward
+    assertion       *section.AssertionSection
+    assertions      []*section.AssertionSection
+    shard           *section.ShardSection
+    pshard          *section.PshardSection
+    zone            *section.ZoneSection
+    sections        []section.MessageSectionWithSigForward
     objects         []object.Object
     object          object.Object
     objectTypes     []object.ObjectType
@@ -158,8 +158,8 @@ var output []sections.MessageSectionWithSigForward
     certUsage       object.CertificateUsage
     hashType        algorithmTypes.HashAlgorithmType
     hashTypes       []algorithmTypes.HashAlgorithmType
-    dataStructure   sections.DataStructure
-    bfOpMode        sections.ModeOfOperationType
+    dataStructure   section.DataStructure
+    bfOpMode        section.ModeOfOperationType
 }
 
 // any non-terminal which returns a value needs a type, which must be a field 
@@ -250,7 +250,7 @@ zone            : zoneBody
 
 zoneBody        : zoneType ID ID lBracket zoneContent rBracket
                 {
-                    $$ = &sections.ZoneSection{
+                    $$ = &section.ZoneSection{
                         SubjectZone: $2, 
                         Context: $3,
                         Content: $5,    
@@ -283,7 +283,7 @@ shard           : shardBody
 
 shardBody       : shardType ID ID shardRange lBracket shardContent rBracket
                 {
-                    $$ = &sections.ShardSection{
+                    $$ = &section.ShardSection{
                         SubjectZone: $2, 
                         Context: $3,
                         RangeFrom: $4[0],
@@ -293,7 +293,7 @@ shardBody       : shardType ID ID shardRange lBracket shardContent rBracket
                 }
                 | shardType shardRange lBracket shardContent rBracket
                 {
-                    $$ = &sections.ShardSection{
+                    $$ = &section.ShardSection{
                         RangeFrom: $2[0],
                         RangeTo: $2[1],
                         Content: $4,
@@ -335,7 +335,7 @@ pshard          : pshardBody
 
 pshardBody      : pshardType ID ID shardRange pshardContent
                 {
-                    $$ = &sections.PshardSection{
+                    $$ = &section.PshardSection{
                         SubjectZone: $2, 
                         Context: $3,
                         RangeFrom: $4[0],
@@ -345,7 +345,7 @@ pshardBody      : pshardType ID ID shardRange pshardContent
                 }
                 | pshardType shardRange pshardContent
                 {
-                    $$ = &sections.PshardSection{
+                    $$ = &section.PshardSection{
                         RangeFrom: $2[0],
                         RangeTo: $2[1],
                         Datastructure: $3,
@@ -360,8 +360,8 @@ bloomFilter     : bloomFilterType lBracket hashTypes rBracket ID bfOpMode ID
                     if  err != nil {
                         log.Error("semantic error:", "DecodeBloomFilter", err)
                     }
-                    $$ = sections.DataStructure{
-                        Type: sections.BloomFilterType,
+                    $$ = section.DataStructure{
+                        Type: section.BloomFilterType,
                         Data: bloomFilter,
                     }
                 }
@@ -377,15 +377,15 @@ hashTypes       : hashType
 
 bfOpMode        : standard
                 {
-                    $$ = sections.StandardOpType
+                    $$ = section.StandardOpType
                 }
                 | km1
                 {
-                    $$ = sections.KirschMitzenmacher1
+                    $$ = section.KirschMitzenmacher1
                 }
                 | km2
                 {
-                    $$ = sections.KirschMitzenmacher2
+                    $$ = section.KirschMitzenmacher2
                 }
 
 assertion       : assertionBody
@@ -397,14 +397,14 @@ assertion       : assertionBody
     
 assertionBody   : assertionType ID lBracket objects rBracket
                 {
-                    $$ = &sections.AssertionSection{
+                    $$ = &section.AssertionSection{
                         SubjectName: $2,
                         Content: $4,
                     }
                 }
                 | assertionType ID ID ID lBracket objects rBracket
                 {
-                    $$ = &sections.AssertionSection{
+                    $$ = &section.AssertionSection{
                         SubjectZone: $2, 
                         Context: $3,
                         SubjectName: $4,

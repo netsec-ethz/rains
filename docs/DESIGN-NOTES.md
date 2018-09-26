@@ -2,7 +2,7 @@
 - Queries are answered as soon as any queried information is available, i.e. a server does not wait
   until it can completely answer a query but already responds with partial information.
 - A server should keep all public keys necessary to validate the signatures on all its cached
-  sections. This allows the server to answer all delegation queries about sections it has sent out.
+  section. This allows the server to answer all delegation queries about sections it has sent out.
 - A server should respond to a delegation query with all matching public keys it believes the
   querier is missing to check a signature. A server does not keep state which delegations it has
   already sent to another server.
@@ -81,7 +81,7 @@
       signatures on the message are not checked which I think is bad).
     - Some behavior in between the above 2 according to some policy (Disadvantage: added complexity)
 
-   It is possible to forward the message without caching the sections. To avoid a deadlock of the
+   It is possible to forward the message without caching the section. To avoid a deadlock of the
    system (e.g. when the maximum number of message goroutines are all waiting for a delegation
    assertion to arrive but it cannot be handled at its arrival because no message goroutine is free
    to process it) a section goroutine signals the message goroutine over a channel in case it has to
@@ -144,10 +144,10 @@ In both approaches it is not necessary to cache an answer to be able to respond 
 
 ## Key rollover strategy
 - It is sufficient for an authority to have two key pairs to provide contiguous validity of
-  sections. The validity periods of the key pairs are alternating. After the currently valid (first)
+  section. The validity periods of the key pairs are alternating. After the currently valid (first)
   key expires, the authority can send a nextKey request to its super ordinate zone which can then
   issue a new delegation assertion for the first key before the second key expires. This process can
-  then be repeated. This way the authority has always at least one valid key to sign sections.
+  then be repeated. This way the authority has always at least one valid key to sign section.
 
 ## Conclusion
 The second proposal is a generalization of the first proposal (i.e. that the second proposal can be

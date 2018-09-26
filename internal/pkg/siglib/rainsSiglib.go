@@ -1,5 +1,5 @@
 //siglib provides helperfunctions to sign messages and sections and to verify the validity of
-//signatures on messages and sections.
+//signatures on messages and section.
 
 package siglib
 
@@ -14,7 +14,8 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
@@ -29,7 +30,7 @@ import (
 //4) encode section
 //5) sign the encoding and compare the resulting signature data with the signature data received with the section. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func CheckSectionSignatures(s sections.SecWithSig,
+func CheckSectionSignatures(s section.SecWithSig,
 	pkeys map[keys.PublicKeyID][]keys.PublicKey, encoder encoder.SignatureFormatEncoder,
 	maxVal util.MaxCacheValidity) bool {
 	log.Debug(fmt.Sprintf("Check %T signature", s), "section", s)
@@ -115,7 +116,7 @@ func CheckMessageSignatures(msg *message.Message, publicKey keys.PublicKey, enco
 //ValidSectionAndSignature returns true if the section is not nil, all the signatures ValidUntil are
 //in the future, the string fields do not contain  <whitespace>:<non whitespace>:<whitespace>, and
 //the section's content is sorted (by sorting it).
-func ValidSectionAndSignature(s sections.SecWithSig) bool {
+func ValidSectionAndSignature(s section.SecWithSig) bool {
 	log.Debug("Validating section and signature before signing")
 	if s == nil {
 		log.Warn("section is nil")
@@ -133,7 +134,7 @@ func ValidSectionAndSignature(s sections.SecWithSig) bool {
 
 //CheckSignatureNotExpired returns true if s is nil or all the signatures ValidUntil are in the
 //future
-func CheckSignatureNotExpired(s sections.SecWithSig) bool {
+func CheckSignatureNotExpired(s section.SecWithSig) bool {
 	if s == nil {
 		return true
 	}
@@ -150,7 +151,7 @@ func CheckSignatureNotExpired(s sections.SecWithSig) bool {
 //the given signatures. The shard's or zone's content must already be sorted. It does not check the
 //validity of the signature or the section. Returns false if the signature was not added to the
 //section
-func SignSectionUnsafe(s sections.SecWithSig, privateKey interface{}, sig signature.Sig, encoder encoder.SignatureFormatEncoder) bool {
+func SignSectionUnsafe(s section.SecWithSig, privateKey interface{}, sig signature.Sig, encoder encoder.SignatureFormatEncoder) bool {
 	log.Debug("Start Signing Section")
 	err := (&sig).SignData(privateKey, string(encoder.EncodeSection(s)))
 	if err != nil {
@@ -171,7 +172,7 @@ func SignSectionUnsafe(s sections.SecWithSig, privateKey interface{}, sig signat
 //4) encode section
 //5) sign the encoding and add it to the signature which will then be added to the section. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func SignSection(s sections.SecWithSig, privateKey interface{}, sig signature.Sig,
+func SignSection(s section.SecWithSig, privateKey interface{}, sig signature.Sig,
 	encoder encoder.SignatureFormatEncoder) bool {
 	s.AddSig(sig)
 	if !ValidSectionAndSignature(s) {
@@ -231,9 +232,9 @@ func checkMessageStringFields(msg *message.Message) bool {
 
 //CheckStringFields returns true if non of the string fields of the given section contain a zone
 //file type marker. It panics if the interface s contains a type but the interfaces value is nil
-func CheckStringFields(s sections.Section) bool {
+func CheckStringFields(s section.Section) bool {
 	switch s := s.(type) {
-	case *sections.Assertion:
+	case *section.Assertion:
 		if containsZoneFileType(s.SubjectName) {
 			log.Warn("Section contains a string field with forbidden content", "SubjectName", s.SubjectName)
 			return false
@@ -242,7 +243,7 @@ func CheckStringFields(s sections.Section) bool {
 			return false
 		}
 		return !(containsZoneFileType(s.Context) || containsZoneFileType(s.SubjectZone))
-	case *sections.Shard:
+	case *section.Shard:
 		if containsZoneFileType(s.RangeFrom) {
 			log.Warn("Section contains a string field with forbidden content", "RangeFrom", s.RangeFrom)
 			return false
@@ -257,14 +258,14 @@ func CheckStringFields(s sections.Section) bool {
 			}
 		}
 		return !(containsZoneFileType(s.Context) || containsZoneFileType(s.SubjectZone))
-	case *sections.Zone:
+	case *section.Zone:
 		for _, section := range s.Content {
 			if !CheckStringFields(section) {
 				return false
 			}
 		}
 		return !(containsZoneFileType(s.Context) || containsZoneFileType(s.SubjectZone))
-	case *sections.QueryForward:
+	case *query.Name:
 		if containsZoneFileType(s.Context) {
 			return false
 		}
@@ -272,17 +273,17 @@ func CheckStringFields(s sections.Section) bool {
 			log.Warn("Section contains a string field with forbidden content", "QueryName", s.Name)
 			return false
 		}
-	case *sections.Notification:
+	case *section.Notification:
 		if containsZoneFileType(s.Data) {
 			log.Warn("Section contains a string field with forbidden content", "NotificationData", s.Data)
 			return false
 		}
-	case *sections.AddrAssertion:
+	case *section.AddrAssertion:
 		if !checkObjectFields(s.Content) {
 			return false
 		}
 		return !containsZoneFileType(s.Context)
-	case *sections.AddrQuery:
+	case *query.Address:
 		return !containsZoneFileType(s.Context)
 	default:
 		log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))

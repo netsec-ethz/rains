@@ -17,7 +17,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
@@ -164,7 +164,7 @@ func listen(conn net.Conn, tok token.Token, done chan<- message.Message, ec chan
 }
 
 //qoptFlag defines the query options flag. It allows a user to specify multiple query options and their priority (by input sequence)
-type qoptFlag []sections.QueryOption
+type qoptFlag []query.Option
 
 func (i *qoptFlag) String() string {
 	list := []string{}
@@ -178,21 +178,21 @@ func (i *qoptFlag) String() string {
 func (i *qoptFlag) Set(value string) error {
 	switch value {
 	case "1":
-		*i = append(*i, sections.QOMinE2ELatency)
+		*i = append(*i, query.QOMinE2ELatency)
 	case "2":
-		*i = append(*i, sections.QOMinLastHopAnswerSize)
+		*i = append(*i, query.QOMinLastHopAnswerSize)
 	case "3":
-		*i = append(*i, sections.QOMinInfoLeakage)
+		*i = append(*i, query.QOMinInfoLeakage)
 	case "4":
-		*i = append(*i, sections.QOCachedAnswersOnly)
+		*i = append(*i, query.QOCachedAnswersOnly)
 	case "5":
-		*i = append(*i, sections.QOExpiredAssertionsOk)
+		*i = append(*i, query.QOExpiredAssertionsOk)
 	case "6":
-		*i = append(*i, sections.QOTokenTracing)
+		*i = append(*i, query.QOTokenTracing)
 	case "7":
-		*i = append(*i, sections.QONoVerificationDelegation)
+		*i = append(*i, query.QONoVerificationDelegation)
 	case "8":
-		*i = append(*i, sections.QONoProactiveCaching)
+		*i = append(*i, query.QONoProactiveCaching)
 	default:
 		return fmt.Errorf("There is no query option for value: %s", value)
 	}

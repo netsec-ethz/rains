@@ -44,13 +44,13 @@ func TestCreateRainsMessage(t *testing.T) {
 	Init("test/publisher.conf")
 	a := getAssertionWithTwoIPObjects()
 	var tests = []struct {
-		input  *sections.ZoneSection
+		input  *section.ZoneSection
 		errMsg string
 	}{
-		{&sections.ZoneSection{SubjectZone: "ch", Context: ".", Content: []sections.MessageSectionWithSigForward{
-			&sections.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "",
-				Content: []*sections.AssertionSection{a}}}}, ""},
-		{&sections.ZoneSection{SubjectZone: "ch", Context: ".", Content: []sections.MessageSectionWithSigForward{new(sections.ZoneSection)}},
+		{&section.ZoneSection{SubjectZone: "ch", Context: ".", Content: []section.MessageSectionWithSigForward{
+			&section.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "",
+				Content: []*section.AssertionSection{a}}}}, ""},
+		{&section.ZoneSection{SubjectZone: "ch", Context: ".", Content: []section.MessageSectionWithSigForward{new(section.ZoneSection)}},
 			"Unsupported section type"},
 	}
 	for i, test := range tests {
@@ -104,8 +104,8 @@ func TestLoadConfig(t *testing.T) {
 	}
 }
 
-func getAssertionWithTwoIPObjects() *sections.AssertionSection {
-	return &sections.AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".",
+func getAssertionWithTwoIPObjects() *section.AssertionSection {
+	return &section.AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".",
 		Content: []object.Object{object.Object{Type: object.OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"},
 			object.Object{Type: object.OTIP4Addr, Value: "129.132.128.139"}}}
 }

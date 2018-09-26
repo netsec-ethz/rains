@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -20,7 +20,7 @@ func mergeSubjectZone(subject, zone string) string {
 }
 
 // ValidateZoneRedirects checks that each :redir: in the zone is resolvable.
-func ValidateZoneRedirects(in []*sections.Assertion) error {
+func ValidateZoneRedirects(in []*section.Assertion) error {
 	unresolved := make(map[string]string)
 	// A concrete assertion is one which resolves to an internet address.
 	concreteAssertions := make(map[string]bool)

@@ -7,7 +7,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/set"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 
 	log "github.com/inconshreveable/log15"
@@ -48,59 +47,59 @@ func TestAddAndFind(t *testing.T) {
 	_, subjectAddress7, _ := net.ParseCIDR("10AA::/9")
 	_, subjectAddress8, _ := net.ParseCIDR("10AA::/6")
 
-	addressAssertion1 := &sections.AddrAssertion{
+	addressAssertion1 := &section.AddrAssertion{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Content:     []object.Object{nameObject},
 		Signatures:  []signature.Signature{signature},
 	}
 
-	addressAssertion2 := &sections.AddrAssertion{
+	addressAssertion2 := &section.AddrAssertion{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
 		Content:     []object.Object{redirObject, delegObject, registrantObject},
 		Signatures:  []signature.Signature{signature},
 	}
 
-	addressZone1 := &sections.AddressZoneSection{
+	addressZone1 := &section.AddressZoneSection{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
-		Content:     []*sections.AddrAssertion{addressAssertion1, addressAssertion2},
+		Content:     []*section.AddrAssertion{addressAssertion1, addressAssertion2},
 		Signatures:  []signature.Signature{signature},
 	}
 
-	addressZone2 := &sections.AddressZoneSection{
+	addressZone2 := &section.AddressZoneSection{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
-		Content:     []*sections.AddrAssertion{addressAssertion1, addressAssertion2},
+		Content:     []*section.AddrAssertion{addressAssertion1, addressAssertion2},
 		Signatures:  []signature.Signature{signature},
 	}
 
-	addressAssertion3 := &sections.AddrAssertion{
+	addressAssertion3 := &section.AddrAssertion{
 		SubjectAddr: subjectAddress5,
 		Context:     ".",
 		Content:     []object.Object{nameObject},
 		Signatures:  []signature.Signature{signature},
 	}
 
-	addressAssertion4 := &sections.AddrAssertion{
+	addressAssertion4 := &section.AddrAssertion{
 		SubjectAddr: subjectAddress6,
 		Context:     ".",
 		Content:     []object.Object{redirObject, delegObject, registrantObject},
 		Signatures:  []signature.Signature{signature},
 	}
 
-	addressZone3 := &sections.AddressZoneSection{
+	addressZone3 := &section.AddressZoneSection{
 		SubjectAddr: subjectAddress5,
 		Context:     ".",
-		Content:     []*sections.AddrAssertion{addressAssertion3, addressAssertion4},
+		Content:     []*section.AddrAssertion{addressAssertion3, addressAssertion4},
 		Signatures:  []signature.Signature{signature},
 	}
 
-	addressZone4 := &sections.AddressZoneSection{
+	addressZone4 := &section.AddressZoneSection{
 		SubjectAddr: subjectAddress6,
 		Context:     ".",
-		Content:     []*sections.AddrAssertion{addressAssertion3, addressAssertion4},
+		Content:     []*section.AddrAssertion{addressAssertion3, addressAssertion4},
 		Signatures:  []signature.Signature{signature},
 	}
 

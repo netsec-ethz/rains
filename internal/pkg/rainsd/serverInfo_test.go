@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
@@ -19,7 +21,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/lruCache"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"golang.org/x/crypto/ed25519"
 )
@@ -251,10 +252,10 @@ func TestZoneKeyCache(t *testing.T) {
 //FIXME CFE we cannot test if the cache logs correctly when the maximum number of delegations per
 //zone is reached. Should we return a value if so in which form (object, error)?
 func TestPendingKeyCache(t *testing.T) {
-	a0 := &sections.Assertion{SubjectZone: "com", Context: "."}
-	s1 := &sections.Shard{SubjectZone: "com", Context: "."}
-	z2 := &sections.Zone{SubjectZone: "ch", Context: "."}
-	a3 := &sections.Assertion{SubjectZone: "ch", Context: "."}
+	a0 := &section.Assertion{SubjectZone: "com", Context: "."}
+	s1 := &section.Shard{SubjectZone: "com", Context: "."}
+	z2 := &section.Zone{SubjectZone: "ch", Context: "."}
+	a3 := &section.Assertion{SubjectZone: "ch", Context: "."}
 	m := []sectionWithSigSender{
 		sectionWithSigSender{Section: a0, Sender: connection.Info{}, Token: token.New()},
 		sectionWithSigSender{Section: s1, Sender: connection.Info{}, Token: token.New()},
@@ -413,21 +414,21 @@ func TestPendingKeyCache(t *testing.T) {
 }
 
 func TestPendingQueryCache(t *testing.T) {
-	a0 := &sections.Assertion{
+	a0 := &section.Assertion{
 		SubjectName: "example",
 		SubjectZone: "com",
 		Context:     ".",
 		Content:     []object.Object{object.Object{Type: object.OTIP4Addr, Value: "192.0.2.0"}},
 	}
-	a1 := &sections.Assertion{
+	a1 := &section.Assertion{
 		SubjectName: "example",
 		SubjectZone: "com",
 		Context:     ".",
 		Content:     []object.Object{object.Object{Type: object.OTIP4Addr, Value: "203.0.113.0"}},
 	}
-	s0 := &sections.Shard{SubjectZone: "net", RangeFrom: "e", RangeTo: "f"}
-	q0 := &sections.QueryForward{Name: "example.net", Context: ".", Types: []object.Type{2}}
-	q1 := &sections.QueryForward{Name: "example.com", Context: ".", Types: []object.Type{2}}
+	s0 := &section.Shard{SubjectZone: "net", RangeFrom: "e", RangeTo: "f"}
+	q0 := &query.Name{Name: "example.net", Context: ".", Types: []object.Type{2}}
+	q1 := &query.Name{Name: "example.com", Context: ".", Types: []object.Type{2}}
 	m := []msgSectionSender{
 		msgSectionSender{Section: q0, Sender: connection.Info{}, Token: token.New()},
 		msgSectionSender{Section: q0, Sender: connection.Info{}, Token: token.New()},
@@ -676,7 +677,7 @@ func TestAssertionCache(t *testing.T) {
 		if c.Len() != 0 {
 			t.Errorf("%d:Was not able to remove elements of zone '.' from cache.", i)
 		}
-		sections = consistCache.Get(".", ".", sections.TotalInterval{})
+		sections = consistCache.Get(".", ".", section.TotalInterval{})
 		if len(sections) != 0 {
 			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
 		}
@@ -687,7 +688,7 @@ func TestAssertionCache(t *testing.T) {
 		if c.Len() != 0 {
 			t.Errorf("%d:Was not able to remove elements of zone '.' from cache.", i)
 		}
-		sections = consistCache.Get(".", ".", sections.TotalInterval{})
+		sections = consistCache.Get(".", ".", section.TotalInterval{})
 		if len(sections) != 0 {
 			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
 		}
@@ -701,18 +702,18 @@ func TestAssertionCache(t *testing.T) {
 		if c.Len() != 1 || a[0] != aORG[0] {
 			t.Errorf("%d:Was not able to remove correct elements of zone '.' from cache.", i)
 		}
-		sections = consistCache.Get("com", ".", sections.TotalInterval{})
+		sections = consistCache.Get("com", ".", section.TotalInterval{})
 		if len(sections) != 0 {
 			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
 		}
-		sections = consistCache.Get(".", ".", sections.TotalInterval{})
+		sections = consistCache.Get(".", ".", section.TotalInterval{})
 		if len(sections) != 1 || sections[0] != aORG[0] {
 			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
 		}
 		//Test RemoveExpired for internal and external elements
 		c.Add(aORG[3], aORG[3].ValidUntil(), true)
 		c.Add(assertions[3], assertions[3].ValidUntil(), false)
-		sections = consistCache.Get(".", ".", sections.TotalInterval{})
+		sections = consistCache.Get(".", ".", section.TotalInterval{})
 		if len(sections) != 3 {
 			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
 		}
@@ -722,7 +723,7 @@ func TestAssertionCache(t *testing.T) {
 		if c.Len() != 1 || a[0] != aORG[0] {
 			t.Errorf("%d:Was not able to remove correct expired elements from cache.", i)
 		}
-		sections = consistCache.Get(".", ".", sections.TotalInterval{})
+		sections = consistCache.Get(".", ".", section.TotalInterval{})
 		if len(sections) != 1 || sections[0] != aORG[0] {
 			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
 		}
@@ -831,7 +832,7 @@ func TestNegAssertionCache(t *testing.T) {
 		c.AddShard(shards[4], shards[4].ValidUntil(), false)
 		c.AddShard(shards[0], shards[0].ValidUntil(), false)
 		c.RemoveExpiredValues()
-		s, ok = c.Get(shards[0].SubjectZone, shards[0].Context, sections.TotalInterval{})
+		s, ok = c.Get(shards[0].SubjectZone, shards[0].Context, section.TotalInterval{})
 		if c.Len() != 1 || s[0] != shards[0] {
 			t.Errorf("%d:Was not able to remove correct expired elements from cache.", i)
 		}
@@ -1086,7 +1087,7 @@ func TestSectionWithSigSenderHash(t *testing.T) {
 	}{
 		{
 			sectionWithSigSender{
-				Section: &sections.Assertion{SubjectName: "name", SubjectZone: "zone", Context: "context"},
+				Section: &section.Assertion{SubjectName: "name", SubjectZone: "zone", Context: "context"},
 				Sender:  connection.Info{Type: connection.TCP, TCPAddr: tcpAddr},
 				Token:   token,
 			},
@@ -1101,8 +1102,8 @@ func TestSectionWithSigSenderHash(t *testing.T) {
 	}
 }
 
-func getExampleDelgations(tld string) []*sections.Assertion {
-	a1 := &sections.Assertion{
+func getExampleDelgations(tld string) []*section.Assertion {
+	a1 := &section.Assertion{
 		SubjectName: tld,
 		SubjectZone: ".",
 		Context:     ".",
@@ -1118,7 +1119,7 @@ func getExampleDelgations(tld string) []*sections.Assertion {
 			},
 		},
 	}
-	a2 := &sections.Assertion{ //same key phase as a1 but different key and validity period
+	a2 := &section.Assertion{ //same key phase as a1 but different key and validity period
 		SubjectName: tld,
 		SubjectZone: ".",
 		Context:     ".",
@@ -1134,7 +1135,7 @@ func getExampleDelgations(tld string) []*sections.Assertion {
 			},
 		},
 	}
-	a3 := &sections.Assertion{ //different keyphase, everything else the same as a1
+	a3 := &section.Assertion{ //different keyphase, everything else the same as a1
 		SubjectName: tld,
 		SubjectZone: ".",
 		Context:     ".",
@@ -1151,7 +1152,7 @@ func getExampleDelgations(tld string) []*sections.Assertion {
 		},
 	}
 	//expired delegation assertion
-	a4 := &sections.Assertion{ //different keyphase, everything else the same as a1
+	a4 := &section.Assertion{ //different keyphase, everything else the same as a1
 		SubjectName: tld,
 		SubjectZone: ".",
 		Context:     ".",
@@ -1167,7 +1168,7 @@ func getExampleDelgations(tld string) []*sections.Assertion {
 			},
 		},
 	}
-	a5 := &sections.Assertion{ //different keyphase, everything else the same as a1
+	a5 := &section.Assertion{ //different keyphase, everything else the same as a1
 		SubjectName: "@",
 		SubjectZone: ".",
 		Context:     ".",
@@ -1188,7 +1189,7 @@ func getExampleDelgations(tld string) []*sections.Assertion {
 	a3.UpdateValidity(time.Now().Unix(), time.Now().Add(24*time.Hour).Unix(), 24*time.Hour)
 	a4.UpdateValidity(time.Now().Add(-2*time.Hour).Unix(), time.Now().Add(-1*time.Hour).Unix(), time.Hour)
 	a5.UpdateValidity(time.Now().Unix(), time.Now().Add(24*time.Hour).Unix(), 24*time.Hour)
-	return []*sections.Assertion{a1, a2, a3, a4, a5}
+	return []*section.Assertion{a1, a2, a3, a4, a5}
 }
 
 func getSignatureMetaData() []signature.MetaData {
@@ -1228,56 +1229,56 @@ func getSignatureMetaData() []signature.MetaData {
 	return []signature.MetaData{s1, s2, s3, s4, s5, s6}
 }
 
-func getAssertions() []*sections.Assertion {
-	s0 := &sections.Assertion{
+func getAssertions() []*section.Assertion {
+	s0 := &section.Assertion{
 		SubjectName: "b",
 		SubjectZone: "ch",
 		Context:     ".",
 	}
-	s1 := &sections.Assertion{
+	s1 := &section.Assertion{
 		SubjectName: "e",
 		SubjectZone: "ch",
 		Context:     ".",
 	}
-	s2 := &sections.Assertion{
+	s2 := &section.Assertion{
 		SubjectName: "a",
 		SubjectZone: "org",
 		Context:     ".",
 	}
-	s3 := &sections.Assertion{
+	s3 := &section.Assertion{
 		SubjectName: "b",
 		SubjectZone: "org",
 		Context:     "test-cch",
 	}
-	return []*sections.Assertion{s0, s1, s2, s3}
+	return []*section.Assertion{s0, s1, s2, s3}
 }
 
-func getShards() []*sections.Shard {
-	s0 := &sections.Shard{
+func getShards() []*section.Shard {
+	s0 := &section.Shard{
 		SubjectZone: "ch",
 		Context:     ".",
 		RangeFrom:   "a",
 		RangeTo:     "c",
 	}
-	s1 := &sections.Shard{
+	s1 := &section.Shard{
 		SubjectZone: "ch",
 		Context:     ".",
 		RangeFrom:   "a",
 		RangeTo:     "b",
 	}
-	s2 := &sections.Shard{
+	s2 := &section.Shard{
 		SubjectZone: "ch",
 		Context:     ".",
 		RangeFrom:   "c",
 		RangeTo:     "f",
 	}
-	s3 := &sections.Shard{
+	s3 := &section.Shard{
 		SubjectZone: "org",
 		Context:     ".",
 		RangeFrom:   "c",
 		RangeTo:     "z",
 	}
-	s4 := &sections.Shard{
+	s4 := &section.Shard{
 		SubjectZone: "net",
 		Context:     ".",
 		RangeFrom:   "s",
@@ -1288,24 +1289,24 @@ func getShards() []*sections.Shard {
 	s2.UpdateValidity(time.Now().Unix(), time.Now().Add(24*time.Hour).Unix(), 24*time.Hour)
 	s3.UpdateValidity(time.Now().Add(-2*time.Hour).Unix(), time.Now().Add(-1*time.Hour).Unix(), time.Hour)
 	s4.UpdateValidity(time.Now().Add(-2*time.Hour).Unix(), time.Now().Add(-1*time.Hour).Unix(), time.Hour)
-	return []*sections.Shard{s0, s1, s2, s3, s4}
+	return []*section.Shard{s0, s1, s2, s3, s4}
 }
 
-func getZones() []*sections.Zone {
-	s0 := &sections.Zone{
+func getZones() []*section.Zone {
+	s0 := &section.Zone{
 		SubjectZone: "ch",
 		Context:     ".",
 	}
-	s1 := &sections.Zone{
+	s1 := &section.Zone{
 		SubjectZone: "org",
 		Context:     ".",
 	}
-	s2 := &sections.Zone{
+	s2 := &section.Zone{
 		SubjectZone: "org",
 		Context:     "test-cch",
 	}
 	s0.UpdateValidity(time.Now().Unix(), time.Now().Add(24*time.Hour).Unix(), 24*time.Hour)
 	s1.UpdateValidity(time.Now().Unix(), time.Now().Add(48*time.Hour).Unix(), 48*time.Hour)
 	s2.UpdateValidity(time.Now().Add(-2*time.Hour).Unix(), time.Now().Add(-1*time.Hour).Unix(), time.Hour)
-	return []*sections.Zone{s0, s1, s2}
+	return []*section.Zone{s0, s1, s2}
 }

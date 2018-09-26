@@ -12,7 +12,7 @@ import (
 	"github.com/fehlmach/rains/utils/zoneFileParser"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
@@ -37,7 +37,7 @@ func CreateDelegationAssertion(context, zone string) error {
 		ValidSince: time.Now().Unix(),
 		ValidUntil: time.Now().Add(30 * 24 * time.Hour).Unix(),
 	}
-	assertion := &sections.Assertion{
+	assertion := &section.Assertion{
 		Context:     context,
 		SubjectZone: zone,
 		SubjectName: "@",
@@ -64,7 +64,7 @@ func CreateDelegationAssertion(context, zone string) error {
 }
 
 //addSignature signs the section with the public key and adds the resulting signature to the section
-func addSignature(a sections.SecWithSig, key ed25519.PrivateKey) bool {
+func addSignature(a section.SecWithSig, key ed25519.PrivateKey) bool {
 	signature := signature.Sig{
 		PublicKeyID: keys.PublicKeyID{
 			Algorithm: keys.Ed25519,
@@ -100,7 +100,7 @@ func SignDelegation(delegationPath, privateKeyPath string) error {
 	if err != nil {
 		return err
 	}
-	delegation := &sections.Assertion{}
+	delegation := &section.Assertion{}
 	err = util.Load(delegationPath, delegation)
 	if err != nil {
 		return err

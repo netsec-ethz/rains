@@ -7,8 +7,9 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
+	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/resolver"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
 
@@ -40,15 +41,15 @@ func main() {
 	if err != nil {
 		log.Error("Failed to execute query: %v", err)
 	}
-	for i, section := range result.Content {
+	for i, sec := range result.Content {
 		log.Info("Printing section %d", i)
-		switch section.(type) {
-		case *sections.Assertion, *sections.Shard, *sections.Zone, *sections.QueryForward, *sections.Notification,
-			*sections.AddrAssertion, *sections.AddrQuery:
+		switch sec.(type) {
+		case *section.Assertion, *section.Shard, *section.Zone, *query.Name, *section.Notification,
+			*section.AddrAssertion, *query.Address:
 			parser := zonefile.Parser{}
-			fmt.Printf("%s\n", parser.Encode(section))
+			fmt.Printf("%s\n", parser.Encode(sec))
 		default:
-			log.Warn("Received an unexpected section type in response:", "section", section)
+			log.Warn("Received an unexpected section type in response:", "section", sec)
 		}
 	}
 }

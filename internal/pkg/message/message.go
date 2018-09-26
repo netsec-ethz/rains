@@ -9,7 +9,8 @@ import (
 	"github.com/britram/borat"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
@@ -22,7 +23,7 @@ type Message struct {
 	//Token is used to identify a message
 	Token token.Token
 	//Content is a slice of
-	Content []sections.Section
+	Content []section.Section
 	//Signatures authenticate the content of this message. An encoding of Message is signed by the infrastructure key of the originating server.
 	Signatures []signature.Sig
 }
@@ -47,20 +48,20 @@ func (rm *Message) MarshalCBOR(w *borat.CBORWriter) error {
 	}
 	// A Message map MUST contain a token (2) key, whose value is a 16-byte array.
 	m[2] = rm.Token
-	// Message sections.
+	// Message section.
 	// Each message section is a two element array [type, msgsection].
 	msgsect := make([][2]interface{}, 0)
 	for _, sect := range rm.Content {
 		switch sect.(type) {
-		case *sections.Assertion:
+		case *section.Assertion:
 			msgsect = append(msgsect, [2]interface{}{1, sect})
-		case *sections.Shard:
+		case *section.Shard:
 			msgsect = append(msgsect, [2]interface{}{2, sect})
-		case *sections.Zone:
+		case *section.Zone:
 			msgsect = append(msgsect, [2]interface{}{3, sect})
-		case *sections.QueryForward:
+		case *query.Name:
 			msgsect = append(msgsect, [2]interface{}{4, sect})
-		case *sections.Notification:
+		case *section.Notification:
 			msgsect = append(msgsect, [2]interface{}{23, sect})
 		default:
 			return fmt.Errorf("unknown section type: %T", sect)
@@ -133,35 +134,35 @@ func (rm *Message) UnmarshalCBOR(r *borat.CBORReader) error {
 		switch t {
 		case 1:
 			// Assertion
-			as := &sections.Assertion{}
+			as := &section.Assertion{}
 			if err := as.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
 			rm.Content = append(rm.Content, as)
 		case 2:
 			// Shard
-			ss := &sections.Shard{}
+			ss := &section.Shard{}
 			if err := ss.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
 			rm.Content = append(rm.Content, ss)
 		case 3:
 			// Zone
-			zs := &sections.Zone{}
+			zs := &section.Zone{}
 			if err := zs.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
 			rm.Content = append(rm.Content, zs)
 		case 4:
-			// QueryForward
-			qs := &sections.QueryForward{}
+			// Name
+			qs := &query.Name{}
 			if err := qs.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
 			rm.Content = append(rm.Content, qs)
 		case 23:
 			// Notification
-			ns := &sections.Notification{}
+			ns := &section.Notification{}
 			if err := ns.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
@@ -174,29 +175,29 @@ func (rm *Message) UnmarshalCBOR(r *borat.CBORReader) error {
 //Sort sorts the sections in m.Content first by Message Section Type Codes (see RAINS Protocol Specification) and
 //second the sections of equal type according to their sort function.
 func (m *Message) Sort() {
-	var assertions []*sections.Assertion
-	var shards []*sections.Shard
-	var zones []*sections.Zone
-	var queries []*sections.QueryForward
-	var addressAssertions []*sections.AddrAssertion
-	var addressQueries []*sections.AddrQuery
-	var notifications []*sections.Notification
+	var assertions []*section.Assertion
+	var shards []*section.Shard
+	var zones []*section.Zone
+	var queries []*query.Name
+	var addressAssertions []*section.AddrAssertion
+	var addressQueries []*query.Address
+	var notifications []*section.Notification
 	for _, sec := range m.Content {
 		sec.Sort()
 		switch sec := sec.(type) {
-		case *sections.Assertion:
+		case *section.Assertion:
 			assertions = append(assertions, sec)
-		case *sections.Shard:
+		case *section.Shard:
 			shards = append(shards, sec)
-		case *sections.Zone:
+		case *section.Zone:
 			zones = append(zones, sec)
-		case *sections.QueryForward:
+		case *query.Name:
 			queries = append(queries, sec)
-		case *sections.Notification:
+		case *section.Notification:
 			notifications = append(notifications, sec)
-		case *sections.AddrAssertion:
+		case *section.AddrAssertion:
 			addressAssertions = append(addressAssertions, sec)
-		case *sections.AddrQuery:
+		case *query.Address:
 			addressQueries = append(addressQueries, sec)
 		default:
 			log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", sec))
@@ -209,7 +210,7 @@ func (m *Message) Sort() {
 	sort.Slice(addressAssertions, func(i, j int) bool { return addressAssertions[i].CompareTo(addressAssertions[j]) < 0 })
 	sort.Slice(addressQueries, func(i, j int) bool { return addressQueries[i].CompareTo(addressQueries[j]) < 0 })
 	sort.Slice(notifications, func(i, j int) bool { return notifications[i].CompareTo(notifications[j]) < 0 })
-	m.Content = []sections.Section{}
+	m.Content = []section.Section{}
 	for _, section := range addressQueries {
 		m.Content = append(m.Content, section)
 	}

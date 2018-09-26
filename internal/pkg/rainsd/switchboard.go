@@ -16,7 +16,8 @@ import (
 	"github.com/britram/borat"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
 
 //sendTo sends message to the specified receiver.
@@ -112,14 +113,14 @@ func deliverCBOR(msg *message.Message, sender connection.Info) {
 	//handle message content
 	for _, m := range msg.Content {
 		switch m := m.(type) {
-		case *sections.Assertion, *sections.Shard, *sections.Zone, *sections.AddrAssertion:
-			if !isZoneBlacklisted(m.(sections.SecWithSig).GetSubjectZone()) {
+		case *section.Assertion, *section.Shard, *section.Zone, *section.AddrAssertion:
+			if !isZoneBlacklisted(m.(section.SecWithSig).GetSubjectZone()) {
 				addMsgSectionToQueue(m, msg.Token, sender)
 			}
-		case *sections.QueryForward, *sections.AddrQuery:
+		case *query.Name, *query.Address:
 			log.Debug(fmt.Sprintf("add %T to normal queue", m))
 			normalChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
-		case *sections.Notification:
+		case *section.Notification:
 			log.Debug("Add notification to notification queue", "token", msg.Token)
 			notificationChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
 		default:

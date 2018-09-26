@@ -12,7 +12,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	parser "github.com/netsec-ethz/rains/internal/pkg/zonefile"
@@ -74,7 +74,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	_, subjectAddress2, _ := net.ParseCIDR("127.0.0.1/24")
 	_, subjectAddress3, _ := net.ParseCIDR("2001:db8::/32")
 
-	assertion := &sections.Assertion{
+	assertion := &section.Assertion{
 		Content: []object.Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject, registrarObject,
 			registrantObject, infraObject, extraObject, nextKey},
 		Context:     ".",
@@ -82,68 +82,68 @@ func TestEncodeAndDecode(t *testing.T) {
 		SubjectZone: "ch",
 	}
 
-	shard := &sections.Shard{
-		Content:     []*sections.Assertion{assertion},
+	shard := &section.Shard{
+		Content:     []*section.Assertion{assertion},
 		Context:     ".",
 		SubjectZone: "ch",
 		RangeFrom:   "aaa",
 		RangeTo:     "zzz",
 	}
 
-	zone := &sections.Zone{
-		Content:     []sections.SecWithSigForward{assertion, shard},
+	zone := &section.Zone{
+		Content:     []section.SecWithSigForward{assertion, shard},
 		Context:     ".",
 		SubjectZone: "ch",
 	}
 
-	query := &sections.QueryForward{
+	query := &query.Name{
 		Context:    ".",
 		Expiration: 159159,
 		Name:       "ethz.ch",
-		Options:    []sections.QueryOption{sections.QOMinE2ELatency, sections.QOMinInfoLeakage},
+		Options:    []query.Option{query.QOMinE2ELatency, query.QOMinInfoLeakage},
 		Types:      []object.Type{object.OTIP4Addr},
 	}
 
-	notification := &sections.Notification{
+	notification := &section.Notification{
 		Token: token.New(),
-		Type:  sections.NTNoAssertionsExist,
+		Type:  section.NTNoAssertionsExist,
 		Data:  "Notification information",
 	}
 
-	addressAssertion1 := &sections.AddrAssertion{
+	addressAssertion1 := &section.AddrAssertion{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Content:     []object.Object{nameObject},
 	}
 
-	addressAssertion2 := &sections.AddrAssertion{
+	addressAssertion2 := &section.AddrAssertion{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
 		Content:     []object.Object{redirObject, delegObject, registrantObject},
 	}
 
-	addressAssertion3 := &sections.AddrAssertion{
+	addressAssertion3 := &section.AddrAssertion{
 		SubjectAddr: subjectAddress3,
 		Context:     ".",
 		Content:     []object.Object{redirObject, delegObject, registrantObject},
 	}
 
-	addressZone := &sections.AddressZoneSection{
+	addressZone := &section.AddressZoneSection{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
-		Content:     []*sections.AddrAssertion{addressAssertion1, addressAssertion2, addressAssertion3},
+		Content:     []*section.AddrAssertion{addressAssertion1, addressAssertion2, addressAssertion3},
 	}
 
-	addressQuery := &sections.AddrQuery{
+	addressQuery := &query.Address{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Expiration:  7564859,
 		Types:       []object.Type{object.OTName},
-		Options:     []sections.QueryOption{sections.QOMinE2ELatency, sections.QOMinInfoLeakage},
+		Options:     []query.QueryOption{query.QOMinE2ELatency, query.QOMinInfoLeakage},
 	}
 
 	message := message.Message{
-		Content: []sections.Section{
+		Content: []section.Section{
 			assertion,
 			shard,
 			zone,
@@ -259,17 +259,17 @@ func TestCheckSectionSignaturesErrors(t *testing.T) {
 	keys1 := make(map[keys.PublicKeyID][]keys.PublicKey)
 	keys1[keys.PublicKeyID{Algorithm: keys.Ed25519}] = []keys.PublicKey{}
 	var tests = []struct {
-		input           sections.SecWithSig
+		input           section.SecWithSig
 		inputPublicKeys map[keys.PublicKeyID][]keys.PublicKey
 		want            bool
 	}{
-		{nil, nil, false},                                                                                                                      //msg nil
-		{&sections.Assertion{}, nil, false},                                                                                                    //pkeys nil
-		{&sections.Assertion{}, keys, true},                                                                                                    //no signatures
-		{&sections.Assertion{Signatures: []signature.Sig{signature.Sig{}}, SubjectName: ":ip55:"}, keys, false},                                //checkStringField false
-		{&sections.Assertion{Signatures: []signature.Sig{signature.Sig{}}}, keys, false},                                                       //no matching algotype in keys
-		{&sections.Assertion{Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519}}}}, keys1, true}, //sig expired
-		{&sections.Assertion{Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
+		{nil, nil, false},                                                                                                                     //msg nil
+		{&section.Assertion{}, nil, false},                                                                                                    //pkeys nil
+		{&section.Assertion{}, keys, true},                                                                                                    //no signatures
+		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{}}, SubjectName: ":ip55:"}, keys, false},                                //checkStringField false
+		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{}}}, keys, false},                                                       //no matching algotype in keys
+		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519}}}}, keys1, true}, //sig expired
+		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
 			ValidUntil: time.Now().Add(time.Second).Unix()}}}, keys1, false}, //VerifySignature invalid
 	}
 	for _, test := range tests {
@@ -311,14 +311,14 @@ func TestSignSection(t *testing.T) {
 	sections := object.GetMessage().Content
 	_, pkey, _ := ed25519.GenerateKey(nil)
 	var tests = []struct {
-		input           sections.MessageSectionWithSig
+		input           section.MessageSectionWithSig
 		inputPrivateKey interface{}
 		inputSig        signature.Sig
 		want            bool
 	}{
 		{nil, nil, signature.Sig{}, false},
 		{
-			sections[0].(sections.MessageSectionWithSig),
+			sections[0].(section.MessageSectionWithSig),
 			pkey,
 			signature.Sig{
 				PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
@@ -326,9 +326,9 @@ func TestSignSection(t *testing.T) {
 			},
 			true,
 		},
-		{sections[0].(sections.MessageSectionWithSig), pkey, signature.Sig{ValidUntil: time.Now().Unix() - 100}, false},
-		{&sections.AssertionSection{SubjectName: ":ip:"}, pkey, signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
-		{sections[0].(sections.MessageSectionWithSig), nil, signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+		{sections[0].(section.MessageSectionWithSig), pkey, signature.Sig{ValidUntil: time.Now().Unix() - 100}, false},
+		{&section.AssertionSection{SubjectName: ":ip:"}, pkey, signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+		{sections[0].(section.MessageSectionWithSig), nil, signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
 	}
 	for _, test := range tests {
 		if SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder) != test.want {
@@ -386,7 +386,7 @@ func TestCheckMessageStringFields(t *testing.T) {
 		{nil, false},
 		{&message, true},
 		{&message.RainsMessage{Capabilities: []message.Capability{message.Capability(":ip:")}}, false},
-		{&message.RainsMessage{Content: []sections.Section{&sections.Assertion{SubjectName: ":ip:"}}}, false},
+		{&message.RainsMessage{Content: []section.Section{&section.Assertion{SubjectName: ":ip:"}}}, false},
 	}
 	for _, test := range tests {
 		if checkMessageStringFields(test.input) != test.want {
@@ -399,7 +399,7 @@ func TestCheckStringFields(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
 	sections := object.GetMessage().Content
 	var tests = []struct {
-		input sections.MessageSection
+		input section.MessageSection
 		want  bool
 	}{
 		{nil, false},
@@ -412,26 +412,26 @@ func TestCheckStringFields(t *testing.T) {
 		{sections[6], true},
 		{sections[8], true},
 		{sections[9], true},
-		{&sections.AssertionSection{SubjectName: ":ip:"}, false},
-		{&sections.AssertionSection{Context: ":ip:"}, false},
-		{&sections.AssertionSection{SubjectZone: ":ip:"}, false},
-		{&sections.AssertionSection{Content: []object.Object{object.Object{Type: object.OTRegistrar, Value: ":ip55:"}}}, false},
-		{&sections.ShardSection{Context: ":ip:"}, false},
-		{&sections.ShardSection{SubjectZone: ":ip:"}, false},
-		{&sections.ShardSection{RangeFrom: ":ip:"}, false},
-		{&sections.ShardSection{RangeTo: ":ip:"}, false},
-		{&sections.ShardSection{Content: []*sections.AssertionSection{&sections.AssertionSection{SubjectName: ":ip:"}}}, false},
-		{&sections.ZoneSection{SubjectZone: ":ip:"}, false},
-		{&sections.ZoneSection{Context: ":ip:"}, false},
-		{&sections.ZoneSection{Content: []sections.MessageSectionWithSigForward{&sections.AssertionSection{SubjectName: ":ip:"}}}, false},
-		{&sections.QuerySection{Context: ":ip:"}, false},
-		{&sections.QuerySection{Name: ":ip:"}, false},
-		{&sections.NotificationSection{Data: ":ip:"}, false},
-		{&sections.AddressQuerySection{Context: ":ip:"}, false},
-		{&sections.AddressAssertionSection{Context: ":ip:"}, false},
-		{&sections.AddressAssertionSection{Content: []object.Object{object.Object{Type: object.OTRegistrant, Value: ":ip55:"}}}, false},
-		{&sections.AddressZoneSection{Context: ":ip:"}, false},
-		{&sections.AddressZoneSection{Content: []*sections.AddressAssertionSection{&sections.AddressAssertionSection{Context: ":ip:"}}}, false},
+		{&section.AssertionSection{SubjectName: ":ip:"}, false},
+		{&section.AssertionSection{Context: ":ip:"}, false},
+		{&section.AssertionSection{SubjectZone: ":ip:"}, false},
+		{&section.AssertionSection{Content: []object.Object{object.Object{Type: object.OTRegistrar, Value: ":ip55:"}}}, false},
+		{&section.ShardSection{Context: ":ip:"}, false},
+		{&section.ShardSection{SubjectZone: ":ip:"}, false},
+		{&section.ShardSection{RangeFrom: ":ip:"}, false},
+		{&section.ShardSection{RangeTo: ":ip:"}, false},
+		{&section.ShardSection{Content: []*section.AssertionSection{&section.AssertionSection{SubjectName: ":ip:"}}}, false},
+		{&section.ZoneSection{SubjectZone: ":ip:"}, false},
+		{&section.ZoneSection{Context: ":ip:"}, false},
+		{&section.ZoneSection{Content: []section.MessageSectionWithSigForward{&section.AssertionSection{SubjectName: ":ip:"}}}, false},
+		{&query.QuerySection{Context: ":ip:"}, false},
+		{&query.QuerySection{Name: ":ip:"}, false},
+		{&section.NotificationSection{Data: ":ip:"}, false},
+		{&section.AddressQuerySection{Context: ":ip:"}, false},
+		{&section.AddressAssertionSection{Context: ":ip:"}, false},
+		{&section.AddressAssertionSection{Content: []object.Object{object.Object{Type: object.OTRegistrant, Value: ":ip55:"}}}, false},
+		{&section.AddressZoneSection{Context: ":ip:"}, false},
+		{&section.AddressZoneSection{Content: []*section.AddressAssertionSection{&section.AddressAssertionSection{Context: ":ip:"}}}, false},
 	}
 	for _, test := range tests {
 		if checkStringFields(test.input) != test.want {
@@ -622,7 +622,7 @@ func benchmarkSignZone(zonefileName string, assertionsPerShard int, b *testing.B
 		return
 	}
 	shards := shardAssertions(assertions, assertionsPerShard)
-	zone := &sections.Zone{
+	zone := &section.Zone{
 		Context:     assertions[0].Context,
 		SubjectZone: assertions[0].SubjectZone,
 		Content:     shards,
@@ -646,10 +646,10 @@ func BenchmarkSignZone100(b *testing.B) { benchmarkSignZone("test/zonefile100000
 //zone is signed containing 100 shards containing each 1000 assertions
 func BenchmarkSignZone1000(b *testing.B) { benchmarkSignZone("test/zonefile100000", 1000, b) }
 
-func shardAssertions(assertions []*sections.Assertion, assertionsPerShard int) []sections.SecWithSigForward {
-	var shards []sections.SecWithSigForward
+func shardAssertions(assertions []*section.Assertion, assertionsPerShard int) []section.SecWithSigForward {
+	var shards []section.SecWithSigForward
 	for i := 0; i < len(assertions); i++ {
-		shard := &sections.Shard{
+		shard := &section.Shard{
 			Context:     assertions[i].Context,
 			SubjectZone: assertions[i].SubjectZone,
 			RangeFrom:   "aaaaa",

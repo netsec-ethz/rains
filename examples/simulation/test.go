@@ -5,18 +5,19 @@ import (
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
 
 const nofZones = 1000000
 
 func main() {
-	var channels [nofZones]chan sections.Section
+	var channels [nofZones]chan section.Section
 	for i := range channels {
-		channels[i] = make(chan sections.Section)
+		channels[i] = make(chan section.Section)
 		go worker(channels[i])
 	}
-	query := &sections.QueryForward{
+	query := &query.Name{
 		Name:       "example.com",
 		Context:    ".",
 		Types:      []object.Type{object.OTRegistrant},
@@ -33,8 +34,8 @@ func main() {
 	log.Printf("Sending and receiving took %s", elapsed)
 }
 
-func worker(input chan sections.Section) {
-	a := &sections.Assertion{
+func worker(input chan section.Section) {
+	a := &section.Assertion{
 		SubjectName: "example",
 		SubjectZone: "ch.",
 		Context:     ".",

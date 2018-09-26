@@ -8,7 +8,7 @@ import (
 
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/set"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -23,13 +23,13 @@ type TrieNode struct {
 
 //Get returns the most specific address assertion or zone in relation to the given netAddress' prefix.
 //If no address assertion or zone is found it return false
-func (t *TrieNode) Get(netAddr *net.IPNet, types []object.Type) (*sections.AddrAssertion, bool) {
+func (t *TrieNode) Get(netAddr *net.IPNet, types []object.Type) (*section.AddrAssertion, bool) {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 	return get(t, netAddr, types, 0)
 }
 
-func get(t *TrieNode, netAddr *net.IPNet, types []object.Type, depth int) (*sections.AddrAssertion, bool) {
+func get(t *TrieNode, netAddr *net.IPNet, types []object.Type, depth int) (*section.AddrAssertion, bool) {
 	addrmasks := [8]byte{0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01}
 	prfLength, _ := netAddr.Mask.Size()
 	if depth < prfLength {
@@ -53,11 +53,11 @@ func get(t *TrieNode, netAddr *net.IPNet, types []object.Type, depth int) (*sect
 
 //containedElement returns true and the first addressAssertion that matches one of the given connection or if none is found the first addressZone (if present).
 //in case there is neither false is returned
-func containedElement(t *TrieNode, types []object.Type) (*sections.AddrAssertion, bool) {
+func containedElement(t *TrieNode, types []object.Type) (*section.AddrAssertion, bool) {
 	for _, obj := range types {
 		aSet := t.assertions[obj]
 		if aSet != nil && aSet.Len() > 0 {
-			return aSet.GetAll()[0].(*sections.AddrAssertion), true
+			return aSet.GetAll()[0].(*section.AddrAssertion), true
 		}
 	}
 	return nil, false
@@ -65,7 +65,7 @@ func containedElement(t *TrieNode, types []object.Type) (*sections.AddrAssertion
 
 //AddAddressAssertion adds the given address assertion to the map (keyed by objectType) at the trie node corresponding to the network address.
 //Returns an error if it was not able to add the AddressAssertion
-func (t *TrieNode) AddAddressAssertion(assertion *sections.AddrAssertion) error {
+func (t *TrieNode) AddAddressAssertion(assertion *section.AddrAssertion) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	node := getNode(t, assertion.SubjectAddr, 0)
@@ -112,7 +112,7 @@ func (t *TrieNode) DeleteExpiredElements() {
 	for _, s := range t.assertions {
 		assertions := s.GetAll()
 		for _, a := range assertions {
-			if a.(*sections.AddrAssertion).ValidUntil() < time.Now().Unix() {
+			if a.(*section.AddrAssertion).ValidUntil() < time.Now().Unix() {
 				s.Delete(a)
 			}
 		}

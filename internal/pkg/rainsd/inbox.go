@@ -3,13 +3,13 @@ package rainsd
 import (
 	"strings"
 
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
 )
 
 //incoming messages are buffered in one of these channels until they get processed by a worker go routine
@@ -47,12 +47,12 @@ func deliver(message []byte, sender connection.Info) {
 	if uint(len(message)) > Config.MaxMsgByteLength {
 		//FIXME CFE
 		//token, _ := msgParser.Token(message)
-		//sendNotificationMsg(token, sender, sections.NTMsgTooLarge, "")
+		//sendNotificationMsg(token, sender, section.NTMsgTooLarge, "")
 		return
 	}
 	/*msg, err := msgParser.Decode(message)
 	if err != nil {
-		sendNotificationMsg(msg.Token, sender, sections.NTBadMessage, "")
+		sendNotificationMsg(msg.Token, sender, section.NTBadMessage, "")
 		log.Debug("bad message", "token", msg.Token)
 		return
 	}
@@ -68,16 +68,16 @@ func deliver(message []byte, sender connection.Info) {
 	//handle message content
 	for _, m := range msg.Content {
 		switch m := m.(type) {
-		case *sections.Assertion, *sections.Shard, *sections.Zone, *sections.AddrAssertion, *sections.AddressZoneSection:
-			if !isZoneBlacklisted(m.(sections.SecWithSig).GetSubjectZone()) {
+		case *section.Assertion, *section.Shard, *section.Zone, *section.AddrAssertion, *section.AddressZoneSection:
+			if !isZoneBlacklisted(m.(section.SecWithSig).GetSubjectZone()) {
 				addMsgSectionToQueue(m, msg.Token, sender)
 				trace(msg.Token, fmt.Sprintf("added message section to queue: %v", m))
 			}
-		case *sections.QueryForward, *sections.AddrQuery:
+		case *query.Name, *query.Address:
 			log.Debug(fmt.Sprintf("add %T to normal queue", m))
 			normalChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
 			trace(msg.Token, fmt.Sprintf("sent query section %v to normal channel", m))
-		case *sections.Notification:
+		case *section.Notification:
 			log.Debug("Add notification to notification queue", "token", msg.Token)
 			notificationChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
 			trace(msg.Token, fmt.Sprintf("sent notification section %v to notification channel", m))
@@ -99,7 +99,7 @@ func processCapability(caps []message.Capability, sender connection.Info, token 
 			if caps, ok := capabilities.Get([]byte(caps[0])); ok {
 				addCapabilityAndRespond(sender, caps)
 			} else { //capability hash not understood
-				sendNotificationMsg(token, sender, sections.NTCapHashNotKnown, capabilityHash)
+				sendNotificationMsg(token, sender, section.NTCapHashNotKnown, capabilityHash)
 			}
 		} else {
 			addCapabilityAndRespond(sender, caps)
@@ -116,7 +116,7 @@ func addCapabilityAndRespond(sender connection.Info, caps []message.Capability) 
 }
 
 //addMsgSectionToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg section to the prio cache, otherwise to the normal cache.
-func addMsgSectionToQueue(msgSection sections.Section, tok token.Token, sender connection.Info) {
+func addMsgSectionToQueue(msgSection section.Section, tok token.Token, sender connection.Info) {
 	if pendingKeys.ContainsToken(tok) {
 		log.Debug("add section with signature to priority queue", "token", tok)
 		prioChannel <- msgSectionSender{Sender: sender, Section: msgSection, Token: tok}

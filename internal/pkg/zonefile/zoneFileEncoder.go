@@ -8,7 +8,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 
 	log "github.com/inconshreveable/log15"
@@ -16,19 +16,19 @@ import (
 )
 
 //encodeZone return z in zonefile format. If addZoneAndContext is true, the context and subject zone
-//are present also for all contained sections.
-func encodeZone(z *sections.Zone, addZoneAndContext bool) string {
+//are present also for all contained section.
+func encodeZone(z *section.Zone, addZoneAndContext bool) string {
 	zone := fmt.Sprintf("%s %s %s [\n", TypeZone, z.SubjectZone, z.Context)
-	for _, section := range z.Content {
-		switch section := section.(type) {
-		case *sections.Assertion:
-			zone += encodeAssertion(section, z.Context, z.SubjectZone, indent4, addZoneAndContext)
-		case *sections.Shard:
-			zone += encodeShard(section, z.Context, z.SubjectZone, indent4, addZoneAndContext)
-		case *sections.Pshard:
-			zone += encodePshard(section, z.Context, z.SubjectZone, indent4, addZoneAndContext)
+	for _, sec := range z.Content {
+		switch s := sec.(type) {
+		case *section.Assertion:
+			zone += encodeAssertion(s, z.Context, z.SubjectZone, indent4, addZoneAndContext)
+		case *section.Shard:
+			zone += encodeShard(s, z.Context, z.SubjectZone, indent4, addZoneAndContext)
+		case *section.Pshard:
+			zone += encodePshard(s, z.Context, z.SubjectZone, indent4, addZoneAndContext)
 		default:
-			log.Warn("Unsupported message section type", "msgSection", section)
+			log.Warn("Unsupported message section type", "msgSection", s)
 		}
 	}
 	if z.Signatures != nil {
@@ -46,7 +46,7 @@ func encodeZone(z *sections.Zone, addZoneAndContext bool) string {
 
 //encodeShard returns s in zonefile format. If addZoneAndContext is true, the context and subject
 //zone are present for the shard and for all contained assertions.
-func encodeShard(s *sections.Shard, context, subjectZone, indent string, addZoneAndContext bool) string {
+func encodeShard(s *section.Shard, context, subjectZone, indent string, addZoneAndContext bool) string {
 	rangeFrom := s.RangeFrom
 	rangeTo := s.RangeTo
 	if rangeFrom == "" {
@@ -79,7 +79,7 @@ func encodeShard(s *sections.Shard, context, subjectZone, indent string, addZone
 
 //encodePshard returns s in zonefile format. If addZoneAndContext is true, the context and subject
 //zone are present for the pshard.
-func encodePshard(s *sections.Pshard, context, subjectZone, indent string, addZoneAndContext bool) string {
+func encodePshard(s *section.Pshard, context, subjectZone, indent string, addZoneAndContext bool) string {
 	rangeFrom := s.RangeFrom
 	rangeTo := s.RangeTo
 	if rangeFrom == "" {
@@ -110,8 +110,8 @@ func encodePshard(s *sections.Pshard, context, subjectZone, indent string, addZo
 }
 
 //encodeBloomFilter returns d containing a bloom filter in zonefile format.
-func encodeBloomFilter(d sections.DataStructure) string {
-	bloomFilter, ok := d.Data.(sections.BloomFilter)
+func encodeBloomFilter(d section.DataStructure) string {
+	bloomFilter, ok := d.Data.(section.BloomFilter)
 	if !ok {
 		log.Error("Data Type is not a bloom filter", "type", fmt.Sprintf("%T", d.Data))
 	}
@@ -121,11 +121,11 @@ func encodeBloomFilter(d sections.DataStructure) string {
 	}
 	opMode := ""
 	switch bloomFilter.ModeOfOperation {
-	case sections.StandardOpType:
+	case section.StandardOpType:
 		opMode = TypeStandard
-	case sections.KirschMitzenmacher1:
+	case section.KirschMitzenmacher1:
 		opMode = TypeKM1
-	case sections.KirschMitzenmacher2:
+	case section.KirschMitzenmacher2:
 		opMode = TypeKM2
 	default:
 		log.Error("Unsupported mode of operation", "modeOfOperation", bloomFilter.ModeOfOperation)
@@ -136,7 +136,7 @@ func encodeBloomFilter(d sections.DataStructure) string {
 
 //encodeAssertion returns a in zonefile format. If addZoneAndContext is true, the context and
 //subject zone are also present.
-func encodeAssertion(a *sections.Assertion, context, zone, indent string, addZoneAndContext bool) string {
+func encodeAssertion(a *section.Assertion, context, zone, indent string, addZoneAndContext bool) string {
 	var assertion string
 	if addZoneAndContext {
 		assertion = fmt.Sprintf("%s%s %s %s %s [ ", indent, TypeAssertion, a.SubjectName, zone, context)

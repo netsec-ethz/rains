@@ -8,7 +8,7 @@ in section 5 of [2], used by BIND [3] and many more.
 
 ## Format
 
-A zone file contains a section or a sequence of sections. A section typically
+A zone file contains a section or a sequence of section. A section typically
 starts on a new line. Each section consists of several elements. At least one
 white space (space, tab, return) acts as a delimiter between elements. A comment
 starts with a ";" (semicolon) which results in the rest of the line being

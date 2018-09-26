@@ -13,7 +13,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/encoder"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
@@ -96,16 +96,16 @@ func (r *Rainspub) Publish() {
 
 //splitZoneContent returns assertions, pshards and shards contained in zone as three separate
 //slices.
-func splitZoneContent(zone *sections.Zone, keepShards, keepPshards bool) (
-	[]*sections.Assertion, []*sections.Shard, []*sections.Pshard, error) {
-	assertions := []*sections.Assertion{}
-	shards := []*sections.Shard{}
-	pshards := []*sections.Pshard{}
-	for _, section := range zone.Content {
-		switch s := section.(type) {
-		case *sections.Assertion:
+func splitZoneContent(zone *section.Zone, keepShards, keepPshards bool) (
+	[]*section.Assertion, []*section.Shard, []*section.Pshard, error) {
+	assertions := []*section.Assertion{}
+	shards := []*section.Shard{}
+	pshards := []*section.Pshard{}
+	for _, sec := range zone.Content {
+		switch s := sec.(type) {
+		case *section.Assertion:
 			assertions = append(assertions, s)
-		case *sections.Shard:
+		case *section.Shard:
 			if keepShards {
 				shards = append(shards, s)
 			} else {
@@ -113,7 +113,7 @@ func splitZoneContent(zone *sections.Zone, keepShards, keepPshards bool) (
 					assertions = append(assertions, a)
 				}
 			}
-		case *sections.Pshard:
+		case *section.Pshard:
 			if keepPshards {
 				pshards = append(pshards, s)
 			}
@@ -126,13 +126,13 @@ func splitZoneContent(zone *sections.Zone, keepShards, keepPshards bool) (
 }
 
 //doSharding creates shards based on the zone's content and config.
-func doSharding(zone *sections.Zone, assertions []*sections.Assertion,
-	shards []*sections.Shard, config ShardingConfig, encoder zonefile.ZoneFileParser,
-	sortShards bool) ([]*sections.Shard, error) {
+func doSharding(zone *section.Zone, assertions []*section.Assertion,
+	shards []*section.Shard, config ShardingConfig, encoder zonefile.ZoneFileParser,
+	sortShards bool) ([]*section.Shard, error) {
 	if sortShards {
 		sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
 	}
-	var newShards []*sections.Shard
+	var newShards []*section.Shard
 	var err error
 	if config.MaxShardSize > 0 {
 		newShards, err = groupAssertionsToShardsBySize(zone.SubjectZone, zone.Context, assertions,
@@ -155,9 +155,9 @@ func doSharding(zone *sections.Zone, assertions []*sections.Assertion,
 }
 
 //doPsharding creates pshards based on the zone's content and config.
-func doPsharding(zone *sections.Zone, assertions []*sections.Assertion,
-	pshards []*sections.Pshard, conf PShardingConfig) ([]*sections.Pshard, error) {
-	var newPshards []*sections.Pshard
+func doPsharding(zone *section.Zone, assertions []*section.Assertion,
+	pshards []*section.Pshard, conf PShardingConfig) ([]*section.Pshard, error) {
+	var newPshards []*section.Pshard
 	var err error
 	if conf.NofAssertionsPerPshard > 0 {
 		if newPshards, err = groupAssertionsToPshards(zone.SubjectZone, zone.Context, assertions, conf); err != nil {
@@ -177,12 +177,12 @@ func doPsharding(zone *sections.Zone, assertions []*sections.Assertion,
 
 //groupAssertionsToShardsBySize groups assertions into shards such that each shard is not exceeding
 //maxSize. It returns a slice of the created shards.
-func groupAssertionsToShardsBySize(subjectZone, context string, assertions []*sections.Assertion,
-	config ShardingConfig, encoder zonefile.ZoneFileParser) ([]*sections.Shard, error) {
-	shards := []*sections.Shard{}
+func groupAssertionsToShardsBySize(subjectZone, context string, assertions []*section.Assertion,
+	config ShardingConfig, encoder zonefile.ZoneFileParser) ([]*section.Shard, error) {
+	shards := []*section.Shard{}
 	sameNameAssertions := groupAssertionByName(assertions, config)
 	prevShardAssertionSubjectName := ""
-	shard := &sections.Shard{}
+	shard := &section.Shard{}
 	for i, sameNameA := range sameNameAssertions {
 		shard.Content = append(shard.Content, sameNameA...)
 		//FIXME CFE replace with cbor parser
@@ -196,7 +196,7 @@ func groupAssertionsToShardsBySize(subjectZone, context string, assertions []*se
 			shard.RangeFrom = prevShardAssertionSubjectName
 			shard.RangeTo = sameNameA[0].SubjectName
 			shards = append(shards, shard)
-			shard = &sections.Shard{}
+			shard = &section.Shard{}
 			prevShardAssertionSubjectName = sameNameAssertions[i-1][0].SubjectName
 			shard.Content = append(shard.Content, sameNameA...)
 			if length := len(encoder.Encode(shard)); length > config.MaxShardSize {
@@ -215,11 +215,11 @@ func groupAssertionsToShardsBySize(subjectZone, context string, assertions []*se
 
 //groupAssertionByName returns a slice where each entry is a slice of assertions having the same
 //subject name.
-func groupAssertionByName(assertions []*sections.Assertion,
-	config ShardingConfig) [][]*sections.Assertion {
-	var output [][]*sections.Assertion
+func groupAssertionByName(assertions []*section.Assertion,
+	config ShardingConfig) [][]*section.Assertion {
+	var output [][]*section.Assertion
 	for i := 0; i < len(assertions); i++ {
-		sameName := []*sections.Assertion{assertions[i]}
+		sameName := []*section.Assertion{assertions[i]}
 		name := assertions[i].SubjectName
 		for i++; i < len(assertions) && assertions[i].SubjectName == name; i++ {
 			sameName = append(sameName, assertions[i])
@@ -233,12 +233,12 @@ func groupAssertionByName(assertions []*sections.Assertion,
 //groupAssertionsToShardsByNumber creates shards containing a maximum number of different assertion
 //names according to the configuration. It returns a slice of the created shards.
 func groupAssertionsToShardsByNumber(subjectZone, context string,
-	assertions []*sections.Assertion, config ShardingConfig) []*sections.Shard {
-	shards := []*sections.Shard{}
+	assertions []*section.Assertion, config ShardingConfig) []*section.Shard {
+	shards := []*section.Shard{}
 	nameCount := 0
 	prevAssertionSubjectName := ""
 	prevShardAssertionSubjectName := ""
-	shard := &sections.Shard{}
+	shard := &section.Shard{}
 	for i, a := range assertions {
 		if prevAssertionSubjectName != a.SubjectName {
 			nameCount++
@@ -249,7 +249,7 @@ func groupAssertionsToShardsByNumber(subjectZone, context string,
 			shard.RangeTo = a.SubjectName
 			shards = append(shards, shard)
 			nameCount = 1
-			shard = &sections.Shard{}
+			shard = &section.Shard{}
 			prevShardAssertionSubjectName = assertions[i-1].SubjectName
 		}
 		shard.Content = append(shard.Content, a)
@@ -263,13 +263,13 @@ func groupAssertionsToShardsByNumber(subjectZone, context string,
 
 //groupAssertionsToShardsByNumber creates shards containing a maximum number of different assertion
 //names according to the configuration. It returns a slice of the created shards.
-func groupAssertionsToPshards(subjectZone, context string, assertions []*sections.Assertion,
-	config PShardingConfig) ([]*sections.Pshard, error) {
-	pshards := []*sections.Pshard{}
+func groupAssertionsToPshards(subjectZone, context string, assertions []*section.Assertion,
+	config PShardingConfig) ([]*section.Pshard, error) {
+	pshards := []*section.Pshard{}
 	nameCount := 0
 	prevAssertionSubjectName := ""
 	prevShardAssertionSubjectName := ""
-	pshard := &sections.Pshard{}
+	pshard := &section.Pshard{}
 	bloomFilter := newBloomFilter(config.BloomFilterConf)
 	for i, a := range assertions {
 		if prevAssertionSubjectName != a.SubjectName {
@@ -282,7 +282,7 @@ func groupAssertionsToPshards(subjectZone, context string, assertions []*section
 			pshard.Datastructure.Data = bloomFilter
 			pshards = append(pshards, pshard)
 			nameCount = 1
-			pshard = &sections.Pshard{}
+			pshard = &section.Pshard{}
 			bloomFilter = newBloomFilter(config.BloomFilterConf)
 			prevShardAssertionSubjectName = assertions[i-1].SubjectName
 		}
@@ -299,14 +299,14 @@ func groupAssertionsToPshards(subjectZone, context string, assertions []*section
 }
 
 //newBloomFilter returns a newly created bloom filter of the given
-func newBloomFilter(config BloomFilterConfig) sections.BloomFilter {
+func newBloomFilter(config BloomFilterConfig) section.BloomFilter {
 	var size int
 	if config.BloomFilterSize%8 == 0 {
 		size = config.BloomFilterSize / 8
 	} else {
 		size = (config.BloomFilterSize/8 + 1) * 8
 	}
-	return sections.BloomFilter{
+	return section.BloomFilter{
 		HashFamily:       config.Hashfamily,
 		NofHashFunctions: config.NofHashFunctions,
 		ModeOfOperation:  config.BFOpMode,
@@ -315,8 +315,8 @@ func newBloomFilter(config BloomFilterConfig) sections.BloomFilter {
 }
 
 //createZone overwrites zone with assertions, pshards and shards in the correct order.
-func createZone(zone *sections.Zone, assertions []*sections.Assertion,
-	shards []*sections.Shard, pshards []*sections.Pshard) {
+func createZone(zone *section.Zone, assertions []*section.Assertion,
+	shards []*section.Shard, pshards []*section.Pshard) {
 	zone.Content = nil
 	for _, a := range assertions {
 		zone.Content = append(zone.Content, a)
@@ -331,7 +331,7 @@ func createZone(zone *sections.Zone, assertions []*sections.Assertion,
 
 //addSignatureMetaData adds signature meta data to the zone content based on the configuration. It
 //assumes, that the zone content is sorted, i.e. pshards come before shards.
-func addSignatureMetaData(zone *sections.Zone, nofAssertions, nofPshards int,
+func addSignatureMetaData(zone *section.Zone, nofAssertions, nofPshards int,
 	config MetaDataConfig) error {
 	waitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofAssertions)
 	pshardWaitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofPshards)
@@ -345,11 +345,11 @@ func addSignatureMetaData(zone *sections.Zone, nofAssertions, nofPshards int,
 		ValidUntil: int64(config.SigValidUntil.Seconds()),
 	}
 	firstShard := true
-	for _, section := range zone.Content {
-		switch s := section.(type) {
-		case *sections.Assertion:
+	for _, sec := range zone.Content {
+		switch s := sec.(type) {
+		case *section.Assertion:
 			return errors.New("standalone assertions in a zone are not supported")
-		case *sections.Shard:
+		case *section.Shard:
 			if firstShard {
 				signature.ValidSince = int64(config.SigValidSince.Seconds())
 				signature.ValidUntil = int64(config.SigValidUntil.Seconds())
@@ -367,7 +367,7 @@ func addSignatureMetaData(zone *sections.Zone, nofAssertions, nofPshards int,
 				signature.ValidSince += waitInterval * int64(len(s.Content)) / int64(time.Second)
 				signature.ValidUntil += waitInterval * int64(len(s.Content)) / int64(time.Second)
 			}
-		case *sections.Pshard:
+		case *section.Pshard:
 			if config.AddSigMetaDataToPshards {
 				s.AddSig(signature)
 				signature.ValidSince += pshardWaitInterval / int64(time.Second)
@@ -382,7 +382,7 @@ func addSignatureMetaData(zone *sections.Zone, nofAssertions, nofPshards int,
 }
 
 //isConsistent performs the checks specified in config
-func isConsistent(zone *sections.Zone, config ConsistencyConfig) bool {
+func isConsistent(zone *section.Zone, config ConsistencyConfig) bool {
 	if config.DoConsistencyCheck {
 		if !siglib.ValidSectionAndSignature(zone) {
 			log.Error("zone content is not consistent")
@@ -410,7 +410,7 @@ func isConsistent(zone *sections.Zone, config ConsistencyConfig) bool {
 
 //publishZone publishes the zone's content either to the specified authoritative servers or to a
 //file in zonefile format.
-func (r *Rainspub) publishZone(zone *sections.Zone, config Config) {
+func (r *Rainspub) publishZone(zone *section.Zone, config Config) {
 	if config.OutputPath != "" {
 		encoding := r.zfParser.Encode(zone)
 		err := ioutil.WriteFile(config.OutputPath, []byte(encoding), 0600)
@@ -424,7 +424,7 @@ func (r *Rainspub) publishZone(zone *sections.Zone, config Config) {
 		//TODO check if zone is not too large. If it is, split it up and send content separately.
 		msg := message.Message{
 			Token:   token.New(),
-			Content: []sections.Section{zone},
+			Content: []section.Section{zone},
 			//TODO CFE maybe add capabilities
 		}
 		unreachableServers := publishSections(msg, config.AuthServers)

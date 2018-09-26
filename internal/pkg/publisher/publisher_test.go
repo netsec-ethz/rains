@@ -38,19 +38,19 @@ func TestLoadPrivateKeys(t *testing.T) {
 	zonePrivateKey, _ := loadPrivateKey("test/zonePrivate.key")
 	a := getAssertionWithTwoIPObjects()
 	var tests = []struct {
-		input   *sections.ZoneSection
+		input   *section.ZoneSection
 		keyAlgo algorithmTypes.SignatureAlgorithmType
 		privKey interface{}
 		errMsg  string
 	}{
-		{&sections.ZoneSection{SubjectZone: "ch", Context: ".", Content: []sections.MessageSectionWithSigForward{
-			&sections.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "",
-				Content: []*sections.AssertionSection{a}}}}, keys.Ed25519, zonePrivateKey, ""},
+		{&section.ZoneSection{SubjectZone: "ch", Context: ".", Content: []section.MessageSectionWithSigForward{
+			&section.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "",
+				Content: []*section.AssertionSection{a}}}}, keys.Ed25519, zonePrivateKey, ""},
 		{nil, keys.Ed25519, nil, "zone is nil"},                                                      //zone is nil error
-		{new(sections.ZoneSection), keys.Ed25519, nil, "Was not able to sign and add the signature"}, //signSection return error
-		{&sections.ZoneSection{SubjectZone: "ch", Context: ".", Content: []sections.MessageSectionWithSigForward{
-			new(sections.AssertionSection)}}, keys.Ed25519, zonePrivateKey,
-			"Zone contained unexpected type expected=*ShardSection actual=*sections.AssertionSection"}, //invalid zone content error
+		{new(section.ZoneSection), keys.Ed25519, nil, "Was not able to sign and add the signature"}, //signSection return error
+		{&section.ZoneSection{SubjectZone: "ch", Context: ".", Content: []section.MessageSectionWithSigForward{
+			new(section.AssertionSection)}}, keys.Ed25519, zonePrivateKey,
+			"Zone contained unexpected type expected=*ShardSection actual=*section.AssertionSection"}, //invalid zone content error
 	}
 	for i, test := range tests {
 		err := signZone(test.input, test.keyAlgo, test.privKey)
@@ -58,8 +58,8 @@ func TestLoadPrivateKeys(t *testing.T) {
 			t.Errorf("%d: signZone() wrong error message. expected=%s, actual=%s", i, test.errMsg, err.Error())
 		}
 		if err == nil && (test.input.Signatures[0].Data == nil || test.input.Content[0].Sigs(keys.RainsKeySpace)[0].Data == nil ||
-			test.input.Content[0].(*sections.ShardSection).Content[0].Signatures[0].Data == nil) {
-			t.Errorf("%d: signZone() did not add signature to all sections.", i)
+			test.input.Content[0].(*section.ShardSection).Content[0].Signatures[0].Data == nil) {
+			t.Errorf("%d: signZone() did not add signature to all section.", i)
 		}
 	}
 }
@@ -68,15 +68,15 @@ func TestSignShard(t *testing.T) {
 	InitRainspub("test/rainspub.conf")
 	a := getAssertionWithTwoIPObjects()
 	var tests = []struct {
-		input   *sections.ShardSection
+		input   *section.ShardSection
 		keyAlgo algorithmTypes.SignatureAlgorithmType
 		privKey interface{}
 		errMsg  string
 	}{
-		{&sections.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "",
-			Content: []*sections.AssertionSection{a}}, keys.Ed25519, zonePrivateKey, ""},
+		{&section.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "",
+			Content: []*section.AssertionSection{a}}, keys.Ed25519, zonePrivateKey, ""},
 		{nil, keys.Ed25519, nil, "shard is nil"},                                                      //shard is nil error
-		{new(sections.ShardSection), keys.Ed25519, nil, "Was not able to sign and add the signature"}, //signSection return error
+		{new(section.ShardSection), keys.Ed25519, nil, "Was not able to sign and add the signature"}, //signSection return error
 	}
 	for i, test := range tests {
 		err := signShard(test.input, test.keyAlgo, test.privKey)
@@ -85,7 +85,7 @@ func TestSignShard(t *testing.T) {
 		}
 		if err == nil && (test.input.Content[0].Sigs(keys.RainsKeySpace)[0].Data == nil ||
 			test.input.Content[0].Signatures[0].Data == nil) {
-			t.Errorf("%d: signZone() did not add signature to all sections.", i)
+			t.Errorf("%d: signZone() did not add signature to all section.", i)
 		}
 	}
 }
@@ -95,21 +95,21 @@ func TestSignAssertion(t *testing.T) {
 	a1 := getAssertionWithTwoIPObjects()
 	pubKey, _, _ := ed25519.GenerateKey(nil)
 	publicKey := keys.PublicKey{PublicKeyID: keys.PublicKeyID{KeySpace: keys.RainsKeySpace, Algorithm: keys.Ed25519}, Key: pubKey}
-	a2 := &sections.AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".",
+	a2 := &section.AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".",
 		Content: []object.Object{object.Object{Type: object.OTDelegation, Value: publicKey}}}
 	var tests = []struct {
-		input      []*sections.AssertionSection
+		input      []*section.AssertionSection
 		keyAlgo    algorithmTypes.SignatureAlgorithmType
 		privKey    interface{}
 		validSince int64
 		validUntil int64
 		errMsg     string
 	}{
-		{[]*sections.AssertionSection{a1}, keys.Ed25519, zonePrivateKey, time.Now().Unix(), time.Now().Add(86400 * time.Hour).Unix(), ""},
-		{[]*sections.AssertionSection{a2}, keys.Ed25519, zonePrivateKey, time.Now().Add(-1 * time.Hour).Unix(),
+		{[]*section.AssertionSection{a1}, keys.Ed25519, zonePrivateKey, time.Now().Unix(), time.Now().Add(86400 * time.Hour).Unix(), ""},
+		{[]*section.AssertionSection{a2}, keys.Ed25519, zonePrivateKey, time.Now().Add(-1 * time.Hour).Unix(),
 			time.Now().Add(86439 * time.Hour).Unix(), ""},
-		{[]*sections.AssertionSection{nil}, keys.Ed25519, nil, 0, 0, "assertion is nil"},                          //assertion is nil error
-		{[]*sections.AssertionSection{a2}, keys.Ed25519, nil, 0, 0, "Was not able to sign and add the signature"}, //signSection return error
+		{[]*section.AssertionSection{nil}, keys.Ed25519, nil, 0, 0, "assertion is nil"},                          //assertion is nil error
+		{[]*section.AssertionSection{a2}, keys.Ed25519, nil, 0, 0, "Was not able to sign and add the signature"}, //signSection return error
 	}
 	for i, test := range tests {
 		err := signAssertions(test.input, test.keyAlgo, test.privKey)
@@ -117,7 +117,7 @@ func TestSignAssertion(t *testing.T) {
 			t.Errorf("%d: signZone() wrong error message. expected=%s, actual=%s", i, test.errMsg, err.Error())
 		}
 		if err == nil && test.input[0].Signatures[0].Data == nil {
-			t.Errorf("%d: signZone() did not add signature to all sections.", i)
+			t.Errorf("%d: signZone() did not add signature to all section.", i)
 		}
 		if err == nil && (test.input[0].Signatures[0].ValidSince != test.validSince || test.input[0].Signatures[0].ValidUntil != test.validUntil) {
 			t.Errorf("%d: signature validity is incorrect expectedSince=%d expectedUntil=%d actualSince=%d actualUntil=%d.", i,
@@ -132,8 +132,8 @@ func TestSendMessage(t *testing.T) {
 	go rainsd.Listen()
 	time.Sleep(time.Second / 10)
 	a := getAssertionWithTwoIPObjects()
-	zone := &sections.ZoneSection{SubjectZone: "ch", Context: ".", Content: []sections.MessageSectionWithSigForward{
-		&sections.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "", Content: []*sections.AssertionSection{a}}}}
+	zone := &section.ZoneSection{SubjectZone: "ch", Context: ".", Content: []section.MessageSectionWithSigForward{
+		&section.ShardSection{SubjectZone: "ch", Context: ".", RangeFrom: "", RangeTo: "", Content: []*section.AssertionSection{a}}}}
 	msg, _ := createRainsMessage(zone)
 	var tests = []struct {
 		input  []byte
@@ -154,8 +154,8 @@ func TestSendMessage(t *testing.T) {
 	}
 }
 
-func getAssertionWithTwoIPObjects() *sections.AssertionSection {
-	return &sections.AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".",
+func getAssertionWithTwoIPObjects() *section.AssertionSection {
+	return &section.AssertionSection{SubjectName: "ethz", SubjectZone: "ch", Context: ".",
 		Content: []object.Object{object.Object{Type: object.OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"},
 			object.Object{Type: object.OTIP4Addr, Value: "129.132.128.139"}}}
 }*/

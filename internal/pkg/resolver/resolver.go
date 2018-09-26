@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 
@@ -16,7 +18,6 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
 )
 
 type ResolutionMode int
@@ -57,14 +58,14 @@ func (r *Server) Lookup(name, context string) (*message.Message, error) {
 	case ResolutionModeRecursive:
 		return r.recursiveResolve(name, context)
 	case ResolutionModeForwarding:
-		q := r.nameToQuery(name, context, time.Now().Add(15*time.Second).UnixNano(), []sections.QueryOption{})
+		q := r.nameToQuery(name, context, time.Now().Add(15*time.Second).UnixNano(), []query.Option{})
 		return r.forwardQuery(q)
 	default:
 		return nil, fmt.Errorf("Unsupported resolution mode: %v", r.Mode)
 	}
 }
 
-func (r *Server) nameToQuery(name, context string, expTime int64, opts []sections.QueryOption) message.Message {
+func (r *Server) nameToQuery(name, context string, expTime int64, opts []query.Option) message.Message {
 	types := []object.Type{object.OTIP4Addr, object.OTIP6Addr, object.OTDelegation, object.OTServiceInfo, object.OTRedirection}
 	return util.NewQueryMessage(name, context, expTime, types, opts, token.New())
 }
@@ -153,7 +154,7 @@ func (r *Server) recursiveResolve(name, context string) (*message.Message, error
 		}
 		defer conn.Close()
 		writer := borat.NewCBORWriter(conn)
-		q := r.nameToQuery(name, context, time.Now().Add(15*time.Second).Unix(), []sections.QueryOption{})
+		q := r.nameToQuery(name, context, time.Now().Add(15*time.Second).Unix(), []query.Option{})
 		if err := writer.Marshal(&q); err != nil {
 			return nil, fmt.Errorf("failed to marshal query to server: %v", err)
 		}
@@ -173,13 +174,13 @@ func (r *Server) recursiveResolve(name, context string) (*message.Message, error
 		redirectMap := make(map[string]string)
 		srvMap := make(map[string]object.ServiceInfo)
 		concreteMap := make(map[string]string)
-		for _, section := range resp.Content {
-			switch section.(type) {
-			case *sections.Zone:
+		for _, sec := range resp.Content {
+			switch sec.(type) {
+			case *section.Zone:
 				// If we were given a whole zone it's because we asked for it or it's non-existance proof.
 				return resp, nil
-			case *sections.Assertion:
-				as := section.(*sections.Assertion)
+			case *section.Assertion:
+				as := sec.(*section.Assertion)
 				sz := mergeSubjectZone(as.SubjectName, as.SubjectZone)
 				if sz == name {
 					return resp, nil
@@ -197,10 +198,10 @@ func (r *Server) recursiveResolve(name, context string) (*message.Message, error
 						concreteMap[sz] = fmt.Sprintf("[%s]", obj.Value.(string))
 					}
 				}
-			case *sections.Shard:
+			case *section.Shard:
 				return resp, nil
 			default:
-				return nil, fmt.Errorf("got unknown type: %T", section)
+				return nil, fmt.Errorf("got unknown type: %T", sec)
 			}
 		}
 		// If we are here, there is some recursion required or there is no answer.

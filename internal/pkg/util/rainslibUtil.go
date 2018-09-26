@@ -12,7 +12,8 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 
 	"golang.org/x/crypto/ed25519"
@@ -60,17 +61,17 @@ func Load(path string, object interface{}) error {
 }
 
 //UpdateSectionValidity updates the validity of the section according to the signature validity and the publicKey validity used to verify this signature
-func UpdateSectionValidity(sec sections.SecWithSig, pkeyValidSince, pkeyValidUntil, sigValidSince, sigValidUntil int64, maxVal MaxCacheValidity) {
+func UpdateSectionValidity(sec section.SecWithSig, pkeyValidSince, pkeyValidUntil, sigValidSince, sigValidUntil int64, maxVal MaxCacheValidity) {
 	if sec != nil {
 		var maxValidity time.Duration
 		switch sec.(type) {
-		case *sections.Assertion:
+		case *section.Assertion:
 			maxValidity = maxVal.AssertionValidity
-		case *sections.Shard:
+		case *section.Shard:
 			maxValidity = maxVal.ShardValidity
-		case *sections.Zone:
+		case *section.Zone:
 			maxValidity = maxVal.ZoneValidity
-		case *sections.AddrAssertion:
+		case *section.AddrAssertion:
 			maxValidity = maxVal.AddressAssertionValidity
 		default:
 			log.Warn("Not supported section", "type", fmt.Sprintf("%T", sec))
@@ -95,39 +96,39 @@ func UpdateSectionValidity(sec sections.SecWithSig, pkeyValidSince, pkeyValidUnt
 
 //NewQueryMessage creates a new message containing a query body with values obtained from the input parameter
 func NewQueryMessage(name, context string, expTime int64, objType []object.Type,
-	queryOptions []sections.QueryOption, token token.Token) message.Message {
-	query := sections.QueryForward{
+	queryOptions []query.Option, token token.Token) message.Message {
+	query := query.Name{
 		Context:    context,
 		Name:       name,
 		Expiration: expTime,
 		Types:      objType,
 		Options:    queryOptions,
 	}
-	return message.Message{Token: token, Content: []sections.Section{&query}}
+	return message.Message{Token: token, Content: []section.Section{&query}}
 }
 
 //NewAddressQueryMessage creates a new message containing an addressQuery body with values obtained from the input parameter
 func NewAddressQueryMessage(context string, ipNet *net.IPNet, expTime int64, objType []object.Type,
-	queryOptions []sections.QueryOption, token token.Token) message.Message {
-	addressQuery := sections.AddrQuery{
+	queryOptions []query.Option, token token.Token) message.Message {
+	addressQuery := query.Address{
 		Context:     context,
 		SubjectAddr: ipNet,
 		Expiration:  expTime,
 		Types:       objType,
 		Options:     queryOptions,
 	}
-	return message.Message{Token: token, Content: []sections.Section{&addressQuery}}
+	return message.Message{Token: token, Content: []section.Section{&addressQuery}}
 }
 
 //NewNotificationsMessage creates a new message containing notification bodies with values obtained from the input parameter
-func NewNotificationsMessage(tokens []token.Token, types []sections.NotificationType, data []string) (message.Message, error) {
+func NewNotificationsMessage(tokens []token.Token, types []section.NotificationType, data []string) (message.Message, error) {
 	if len(tokens) != len(types) || len(types) != len(data) {
 		log.Warn("input slices have not the same length", "tokenLen", len(tokens), "typesLen", len(types), "dataLen", len(data))
 		return message.Message{}, errors.New("input slices have not the same length")
 	}
-	msg := message.Message{Token: token.New(), Content: []sections.Section{}}
+	msg := message.Message{Token: token.New(), Content: []section.Section{}}
 	for i := range tokens {
-		notification := &sections.Notification{
+		notification := &section.Notification{
 			Token: tokens[i],
 			Type:  types[i],
 			Data:  data[i],
@@ -138,7 +139,7 @@ func NewNotificationsMessage(tokens []token.Token, types []sections.Notification
 }
 
 //NewNotificationMessage creates a new message containing one notification body with values obtained from the input parameter
-func NewNotificationMessage(tok token.Token, t sections.NotificationType, data string) message.Message {
-	msg, _ := NewNotificationsMessage([]token.Token{tok}, []sections.NotificationType{t}, []string{data})
+func NewNotificationMessage(tok token.Token, t section.NotificationType, data string) message.Message {
+	msg, _ := NewNotificationsMessage([]token.Token{tok}, []section.NotificationType{t}, []string{data})
 	return msg
 }

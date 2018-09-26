@@ -7,7 +7,7 @@ import (
 
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
@@ -18,15 +18,15 @@ func TestEncodeDecode(t *testing.T) {
 	zoneFile := parser.Encode(zones[0])
 
 	decode, err := parser.Decode([]byte(zoneFile))
-	assertions := []*sections.Assertion{}
+	assertions := []*section.Assertion{}
 	for _, a := range decode {
-		assertions = append(assertions, a.(*sections.Assertion))
+		assertions = append(assertions, a.(*section.Assertion))
 	}
 	if err != nil {
 		t.Error(err)
 	}
 
-	containedAssertions := []*sections.Assertion{zones[0].Content[0].(*sections.Assertion), zones[0].Content[1].(*sections.Shard).Content[0]}
+	containedAssertions := []*section.Assertion{zones[0].Content[0].(*section.Assertion), zones[0].Content[1].(*section.Shard).Content[0]}
 	for i, a := range assertions {
 		//contained section must not have a context or subjectZone, thus to compare it, inherit the value from the zone
 		containedAssertions[i].Context = zones[0].Context
@@ -39,10 +39,10 @@ func TestEncodeDecode(t *testing.T) {
 
 func TestGetEncodingErrors(t *testing.T) {
 	var tests = []struct {
-		input sections.Section
+		input section.Section
 		want  string
 	}{
-		{sections.Section(&object.Object{}), ""},
+		{section.Section(&object.Object{}), ""},
 	}
 	for _, test := range tests {
 		if GetEncoding(test.input, true) != test.want {
@@ -80,12 +80,12 @@ func TestReplaceWhitespaces(t *testing.T) {
 }
 
 func TestEncodeSection(t *testing.T) {
-	assertion := &sections.Assertion{
+	assertion := &section.Assertion{
 		Content:     []object.Object{object.Object{Type: object.OTIP4Addr, Value: "127.0.0.1"}},
 		SubjectName: "ethz",
 	}
 	var tests = []struct {
-		input sections.SecWithSigForward
+		input section.SecWithSigForward
 		want  string
 	}{
 		{assertion, ":A: ethz [ :ip4: 127.0.0.1 ]"},
@@ -99,7 +99,7 @@ func TestEncodeSection(t *testing.T) {
 }
 
 func TestEncodeMessage(t *testing.T) {
-	assertion := &sections.Assertion{
+	assertion := &section.Assertion{
 		Content:     []object.Object{object.Object{Type: object.OTIP4Addr, Value: "127.0.0.1"}},
 		SubjectName: "ethz",
 	}
@@ -109,7 +109,7 @@ func TestEncodeMessage(t *testing.T) {
 	message := &message.Message{
 		Capabilities: capabilities,
 		Token:        token,
-		Content:      []sections.Section{assertion},
+		Content:      []section.Section{assertion},
 	}
 	var tests = []struct {
 		input *message.RainsMessage

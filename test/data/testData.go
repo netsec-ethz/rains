@@ -22,7 +22,7 @@ const (
 	globalContext     = "."
 )
 
-//GetMessage returns a messages containing all sections. The assertion contains an instance of every objectTypes
+//GetMessage returns a messages containing all section. The assertion contains an instance of every objectTypes
 func GetMessage() RainsMessage {
 	signature := Signature{
 		PublicKeyID: PublicKeyID{

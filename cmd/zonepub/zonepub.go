@@ -15,7 +15,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	parser "github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
 
@@ -321,7 +321,7 @@ func (i *algorithmFlag) Set(value string) error {
 
 type bfOpModeFlag struct {
 	set   bool
-	value sections.ModeOfOperationType
+	value section.ModeOfOperationType
 }
 
 func (i *bfOpModeFlag) String() string {
@@ -332,13 +332,13 @@ func (i *bfOpModeFlag) Set(value string) error {
 	switch value {
 	case parser.TypeStandard, "standard", "0":
 		i.set = true
-		i.value = sections.StandardOpType
+		i.value = section.StandardOpType
 	case parser.TypeKM1, "km1", "1":
 		i.set = true
-		i.value = sections.KirschMitzenmacher1
+		i.value = section.KirschMitzenmacher1
 	case parser.TypeKM2, "km2", "2":
 		i.set = true
-		i.value = sections.KirschMitzenmacher2
+		i.value = section.KirschMitzenmacher2
 	default:
 		return fmt.Errorf("invalid bloom filter mode of operation type")
 	}

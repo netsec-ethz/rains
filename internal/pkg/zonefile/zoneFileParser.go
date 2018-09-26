@@ -8,7 +8,8 @@ import (
 	"strings"
 
 	"github.com/netsec-ethz/rains/internal/pkg/message"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -64,16 +65,16 @@ type ZoneFileParser interface {
 	//Decode takes as input a byte string of section(s) in zonefile format. It returns a slice of
 	//all contained assertions, shards, and zones in the provided order or an error in case of
 	//failure.
-	Decode(zoneFile []byte) ([]sections.SecWithSigForward, error)
+	Decode(zoneFile []byte) ([]section.SecWithSigForward, error)
 
 	//DecodeZone takes as input a byte string of one zone in zonefile format. It returns the zone
 	//exactly as it is in the zonefile or an error in case of failure.
-	DecodeZone(zoneFile []byte) (*sections.Zone, error)
+	DecodeZone(zoneFile []byte) (*section.Zone, error)
 
 	//Encode returns the given section represented in zone file format if it is an assertion, shard,
 	//or zone. In all other cases it returns the section in a displayable format similar to the zone
 	//file format
-	Encode(section sections.Section) string
+	Encode(section section.Section) string
 }
 
 //Parser can be used to parse RAINS zone files
@@ -81,23 +82,23 @@ type Parser struct{}
 
 //Encode returns the given section represented in the zone file format if it is a zoneSection.
 //In all other cases it returns the section in a displayable format similar to the zone file format
-func (p Parser) Encode(s sections.Section) string {
+func (p Parser) Encode(s section.Section) string {
 	return GetEncoding(s, false)
 }
 
 //Decode returns all assertions contained in the given zonefile
-func (p Parser) Decode(zoneFile []byte) ([]sections.SecWithSigForward, error) {
+func (p Parser) Decode(zoneFile []byte) ([]section.SecWithSigForward, error) {
 	log.Error("Not yet supported")
 	return nil, nil
 }
 
 //DecodeZone returns a zone exactly as it is represented in the zonefile
-func (p Parser) DecodeZone(zoneFile []byte) (*sections.Zone, error) {
+func (p Parser) DecodeZone(zoneFile []byte) (*section.Zone, error) {
 	lines := removeComments(bufio.NewScanner(bytes.NewReader(zoneFile)))
 	log.Debug("Preprocessed input", "data", lines)
 	parser := ZFPNewParser()
 	parser.Parse(&ZFPLex{lines: lines})
-	zone, ok := parser.Result()[0].(*sections.Zone)
+	zone, ok := parser.Result()[0].(*section.Zone)
 	if !ok {
 		return nil, errors.New("First element of zonefile is not a zone. (Note, only the first element of the zonefile is considered)")
 	}
@@ -115,28 +116,28 @@ func (p Parser) EncodeMessage(msg *message.Message) []byte {
 //EncodeSection transforms the given msg into a signable format
 //It must have already been verified that the section does not contain malicious content
 //Signature meta data is not added
-func (p Parser) EncodeSection(s sections.SecWithSig) []byte {
+func (p Parser) EncodeSection(s section.SecWithSig) []byte {
 	encoding := GetEncoding(s, true)
 	return []byte(replaceWhitespaces(encoding))
 }
 
 //GetEncoding returns an encoding in zonefile format
-func GetEncoding(s sections.Section, forSigning bool) string {
+func GetEncoding(s section.Section, forSigning bool) string {
 	encoding := ""
 	switch s := s.(type) {
-	case *sections.Assertion:
+	case *section.Assertion:
 		encoding = encodeAssertion(s, s.Context, s.SubjectZone, "", forSigning)
-	case *sections.Shard:
+	case *section.Shard:
 		encoding = encodeShard(s, s.Context, s.SubjectZone, "", forSigning)
-	case *sections.Zone:
+	case *section.Zone:
 		encoding = encodeZone(s, forSigning)
-	case *sections.QueryForward:
+	case *query.Name:
 		encoding = encodeQuery(s)
-	case *sections.Notification:
+	case *section.Notification:
 		encoding = encodeNotification(s)
-	case *sections.AddrAssertion:
+	case *section.AddrAssertion:
 		encoding = encodeAddressAssertion(s)
-	case *sections.AddrQuery:
+	case *query.Address:
 		encoding = encodeAddressQuery(s)
 	default:
 		log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))

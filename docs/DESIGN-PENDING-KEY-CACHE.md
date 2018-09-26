@@ -48,7 +48,7 @@
 - It must provide a fast lookup of the sections (together with ConnInfo and Token) corresponding to
   the query's token. The query's token and sections are removed from the cache (This function is intended
   for the case when a shard or zone is received in response to a delegation query).
-- It must provide a reap function that removes expired tokens and sections. It logs all removed
+- It must provide a reap function that removes expired tokens and section. It logs all removed
   sections and the connection information to which the delegation query was sent.
 - It must provide a remove function which deletes all sections from the cache corresponding to a
   given token and logs it (In case e.g. a negative result or noAssertAvail is received).

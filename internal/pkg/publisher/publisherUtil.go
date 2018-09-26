@@ -14,7 +14,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/encoder"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	"golang.org/x/crypto/ed25519"
@@ -56,7 +56,7 @@ type PShardingConfig struct {
 type BloomFilterConfig struct {
 	Hashfamily       []algorithmTypes.Hash
 	NofHashFunctions int
-	BFOpMode         sections.ModeOfOperationType
+	BFOpMode         section.ModeOfOperationType
 	BloomFilterSize  int
 }
 
@@ -83,7 +83,7 @@ type ConsistencyConfig struct {
 }
 
 //loadZonefile loads the zonefile from disk.
-func loadZonefile(path string, parser zonefile.ZoneFileParser) (*sections.Zone, error) {
+func loadZonefile(path string, parser zonefile.ZoneFileParser) (*section.Zone, error) {
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
 		log.Error("Was not able to read zone file", "path", path)
@@ -134,7 +134,7 @@ func loadPrivateKeys(path string) (map[keys.PublicKeyID]interface{}, error) {
 //removes the subjectZone and context of the contained assertions and shards after the signatures
 //have been added. It returns an error if it was unable to sign the zone or any of the contained
 //shards and assertions.
-func signZone(zone *sections.Zone, path string, encoder encoder.SignatureFormatEncoder) error {
+func signZone(zone *section.Zone, path string, encoder encoder.SignatureFormatEncoder) error {
 	if zone == nil {
 		return errors.New("zone is nil")
 	}
@@ -150,13 +150,13 @@ func signZone(zone *sections.Zone, path string, encoder encoder.SignatureFormatE
 	}
 	for _, sec := range zone.Content {
 		switch sec := sec.(type) {
-		case *sections.Assertion:
+		case *section.Assertion:
 			if err := signAssertion(sec, keys, encoder); err != nil {
 				return err
 			}
 			sec.Context = ""
 			sec.SubjectZone = ""
-		case *sections.Shard:
+		case *section.Shard:
 			if err := signShard(sec, keys, encoder); err != nil {
 				return err
 			}
@@ -172,7 +172,7 @@ func signZone(zone *sections.Zone, path string, encoder encoder.SignatureFormatE
 //signShard signs the shard and all contained assertions with the zone's private key. It removes the
 //subjectZone and context of the contained assertions after the signatures have been added. It
 //returns an error if it was unable to sign the shard or any of the assertions.
-func signShard(s *sections.Shard, keys map[keys.PublicKeyID]interface{},
+func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{},
 	encoder encoder.SignatureFormatEncoder) error {
 	if s == nil {
 		return errors.New("shard is nil")
@@ -195,7 +195,7 @@ func signShard(s *sections.Shard, keys map[keys.PublicKeyID]interface{},
 
 //signAssertion computes the signature data for all contained signatures.
 //It returns an error if it was unable to create all signatures on the assertion.
-func signAssertion(a *sections.Assertion, keys map[keys.PublicKeyID]interface{},
+func signAssertion(a *section.Assertion, keys map[keys.PublicKeyID]interface{},
 	encoder encoder.SignatureFormatEncoder) error {
 	if a == nil {
 		return errors.New("assertion is nil")

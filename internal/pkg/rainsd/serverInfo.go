@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
@@ -15,7 +16,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
@@ -95,14 +95,14 @@ type rainsdConfig struct {
 //msgSectionSender contains the message section section and connection infos about the sender
 type msgSectionSender struct {
 	Sender  connection.Info
-	Section sections.Section
+	Section section.Section
 	Token   token.Token
 }
 
 //sectionWithSigSender contains a section with a signature and connection infos about the sender
 type sectionWithSigSender struct {
 	Sender  connection.Info
-	Section sections.SecWithSig
+	Section section.SecWithSig
 	Token   token.Token
 }
 
@@ -153,12 +153,12 @@ type zonePublicKeyCache interface {
 	//a zone has more than a certain (configurable) amount of public keys. (An external service can
 	//then decide if it wants to blacklist a given zone). If the internal flag is set, the publicKey
 	//will only be removed after it expired.
-	Add(assertion *sections.Assertion, publicKey keys.PublicKey, internal bool) bool
+	Add(assertion *section.Assertion, publicKey keys.PublicKey, internal bool) bool
 	//Get returns true, the assertion holding the returned public key, and a non expired public key
 	//which can be used to verify a signature with sigMetaData. It returns false if there is no
 	//valid matching public key in the cache.
 	Get(zone, context string, sigMetaData signature.MetaData) (
-		keys.PublicKey, *sections.Assertion, bool)
+		keys.PublicKey, *section.Assertion, bool)
 	//RemoveExpiredKeys deletes all expired public keys from the cache.
 	RemoveExpiredKeys()
 	//Len returns the number of public keys currently in the cache.
@@ -174,12 +174,12 @@ type revZonePublicKeyCache interface {
 	//a zone has more than a certain (configurable) amount of public keys. (An external service can
 	//then decide if it wants to blacklist a given zone). If the internal flag is set, the publicKey
 	//will only be removed after it expired.
-	Add(assertion *sections.Assertion, publicKey keys.PublicKey, internal bool) bool
+	Add(assertion *section.Assertion, publicKey keys.PublicKey, internal bool) bool
 	//Get returns true, the assertion holding the returned public key, and a non expired public key
 	//which can be used to verify a signature with sigMetaData. It returns false if there is no
 	//valid matching public key in the cache.
 	Get(zone, context string, sigMetaData signature.MetaData) (
-		keys.PublicKey, *sections.Assertion, bool)
+		keys.PublicKey, *section.Assertion, bool)
 	//RemoveExpiredKeys deletes all expired public keys from the cache.
 	RemoveExpiredKeys()
 	//Len returns the number of public keys currently in the cache.
@@ -221,16 +221,16 @@ type pendingQueryCache interface {
 		types []object.Type) bool
 	//GetQuery returns true and the query or addressQuery stored with token in the cache if there is
 	//such an entry.
-	GetQuery(token token.Token) (sections.Section, bool)
+	GetQuery(token token.Token) (section.Section, bool)
 	//AddAnswerByToken adds section to the cache entry matching token with the given deadline. It
 	//returns true if there is a matching token in the cache and section is not already stored for
 	//these pending queries. The pending queries are are not removed from the cache.
-	AddAnswerByToken(section sections.SecWithSig, token token.Token, deadline int64) bool
+	AddAnswerByToken(section section.SecWithSig, token token.Token, deadline int64) bool
 	//GetAndRemoveByToken returns all queries waiting for a response to a query message containing
 	//token and deletes them from the cache if no other section has been added to this cache entry
 	//since section has been added by AddAnswerByToken(). Token is removed from the token map.
 	GetAndRemoveByToken(token token.Token, deadline int64) (
-		[]msgSectionSender, []sections.Section)
+		[]msgSectionSender, []section.Section)
 	//UpdateToken adds newToken to the token map, lets it point to the cache value pointed by
 	//oldToken and removes oldToken from the token map if newToken is not already in the token map.
 	//It returns false if there is already an entry for newToken in the token map.
@@ -248,11 +248,11 @@ type assertionCache interface {
 	//Add adds an assertion together with an expiration time (number of seconds since 01.01.1970) to
 	//the cache. It returns false if the cache is full and a non internal element has been removed
 	//according to some strategy. It also adds assertion to the consistency cache.
-	Add(assertion *sections.Assertion, expiration int64, isInternal bool) bool
+	Add(assertion *section.Assertion, expiration int64, isInternal bool) bool
 	//Get returns true and a set of assertions matching the given key if there exist some. Otherwise
 	//nil and false is returned. If strict is set only an exact match for the provided FQDN is returned
 	// otherwise a search up the domain name hiearchy is performed.
-	Get(fqdn, context string, objType object.Type, strict bool) ([]*sections.Assertion, bool)
+	Get(fqdn, context string, objType object.Type, strict bool) ([]*section.Assertion, bool)
 	//RemoveExpiredValues goes through the cache and removes all expired assertions from the
 	//assertionCache and the consistency cache.
 	RemoveExpiredValues()
@@ -267,15 +267,15 @@ type negativeAssertionCache interface {
 	//Add adds shard together with an expiration time (number of seconds since 01.01.1970) to
 	//the cache. It returns false if the cache is full and a non internal element has been removed
 	//according to some strategy. It also adds shard to the consistency cache.
-	AddShard(shard *sections.Shard, expiration int64, isInternal bool) bool
+	AddShard(shard *section.Shard, expiration int64, isInternal bool) bool
 	//Add adds zone together with an expiration time (number of seconds since 01.01.1970) to
 	//the cache. It returns false if the cache is full and a non internal element has been removed
 	//according to some strategy. It also adds zone to the consistency cache.
-	AddZone(zone *sections.Zone, expiration int64, isInternal bool) bool
+	AddZone(zone *section.Zone, expiration int64, isInternal bool) bool
 	//Get returns true and a set of shards and zones matching subjectZone and context and overlap
 	//with interval if there exist some. When context is the empty string, a random context is
 	//chosen. Otherwise nil and false is returned.
-	Get(subjectZone, context string, interval sections.Interval) ([]sections.SecWithSigForward, bool)
+	Get(subjectZone, context string, interval section.Interval) ([]section.SecWithSigForward, bool)
 	//RemoveExpiredValues goes through the cache and removes all expired shards and zones from the
 	//assertionCache and the consistency cache.
 	RemoveExpiredValues()
@@ -288,12 +288,12 @@ type negativeAssertionCache interface {
 
 type consistencyCache interface {
 	//Add adds section to the consistency cache.
-	Add(section sections.SecWithSigForward)
+	Add(section section.SecWithSigForward)
 	//Get returns all sections from the cache with the given zone and context that are overlapping
 	//with interval.
-	Get(subjectZone, context string, interval sections.Interval) []sections.SecWithSigForward
+	Get(subjectZone, context string, interval section.Interval) []section.SecWithSigForward
 	//Remove deletes section from the consistency cache
-	Remove(section sections.SecWithSigForward)
+	Remove(section section.SecWithSigForward)
 }
 
 //addressSectionCache implements a data structure for fast reverse lookup.
@@ -301,10 +301,10 @@ type consistencyCache interface {
 type addressSectionCache interface {
 	//AddAssertion adds an address Assertion section to the cache
 	//Returns an error when it was not able to a add the assertion to the cache
-	AddAddressAssertion(assertion *sections.AddrAssertion) error
+	AddAddressAssertion(assertion *section.AddrAssertion) error
 	//Get returns the most specific address assertion or zone in relation to the given netAddress' prefix.
 	//If no address assertion or zone is found it return false
-	Get(netAddr *net.IPNet, types []object.Type) (*sections.AddrAssertion, bool)
+	Get(netAddr *net.IPNet, types []object.Type) (*section.AddrAssertion, bool)
 	//DeleteExpiredElements removes all expired elements from the data structure.
 	DeleteExpiredElements()
 }

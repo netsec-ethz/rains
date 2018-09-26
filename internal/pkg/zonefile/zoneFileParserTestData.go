@@ -9,7 +9,8 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 
@@ -176,33 +177,33 @@ func getSignature() signature.Sig {
 }
 
 //getAssertionAndEncodings returns a slice of assertions and a slice of their encodings used for testing
-func getAssertionAndEncodings(indent string) ([]*sections.Assertion, []string) {
+func getAssertionAndEncodings(indent string) ([]*section.Assertion, []string) {
 	//assertions
-	assertions := []*sections.Assertion{}
+	assertions := []*section.Assertion{}
 	objectIndents, objEncodings := getObjectsAndEncodings()
 
-	assertion0 := &sections.Assertion{
+	assertion0 := &section.Assertion{
 		Content:     objectIndents.Objects[0],
 		Context:     "",
 		SubjectName: "ethz",
 		SubjectZone: "",
 		Signatures:  []signature.Sig{},
 	}
-	assertion1 := &sections.Assertion{
+	assertion1 := &section.Assertion{
 		Content:     objectIndents.Objects[0],
 		Context:     ".",
 		SubjectName: "ethz",
 		SubjectZone: "ch",
 		Signatures:  []signature.Sig{getSignature()},
 	}
-	assertion2 := &sections.Assertion{
+	assertion2 := &section.Assertion{
 		Content:     objectIndents.Objects[1],
 		Context:     "",
 		SubjectName: "ethz",
 		SubjectZone: "",
 		Signatures:  []signature.Sig{},
 	}
-	assertion3 := &sections.Assertion{
+	assertion3 := &section.Assertion{
 		Content:     objectIndents.Objects[2],
 		Context:     "",
 		SubjectName: "ethz",
@@ -225,44 +226,44 @@ func getAssertionAndEncodings(indent string) ([]*sections.Assertion, []string) {
 }
 
 //getShardAndEncodings returns a slice of shards and a slice of their encodings used for testing
-func getShardAndEncodings() ([]*sections.Shard, []string) {
+func getShardAndEncodings() ([]*section.Shard, []string) {
 	//shards
-	shards := []*sections.Shard{}
+	shards := []*section.Shard{}
 	assertions, assertionEncodings := getAssertionAndEncodings(indent8)
 
-	shard0 := &sections.Shard{
-		Content:     []*sections.Assertion{assertions[0]},
+	shard0 := &section.Shard{
+		Content:     []*section.Assertion{assertions[0]},
 		Context:     "",
 		SubjectZone: "",
 		RangeFrom:   "",
 		RangeTo:     "",
 		Signatures:  []signature.Sig{getSignature()},
 	}
-	shard1 := &sections.Shard{
-		Content:     []*sections.Assertion{assertions[0]},
+	shard1 := &section.Shard{
+		Content:     []*section.Assertion{assertions[0]},
 		Context:     "",
 		SubjectZone: "",
 		RangeFrom:   "aaa",
 		RangeTo:     "zzz",
 		Signatures:  []signature.Sig{getSignature()},
 	}
-	shard2 := &sections.Shard{
-		Content:     []*sections.Assertion{assertions[0]},
+	shard2 := &section.Shard{
+		Content:     []*section.Assertion{assertions[0]},
 		Context:     ".",
 		SubjectZone: "ch",
 		RangeFrom:   "aaa",
 		RangeTo:     "zzz",
 		Signatures:  []signature.Sig{getSignature()},
 	}
-	shard3 := &sections.Shard{
-		Content:     []*sections.Assertion{assertions[0], assertions[0]},
+	shard3 := &section.Shard{
+		Content:     []*section.Assertion{assertions[0], assertions[0]},
 		Context:     ".",
 		SubjectZone: "ethz.ch",
 		RangeFrom:   "",
 		RangeTo:     "",
 		Signatures:  []signature.Sig{getSignature()},
 	}
-	shard4 := &sections.Shard{
+	shard4 := &section.Shard{
 		Context:     ".",
 		SubjectZone: "ethz.ch",
 		RangeFrom:   "cd",
@@ -287,19 +288,19 @@ func getShardAndEncodings() ([]*sections.Shard, []string) {
 }
 
 //getZonesAndEncodings returns a slice of zones and a slice of their encodings used for testing
-func getZonesAndEncodings() ([]*sections.Zone, []string) {
+func getZonesAndEncodings() ([]*section.Zone, []string) {
 	//zones
-	zones := []*sections.Zone{}
+	zones := []*section.Zone{}
 	assertions, assertionEncodings := getAssertionAndEncodings(indent4)
 	shards, shardEncodings := getShardAndEncodings()
 
-	zone0 := &sections.Zone{
-		Content:     []sections.SecWithSigForward{assertions[0], shards[1]},
+	zone0 := &section.Zone{
+		Content:     []section.SecWithSigForward{assertions[0], shards[1]},
 		Context:     ".",
 		SubjectZone: "ch.",
 		Signatures:  []signature.Sig{getSignature()},
 	}
-	zone1 := &sections.Zone{
+	zone1 := &section.Zone{
 		Context:     ".",
 		SubjectZone: "ch.",
 		Signatures:  []signature.Sig{getSignature()},
@@ -317,14 +318,14 @@ func getZonesAndEncodings() ([]*sections.Zone, []string) {
 }
 
 //getQueriesAndEncodings returns a slice of queries and a slice of their encodings used for testing
-func getQueriesAndEncodings() ([]*sections.QueryForward, []string) {
+func getQueriesAndEncodings() ([]*query.Name, []string) {
 	//addressqueries
-	queries := []*sections.QueryForward{}
-	query := &sections.QueryForward{
+	queries := []*query.Name{}
+	query := &query.Name{
 		Context:    ".",
 		Expiration: 159159,
 		Name:       "ethz.ch",
-		Options:    []sections.QueryOption{sections.QOMinE2ELatency, sections.QOMinInfoLeakage},
+		Options:    []query.Option{query.QOMinE2ELatency, query.QOMinInfoLeakage},
 		Types:      []object.Type{object.OTIP4Addr},
 	}
 	queries = append(queries, query)
@@ -337,9 +338,9 @@ func getQueriesAndEncodings() ([]*sections.QueryForward, []string) {
 }
 
 //getAddressAssertionsAndEncodings returns a slice of address assertins and a slice of their encodings used for testing
-func getAddressAssertionsAndEncodings() ([]*sections.AddrAssertion, []string) {
+func getAddressAssertionsAndEncodings() ([]*section.AddrAssertion, []string) {
 	//addressAssertions
-	addressAssertions := []*sections.AddrAssertion{}
+	addressAssertions := []*section.AddrAssertion{}
 	nameObjectContent := object.Name{
 		Name:  "ethz2.ch",
 		Types: []object.Type{object.OTIP4Addr, object.OTIP6Addr},
@@ -370,19 +371,19 @@ func getAddressAssertionsAndEncodings() ([]*sections.AddrAssertion, []string) {
 	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
 	_, subjectAddress2, _ := net.ParseCIDR("127.0.0.1/24")
 	_, subjectAddress3, _ := net.ParseCIDR("2001:db8::/128")
-	addressAssertion1 := &sections.AddrAssertion{
+	addressAssertion1 := &section.AddrAssertion{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Content:     []object.Object{nameObject},
 		Signatures:  []signature.Sig{sig},
 	}
-	addressAssertion2 := &sections.AddrAssertion{
+	addressAssertion2 := &section.AddrAssertion{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
 		Content:     []object.Object{redirObject, delegObject, registrantObject},
 		Signatures:  []signature.Sig{sig},
 	}
-	addressAssertion3 := &sections.AddrAssertion{
+	addressAssertion3 := &section.AddrAssertion{
 		SubjectAddr: subjectAddress3,
 		Context:     ".",
 		Content:     []object.Object{nameObject},
@@ -402,16 +403,16 @@ func getAddressAssertionsAndEncodings() ([]*sections.AddrAssertion, []string) {
 }
 
 //getAddressQueriesAndEncodings returns a slice of address queries and a slice of their encodings used for testing
-func getAddressQueriesAndEncodings() ([]*sections.AddrQuery, []string) {
+func getAddressQueriesAndEncodings() ([]*query.Address, []string) {
 	//addressqueries
-	addressQueries := []*sections.AddrQuery{}
+	addressQueries := []*query.Address{}
 	_, subjectAddress1, _ := net.ParseCIDR("127.0.0.1/32")
-	addressQuery := &sections.AddrQuery{
+	addressQuery := &query.Address{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Expiration:  7564859,
 		Types:       []object.Type{object.OTName},
-		Options:     []sections.QueryOption{sections.QOMinE2ELatency, sections.QOMinInfoLeakage},
+		Options:     []query.Option{query.QOMinE2ELatency, query.QOMinInfoLeakage},
 	}
 	addressQueries = append(addressQueries, addressQuery)
 
@@ -423,14 +424,14 @@ func getAddressQueriesAndEncodings() ([]*sections.AddrQuery, []string) {
 }
 
 //getNotificationsAndEncodings returns a slice of notifications and a slice of their encodings used for testing
-func getNotificationsAndEncodings() ([]*sections.Notification, []string) {
+func getNotificationsAndEncodings() ([]*section.Notification, []string) {
 	//addressqueries
-	notifications := []*sections.Notification{}
+	notifications := []*section.Notification{}
 	token := token.New()
 	encodedToken := hex.EncodeToString(token[:])
-	notification := &sections.Notification{
+	notification := &section.Notification{
 		Token: token,
-		Type:  sections.NTNoAssertionsExist,
+		Type:  section.NTNoAssertionsExist,
 		Data:  "Notification information",
 	}
 	notifications = append(notifications, notification)
@@ -460,49 +461,49 @@ func getMessagesAndEncodings() ([]*message.Message, []string) {
 	message0 := &message.Message{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []sections.Section{assertions[0]},
+		Content:      []section.Section{assertions[0]},
 		Signatures:   []signature.Sig{getSignature()},
 	}
 	message1 := &message.Message{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []sections.Section{shards[0]},
+		Content:      []section.Section{shards[0]},
 		Signatures:   []signature.Sig{getSignature()},
 	}
 	message2 := &message.Message{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []sections.Section{zones[1]},
+		Content:      []section.Section{zones[1]},
 		Signatures:   []signature.Sig{getSignature()},
 	}
 	message3 := &message.Message{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []sections.Section{queries[0]},
+		Content:      []section.Section{queries[0]},
 		Signatures:   []signature.Sig{getSignature()},
 	}
 	message4 := &message.Message{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []sections.Section{aassertions[0]},
+		Content:      []section.Section{aassertions[0]},
 		Signatures:   []signature.Sig{getSignature()},
 	}
 	message6 := &message.Message{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []sections.Section{aqueries[0]},
+		Content:      []section.Section{aqueries[0]},
 		Signatures:   []signature.Sig{getSignature()},
 	}
 	message7 := &message.Message{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []sections.Section{notifs[0]},
+		Content:      []section.Section{notifs[0]},
 		Signatures:   []signature.Sig{getSignature()},
 	}
 	message8 := &message.Message{
 		Token:        token,
 		Capabilities: capabilities,
-		Content:      []sections.Section{queries[0], aqueries[0]},
+		Content:      []section.Section{queries[0], aqueries[0]},
 		Signatures:   []signature.Sig{getSignature()},
 	}
 	messages = append(messages, message0)

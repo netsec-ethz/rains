@@ -10,7 +10,7 @@ import (
 	"github.com/britram/borat"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
@@ -88,8 +88,8 @@ func waitForResponse(conn net.Conn, token token.Token, serverError chan<- bool) 
 		return
 	}
 	//Rainspub only accepts notification messages in response to published information.
-	if n, ok := msg.Content[0].(*sections.Notification); ok && n.Token == token {
-		if handleResponse(conn, msg.Content[0].(*sections.Notification)) {
+	if n, ok := msg.Content[0].(*section.Notification); ok && n.Token == token {
+		if handleResponse(conn, msg.Content[0].(*section.Notification)) {
 			conn.Close()
 			serverError <- true
 			return
@@ -104,24 +104,24 @@ func waitForResponse(conn net.Conn, token token.Token, serverError chan<- bool) 
 
 //handleResponse handles the received notification message and returns true if the connection can
 //be closed.
-func handleResponse(conn net.Conn, n *sections.Notification) bool {
+func handleResponse(conn net.Conn, n *section.Notification) bool {
 	switch n.Type {
-	case sections.NTHeartbeat, sections.NTNoAssertionsExist, sections.NTNoAssertionAvail:
+	case section.NTHeartbeat, section.NTNoAssertionsExist, section.NTNoAssertionAvail:
 	//nop
-	case sections.NTCapHashNotKnown:
+	case section.NTCapHashNotKnown:
 	//TODO CFE send back the whole capability list in an empty message
-	case sections.NTBadMessage:
+	case section.NTBadMessage:
 		log.Error("Sent msg was malformed", "data", n.Data)
-	case sections.NTRcvInconsistentMsg:
+	case section.NTRcvInconsistentMsg:
 		log.Error("Sent msg was inconsistent", "data", n.Data)
-	case sections.NTMsgTooLarge:
+	case section.NTMsgTooLarge:
 		log.Error("Sent msg was too large", "data", n.Data)
 		//What should we do in this case. apparently it is not possible to send a zone because
 		//it is too large. send shards instead?
-	case sections.NTUnspecServerErr:
+	case section.NTUnspecServerErr:
 		log.Error("Unspecified error of other server", "data", n.Data)
 		//TODO CFE resend?
-	case sections.NTServerNotCapable:
+	case section.NTServerNotCapable:
 		log.Error("Other server was not capable", "data", n.Data)
 		//TODO CFE when can this occur?
 	default:

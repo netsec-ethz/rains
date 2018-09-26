@@ -20,7 +20,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/lruCache"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
@@ -116,7 +116,7 @@ func loadAuthoritative(contextAuthorities []string) {
 
 //loadRootZonePublicKey stores the root zone public key from disk into the zoneKeyCache.
 func loadRootZonePublicKey(keyPath string) error {
-	a := new(sections.Assertion)
+	a := new(section.Assertion)
 	err := util.Load(keyPath, a)
 	if err != nil {
 		log.Warn("Failed to load root zone public key", "err", err)
@@ -189,7 +189,7 @@ func initOwnCapabilities(capabilities []message.Capability) {
 
 //sendSections creates a messages containing token and sections and sends it to destination. If
 //token is empty, a new token is generated
-func sendSections(sections []sections.Section, tok token.Token, destination connection.Info) error {
+func sendSections(sections []section.Section, tok token.Token, destination connection.Info) error {
 	if tok == [16]byte{} {
 		tok = token.New()
 	}
@@ -200,15 +200,15 @@ func sendSections(sections []sections.Section, tok token.Token, destination conn
 
 //sendSection creates a messages containing token and section and sends it to destination. If
 //token is empty, a new token is generated
-func sendSection(section sections.Section, token token.Token, destination connection.Info) error {
-	return sendSections([]sections.Section{section}, token, destination)
+func sendSection(sec section.Section, token token.Token, destination connection.Info) error {
+	return sendSections([]section.Section{sec}, token, destination)
 }
 
 //sendNotificationMsg sends a message containing freshly generated token and a notification section with
 //notificationType, token, and data to destination.
 func sendNotificationMsg(tok token.Token, destination connection.Info,
-	notificationType sections.NotificationType, data string) {
-	notification := &sections.Notification{
+	notificationType section.NotificationType, data string) {
+	notification := &section.Notification{
 		Type:  notificationType,
 		Token: tok,
 		Data:  data,
