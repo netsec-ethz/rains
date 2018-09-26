@@ -1,29 +1,27 @@
 //line zonefileParser.y:8
 package zonefile
 
+import __yyfmt__ "fmt"
+
+//line zonefileParser.y:9
 import (
 	"bufio"
 	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	__yyfmt__ "fmt"
-
-//line zonefileParser.y:9
-	"io/ioutil"
-	"strconv"
-	"strings"
-
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-
 	"github.com/netsec-ethz/rains/internal/pkg/sections"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
-	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
+	
 	"golang.org/x/crypto/ed25519"
+	"io/ioutil"
+	"strconv"
+	"strings"
 )
 
 //AddSigs adds signatures to section
@@ -33,7 +31,7 @@ func AddSigs(section sections.MessageSectionWithSigForward, signatures []signatu
 	}
 }
 
-func DecodeBloomFilter(hashAlgos []algorithmTypes.HashAlgorithmType, modeOfOperation object.ModeOfOperationType,
+func DecodeBloomFilter(hashAlgos []algorithmTypes.HashAlgorithmType, modeOfOperation sections.ModeOfOperationType,
 	nofHashFunctions, filter string) (sections.BloomFilter, error) {
 	funcs, err := strconv.Atoi(nofHashFunctions)
 	if err != nil {
@@ -57,7 +55,7 @@ func DecodePublicKeyID(keyphase string) (keys.PublicKeyID, error) {
 		return keys.PublicKeyID{}, errors.New("keyphase is not a number")
 	}
 	return keys.PublicKeyID{
-		Algorithm: keys.Ed25519,
+		Algorithm: algorithmTypes.Ed25519,
 		KeyPhase:  phase,
 		KeySpace:  keys.RainsKeySpace,
 	}, nil
@@ -131,7 +129,7 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
 //Result gets stored in this variable
 var output []sections.MessageSectionWithSigForward
 
-//line zonefileParser.y:137
+//line zonefileParser.y:141
 type ZFPSymType struct {
 	yys           int
 	str           string
@@ -154,7 +152,7 @@ type ZFPSymType struct {
 	hashType      algorithmTypes.HashAlgorithmType
 	hashTypes     []algorithmTypes.HashAlgorithmType
 	dataStructure sections.DataStructure
-	bfOpMode      object.ModeOfOperationType
+	bfOpMode      sections.ModeOfOperationType
 }
 
 const ID = 57346
@@ -251,7 +249,7 @@ const ZFPEofCode = 1
 const ZFPErrCode = 2
 const ZFPInitialStackSize = 16
 
-//line zonefileParser.y:831
+//line zonefileParser.y:835
 
 /*  Lexer  */
 
@@ -287,73 +285,73 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
 	}
 	//return token
 	switch word {
-	case zonefile.TypeAssertion:
+	case TypeAssertion:
 		return assertionType
-	case zonefile.TypeShard:
+	case TypeShard:
 		return shardType
-	case zonefile.TypePshard:
+	case TypePshard:
 		return pshardType
-	case zonefile.TypeZone:
+	case TypeZone:
 		return zoneType
-	case zonefile.TypeName:
+	case TypeName:
 		return nameType
-	case zonefile.TypeIP6:
+	case TypeIP6:
 		return ip6Type
-	case zonefile.TypeIP4:
+	case TypeIP4:
 		return ip4Type
-	case zonefile.TypeRedirection:
+	case TypeRedirection:
 		return redirType
-	case zonefile.TypeDelegation:
+	case TypeDelegation:
 		return delegType
-	case zonefile.TypeNameSet:
+	case TypeNameSet:
 		return namesetType
-	case zonefile.TypeCertificate:
+	case TypeCertificate:
 		return certType
-	case zonefile.TypeServiceInfo:
+	case TypeServiceInfo:
 		return srvType
-	case zonefile.TypeRegistrar:
+	case TypeRegistrar:
 		return regrType
-	case zonefile.TypeRegistrant:
+	case TypeRegistrant:
 		return regtType
-	case zonefile.TypeInfraKey:
+	case TypeInfraKey:
 		return infraType
-	case zonefile.TypeExternalKey:
+	case TypeExternalKey:
 		return extraType
-	case zonefile.TypeNextKey:
+	case TypeNextKey:
 		return nextType
-	case zonefile.TypeSignature:
+	case TypeSignature:
 		return sigType
-	case zonefile.TypeEd25519:
+	case TypeEd25519:
 		return ed25519Type
-	case zonefile.TypeUnspecified:
+	case TypeUnspecified:
 		return unspecified
-	case zonefile.TypePTTLS:
+	case TypePTTLS:
 		return tls
-	case zonefile.TypeCUTrustAnchor:
+	case TypeCUTrustAnchor:
 		return trustAnchor
-	case zonefile.TypeCUEndEntity:
+	case TypeCUEndEntity:
 		return endEntity
-	case zonefile.TypeNoHash:
+	case TypeNoHash:
 		return noHash
-	case zonefile.TypeSha256:
+	case TypeSha256:
 		return sha256
-	case zonefile.TypeSha384:
+	case TypeSha384:
 		return sha384
-	case zonefile.TypeSha512:
+	case TypeSha512:
 		return sha512
-	case zonefile.TypeFnv64:
+	case TypeFnv64:
 		return fnv64
-	case zonefile.TypeMurmur364:
+	case TypeMurmur364:
 		return murmur364
-	case zonefile.TypeBloomFilter:
+	case TypeBloomFilter:
 		return bloomFilterType
-	case zonefile.TypeStandard:
+	case TypeStandard:
 		return standard
-	case zonefile.TypeKM1:
+	case TypeKM1:
 		return km1
-	case zonefile.TypeKM2:
+	case TypeKM2:
 		return km2
-	case zonefile.TypeKSRains:
+	case TypeKSRains:
 		return rains
 	case "<":
 		return rangeBegin
@@ -601,7 +599,7 @@ type ZFPLexer interface {
 type ZFPParser interface {
 	Parse(ZFPLexer) int
 	Lookahead() int
-	Result() []sections.MessageSectionWithSigForward
+    Result() []sections.MessageSectionWithSigForward
 }
 
 type ZFPParserImpl struct {
@@ -615,7 +613,7 @@ func (p *ZFPParserImpl) Lookahead() int {
 }
 
 func (p *ZFPParserImpl) Result() []sections.MessageSectionWithSigForward {
-	return output
+    return output
 }
 func ZFPNewParser() ZFPParser {
 	return &ZFPParserImpl{}
@@ -921,50 +919,50 @@ ZFPdefault:
 
 	case 1:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:215
+		//line zonefileParser.y:219
 		{
 			output = ZFPDollar[1].sections
 		}
 	case 2:
 		ZFPDollar = ZFPS[ZFPpt-0 : ZFPpt+1]
-		//line zonefileParser.y:220
+		//line zonefileParser.y:224
 		{
 			ZFPVAL.sections = nil
 		}
 	case 3:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:224
+		//line zonefileParser.y:228
 		{
 			ZFPVAL.sections = append(ZFPDollar[1].sections, ZFPDollar[2].assertion)
 		}
 	case 4:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:228
+		//line zonefileParser.y:232
 		{
 			ZFPVAL.sections = append(ZFPDollar[1].sections, ZFPDollar[2].shard)
 		}
 	case 5:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:232
+		//line zonefileParser.y:236
 		{
 			ZFPVAL.sections = append(ZFPDollar[1].sections, ZFPDollar[2].pshard)
 		}
 	case 6:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:236
+		//line zonefileParser.y:240
 		{
 			ZFPVAL.sections = append(ZFPDollar[1].sections, ZFPDollar[2].zone)
 		}
 	case 8:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:242
+		//line zonefileParser.y:246
 		{
 			AddSigs(ZFPDollar[1].zone, ZFPDollar[2].signatures)
 			ZFPVAL.zone = ZFPDollar[1].zone
 		}
 	case 9:
 		ZFPDollar = ZFPS[ZFPpt-6 : ZFPpt+1]
-		//line zonefileParser.y:248
+		//line zonefileParser.y:252
 		{
 			ZFPVAL.zone = &sections.ZoneSection{
 				SubjectZone: ZFPDollar[2].str,
@@ -974,38 +972,38 @@ ZFPdefault:
 		}
 	case 10:
 		ZFPDollar = ZFPS[ZFPpt-0 : ZFPpt+1]
-		//line zonefileParser.y:257
+		//line zonefileParser.y:261
 		{
 			ZFPVAL.sections = nil
 		}
 	case 11:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:261
+		//line zonefileParser.y:265
 		{
 			ZFPVAL.sections = append(ZFPDollar[1].sections, ZFPDollar[2].assertion)
 		}
 	case 12:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:265
+		//line zonefileParser.y:269
 		{
 			ZFPVAL.sections = append(ZFPDollar[1].sections, ZFPDollar[2].shard)
 		}
 	case 13:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:269
+		//line zonefileParser.y:273
 		{
 			ZFPVAL.sections = append(ZFPDollar[1].sections, ZFPDollar[2].pshard)
 		}
 	case 15:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:275
+		//line zonefileParser.y:279
 		{
 			AddSigs(ZFPDollar[1].shard, ZFPDollar[2].signatures)
 			ZFPVAL.shard = ZFPDollar[1].shard
 		}
 	case 16:
 		ZFPDollar = ZFPS[ZFPpt-7 : ZFPpt+1]
-		//line zonefileParser.y:281
+		//line zonefileParser.y:285
 		{
 			ZFPVAL.shard = &sections.ShardSection{
 				SubjectZone: ZFPDollar[2].str,
@@ -1017,7 +1015,7 @@ ZFPdefault:
 		}
 	case 17:
 		ZFPDollar = ZFPS[ZFPpt-5 : ZFPpt+1]
-		//line zonefileParser.y:291
+		//line zonefileParser.y:295
 		{
 			ZFPVAL.shard = &sections.ShardSection{
 				RangeFrom: ZFPDollar[2].shardRange[0],
@@ -1027,50 +1025,50 @@ ZFPdefault:
 		}
 	case 18:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:300
+		//line zonefileParser.y:304
 		{
 			ZFPVAL.shardRange = []string{ZFPDollar[1].str, ZFPDollar[2].str}
 		}
 	case 19:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:304
+		//line zonefileParser.y:308
 		{
 			ZFPVAL.shardRange = []string{"<", ZFPDollar[2].str}
 		}
 	case 20:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:308
+		//line zonefileParser.y:312
 		{
 			ZFPVAL.shardRange = []string{ZFPDollar[1].str, ">"}
 		}
 	case 21:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:312
+		//line zonefileParser.y:316
 		{
 			ZFPVAL.shardRange = []string{"<", ">"}
 		}
 	case 22:
 		ZFPDollar = ZFPS[ZFPpt-0 : ZFPpt+1]
-		//line zonefileParser.y:317
+		//line zonefileParser.y:321
 		{
 			ZFPVAL.assertions = nil
 		}
 	case 23:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:321
+		//line zonefileParser.y:325
 		{
 			ZFPVAL.assertions = append(ZFPDollar[1].assertions, ZFPDollar[2].assertion)
 		}
 	case 25:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:327
+		//line zonefileParser.y:331
 		{
 			AddSigs(ZFPDollar[1].pshard, ZFPDollar[2].signatures)
 			ZFPVAL.pshard = ZFPDollar[1].pshard
 		}
 	case 26:
 		ZFPDollar = ZFPS[ZFPpt-5 : ZFPpt+1]
-		//line zonefileParser.y:333
+		//line zonefileParser.y:337
 		{
 			ZFPVAL.pshard = &sections.PshardSection{
 				SubjectZone:   ZFPDollar[2].str,
@@ -1082,7 +1080,7 @@ ZFPdefault:
 		}
 	case 27:
 		ZFPDollar = ZFPS[ZFPpt-3 : ZFPpt+1]
-		//line zonefileParser.y:343
+		//line zonefileParser.y:347
 		{
 			ZFPVAL.pshard = &sections.PshardSection{
 				RangeFrom:     ZFPDollar[2].shardRange[0],
@@ -1092,7 +1090,7 @@ ZFPdefault:
 		}
 	case 29:
 		ZFPDollar = ZFPS[ZFPpt-7 : ZFPpt+1]
-		//line zonefileParser.y:354
+		//line zonefileParser.y:358
 		{
 			bloomFilter, err := DecodeBloomFilter(ZFPDollar[3].hashTypes, ZFPDollar[6].bfOpMode, ZFPDollar[5].str, ZFPDollar[7].str)
 			if err != nil {
@@ -1105,44 +1103,44 @@ ZFPdefault:
 		}
 	case 30:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:366
+		//line zonefileParser.y:370
 		{
 			ZFPVAL.hashTypes = []algorithmTypes.HashAlgorithmType{ZFPDollar[1].hashType}
 		}
 	case 31:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:370
+		//line zonefileParser.y:374
 		{
 			ZFPVAL.hashTypes = append(ZFPDollar[1].hashTypes, ZFPDollar[2].hashType)
 		}
 	case 32:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:375
+		//line zonefileParser.y:379
 		{
 			ZFPVAL.bfOpMode = sections.StandardOpType
 		}
 	case 33:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:379
+		//line zonefileParser.y:383
 		{
 			ZFPVAL.bfOpMode = sections.KirschMitzenmacher1
 		}
 	case 34:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:383
+		//line zonefileParser.y:387
 		{
 			ZFPVAL.bfOpMode = sections.KirschMitzenmacher2
 		}
 	case 36:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:389
+		//line zonefileParser.y:393
 		{
 			AddSigs(ZFPDollar[1].assertion, ZFPDollar[2].signatures)
 			ZFPVAL.assertion = ZFPDollar[1].assertion
 		}
 	case 37:
 		ZFPDollar = ZFPS[ZFPpt-5 : ZFPpt+1]
-		//line zonefileParser.y:395
+		//line zonefileParser.y:399
 		{
 			ZFPVAL.assertion = &sections.AssertionSection{
 				SubjectName: ZFPDollar[2].str,
@@ -1151,7 +1149,7 @@ ZFPdefault:
 		}
 	case 38:
 		ZFPDollar = ZFPS[ZFPpt-7 : ZFPpt+1]
-		//line zonefileParser.y:402
+		//line zonefileParser.y:406
 		{
 			ZFPVAL.assertion = &sections.AssertionSection{
 				SubjectZone: ZFPDollar[2].str,
@@ -1162,19 +1160,19 @@ ZFPdefault:
 		}
 	case 52:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:426
+		//line zonefileParser.y:430
 		{
 			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 53:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:430
+		//line zonefileParser.y:434
 		{
 			ZFPVAL.objects = append(ZFPDollar[1].objects, ZFPDollar[2].object)
 		}
 	case 54:
 		ZFPDollar = ZFPS[ZFPpt-5 : ZFPpt+1]
-		//line zonefileParser.y:435
+		//line zonefileParser.y:439
 		{
 			ZFPVAL.object = object.Object{
 				Type: object.OTName,
@@ -1186,109 +1184,109 @@ ZFPdefault:
 		}
 	case 55:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:446
+		//line zonefileParser.y:450
 		{
 			ZFPVAL.objectTypes = []object.ObjectType{ZFPDollar[1].objectType}
 		}
 	case 56:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:450
+		//line zonefileParser.y:454
 		{
 			ZFPVAL.objectTypes = append(ZFPDollar[1].objectTypes, ZFPDollar[2].objectType)
 		}
 	case 57:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:455
+		//line zonefileParser.y:459
 		{
 			ZFPVAL.objectType = object.OTName
 		}
 	case 58:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:459
+		//line zonefileParser.y:463
 		{
 			ZFPVAL.objectType = object.OTIP4Addr
 		}
 	case 59:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:463
+		//line zonefileParser.y:467
 		{
 			ZFPVAL.objectType = object.OTIP6Addr
 		}
 	case 60:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:467
+		//line zonefileParser.y:471
 		{
 			ZFPVAL.objectType = object.OTRedirection
 		}
 	case 61:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:471
+		//line zonefileParser.y:475
 		{
 			ZFPVAL.objectType = object.OTDelegation
 		}
 	case 62:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:475
+		//line zonefileParser.y:479
 		{
 			ZFPVAL.objectType = object.OTNameset
 		}
 	case 63:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:479
+		//line zonefileParser.y:483
 		{
 			ZFPVAL.objectType = object.OTCertInfo
 		}
 	case 64:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:483
+		//line zonefileParser.y:487
 		{
 			ZFPVAL.objectType = object.OTServiceInfo
 		}
 	case 65:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:487
+		//line zonefileParser.y:491
 		{
 			ZFPVAL.objectType = object.OTRegistrar
 		}
 	case 66:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:491
+		//line zonefileParser.y:495
 		{
 			ZFPVAL.objectType = object.OTRegistrant
 		}
 	case 67:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:495
+		//line zonefileParser.y:499
 		{
 			ZFPVAL.objectType = object.OTInfraKey
 		}
 	case 68:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:499
+		//line zonefileParser.y:503
 		{
 			ZFPVAL.objectType = object.OTExtraKey
 		}
 	case 69:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:503
+		//line zonefileParser.y:507
 		{
 			ZFPVAL.objectType = object.OTNextKey
 		}
 	case 70:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:508
+		//line zonefileParser.y:512
 		{
 			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 71:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:512
+		//line zonefileParser.y:516
 		{
 			ZFPVAL.objects = append(ZFPDollar[1].objects, ZFPDollar[2].object)
 		}
 	case 72:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:517
+		//line zonefileParser.y:521
 		{
 			ZFPVAL.object = object.Object{
 				Type:  object.OTIP6Addr,
@@ -1297,19 +1295,19 @@ ZFPdefault:
 		}
 	case 73:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:525
+		//line zonefileParser.y:529
 		{
 			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 74:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:529
+		//line zonefileParser.y:533
 		{
 			ZFPVAL.objects = append(ZFPDollar[1].objects, ZFPDollar[2].object)
 		}
 	case 75:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:534
+		//line zonefileParser.y:538
 		{
 			ZFPVAL.object = object.Object{
 				Type:  object.OTIP4Addr,
@@ -1318,19 +1316,19 @@ ZFPdefault:
 		}
 	case 76:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:542
+		//line zonefileParser.y:546
 		{
 			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 77:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:546
+		//line zonefileParser.y:550
 		{
 			ZFPVAL.objects = append(ZFPDollar[1].objects, ZFPDollar[2].object)
 		}
 	case 78:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:551
+		//line zonefileParser.y:555
 		{
 			ZFPVAL.object = object.Object{
 				Type:  object.OTRedirection,
@@ -1339,19 +1337,19 @@ ZFPdefault:
 		}
 	case 79:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:559
+		//line zonefileParser.y:563
 		{
 			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 80:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:563
+		//line zonefileParser.y:567
 		{
 			ZFPVAL.objects = append(ZFPDollar[1].objects, ZFPDollar[2].object)
 		}
 	case 81:
 		ZFPDollar = ZFPS[ZFPpt-4 : ZFPpt+1]
-		//line zonefileParser.y:568
+		//line zonefileParser.y:572
 		{
 			pkey, err := DecodeEd25519PublicKeyData(ZFPDollar[4].str, ZFPDollar[3].str)
 			if err != nil {
@@ -1364,19 +1362,19 @@ ZFPdefault:
 		}
 	case 82:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:580
+		//line zonefileParser.y:584
 		{
 			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 83:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:584
+		//line zonefileParser.y:588
 		{
 			ZFPVAL.objects = append(ZFPDollar[1].objects, ZFPDollar[2].object)
 		}
 	case 84:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:589
+		//line zonefileParser.y:593
 		{
 			ZFPVAL.object = object.Object{
 				Type:  object.OTNameset,
@@ -1385,19 +1383,19 @@ ZFPdefault:
 		}
 	case 85:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:597
+		//line zonefileParser.y:601
 		{
 			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 86:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:601
+		//line zonefileParser.y:605
 		{
 			ZFPVAL.objects = append(ZFPDollar[1].objects, ZFPDollar[2].object)
 		}
 	case 87:
 		ZFPDollar = ZFPS[ZFPpt-5 : ZFPpt+1]
-		//line zonefileParser.y:606
+		//line zonefileParser.y:610
 		{
 			cert, err := DecodeCertificate(ZFPDollar[2].protocolType, ZFPDollar[3].certUsage, ZFPDollar[4].hashType, ZFPDollar[5].str)
 			if err != nil {
@@ -1410,19 +1408,19 @@ ZFPdefault:
 		}
 	case 88:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:618
+		//line zonefileParser.y:622
 		{
 			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 89:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:622
+		//line zonefileParser.y:626
 		{
 			ZFPVAL.objects = append(ZFPDollar[1].objects, ZFPDollar[2].object)
 		}
 	case 90:
 		ZFPDollar = ZFPS[ZFPpt-4 : ZFPpt+1]
-		//line zonefileParser.y:627
+		//line zonefileParser.y:631
 		{
 			srv, err := DecodeSrv(ZFPDollar[2].str, ZFPDollar[3].str, ZFPDollar[4].str)
 			if err != nil {
@@ -1435,19 +1433,19 @@ ZFPdefault:
 		}
 	case 91:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:639
+		//line zonefileParser.y:643
 		{
 			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 92:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:643
+		//line zonefileParser.y:647
 		{
 			ZFPVAL.objects = append(ZFPDollar[1].objects, ZFPDollar[2].object)
 		}
 	case 93:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:648
+		//line zonefileParser.y:652
 		{
 			ZFPVAL.object = object.Object{
 				Type:  object.OTRegistrar,
@@ -1456,19 +1454,19 @@ ZFPdefault:
 		}
 	case 94:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:656
+		//line zonefileParser.y:660
 		{
 			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 95:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:660
+		//line zonefileParser.y:664
 		{
 			ZFPVAL.objects = append(ZFPDollar[1].objects, ZFPDollar[2].object)
 		}
 	case 96:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:665
+		//line zonefileParser.y:669
 		{
 			ZFPVAL.object = object.Object{
 				Type:  object.OTRegistrant,
@@ -1477,19 +1475,19 @@ ZFPdefault:
 		}
 	case 97:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:673
+		//line zonefileParser.y:677
 		{
 			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 98:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:677
+		//line zonefileParser.y:681
 		{
 			ZFPVAL.objects = append(ZFPDollar[1].objects, ZFPDollar[2].object)
 		}
 	case 99:
 		ZFPDollar = ZFPS[ZFPpt-4 : ZFPpt+1]
-		//line zonefileParser.y:682
+		//line zonefileParser.y:686
 		{
 			pkey, err := DecodeEd25519PublicKeyData(ZFPDollar[4].str, ZFPDollar[3].str)
 			if err != nil {
@@ -1502,19 +1500,19 @@ ZFPdefault:
 		}
 	case 100:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:694
+		//line zonefileParser.y:698
 		{
 			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 101:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:698
+		//line zonefileParser.y:702
 		{
 			ZFPVAL.objects = append(ZFPDollar[1].objects, ZFPDollar[2].object)
 		}
 	case 102:
 		ZFPDollar = ZFPS[ZFPpt-4 : ZFPpt+1]
-		//line zonefileParser.y:703
+		//line zonefileParser.y:707
 		{ //TODO CFE as of now there is only the rains key space. There will
 			//be additional rules in case there are new key spaces
 			pkey, err := DecodeEd25519PublicKeyData(ZFPDollar[4].str, ZFPDollar[3].str)
@@ -1528,19 +1526,19 @@ ZFPdefault:
 		}
 	case 103:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:716
+		//line zonefileParser.y:720
 		{
 			ZFPVAL.objects = []object.Object{ZFPDollar[1].object}
 		}
 	case 104:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:720
+		//line zonefileParser.y:724
 		{
 			ZFPVAL.objects = append(ZFPDollar[1].objects, ZFPDollar[2].object)
 		}
 	case 105:
 		ZFPDollar = ZFPS[ZFPpt-6 : ZFPpt+1]
-		//line zonefileParser.y:725
+		//line zonefileParser.y:729
 		{
 			pkey, err := DecodeEd25519PublicKeyData(ZFPDollar[4].str, ZFPDollar[3].str)
 			if err != nil {
@@ -1557,91 +1555,91 @@ ZFPdefault:
 		}
 	case 106:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:741
+		//line zonefileParser.y:745
 		{
 			ZFPVAL.protocolType = object.PTUnspecified
 		}
 	case 107:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:745
+		//line zonefileParser.y:749
 		{
 			ZFPVAL.protocolType = object.PTTLS
 		}
 	case 108:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:750
+		//line zonefileParser.y:754
 		{
 			ZFPVAL.certUsage = object.CUTrustAnchor
 		}
 	case 109:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:754
+		//line zonefileParser.y:758
 		{
 			ZFPVAL.certUsage = object.CUEndEntity
 		}
 	case 110:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:759
+		//line zonefileParser.y:763
 		{
 			ZFPVAL.hashType = algorithmTypes.NoHashAlgo
 		}
 	case 111:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:763
+		//line zonefileParser.y:767
 		{
 			ZFPVAL.hashType = algorithmTypes.Sha256
 		}
 	case 112:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:767
+		//line zonefileParser.y:771
 		{
 			ZFPVAL.hashType = algorithmTypes.Sha384
 		}
 	case 113:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:771
+		//line zonefileParser.y:775
 		{
 			ZFPVAL.hashType = algorithmTypes.Sha512
 		}
 	case 114:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:775
+		//line zonefileParser.y:779
 		{
 			ZFPVAL.hashType = algorithmTypes.Fnv64
 		}
 	case 115:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:779
+		//line zonefileParser.y:783
 		{
 			ZFPVAL.hashType = algorithmTypes.Murmur364
 		}
 	case 117:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:785
+		//line zonefileParser.y:789
 		{
 			ZFPVAL.str = ZFPDollar[1].str + " " + ZFPDollar[2].str
 		}
 	case 118:
 		ZFPDollar = ZFPS[ZFPpt-3 : ZFPpt+1]
-		//line zonefileParser.y:790
+		//line zonefileParser.y:794
 		{
 			ZFPVAL.signatures = ZFPDollar[2].signatures
 		}
 	case 119:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
-		//line zonefileParser.y:795
+		//line zonefileParser.y:799
 		{
 			ZFPVAL.signatures = []signature.Signature{ZFPDollar[1].signature}
 		}
 	case 120:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:799
+		//line zonefileParser.y:803
 		{
 			ZFPVAL.signatures = append(ZFPDollar[1].signatures, ZFPDollar[2].signature)
 		}
 	case 122:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
-		//line zonefileParser.y:805
+		//line zonefileParser.y:809
 		{
 			data, err := DecodeEd25519SignatureData(ZFPDollar[2].str)
 			if err != nil {
@@ -1652,7 +1650,7 @@ ZFPdefault:
 		}
 	case 123:
 		ZFPDollar = ZFPS[ZFPpt-6 : ZFPpt+1]
-		//line zonefileParser.y:815
+		//line zonefileParser.y:819
 		{
 			publicKeyID, err := DecodePublicKeyID(ZFPDollar[4].str)
 			if err != nil {

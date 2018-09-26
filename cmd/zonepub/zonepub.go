@@ -69,8 +69,6 @@ var outputPath = flag.String("outputPath", "", `If set, a zonefile with the sign
 generated and stored at the provided path`)
 var doPublish boolFlag
 
-var msgFramer object.MsgFramer
-
 func init() {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, h))
@@ -314,7 +312,7 @@ func (i *algorithmFlag) Set(value string) error {
 	switch value {
 	case parser.TypeEd25519, "ed25519", "1":
 		i.set = true
-		i.value = keys.Ed25519
+		i.value = algorithmTypes.Ed25519
 	default:
 		return fmt.Errorf("invalid signature algorithm type")
 	}
@@ -323,7 +321,7 @@ func (i *algorithmFlag) Set(value string) error {
 
 type bfOpModeFlag struct {
 	set   bool
-	value object.ModeOfOperationType
+	value sections.ModeOfOperationType
 }
 
 func (i *bfOpModeFlag) String() string {

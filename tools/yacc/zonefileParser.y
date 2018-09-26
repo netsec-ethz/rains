@@ -21,16 +21,17 @@ import (
     "github.com/netsec-ethz/rains/internal/pkg/signature"
     "github.com/netsec-ethz/rains/internal/pkg/sections"
     "github.com/netsec-ethz/rains/internal/pkg/object"
+    "github.com/netsec-ethz/rains/internal/pkg/keys"
     "github.com/netsec-ethz/rains/internal/pkg/zonefile"
     "github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
-    "github.com/netsec-ethz/rains/internal/pkg/utils/bitarray"
+    "github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
     "golang.org/x/crypto/ed25519"
 )
 
 //AddSigs adds signatures to section
 func AddSigs(section sections.MessageSectionWithSigForward, signatures []signature.Signature) {
     for _, sig := range signatures {
-        sections.AddSig(sig)
+        section.AddSig(sig)
     }
 }
 
@@ -58,7 +59,7 @@ func DecodePublicKeyID(keyphase string) (keys.PublicKeyID, error) {
 		return keys.PublicKeyID{}, errors.New("keyphase is not a number")
 	}
     return keys.PublicKeyID{
-		Algorithm: keys.Ed25519,
+		Algorithm: algorithmTypes.Ed25519,
         KeyPhase:  phase,
 		KeySpace:  keys.RainsKeySpace,
 	}, nil

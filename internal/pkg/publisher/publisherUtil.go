@@ -55,7 +55,7 @@ type PShardingConfig struct {
 type BloomFilterConfig struct {
 	Hashfamily       []algorithmTypes.HashAlgorithmType
 	NofHashFunctions int
-	BFOpMode         datastructure.ModeOfOperationType
+	BFOpMode         sections.ModeOfOperationType
 	BloomFilterSize  int
 }
 

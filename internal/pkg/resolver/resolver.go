@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/token"
+	"github.com/netsec-ethz/rains/internal/util"
 
 	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
@@ -65,7 +66,7 @@ func (r *Server) Lookup(name, context string) (*message.RainsMessage, error) {
 
 func (r *Server) nameToQuery(name, context string, expTime int64, opts []sections.QueryOption) message.RainsMessage {
 	types := []object.ObjectType{object.OTIP4Addr, object.OTIP6Addr, object.OTDelegation, object.OTServiceInfo, object.OTRedirection}
-	return object.NewQueryMessage(name, context, expTime, types, opts, token.GenerateToken())
+	return util.NewQueryMessage(name, context, expTime, types, opts, token.GenerateToken())
 }
 
 // listen waits for one message and passes it back on the provided channel, or an error on the error channel.

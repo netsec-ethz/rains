@@ -12,12 +12,14 @@ import (
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/token"
+	"github.com/netsec-ethz/rains/internal/util"
 
 	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/sections"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
 
@@ -37,9 +39,7 @@ var filePath = flag.String("filePath", "", "specifies a file path where the quer
 var insecureTLS = flag.Bool("insecureTLS", false, "when set it does not check the validity of the server's TLS certificate.")
 var queryOptions qoptFlag
 
-var msgParser sections.RainsMsgParser
-var msgFramer object.MsgFramer
-var zfParser sections.ZoneFileParser
+var zfParser zonefile.ZoneFileParser
 
 func init() {
 	zfParser = zonefile.Parser{}
@@ -97,7 +97,7 @@ func main() {
 			qt = []object.ObjectType{object.ObjectType(*queryType)}
 		}
 
-		msg := object.NewQueryMessage(*name, *context, *expires, qt, queryOptions, token.GenerateToken())
+		msg := util.NewQueryMessage(*name, *context, *expires, qt, queryOptions, token.GenerateToken())
 
 		err = sendQuery(msg, msg.Token, connInfo)
 		if err != nil {
@@ -180,19 +180,19 @@ func (i *qoptFlag) Set(value string) error {
 	case "1":
 		*i = append(*i, sections.QOMinE2ELatency)
 	case "2":
-		*i = append(*i, object.QOMinLastHopAnswerSize)
+		*i = append(*i, sections.QOMinLastHopAnswerSize)
 	case "3":
 		*i = append(*i, sections.QOMinInfoLeakage)
 	case "4":
-		*i = append(*i, object.QOCachedAnswersOnly)
+		*i = append(*i, sections.QOCachedAnswersOnly)
 	case "5":
-		*i = append(*i, object.QOExpiredAssertionsOk)
+		*i = append(*i, sections.QOExpiredAssertionsOk)
 	case "6":
-		*i = append(*i, object.QOTokenTracing)
+		*i = append(*i, sections.QOTokenTracing)
 	case "7":
-		*i = append(*i, object.QONoVerificationDelegation)
+		*i = append(*i, sections.QONoVerificationDelegation)
 	case "8":
-		*i = append(*i, object.QONoProactiveCaching)
+		*i = append(*i, sections.QONoProactiveCaching)
 	default:
 		return fmt.Errorf("There is no query option for value: %s", value)
 	}

@@ -8,6 +8,7 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"github.com/netsec-ethz/rains/internal/pkg/encoder"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/sections"
@@ -25,7 +26,7 @@ import (
 type Rainspub struct {
 	Config     Config
 	zfParser   zonefile.ZoneFileParser
-	sigEncoder zonefile.SignatureFormatEncoder
+	sigEncoder encoder.SignatureFormatEncoder
 }
 
 //New creates a Rainspub instance and returns a pointer to it.
@@ -125,7 +126,7 @@ func splitZoneContent(zone *sections.ZoneSection, keepShards, keepPshards bool) 
 }
 
 func doSharding(zone *sections.ZoneSection, assertions []*sections.AssertionSection,
-	shards []*sections.ShardSection, config ShardingConfig, encoder sections.ZoneFileParser,
+	shards []*sections.ShardSection, config ShardingConfig, encoder zonefile.ZoneFileParser,
 	sortShards bool) ([]*sections.ShardSection, error) {
 	if sortShards {
 		sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
@@ -175,7 +176,7 @@ func doPsharding(zone *sections.ZoneSection, assertions []*sections.AssertionSec
 //groupAssertionsToShardsBySize groups assertions into shards such that each shard is not exceeding
 //maxSize. It returns a slice of the created shards.
 func groupAssertionsToShardsBySize(subjectZone, context string, assertions []*sections.AssertionSection,
-	config ShardingConfig, encoder sections.ZoneFileParser) ([]*sections.ShardSection, error) {
+	config ShardingConfig, encoder zonefile.ZoneFileParser) ([]*sections.ShardSection, error) {
 	shards := []*sections.ShardSection{}
 	sameNameAssertions := groupAssertionByName(assertions, config)
 	prevShardAssertionSubjectName := ""
@@ -296,14 +297,14 @@ func groupAssertionsToPshards(subjectZone, context string, assertions []*section
 }
 
 //newBloomFilter returns a newly created bloom filter of the given
-func newBloomFilter(config BloomFilterConfig) datastructure.BloomFilter {
+func newBloomFilter(config BloomFilterConfig) sections.BloomFilter {
 	var size int
 	if config.BloomFilterSize%8 == 0 {
 		size = config.BloomFilterSize / 8
 	} else {
 		size = (config.BloomFilterSize/8 + 1) * 8
 	}
-	return datastructure.BloomFilter{
+	return sections.BloomFilter{
 		HashFamily:       config.Hashfamily,
 		NofHashFunctions: config.NofHashFunctions,
 		ModeOfOperation:  config.BFOpMode,

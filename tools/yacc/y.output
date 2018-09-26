@@ -3,7 +3,7 @@ state 0
 	$accept: .top $end 
 	sections: .    (2)
 
-	.  reduce 2 (src line 219)
+	.  reduce 2 (src line 223)
 
 	sections  goto 2
 	top  goto 1
@@ -26,7 +26,7 @@ state 2
 	shardType  shift 12
 	pshardType  shift 13
 	zoneType  shift 14
-	.  reduce 1 (src line 214)
+	.  reduce 1 (src line 218)
 
 	zone  goto 6
 	zoneBody  goto 10
@@ -40,25 +40,25 @@ state 2
 state 3
 	sections:  sections assertion.    (3)
 
-	.  reduce 3 (src line 223)
+	.  reduce 3 (src line 227)
 
 
 state 4
 	sections:  sections shard.    (4)
 
-	.  reduce 4 (src line 227)
+	.  reduce 4 (src line 231)
 
 
 state 5
 	sections:  sections pshard.    (5)
 
-	.  reduce 5 (src line 231)
+	.  reduce 5 (src line 235)
 
 
 state 6
 	sections:  sections zone.    (6)
 
-	.  reduce 6 (src line 235)
+	.  reduce 6 (src line 239)
 
 
 state 7
@@ -66,7 +66,7 @@ state 7
 	assertion:  assertionBody.annotation 
 
 	lParenthesis  shift 16
-	.  reduce 35 (src line 387)
+	.  reduce 35 (src line 391)
 
 	annotation  goto 15
 
@@ -75,7 +75,7 @@ state 8
 	shard:  shardBody.annotation 
 
 	lParenthesis  shift 16
-	.  reduce 14 (src line 273)
+	.  reduce 14 (src line 277)
 
 	annotation  goto 17
 
@@ -84,7 +84,7 @@ state 9
 	pshard:  pshardBody.annotation 
 
 	lParenthesis  shift 16
-	.  reduce 24 (src line 325)
+	.  reduce 24 (src line 329)
 
 	annotation  goto 18
 
@@ -93,7 +93,7 @@ state 10
 	zone:  zoneBody.annotation 
 
 	lParenthesis  shift 16
-	.  reduce 7 (src line 240)
+	.  reduce 7 (src line 244)
 
 	annotation  goto 19
 
@@ -135,7 +135,7 @@ state 14
 state 15
 	assertion:  assertionBody annotation.    (36)
 
-	.  reduce 36 (src line 388)
+	.  reduce 36 (src line 392)
 
 
 state 16
@@ -151,19 +151,19 @@ state 16
 state 17
 	shard:  shardBody annotation.    (15)
 
-	.  reduce 15 (src line 274)
+	.  reduce 15 (src line 278)
 
 
 state 18
 	pshard:  pshardBody annotation.    (25)
 
-	.  reduce 25 (src line 326)
+	.  reduce 25 (src line 330)
 
 
 state 19
 	zone:  zoneBody annotation.    (8)
 
-	.  reduce 8 (src line 241)
+	.  reduce 8 (src line 245)
 
 
 state 20
@@ -241,7 +241,7 @@ state 27
 state 28
 	annotationBody:  signature.    (119)
 
-	.  reduce 119 (src line 794)
+	.  reduce 119 (src line 798)
 
 
 state 29
@@ -249,7 +249,7 @@ state 29
 	signature:  signatureMeta.ID 
 
 	ID  shift 45
-	.  reduce 121 (src line 803)
+	.  reduce 121 (src line 807)
 
 
 state 30
@@ -318,34 +318,34 @@ state 33
 
 	ID  shift 89
 	rangeBegin  shift 23
-	.  reduce 18 (src line 299)
+	.  reduce 18 (src line 303)
 
 	shardRange  goto 88
 
 state 34
 	shardRange:  ID rangeEnd.    (20)
 
-	.  reduce 20 (src line 307)
+	.  reduce 20 (src line 311)
 
 
 state 35
 	shardBody:  shardType shardRange lBracket.shardContent rBracket 
 	shardContent: .    (22)
 
-	.  reduce 22 (src line 316)
+	.  reduce 22 (src line 320)
 
 	shardContent  goto 90
 
 state 36
 	shardRange:  rangeBegin ID.    (19)
 
-	.  reduce 19 (src line 303)
+	.  reduce 19 (src line 307)
 
 
 state 37
 	shardRange:  rangeBegin rangeEnd.    (21)
 
-	.  reduce 21 (src line 311)
+	.  reduce 21 (src line 315)
 
 
 state 38
@@ -354,20 +354,20 @@ state 38
 
 	ID  shift 89
 	rangeBegin  shift 23
-	.  reduce 18 (src line 299)
+	.  reduce 18 (src line 303)
 
 	shardRange  goto 91
 
 state 39
 	pshardBody:  pshardType shardRange pshardContent.    (27)
 
-	.  reduce 27 (src line 342)
+	.  reduce 27 (src line 346)
 
 
 state 40
 	pshardContent:  bloomFilter.    (28)
 
-	.  reduce 28 (src line 351)
+	.  reduce 28 (src line 355)
 
 
 state 41
@@ -387,19 +387,19 @@ state 42
 state 43
 	annotation:  lParenthesis annotationBody rParenthesis.    (118)
 
-	.  reduce 118 (src line 789)
+	.  reduce 118 (src line 793)
 
 
 state 44
 	annotationBody:  annotationBody signature.    (120)
 
-	.  reduce 120 (src line 798)
+	.  reduce 120 (src line 802)
 
 
 state 45
 	signature:  signatureMeta ID.    (122)
 
-	.  reduce 122 (src line 804)
+	.  reduce 122 (src line 808)
 
 
 state 46
@@ -421,7 +421,7 @@ state 48
 	name:  name.nameBody 
 
 	nameType  shift 74
-	.  reduce 39 (src line 411)
+	.  reduce 39 (src line 415)
 
 	nameBody  goto 96
 
@@ -430,7 +430,7 @@ state 49
 	ip6:  ip6.ip6Body 
 
 	ip6Type  shift 75
-	.  reduce 40 (src line 412)
+	.  reduce 40 (src line 416)
 
 	ip6Body  goto 97
 
@@ -439,7 +439,7 @@ state 50
 	ip4:  ip4.ip4Body 
 
 	ip4Type  shift 76
-	.  reduce 41 (src line 413)
+	.  reduce 41 (src line 417)
 
 	ip4Body  goto 98
 
@@ -448,7 +448,7 @@ state 51
 	redir:  redir.redirBody 
 
 	redirType  shift 77
-	.  reduce 42 (src line 414)
+	.  reduce 42 (src line 418)
 
 	redirBody  goto 99
 
@@ -457,7 +457,7 @@ state 52
 	deleg:  deleg.delegBody 
 
 	delegType  shift 78
-	.  reduce 43 (src line 415)
+	.  reduce 43 (src line 419)
 
 	delegBody  goto 100
 
@@ -466,7 +466,7 @@ state 53
 	nameset:  nameset.namesetBody 
 
 	namesetType  shift 79
-	.  reduce 44 (src line 416)
+	.  reduce 44 (src line 420)
 
 	namesetBody  goto 101
 
@@ -475,7 +475,7 @@ state 54
 	cert:  cert.certBody 
 
 	certType  shift 80
-	.  reduce 45 (src line 417)
+	.  reduce 45 (src line 421)
 
 	certBody  goto 102
 
@@ -484,7 +484,7 @@ state 55
 	srv:  srv.srvBody 
 
 	srvType  shift 81
-	.  reduce 46 (src line 418)
+	.  reduce 46 (src line 422)
 
 	srvBody  goto 103
 
@@ -493,7 +493,7 @@ state 56
 	regr:  regr.regrBody 
 
 	regrType  shift 82
-	.  reduce 47 (src line 419)
+	.  reduce 47 (src line 423)
 
 	regrBody  goto 104
 
@@ -502,7 +502,7 @@ state 57
 	regt:  regt.regtBody 
 
 	regtType  shift 83
-	.  reduce 48 (src line 420)
+	.  reduce 48 (src line 424)
 
 	regtBody  goto 105
 
@@ -511,7 +511,7 @@ state 58
 	infra:  infra.infraBody 
 
 	infraType  shift 84
-	.  reduce 49 (src line 421)
+	.  reduce 49 (src line 425)
 
 	infraBody  goto 106
 
@@ -520,7 +520,7 @@ state 59
 	extra:  extra.extraBody 
 
 	extraType  shift 85
-	.  reduce 50 (src line 422)
+	.  reduce 50 (src line 426)
 
 	extraBody  goto 107
 
@@ -529,86 +529,86 @@ state 60
 	next:  next.nextBody 
 
 	nextType  shift 86
-	.  reduce 51 (src line 423)
+	.  reduce 51 (src line 427)
 
 	nextBody  goto 108
 
 state 61
 	name:  nameBody.    (52)
 
-	.  reduce 52 (src line 425)
+	.  reduce 52 (src line 429)
 
 
 state 62
 	ip6:  ip6Body.    (70)
 
-	.  reduce 70 (src line 507)
+	.  reduce 70 (src line 511)
 
 
 state 63
 	ip4:  ip4Body.    (73)
 
-	.  reduce 73 (src line 524)
+	.  reduce 73 (src line 528)
 
 
 state 64
 	redir:  redirBody.    (76)
 
-	.  reduce 76 (src line 541)
+	.  reduce 76 (src line 545)
 
 
 state 65
 	deleg:  delegBody.    (79)
 
-	.  reduce 79 (src line 558)
+	.  reduce 79 (src line 562)
 
 
 state 66
 	nameset:  namesetBody.    (82)
 
-	.  reduce 82 (src line 579)
+	.  reduce 82 (src line 583)
 
 
 state 67
 	cert:  certBody.    (85)
 
-	.  reduce 85 (src line 596)
+	.  reduce 85 (src line 600)
 
 
 state 68
 	srv:  srvBody.    (88)
 
-	.  reduce 88 (src line 617)
+	.  reduce 88 (src line 621)
 
 
 state 69
 	regr:  regrBody.    (91)
 
-	.  reduce 91 (src line 638)
+	.  reduce 91 (src line 642)
 
 
 state 70
 	regt:  regtBody.    (94)
 
-	.  reduce 94 (src line 655)
+	.  reduce 94 (src line 659)
 
 
 state 71
 	infra:  infraBody.    (97)
 
-	.  reduce 97 (src line 672)
+	.  reduce 97 (src line 676)
 
 
 state 72
 	extra:  extraBody.    (100)
 
-	.  reduce 100 (src line 693)
+	.  reduce 100 (src line 697)
 
 
 state 73
 	next:  nextBody.    (103)
 
-	.  reduce 103 (src line 715)
+	.  reduce 103 (src line 719)
 
 
 state 74
@@ -768,7 +768,7 @@ state 93
 	zoneBody:  zoneType ID ID lBracket.zoneContent rBracket 
 	zoneContent: .    (10)
 
-	.  reduce 10 (src line 256)
+	.  reduce 10 (src line 260)
 
 	zoneContent  goto 139
 
@@ -782,85 +782,85 @@ state 94
 state 95
 	assertionBody:  assertionType ID lBracket objects rBracket.    (37)
 
-	.  reduce 37 (src line 394)
+	.  reduce 37 (src line 398)
 
 
 state 96
 	name:  name nameBody.    (53)
 
-	.  reduce 53 (src line 429)
+	.  reduce 53 (src line 433)
 
 
 state 97
 	ip6:  ip6 ip6Body.    (71)
 
-	.  reduce 71 (src line 511)
+	.  reduce 71 (src line 515)
 
 
 state 98
 	ip4:  ip4 ip4Body.    (74)
 
-	.  reduce 74 (src line 528)
+	.  reduce 74 (src line 532)
 
 
 state 99
 	redir:  redir redirBody.    (77)
 
-	.  reduce 77 (src line 545)
+	.  reduce 77 (src line 549)
 
 
 state 100
 	deleg:  deleg delegBody.    (80)
 
-	.  reduce 80 (src line 562)
+	.  reduce 80 (src line 566)
 
 
 state 101
 	nameset:  nameset namesetBody.    (83)
 
-	.  reduce 83 (src line 583)
+	.  reduce 83 (src line 587)
 
 
 state 102
 	cert:  cert certBody.    (86)
 
-	.  reduce 86 (src line 600)
+	.  reduce 86 (src line 604)
 
 
 state 103
 	srv:  srv srvBody.    (89)
 
-	.  reduce 89 (src line 621)
+	.  reduce 89 (src line 625)
 
 
 state 104
 	regr:  regr regrBody.    (92)
 
-	.  reduce 92 (src line 642)
+	.  reduce 92 (src line 646)
 
 
 state 105
 	regt:  regt regtBody.    (95)
 
-	.  reduce 95 (src line 659)
+	.  reduce 95 (src line 663)
 
 
 state 106
 	infra:  infra infraBody.    (98)
 
-	.  reduce 98 (src line 676)
+	.  reduce 98 (src line 680)
 
 
 state 107
 	extra:  extra extraBody.    (101)
 
-	.  reduce 101 (src line 697)
+	.  reduce 101 (src line 701)
 
 
 state 108
 	next:  next nextBody.    (104)
 
-	.  reduce 104 (src line 719)
+	.  reduce 104 (src line 723)
 
 
 state 109
@@ -873,19 +873,19 @@ state 109
 state 110
 	ip6Body:  ip6Type ID.    (72)
 
-	.  reduce 72 (src line 516)
+	.  reduce 72 (src line 520)
 
 
 state 111
 	ip4Body:  ip4Type ID.    (75)
 
-	.  reduce 75 (src line 533)
+	.  reduce 75 (src line 537)
 
 
 state 112
 	redirBody:  redirType ID.    (78)
 
-	.  reduce 78 (src line 550)
+	.  reduce 78 (src line 554)
 
 
 state 113
@@ -900,13 +900,13 @@ state 114
 	freeText:  freeText.ID 
 
 	ID  shift 143
-	.  reduce 84 (src line 588)
+	.  reduce 84 (src line 592)
 
 
 state 115
 	freeText:  ID.    (116)
 
-	.  reduce 116 (src line 783)
+	.  reduce 116 (src line 787)
 
 
 state 116
@@ -921,13 +921,13 @@ state 116
 state 117
 	protocolType:  unspecified.    (106)
 
-	.  reduce 106 (src line 740)
+	.  reduce 106 (src line 744)
 
 
 state 118
 	protocolType:  tls.    (107)
 
-	.  reduce 107 (src line 744)
+	.  reduce 107 (src line 748)
 
 
 state 119
@@ -942,7 +942,7 @@ state 120
 	freeText:  freeText.ID 
 
 	ID  shift 143
-	.  reduce 93 (src line 647)
+	.  reduce 93 (src line 651)
 
 
 state 121
@@ -950,7 +950,7 @@ state 121
 	freeText:  freeText.ID 
 
 	ID  shift 143
-	.  reduce 96 (src line 664)
+	.  reduce 96 (src line 668)
 
 
 state 122
@@ -1024,32 +1024,32 @@ state 126
 	shardBody:  shardType ID ID shardRange lBracket.shardContent rBracket 
 	shardContent: .    (22)
 
-	.  reduce 22 (src line 316)
+	.  reduce 22 (src line 320)
 
 	shardContent  goto 152
 
 state 127
 	shardRange:  ID ID.    (18)
 
-	.  reduce 18 (src line 299)
+	.  reduce 18 (src line 303)
 
 
 state 128
 	shardBody:  shardType shardRange lBracket shardContent rBracket.    (17)
 
-	.  reduce 17 (src line 290)
+	.  reduce 17 (src line 294)
 
 
 state 129
 	shardContent:  shardContent assertion.    (23)
 
-	.  reduce 23 (src line 320)
+	.  reduce 23 (src line 324)
 
 
 state 130
 	pshardBody:  pshardType ID ID shardRange pshardContent.    (26)
 
-	.  reduce 26 (src line 332)
+	.  reduce 26 (src line 336)
 
 
 state 131
@@ -1070,43 +1070,43 @@ state 131
 state 132
 	hashTypes:  hashType.    (30)
 
-	.  reduce 30 (src line 365)
+	.  reduce 30 (src line 369)
 
 
 state 133
 	hashType:  noHash.    (110)
 
-	.  reduce 110 (src line 758)
+	.  reduce 110 (src line 762)
 
 
 state 134
 	hashType:  sha256.    (111)
 
-	.  reduce 111 (src line 762)
+	.  reduce 111 (src line 766)
 
 
 state 135
 	hashType:  sha384.    (112)
 
-	.  reduce 112 (src line 766)
+	.  reduce 112 (src line 770)
 
 
 state 136
 	hashType:  sha512.    (113)
 
-	.  reduce 113 (src line 770)
+	.  reduce 113 (src line 774)
 
 
 state 137
 	hashType:  fnv64.    (114)
 
-	.  reduce 114 (src line 774)
+	.  reduce 114 (src line 778)
 
 
 state 138
 	hashType:  murmur364.    (115)
 
-	.  reduce 115 (src line 778)
+	.  reduce 115 (src line 782)
 
 
 state 139
@@ -1166,7 +1166,7 @@ state 142
 state 143
 	freeText:  freeText ID.    (117)
 
-	.  reduce 117 (src line 784)
+	.  reduce 117 (src line 788)
 
 
 state 144
@@ -1185,13 +1185,13 @@ state 144
 state 145
 	certUsage:  trustAnchor.    (108)
 
-	.  reduce 108 (src line 749)
+	.  reduce 108 (src line 753)
 
 
 state 146
 	certUsage:  endEntity.    (109)
 
-	.  reduce 109 (src line 753)
+	.  reduce 109 (src line 757)
 
 
 state 147
@@ -1250,31 +1250,31 @@ state 153
 state 154
 	hashTypes:  hashTypes hashType.    (31)
 
-	.  reduce 31 (src line 369)
+	.  reduce 31 (src line 373)
 
 
 state 155
 	zoneBody:  zoneType ID ID lBracket zoneContent rBracket.    (9)
 
-	.  reduce 9 (src line 247)
+	.  reduce 9 (src line 251)
 
 
 state 156
 	zoneContent:  zoneContent assertion.    (11)
 
-	.  reduce 11 (src line 260)
+	.  reduce 11 (src line 264)
 
 
 state 157
 	zoneContent:  zoneContent shard.    (12)
 
-	.  reduce 12 (src line 264)
+	.  reduce 12 (src line 268)
 
 
 state 158
 	zoneContent:  zoneContent pshard.    (13)
 
-	.  reduce 13 (src line 268)
+	.  reduce 13 (src line 272)
 
 
 state 159
@@ -1309,91 +1309,91 @@ state 160
 state 161
 	oTypes:  oType.    (55)
 
-	.  reduce 55 (src line 445)
+	.  reduce 55 (src line 449)
 
 
 state 162
 	oType:  nameType.    (57)
 
-	.  reduce 57 (src line 454)
+	.  reduce 57 (src line 458)
 
 
 state 163
 	oType:  ip4Type.    (58)
 
-	.  reduce 58 (src line 458)
+	.  reduce 58 (src line 462)
 
 
 state 164
 	oType:  ip6Type.    (59)
 
-	.  reduce 59 (src line 462)
+	.  reduce 59 (src line 466)
 
 
 state 165
 	oType:  redirType.    (60)
 
-	.  reduce 60 (src line 466)
+	.  reduce 60 (src line 470)
 
 
 state 166
 	oType:  delegType.    (61)
 
-	.  reduce 61 (src line 470)
+	.  reduce 61 (src line 474)
 
 
 state 167
 	oType:  namesetType.    (62)
 
-	.  reduce 62 (src line 474)
+	.  reduce 62 (src line 478)
 
 
 state 168
 	oType:  certType.    (63)
 
-	.  reduce 63 (src line 478)
+	.  reduce 63 (src line 482)
 
 
 state 169
 	oType:  srvType.    (64)
 
-	.  reduce 64 (src line 482)
+	.  reduce 64 (src line 486)
 
 
 state 170
 	oType:  regrType.    (65)
 
-	.  reduce 65 (src line 486)
+	.  reduce 65 (src line 490)
 
 
 state 171
 	oType:  regtType.    (66)
 
-	.  reduce 66 (src line 490)
+	.  reduce 66 (src line 494)
 
 
 state 172
 	oType:  infraType.    (67)
 
-	.  reduce 67 (src line 494)
+	.  reduce 67 (src line 498)
 
 
 state 173
 	oType:  extraType.    (68)
 
-	.  reduce 68 (src line 498)
+	.  reduce 68 (src line 502)
 
 
 state 174
 	oType:  nextType.    (69)
 
-	.  reduce 69 (src line 502)
+	.  reduce 69 (src line 506)
 
 
 state 175
 	delegBody:  delegType ed25519Type ID ID.    (81)
 
-	.  reduce 81 (src line 567)
+	.  reduce 81 (src line 571)
 
 
 state 176
@@ -1406,19 +1406,19 @@ state 176
 state 177
 	srvBody:  srvType ID ID ID.    (90)
 
-	.  reduce 90 (src line 626)
+	.  reduce 90 (src line 630)
 
 
 state 178
 	infraBody:  infraType ed25519Type ID ID.    (99)
 
-	.  reduce 99 (src line 681)
+	.  reduce 99 (src line 685)
 
 
 state 179
 	extraBody:  extraType ed25519Type ID ID.    (102)
 
-	.  reduce 102 (src line 702)
+	.  reduce 102 (src line 706)
 
 
 state 180
@@ -1431,13 +1431,13 @@ state 180
 state 181
 	assertionBody:  assertionType ID ID ID lBracket objects rBracket.    (38)
 
-	.  reduce 38 (src line 401)
+	.  reduce 38 (src line 405)
 
 
 state 182
 	shardBody:  shardType ID ID shardRange lBracket shardContent rBracket.    (16)
 
-	.  reduce 16 (src line 280)
+	.  reduce 16 (src line 284)
 
 
 state 183
@@ -1453,25 +1453,25 @@ state 183
 state 184
 	signatureMeta:  sigType ed25519Type rains ID ID ID.    (123)
 
-	.  reduce 123 (src line 814)
+	.  reduce 123 (src line 818)
 
 
 state 185
 	nameBody:  nameType ID lBracket oTypes rBracket.    (54)
 
-	.  reduce 54 (src line 434)
+	.  reduce 54 (src line 438)
 
 
 state 186
 	oTypes:  oTypes oType.    (56)
 
-	.  reduce 56 (src line 449)
+	.  reduce 56 (src line 453)
 
 
 state 187
 	certBody:  certType protocolType certUsage hashType ID.    (87)
 
-	.  reduce 87 (src line 605)
+	.  reduce 87 (src line 609)
 
 
 state 188
@@ -1491,31 +1491,31 @@ state 189
 state 190
 	bfOpMode:  standard.    (32)
 
-	.  reduce 32 (src line 374)
+	.  reduce 32 (src line 378)
 
 
 state 191
 	bfOpMode:  km1.    (33)
 
-	.  reduce 33 (src line 378)
+	.  reduce 33 (src line 382)
 
 
 state 192
 	bfOpMode:  km2.    (34)
 
-	.  reduce 34 (src line 382)
+	.  reduce 34 (src line 386)
 
 
 state 193
 	nextBody:  nextType ed25519Type ID ID ID ID.    (105)
 
-	.  reduce 105 (src line 724)
+	.  reduce 105 (src line 728)
 
 
 state 194
 	bloomFilter:  bloomFilterType lBracket hashTypes rBracket ID bfOpMode ID.    (29)
 
-	.  reduce 29 (src line 353)
+	.  reduce 29 (src line 357)
 
 
 44 terminals, 55 nonterminals
