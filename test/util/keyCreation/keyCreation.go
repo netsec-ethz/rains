@@ -15,7 +15,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/sections"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
-	"github.com/netsec-ethz/rains/internal/util"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -37,7 +37,7 @@ func CreateDelegationAssertion(context, zone string) error {
 		ValidSince: time.Now().Unix(),
 		ValidUntil: time.Now().Add(30 * 24 * time.Hour).Unix(),
 	}
-	assertion := &sections.AssertionSection{
+	assertion := &sections.Assertion{
 		Context:     context,
 		SubjectZone: zone,
 		SubjectName: "@",
@@ -64,8 +64,8 @@ func CreateDelegationAssertion(context, zone string) error {
 }
 
 //addSignature signs the section with the public key and adds the resulting signature to the section
-func addSignature(a sections.MessageSectionWithSig, key ed25519.PrivateKey) bool {
-	signature := signature.Signature{
+func addSignature(a sections.SecWithSig, key ed25519.PrivateKey) bool {
+	signature := signature.Sig{
 		PublicKeyID: keys.PublicKeyID{
 			Algorithm: keys.Ed25519,
 			KeySpace:  keys.RainsKeySpace,
@@ -100,7 +100,7 @@ func SignDelegation(delegationPath, privateKeyPath string) error {
 	if err != nil {
 		return err
 	}
-	delegation := &sections.AssertionSection{}
+	delegation := &sections.Assertion{}
 	err = util.Load(delegationPath, delegation)
 	if err != nil {
 		return err

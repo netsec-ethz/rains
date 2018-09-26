@@ -5,8 +5,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
+
+	"github.com/britram/borat"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/sections"
@@ -15,7 +16,7 @@ import (
 
 //connectAndSendMsg establishes a connection to server and sends msg. It returns the server info on
 //the result channel if it was not able to send the whole msg to it, else nil.
-func connectAndSendMsg(msg message.RainsMessage, server connection.ConnInfo, result chan<- *connection.ConnInfo) {
+func connectAndSendMsg(msg message.Message, server connection.Info, result chan<- *connection.Info) {
 	//TODO CFE use certificate for tls
 	conf := &tls.Config{
 		InsecureSkipVerify: true,
@@ -80,15 +81,15 @@ func listen(conn net.Conn, token token.Token, success chan<- bool) {
 
 func waitForResponse(conn net.Conn, token token.Token, serverError chan<- bool) {
 	reader := borat.NewCBORReader(conn)
-	var msg message.RainsMessage
+	var msg message.Message
 	if err := reader.Unmarshal(&msg); err != nil {
 		log.Warn("Was not able to decode received message", "error", err)
 		serverError <- false
 		return
 	}
 	//Rainspub only accepts notification messages in response to published information.
-	if n, ok := msg.Content[0].(*sections.NotificationSection); ok && n.Token == token {
-		if handleResponse(conn, msg.Content[0].(*sections.NotificationSection)) {
+	if n, ok := msg.Content[0].(*sections.Notification); ok && n.Token == token {
+		if handleResponse(conn, msg.Content[0].(*sections.Notification)) {
 			conn.Close()
 			serverError <- true
 			return
@@ -103,7 +104,7 @@ func waitForResponse(conn net.Conn, token token.Token, serverError chan<- bool) 
 
 //handleResponse handles the received notification message and returns true if the connection can
 //be closed.
-func handleResponse(conn net.Conn, n *sections.NotificationSection) bool {
+func handleResponse(conn net.Conn, n *sections.Notification) bool {
 	switch n.Type {
 	case sections.NTHeartbeat, sections.NTNoAssertionsExist, sections.NTNoAssertionAvail:
 	//nop

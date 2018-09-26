@@ -20,19 +20,19 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-//MessageSection can be either an Assertion, Shard, Zone, Query, Notification, AddressAssertion, AddressZone, AddressQuery section
-type MessageSection interface {
+//Section can be either an Assertion, Shard, Zone, Query, Notification, AddressAssertion, AddressZone, AddressQuery section
+type Section interface {
 	Sort()
 	String() string
 }
 
-//MessageSectionWithSig is an interface for a section protected by a signature. In the current
+//SecWithSig is an interface for a section protected by a signature. In the current
 //implementation it can be an Assertion, Shard, Zone, AddressAssertion, AddressZone
-type MessageSectionWithSig interface {
-	MessageSection
-	AllSigs() []signature.Signature
-	Sigs(keyspace keys.KeySpaceID) []signature.Signature
-	AddSig(sig signature.Signature)
+type SecWithSig interface {
+	Section
+	AllSigs() []signature.Sig
+	Sigs(keyspace keys.KeySpaceID) []signature.Sig
+	AddSig(sig signature.Sig)
 	DeleteSig(index int)
 	GetContext() string
 	GetSubjectZone() string
@@ -41,12 +41,12 @@ type MessageSectionWithSig interface {
 	ValidUntil() int64
 	Hash() string
 	IsConsistent() bool
-	NeededKeys(map[signature.SignatureMetaData]bool)
+	NeededKeys(map[signature.MetaData]bool)
 }
 
-//MessageSectionWithSigForward can be either an Assertion, Shard or Zone
-type MessageSectionWithSigForward interface {
-	MessageSectionWithSig
+//SecWithSigForward can be either an Assertion, Shard or Zone
+type SecWithSigForward interface {
+	SecWithSig
 	Interval
 }
 
@@ -115,17 +115,17 @@ func (s StringInterval) End() string {
 	return s.Name
 }
 
-//Hashable can be implemented by objects that are not natively hashable.
+//Hasher can be implemented by objects that are not natively hashable.
 //For an object to be a map key (or a part thereof), it must be hashable.
-type Hashable interface {
+type Hasher interface {
 	//Hash must return a string uniquely identifying the object
 	//It must hold for all objects that o1 == o2 iff o1.Hash() == o2.Hash()
 	Hash() string
 }
 
-//AssertionSection contains information about the assertion.
-type AssertionSection struct {
-	Signatures  []signature.Signature
+//Assertion contains information about the assertion.
+type Assertion struct {
+	Signatures  []signature.Sig
 	SubjectName string
 	SubjectZone string
 	Context     string
@@ -135,9 +135,9 @@ type AssertionSection struct {
 }
 
 // UnmarshalMap provides functionality to unmarshal a map read in by CBOR.
-func (a *AssertionSection) UnmarshalMap(m map[int]interface{}) error {
+func (a *Assertion) UnmarshalMap(m map[int]interface{}) error {
 	if sigs, ok := m[0]; ok {
-		a.Signatures = make([]signature.Signature, len(sigs.([]interface{})))
+		a.Signatures = make([]signature.Sig, len(sigs.([]interface{})))
 		for i, sig := range sigs.([]interface{}) {
 			if err := a.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
 				return err
@@ -159,12 +159,12 @@ func (a *AssertionSection) UnmarshalMap(m map[int]interface{}) error {
 	a.Content = make([]object.Object, 0)
 	for _, obj := range m[7].([]interface{}) {
 		objArr := obj.([]interface{})
-		switch object.ObjectType(objArr[0].(uint64)) {
+		switch object.Type(objArr[0].(uint64)) {
 		case object.OTName:
-			no := object.NameObject{Types: make([]object.ObjectType, 0)}
+			no := object.Name{Types: make([]object.Type, 0)}
 			no.Name = objArr[1].(string)
 			for _, ot := range objArr[2].([]interface{}) {
-				no.Types = append(no.Types, object.ObjectType(ot.(int)))
+				no.Types = append(no.Types, object.Type(ot.(int)))
 			}
 			a.Content = append(a.Content, object.Object{Type: object.OTName, Value: no})
 		case object.OTIP6Addr:
@@ -182,7 +182,7 @@ func (a *AssertionSection) UnmarshalMap(m map[int]interface{}) error {
 			vs := int64(objArr[4].(uint64))
 			vu := int64(objArr[5].(uint64))
 			var key interface{}
-			switch algorithmTypes.SignatureAlgorithmType(alg) {
+			switch algorithmTypes.Signature(alg) {
 			case algorithmTypes.Ed25519:
 				key = ed25519.PublicKey(objArr[6].([]byte))
 			case algorithmTypes.Ecdsa256:
@@ -194,7 +194,7 @@ func (a *AssertionSection) UnmarshalMap(m map[int]interface{}) error {
 			}
 			pkey := keys.PublicKey{
 				PublicKeyID: keys.PublicKeyID{
-					Algorithm: algorithmTypes.SignatureAlgorithmType(alg),
+					Algorithm: algorithmTypes.Signature(alg),
 					KeySpace:  ks,
 					KeyPhase:  kp,
 				},
@@ -204,12 +204,12 @@ func (a *AssertionSection) UnmarshalMap(m map[int]interface{}) error {
 			}
 			a.Content = append(a.Content, object.Object{Type: object.OTDelegation, Value: pkey})
 		case object.OTNameset:
-			a.Content = append(a.Content, object.Object{Type: object.OTNameset, Value: object.NamesetExpression(objArr[1].(string))})
+			a.Content = append(a.Content, object.Object{Type: object.OTNameset, Value: object.NamesetExpr(objArr[1].(string))})
 		case object.OTCertInfo:
-			co := object.CertificateObject{
+			co := object.Certificate{
 				Type:     object.ProtocolType(objArr[1].(int)),
 				Usage:    object.CertificateUsage(objArr[2].(int)),
-				HashAlgo: algorithmTypes.HashAlgorithmType(objArr[3].(int)),
+				HashAlgo: algorithmTypes.Hash(objArr[3].(int)),
 				Data:     objArr[4].([]byte),
 			}
 			a.Content = append(a.Content, object.Object{Type: object.OTCertInfo, Value: co})
@@ -231,7 +231,7 @@ func (a *AssertionSection) UnmarshalMap(m map[int]interface{}) error {
 			vs := objArr[4].(int64)
 			vu := objArr[5].(int64)
 			var key interface{}
-			switch alg.(algorithmTypes.SignatureAlgorithmType) {
+			switch alg.(algorithmTypes.Signature) {
 			case algorithmTypes.Ed25519:
 				key = ed25519.PublicKey(objArr[6].([]byte))
 			case algorithmTypes.Ecdsa256:
@@ -243,7 +243,7 @@ func (a *AssertionSection) UnmarshalMap(m map[int]interface{}) error {
 			}
 			pkey := keys.PublicKey{
 				PublicKeyID: keys.PublicKeyID{
-					Algorithm: alg.(algorithmTypes.SignatureAlgorithmType),
+					Algorithm: alg.(algorithmTypes.Signature),
 					KeySpace:  ks,
 					KeyPhase:  kp,
 				},
@@ -253,7 +253,7 @@ func (a *AssertionSection) UnmarshalMap(m map[int]interface{}) error {
 			}
 			a.Content = append(a.Content, object.Object{Type: object.OTInfraKey, Value: pkey})
 		case object.OTExtraKey:
-			alg := objArr[1].(algorithmTypes.SignatureAlgorithmType)
+			alg := objArr[1].(algorithmTypes.Signature)
 			ks := objArr[2].(keys.KeySpaceID)
 			var key interface{}
 			switch alg {
@@ -282,7 +282,7 @@ func (a *AssertionSection) UnmarshalMap(m map[int]interface{}) error {
 }
 
 // MarshalCBOR implements the CBORMarshaler interface.
-func (a *AssertionSection) MarshalCBOR(w *borat.CBORWriter) error {
+func (a *Assertion) MarshalCBOR(w *borat.CBORWriter) error {
 	m := make(map[int]interface{})
 	if len(a.Signatures) > 0 {
 		m[0] = a.Signatures
@@ -312,9 +312,9 @@ func objectToArrayCBOR(obj object.Object) ([]interface{}, error) {
 	var res []interface{}
 	switch obj.Type {
 	case object.OTName:
-		no, ok := obj.Value.(object.NameObject)
+		no, ok := obj.Value.(object.Name)
 		if !ok {
-			return nil, fmt.Errorf("expected OTName to be NameObject but got: %T", obj.Value)
+			return nil, fmt.Errorf("expected OTName to be Name but got: %T", obj.Value)
 		}
 		ots := make([]int, len(no.Types))
 		for i, ot := range no.Types {
@@ -340,15 +340,15 @@ func objectToArrayCBOR(obj object.Object) ([]interface{}, error) {
 		b := pubkeyToCBORBytes(pkey)
 		res = []interface{}{object.OTDelegation, int(pkey.Algorithm), int(pkey.KeySpace), pkey.KeyPhase, pkey.ValidSince, pkey.ValidUntil, b}
 	case object.OTNameset:
-		nse, ok := obj.Value.(object.NamesetExpression)
+		nse, ok := obj.Value.(object.NamesetExpr)
 		if !ok {
-			return nil, fmt.Errorf("expected OTNameset value to be NamesetExpression but got: %T", obj.Value)
+			return nil, fmt.Errorf("expected OTNameset value to be NamesetExpr but got: %T", obj.Value)
 		}
 		res = []interface{}{object.OTNameset, string(nse)}
 	case object.OTCertInfo:
-		co, ok := obj.Value.(object.CertificateObject)
+		co, ok := obj.Value.(object.Certificate)
 		if !ok {
-			return nil, fmt.Errorf("expected OTCertInfo object to be CertificateObject, but got: %T", obj.Value)
+			return nil, fmt.Errorf("expected OTCertInfo object to be Certificate, but got: %T", obj.Value)
 		}
 		res = []interface{}{object.OTCertInfo, int(co.Type), int(co.Usage), int(co.HashAlgo), co.Data}
 	case object.OTServiceInfo:
@@ -407,38 +407,38 @@ func pubkeyToCBORBytes(p keys.PublicKey) []byte {
 }
 
 //AllSigs returns all assertion's signatures
-func (a *AssertionSection) AllSigs() []signature.Signature {
+func (a *Assertion) AllSigs() []signature.Sig {
 	return a.Signatures
 }
 
 //Sigs returns a's signatures in keyspace
-func (a *AssertionSection) Sigs(keySpace keys.KeySpaceID) []signature.Signature {
+func (a *Assertion) Sigs(keySpace keys.KeySpaceID) []signature.Sig {
 	return filterSigs(a.Signatures, keySpace)
 }
 
 //AddSig adds the given signature
-func (a *AssertionSection) AddSig(sig signature.Signature) {
+func (a *Assertion) AddSig(sig signature.Sig) {
 	a.Signatures = append(a.Signatures, sig)
 }
 
 //DeleteSig deletes ith signature
-func (a *AssertionSection) DeleteSig(i int) {
+func (a *Assertion) DeleteSig(i int) {
 	a.Signatures = append(a.Signatures[:i], a.Signatures[i+1:]...)
 }
 
 //GetContext returns the context of the assertion
-func (a *AssertionSection) GetContext() string {
+func (a *Assertion) GetContext() string {
 	return a.Context
 }
 
 //GetSubjectZone returns the zone of the assertion
-func (a *AssertionSection) GetSubjectZone() string {
+func (a *Assertion) GetSubjectZone() string {
 	return a.SubjectZone
 }
 
 //Copy creates a copy of the assertion with the given context and subjectZone values
-func (a *AssertionSection) Copy(context, subjectZone string) *AssertionSection {
-	stub := &AssertionSection{}
+func (a *Assertion) Copy(context, subjectZone string) *Assertion {
+	stub := &Assertion{}
 	*stub = *a
 	stub.Context = context
 	stub.SubjectZone = subjectZone
@@ -446,18 +446,18 @@ func (a *AssertionSection) Copy(context, subjectZone string) *AssertionSection {
 }
 
 //Begin returns the begining of the interval of this assertion.
-func (a *AssertionSection) Begin() string {
+func (a *Assertion) Begin() string {
 	return a.SubjectName
 }
 
 //End returns the end of the interval of this assertion.
-func (a *AssertionSection) End() string {
+func (a *Assertion) End() string {
 	return a.SubjectName
 }
 
 //UpdateValidity updates the validity of this assertion if the validity period is extended.
 //It makes sure that the validity is never larger than maxValidity
-func (a *AssertionSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+func (a *Assertion) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
 	if a.validSince == 0 {
 		a.validSince = math.MaxInt64
 	}
@@ -482,17 +482,17 @@ func (a *AssertionSection) UpdateValidity(validSince, validUntil int64, maxValid
 }
 
 //ValidSince returns the earliest validSince date of all contained signatures
-func (a *AssertionSection) ValidSince() int64 {
+func (a *Assertion) ValidSince() int64 {
 	return a.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
-func (a *AssertionSection) ValidUntil() int64 {
+func (a *Assertion) ValidUntil() int64 {
 	return a.validUntil
 }
 
 //Hash returns a string containing all information uniquely identifying an assertion.
-func (a *AssertionSection) Hash() string {
+func (a *Assertion) Hash() string {
 	if a == nil {
 		return "A_nil"
 	}
@@ -502,7 +502,7 @@ func (a *AssertionSection) Hash() string {
 
 //EqualContextZoneName return true if the given assertion has the same context, subjectZone,
 //subjectName.
-func (a *AssertionSection) EqualContextZoneName(assertion *AssertionSection) bool {
+func (a *Assertion) EqualContextZoneName(assertion *Assertion) bool {
 	if assertion == nil {
 		return false
 	}
@@ -512,7 +512,7 @@ func (a *AssertionSection) EqualContextZoneName(assertion *AssertionSection) boo
 }
 
 //Sort sorts the content of the assertion lexicographically.
-func (a *AssertionSection) Sort() {
+func (a *Assertion) Sort() {
 	for _, o := range a.Content {
 		o.Sort()
 	}
@@ -521,7 +521,7 @@ func (a *AssertionSection) Sort() {
 
 //CompareTo compares two assertions and returns 0 if they are equal, 1 if a is greater than
 //assertion and -1 if a is smaller than assertion
-func (a *AssertionSection) CompareTo(assertion *AssertionSection) int {
+func (a *Assertion) CompareTo(assertion *Assertion) int {
 	if a.SubjectName < assertion.SubjectName {
 		return -1
 	} else if a.SubjectName > assertion.SubjectName {
@@ -548,7 +548,7 @@ func (a *AssertionSection) CompareTo(assertion *AssertionSection) int {
 }
 
 //String implements Stringer interface
-func (a *AssertionSection) String() string {
+func (a *Assertion) String() string {
 	if a == nil {
 		return "Assertion:nil"
 	}
@@ -557,45 +557,45 @@ func (a *AssertionSection) String() string {
 }
 
 //IsConsistent returns true. Assertion is always consistent.
-func (a *AssertionSection) IsConsistent() bool {
+func (a *Assertion) IsConsistent() bool {
 	return true
 }
 
 //NeededKeys adds to keysNeeded key meta data which is necessary to verify all a's signatures.
-func (a *AssertionSection) NeededKeys(keysNeeded map[signature.SignatureMetaData]bool) {
+func (a *Assertion) NeededKeys(keysNeeded map[signature.MetaData]bool) {
 	extractNeededKeys(a, keysNeeded)
 }
 
 //extractNeededKeys adds all key metadata to sigData which are necessary to verify all section's
 //signatures.
-func extractNeededKeys(section MessageSectionWithSig, sigData map[signature.SignatureMetaData]bool) {
+func extractNeededKeys(section SecWithSig, sigData map[signature.MetaData]bool) {
 	for _, sig := range section.Sigs(keys.RainsKeySpace) {
-		sigData[sig.GetSignatureMetaData()] = true
+		sigData[sig.MetaData()] = true
 	}
 }
 
 //BloomFilterEncoding returns a string encoding of the assertion to add to or query a bloom filter
-func (a *AssertionSection) BloomFilterEncoding() string {
+func (a *Assertion) BloomFilterEncoding() string {
 	return fmt.Sprintf("%s.%s %s %d", a.SubjectName, a.SubjectZone, a.Context, a.Content[0].Type)
 }
 
-//ShardSection contains information about the shard
-type ShardSection struct {
-	Signatures  []signature.Signature
+//Shard contains information about the shard
+type Shard struct {
+	Signatures  []signature.Sig
 	SubjectZone string
 	Context     string
 	RangeFrom   string
 	RangeTo     string
-	Content     []*AssertionSection
+	Content     []*Assertion
 	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
-// UnmarshalMap converts a CBOR decoded map to this ShardSection.
-func (s *ShardSection) UnmarshalMap(m map[int]interface{}) error {
-	s.Signatures = make([]signature.Signature, 0)
+// UnmarshalMap converts a CBOR decoded map to this Shard.
+func (s *Shard) UnmarshalMap(m map[int]interface{}) error {
+	s.Signatures = make([]signature.Sig, 0)
 	if sigs, ok := m[0]; ok {
-		s.Signatures = make([]signature.Signature, len(sigs.([]interface{})))
+		s.Signatures = make([]signature.Sig, len(sigs.([]interface{})))
 		for i, sig := range sigs.([]interface{}) {
 			if err := s.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
 				return err
@@ -618,9 +618,9 @@ func (s *ShardSection) UnmarshalMap(m map[int]interface{}) error {
 	}
 	// Content
 	if cont, ok := m[7]; ok {
-		s.Content = make([]*AssertionSection, 0)
+		s.Content = make([]*Assertion, 0)
 		for _, obj := range cont.([]interface{}) {
-			as := &AssertionSection{}
+			as := &Assertion{}
 			as.UnmarshalMap(obj.(map[int]interface{}))
 			s.Content = append(s.Content, as)
 		}
@@ -629,8 +629,8 @@ func (s *ShardSection) UnmarshalMap(m map[int]interface{}) error {
 }
 
 // MarshalCBOR implements the CBORMarshaler interface.
-func (s *ShardSection) MarshalCBOR(w *borat.CBORWriter) error {
-	fmt.Printf("Called MarshalCBOR on ShardSection")
+func (s *Shard) MarshalCBOR(w *borat.CBORWriter) error {
+	fmt.Printf("Called MarshalCBOR on Shard")
 	m := make(map[int]interface{})
 	if len(s.Signatures) > 0 {
 		m[0] = s.Signatures
@@ -648,39 +648,39 @@ func (s *ShardSection) MarshalCBOR(w *borat.CBORWriter) error {
 }
 
 //AllSigs returns the shard's signatures
-func (s *ShardSection) AllSigs() []signature.Signature {
+func (s *Shard) AllSigs() []signature.Sig {
 	return s.Signatures
 }
 
 //Sigs returns s's signatures in keyspace
-func (s *ShardSection) Sigs(keySpace keys.KeySpaceID) []signature.Signature {
+func (s *Shard) Sigs(keySpace keys.KeySpaceID) []signature.Sig {
 	return filterSigs(s.Signatures, keySpace)
 }
 
 //AddSig adds the given signature
-func (s *ShardSection) AddSig(sig signature.Signature) {
+func (s *Shard) AddSig(sig signature.Sig) {
 	s.Signatures = append(s.Signatures, sig)
 }
 
 //DeleteSig deletes ith signature
-func (s *ShardSection) DeleteSig(i int) {
+func (s *Shard) DeleteSig(i int) {
 	s.Signatures = append(s.Signatures[:i], s.Signatures[i+1:]...)
 }
 
 //GetContext returns the context of the shard
-func (s *ShardSection) GetContext() string {
+func (s *Shard) GetContext() string {
 	return s.Context
 }
 
 //GetSubjectZone returns the zone of the shard
-func (s *ShardSection) GetSubjectZone() string {
+func (s *Shard) GetSubjectZone() string {
 	return s.SubjectZone
 }
 
 //Copy creates a copy of the shard with the given context and subjectZone values. The contained
 //assertions are not modified
-func (s *ShardSection) Copy(context, subjectZone string) *ShardSection {
-	stub := &ShardSection{}
+func (s *Shard) Copy(context, subjectZone string) *Shard {
+	stub := &Shard{}
 	*stub = *s
 	stub.Context = context
 	stub.SubjectZone = subjectZone
@@ -688,18 +688,18 @@ func (s *ShardSection) Copy(context, subjectZone string) *ShardSection {
 }
 
 //Begin returns the begining of the interval of this shard.
-func (s *ShardSection) Begin() string {
+func (s *Shard) Begin() string {
 	return s.RangeFrom
 }
 
 //End returns the end of the interval of this shard.
-func (s *ShardSection) End() string {
+func (s *Shard) End() string {
 	return s.RangeTo
 }
 
 //UpdateValidity updates the validity of this shard if the validity period is extended.
 //It makes sure that the validity is never larger than maxValidity
-func (s *ShardSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+func (s *Shard) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
 	if s.validSince == 0 {
 		s.validSince = math.MaxInt64
 	}
@@ -724,17 +724,17 @@ func (s *ShardSection) UpdateValidity(validSince, validUntil int64, maxValidity 
 }
 
 //ValidSince returns the earliest validSince date of all contained signatures
-func (s *ShardSection) ValidSince() int64 {
+func (s *Shard) ValidSince() int64 {
 	return s.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
-func (s *ShardSection) ValidUntil() int64 {
+func (s *Shard) ValidUntil() int64 {
 	return s.validUntil
 }
 
 //Hash returns a string containing all information uniquely identifying a shard.
-func (s *ShardSection) Hash() string {
+func (s *Shard) Hash() string {
 	if s == nil {
 		return "S_nil"
 	}
@@ -747,7 +747,7 @@ func (s *ShardSection) Hash() string {
 }
 
 //Sort sorts the content of the shard lexicographically.
-func (s *ShardSection) Sort() {
+func (s *Shard) Sort() {
 	for _, a := range s.Content {
 		a.Sort()
 	}
@@ -756,7 +756,7 @@ func (s *ShardSection) Sort() {
 
 //CompareTo compares two shards and returns 0 if they are equal, 1 if s is greater than shard and -1
 //if s is smaller than shard
-func (s *ShardSection) CompareTo(shard *ShardSection) int {
+func (s *Shard) CompareTo(shard *Shard) int {
 	if s.SubjectZone < shard.SubjectZone {
 		return -1
 	} else if s.SubjectZone > shard.SubjectZone {
@@ -787,7 +787,7 @@ func (s *ShardSection) CompareTo(shard *ShardSection) int {
 }
 
 //String implements Stringer interface
-func (s *ShardSection) String() string {
+func (s *Shard) String() string {
 	if s == nil {
 		return "Shard:nil"
 	}
@@ -798,8 +798,8 @@ func (s *ShardSection) String() string {
 //AssertionsByNameAndTypes returns all contained assertions with subjectName and at least one object
 //that has a type contained in connection. It is assumed that the contained assertions are sorted by
 //subjectName in ascending order. The returned assertions are pairwise distinct.
-func (s *ShardSection) AssertionsByNameAndTypes(subjectName string, types []object.ObjectType) []*AssertionSection {
-	assertionMap := make(map[string]*AssertionSection)
+func (s *Shard) AssertionsByNameAndTypes(subjectName string, types []object.Type) []*Assertion {
+	assertionMap := make(map[string]*Assertion)
 	i := sort.Search(len(s.Content), func(i int) bool { return s.Content[i].SubjectName >= subjectName })
 	for ; i < len(s.Content) && s.Content[i].SubjectName == subjectName; i++ {
 		for _, oType := range types {
@@ -809,7 +809,7 @@ func (s *ShardSection) AssertionsByNameAndTypes(subjectName string, types []obje
 			}
 		}
 	}
-	var assertions []*AssertionSection
+	var assertions []*Assertion
 	for _, a := range assertionMap {
 		assertions = append(assertions, a)
 	}
@@ -817,7 +817,7 @@ func (s *ShardSection) AssertionsByNameAndTypes(subjectName string, types []obje
 }
 
 //InRange returns true if subjectName is inside the shard range
-func (s *ShardSection) InRange(subjectName string) bool {
+func (s *Shard) InRange(subjectName string) bool {
 	return (s.RangeFrom == "" && s.RangeTo == "") || (s.RangeFrom == "" && s.RangeTo > subjectName) ||
 		(s.RangeTo == "" && s.RangeFrom < subjectName) ||
 		(s.RangeFrom < subjectName && s.RangeTo > subjectName)
@@ -825,7 +825,7 @@ func (s *ShardSection) InRange(subjectName string) bool {
 
 //AddZoneAndContextToAssertions adds the shard's subjectZone and context value to all contained
 //assertions
-func (s *ShardSection) AddZoneAndContextToAssertions() {
+func (s *Shard) AddZoneAndContextToAssertions() {
 	for _, a := range s.Content {
 		a.SubjectZone = s.SubjectZone
 		a.Context = s.Context
@@ -834,7 +834,7 @@ func (s *ShardSection) AddZoneAndContextToAssertions() {
 
 //IsConsistent returns true if all contained assertions have no subjectZone and context and are
 //within the shards range.
-func (s *ShardSection) IsConsistent() bool {
+func (s *Shard) IsConsistent() bool {
 	for _, a := range s.Content {
 		if sectionHasContextOrSubjectZone(a) {
 			log.Warn("Contained assertion has a subjectZone or context", "assertion", a)
@@ -851,12 +851,12 @@ func (s *ShardSection) IsConsistent() bool {
 
 //sectionHasContextOrSubjectZone returns false if the section's subjectZone and context are both the
 //empty string
-func sectionHasContextOrSubjectZone(section MessageSectionWithSig) bool {
+func sectionHasContextOrSubjectZone(section SecWithSig) bool {
 	return section.GetSubjectZone() != "" || section.GetContext() != ""
 }
 
 //NeededKeys adds to keysNeeded key meta data which is necessary to verify all s's signatures.
-func (s *ShardSection) NeededKeys(keysNeeded map[signature.SignatureMetaData]bool) {
+func (s *Shard) NeededKeys(keysNeeded map[signature.MetaData]bool) {
 	extractNeededKeys(s, keysNeeded)
 	for _, a := range s.Content {
 		a.NeededKeys(keysNeeded)
@@ -864,8 +864,8 @@ func (s *ShardSection) NeededKeys(keysNeeded map[signature.SignatureMetaData]boo
 }
 
 //Pshard contains information about a pshard
-type PshardSection struct {
-	Signatures    []signature.Signature
+type Pshard struct {
+	Signatures    []signature.Sig
 	SubjectZone   string
 	Context       string
 	RangeFrom     string
@@ -876,48 +876,48 @@ type PshardSection struct {
 }
 
 //AllSigs returns the pshard's signatures
-func (s *PshardSection) AllSigs() []signature.Signature {
+func (s *Pshard) AllSigs() []signature.Sig {
 	return s.Signatures
 }
 
 //Sigs returns s's signatures in keyspace
-func (s *PshardSection) Sigs(keySpace keys.KeySpaceID) []signature.Signature {
+func (s *Pshard) Sigs(keySpace keys.KeySpaceID) []signature.Sig {
 	return filterSigs(s.Signatures, keySpace)
 }
 
 //AddSig adds the given signature
-func (s *PshardSection) AddSig(sig signature.Signature) {
+func (s *Pshard) AddSig(sig signature.Sig) {
 	s.Signatures = append(s.Signatures, sig)
 }
 
 //DeleteSig deletes ith signature
-func (s *PshardSection) DeleteSig(i int) {
+func (s *Pshard) DeleteSig(i int) {
 	s.Signatures = append(s.Signatures[:i], s.Signatures[i+1:]...)
 }
 
 //GetContext returns the context of the pshard
-func (s *PshardSection) GetContext() string {
+func (s *Pshard) GetContext() string {
 	return s.Context
 }
 
 //GetSubjectZone returns the zone of the pshard
-func (s *PshardSection) GetSubjectZone() string {
+func (s *Pshard) GetSubjectZone() string {
 	return s.SubjectZone
 }
 
 //Begin returns the begining of the interval of this pshard.
-func (s *PshardSection) Begin() string {
+func (s *Pshard) Begin() string {
 	return s.RangeFrom
 }
 
 //End returns the end of the interval of this pshard.
-func (s *PshardSection) End() string {
+func (s *Pshard) End() string {
 	return s.RangeTo
 }
 
 //UpdateValidity updates the validity of this pshard if the validity period is extended.
 //It makes sure that the validity is never larger than maxValidity
-func (s *PshardSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+func (s *Pshard) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
 	if s.validSince == 0 {
 		s.validSince = math.MaxInt64
 	}
@@ -942,17 +942,17 @@ func (s *PshardSection) UpdateValidity(validSince, validUntil int64, maxValidity
 }
 
 //ValidSince returns the earliest validSince date of all contained signatures
-func (s *PshardSection) ValidSince() int64 {
+func (s *Pshard) ValidSince() int64 {
 	return s.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
-func (s *PshardSection) ValidUntil() int64 {
+func (s *Pshard) ValidUntil() int64 {
 	return s.validUntil
 }
 
 //Hash returns a string containing all information uniquely identifying a pshard.
-func (s *PshardSection) Hash() string {
+func (s *Pshard) Hash() string {
 	if s == nil {
 		return "S_nil"
 	}
@@ -961,13 +961,13 @@ func (s *PshardSection) Hash() string {
 }
 
 //Sort sorts the content of the pshard lexicographically.
-func (s *PshardSection) Sort() {
+func (s *Pshard) Sort() {
 	//nothing to sort
 }
 
 //CompareTo compares two shards and returns 0 if they are equal, 1 if s is greater than shard and -1
 //if s is smaller than shard
-func (s *PshardSection) CompareTo(shard *PshardSection) int {
+func (s *Pshard) CompareTo(shard *Pshard) int {
 	if s.SubjectZone < shard.SubjectZone {
 		return -1
 	} else if s.SubjectZone > shard.SubjectZone {
@@ -990,7 +990,7 @@ func (s *PshardSection) CompareTo(shard *PshardSection) int {
 }
 
 //String implements Stringer interface
-func (s *PshardSection) String() string {
+func (s *Pshard) String() string {
 	if s == nil {
 		return "Shard:nil"
 	}
@@ -999,7 +999,7 @@ func (s *PshardSection) String() string {
 }
 
 //InRange returns true if subjectName is inside the shard range
-func (s *PshardSection) InRange(subjectName string) bool {
+func (s *Pshard) InRange(subjectName string) bool {
 	return (s.RangeFrom == "" && s.RangeTo == "") || (s.RangeFrom == "" && s.RangeTo > subjectName) ||
 		(s.RangeTo == "" && s.RangeFrom < subjectName) ||
 		(s.RangeFrom < subjectName && s.RangeTo > subjectName)
@@ -1007,75 +1007,75 @@ func (s *PshardSection) InRange(subjectName string) bool {
 
 //IsConsistent returns true if all contained assertions have no subjectZone and context and are
 //within the shards range.
-func (s *PshardSection) IsConsistent() bool {
+func (s *Pshard) IsConsistent() bool {
 	return true
 }
 
 //NeededKeys adds to keysNeeded key meta data which is necessary to verify all s's signatures.
-func (s *PshardSection) NeededKeys(keysNeeded map[signature.SignatureMetaData]bool) {
+func (s *Pshard) NeededKeys(keysNeeded map[signature.MetaData]bool) {
 	extractNeededKeys(s, keysNeeded)
 }
 
-//ZoneSection contains information about the zone
-type ZoneSection struct {
-	Signatures  []signature.Signature
+//Zone contains information about the zone
+type Zone struct {
+	Signatures  []signature.Sig
 	SubjectZone string
 	Context     string
-	Content     []MessageSectionWithSigForward
+	Content     []SecWithSigForward
 	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
 
 // UnmarshalMap decodes the output from the CBOR decoder into this struct.
-func (z *ZoneSection) UnmarshalMap(m map[int]interface{}) error {
+func (z *Zone) UnmarshalMap(m map[int]interface{}) error {
 	if sigs, ok := m[0]; ok {
-		z.Signatures = make([]signature.Signature, len(sigs.([]interface{})))
+		z.Signatures = make([]signature.Sig, len(sigs.([]interface{})))
 		for i, sig := range sigs.([]interface{}) {
 			if err := z.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
 				return err
 			}
 		}
 	} else {
-		return fmt.Errorf("missing signatures from ZoneSection")
+		return fmt.Errorf("missing signatures from Zone")
 	}
 	if sz, ok := m[4]; ok {
 		z.SubjectZone = sz.(string)
 	} else {
-		return fmt.Errorf("missing SubjectZone from ZoneSection")
+		return fmt.Errorf("missing SubjectZone from Zone")
 	}
 	if ctx, ok := m[6]; ok {
 		z.Context = ctx.(string)
 	} else {
-		return fmt.Errorf("missing Context from ZoneSection")
+		return fmt.Errorf("missing Context from Zone")
 	}
 	// Content is an array of ShardSections and / or AssertionSections.
 	if content, ok := m[23]; ok {
-		z.Content = make([]MessageSectionWithSigForward, 0)
+		z.Content = make([]SecWithSigForward, 0)
 		for _, item := range content.([]interface{}) {
 			m := item.(map[int]interface{})
 			if _, ok := m[11]; ok {
-				// ShardSection.
-				ss := &ShardSection{}
+				// Shard.
+				ss := &Shard{}
 				if err := ss.UnmarshalMap(m); err != nil {
-					return fmt.Errorf("failed to unmarshal ShardSection map in ZoneSection: %v", err)
+					return fmt.Errorf("failed to unmarshal Shard map in Zone: %v", err)
 				}
 				z.Content = append(z.Content, ss)
 			} else {
-				// AssertionSection.
-				as := &AssertionSection{}
+				// Assertion.
+				as := &Assertion{}
 				if err := as.UnmarshalMap(m); err != nil {
-					return fmt.Errorf("failed to unmarshal AssertionSection map in ZoneSection: %v", err)
+					return fmt.Errorf("failed to unmarshal Assertion map in Zone: %v", err)
 				}
 				z.Content = append(z.Content, as)
 			}
 		}
 	} else {
-		return fmt.Errorf("missing content for ZoneSection")
+		return fmt.Errorf("missing content for Zone")
 	}
 	return nil
 }
 
-func (z *ZoneSection) MarshalCBOR(w *borat.CBORWriter) error {
+func (z *Zone) MarshalCBOR(w *borat.CBORWriter) error {
 	m := make(map[int]interface{})
 	m[23] = z.Content
 	m[0] = z.Signatures
@@ -1085,48 +1085,48 @@ func (z *ZoneSection) MarshalCBOR(w *borat.CBORWriter) error {
 }
 
 //AllSigs returns the zone's signatures
-func (z *ZoneSection) AllSigs() []signature.Signature {
+func (z *Zone) AllSigs() []signature.Sig {
 	return z.Signatures
 }
 
 //Sigs returns z's signatures in keyspace
-func (z *ZoneSection) Sigs(keySpace keys.KeySpaceID) []signature.Signature {
+func (z *Zone) Sigs(keySpace keys.KeySpaceID) []signature.Sig {
 	return filterSigs(z.Signatures, keySpace)
 }
 
 //AddSig adds the given signature
-func (z *ZoneSection) AddSig(sig signature.Signature) {
+func (z *Zone) AddSig(sig signature.Sig) {
 	z.Signatures = append(z.Signatures, sig)
 }
 
 //DeleteSig deletes ith signature
-func (z *ZoneSection) DeleteSig(i int) {
+func (z *Zone) DeleteSig(i int) {
 	z.Signatures = append(z.Signatures[:i], z.Signatures[i+1:]...)
 }
 
 //GetContext returns the context of the zone
-func (z *ZoneSection) GetContext() string {
+func (z *Zone) GetContext() string {
 	return z.Context
 }
 
 //GetSubjectZone returns the zone of the zone
-func (z *ZoneSection) GetSubjectZone() string {
+func (z *Zone) GetSubjectZone() string {
 	return z.SubjectZone
 }
 
 //Begin returns the begining of the interval of this zone.
-func (z *ZoneSection) Begin() string {
+func (z *Zone) Begin() string {
 	return ""
 }
 
 //End returns the end of the interval of this zone.
-func (z *ZoneSection) End() string {
+func (z *Zone) End() string {
 	return ""
 }
 
 //UpdateValidity updates the validity of this zone if the validity period is extended.
 //It makes sure that the validity is never larger than maxValidity
-func (z *ZoneSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+func (z *Zone) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
 	if z.validSince == 0 {
 		z.validSince = math.MaxInt64
 	}
@@ -1151,24 +1151,24 @@ func (z *ZoneSection) UpdateValidity(validSince, validUntil int64, maxValidity t
 }
 
 //ValidSince returns the earliest validSince date of all contained signatures
-func (z *ZoneSection) ValidSince() int64 {
+func (z *Zone) ValidSince() int64 {
 	return z.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
-func (z *ZoneSection) ValidUntil() int64 {
+func (z *Zone) ValidUntil() int64 {
 	return z.validUntil
 }
 
 //Hash returns a string containing all information uniquely identifying a shard.
-func (z *ZoneSection) Hash() string {
+func (z *Zone) Hash() string {
 	if z == nil {
 		return "Z_nil"
 	}
 	contentHashes := []string{}
 	for _, v := range z.Content {
 		switch v := v.(type) {
-		case *AssertionSection, *ShardSection:
+		case *Assertion, *Shard:
 			contentHashes = append(contentHashes, v.Hash())
 		default:
 			log.Warn(fmt.Sprintf("not supported zone section content, must be assertion or shard, got %T", v))
@@ -1180,27 +1180,27 @@ func (z *ZoneSection) Hash() string {
 }
 
 //Sort sorts the content of the zone lexicographically.
-func (z *ZoneSection) Sort() {
+func (z *Zone) Sort() {
 	for _, s := range z.Content {
 		s.Sort()
 	}
 	sort.Slice(z.Content, func(i, j int) bool {
 		switch section := z.Content[i].(type) {
-		case *AssertionSection:
-			if a, ok := z.Content[j].(*AssertionSection); ok {
+		case *Assertion:
+			if a, ok := z.Content[j].(*Assertion); ok {
 				return section.CompareTo(a) < 0
 			}
 			return true
-		case *PshardSection:
-			if s, ok := z.Content[j].(*PshardSection); ok {
+		case *Pshard:
+			if s, ok := z.Content[j].(*Pshard); ok {
 				return section.CompareTo(s) < 0
 			}
-			if _, ok := z.Content[j].(*AssertionSection); ok {
+			if _, ok := z.Content[j].(*Assertion); ok {
 				return false
 			}
 			return true //it is a shard
-		case *ShardSection:
-			if s, ok := z.Content[j].(*ShardSection); ok {
+		case *Shard:
+			if s, ok := z.Content[j].(*Shard); ok {
 				return section.CompareTo(s) < 0
 			}
 			return false
@@ -1213,7 +1213,7 @@ func (z *ZoneSection) Sort() {
 
 //CompareTo compares two zones and returns 0 if they are equal, 1 if z is greater than zone and -1
 //if z is smaller than zone
-func (z *ZoneSection) CompareTo(zone *ZoneSection) int {
+func (z *Zone) CompareTo(zone *Zone) int {
 	if z.SubjectZone < zone.SubjectZone {
 		return -1
 	} else if z.SubjectZone > zone.SubjectZone {
@@ -1229,16 +1229,16 @@ func (z *ZoneSection) CompareTo(zone *ZoneSection) int {
 	}
 	for i, section := range z.Content {
 		switch section := section.(type) {
-		case *AssertionSection:
-			if a, ok := zone.Content[i].(*AssertionSection); ok {
+		case *Assertion:
+			if a, ok := zone.Content[i].(*Assertion); ok {
 				if section.CompareTo(a) != 0 {
 					return section.CompareTo(a)
 				}
 			} else {
 				return -1
 			}
-		case *ShardSection:
-			if s, ok := zone.Content[i].(*ShardSection); ok {
+		case *Shard:
+			if s, ok := zone.Content[i].(*Shard); ok {
 				if section.CompareTo(s) != 0 {
 					return section.CompareTo(s)
 				}
@@ -1253,7 +1253,7 @@ func (z *ZoneSection) CompareTo(zone *ZoneSection) int {
 }
 
 //String implements Stringer interface
-func (z *ZoneSection) String() string {
+func (z *Zone) String() string {
 	if z == nil {
 		return "Zone:nil"
 	}
@@ -1265,20 +1265,20 @@ func (z *ZoneSection) String() string {
 //that has a type contained in connection together with all contained shards having subjectName in their
 //range. It is assumed that the contained sections are sorted as for signing. The returned
 //assertions and shards are pairwise distinct.
-func (z *ZoneSection) SectionsByNameAndTypes(subjectName string, types []object.ObjectType) (
-	[]*AssertionSection, []*ShardSection) {
-	assertionMap := make(map[string]*AssertionSection)
-	shardMap := make(map[string]*ShardSection)
+func (z *Zone) SectionsByNameAndTypes(subjectName string, types []object.Type) (
+	[]*Assertion, []*Shard) {
+	assertionMap := make(map[string]*Assertion)
+	shardMap := make(map[string]*Shard)
 
 	//extract assertions matching subjectName
 	i := sort.Search(len(z.Content), func(i int) bool {
-		if a, ok := z.Content[i].(*AssertionSection); ok {
+		if a, ok := z.Content[i].(*Assertion); ok {
 			return a.SubjectName >= subjectName
 		}
 		return true
 	})
 	for ; i < len(z.Content); i++ {
-		if a, ok := z.Content[i].(*AssertionSection); ok && a.SubjectName == subjectName {
+		if a, ok := z.Content[i].(*Assertion); ok && a.SubjectName == subjectName {
 			for _, oType := range types {
 				if _, ok := object.ContainsType(a.Content, oType); ok {
 					assertionMap[a.Hash()] = a
@@ -1293,11 +1293,11 @@ func (z *ZoneSection) SectionsByNameAndTypes(subjectName string, types []object.
 	//extract assertions contained in shards matching subjectName and shards having subjectName in
 	//their range.
 	i = sort.Search(len(z.Content), func(i int) bool {
-		_, ok := z.Content[i].(*ShardSection)
+		_, ok := z.Content[i].(*Shard)
 		return ok
 	})
 	for ; i < len(z.Content); i++ {
-		if s, ok := z.Content[i].(*ShardSection); ok && s.RangeFrom < subjectName {
+		if s, ok := z.Content[i].(*Shard); ok && s.RangeFrom < subjectName {
 			if s.RangeTo == "" || s.RangeTo > subjectName {
 				shardMap[s.Hash()] = s
 				answers := s.AssertionsByNameAndTypes(subjectName, types)
@@ -1310,11 +1310,11 @@ func (z *ZoneSection) SectionsByNameAndTypes(subjectName string, types []object.
 		}
 	}
 
-	var assertions []*AssertionSection
+	var assertions []*Assertion
 	for _, a := range assertionMap {
 		assertions = append(assertions, a)
 	}
-	var shards []*ShardSection
+	var shards []*Shard
 	for _, s := range shardMap {
 		shards = append(shards, s)
 	}
@@ -1323,13 +1323,13 @@ func (z *ZoneSection) SectionsByNameAndTypes(subjectName string, types []object.
 
 //AddZoneAndContextToSections adds the zone's subjectZone and context value to all contained
 //assertions and shards
-func (z *ZoneSection) AddZoneAndContextToSections() {
+func (z *Zone) AddZoneAndContextToSections() {
 	for _, sec := range z.Content {
 		switch sec := sec.(type) {
-		case *AssertionSection:
+		case *Assertion:
 			sec.SubjectZone = z.SubjectZone
 			sec.Context = z.Context
-		case *ShardSection:
+		case *Shard:
 			sec.SubjectZone = z.SubjectZone
 			sec.Context = z.Context
 			for _, a := range sec.Content {
@@ -1343,13 +1343,13 @@ func (z *ZoneSection) AddZoneAndContextToSections() {
 }
 
 //IsConsistent returns true if all contained assertions and shards are consistent
-func (z *ZoneSection) IsConsistent() bool {
+func (z *Zone) IsConsistent() bool {
 	for _, section := range z.Content {
 		if sectionHasContextOrSubjectZone(section) {
 			log.Warn("Contained section has a subjectZone or context", "section", section)
 			return false
 		}
-		if shard := section.(*ShardSection); !shard.IsConsistent() {
+		if shard := section.(*Shard); !shard.IsConsistent() {
 			return false //already logged
 		}
 	}
@@ -1357,30 +1357,30 @@ func (z *ZoneSection) IsConsistent() bool {
 }
 
 //NeededKeys adds to keysNeeded key meta data which is necessary to verify all z's signatures.
-func (z *ZoneSection) NeededKeys(keysNeeded map[signature.SignatureMetaData]bool) {
+func (z *Zone) NeededKeys(keysNeeded map[signature.MetaData]bool) {
 	extractNeededKeys(z, keysNeeded)
 	for _, section := range z.Content {
 		section.NeededKeys(keysNeeded)
 	}
 }
 
-//QuerySection contains information about the query
-type QuerySection struct {
+//QueryForward contains information about the query
+type QueryForward struct {
 	Context    string
 	Name       string
-	Types      []object.ObjectType
+	Types      []object.Type
 	Expiration int64 //unix seconds
 	Options    []QueryOption
 }
 
 // UnmarshalMap unpacks a CBOR marshaled map to this struct.
-func (q *QuerySection) UnmarshalMap(m map[int]interface{}) error {
+func (q *QueryForward) UnmarshalMap(m map[int]interface{}) error {
 	q.Name = m[8].(string)
 	q.Context = m[6].(string)
-	q.Types = make([]object.ObjectType, 0)
+	q.Types = make([]object.Type, 0)
 	if types, ok := m[10]; ok {
 		for _, qt := range types.([]interface{}) {
-			q.Types = append(q.Types, object.ObjectType(qt.(uint64)))
+			q.Types = append(q.Types, object.Type(qt.(uint64)))
 		}
 	}
 	q.Expiration = int64(m[12].(uint64))
@@ -1394,7 +1394,7 @@ func (q *QuerySection) UnmarshalMap(m map[int]interface{}) error {
 }
 
 // MarshalCBOR implements the CBORMarshaler interface.
-func (q *QuerySection) MarshalCBOR(w *borat.CBORWriter) error {
+func (q *QueryForward) MarshalCBOR(w *borat.CBORWriter) error {
 	m := make(map[int]interface{})
 	m[8] = q.Name
 	m[6] = q.Context
@@ -1413,17 +1413,17 @@ func (q *QuerySection) MarshalCBOR(w *borat.CBORWriter) error {
 }
 
 //GetContext returns q's context
-func (q *QuerySection) GetContext() string {
+func (q *QueryForward) GetContext() string {
 	return q.Context
 }
 
 //GetExpiration returns q's expiration
-func (q *QuerySection) GetExpiration() int64 {
+func (q *QueryForward) GetExpiration() int64 {
 	return q.Expiration
 }
 
 //ContainsOption returns true if the query contains the given query option.
-func (q *QuerySection) ContainsOption(option QueryOption) bool {
+func (q *QueryForward) ContainsOption(option QueryOption) bool {
 	return containsOption(option, q.Options)
 }
 
@@ -1438,13 +1438,13 @@ func containsOption(option QueryOption, options []QueryOption) bool {
 }
 
 //Sort sorts the content of the query lexicographically.
-func (q *QuerySection) Sort() {
+func (q *QueryForward) Sort() {
 	sort.Slice(q.Options, func(i, j int) bool { return q.Options[i] < q.Options[j] })
 }
 
 //CompareTo compares two queries and returns 0 if they are equal, 1 if q is greater than query and
 //-1 if q is smaller than query
-func (q *QuerySection) CompareTo(query *QuerySection) int {
+func (q *QueryForward) CompareTo(query *QueryForward) int {
 	if q.Context < query.Context {
 		return -1
 	} else if q.Context > query.Context {
@@ -1485,7 +1485,7 @@ func (q *QuerySection) CompareTo(query *QuerySection) int {
 }
 
 //String implements Stringer interface
-func (q *QuerySection) String() string {
+func (q *QueryForward) String() string {
 	if q == nil {
 		return "Query:nil"
 	}
@@ -1493,16 +1493,16 @@ func (q *QuerySection) String() string {
 		q.Context, q.Name, q.Types, q.Expiration, q.Options)
 }
 
-type AssertionUpdateSection struct {
+type AssertionUpdate struct {
 	Name       string
-	HashType   algorithmTypes.HashAlgorithmType
+	HashType   algorithmTypes.Hash
 	HashValue  []byte
 	Expiration int64 //unix seconds
 	Options    []QueryOption
 }
 
 //String implements Stringer interface
-func (q *AssertionUpdateSection) String() string {
+func (q *AssertionUpdate) String() string {
 	if q == nil {
 		return "AssertionUpdateQuery:nil"
 	}
@@ -1510,18 +1510,18 @@ func (q *AssertionUpdateSection) String() string {
 		q.Name, q.HashType, hex.EncodeToString(q.HashValue), q.Expiration, q.Options)
 }
 
-type NonExistenceUpdateSection struct {
+type NegUpdate struct {
 	Context     string
 	Name        string
-	ObjectTypes []object.ObjectType
-	HashType    algorithmTypes.HashAlgorithmType
+	ObjectTypes []object.Type
+	HashType    algorithmTypes.Hash
 	HashValue   []byte
 	Expiration  int64 //unix seconds
 	Options     []QueryOption
 }
 
 //String implements Stringer interface
-func (q *NonExistenceUpdateSection) String() string {
+func (q *NegUpdate) String() string {
 	if q == nil {
 		return "AssertionUpdateQuery:nil"
 	}
@@ -1530,9 +1530,9 @@ func (q *NonExistenceUpdateSection) String() string {
 		q.Options)
 }
 
-//AddressAssertionSection contains information about the address assertion
-type AddressAssertionSection struct {
-	Signatures  []signature.Signature
+//AddrAssertion contains information about the address assertion
+type AddrAssertion struct {
+	Signatures  []signature.Sig
 	SubjectAddr *net.IPNet
 	Context     string
 	Content     []object.Object
@@ -1541,7 +1541,7 @@ type AddressAssertionSection struct {
 }
 
 // MarshalCBOR implements the CBORMarshaler interface.
-func (a *AddressAssertionSection) MarshalCBOR(w *borat.CBORWriter) error {
+func (a *AddrAssertion) MarshalCBOR(w *borat.CBORWriter) error {
 	m := make(map[int]interface{})
 	m[0] = a.Signatures
 	var af int
@@ -1570,38 +1570,38 @@ func (a *AddressAssertionSection) MarshalCBOR(w *borat.CBORWriter) error {
 }
 
 //AllSigs return the assertion's signatures
-func (a *AddressAssertionSection) AllSigs() []signature.Signature {
+func (a *AddrAssertion) AllSigs() []signature.Sig {
 	return a.Signatures
 }
 
 //Sigs returns a's signatures in keyspace
-func (a *AddressAssertionSection) Sigs(keySpace keys.KeySpaceID) []signature.Signature {
+func (a *AddrAssertion) Sigs(keySpace keys.KeySpaceID) []signature.Sig {
 	return filterSigs(a.Signatures, keySpace)
 }
 
 //AddSig adds the given signature
-func (a *AddressAssertionSection) AddSig(sig signature.Signature) {
+func (a *AddrAssertion) AddSig(sig signature.Sig) {
 	a.Signatures = append(a.Signatures, sig)
 }
 
 //DeleteSig deletes ith signature
-func (a *AddressAssertionSection) DeleteSig(i int) {
+func (a *AddrAssertion) DeleteSig(i int) {
 	a.Signatures = append(a.Signatures[:i], a.Signatures[i+1:]...)
 }
 
 //GetContext returns the context of the assertion
-func (a *AddressAssertionSection) GetContext() string {
+func (a *AddrAssertion) GetContext() string {
 	return a.Context
 }
 
 //GetSubjectZone returns the SubjectAddr
-func (a *AddressAssertionSection) GetSubjectZone() string {
+func (a *AddrAssertion) GetSubjectZone() string {
 	return a.SubjectAddr.String()
 }
 
 //UpdateValidity updates the validity of this assertion if the validity period is extended.
 //It makes sure that the validity is never larger than maxValidity
-func (a *AddressAssertionSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
+func (a *AddrAssertion) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
 	if a.validSince == 0 {
 		a.validSince = math.MaxInt64
 	}
@@ -1627,17 +1627,17 @@ func (a *AddressAssertionSection) UpdateValidity(validSince, validUntil int64, m
 }
 
 //ValidSince returns the earliest ValidSince date of all contained signatures
-func (a *AddressAssertionSection) ValidSince() int64 {
+func (a *AddrAssertion) ValidSince() int64 {
 	return a.validSince
 }
 
 //ValidUntil returns the latest validUntil date of all contained signatures
-func (a *AddressAssertionSection) ValidUntil() int64 {
+func (a *AddrAssertion) ValidUntil() int64 {
 	return a.validUntil
 }
 
 //Hash returns a string containing all information uniquely identifying an assertion.
-func (a *AddressAssertionSection) Hash() string {
+func (a *AddrAssertion) Hash() string {
 	if a == nil {
 		return "AA_nil"
 	}
@@ -1649,7 +1649,7 @@ func (a *AddressAssertionSection) Hash() string {
 }
 
 //Sort sorts the content of the addressAssertion lexicographically.
-func (a *AddressAssertionSection) Sort() {
+func (a *AddrAssertion) Sort() {
 	for _, o := range a.Content {
 		o.Sort()
 	}
@@ -1658,7 +1658,7 @@ func (a *AddressAssertionSection) Sort() {
 
 //CompareTo compares two addressAssertions and returns 0 if they are equal, 1 if a is greater than
 //assertion and -1 if a is smaller than assertion
-func (a *AddressAssertionSection) CompareTo(assertion *AddressAssertionSection) int {
+func (a *AddrAssertion) CompareTo(assertion *AddrAssertion) int {
 	if a.SubjectAddr.String() < assertion.SubjectAddr.String() {
 		return -1
 	} else if a.SubjectAddr.String() > assertion.SubjectAddr.String() {
@@ -1681,7 +1681,7 @@ func (a *AddressAssertionSection) CompareTo(assertion *AddressAssertionSection) 
 }
 
 //String implements Stringer interface
-func (a *AddressAssertionSection) String() string {
+func (a *AddrAssertion) String() string {
 	if a == nil {
 		return "AddressAssertion:nil"
 	}
@@ -1690,7 +1690,7 @@ func (a *AddressAssertionSection) String() string {
 }
 
 //IsConsistent returns false if the addressAssertion contains not allowed object connection
-func (a *AddressAssertionSection) IsConsistent() bool {
+func (a *AddrAssertion) IsConsistent() bool {
 	for _, o := range a.Content {
 		if invalidObjectType(a.SubjectAddr, o.Type) {
 			log.Warn("Not allowed object type for an address assertion.", "objectType", o.Type,
@@ -1702,7 +1702,7 @@ func (a *AddressAssertionSection) IsConsistent() bool {
 }
 
 //invalidObjectType returns true if the object type is not allowed for the given subjectAddr.
-func invalidObjectType(subjectAddr *net.IPNet, objectType object.ObjectType) bool {
+func invalidObjectType(subjectAddr *net.IPNet, objectType object.Type) bool {
 	prefixLength, addressLength := subjectAddr.Mask.Size()
 	if addressLength == 32 {
 		if prefixLength == 32 {
@@ -1721,209 +1721,42 @@ func invalidObjectType(subjectAddr *net.IPNet, objectType object.ObjectType) boo
 }
 
 //NeededKeys adds to keysNeeded key meta data which is necessary to verify all a's signatures.
-func (a *AddressAssertionSection) NeededKeys(keysNeeded map[signature.SignatureMetaData]bool) {
+func (a *AddrAssertion) NeededKeys(keysNeeded map[signature.MetaData]bool) {
 	extractNeededKeys(a, keysNeeded)
 }
 
-//AddressZoneSection contains information about the address zone
-type AddressZoneSection struct {
-	Signatures  []signature.Signature
+//AddrQuery contains information about the address query
+type AddrQuery struct {
 	SubjectAddr *net.IPNet
 	Context     string
-	Content     []*AddressAssertionSection
-	validSince  int64
-	validUntil  int64
-}
-
-//AllSigs return the zone's signatures
-func (z *AddressZoneSection) AllSigs() []signature.Signature {
-	return z.Signatures
-}
-
-//Sigs returns z's signatures in keyspace
-func (z *AddressZoneSection) Sigs(keySpace keys.KeySpaceID) []signature.Signature {
-	return filterSigs(z.Signatures, keySpace)
-}
-
-//AddSig adds the given signature
-func (z *AddressZoneSection) AddSig(sig signature.Signature) {
-	z.Signatures = append(z.Signatures, sig)
-}
-
-//DeleteSig deletes ith signature
-func (z *AddressZoneSection) DeleteSig(i int) {
-	z.Signatures = append(z.Signatures[:i], z.Signatures[i+1:]...)
-}
-
-//GetContext returns the context of the zone
-func (z *AddressZoneSection) GetContext() string {
-	return z.Context
-}
-
-//GetSubjectZone returns the SubjectAddr of the zone
-func (z *AddressZoneSection) GetSubjectZone() string {
-	return z.SubjectAddr.String()
-}
-
-//UpdateValidity updates the validity of this addressZone if the validity period is extended.
-//It makes sure that the validity is never larger than maxValidity
-func (z *AddressZoneSection) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
-	if z.validSince == 0 {
-		z.validSince = math.MaxInt64
-	}
-	if validSince < z.validSince {
-		if validSince > time.Now().Add(maxValidity).Unix() {
-			z.validSince = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", z.validSince,
-				"newValidSince", validSince, "maxValidity", maxValidity)
-		} else {
-			z.validSince = validSince
-		}
-	}
-	if validUntil > z.validUntil {
-		if validUntil > time.Now().Add(maxValidity).Unix() {
-			z.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", z.validSince,
-				"newValidSince", validSince, "maxValidity", maxValidity)
-		} else {
-			z.validUntil = validUntil
-		}
-	}
-}
-
-//ValidSince returns the earliest validSince date of all contained signatures
-func (z *AddressZoneSection) ValidSince() int64 {
-	return z.validSince
-}
-
-//ValidUntil returns the latest validUntil date of all contained signatures
-func (z *AddressZoneSection) ValidUntil() int64 {
-	return z.validUntil
-}
-
-//Hash returns a string containing all information uniquely identifying a shard.
-func (z *AddressZoneSection) Hash() string {
-	if z == nil {
-		return "AZ_nil"
-	}
-	contentHashes := []string{}
-	for _, a := range z.Content {
-		contentHashes = append(contentHashes, a.Hash())
-	}
-	return fmt.Sprintf("AZ_%s_%s_[%s]_%v",
-		z.SubjectAddr,
-		z.Context,
-		strings.Join(contentHashes, " "),
-		z.Signatures)
-}
-
-//Sort sorts the content of the addressZone lexicographically.
-func (z *AddressZoneSection) Sort() {
-	for _, a := range z.Content {
-		a.Sort()
-	}
-	sort.Slice(z.Content, func(i, j int) bool { return z.Content[i].CompareTo(z.Content[j]) < 0 })
-}
-
-//CompareTo compares two addressZones and returns 0 if they are equal, 1 if z is greater than zone
-//and -1 if z is smaller than zone
-func (z *AddressZoneSection) CompareTo(zone *AddressZoneSection) int {
-	if z.SubjectAddr.String() < zone.SubjectAddr.String() {
-		return -1
-	} else if z.SubjectAddr.String() > zone.SubjectAddr.String() {
-		return 1
-	} else if z.Context < zone.Context {
-		return -1
-	} else if z.Context > zone.Context {
-		return 1
-	} else if len(z.Content) < len(zone.Content) {
-		return -1
-	} else if len(z.Content) > len(zone.Content) {
-		return 1
-	}
-	for i, a := range z.Content {
-		if a.CompareTo(zone.Content[i]) != 0 {
-			return a.CompareTo(zone.Content[i])
-		}
-	}
-	return 0
-}
-
-//String implements Stringer interface
-func (z *AddressZoneSection) String() string {
-	if z == nil {
-		return "AddressZone:nil"
-	}
-	return fmt.Sprintf("AddressZone:[SA=%s CTX=%s CONTENT=%v SIG=%v]",
-		z.SubjectAddr, z.Context, z.Content, z.Signatures)
-}
-
-//IsConsistent returns true if all contained addressAssertions are consistent and within the
-//addressZone's subjectAddr
-func (z *AddressZoneSection) IsConsistent() bool {
-	//if addressZone needed use this function assertionAddrWithinZoneAddr()
-	log.Error("TODO CFE implement it if necessary")
-	return true
-}
-
-//assertionAddrWithinZoneAddr returns true if the assertion's subjectAddress is within the outer
-//zone's subjectAddress
-func assertionAddrWithinZoneAddr(assertionSubjectAddr, zoneSubejectAddr *net.IPNet) bool {
-	zprefix, _ := zoneSubejectAddr.Mask.Size()
-	aprefix, _ := assertionSubjectAddr.Mask.Size()
-	if aprefix < zprefix {
-		log.Warn("Assertion is less specific than zone", "assertion prefix", aprefix,
-			"zone prefix", zprefix)
-		return false
-	}
-	if !zoneSubejectAddr.Contains(assertionSubjectAddr.IP) {
-		log.Warn("Assertion network is not contained in zone network",
-			"assertion network", assertionSubjectAddr, "zone network", zoneSubejectAddr)
-		return false
-	}
-	return true
-}
-
-//NeededKeys adds to keysNeeded key meta data which is necessary to verify all z's signatures.
-func (z *AddressZoneSection) NeededKeys(keysNeeded map[signature.SignatureMetaData]bool) {
-	extractNeededKeys(z, keysNeeded)
-	for _, a := range z.Content {
-		a.NeededKeys(keysNeeded)
-	}
-}
-
-//AddressQuerySection contains information about the address query
-type AddressQuerySection struct {
-	SubjectAddr *net.IPNet
-	Context     string
-	Types       []object.ObjectType
+	Types       []object.Type
 	Expiration  int64 //Unix seconds
 	Options     []QueryOption
 }
 
 //GetContext returns q's context
-func (q *AddressQuerySection) GetContext() string {
+func (q *AddrQuery) GetContext() string {
 	return q.Context
 }
 
 //GetExpiration returns q's expiration
-func (q *AddressQuerySection) GetExpiration() int64 {
+func (q *AddrQuery) GetExpiration() int64 {
 	return q.Expiration
 }
 
 //ContainsOption returns true if the address query contains the given query option.
-func (q *AddressQuerySection) ContainsOption(option QueryOption) bool {
+func (q *AddrQuery) ContainsOption(option QueryOption) bool {
 	return containsOption(option, q.Options)
 }
 
 //Sort sorts the content of the addressQuery lexicographically.
-func (q *AddressQuerySection) Sort() {
+func (q *AddrQuery) Sort() {
 	sort.Slice(q.Options, func(i, j int) bool { return q.Options[i] < q.Options[j] })
 }
 
 //CompareTo compares two addressQueries and returns 0 if they are equal, 1 if q is greater than
 //query and -1 if q is smaller than query
-func (q *AddressQuerySection) CompareTo(query *AddressQuerySection) int {
+func (q *AddrQuery) CompareTo(query *AddrQuery) int {
 	if q.SubjectAddr.String() < query.SubjectAddr.String() {
 		return -1
 	} else if q.SubjectAddr.String() > query.SubjectAddr.String() {
@@ -1964,7 +1797,7 @@ func (q *AddressQuerySection) CompareTo(query *AddressQuerySection) int {
 }
 
 //String implements Stringer interface
-func (q *AddressQuerySection) String() string {
+func (q *AddrQuery) String() string {
 	if q == nil {
 		return "AddressQuery:nil"
 	}
@@ -1972,15 +1805,15 @@ func (q *AddressQuerySection) String() string {
 		q.SubjectAddr, q.Context, q.Types, q.Expiration, q.Options)
 }
 
-//NotificationSection contains information about the notification
-type NotificationSection struct {
+//Notification contains information about the notification
+type Notification struct {
 	Token token.Token
 	Type  NotificationType
 	Data  string
 }
 
 // UnmarshalMap unpacks a CBOR unmarshaled map to this object.
-func (n *NotificationSection) UnmarshalMap(m map[int]interface{}) error {
+func (n *Notification) UnmarshalMap(m map[int]interface{}) error {
 	if tok, ok := m[2]; ok {
 		n.Token = tok.(token.Token)
 	} else {
@@ -1998,7 +1831,7 @@ func (n *NotificationSection) UnmarshalMap(m map[int]interface{}) error {
 }
 
 // MarshalCBOR implements the CBORMarshaler interface.
-func (n *NotificationSection) MarshalCBOR(w *borat.CBORWriter) error {
+func (n *Notification) MarshalCBOR(w *borat.CBORWriter) error {
 	m := make(map[int]interface{})
 	m[2] = n.Token
 	m[21] = int(n.Type)
@@ -2007,13 +1840,13 @@ func (n *NotificationSection) MarshalCBOR(w *borat.CBORWriter) error {
 }
 
 //Sort sorts the content of the notification lexicographically.
-func (n *NotificationSection) Sort() {
+func (n *Notification) Sort() {
 	//notification is already sorted (it does not contain a list of elements).
 }
 
 //CompareTo compares two notifications and returns 0 if they are equal, 1 if n is greater than
 //notification and -1 if n is smaller than notification
-func (n *NotificationSection) CompareTo(notification *NotificationSection) int {
+func (n *Notification) CompareTo(notification *Notification) int {
 	if comp := token.Compare(n.Token, notification.Token); comp != 0 {
 		return comp
 	} else if n.Type < notification.Type {
@@ -2029,7 +1862,7 @@ func (n *NotificationSection) CompareTo(notification *NotificationSection) int {
 }
 
 //String implements Stringer interface
-func (n *NotificationSection) String() string {
+func (n *Notification) String() string {
 	if n == nil {
 		return "Notification:nil"
 	}
@@ -2038,8 +1871,8 @@ func (n *NotificationSection) String() string {
 }
 
 //filterSigs returns only those signatures which are in the given keySpace
-func filterSigs(signatures []signature.Signature, keySpace keys.KeySpaceID) []signature.Signature {
-	sigs := []signature.Signature{}
+func filterSigs(signatures []signature.Sig, keySpace keys.KeySpaceID) []signature.Sig {
+	sigs := []signature.Sig{}
 	for _, sig := range signatures {
 		if sig.KeySpace == keySpace {
 			sigs = append(sigs, sig)

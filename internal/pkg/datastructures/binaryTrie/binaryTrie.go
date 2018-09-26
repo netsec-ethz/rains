@@ -16,20 +16,20 @@ import (
 //TrieNode is a node of a binary trie.
 type TrieNode struct {
 	child      [2]*TrieNode
-	assertions map[object.ObjectType]*set.Set
+	assertions map[object.Type]*set.Set
 	zones      *set.Set
 	mutex      sync.RWMutex
 }
 
 //Get returns the most specific address assertion or zone in relation to the given netAddress' prefix.
 //If no address assertion or zone is found it return false
-func (t *TrieNode) Get(netAddr *net.IPNet, types []object.ObjectType) (*sections.AddressAssertionSection, *sections.AddressZoneSection, bool) {
+func (t *TrieNode) Get(netAddr *net.IPNet, types []object.Type) (*sections.AddrAssertion, bool) {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 	return get(t, netAddr, types, 0)
 }
 
-func get(t *TrieNode, netAddr *net.IPNet, types []object.ObjectType, depth int) (*sections.AddressAssertionSection, *sections.AddressZoneSection, bool) {
+func get(t *TrieNode, netAddr *net.IPNet, types []object.Type, depth int) (*sections.AddrAssertion, bool) {
 	addrmasks := [8]byte{0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01}
 	prfLength, _ := netAddr.Mask.Size()
 	if depth < prfLength {
@@ -44,8 +44,8 @@ func get(t *TrieNode, netAddr *net.IPNet, types []object.ObjectType, depth int) 
 			return containedElement(t, types)
 		}
 
-		if a, z, ok := get(t.child[childidx], netAddr, types, depth+1); ok {
-			return a, z, ok
+		if a, ok := get(t.child[childidx], netAddr, types, depth+1); ok {
+			return a, ok
 		}
 	}
 	return containedElement(t, types)
@@ -53,22 +53,19 @@ func get(t *TrieNode, netAddr *net.IPNet, types []object.ObjectType, depth int) 
 
 //containedElement returns true and the first addressAssertion that matches one of the given connection or if none is found the first addressZone (if present).
 //in case there is neither false is returned
-func containedElement(t *TrieNode, types []object.ObjectType) (*sections.AddressAssertionSection, *sections.AddressZoneSection, bool) {
+func containedElement(t *TrieNode, types []object.Type) (*sections.AddrAssertion, bool) {
 	for _, obj := range types {
 		aSet := t.assertions[obj]
 		if aSet != nil && aSet.Len() > 0 {
-			return aSet.GetAll()[0].(*sections.AddressAssertionSection), nil, true
+			return aSet.GetAll()[0].(*sections.AddrAssertion), true
 		}
 	}
-	if t.zones.Len() > 0 {
-		return nil, t.zones.GetAll()[0].(*sections.AddressZoneSection), true
-	}
-	return nil, nil, false
+	return nil, false
 }
 
 //AddAddressAssertion adds the given address assertion to the map (keyed by objectType) at the trie node corresponding to the network address.
 //Returns an error if it was not able to add the AddressAssertion
-func (t *TrieNode) AddAddressAssertion(assertion *sections.AddressAssertionSection) error {
+func (t *TrieNode) AddAddressAssertion(assertion *sections.AddrAssertion) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	node := getNode(t, assertion.SubjectAddr, 0)
@@ -79,16 +76,6 @@ func (t *TrieNode) AddAddressAssertion(assertion *sections.AddressAssertionSecti
 		}
 		node.assertions[obj.Type].Add(assertion)
 	}
-	return nil
-}
-
-//AddAddressZone adds the given address zone to the list of address zones at the trie node corresponding to the network address.
-//Returns an error if it was not able to add the addressZone
-func (t *TrieNode) AddAddressZone(zone *sections.AddressZoneSection) error {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
-	node := getNode(t, zone.SubjectAddr, 0)
-	node.zones.Add(zone)
 	return nil
 }
 
@@ -105,7 +92,7 @@ func getNode(t *TrieNode, ipNet *net.IPNet, depth int) *TrieNode {
 		}
 
 		if t.child[subidx] == nil {
-			t.child[subidx] = &TrieNode{assertions: make(map[object.ObjectType]*set.Set)}
+			t.child[subidx] = &TrieNode{assertions: make(map[object.Type]*set.Set)}
 			t.child[subidx].zones = set.New()
 			t.child[subidx].assertions[object.OTName] = set.New()
 			t.child[subidx].assertions[object.OTRedirection] = set.New()
@@ -125,15 +112,9 @@ func (t *TrieNode) DeleteExpiredElements() {
 	for _, s := range t.assertions {
 		assertions := s.GetAll()
 		for _, a := range assertions {
-			if a.(*sections.AddressAssertionSection).ValidUntil() < time.Now().Unix() {
+			if a.(*sections.AddrAssertion).ValidUntil() < time.Now().Unix() {
 				s.Delete(a)
 			}
-		}
-	}
-	zones := t.zones.GetAll()
-	for _, zone := range zones {
-		if zone.(*sections.AddressZoneSection).ValidUntil() < time.Now().Unix() {
-			t.zones.Delete(zone)
 		}
 	}
 }

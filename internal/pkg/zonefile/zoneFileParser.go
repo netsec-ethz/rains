@@ -64,16 +64,16 @@ type ZoneFileParser interface {
 	//Decode takes as input a byte string of section(s) in zonefile format. It returns a slice of
 	//all contained assertions, shards, and zones in the provided order or an error in case of
 	//failure.
-	Decode(zoneFile []byte) ([]sections.MessageSectionWithSigForward, error)
+	Decode(zoneFile []byte) ([]sections.SecWithSigForward, error)
 
 	//DecodeZone takes as input a byte string of one zone in zonefile format. It returns the zone
 	//exactly as it is in the zonefile or an error in case of failure.
-	DecodeZone(zoneFile []byte) (*sections.ZoneSection, error)
+	DecodeZone(zoneFile []byte) (*sections.Zone, error)
 
 	//Encode returns the given section represented in zone file format if it is an assertion, shard,
 	//or zone. In all other cases it returns the section in a displayable format similar to the zone
 	//file format
-	Encode(section sections.MessageSection) string
+	Encode(section sections.Section) string
 }
 
 //Parser can be used to parse RAINS zone files
@@ -81,23 +81,23 @@ type Parser struct{}
 
 //Encode returns the given section represented in the zone file format if it is a zoneSection.
 //In all other cases it returns the section in a displayable format similar to the zone file format
-func (p Parser) Encode(s sections.MessageSection) string {
+func (p Parser) Encode(s sections.Section) string {
 	return GetEncoding(s, false)
 }
 
 //Decode returns all assertions contained in the given zonefile
-func (p Parser) Decode(zoneFile []byte) ([]sections.MessageSectionWithSigForward, error) {
+func (p Parser) Decode(zoneFile []byte) ([]sections.SecWithSigForward, error) {
 	log.Error("Not yet supported")
 	return nil, nil
 }
 
 //DecodeZone returns a zone exactly as it is represented in the zonefile
-func (p Parser) DecodeZone(zoneFile []byte) (*sections.ZoneSection, error) {
+func (p Parser) DecodeZone(zoneFile []byte) (*sections.Zone, error) {
 	lines := removeComments(bufio.NewScanner(bytes.NewReader(zoneFile)))
 	log.Debug("Preprocessed input", "data", lines)
 	parser := ZFPNewParser()
 	parser.Parse(&ZFPLex{lines: lines})
-	zone, ok := parser.Result()[0].(*sections.ZoneSection)
+	zone, ok := parser.Result()[0].(*sections.Zone)
 	if !ok {
 		return nil, errors.New("First element of zonefile is not a zone. (Note, only the first element of the zonefile is considered)")
 	}
@@ -107,7 +107,7 @@ func (p Parser) DecodeZone(zoneFile []byte) (*sections.ZoneSection, error) {
 //EncodeMessage transforms the given msg into a signable format.
 //It must have already been verified that the msg does not contain malicious content.
 //Signature meta data is not added
-func (p Parser) EncodeMessage(msg *message.RainsMessage) []byte {
+func (p Parser) EncodeMessage(msg *message.Message) []byte {
 	encoding := encodeMessage(msg)
 	return []byte(replaceWhitespaces(encoding))
 }
@@ -115,28 +115,28 @@ func (p Parser) EncodeMessage(msg *message.RainsMessage) []byte {
 //EncodeSection transforms the given msg into a signable format
 //It must have already been verified that the section does not contain malicious content
 //Signature meta data is not added
-func (p Parser) EncodeSection(s sections.MessageSectionWithSig) []byte {
+func (p Parser) EncodeSection(s sections.SecWithSig) []byte {
 	encoding := GetEncoding(s, true)
 	return []byte(replaceWhitespaces(encoding))
 }
 
 //GetEncoding returns an encoding in zonefile format
-func GetEncoding(s sections.MessageSection, forSigning bool) string {
+func GetEncoding(s sections.Section, forSigning bool) string {
 	encoding := ""
 	switch s := s.(type) {
-	case *sections.AssertionSection:
+	case *sections.Assertion:
 		encoding = encodeAssertion(s, s.Context, s.SubjectZone, "", forSigning)
-	case *sections.ShardSection:
+	case *sections.Shard:
 		encoding = encodeShard(s, s.Context, s.SubjectZone, "", forSigning)
-	case *sections.ZoneSection:
+	case *sections.Zone:
 		encoding = encodeZone(s, forSigning)
-	case *sections.QuerySection:
+	case *sections.QueryForward:
 		encoding = encodeQuery(s)
-	case *sections.NotificationSection:
+	case *sections.Notification:
 		encoding = encodeNotification(s)
-	case *sections.AddressAssertionSection:
+	case *sections.AddrAssertion:
 		encoding = encodeAddressAssertion(s)
-	case *sections.AddressQuerySection:
+	case *sections.AddrQuery:
 		encoding = encodeAddressQuery(s)
 	default:
 		log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))

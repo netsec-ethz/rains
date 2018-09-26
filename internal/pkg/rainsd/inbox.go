@@ -42,7 +42,7 @@ func initQueuesAndWorkers(done chan bool) error {
 
 //deliver pushes all incoming messages to the prio or normal channel.
 //A message is added to the priority channel if it is the response to a non-expired delegation query
-func deliver(message []byte, sender connection.ConnInfo) {
+func deliver(message []byte, sender connection.Info) {
 	//check message length
 	if uint(len(message)) > Config.MaxMsgByteLength {
 		//FIXME CFE
@@ -68,16 +68,16 @@ func deliver(message []byte, sender connection.ConnInfo) {
 	//handle message content
 	for _, m := range msg.Content {
 		switch m := m.(type) {
-		case *sections.AssertionSection, *sections.ShardSection, *sections.ZoneSection, *sections.AddressAssertionSection, *sections.AddressZoneSection:
-			if !isZoneBlacklisted(m.(sections.MessageSectionWithSig).GetSubjectZone()) {
+		case *sections.Assertion, *sections.Shard, *sections.Zone, *sections.AddrAssertion, *sections.AddressZoneSection:
+			if !isZoneBlacklisted(m.(sections.SecWithSig).GetSubjectZone()) {
 				addMsgSectionToQueue(m, msg.Token, sender)
 				trace(msg.Token, fmt.Sprintf("added message section to queue: %v", m))
 			}
-		case *sections.QuerySection, *sections.AddressQuerySection:
+		case *sections.QueryForward, *sections.AddrQuery:
 			log.Debug(fmt.Sprintf("add %T to normal queue", m))
 			normalChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
 			trace(msg.Token, fmt.Sprintf("sent query section %v to normal channel", m))
-		case *sections.NotificationSection:
+		case *sections.Notification:
 			log.Debug("Add notification to notification queue", "token", msg.Token)
 			notificationChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
 			trace(msg.Token, fmt.Sprintf("sent notification section %v to notification channel", m))
@@ -91,7 +91,7 @@ func deliver(message []byte, sender connection.ConnInfo) {
 
 //processCapability processes capabilities and sends a notification back to the sender if the hash
 //is not understood.
-func processCapability(caps []message.Capability, sender connection.ConnInfo, token token.Token) {
+func processCapability(caps []message.Capability, sender connection.Info, token token.Token) {
 	log.Debug("Process capabilities", "capabilities", caps)
 	if len(caps) > 0 {
 		isHash := !strings.HasPrefix(string(caps[0]), "urn:")
@@ -109,14 +109,14 @@ func processCapability(caps []message.Capability, sender connection.ConnInfo, to
 
 //addCapabilityAndRespond adds caps to the connection cache entry of sender and sends its own
 //capabilities back if it has not already received capability information on this connection.
-func addCapabilityAndRespond(sender connection.ConnInfo, caps []message.Capability) {
+func addCapabilityAndRespond(sender connection.Info, caps []message.Capability) {
 	if !connCache.AddCapabilityList(sender, caps) {
 		sendCapability(sender, []message.Capability{message.Capability(capabilityHash)})
 	}
 }
 
 //addMsgSectionToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg section to the prio cache, otherwise to the normal cache.
-func addMsgSectionToQueue(msgSection sections.MessageSection, tok token.Token, sender connection.ConnInfo) {
+func addMsgSectionToQueue(msgSection sections.Section, tok token.Token, sender connection.Info) {
 	if pendingKeys.ContainsToken(tok) {
 		log.Debug("add section with signature to priority queue", "token", tok)
 		prioChannel <- msgSectionSender{Sender: sender, Section: msgSection, Token: tok}

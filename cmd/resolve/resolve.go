@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/fehlmach/rains/utils/zoneFileParser"
-	"github.com/golang/glog"
+	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/resolver"
 	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
 
 var (
@@ -22,9 +22,9 @@ var (
 
 func main() {
 	flag.Parse()
-	glog.Infof("Starting resolver client.")
+	log.Info("Starting resolver client.")
 	if *name == "" {
-		glog.Fatalf("-name flag must be specified.")
+		log.Error("-name flag must be specified.")
 	}
 	var server *resolver.Server
 	if *rootServer != "" {
@@ -34,21 +34,21 @@ func main() {
 		forwarders := strings.Split(*fwdServer, ",")
 		server = resolver.New(nil, forwarders, resolver.ResolutionModeForwarding, *insecureTLS)
 	} else {
-		glog.Fatal("At least one of -root or -fwd must be specified.")
+		log.Error("At least one of -root or -fwd must be specified.")
 	}
 	result, err := server.Lookup(*name, *context)
 	if err != nil {
-		glog.Fatalf("Failed to execute query: %v", err)
+		log.Error("Failed to execute query: %v", err)
 	}
 	for i, section := range result.Content {
-		glog.Infof("Printing section %d", i)
+		log.Info("Printing section %d", i)
 		switch section.(type) {
-		case *sections.AssertionSection, *sections.ShardSection, *sections.ZoneSection, *sections.QuerySection, *sections.NotificationSection,
-			*sections.AddressAssertionSection, *sections.AddressQuerySection, *sections.AddressZoneSection:
-			parser := zoneFileParser.Parser{}
+		case *sections.Assertion, *sections.Shard, *sections.Zone, *sections.QueryForward, *sections.Notification,
+			*sections.AddrAssertion, *sections.AddrQuery:
+			parser := zonefile.Parser{}
 			fmt.Printf("%s\n", parser.Encode(section))
 		default:
-			glog.Warningf("Received an unexpected section type in response: %T, %v", section, section)
+			log.Warn("Received an unexpected section type in response:", "section", section)
 		}
 	}
 }

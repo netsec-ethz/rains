@@ -25,12 +25,12 @@ func TestMessageSectionWithSigSignatures(t *testing.T) {
 		Data:        []byte("testData2"),
 	}
 	var tests = []struct {
-		input MessageSectionWithSig
+		input SecWithSig
 	}{
-		{new(AssertionSection)},
-		{new(ShardSection)},
-		{new(ZoneSection)},
-		{new(AddressAssertionSection)},
+		{new(Assertion)},
+		{new(Shard)},
+		{new(Zone)},
+		{new(AddrAssertion)},
 		{new(AddressZoneSection)},
 	}
 	for i, test := range tests {
@@ -59,17 +59,17 @@ func TestMessageSectionWithSigSignatures(t *testing.T) {
 func TestMessageSectionWithSigGetContextAndSubjectZone(t *testing.T) {
 	_, sampleNet, _ := net.ParseCIDR("2001:db8::/32")
 	var tests = []struct {
-		input             MessageSectionWithSig
+		input             SecWithSig
 		exptectCtx        string
 		expectSubjectZone string
 	}{
-		{&AssertionSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"},
+		{&Assertion{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"},
 			"testContextcx-testSubjectZone", "testSubjectZone"},
-		{&ShardSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"},
+		{&Shard{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"},
 			"testContextcx-testSubjectZone", "testSubjectZone"},
-		{&ZoneSection{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"},
+		{&Zone{Context: "testContextcx-testSubjectZone", SubjectZone: "testSubjectZone"},
 			"testContextcx-testSubjectZone", "testSubjectZone"},
-		{&AddressAssertionSection{Context: "testContextcx-testSubjectZone", SubjectAddr: sampleNet},
+		{&AddrAssertion{Context: "testContextcx-testSubjectZone", SubjectAddr: sampleNet},
 			"testContextcx-testSubjectZone", "2001:db8::/32"},
 		{&AddressZoneSection{Context: "testContextcx-testSubjectZone", SubjectAddr: sampleNet},
 			"testContextcx-testSubjectZone", "2001:db8::/32"},
@@ -409,39 +409,39 @@ func TestConnInfoEqual(t *testing.T) {
 func TestSort(t *testing.T) {
 	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR24)
 	var tests = []struct {
-		input  []MessageSection
-		sorted []MessageSection
+		input  []Section
+		sorted []Section
 	}{
 		{
-			[]MessageSection{&NotificationSection{}, &QuerySection{}, &ZoneSection{}, &ShardSection{}, &AssertionSection{}, &AddressAssertionSection{}, //all sections
-				&AddressZoneSection{}, &AddressQuerySection{}},
-			[]MessageSection{&AddressQuerySection{}, &AddressZoneSection{}, &AddressAssertionSection{}, &AssertionSection{}, &ShardSection{},
-				&ZoneSection{}, &QuerySection{}, &NotificationSection{}},
+			[]Section{&Notification{}, &QueryForward{}, &Zone{}, &Shard{}, &Assertion{}, &AddrAssertion{}, //all sections
+				&AddressZoneSection{}, &AddrQuery{}},
+			[]Section{&AddrQuery{}, &AddressZoneSection{}, &AddrAssertion{}, &Assertion{}, &Shard{},
+				&Zone{}, &QueryForward{}, &Notification{}},
 		},
 
 		{ //Assertion
-			[]MessageSection{
-				&AssertionSection{
+			[]Section{
+				&Assertion{
 					Content: []Object{
 						Object{Type: OTIP6Addr, Value: ip6TestAddr},
 						Object{Type: OTIP4Addr, Value: ip4TestAddr},
 					},
 				},
-				&AssertionSection{
+				&Assertion{
 					Content: []Object{
 						Object{Type: OTIP4Addr, Value: "192.0.2.0"},
 						Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTDelegation, OTName}}},
 					},
 				},
 			},
-			[]MessageSection{
-				&AssertionSection{
+			[]Section{
+				&Assertion{
 					Content: []Object{
 						Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTName, OTDelegation}}},
 						Object{Type: OTIP4Addr, Value: "192.0.2.0"},
 					},
 				},
-				&AssertionSection{
+				&Assertion{
 					Content: []Object{
 						Object{Type: OTIP6Addr, Value: ip6TestAddr},
 						Object{Type: OTIP4Addr, Value: ip4TestAddr},
@@ -451,76 +451,76 @@ func TestSort(t *testing.T) {
 		},
 
 		{ //Shard
-			[]MessageSection{
-				&ShardSection{
-					Content: []*AssertionSection{
-						&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
-						&AssertionSection{Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}},
+			[]Section{
+				&Shard{
+					Content: []*Assertion{
+						&Assertion{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+						&Assertion{Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}},
 					},
 				},
-				&ShardSection{
-					Content: []*AssertionSection{
-						&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTCertInfo}}},
-						&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTName}}},
+				&Shard{
+					Content: []*Assertion{
+						&Assertion{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTCertInfo}}},
+						&Assertion{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTName}}},
 					},
 				},
 			},
-			[]MessageSection{
-				&ShardSection{
-					Content: []*AssertionSection{
-						&AssertionSection{Content: []Object{Object{Type: OTName}, Object{Type: OTIP6Addr}}},
-						&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTCertInfo}}},
+			[]Section{
+				&Shard{
+					Content: []*Assertion{
+						&Assertion{Content: []Object{Object{Type: OTName}, Object{Type: OTIP6Addr}}},
+						&Assertion{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTCertInfo}}},
 					},
 				},
-				&ShardSection{
-					Content: []*AssertionSection{
-						&AssertionSection{Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
-						&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+				&Shard{
+					Content: []*Assertion{
+						&Assertion{Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
+						&Assertion{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
 					},
 				},
 			},
 		},
 
 		{ //Zone
-			[]MessageSection{
-				&ZoneSection{
-					Content: []MessageSectionWithSigForward{&ShardSection{SubjectZone: "a"}, &AssertionSection{SubjectZone: "b"}},
+			[]Section{
+				&Zone{
+					Content: []SecWithSigForward{&Shard{SubjectZone: "a"}, &Assertion{SubjectZone: "b"}},
 				},
-				&ZoneSection{
-					Content: []MessageSectionWithSigForward{&ShardSection{SubjectZone: "b"}, &AssertionSection{SubjectZone: "a"}},
+				&Zone{
+					Content: []SecWithSigForward{&Shard{SubjectZone: "b"}, &Assertion{SubjectZone: "a"}},
 				},
 			},
-			[]MessageSection{
-				&ZoneSection{
-					Content: []MessageSectionWithSigForward{&AssertionSection{SubjectZone: "a"}, &ShardSection{SubjectZone: "b"}},
+			[]Section{
+				&Zone{
+					Content: []SecWithSigForward{&Assertion{SubjectZone: "a"}, &Shard{SubjectZone: "b"}},
 				},
-				&ZoneSection{
-					Content: []MessageSectionWithSigForward{&AssertionSection{SubjectZone: "b"}, &ShardSection{SubjectZone: "a"}},
+				&Zone{
+					Content: []SecWithSigForward{&Assertion{SubjectZone: "b"}, &Shard{SubjectZone: "a"}},
 				},
 			},
 		},
 
 		{ //Query section
-			[]MessageSection{
-				&QuerySection{Options: []QueryOption{QueryOption(5), QueryOption(3)}},
-				&QuerySection{Options: []QueryOption{QueryOption(6), QueryOption(2)}},
+			[]Section{
+				&QueryForward{Options: []QueryOption{QueryOption(5), QueryOption(3)}},
+				&QueryForward{Options: []QueryOption{QueryOption(6), QueryOption(2)}},
 			},
-			[]MessageSection{
-				&QuerySection{Options: []QueryOption{QueryOption(2), QueryOption(6)}},
-				&QuerySection{Options: []QueryOption{QueryOption(3), QueryOption(5)}},
+			[]Section{
+				&QueryForward{Options: []QueryOption{QueryOption(2), QueryOption(6)}},
+				&QueryForward{Options: []QueryOption{QueryOption(3), QueryOption(5)}},
 			},
 		},
 
 		{ //AddressAssertion
-			[]MessageSection{
-				&AddressAssertionSection{
+			[]Section{
+				&AddrAssertion{
 					SubjectAddr: subjectAddress,
 					Content: []Object{
 						Object{Type: OTIP6Addr, Value: ip6TestAddr},
 						Object{Type: OTIP4Addr, Value: ip4TestAddr},
 					},
 				},
-				&AddressAssertionSection{
+				&AddrAssertion{
 					SubjectAddr: subjectAddress,
 					Content: []Object{
 						Object{Type: OTIP4Addr, Value: ip4TestAddr},
@@ -528,15 +528,15 @@ func TestSort(t *testing.T) {
 					},
 				},
 			},
-			[]MessageSection{
-				&AddressAssertionSection{
+			[]Section{
+				&AddrAssertion{
 					SubjectAddr: subjectAddress,
 					Content: []Object{
 						Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTName, OTDelegation}}},
 						Object{Type: OTIP4Addr, Value: "192.0.2.0"},
 					},
 				},
-				&AddressAssertionSection{
+				&AddrAssertion{
 					SubjectAddr: subjectAddress,
 					Content: []Object{
 						Object{Type: OTIP6Addr, Value: ip6TestAddr},
@@ -547,15 +547,15 @@ func TestSort(t *testing.T) {
 		},
 
 		{ //AddressZone
-			[]MessageSection{
+			[]Section{
 				&AddressZoneSection{
 					SubjectAddr: subjectAddress,
-					Content: []*AddressAssertionSection{
-						&AddressAssertionSection{
+					Content: []*AddrAssertion{
+						&AddrAssertion{
 							SubjectAddr: subjectAddress,
 							Content:     []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}},
 						},
-						&AddressAssertionSection{
+						&AddrAssertion{
 							SubjectAddr: subjectAddress,
 							Content:     []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}},
 						},
@@ -563,27 +563,27 @@ func TestSort(t *testing.T) {
 				},
 				&AddressZoneSection{
 					SubjectAddr: subjectAddress,
-					Content: []*AddressAssertionSection{
-						&AddressAssertionSection{
+					Content: []*AddrAssertion{
+						&AddrAssertion{
 							SubjectAddr: subjectAddress,
 							Content:     []Object{Object{Type: OTIP6Addr}, Object{Type: OTName}},
 						},
-						&AddressAssertionSection{
+						&AddrAssertion{
 							SubjectAddr: subjectAddress,
 							Content:     []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}},
 						},
 					},
 				},
 			},
-			[]MessageSection{
+			[]Section{
 				&AddressZoneSection{
 					SubjectAddr: subjectAddress,
-					Content: []*AddressAssertionSection{
-						&AddressAssertionSection{
+					Content: []*AddrAssertion{
+						&AddrAssertion{
 							SubjectAddr: subjectAddress,
 							Content:     []Object{Object{Type: OTName}, Object{Type: OTIP6Addr}},
 						},
-						&AddressAssertionSection{
+						&AddrAssertion{
 							SubjectAddr: subjectAddress,
 							Content:     []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}},
 						},
@@ -591,12 +591,12 @@ func TestSort(t *testing.T) {
 				},
 				&AddressZoneSection{
 					SubjectAddr: subjectAddress,
-					Content: []*AddressAssertionSection{
-						&AddressAssertionSection{
+					Content: []*AddrAssertion{
+						&AddrAssertion{
 							SubjectAddr: subjectAddress,
 							Content:     []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}},
 						},
-						&AddressAssertionSection{
+						&AddrAssertion{
 							SubjectAddr: subjectAddress,
 							Content:     []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}},
 						},
@@ -605,18 +605,18 @@ func TestSort(t *testing.T) {
 			},
 		},
 		{ //AddressQueries
-			[]MessageSection{
-				&AddressQuerySection{SubjectAddr: subjectAddress, Options: []QueryOption{QueryOption(5), QueryOption(3)}},
-				&AddressQuerySection{SubjectAddr: subjectAddress, Options: []QueryOption{QueryOption(6), QueryOption(2)}},
+			[]Section{
+				&AddrQuery{SubjectAddr: subjectAddress, Options: []QueryOption{QueryOption(5), QueryOption(3)}},
+				&AddrQuery{SubjectAddr: subjectAddress, Options: []QueryOption{QueryOption(6), QueryOption(2)}},
 			},
-			[]MessageSection{
-				&AddressQuerySection{SubjectAddr: subjectAddress, Options: []QueryOption{QueryOption(2), QueryOption(6)}},
-				&AddressQuerySection{SubjectAddr: subjectAddress, Options: []QueryOption{QueryOption(3), QueryOption(5)}},
+			[]Section{
+				&AddrQuery{SubjectAddr: subjectAddress, Options: []QueryOption{QueryOption(2), QueryOption(6)}},
+				&AddrQuery{SubjectAddr: subjectAddress, Options: []QueryOption{QueryOption(3), QueryOption(5)}},
 			},
 		},
 		{ //Notifications
-			[]MessageSection{&NotificationSection{Data: "2"}, &NotificationSection{Data: "1"}},
-			[]MessageSection{&NotificationSection{Data: "1"}, &NotificationSection{Data: "2"}},
+			[]Section{&Notification{Data: "2"}, &Notification{Data: "1"}},
+			[]Section{&Notification{Data: "1"}, &Notification{Data: "2"}},
 		},
 	}
 	for i, test := range tests {

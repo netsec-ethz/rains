@@ -246,7 +246,7 @@ func loadConfig(configPath string) (publisher.Config, error) {
 
 type addressesFlag struct {
 	set   bool
-	value []connection.ConnInfo
+	value []connection.Info
 }
 
 func (i *addressesFlag) String() string {
@@ -259,7 +259,7 @@ func (i *addressesFlag) Set(value string) error {
 	i.set = true
 	for _, addr := range addresses {
 		if tcpAddr, err := net.ResolveTCPAddr("tcp", addr); err == nil {
-			i.value = append(i.value, connection.ConnInfo{Type: connection.TCP, TCPAddr: tcpAddr})
+			i.value = append(i.value, connection.Info{Type: connection.TCP, TCPAddr: tcpAddr})
 		} else {
 			return err
 		}
@@ -269,7 +269,7 @@ func (i *addressesFlag) Set(value string) error {
 
 type hashFamilyFlag struct {
 	set   bool
-	value []algorithmTypes.HashAlgorithmType
+	value []algorithmTypes.Hash
 }
 
 func (i *hashFamilyFlag) String() string {
@@ -301,7 +301,7 @@ func (i *hashFamilyFlag) Set(value string) error {
 
 type algorithmFlag struct {
 	set   bool
-	value algorithmTypes.SignatureAlgorithmType
+	value algorithmTypes.Signature
 }
 
 func (i *algorithmFlag) String() string {

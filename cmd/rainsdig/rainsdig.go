@@ -11,19 +11,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/token"
-	"github.com/netsec-ethz/rains/internal/util"
+	log "github.com/inconshreveable/log15"
 
 	"github.com/britram/borat"
-	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
 
-var anyQuery = []object.ObjectType{object.OTName, object.OTIP4Addr,
+var anyQuery = []object.Type{object.OTName, object.OTIP4Addr,
 	object.OTIP6Addr, object.OTDelegation, object.OTServiceInfo, object.OTRedirection}
 
 //TODO add default values to description
@@ -88,16 +88,16 @@ func main() {
 			fmt.Printf("serverAddr malformed, error=%v\n", err)
 			os.Exit(1)
 		}
-		connInfo := connection.ConnInfo{Type: connection.TCP, TCPAddr: tcpAddr}
+		connInfo := connection.Info{Type: connection.TCP, TCPAddr: tcpAddr}
 
-		var qt []object.ObjectType
+		var qt []object.Type
 		if *queryType == -1 {
 			qt = anyQuery
 		} else {
-			qt = []object.ObjectType{object.ObjectType(*queryType)}
+			qt = []object.Type{object.Type(*queryType)}
 		}
 
-		msg := util.NewQueryMessage(*name, *context, *expires, qt, queryOptions, token.GenerateToken())
+		msg := util.NewQueryMessage(*name, *context, *expires, qt, queryOptions, token.New())
 
 		err = sendQuery(msg, msg.Token, connInfo)
 		if err != nil {
@@ -109,14 +109,14 @@ func main() {
 
 //sendQuery creates a connection with connInfo, frames msg and writes it to the connection.
 //It then waits for the response which it then outputs to the command line and if specified additionally stores to a file.
-func sendQuery(msg message.RainsMessage, token token.Token, connInfo connection.ConnInfo) error {
+func sendQuery(msg message.Message, token token.Token, connInfo connection.Info) error {
 	conn, err := createConnection(connInfo)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 
-	done := make(chan message.RainsMessage)
+	done := make(chan message.Message)
 	ec := make(chan error)
 	go listen(conn, token, done, ec)
 
@@ -140,7 +140,7 @@ func sendQuery(msg message.RainsMessage, token token.Token, connInfo connection.
 }
 
 //createConnection returns a newly created connection with connInfo or an error
-func createConnection(connInfo connection.ConnInfo) (conn net.Conn, err error) {
+func createConnection(connInfo connection.Info) (conn net.Conn, err error) {
 	switch connInfo.Type {
 	case connection.TCP:
 		return tls.Dial(connInfo.TCPAddr.Network(), connInfo.String(), &tls.Config{InsecureSkipVerify: *insecureTLS})
@@ -149,9 +149,9 @@ func createConnection(connInfo connection.ConnInfo) (conn net.Conn, err error) {
 	}
 }
 
-func listen(conn net.Conn, tok token.Token, done chan<- message.RainsMessage, ec chan<- error) {
+func listen(conn net.Conn, tok token.Token, done chan<- message.Message, ec chan<- error) {
 	reader := borat.NewCBORReader(conn)
-	var msg message.RainsMessage
+	var msg message.Message
 	if err := reader.Unmarshal(&msg); err != nil {
 		ec <- fmt.Errorf("failed to unmarshal response: %v", err)
 		return

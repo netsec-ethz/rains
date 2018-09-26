@@ -12,7 +12,7 @@ import (
 
 func TestNameObjectCompareTo(t *testing.T) {
 	nos := sortedNameObjects(9)
-	var shuffled []NameObject
+	var shuffled []Name
 	for _, no := range nos {
 		shuffled = append(shuffled, no)
 	}
@@ -89,11 +89,11 @@ func TestPublicKeyString(t *testing.T) {
 
 func TestCertTypeString(t *testing.T) {
 	var tests = []struct {
-		input CertificateObject
+		input Certificate
 		want  string
 	}{
-		{CertificateObject{}, "{0 0 0 }"},
-		{CertificateObject{Type: PTTLS, Usage: CUEndEntity, HashAlgo: Sha256, Data: []byte("testCert")}, "{1 3 1 7465737443657274}"},
+		{Certificate{}, "{0 0 0 }"},
+		{Certificate{Type: PTTLS, Usage: CUEndEntity, HashAlgo: Sha256, Data: []byte("testCert")}, "{1 3 1 7465737443657274}"},
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {
@@ -180,7 +180,7 @@ func TestPublicKeyCompareTo(t *testing.T) {
 
 func TestCertificateCompareTo(t *testing.T) {
 	certs := sortedCertificates(9)
-	var shuffled []CertificateObject
+	var shuffled []Certificate
 	for _, cert := range certs {
 		shuffled = append(shuffled, cert)
 	}
@@ -240,7 +240,7 @@ func TestObjectCompareTo(t *testing.T) {
 	if obj1.CompareTo(objs[0]) != 0 {
 		t.Error("Error case was not hit")
 	}
-	obj1.Value = CertificateObject{}
+	obj1.Value = Certificate{}
 	if obj1.CompareTo(objs[0]) != 0 {
 		t.Error("Error case was not hit")
 	}
@@ -248,7 +248,7 @@ func TestObjectCompareTo(t *testing.T) {
 	if obj1.CompareTo(objs[0]) != 0 {
 		t.Error("Error case was not hit")
 	}
-	obj1.Value = NamesetExpression("Test")
+	obj1.Value = NamesetExpr("Test")
 	if obj1.CompareTo(objs[0]) != 0 {
 		t.Error("Error case was not hit")
 	}
@@ -273,7 +273,7 @@ func TestObjectString(t *testing.T) {
 		{obj[3], "OT:4 OV:example.com"},
 		{obj[4], fmt.Sprintf("OT:5 OV:%s", obj[4].Value.(PublicKey).String())},
 		{obj[5], "OT:6 OV:Would be an expression"},
-		{obj[6], fmt.Sprintf("OT:7 OV:%s", obj[6].Value.(CertificateObject).String())},
+		{obj[6], fmt.Sprintf("OT:7 OV:%s", obj[6].Value.(Certificate).String())},
 		{obj[7], "OT:8 OV:{srvName 49830 1}"},
 		{obj[8], "OT:9 OV:Registrar information"},
 		{obj[9], "OT:10 OV:Registrant information"},
@@ -289,12 +289,12 @@ func TestObjectString(t *testing.T) {
 }
 
 func TestObjectSort(t *testing.T) {
-	objTypes := []ObjectType{OTNextKey, OTExtraKey, OTInfraKey, OTRegistrant, OTRegistrar, OTServiceInfo, OTCertInfo, OTNameset, OTDelegation, OTRedirection,
+	objTypes := []Type{OTNextKey, OTExtraKey, OTInfraKey, OTRegistrant, OTRegistrar, OTServiceInfo, OTCertInfo, OTNameset, OTDelegation, OTRedirection,
 		OTIP4Addr, OTIP6Addr, OTName}
-	expected := []ObjectType{OTName, OTIP6Addr, OTIP4Addr, OTRedirection, OTDelegation, OTNameset, OTCertInfo, OTServiceInfo, OTRegistrar, OTRegistrant,
+	expected := []Type{OTName, OTIP6Addr, OTIP4Addr, OTRedirection, OTDelegation, OTNameset, OTCertInfo, OTServiceInfo, OTRegistrar, OTRegistrant,
 		OTInfraKey, OTExtraKey, OTNextKey}
-	obj := Object{Type: OTName, Value: NameObject{Name: "", Types: objTypes}}
-	expectedObj := Object{Type: OTName, Value: NameObject{Name: "", Types: expected}}
+	obj := Object{Type: OTName, Value: Name{Name: "", Types: objTypes}}
+	expectedObj := Object{Type: OTName, Value: Name{Name: "", Types: expected}}
 	obj.Sort()
 	if !reflect.DeepEqual(obj, expectedObj) {
 		t.Errorf("name objects are in wrong order after obj.Sort() expected=%v actual%v", expectedObj, obj)

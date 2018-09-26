@@ -21,8 +21,8 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/sections"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
-	"github.com/netsec-ethz/rains/internal/util"
 )
 
 //InitServer initializes the server
@@ -116,7 +116,7 @@ func loadAuthoritative(contextAuthorities []string) {
 
 //loadRootZonePublicKey stores the root zone public key from disk into the zoneKeyCache.
 func loadRootZonePublicKey(keyPath string) error {
-	a := new(sections.AssertionSection)
+	a := new(sections.Assertion)
 	err := util.Load(keyPath, a)
 	if err != nil {
 		log.Warn("Failed to load root zone public key", "err", err)
@@ -189,26 +189,26 @@ func initOwnCapabilities(capabilities []message.Capability) {
 
 //sendSections creates a messages containing token and sections and sends it to destination. If
 //token is empty, a new token is generated
-func sendSections(sections []sections.MessageSection, tok token.Token, destination connection.ConnInfo) error {
+func sendSections(sections []sections.Section, tok token.Token, destination connection.Info) error {
 	if tok == [16]byte{} {
-		tok = token.GenerateToken()
+		tok = token.New()
 	}
-	msg := message.RainsMessage{Token: tok, Content: sections}
+	msg := message.Message{Token: tok, Content: sections}
 	//TODO CFE make retires and backoff configurable
 	return sendTo(msg, destination, 1, 1)
 }
 
 //sendSection creates a messages containing token and section and sends it to destination. If
 //token is empty, a new token is generated
-func sendSection(section sections.MessageSection, token token.Token, destination connection.ConnInfo) error {
-	return sendSections([]sections.MessageSection{section}, token, destination)
+func sendSection(section sections.Section, token token.Token, destination connection.Info) error {
+	return sendSections([]sections.Section{section}, token, destination)
 }
 
 //sendNotificationMsg sends a message containing freshly generated token and a notification section with
 //notificationType, token, and data to destination.
-func sendNotificationMsg(tok token.Token, destination connection.ConnInfo,
+func sendNotificationMsg(tok token.Token, destination connection.Info,
 	notificationType sections.NotificationType, data string) {
-	notification := &sections.NotificationSection{
+	notification := &sections.Notification{
 		Type:  notificationType,
 		Token: tok,
 		Data:  data,
@@ -217,17 +217,17 @@ func sendNotificationMsg(tok token.Token, destination connection.ConnInfo,
 }
 
 //sendCapability sends a message with capabilities to sender
-func sendCapability(destination connection.ConnInfo, capabilities []message.Capability) {
-	msg := message.RainsMessage{Token: token.GenerateToken(), Capabilities: capabilities}
+func sendCapability(destination connection.Info, capabilities []message.Capability) {
+	msg := message.Message{Token: token.New(), Capabilities: capabilities}
 	sendTo(msg, destination, 1, 1)
 }
 
 //getRootAddr returns an addr to a root server.
 //FIXME CFE load root addr from config?
-func getRootAddr() connection.ConnInfo {
+func getRootAddr() connection.Info {
 	tcpAddr := *Config.ServerAddress.TCPAddr
 	tcpAddr.Port++
-	rootAddr := connection.ConnInfo{Type: Config.ServerAddress.Type, TCPAddr: &tcpAddr}
+	rootAddr := connection.Info{Type: Config.ServerAddress.Type, TCPAddr: &tcpAddr}
 	log.Warn("Not yet implemented CFE. return hard coded delegation address", "connInfo", rootAddr)
 	return rootAddr
 }

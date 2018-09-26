@@ -20,7 +20,7 @@ func mergeSubjectZone(subject, zone string) string {
 }
 
 // ValidateZoneRedirects checks that each :redir: in the zone is resolvable.
-func ValidateZoneRedirects(in []*sections.AssertionSection) error {
+func ValidateZoneRedirects(in []*sections.Assertion) error {
 	unresolved := make(map[string]string)
 	// A concrete assertion is one which resolves to an internet address.
 	concreteAssertions := make(map[string]bool)

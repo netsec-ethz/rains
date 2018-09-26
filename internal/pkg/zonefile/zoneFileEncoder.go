@@ -17,15 +17,15 @@ import (
 
 //encodeZone return z in zonefile format. If addZoneAndContext is true, the context and subject zone
 //are present also for all contained sections.
-func encodeZone(z *sections.ZoneSection, addZoneAndContext bool) string {
+func encodeZone(z *sections.Zone, addZoneAndContext bool) string {
 	zone := fmt.Sprintf("%s %s %s [\n", TypeZone, z.SubjectZone, z.Context)
 	for _, section := range z.Content {
 		switch section := section.(type) {
-		case *sections.AssertionSection:
+		case *sections.Assertion:
 			zone += encodeAssertion(section, z.Context, z.SubjectZone, indent4, addZoneAndContext)
-		case *sections.ShardSection:
+		case *sections.Shard:
 			zone += encodeShard(section, z.Context, z.SubjectZone, indent4, addZoneAndContext)
-		case *sections.PshardSection:
+		case *sections.Pshard:
 			zone += encodePshard(section, z.Context, z.SubjectZone, indent4, addZoneAndContext)
 		default:
 			log.Warn("Unsupported message section type", "msgSection", section)
@@ -46,7 +46,7 @@ func encodeZone(z *sections.ZoneSection, addZoneAndContext bool) string {
 
 //encodeShard returns s in zonefile format. If addZoneAndContext is true, the context and subject
 //zone are present for the shard and for all contained assertions.
-func encodeShard(s *sections.ShardSection, context, subjectZone, indent string, addZoneAndContext bool) string {
+func encodeShard(s *sections.Shard, context, subjectZone, indent string, addZoneAndContext bool) string {
 	rangeFrom := s.RangeFrom
 	rangeTo := s.RangeTo
 	if rangeFrom == "" {
@@ -79,7 +79,7 @@ func encodeShard(s *sections.ShardSection, context, subjectZone, indent string, 
 
 //encodePshard returns s in zonefile format. If addZoneAndContext is true, the context and subject
 //zone are present for the pshard.
-func encodePshard(s *sections.PshardSection, context, subjectZone, indent string, addZoneAndContext bool) string {
+func encodePshard(s *sections.Pshard, context, subjectZone, indent string, addZoneAndContext bool) string {
 	rangeFrom := s.RangeFrom
 	rangeTo := s.RangeTo
 	if rangeFrom == "" {
@@ -136,7 +136,7 @@ func encodeBloomFilter(d sections.DataStructure) string {
 
 //encodeAssertion returns a in zonefile format. If addZoneAndContext is true, the context and
 //subject zone are also present.
-func encodeAssertion(a *sections.AssertionSection, context, zone, indent string, addZoneAndContext bool) string {
+func encodeAssertion(a *sections.Assertion, context, zone, indent string, addZoneAndContext bool) string {
 	var assertion string
 	if addZoneAndContext {
 		assertion = fmt.Sprintf("%s%s %s %s %s [ ", indent, TypeAssertion, a.SubjectName, zone, context)
@@ -168,10 +168,10 @@ func encodeObjects(o []object.Object, indent string) string {
 		encoding := indent
 		switch obj.Type {
 		case object.OTName:
-			if nameObj, ok := obj.Value.(object.NameObject); ok {
+			if nameObj, ok := obj.Value.(object.Name); ok {
 				encoding += fmt.Sprintf("%s%s", addIndentToType(TypeName), encodeNameObject(nameObj))
 			} else {
-				log.Error("Type assertion failed. Expected object.NameObject", "actualType", fmt.Sprintf("%T", obj.Value))
+				log.Error("Type assertion failed. Expected object.Name", "actualType", fmt.Sprintf("%T", obj.Value))
 				return ""
 			}
 		case object.OTIP6Addr:
@@ -190,10 +190,10 @@ func encodeObjects(o []object.Object, indent string) string {
 		case object.OTNameset:
 			encoding += fmt.Sprintf("%s%s", addIndentToType(TypeNameSet), obj.Value)
 		case object.OTCertInfo:
-			if cert, ok := obj.Value.(object.CertificateObject); ok {
+			if cert, ok := obj.Value.(object.Certificate); ok {
 				encoding += fmt.Sprintf("%s%s", addIndentToType(TypeCertificate), encodeCertificate(cert))
 			} else {
-				log.Warn("Type assertion failed. Expected object.CertificateObject", "actualType", fmt.Sprintf("%T", obj.Value))
+				log.Warn("Type assertion failed. Expected object.Certificate", "actualType", fmt.Sprintf("%T", obj.Value))
 				return ""
 			}
 		case object.OTServiceInfo:
@@ -245,7 +245,7 @@ func addIndentToType(ot string) string {
 }
 
 //encodeNameObject returns no represented as a string in zone file format.
-func encodeNameObject(no object.NameObject) string {
+func encodeNameObject(no object.Name) string {
 	nameObject := []string{}
 	for _, oType := range no.Types {
 		switch oType {
@@ -303,7 +303,7 @@ func encodeKeySpace(keySpace keys.KeySpaceID) string {
 }
 
 //encodeCertificate returns cert represented as a string in zone file format.
-func encodeCertificate(cert object.CertificateObject) string {
+func encodeCertificate(cert object.Certificate) string {
 	var pt, cu, ca string
 	switch cert.Type {
 	case object.PTUnspecified:
@@ -327,7 +327,7 @@ func encodeCertificate(cert object.CertificateObject) string {
 	return fmt.Sprintf("%s %s %s %s", pt, cu, ca, hex.EncodeToString(cert.Data))
 }
 
-func encodeHashAlgo(h algorithmTypes.HashAlgorithmType) string {
+func encodeHashAlgo(h algorithmTypes.Hash) string {
 	switch h {
 	case algorithmTypes.NoHashAlgo:
 		return TypeNoHash
@@ -347,7 +347,7 @@ func encodeHashAlgo(h algorithmTypes.HashAlgorithmType) string {
 	}
 }
 
-func encodeEd25519Signature(sig signature.Signature) string {
+func encodeEd25519Signature(sig signature.Sig) string {
 	signature := fmt.Sprintf("%s %s %s %d %d %d", TypeSignature, TypeEd25519, TypeKSRains, sig.PublicKeyID.KeyPhase, sig.ValidSince, sig.ValidUntil)
 	if pkey, ok := sig.Data.(ed25519.PublicKey); ok {
 		return fmt.Sprintf("%s %s", signature, hex.EncodeToString(pkey))

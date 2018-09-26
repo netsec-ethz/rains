@@ -22,8 +22,8 @@ func Compare(a, b Token) int {
 	return bytes.Compare(a[:], b[:])
 }
 
-//GenerateToken generates a new unique Token
-func GenerateToken() Token {
+//New generates a new unique Token
+func New() Token {
 	token := [16]byte{}
 	_, err := rand.Read(token[:])
 	if err != nil {

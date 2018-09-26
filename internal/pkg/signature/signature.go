@@ -18,8 +18,8 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-//SignatureMetaData contains meta data of the signature
-type SignatureMetaData struct {
+//MetaData contains meta data of the signature
+type MetaData struct {
 	keys.PublicKeyID
 	//ValidSince defines the time from which on this signature is valid. ValidSince is represented as seconds since the UNIX epoch UTC.
 	ValidSince int64
@@ -27,13 +27,13 @@ type SignatureMetaData struct {
 	ValidUntil int64
 }
 
-func (sig SignatureMetaData) String() string {
+func (sig MetaData) String() string {
 	return fmt.Sprintf("%d %d %d %d %d",
 		sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, sig.KeyPhase)
 }
 
-//Signature contains meta data of the signature and the signature data itself.
-type Signature struct {
+//Sig contains meta data of the signature and the signature data itself.
+type Sig struct {
 	keys.PublicKeyID
 	//ValidSince defines the time from which on this signature is valid. ValidSince is represented as seconds since the UNIX epoch UTC.
 	ValidSince int64
@@ -43,8 +43,8 @@ type Signature struct {
 	Data interface{}
 }
 
-// UnmarshalArray takes in a CBOR decoded aray and populates Signature.
-func (sig *Signature) UnmarshalArray(in []interface{}) error {
+// UnmarshalArray takes in a CBOR decoded aray and populates Sig.
+func (sig *Sig) UnmarshalArray(in []interface{}) error {
 	if len(in) < 6 {
 		return fmt.Errorf("expected at least 5 items in input array but got %d", len(in))
 	}
@@ -61,7 +61,7 @@ func (sig *Signature) UnmarshalArray(in []interface{}) error {
 }
 
 // MarshalCBOR implements a CBORMarshaler.
-func (sig Signature) MarshalCBOR(w *borat.CBORWriter) error {
+func (sig Sig) MarshalCBOR(w *borat.CBORWriter) error {
 	// RAINS signatures have five common elements: the algorithm identifier, a
 	// keyspace identifier, a keyphase identifier, a valid-since timestamp, and
 	// a valid-until timestamp. Signatures are represented as an array of these
@@ -72,9 +72,9 @@ func (sig Signature) MarshalCBOR(w *borat.CBORWriter) error {
 	return w.WriteArray(res)
 }
 
-//GetSignatureMetaData returns the signatures metaData
-func (sig Signature) GetSignatureMetaData() SignatureMetaData {
-	return SignatureMetaData{
+//MetaData returns the signatures metaData
+func (sig Sig) MetaData() MetaData {
+	return MetaData{
 		PublicKeyID: sig.PublicKeyID,
 		ValidSince:  sig.ValidSince,
 		ValidUntil:  sig.ValidUntil,
@@ -82,7 +82,7 @@ func (sig Signature) GetSignatureMetaData() SignatureMetaData {
 }
 
 //String implements Stringer interface
-func (sig Signature) String() string {
+func (sig Sig) String() string {
 	data := "notYetImplementedInStringMethod"
 	if sig.Algorithm == algorithmTypes.Ed25519 {
 		if sig.Data == nil {
@@ -97,12 +97,12 @@ func (sig Signature) String() string {
 
 //SignData adds signature meta data to encoding. It then signs the encoding with privateKey and updates sig.Data field with the generated signature
 //In case of an error an error is returned indicating the cause, otherwise nil is returned
-func (sig *Signature) SignData(privateKey interface{}, encoding string) error {
+func (sig *Sig) SignData(privateKey interface{}, encoding string) error {
 	if privateKey == nil {
 		log.Warn("PrivateKey is nil")
 		return errors.New("privateKey is nil")
 	}
-	encoding += sig.GetSignatureMetaData().String()
+	encoding += sig.MetaData().String()
 	data := []byte(encoding)
 	switch sig.Algorithm {
 	case algorithmTypes.Ed25519:
@@ -142,14 +142,14 @@ func (sig *Signature) SignData(privateKey interface{}, encoding string) error {
 		log.Warn("Could not cast key to ecdsa.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
 		return errors.New("could not assert type ecdsa.PrivateKey")
 	default:
-		log.Warn("Signature algorithm type not supported", "type", sig.Algorithm)
+		log.Warn("Sig algorithm type not supported", "type", sig.Algorithm)
 		return errors.New("signature algorithm type not supported")
 	}
 }
 
 //VerifySignature adds signature meta data to the encoding. It then signs the encoding with privateKey and compares the resulting signature with the sig.Data.
 //Returns true if there exist signatures and they are identical
-func (sig *Signature) VerifySignature(publicKey interface{}, encoding string) bool {
+func (sig *Sig) VerifySignature(publicKey interface{}, encoding string) bool {
 	if sig.Data == nil {
 		log.Warn("sig does not contain signature data", "sig", sig)
 		return false
@@ -158,7 +158,7 @@ func (sig *Signature) VerifySignature(publicKey interface{}, encoding string) bo
 		log.Warn("PublicKey is nil")
 		return false
 	}
-	encoding += sig.GetSignatureMetaData().String()
+	encoding += sig.MetaData().String()
 	data := []byte(encoding)
 	switch sig.Algorithm {
 	case algorithmTypes.Ed25519:
@@ -189,7 +189,7 @@ func (sig *Signature) VerifySignature(publicKey interface{}, encoding string) bo
 		}
 		log.Warn("Could not assert type ecdsa.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
 	default:
-		log.Warn("Signature algorithm type not supported", "type", sig.Algorithm)
+		log.Warn("Sig algorithm type not supported", "type", sig.Algorithm)
 	}
 	return false
 }

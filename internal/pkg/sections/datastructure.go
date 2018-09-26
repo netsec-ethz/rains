@@ -55,7 +55,7 @@ const (
 
 //BloomFilter is a probabilistic datastructure for membership queries.
 type BloomFilter struct {
-	HashFamily       []algorithmTypes.HashAlgorithmType
+	HashFamily       []algorithmTypes.Hash
 	NofHashFunctions int
 	ModeOfOperation  ModeOfOperationType
 	Filter           bitarray.BitArray
@@ -63,7 +63,7 @@ type BloomFilter struct {
 
 //HasAssertion returns true if a might be part of the set represented by the bloom filter. It
 //returns false if a is certainly not part of the set.
-func (b BloomFilter) HasAssertion(a *AssertionSection) (bool, error) {
+func (b BloomFilter) HasAssertion(a *Assertion) (bool, error) {
 	switch b.ModeOfOperation {
 	case StandardOpType:
 		return b.hasAssertionStandard(a.BloomFilterEncoding())
@@ -107,7 +107,7 @@ func (b BloomFilter) hasAssertionKM(assertionEncoding string) (bool, error) {
 
 //AddAssertion sets the corresponding bits to 1 in the bloom filter based on the hash family,
 //number of hash functions used and mode of operation.
-func (b BloomFilter) AddAssertion(a *AssertionSection) error {
+func (b BloomFilter) AddAssertion(a *Assertion) error {
 	switch b.ModeOfOperation {
 	case StandardOpType:
 		return b.addAssertionStandard(a.BloomFilterEncoding())
@@ -159,7 +159,7 @@ func (b BloomFilter) getKMHashes(assertionEncoding string) (uint64, uint64, erro
 	}
 }
 
-func calcHash(hashType algorithmTypes.HashAlgorithmType, encoding string) uint64 {
+func calcHash(hashType algorithmTypes.Hash, encoding string) uint64 {
 	switch hashType {
 	case algorithmTypes.Sha256:
 		hash := sha256.Sum256([]byte(encoding))

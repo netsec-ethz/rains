@@ -11,15 +11,15 @@ import (
 const nofZones = 1000000
 
 func main() {
-	var channels [nofZones]chan sections.MessageSection
+	var channels [nofZones]chan sections.Section
 	for i := range channels {
-		channels[i] = make(chan sections.MessageSection)
+		channels[i] = make(chan sections.Section)
 		go worker(channels[i])
 	}
-	query := &sections.QuerySection{
+	query := &sections.QueryForward{
 		Name:       "example.com",
 		Context:    ".",
-		Types:      []object.ObjectType{object.OTRegistrant},
+		Types:      []object.Type{object.OTRegistrant},
 		Expiration: 1000000,
 	}
 	start := time.Now()
@@ -33,8 +33,8 @@ func main() {
 	log.Printf("Sending and receiving took %s", elapsed)
 }
 
-func worker(input chan sections.MessageSection) {
-	a := &sections.AssertionSection{
+func worker(input chan sections.Section) {
+	a := &sections.Assertion{
 		SubjectName: "example",
 		SubjectZone: "ch.",
 		Context:     ".",

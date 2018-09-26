@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/token"
-	"github.com/netsec-ethz/rains/internal/util"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
 
 	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
@@ -52,7 +52,7 @@ func New(rootNS, forwarders []string, mode ResolutionMode, insecureTLS bool) *Se
 	}
 }
 
-func (r *Server) Lookup(name, context string) (*message.RainsMessage, error) {
+func (r *Server) Lookup(name, context string) (*message.Message, error) {
 	switch r.Mode {
 	case ResolutionModeRecursive:
 		return r.recursiveResolve(name, context)
@@ -64,15 +64,15 @@ func (r *Server) Lookup(name, context string) (*message.RainsMessage, error) {
 	}
 }
 
-func (r *Server) nameToQuery(name, context string, expTime int64, opts []sections.QueryOption) message.RainsMessage {
-	types := []object.ObjectType{object.OTIP4Addr, object.OTIP6Addr, object.OTDelegation, object.OTServiceInfo, object.OTRedirection}
-	return util.NewQueryMessage(name, context, expTime, types, opts, token.GenerateToken())
+func (r *Server) nameToQuery(name, context string, expTime int64, opts []sections.QueryOption) message.Message {
+	types := []object.Type{object.OTIP4Addr, object.OTIP6Addr, object.OTDelegation, object.OTServiceInfo, object.OTRedirection}
+	return util.NewQueryMessage(name, context, expTime, types, opts, token.New())
 }
 
 // listen waits for one message and passes it back on the provided channel, or an error on the error channel.
-func listen(conn net.Conn, tok token.Token, done chan<- *message.RainsMessage, ec chan<- error) {
+func listen(conn net.Conn, tok token.Token, done chan<- *message.Message, ec chan<- error) {
 	reader := borat.NewCBORReader(conn)
-	var msg message.RainsMessage
+	var msg message.Message
 	if err := reader.Unmarshal(&msg); err != nil {
 		ec <- fmt.Errorf("failed to unmarshal response: %v", err)
 		return
@@ -84,7 +84,7 @@ func listen(conn net.Conn, tok token.Token, done chan<- *message.RainsMessage, e
 	done <- &msg
 }
 
-func (r *Server) forwardQuery(q message.RainsMessage) (*message.RainsMessage, error) {
+func (r *Server) forwardQuery(q message.Message) (*message.Message, error) {
 	if len(r.Forwarders) == 0 {
 		return nil, errors.New("forwarders must be specified to use this mode")
 	}
@@ -106,7 +106,7 @@ func (r *Server) forwardQuery(q message.RainsMessage) (*message.RainsMessage, er
 			errs = append(errs, fmt.Errorf("failed to marshal message to server: %v", err))
 			continue
 		}
-		done := make(chan *message.RainsMessage)
+		done := make(chan *message.Message)
 		ec := make(chan error)
 		go listen(conn, q.Token, done, ec)
 		select {
@@ -139,9 +139,9 @@ func NameToLabels(name string) ([]string, error) {
 }
 
 // recursiveResolve starts at the root and follows delegations until it receives an answer.
-func (r *Server) recursiveResolve(name, context string) (*message.RainsMessage, error) {
+func (r *Server) recursiveResolve(name, context string) (*message.Message, error) {
 	latestResolver := r.RootNameservers[0] // TODO: try multiple root nameservers.
-	var resp *message.RainsMessage
+	var resp *message.Message
 	for {
 		log.Info(fmt.Sprintf("connecting to resolver at address: %s to resolve %q", latestResolver, name))
 		d := &net.Dialer{
@@ -157,7 +157,7 @@ func (r *Server) recursiveResolve(name, context string) (*message.RainsMessage, 
 		if err := writer.Marshal(&q); err != nil {
 			return nil, fmt.Errorf("failed to marshal query to server: %v", err)
 		}
-		done := make(chan *message.RainsMessage)
+		done := make(chan *message.Message)
 		ec := make(chan error)
 		go listen(conn, q.Token, done, ec)
 		select {
@@ -175,11 +175,11 @@ func (r *Server) recursiveResolve(name, context string) (*message.RainsMessage, 
 		concreteMap := make(map[string]string)
 		for _, section := range resp.Content {
 			switch section.(type) {
-			case *sections.ZoneSection:
+			case *sections.Zone:
 				// If we were given a whole zone it's because we asked for it or it's non-existance proof.
 				return resp, nil
-			case *sections.AssertionSection:
-				as := section.(*sections.AssertionSection)
+			case *sections.Assertion:
+				as := section.(*sections.Assertion)
 				sz := mergeSubjectZone(as.SubjectName, as.SubjectZone)
 				if sz == name {
 					return resp, nil
@@ -197,7 +197,7 @@ func (r *Server) recursiveResolve(name, context string) (*message.RainsMessage, 
 						concreteMap[sz] = fmt.Sprintf("[%s]", obj.Value.(string))
 					}
 				}
-			case *sections.ShardSection:
+			case *sections.Shard:
 				return resp, nil
 			default:
 				return nil, fmt.Errorf("got unknown type: %T", section)

@@ -85,7 +85,7 @@ func (c *connectionCacheImpl) AddConnection(conn net.Conn) {
 //AddCapability adds capabilities to the destAddr entry. It returns false if there is no entry in
 //the cache for dstAddr. If there is already a capability list associated with destAddr, it will be
 //overwritten.
-func (c *connectionCacheImpl) AddCapabilityList(dstAddr connection.ConnInfo, capabilities []message.Capability) bool {
+func (c *connectionCacheImpl) AddCapabilityList(dstAddr connection.Info, capabilities []message.Capability) bool {
 	if e, ok := c.cache.Get(dstAddr.NetworkAndAddr()); ok {
 		v := e.(*connCacheValue)
 		v.mux.Lock()
@@ -101,7 +101,7 @@ func (c *connectionCacheImpl) AddCapabilityList(dstAddr connection.ConnInfo, cap
 
 //GetConnection returns true and all cached connection objects to dstAddr.
 //GetConnection returns false if there is no cached connection to dstAddr.
-func (c *connectionCacheImpl) GetConnection(dstAddr connection.ConnInfo) ([]net.Conn, bool) {
+func (c *connectionCacheImpl) GetConnection(dstAddr connection.Info) ([]net.Conn, bool) {
 	if e, ok := c.cache.Get(dstAddr.NetworkAndAddr()); ok {
 		v := e.(*connCacheValue)
 		v.mux.RLock()
@@ -116,7 +116,7 @@ func (c *connectionCacheImpl) GetConnection(dstAddr connection.ConnInfo) ([]net.
 
 //Get returns true and the capability list of dstAddr.
 //Get returns false if there is no capability list of dstAddr.
-func (c *connectionCacheImpl) GetCapabilityList(dstAddr connection.ConnInfo) ([]message.Capability, bool) {
+func (c *connectionCacheImpl) GetCapabilityList(dstAddr connection.Info) ([]message.Capability, bool) {
 	if e, ok := c.cache.Get(dstAddr.NetworkAndAddr()); ok {
 		v := e.(*connCacheValue)
 		v.mux.RLock()
@@ -208,7 +208,7 @@ type zoneKeyCacheValue struct {
 	publicKeys    *safeHashMap.Map
 	zone          string
 	context       string
-	algorithmType algorithmTypes.SignatureAlgorithmType
+	algorithmType algorithmTypes.Signature
 	keyPhase      int
 
 	mux sync.Mutex
@@ -226,7 +226,7 @@ func (v *zoneKeyCacheValue) getContextZone() string {
 
 type publicKeyAssertion struct {
 	publicKey keys.PublicKey
-	assertion *sections.AssertionSection
+	assertion *sections.Assertion
 }
 
 /*
@@ -252,7 +252,7 @@ type zoneKeyCacheImpl struct {
 //a zone has more than a certain (configurable) amount of public keys. (An external service can
 //then decide if it wants to blacklist a given zone). If the internal flag is set, the publicKey
 //will only be removed after it expired.
-func (c *zoneKeyCacheImpl) Add(assertion *sections.AssertionSection, publicKey keys.PublicKey, internal bool) bool {
+func (c *zoneKeyCacheImpl) Add(assertion *sections.Assertion, publicKey keys.PublicKey, internal bool) bool {
 	log.Info("Adding key to cache", "publicKey", publicKey, "assertion", assertion)
 	subjectName := assertion.SubjectName
 	if assertion.SubjectName == "@" {
@@ -315,8 +315,8 @@ func (c *zoneKeyCacheImpl) Add(assertion *sections.AssertionSection, publicKey k
 
 //Get returns true and a valid public key matching zone and publicKeyID. It returns false if
 //there exists no valid public key in the cache.
-func (c *zoneKeyCacheImpl) Get(zone, context string, sigMetaData signature.SignatureMetaData) (
-	keys.PublicKey, *sections.AssertionSection, bool) {
+func (c *zoneKeyCacheImpl) Get(zone, context string, sigMetaData signature.MetaData) (
+	keys.PublicKey, *sections.Assertion, bool) {
 	e, ok := c.cache.Get(fmt.Sprintf("%s,%s,%d,%d", zone, context, sigMetaData.Algorithm, sigMetaData.KeyPhase))
 	if !ok {
 		return keys.PublicKey{}, nil, false
@@ -375,7 +375,7 @@ type pendingKeyCacheValue struct {
 	//token is tokenMap's key
 	token token.Token
 	//sendTo is the connection information of the server to which the delegation query has been sent
-	sendTo connection.ConnInfo
+	sendTo connection.Info
 	//expiration is the time when the delegation query expires in unix time
 	expiration int64
 	//set to true if the pointer to this element is removed from both hash maps
@@ -386,7 +386,7 @@ func zoneCtxKey(zone, context string) string {
 	return fmt.Sprintf("%s %s", zone, context)
 }
 
-func algoPhaseKey(algoType algorithmTypes.SignatureAlgorithmType, phase int) string {
+func algoPhaseKey(algoType algorithmTypes.Signature, phase int) string {
 	return fmt.Sprintf("%s %d", algoType, phase)
 }
 
@@ -401,7 +401,7 @@ type pendingKeyCacheImpl struct {
 
 //Add adds sectionSender to the cache and returns true if a new delegation should be sent.
 func (c *pendingKeyCacheImpl) Add(sectionSender sectionWithSigSender,
-	algoType algorithmTypes.SignatureAlgorithmType, phase int) bool {
+	algoType algorithmTypes.Signature, phase int) bool {
 	if c.counter.Inc() {
 		log.Warn("pending key cache is full", "size", c.counter.Value())
 		c.counter.Dec()
@@ -447,7 +447,7 @@ func (c *pendingKeyCacheImpl) Add(sectionSender sectionWithSigSender,
 //matching the given zone and context. Token is only added to the map if a matching cache entry
 //exists without a token. True is returned if the entry is updated.
 func (c *pendingKeyCacheImpl) AddToken(token token.Token, expiration int64,
-	sendTo connection.ConnInfo, zone, context string) bool {
+	sendTo connection.Info, zone, context string) bool {
 	if entry, ok := c.zoneCtxMap.Get(zoneCtxKey(zone, context)); ok {
 		value := entry.(*pendingKeyCacheValue)
 		value.mux.Lock()
@@ -469,7 +469,7 @@ func (c *pendingKeyCacheImpl) AddToken(token token.Token, expiration int64,
 //GetAndRemove returns all sections who contain a signature matching the given parameter and
 //deletes them from the cache. It returns true if at least one section is returned. The token
 //map is updated if necessary.
-func (c *pendingKeyCacheImpl) GetAndRemove(zone, context string, algoType algorithmTypes.SignatureAlgorithmType, phase int) []sectionWithSigSender {
+func (c *pendingKeyCacheImpl) GetAndRemove(zone, context string, algoType algorithmTypes.Signature, phase int) []sectionWithSigSender {
 	if entry, ok := c.zoneCtxMap.Get(zoneCtxKey(zone, context)); ok {
 		value := entry.(*pendingKeyCacheValue)
 		value.mux.Lock()
@@ -564,7 +564,7 @@ type pendingQueryCacheValue struct {
 	//token is tokenMap's key
 	token token.Token
 	//sendTo is the connection information of the server to which the delegation query has been sent
-	sendTo connection.ConnInfo
+	sendTo connection.Info
 	//expiration is the time when the delegation query expires in unix time
 	expiration int64
 	//set to true if the pointer to this element is removed from both hash maps
@@ -577,7 +577,7 @@ type pendingQueryCacheValue struct {
 	deadline int64
 }
 
-func nameCtxTypesKey(zone, context string, types []object.ObjectType) string {
+func nameCtxTypesKey(zone, context string, types []object.Type) string {
 	if types == nil {
 		return fmt.Sprintf("%s %s nil", zone, context)
 	}
@@ -604,7 +604,7 @@ func (c *pendingQueryCacheImpl) Add(sectionSender msgSectionSender) bool {
 		c.counter.Dec()
 		return false
 	}
-	query := sectionSender.Section.(*sections.QuerySection)
+	query := sectionSender.Section.(*sections.QueryForward)
 	entry := &pendingQueryCacheValue{
 		nameCtxTypes: nameCtxTypesKey(query.Name, query.Context, query.Types),
 		queries:      []msgSectionSender{sectionSender},
@@ -635,7 +635,7 @@ func (c *pendingQueryCacheImpl) Add(sectionSender msgSectionSender) bool {
 //and the cache entry's token, expiration and sendTo fields are updated only if a matching cache
 //entry exists. True is returned if the entry is updated.
 func (c *pendingQueryCacheImpl) AddToken(token token.Token, expiration int64,
-	sendTo connection.ConnInfo, name, context string, types []object.ObjectType) bool {
+	sendTo connection.Info, name, context string, types []object.Type) bool {
 	if entry, ok := c.nameCtxTypesMap.Get(nameCtxTypesKey(name, context, types)); ok {
 		value := entry.(*pendingQueryCacheValue)
 		value.mux.Lock()
@@ -655,7 +655,7 @@ func (c *pendingQueryCacheImpl) AddToken(token token.Token, expiration int64,
 }
 
 //GetQuery returns true and the query stored with token in the cache if there is such an entry.
-func (c *pendingQueryCacheImpl) GetQuery(token token.Token) (sections.MessageSection, bool) {
+func (c *pendingQueryCacheImpl) GetQuery(token token.Token) (sections.Section, bool) {
 	if entry, ok := c.tokenMap.Get(token.String()); ok {
 		v := entry.(*pendingQueryCacheValue)
 		v.mux.Lock()
@@ -671,7 +671,7 @@ func (c *pendingQueryCacheImpl) GetQuery(token token.Token) (sections.MessageSec
 //returns a pending query from the entry and true if there is a matching token in the cache and
 //section is not already stored for these pending queries. The pending queries are are not removed
 //from the cache.
-func (c *pendingQueryCacheImpl) AddAnswerByToken(section sections.MessageSectionWithSig,
+func (c *pendingQueryCacheImpl) AddAnswerByToken(section sections.SecWithSig,
 	token token.Token, deadline int64) bool {
 	if entry, ok := c.tokenMap.Get(token.String()); ok {
 		v := entry.(*pendingQueryCacheValue)
@@ -691,7 +691,7 @@ func (c *pendingQueryCacheImpl) AddAnswerByToken(section sections.MessageSection
 //token and deletes them from the cache if no other section has been added to this cache entry
 //since section has been added by AddAnswerByToken(). Token is removed from the token map.
 func (c *pendingQueryCacheImpl) GetAndRemoveByToken(token token.Token, deadline int64) (
-	[]msgSectionSender, []sections.MessageSection) {
+	[]msgSectionSender, []sections.Section) {
 	if entry, ok := c.tokenMap.Get(token.String()); ok {
 		v := entry.(*pendingQueryCacheValue)
 		v.mux.Lock()
@@ -703,9 +703,9 @@ func (c *pendingQueryCacheImpl) GetAndRemoveByToken(token token.Token, deadline 
 		c.tokenMap.Remove(token.String())
 		c.nameCtxTypesMap.Remove(v.nameCtxTypes)
 		c.counter.Sub(len(v.queries))
-		var answers []sections.MessageSection
+		var answers []sections.Section
 		for _, section := range v.answers.GetAll() {
-			answers = append(answers, section.(sections.MessageSection))
+			answers = append(answers, section.(sections.Section))
 		}
 		return v.queries, answers
 	}
@@ -770,7 +770,7 @@ type assertionCacheValue struct {
 }
 
 type assertionExpiration struct {
-	assertion  *sections.AssertionSection
+	assertion  *sections.Assertion
 	expiration int64
 }
 
@@ -799,13 +799,13 @@ func mergeSubjectZone(subject, zone string) string {
 }
 
 //assertionCacheMapKey returns the key for assertionCacheImpl.cache based on the assertion
-func assertionCacheMapKey(name, zone, context string, oType object.ObjectType) string {
+func assertionCacheMapKey(name, zone, context string, oType object.Type) string {
 	key := fmt.Sprintf("%s %s %d", mergeSubjectZone(name, zone), context, oType)
 	log.Debug("assertionCacheMapKey", "key", key)
 	return key
 }
 
-func assertionCacheMapKeyFQDN(fqdn, context string, oType object.ObjectType) string {
+func assertionCacheMapKeyFQDN(fqdn, context string, oType object.Type) string {
 	key := fmt.Sprintf("%s %s %d", fqdn, context, oType)
 	log.Debug("assertionCacheMapKeyFQDN", "key", key)
 	return key
@@ -814,7 +814,7 @@ func assertionCacheMapKeyFQDN(fqdn, context string, oType object.ObjectType) str
 //Add adds an assertion together with an expiration time (number of seconds since 01.01.1970) to
 //the cache. It returns false if the cache is full and an element was removed according to least
 //recently used strategy. It also adds the shard to the consistency cache.
-func (c *assertionCacheImpl) Add(a *sections.AssertionSection, expiration int64, isInternal bool) bool {
+func (c *assertionCacheImpl) Add(a *sections.Assertion, expiration int64, isInternal bool) bool {
 	isFull := false
 	consistCache.Add(a)
 	for _, o := range a.Content {
@@ -899,7 +899,7 @@ func zoneHierarchy(fqdn string) []string {
 //nil and false is returned.
 // If strict is true then only a direct match for the provided FQDN is looked up.
 // Otherwise, a search up the domain name hierarchy is performed to get the topmost match.
-func (c *assertionCacheImpl) Get(fqdn, context string, objType object.ObjectType, strict bool) ([]*sections.AssertionSection, bool) {
+func (c *assertionCacheImpl) Get(fqdn, context string, objType object.Type, strict bool) ([]*sections.Assertion, bool) {
 	log.Debug("get", "fqdn", fqdn)
 	var v interface{}
 	var ok bool
@@ -926,7 +926,7 @@ func (c *assertionCacheImpl) Get(fqdn, context string, objType object.ObjectType
 	if value.deleted {
 		return nil, false
 	}
-	var assertions []*sections.AssertionSection
+	var assertions []*sections.Assertion
 	for _, av := range value.assertions {
 		assertions = append(assertions, av.assertion)
 	}
@@ -1014,7 +1014,7 @@ type negAssertionCacheValue struct {
 }
 
 type sectionExpiration struct {
-	section    sections.MessageSectionWithSigForward
+	section    sections.SecWithSigForward
 	expiration int64
 }
 
@@ -1033,21 +1033,21 @@ type negativeAssertionCacheImpl struct {
 //Add adds a shard together with an expiration time (number of seconds since 01.01.1970) to
 //the cache. It returns false if the cache is full and an element was removed according to least
 //recently used strategy. It also adds shard to the consistency cache.
-func (c *negativeAssertionCacheImpl) AddShard(shard *sections.ShardSection, expiration int64, isInternal bool) bool {
+func (c *negativeAssertionCacheImpl) AddShard(shard *sections.Shard, expiration int64, isInternal bool) bool {
 	return add(c, shard, expiration, isInternal)
 }
 
 //Add adds a zone together with an expiration time (number of seconds since 01.01.1970) to
 //the cache. It returns false if the cache is full and an element was removed according to least
 //recently used strategy. It also adds zone to the consistency cache.
-func (c *negativeAssertionCacheImpl) AddZone(zone *sections.ZoneSection, expiration int64, isInternal bool) bool {
+func (c *negativeAssertionCacheImpl) AddZone(zone *sections.Zone, expiration int64, isInternal bool) bool {
 	return add(c, zone, expiration, isInternal)
 }
 
 //add adds a section together with an expiration time (number of seconds since 01.01.1970) to
 //the cache. It returns false if the cache is full and an element was removed according to least
 //recently used strategy.
-func add(c *negativeAssertionCacheImpl, s sections.MessageSectionWithSigForward, expiration int64, isInternal bool) bool {
+func add(c *negativeAssertionCacheImpl, s sections.SecWithSigForward, expiration int64, isInternal bool) bool {
 	isFull := false
 	key := zoneCtxKey(s.GetSubjectZone(), s.GetContext())
 	cacheValue := negAssertionCacheValue{
@@ -1100,7 +1100,7 @@ func add(c *negativeAssertionCacheImpl, s sections.MessageSectionWithSigForward,
 
 //Get returns true and a set of assertions matching the given key if there exist some. Otherwise
 //nil and false is returned.
-func (c *negativeAssertionCacheImpl) Get(zone, context string, interval sections.Interval) ([]sections.MessageSectionWithSigForward, bool) {
+func (c *negativeAssertionCacheImpl) Get(zone, context string, interval sections.Interval) ([]sections.SecWithSigForward, bool) {
 	key := zoneCtxKey(zone, context)
 	v, ok := c.cache.Get(key)
 	if !ok {
@@ -1112,7 +1112,7 @@ func (c *negativeAssertionCacheImpl) Get(zone, context string, interval sections
 	if value.deleted {
 		return nil, false
 	}
-	var secs []sections.MessageSectionWithSigForward
+	var secs []sections.SecWithSigForward
 	for _, sec := range value.sections {
 		if sections.Intersect(sec.section, interval) {
 			secs = append(secs, sec.section)
@@ -1181,7 +1181,7 @@ func (c *negativeAssertionCacheImpl) Len() int {
 }
 
 type consistencyCacheValue struct {
-	sections map[string]sections.MessageSectionWithSigForward
+	sections map[string]sections.SecWithSigForward
 	mux      sync.RWMutex
 	deleted  bool
 }
@@ -1196,12 +1196,12 @@ type consistencyCacheImpl struct {
 }
 
 //Add adds section to the consistency cache.
-func (c *consistencyCacheImpl) Add(section sections.MessageSectionWithSigForward) {
+func (c *consistencyCacheImpl) Add(section sections.SecWithSigForward) {
 	ctxZoneMapKey := fmt.Sprintf("%s %s", section.GetSubjectZone(), section.GetContext())
 	c.mux.Lock()
 	v, ok := c.ctxZoneMap[ctxZoneMapKey]
 	if !ok {
-		v = &consistencyCacheValue{sections: make(map[string]sections.MessageSectionWithSigForward)}
+		v = &consistencyCacheValue{sections: make(map[string]sections.SecWithSigForward)}
 		c.ctxZoneMap[ctxZoneMapKey] = v
 	}
 	c.mux.Unlock()
@@ -1216,7 +1216,7 @@ func (c *consistencyCacheImpl) Add(section sections.MessageSectionWithSigForward
 
 //Get returns all sections from the cache with the given zone and context that are overlapping
 //with interval.
-func (c *consistencyCacheImpl) Get(subjectZone, context string, interval sections.Interval) []sections.MessageSectionWithSigForward {
+func (c *consistencyCacheImpl) Get(subjectZone, context string, interval sections.Interval) []sections.SecWithSigForward {
 	ctxZoneMapKey := fmt.Sprintf("%s %s", subjectZone, context)
 	c.mux.RLock()
 	v, ok := c.ctxZoneMap[ctxZoneMapKey]
@@ -1230,7 +1230,7 @@ func (c *consistencyCacheImpl) Get(subjectZone, context string, interval section
 	if v.deleted {
 		return nil
 	}
-	var secs []sections.MessageSectionWithSigForward
+	var secs []sections.SecWithSigForward
 	for _, section := range v.sections {
 		if sections.Intersect(section, interval) {
 			secs = append(secs, section)
@@ -1240,7 +1240,7 @@ func (c *consistencyCacheImpl) Get(subjectZone, context string, interval section
 }
 
 //Remove deletes section from the consistency cache
-func (c *consistencyCacheImpl) Remove(section sections.MessageSectionWithSigForward) {
+func (c *consistencyCacheImpl) Remove(section sections.SecWithSigForward) {
 	ctxZoneMapKey := fmt.Sprintf("%s %s", section.GetSubjectZone(), section.GetContext())
 	c.mux.Lock()
 	if v, ok := c.ctxZoneMap[ctxZoneMapKey]; ok {
@@ -1278,7 +1278,7 @@ type redirectionCacheValue struct {
 	mux sync.Mutex
 	//sections is a hash map from algoType and phase to a hash map keyed by section.Hash and
 	//pointing to sectionWithSigSender in which section is contained
-	connInfo map[connection.ConnInfo]int64
+	connInfo map[connection.Info]int64
 	//name of the delegation or redirect assertion
 	name string
 	//expiration is the time when the delegation or redirect assertion expires in unix time
@@ -1303,7 +1303,7 @@ type redirectionCacheImpl struct {
 //the expiration time in case it is larger
 func (c *redirectionCacheImpl) AddName(subjectZone string, expiration int64, internal bool) {
 	value := &redirectionCacheValue{name: subjectZone, expiration: expiration,
-		connInfo: make(map[connection.ConnInfo]int64)}
+		connInfo: make(map[connection.Info]int64)}
 	if entry, ok := c.nameConnMap.GetOrAdd(subjectZone, value, internal); !ok {
 		v := entry.(*redirectionCacheValue)
 		v.mux.Lock()
@@ -1321,7 +1321,7 @@ func (c *redirectionCacheImpl) AddName(subjectZone string, expiration int64, int
 //AddConnInfo returns true and adds connInfo to subjectZone in the cache if subjectZone is
 //already in the cache. Otherwise false is returned and connInfo is not added to the cache.
 //if the cache is full
-func (c *redirectionCacheImpl) AddConnInfo(subjectZone string, connInfo connection.ConnInfo,
+func (c *redirectionCacheImpl) AddConnInfo(subjectZone string, connInfo connection.Info,
 	expiration int64) bool {
 	if entry, ok := c.nameConnMap.Get(subjectZone); ok {
 		v := entry.(*redirectionCacheValue)
@@ -1364,12 +1364,12 @@ func redirectCacheLruRemoval(c *redirectionCacheImpl) {
 }
 
 //GetConnInfos returns all non expired cached connection information stored to subjectZone
-func (c *redirectionCacheImpl) GetConnsInfo(subjectZone string) []connection.ConnInfo {
+func (c *redirectionCacheImpl) GetConnsInfo(subjectZone string) []connection.Info {
 	if entry, ok := c.nameConnMap.Get(subjectZone); ok {
 		v := entry.(*redirectionCacheValue)
 		v.mux.Lock()
 		if !v.deleted && v.expiration >= time.Now().Unix() {
-			var conns []connection.ConnInfo
+			var conns []connection.Info
 			for conn, exp := range v.connInfo {
 				if exp >= time.Now().Unix() {
 					conns = append(conns, conn)

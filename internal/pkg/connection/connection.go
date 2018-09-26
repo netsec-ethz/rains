@@ -7,16 +7,16 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
-//ConnInfo contains address information about one actor of a connection of the declared type
-type ConnInfo struct {
+//Info contains address information about one actor of a connection of the declared type
+type Info struct {
 	//Type determines the network address type
-	Type NetworkAddrType
+	Type Type
 
 	TCPAddr *net.TCPAddr
 }
 
 //String returns the string representation of the connection information according to its type
-func (c ConnInfo) String() string {
+func (c Info) String() string {
 	switch c.Type {
 	case TCP:
 		return c.TCPAddr.String()
@@ -27,7 +27,7 @@ func (c ConnInfo) String() string {
 }
 
 //NetworkAndAddr returns the network name and addr of the connection separated by space
-func (c ConnInfo) NetworkAndAddr() string {
+func (c Info) NetworkAndAddr() string {
 	switch c.Type {
 	case TCP:
 		return fmt.Sprintf("%s %s", c.TCPAddr.Network(), c.String())
@@ -37,13 +37,13 @@ func (c ConnInfo) NetworkAndAddr() string {
 	}
 }
 
-//Hash returns a string containing all information uniquely identifying a ConnInfo.
-func (c ConnInfo) Hash() string {
+//Hash returns a string containing all information uniquely identifying a Info.
+func (c Info) Hash() string {
 	return fmt.Sprintf("%v_%s", c.Type, c.String())
 }
 
 //Equal returns true if both Connection Information have the same existing type and the values corresponding to this type are identical.
-func (c ConnInfo) Equal(conn ConnInfo) bool {
+func (c Info) Equal(conn Info) bool {
 	if c.Type == conn.Type {
 		switch c.Type {
 		case TCP:
@@ -55,11 +55,11 @@ func (c ConnInfo) Equal(conn ConnInfo) bool {
 	return false
 }
 
-//NetworkAddrType enumerates network address types
-type NetworkAddrType int
+//Type enumerates connection types
+type Type int
 
 //run 'go generate' in this directory if a new networkAddrType is added [source https://github.com/campoy/jsonenums]
-//go:generate jsonenums -type=NetworkAddrType
+//go:generate jsonenums -type=Type
 const (
-	TCP NetworkAddrType = iota + 1
+	TCP Type = iota + 1
 )

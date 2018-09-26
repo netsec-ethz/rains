@@ -29,7 +29,7 @@ func TestAddAndFind(t *testing.T) {
 	delegObject := object.Object{Type: object.OTDelegation, Value: publicKey}
 	registrantObject := object.Object{Type: object.OTRegistrant, Value: "Registrant information"}
 
-	signature := signature.Signature{
+	signature := signature.Sig{
 		PublicKeyID: keys.PublicKeyID{
 			KeySpace:  keys.RainsKeySpace,
 			Algorithm: keys.Ed25519,
@@ -48,14 +48,14 @@ func TestAddAndFind(t *testing.T) {
 	_, subjectAddress7, _ := net.ParseCIDR("10AA::/9")
 	_, subjectAddress8, _ := net.ParseCIDR("10AA::/6")
 
-	addressAssertion1 := &sections.AddressAssertionSection{
+	addressAssertion1 := &sections.AddrAssertion{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Content:     []object.Object{nameObject},
 		Signatures:  []signature.Signature{signature},
 	}
 
-	addressAssertion2 := &sections.AddressAssertionSection{
+	addressAssertion2 := &sections.AddrAssertion{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
 		Content:     []object.Object{redirObject, delegObject, registrantObject},
@@ -65,25 +65,25 @@ func TestAddAndFind(t *testing.T) {
 	addressZone1 := &sections.AddressZoneSection{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
-		Content:     []*sections.AddressAssertionSection{addressAssertion1, addressAssertion2},
+		Content:     []*sections.AddrAssertion{addressAssertion1, addressAssertion2},
 		Signatures:  []signature.Signature{signature},
 	}
 
 	addressZone2 := &sections.AddressZoneSection{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
-		Content:     []*sections.AddressAssertionSection{addressAssertion1, addressAssertion2},
+		Content:     []*sections.AddrAssertion{addressAssertion1, addressAssertion2},
 		Signatures:  []signature.Signature{signature},
 	}
 
-	addressAssertion3 := &sections.AddressAssertionSection{
+	addressAssertion3 := &sections.AddrAssertion{
 		SubjectAddr: subjectAddress5,
 		Context:     ".",
 		Content:     []object.Object{nameObject},
 		Signatures:  []signature.Signature{signature},
 	}
 
-	addressAssertion4 := &sections.AddressAssertionSection{
+	addressAssertion4 := &sections.AddrAssertion{
 		SubjectAddr: subjectAddress6,
 		Context:     ".",
 		Content:     []object.Object{redirObject, delegObject, registrantObject},
@@ -93,14 +93,14 @@ func TestAddAndFind(t *testing.T) {
 	addressZone3 := &sections.AddressZoneSection{
 		SubjectAddr: subjectAddress5,
 		Context:     ".",
-		Content:     []*sections.AddressAssertionSection{addressAssertion3, addressAssertion4},
+		Content:     []*sections.AddrAssertion{addressAssertion3, addressAssertion4},
 		Signatures:  []signature.Signature{signature},
 	}
 
 	addressZone4 := &sections.AddressZoneSection{
 		SubjectAddr: subjectAddress6,
 		Context:     ".",
-		Content:     []*sections.AddressAssertionSection{addressAssertion3, addressAssertion4},
+		Content:     []*sections.AddrAssertion{addressAssertion3, addressAssertion4},
 		Signatures:  []signature.Signature{signature},
 	}
 
@@ -108,7 +108,7 @@ func TestAddAndFind(t *testing.T) {
 	* IPv4
 	 */
 
-	trie := &TrieNode{assertions: make(map[object.ObjectType]*set.Set)}
+	trie := &TrieNode{assertions: make(map[object.Type]*set.Set)}
 	trie.zones = set.New()
 	trie.assertions[object.OTName] = set.New()
 	trie.assertions[object.OTRedirection] = set.New()
@@ -116,36 +116,36 @@ func TestAddAndFind(t *testing.T) {
 	trie.assertions[object.OTDelegation] = set.New()
 
 	trie.AddAddressAssertion(addressAssertion1)
-	a, z, ok := trie.Get(subjectAddress1, []object.ObjectType{object.OTName})
+	a, z, ok := trie.Get(subjectAddress1, []object.Type{object.OTName})
 	if a != addressAssertion1 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Added AddressAssertion not returned by the cache")
 	}
 	trie.AddAddressZone(addressZone2)
-	a, z, ok = trie.Get(subjectAddress2, []object.ObjectType{})
+	a, z, ok = trie.Get(subjectAddress2, []object.Type{})
 	if z != addressZone2 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Added AddressZone not returned by the cache")
 	}
-	a, z, ok = trie.Get(subjectAddress3, []object.ObjectType{})
+	a, z, ok = trie.Get(subjectAddress3, []object.Type{})
 	if z != addressZone2 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Less specific AddressZone not returned by the trie")
 	}
-	a, z, ok = trie.Get(subjectAddress4, []object.ObjectType{})
+	a, z, ok = trie.Get(subjectAddress4, []object.Type{})
 	if ok {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("No entry should be returned. There is no less specific one")
 	}
 
 	trie.AddAddressZone(addressZone1)
-	a, z, ok = trie.Get(subjectAddress1, []object.ObjectType{object.OTName})
+	a, z, ok = trie.Get(subjectAddress1, []object.Type{object.OTName})
 	if a != addressAssertion1 || z != nil {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Assertions have priority over zone")
 	}
 
-	a, z, ok = trie.Get(subjectAddress1, []object.ObjectType{object.OTDelegation})
+	a, z, ok = trie.Get(subjectAddress1, []object.Type{object.OTDelegation})
 	if a != nil || z != addressZone1 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Assertion should not be returned. The type does not match.")
@@ -155,7 +155,7 @@ func TestAddAndFind(t *testing.T) {
 	* IPv6
 	 */
 
-	trie = &TrieNode{assertions: make(map[object.ObjectType]*set.Set)}
+	trie = &TrieNode{assertions: make(map[object.Type]*set.Set)}
 	trie.zones = set.New()
 	trie.assertions[object.OTName] = set.New()
 	trie.assertions[object.OTRedirection] = set.New()
@@ -163,36 +163,36 @@ func TestAddAndFind(t *testing.T) {
 	trie.assertions[object.OTDelegation] = set.New()
 
 	trie.AddAddressAssertion(addressAssertion3)
-	a, z, ok = trie.Get(subjectAddress5, []object.ObjectType{object.OTName})
+	a, z, ok = trie.Get(subjectAddress5, []object.Type{object.OTName})
 	if a != addressAssertion3 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Added AddressAssertion not returned by the cache")
 	}
 	trie.AddAddressZone(addressZone4)
-	a, z, ok = trie.Get(subjectAddress6, []object.ObjectType{})
+	a, z, ok = trie.Get(subjectAddress6, []object.Type{})
 	if z != addressZone4 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Added AddressZone not returned by the cache")
 	}
-	a, z, ok = trie.Get(subjectAddress7, []object.ObjectType{})
+	a, z, ok = trie.Get(subjectAddress7, []object.Type{})
 	if z != addressZone4 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Less specific AddressZone not returned by the trie")
 	}
-	a, z, ok = trie.Get(subjectAddress8, []object.ObjectType{})
+	a, z, ok = trie.Get(subjectAddress8, []object.Type{})
 	if ok {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("No entry should be returned. There is no less specific one")
 	}
 
 	trie.AddAddressZone(addressZone3)
-	a, z, ok = trie.Get(subjectAddress5, []object.ObjectType{object.OTName})
+	a, z, ok = trie.Get(subjectAddress5, []object.Type{object.OTName})
 	if a != addressAssertion3 || z != nil {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Assertions have priority over zone")
 	}
 
-	a, z, ok = trie.Get(subjectAddress5, []object.ObjectType{object.OTDelegation})
+	a, z, ok = trie.Get(subjectAddress5, []object.Type{object.OTDelegation})
 	if a != nil || z != addressZone3 {
 		log.Warn("", "assertion", a, "zone", z, "ok", ok)
 		t.Error("Assertion should not be returned. The type does not match.")

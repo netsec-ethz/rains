@@ -14,7 +14,7 @@ import (
 //notify handles incoming notification messages
 func notify(msgSender msgSectionSender) {
 	notifLog := log.New("notificationMsgSection", msgSender.Section)
-	section := msgSender.Section.(*sections.NotificationSection)
+	section := msgSender.Section.(*sections.Notification)
 	switch section.Type {
 	case sections.NTHeartbeat:
 	case sections.NTCapHashNotKnown:
@@ -43,11 +43,11 @@ func notify(msgSender msgSectionSender) {
 	case sections.NTBadMessage:
 		notifLog.Error("Sent msg was malformed")
 		dropPendingSectionsAndQueries(msgSender.Token,
-			msgSender.Section.(*sections.NotificationSection), true)
+			msgSender.Section.(*sections.Notification), true)
 	case sections.NTRcvInconsistentMsg:
 		notifLog.Error("Sent msg was inconsistent")
 		dropPendingSectionsAndQueries(msgSender.Token,
-			msgSender.Section.(*sections.NotificationSection), true)
+			msgSender.Section.(*sections.Notification), true)
 	case sections.NTMsgTooLarge:
 		notifLog.Error("Sent msg was too large")
 		//TODO CFE resend message in smaller chunks
@@ -57,15 +57,15 @@ func notify(msgSender msgSectionSender) {
 	case sections.NTUnspecServerErr:
 		notifLog.Error("Unspecified error of other server")
 		dropPendingSectionsAndQueries(msgSender.Token,
-			msgSender.Section.(*sections.NotificationSection), false)
+			msgSender.Section.(*sections.Notification), false)
 	case sections.NTServerNotCapable:
 		notifLog.Error("Other server was not capable")
 		dropPendingSectionsAndQueries(msgSender.Token,
-			msgSender.Section.(*sections.NotificationSection), false)
+			msgSender.Section.(*sections.Notification), false)
 	case sections.NTNoAssertionAvail:
 		notifLog.Info("No assertion was available")
 		dropPendingSectionsAndQueries(msgSender.Token,
-			msgSender.Section.(*sections.NotificationSection), false)
+			msgSender.Section.(*sections.Notification), false)
 	default:
 		notifLog.Warn("No matching notification type")
 		sendNotificationMsg(msgSender.Token, msgSender.Sender, sections.NTBadMessage, "No matching notification type")
@@ -79,7 +79,7 @@ func capabilityIsHash(capabilities string) bool {
 
 //dropPendingSectionsAndQueries removes all entries from the pending caches matching token and
 //forwards the received notification or unspecServerErr depending on serverError flag
-func dropPendingSectionsAndQueries(token token.Token, notification *sections.NotificationSection,
+func dropPendingSectionsAndQueries(token token.Token, notification *sections.Notification,
 	serverError bool) {
 	for _, ss := range pendingKeys.GetAndRemoveByToken(token) {
 		if serverError {

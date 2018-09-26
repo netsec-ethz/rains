@@ -15,7 +15,7 @@ import (
 //authority
 type PublicKeyID struct {
 	//Algorithm determines the signature algorithm to be used for signing and verification
-	Algorithm algorithmTypes.SignatureAlgorithmType
+	Algorithm algorithmTypes.Signature
 	//KeySpace is an identifier of a key space
 	KeySpace KeySpaceID
 	//KeyPhase defines the keyPhase in which this public key is valid

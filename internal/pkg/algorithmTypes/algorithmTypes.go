@@ -1,20 +1,20 @@
 package algorithmTypes
 
-//SignatureAlgorithmType specifies a signature algorithm type
-type SignatureAlgorithmType int
+//Signature specifies a signature algorithm type
+type Signature int
 
 const (
-	Ed25519 SignatureAlgorithmType = iota + 1
+	Ed25519 Signature = iota + 1
 	Ed448
 	Ecdsa256
 	Ecdsa384
 )
 
-//HashAlgorithmType specifies a hash algorithm type
-type HashAlgorithmType int
+//Hash specifies a hash algorithm type
+type Hash int
 
 const (
-	NoHashAlgo HashAlgorithmType = iota
+	NoHashAlgo Hash = iota
 	Sha256
 	Sha384
 	Sha512

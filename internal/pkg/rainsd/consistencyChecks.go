@@ -12,25 +12,25 @@ import (
 
 //isAssertionConsistent checks if the incoming assertion is consistent with the elements in the cache.
 //If not, every element of this zone and context is dropped and it returns false
-func isAssertionConsistent(assertion *sections.AssertionSection) bool {
+func isAssertionConsistent(assertion *sections.Assertion) bool {
 	negAssertions := consistCache.Get(assertion.Context, assertion.SubjectZone, assertion)
 	for _, negAssertion := range negAssertions {
 		switch negAssertion := negAssertion.(type) {
-		case *sections.AssertionSection:
+		case *sections.Assertion:
 			//TODO CFE do nothing???
-		case *sections.ShardSection:
+		case *sections.Shard:
 			if togetherValid(assertion, negAssertion) && !shardContainsAssertion(assertion, negAssertion) {
 				log.Warn("Inconsistency encountered between assertion and shard. Drop all sections for given context and zone.", "assertion", assertion, "shard", negAssertion)
 				dropAllWithContextZone(assertion.Context, assertion.SubjectZone)
 				return false
 			}
-		case *sections.ZoneSection:
+		case *sections.Zone:
 			if togetherValid(assertion, negAssertion) && !zoneContainsAssertion(assertion, negAssertion) {
 				dropAllWithContextZone(assertion.Context, assertion.SubjectZone)
 				return false
 			}
 		default:
-			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *ZoneSection. Got=%T", negAssertion))
+			log.Warn(fmt.Sprintf("Not supported type. Expected *Shard or *Zone. Got=%T", negAssertion))
 		}
 	}
 	return true
@@ -38,27 +38,27 @@ func isAssertionConsistent(assertion *sections.AssertionSection) bool {
 
 //isShardConsistent checks if the incoming shard is consistent with the elements in the cache.
 //If not every element of this zone is dropped and it return false
-func isShardConsistent(shard *sections.ShardSection) bool {
+func isShardConsistent(shard *sections.Shard) bool {
 	secs := consistCache.Get(shard.Context, shard.SubjectZone, shard)
 	for _, v := range secs {
 		switch v := v.(type) {
-		case *sections.AssertionSection:
+		case *sections.Assertion:
 			if togetherValid(shard, v) && !shardContainsAssertion(v, shard) {
 				dropAllWithContextZone(shard.Context, shard.SubjectZone)
 				return false
 			}
-		case *sections.ShardSection:
+		case *sections.Shard:
 			if togetherValid(shard, v) && !isShardConsistentWithShard(shard, v) {
 				dropAllWithContextZone(shard.Context, shard.SubjectZone)
 				return false
 			}
-		case *sections.ZoneSection:
+		case *sections.Zone:
 			if togetherValid(shard, v) && !isShardConsistentWithZone(shard, v) {
 				dropAllWithContextZone(shard.Context, shard.SubjectZone)
 				return false
 			}
 		default:
-			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *ZoneSection. Got=%T", v))
+			log.Warn(fmt.Sprintf("Not supported type. Expected *Shard or *Zone. Got=%T", v))
 		}
 	}
 	return true
@@ -66,28 +66,28 @@ func isShardConsistent(shard *sections.ShardSection) bool {
 
 //isZoneConsistent checks if the incoming zone is consistent with the elements in the cache.
 //If not every element of this zone is dropped and it return false
-func isZoneConsistent(zone *sections.ZoneSection) bool {
+func isZoneConsistent(zone *sections.Zone) bool {
 	secs, ok := negAssertionCache.Get(zone.Context, zone.SubjectZone, zone)
 	if ok {
 		for _, v := range secs {
 			switch v := v.(type) {
-			case *sections.AssertionSection:
+			case *sections.Assertion:
 				if togetherValid(zone, v) && !zoneContainsAssertion(v, zone) {
 					dropAllWithContextZone(zone.Context, zone.SubjectZone)
 					return false
 				}
-			case *sections.ShardSection:
+			case *sections.Shard:
 				if togetherValid(zone, v) && !isShardConsistentWithZone(v, zone) {
 					dropAllWithContextZone(zone.Context, zone.SubjectZone)
 					return false
 				}
-			case *sections.ZoneSection:
+			case *sections.Zone:
 				if togetherValid(zone, v) && !isZoneConsistentWithZone(v, zone) {
 					dropAllWithContextZone(zone.Context, zone.SubjectZone)
 					return false
 				}
 			default:
-				log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *ZoneSection. Got=%T", v))
+				log.Warn(fmt.Sprintf("Not supported type. Expected *Shard or *Zone. Got=%T", v))
 			}
 		}
 	}
@@ -96,20 +96,13 @@ func isZoneConsistent(zone *sections.ZoneSection) bool {
 
 //isAddressAssertionConsistent checks if the incoming address assertion is consistent with the elements in the cache.
 //If not, every element of this zone and context is dropped and it returns false
-func isAddressAssertionConsistent(assertion *sections.AddressAssertionSection) bool {
-	//TODO CFE implement
-	return false
-}
-
-//isZoneConsistent checks if the incoming address zone is consistent with the elements in the cache.
-//If not every element of this zone is dropped and it return false
-func isAddressZoneConsistent(zone *sections.AddressZoneSection) bool {
+func isAddressAssertionConsistent(assertion *sections.AddrAssertion) bool {
 	//TODO CFE implement
 	return false
 }
 
 //togetherValid returns true if both sections are at some point both valid
-func togetherValid(s1, s2 sections.MessageSectionWithSig) bool {
+func togetherValid(s1, s2 sections.SecWithSig) bool {
 	return s1.ValidUntil() >= s2.ValidSince() && s1.ValidSince() <= s2.ValidUntil()
 }
 
@@ -120,7 +113,7 @@ func dropAllWithContextZone(context, zone string) {
 }
 
 //shardContainsAssertion returns true if the given shard contains the given assertion
-func shardContainsAssertion(a *sections.AssertionSection, s *sections.ShardSection) bool {
+func shardContainsAssertion(a *sections.Assertion, s *sections.Shard) bool {
 	for _, assertion := range s.Content {
 		if a.EqualContextZoneName(assertion) {
 			return true
@@ -131,15 +124,15 @@ func shardContainsAssertion(a *sections.AssertionSection, s *sections.ShardSecti
 }
 
 //zoneContainsAssertion returns true if the given zone contains the given assertion and that all contained shards in range of the assertion contain the assertion.
-func zoneContainsAssertion(a *sections.AssertionSection, z *sections.ZoneSection) bool {
+func zoneContainsAssertion(a *sections.Assertion, z *sections.Zone) bool {
 	isContained := false //checks that zone contains given assertion
 	for _, v := range z.Content {
 		switch v := v.(type) {
-		case *sections.AssertionSection:
+		case *sections.Assertion:
 			if a.EqualContextZoneName(v) {
 				isContained = true
 			}
-		case *sections.ShardSection:
+		case *sections.Shard:
 			if v.RangeFrom < a.SubjectName && v.RangeTo > a.SubjectName {
 				if shardContainsAssertion(a, v) { //checks that all shards in range contain the assertion
 					isContained = true
@@ -148,7 +141,7 @@ func zoneContainsAssertion(a *sections.AssertionSection, z *sections.ZoneSection
 				}
 			}
 		default:
-			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+			log.Warn(fmt.Sprintf("Not supported type. Expected *Shard or *Assertion. Got=%T", v))
 			return false
 		}
 		log.Warn("Encountered valid assertion together with a valid zone that does not contain it.", "assertion", *a, "zone", *z)
@@ -158,21 +151,21 @@ func zoneContainsAssertion(a *sections.AssertionSection, z *sections.ZoneSection
 
 //isShardConsistentWithShard returns true if both shards are consistent with each other
 //This is the case when all assertions in the intersecting interval are present in both shards
-func isShardConsistentWithShard(s1, s2 *sections.ShardSection) bool {
-	v1 := &sortedAssertions{assertions: []*sections.AssertionSection{}}
-	v2 := &sortedAssertions{assertions: []*sections.AssertionSection{}}
+func isShardConsistentWithShard(s1, s2 *sections.Shard) bool {
+	v1 := &sortedAssertions{assertions: []*sections.Assertion{}}
+	v2 := &sortedAssertions{assertions: []*sections.Assertion{}}
 	addAssertionsinRangeToList(s1, s2, v1)
 	addAssertionsinRangeToList(s2, s1, v2)
 	return v1.Equal(v2)
 }
 
 //isShardConsistentWithZone returns true if the shard is consistent with the zone
-func isShardConsistentWithZone(s *sections.ShardSection, z *sections.ZoneSection) bool {
-	assertionsInZone := &sortedAssertions{assertions: []*sections.AssertionSection{}}
+func isShardConsistentWithZone(s *sections.Shard, z *sections.Zone) bool {
+	assertionsInZone := &sortedAssertions{assertions: []*sections.Assertion{}}
 	//check that all elements of the zone in the range of the shard are also contained in the shard
 	for _, v := range z.Content {
 		switch v := v.(type) {
-		case *sections.AssertionSection:
+		case *sections.Assertion:
 			if v.SubjectName > s.RangeFrom && v.SubjectName < s.RangeTo {
 				if !shardContainsAssertion(v, s) {
 					log.Warn("Shard is not consistent with zone. Zone contains assertion in range of shard which is missing in shard")
@@ -180,14 +173,14 @@ func isShardConsistentWithZone(s *sections.ShardSection, z *sections.ZoneSection
 				}
 			}
 			assertionsInZone.Add(v)
-		case *sections.ShardSection:
+		case *sections.Shard:
 			if !isShardConsistentWithShard(v, s) {
 				log.Warn("Shard is not consistent with zone. Zone contains shard in range of another shard which are not consistent")
 				return false
 			}
 			addAssertionsinRangeToList(v, sections.TotalInterval{}, assertionsInZone)
 		default:
-			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+			log.Warn(fmt.Sprintf("Not supported type. Expected *Shard or *Assertion. Got=%T", v))
 		}
 	}
 	//check that all elements of the shard are also contained in the zone.
@@ -203,45 +196,45 @@ func isShardConsistentWithZone(s *sections.ShardSection, z *sections.ZoneSection
 	return true
 }
 
-func isZoneConsistentWithZone(z1, z2 *sections.ZoneSection) bool {
-	assertionsInZone1 := &sortedAssertions{assertions: []*sections.AssertionSection{}}
-	assertionsInZone2 := &sortedAssertions{assertions: []*sections.AssertionSection{}}
+func isZoneConsistentWithZone(z1, z2 *sections.Zone) bool {
+	assertionsInZone1 := &sortedAssertions{assertions: []*sections.Assertion{}}
+	assertionsInZone2 := &sortedAssertions{assertions: []*sections.Assertion{}}
 	for _, v := range z1.Content {
 		switch v := v.(type) {
-		case *sections.AssertionSection:
+		case *sections.Assertion:
 			if !zoneContainsAssertion(v, z2) {
 				return false
 			}
 			assertionsInZone1.Add(v)
-		case *sections.ShardSection:
+		case *sections.Shard:
 			for _, val := range z2.Content {
 				switch val := val.(type) {
-				case *sections.AssertionSection:
+				case *sections.Assertion:
 					if !shardContainsAssertion(val, v) {
 						return false
 					}
-				case *sections.ShardSection:
+				case *sections.Shard:
 					if !isShardConsistentWithShard(val, v) {
 						return false
 					}
 				default:
-					log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+					log.Warn(fmt.Sprintf("Not supported type. Expected *Shard or *Assertion. Got=%T", v))
 				}
 			}
 			addAssertionsinRangeToList(v, sections.TotalInterval{}, assertionsInZone1)
 		default:
-			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+			log.Warn(fmt.Sprintf("Not supported type. Expected *Shard or *Assertion. Got=%T", v))
 		}
 	}
 	//check that there is no assertion in z2 which is missing in z1.
 	for _, v := range z2.Content {
 		switch v := v.(type) {
-		case *sections.AssertionSection:
+		case *sections.Assertion:
 			assertionsInZone2.Add(v)
-		case *sections.ShardSection:
+		case *sections.Shard:
 			addAssertionsinRangeToList(v, sections.TotalInterval{}, assertionsInZone2)
 		default:
-			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+			log.Warn(fmt.Sprintf("Not supported type. Expected *Shard or *Assertion. Got=%T", v))
 		}
 	}
 	if !assertionsInZone1.Equal(assertionsInZone2) {
@@ -251,51 +244,51 @@ func isZoneConsistentWithZone(z1, z2 *sections.ZoneSection) bool {
 }
 
 //containedShardsAreConsistent checks that all contained shards are mutually consistent and also consistent with the contained assertions.
-func containedShardsAreConsistent(z *sections.ZoneSection) bool {
+func containedShardsAreConsistent(z *sections.Zone) bool {
 	for i, v := range z.Content {
 		switch v := v.(type) {
-		case *sections.AssertionSection:
+		case *sections.Assertion:
 			for _, val := range z.Content[i+1:] {
 				switch val := val.(type) {
-				case *sections.AssertionSection:
+				case *sections.Assertion:
 				//assertion is always consistent with another assertion
-				case *sections.ShardSection:
+				case *sections.Shard:
 					if val.RangeFrom < v.SubjectName && val.RangeTo > v.SubjectName && !shardContainsAssertion(v, val) {
 						log.Info("zone is internally not consistent. Zone contains an assertion which is not present in a shard in the range",
 							"assertion", *v, "shard", *val)
 						return false
 					}
 				default:
-					log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+					log.Warn(fmt.Sprintf("Not supported type. Expected *Shard or *Assertion. Got=%T", v))
 				}
 			}
-		case *sections.ShardSection:
+		case *sections.Shard:
 			for _, val := range z.Content[i+1:] {
 				switch val := val.(type) {
-				case *sections.AssertionSection:
+				case *sections.Assertion:
 					if v.RangeFrom < val.SubjectName && v.RangeTo > val.SubjectName && !shardContainsAssertion(val, v) {
 						log.Info("zone is internally not consistent. Zone contains an assertion which is not present in a shard in the range",
 							"assertion", *val, "shard", *v)
 						return false
 					}
-				case *sections.ShardSection:
+				case *sections.Shard:
 					if val.RangeFrom < v.RangeTo && val.RangeTo > v.RangeFrom && !isShardConsistentWithShard(v, val) {
 						log.Info("zone is internally not consistent. Zone contains a shard which is not consistent with another shard")
 						return false
 					}
 				default:
-					log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+					log.Warn(fmt.Sprintf("Not supported type. Expected *Shard or *Assertion. Got=%T", v))
 				}
 			}
 		default:
-			log.Warn(fmt.Sprintf("Not supported type. Expected *ShardSection or *AssertionSection. Got=%T", v))
+			log.Warn(fmt.Sprintf("Not supported type. Expected *Shard or *Assertion. Got=%T", v))
 		}
 	}
 	return true
 }
 
 //addAssertionsinRangeToList adds all assertions from s which are in the range of interval to the returned sortedAssertions list
-func addAssertionsinRangeToList(s *sections.ShardSection, interval sections.Interval, list *sortedAssertions) {
+func addAssertionsinRangeToList(s *sections.Shard, interval sections.Interval, list *sortedAssertions) {
 	for _, a := range s.Content {
 		if a.SubjectName > interval.Begin() && a.SubjectName < interval.End() {
 			list.Add(a)
@@ -304,13 +297,13 @@ func addAssertionsinRangeToList(s *sections.ShardSection, interval sections.Inte
 }
 
 type sortedAssertions struct {
-	assertions     []*sections.AssertionSection
+	assertions     []*sections.Assertion
 	assertionsLock sync.RWMutex
 }
 
 //Add adds the assertion to the sorted list at the correct position.
 //It returns true if it added a and false if a is already contained
-func (s *sortedAssertions) Add(a *sections.AssertionSection) bool {
+func (s *sortedAssertions) Add(a *sections.Assertion) bool {
 	s.assertionsLock.Lock()
 	defer s.assertionsLock.Unlock()
 	i := sort.Search(len(s.assertions), func(i int) bool {
@@ -319,13 +312,13 @@ func (s *sortedAssertions) Add(a *sections.AssertionSection) bool {
 	if s.assertions[i].EqualContextZoneName(a) {
 		return false
 	}
-	s.assertions = append(s.assertions[:i], append([]*sections.AssertionSection{a}, s.assertions[i:]...)...)
+	s.assertions = append(s.assertions[:i], append([]*sections.Assertion{a}, s.assertions[i:]...)...)
 	return true
 }
 
 //Delete removes the assertion from the sorted list.
 //Returns true if element was successfully deleted from the list. If a not part of list returns false
-func (s *sortedAssertions) Delete(a *sections.AssertionSection) bool {
+func (s *sortedAssertions) Delete(a *sections.Assertion) bool {
 	s.assertionsLock.Lock()
 	defer s.assertionsLock.Unlock()
 	i := sort.Search(len(s.assertions), func(i int) bool {
@@ -346,10 +339,10 @@ func (s *sortedAssertions) Len() int {
 }
 
 //Get returns true and all assertions which are in the given interval if there are any
-func (s *sortedAssertions) Get(interval sections.Interval) ([]*sections.AssertionSection, bool) {
+func (s *sortedAssertions) Get(interval sections.Interval) ([]*sections.Assertion, bool) {
 	s.assertionsLock.RLock()
 	defer s.assertionsLock.RUnlock()
-	elements := []*sections.AssertionSection{}
+	elements := []*sections.Assertion{}
 	i := sort.Search(len(s.assertions), func(i int) bool {
 		return s.assertions[i].SubjectName >= interval.Begin()
 	})

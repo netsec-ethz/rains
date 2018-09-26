@@ -21,9 +21,9 @@ import (
 
 func TestEncodeAndDecode(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
-	nameObjectContent := object.NameObject{
+	nameObjectContent := object.Name{
 		Name:  "ethz2.ch",
-		Types: []object.ObjectType{object.OTIP4Addr, object.OTIP6Addr},
+		Types: []object.Type{object.OTIP4Addr, object.OTIP6Addr},
 	}
 
 	publicKey := keys.PublicKey{
@@ -35,7 +35,7 @@ func TestEncodeAndDecode(t *testing.T) {
 		ValidSince: 10000,
 		ValidUntil: 50000,
 	}
-	certificate := object.CertificateObject{
+	certificate := object.Certificate{
 		Type:     object.PTTLS,
 		HashAlgo: algorithmTypes.Sha256,
 		Usage:    object.CUEndEntity,
@@ -52,7 +52,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	ip4Object := object.Object{Type: object.OTIP4Addr, Value: "127.0.0.1"}
 	redirObject := object.Object{Type: object.OTRedirection, Value: "ns.ethz.ch"}
 	delegObject := object.Object{Type: object.OTDelegation, Value: publicKey}
-	nameSetObject := object.Object{Type: object.OTNameset, Value: object.NamesetExpression("Would be an expression")}
+	nameSetObject := object.Object{Type: object.OTNameset, Value: object.NamesetExpr("Would be an expression")}
 	certObject := object.Object{Type: object.OTCertInfo, Value: certificate}
 	serviceInfoObject := object.Object{Type: object.OTServiceInfo, Value: serviceInfo}
 	registrarObject := object.Object{Type: object.OTRegistrar, Value: "Registrar information"}
@@ -61,7 +61,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	extraObject := object.Object{Type: object.OTExtraKey, Value: publicKey}
 	nextKey := object.Object{Type: object.OTNextKey, Value: publicKey}
 
-	signature := signature.Signature{
+	signature := signature.Sig{
 		PublicKeyID: keys.PublicKeyID{
 			KeySpace:  keys.RainsKeySpace,
 			Algorithm: keys.Ed25519,
@@ -74,7 +74,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	_, subjectAddress2, _ := net.ParseCIDR("127.0.0.1/24")
 	_, subjectAddress3, _ := net.ParseCIDR("2001:db8::/32")
 
-	assertion := &sections.AssertionSection{
+	assertion := &sections.Assertion{
 		Content: []object.Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject, registrarObject,
 			registrantObject, infraObject, extraObject, nextKey},
 		Context:     ".",
@@ -82,47 +82,47 @@ func TestEncodeAndDecode(t *testing.T) {
 		SubjectZone: "ch",
 	}
 
-	shard := &sections.ShardSection{
-		Content:     []*sections.AssertionSection{assertion},
+	shard := &sections.Shard{
+		Content:     []*sections.Assertion{assertion},
 		Context:     ".",
 		SubjectZone: "ch",
 		RangeFrom:   "aaa",
 		RangeTo:     "zzz",
 	}
 
-	zone := &sections.ZoneSection{
-		Content:     []sections.MessageSectionWithSigForward{assertion, shard},
+	zone := &sections.Zone{
+		Content:     []sections.SecWithSigForward{assertion, shard},
 		Context:     ".",
 		SubjectZone: "ch",
 	}
 
-	query := &sections.QuerySection{
+	query := &sections.QueryForward{
 		Context:    ".",
 		Expiration: 159159,
 		Name:       "ethz.ch",
 		Options:    []sections.QueryOption{sections.QOMinE2ELatency, sections.QOMinInfoLeakage},
-		Types:      []object.ObjectType{object.OTIP4Addr},
+		Types:      []object.Type{object.OTIP4Addr},
 	}
 
-	notification := &sections.NotificationSection{
-		Token: token.GenerateToken(),
+	notification := &sections.Notification{
+		Token: token.New(),
 		Type:  sections.NTNoAssertionsExist,
 		Data:  "Notification information",
 	}
 
-	addressAssertion1 := &sections.AddressAssertionSection{
+	addressAssertion1 := &sections.AddrAssertion{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Content:     []object.Object{nameObject},
 	}
 
-	addressAssertion2 := &sections.AddressAssertionSection{
+	addressAssertion2 := &sections.AddrAssertion{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
 		Content:     []object.Object{redirObject, delegObject, registrantObject},
 	}
 
-	addressAssertion3 := &sections.AddressAssertionSection{
+	addressAssertion3 := &sections.AddrAssertion{
 		SubjectAddr: subjectAddress3,
 		Context:     ".",
 		Content:     []object.Object{redirObject, delegObject, registrantObject},
@@ -131,19 +131,19 @@ func TestEncodeAndDecode(t *testing.T) {
 	addressZone := &sections.AddressZoneSection{
 		SubjectAddr: subjectAddress2,
 		Context:     ".",
-		Content:     []*sections.AddressAssertionSection{addressAssertion1, addressAssertion2, addressAssertion3},
+		Content:     []*sections.AddrAssertion{addressAssertion1, addressAssertion2, addressAssertion3},
 	}
 
-	addressQuery := &sections.AddressQuerySection{
+	addressQuery := &sections.AddrQuery{
 		SubjectAddr: subjectAddress1,
 		Context:     ".",
 		Expiration:  7564859,
-		Types:       []object.ObjectType{object.OTName},
+		Types:       []object.Type{object.OTName},
 		Options:     []sections.QueryOption{sections.QOMinE2ELatency, sections.QOMinInfoLeakage},
 	}
 
-	message := message.RainsMessage{
-		Content: []sections.MessageSection{
+	message := message.Message{
+		Content: []sections.Section{
 			assertion,
 			shard,
 			zone,
@@ -155,7 +155,7 @@ func TestEncodeAndDecode(t *testing.T) {
 			addressZone,
 			addressQuery,
 		},
-		Token:        token.GenerateToken(),
+		Token:        token.New(),
 		Capabilities: []message.Capability{message.Capability("Test"), message.Capability("Yes!")},
 	}
 
@@ -259,17 +259,17 @@ func TestCheckSectionSignaturesErrors(t *testing.T) {
 	keys1 := make(map[keys.PublicKeyID][]keys.PublicKey)
 	keys1[keys.PublicKeyID{Algorithm: keys.Ed25519}] = []keys.PublicKey{}
 	var tests = []struct {
-		input           sections.MessageSectionWithSig
+		input           sections.SecWithSig
 		inputPublicKeys map[keys.PublicKeyID][]keys.PublicKey
 		want            bool
 	}{
-		{nil, nil, false},                                                                                                                                         //msg nil
-		{&sections.AssertionSection{}, nil, false},                                                                                                                //pkeys nil
-		{&sections.AssertionSection{}, keys, true},                                                                                                                //no signatures
-		{&sections.AssertionSection{Signatures: []signature.Signature{signature.Signature{}}, SubjectName: ":ip55:"}, keys, false},                                //checkStringField false
-		{&sections.AssertionSection{Signatures: []signature.Signature{signature.Signature{}}}, keys, false},                                                       //no matching algotype in keys
-		{&sections.AssertionSection{Signatures: []signature.Signature{signature.Signature{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519}}}}, keys1, true}, //sig expired
-		{&sections.AssertionSection{Signatures: []signature.Signature{signature.Signature{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
+		{nil, nil, false},                                                                                                                      //msg nil
+		{&sections.Assertion{}, nil, false},                                                                                                    //pkeys nil
+		{&sections.Assertion{}, keys, true},                                                                                                    //no signatures
+		{&sections.Assertion{Signatures: []signature.Sig{signature.Sig{}}, SubjectName: ":ip55:"}, keys, false},                                //checkStringField false
+		{&sections.Assertion{Signatures: []signature.Sig{signature.Sig{}}}, keys, false},                                                       //no matching algotype in keys
+		{&sections.Assertion{Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519}}}}, keys1, true}, //sig expired
+		{&sections.Assertion{Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
 			ValidUntil: time.Now().Add(time.Second).Unix()}}}, keys1, false}, //VerifySignature invalid
 	}
 	for _, test := range tests {
@@ -286,7 +286,7 @@ func TestCheckMessageSignaturesErrors(t *testing.T) {
 	message2 := object.GetMessage()
 	message2.Capabilities = []message.Capability{message.Capability(":ip:")}
 	message3 := object.GetMessage()
-	message3.Signatures = []signature.Signature{signature.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}}
+	message3.Signatures = []signature.Sig{signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}}
 	var tests = []struct {
 		input          *message.RainsMessage
 		inputPublicKey keys.PublicKey
@@ -313,29 +313,29 @@ func TestSignSection(t *testing.T) {
 	var tests = []struct {
 		input           sections.MessageSectionWithSig
 		inputPrivateKey interface{}
-		inputSig        signature.Signature
+		inputSig        signature.Sig
 		want            bool
 	}{
-		{nil, nil, signature.Signature{}, false},
+		{nil, nil, signature.Sig{}, false},
 		{
 			sections[0].(sections.MessageSectionWithSig),
 			pkey,
-			signature.Signature{
+			signature.Sig{
 				PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
 				ValidUntil:  time.Now().Add(time.Second).Unix(),
 			},
 			true,
 		},
-		{sections[0].(sections.MessageSectionWithSig), pkey, signature.Signature{ValidUntil: time.Now().Unix() - 100}, false},
-		{&sections.AssertionSection{SubjectName: ":ip:"}, pkey, signature.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
-		{sections[0].(sections.MessageSectionWithSig), nil, signature.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+		{sections[0].(sections.MessageSectionWithSig), pkey, signature.Sig{ValidUntil: time.Now().Unix() - 100}, false},
+		{&sections.AssertionSection{SubjectName: ":ip:"}, pkey, signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+		{sections[0].(sections.MessageSectionWithSig), nil, signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
 	}
 	for _, test := range tests {
 		if SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder) != test.want {
 			t.Errorf("expected=%v, actual=%v, value=%v", test.want, SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder), test.input)
 		}
 		if test.want && test.input.Sigs(keys.RainsKeySpace)[0].Data == nil {
-			t.Error("msg.Signature does not contain generated signature data")
+			t.Error("msg.Sig does not contain generated signature data")
 		}
 	}
 }
@@ -348,30 +348,30 @@ func TestSignMessage(t *testing.T) {
 	var tests = []struct {
 		input           *message.RainsMessage
 		inputPrivateKey interface{}
-		inputSig        signature.Signature
+		inputSig        signature.Sig
 		want            bool
 	}{
-		{nil, nil, signature.Signature{}, false},
+		{nil, nil, signature.Sig{}, false},
 		{
 			&message,
 			pkey,
-			signature.Signature{
+			signature.Sig{
 				PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
 				ValidUntil:  time.Now().Add(time.Second).Unix(),
 			},
 			true,
 		},
-		{&message, pkey, signature.Signature{ValidUntil: time.Now().Add(time.Second).Unix() - 100}, false},
+		{&message, pkey, signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix() - 100}, false},
 		{&message.RainsMessage{Capabilities: []message.Capability{message.Capability(":ip:")}}, pkey,
-			signature.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
-		{&message.RainsMessage{}, nil, signature.Signature{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+			signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
+		{&message.RainsMessage{}, nil, signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
 	}
 	for _, test := range tests {
 		if SignMessage(test.input, test.inputPrivateKey, test.inputSig, encoder) != test.want {
 			t.Errorf("expected=%v, actual=%v, value=%v", test.want, SignMessage(test.input, test.inputPrivateKey, test.inputSig, encoder), test.input)
 		}
 		if test.want && test.input.Signatures[0].Data == nil {
-			t.Error("msg.Signature does not contain generated signature data")
+			t.Error("msg.Sig does not contain generated signature data")
 		}
 	}
 }
@@ -386,7 +386,7 @@ func TestCheckMessageStringFields(t *testing.T) {
 		{nil, false},
 		{&message, true},
 		{&message.RainsMessage{Capabilities: []message.Capability{message.Capability(":ip:")}}, false},
-		{&message.RainsMessage{Content: []sections.MessageSection{&sections.AssertionSection{SubjectName: ":ip:"}}}, false},
+		{&message.RainsMessage{Content: []sections.Section{&sections.Assertion{SubjectName: ":ip:"}}}, false},
 	}
 	for _, test := range tests {
 		if checkMessageStringFields(test.input) != test.want {
@@ -449,13 +449,13 @@ func TestCheckObjectFields(t *testing.T) {
 		{nil, true},
 		{[]object.Object{}, true},
 		{object.GetAllValidObjects(), true},
-		{[]object.Object{object.Object{Type: object.OTName, Value: object.NameObject{Name: ":ip55:"}}}, false},
+		{[]object.Object{object.Object{Type: object.OTName, Value: object.Name{Name: ":ip55:"}}}, false},
 		{[]object.Object{object.Object{Type: object.OTRedirection, Value: ":ip55:"}}, false},
-		{[]object.Object{object.Object{Type: object.OTNameset, Value: object.NamesetExpression(":ip55:")}}, false},
+		{[]object.Object{object.Object{Type: object.OTNameset, Value: object.NamesetExpr(":ip55:")}}, false},
 		{[]object.Object{object.Object{Type: object.OTServiceInfo, Value: object.ServiceInfo{Name: ":ip55:"}}}, false},
 		{[]object.Object{object.Object{Type: object.OTRegistrar, Value: ":ip55:"}}, false},
 		{[]object.Object{object.Object{Type: object.OTRegistrant, Value: ":ip55:"}}, false},
-		{[]object.Object{object.Object{Type: object.ObjectType(-1), Value: nil}}, false},
+		{[]object.Object{object.Object{Type: object.Type(-1), Value: nil}}, false},
 	}
 	for _, test := range tests {
 		if checkObjectFields(test.input) != test.want {
@@ -545,7 +545,7 @@ func benchmarkSignAssertions(zonefileName string, b *testing.B) {
 		return
 	}
 	_, pkey, _ := ed25519.GenerateKey(nil)
-	sig := signature.Signature{
+	sig := signature.Sig{
 		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
 		ValidUntil:  time.Now().Add(time.Hour).Unix(),
 	}
@@ -584,7 +584,7 @@ func benchmarkSignShard(zonefileName string, assertionsPerShard int, b *testing.
 	}
 	shards := shardAssertions(assertions, assertionsPerShard)
 	_, pkey, _ := ed25519.GenerateKey(nil)
-	sig := signature.Signature{
+	sig := signature.Sig{
 		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
 		ValidUntil:  time.Now().Add(time.Hour).Unix(),
 	}
@@ -622,13 +622,13 @@ func benchmarkSignZone(zonefileName string, assertionsPerShard int, b *testing.B
 		return
 	}
 	shards := shardAssertions(assertions, assertionsPerShard)
-	zone := &sections.ZoneSection{
+	zone := &sections.Zone{
 		Context:     assertions[0].Context,
 		SubjectZone: assertions[0].SubjectZone,
 		Content:     shards,
 	}
 	_, pkey, _ := ed25519.GenerateKey(nil)
-	sig := signature.Signature{
+	sig := signature.Sig{
 		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519},
 		ValidUntil:  time.Now().Add(time.Hour).Unix(),
 	}
@@ -646,10 +646,10 @@ func BenchmarkSignZone100(b *testing.B) { benchmarkSignZone("test/zonefile100000
 //zone is signed containing 100 shards containing each 1000 assertions
 func BenchmarkSignZone1000(b *testing.B) { benchmarkSignZone("test/zonefile100000", 1000, b) }
 
-func shardAssertions(assertions []*sections.AssertionSection, assertionsPerShard int) []sections.MessageSectionWithSigForward {
-	var shards []sections.MessageSectionWithSigForward
+func shardAssertions(assertions []*sections.Assertion, assertionsPerShard int) []sections.SecWithSigForward {
+	var shards []sections.SecWithSigForward
 	for i := 0; i < len(assertions); i++ {
-		shard := &sections.ShardSection{
+		shard := &sections.Shard{
 			Context:     assertions[i].Context,
 			SubjectZone: assertions[i].SubjectZone,
 			RangeFrom:   "aaaaa",

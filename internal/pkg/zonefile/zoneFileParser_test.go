@@ -18,15 +18,15 @@ func TestEncodeDecode(t *testing.T) {
 	zoneFile := parser.Encode(zones[0])
 
 	decode, err := parser.Decode([]byte(zoneFile))
-	assertions := []*sections.AssertionSection{}
+	assertions := []*sections.Assertion{}
 	for _, a := range decode {
-		assertions = append(assertions, a.(*sections.AssertionSection))
+		assertions = append(assertions, a.(*sections.Assertion))
 	}
 	if err != nil {
 		t.Error(err)
 	}
 
-	containedAssertions := []*sections.AssertionSection{zones[0].Content[0].(*sections.AssertionSection), zones[0].Content[1].(*sections.ShardSection).Content[0]}
+	containedAssertions := []*sections.Assertion{zones[0].Content[0].(*sections.Assertion), zones[0].Content[1].(*sections.Shard).Content[0]}
 	for i, a := range assertions {
 		//contained section must not have a context or subjectZone, thus to compare it, inherit the value from the zone
 		containedAssertions[i].Context = zones[0].Context
@@ -39,10 +39,10 @@ func TestEncodeDecode(t *testing.T) {
 
 func TestGetEncodingErrors(t *testing.T) {
 	var tests = []struct {
-		input sections.MessageSection
+		input sections.Section
 		want  string
 	}{
-		{sections.MessageSection(&object.Object{}), ""},
+		{sections.Section(&object.Object{}), ""},
 	}
 	for _, test := range tests {
 		if GetEncoding(test.input, true) != test.want {
@@ -80,12 +80,12 @@ func TestReplaceWhitespaces(t *testing.T) {
 }
 
 func TestEncodeSection(t *testing.T) {
-	assertion := &sections.AssertionSection{
+	assertion := &sections.Assertion{
 		Content:     []object.Object{object.Object{Type: object.OTIP4Addr, Value: "127.0.0.1"}},
 		SubjectName: "ethz",
 	}
 	var tests = []struct {
-		input sections.MessageSectionWithSigForward
+		input sections.SecWithSigForward
 		want  string
 	}{
 		{assertion, ":A: ethz [ :ip4: 127.0.0.1 ]"},
@@ -99,17 +99,17 @@ func TestEncodeSection(t *testing.T) {
 }
 
 func TestEncodeMessage(t *testing.T) {
-	assertion := &sections.AssertionSection{
+	assertion := &sections.Assertion{
 		Content:     []object.Object{object.Object{Type: object.OTIP4Addr, Value: "127.0.0.1"}},
 		SubjectName: "ethz",
 	}
-	token := token.GenerateToken()
+	token := token.New()
 	capabilities := []message.Capability{message.Capability("capa1"), message.Capability("capa2")}
 	encodedToken := hex.EncodeToString(token[:])
-	message := &message.RainsMessage{
+	message := &message.Message{
 		Capabilities: capabilities,
 		Token:        token,
-		Content:      []sections.MessageSection{assertion},
+		Content:      []sections.Section{assertion},
 	}
 	var tests = []struct {
 		input *message.RainsMessage

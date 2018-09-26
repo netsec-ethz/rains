@@ -54,12 +54,12 @@ func TestEncodeZones(t *testing.T) {
 
 func TestEncodeNameObject(t *testing.T) {
 	var tests = []struct {
-		input object.NameObject
+		input object.Name
 		want  string
 	}{
-		{object.NameObject{
+		{object.Name{
 			Name: "name.ethz.ch",
-			Types: []object.ObjectType{
+			Types: []object.Type{
 				object.OTName,
 				object.OTIP6Addr,
 				object.OTIP4Addr,
@@ -75,7 +75,7 @@ func TestEncodeNameObject(t *testing.T) {
 				object.OTNextKey,
 			},
 		}, "name.ethz.ch [ name ip6 ip4 redir deleg nameset cert srv regr regt infra extra next ]"},
-		{object.NameObject{Name: "ethz.ch", Types: []object.ObjectType{object.ObjectType(-1)}}, "ethz.ch [  ]"},
+		{object.Name{Name: "ethz.ch", Types: []object.Type{object.Type(-1)}}, "ethz.ch [  ]"},
 	}
 	for _, test := range tests {
 		if encodeNameObject(test.input) != test.want {
@@ -95,7 +95,7 @@ func TestEncodePublicKey(t *testing.T) {
 		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed448}}, ""},
 		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: object.Ecdsa256}}, ""},
 		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: object.Ecdsa384}}, ""},
-		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.SignatureAlgorithmType(-1)}}, ""},
+		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Signature(-1)}}, ""},
 	}
 	for _, test := range tests {
 		if encodeEd25519PublicKey(test.input) != test.want {
@@ -121,12 +121,12 @@ func TestEncodeKeySpace(t *testing.T) {
 
 func TestEncodeCertificateErrors(t *testing.T) {
 	var tests = []struct {
-		input object.CertificateObject
+		input object.Certificate
 		want  string
 	}{
-		{object.CertificateObject{Type: object.ProtocolType(-1)}, ""},
-		{object.CertificateObject{Type: object.PTTLS, Usage: object.CertificateUsage(-1)}, ""},
-		{object.CertificateObject{Type: object.PTTLS, Usage: object.CUTrustAnchor, HashAlgo: algorithmTypes.HashAlgorithmType(-1)}, ""},
+		{object.Certificate{Type: object.ProtocolType(-1)}, ""},
+		{object.Certificate{Type: object.PTTLS, Usage: object.CertificateUsage(-1)}, ""},
+		{object.Certificate{Type: object.PTTLS, Usage: object.CUTrustAnchor, HashAlgo: algorithmTypes.Hash(-1)}, ""},
 	}
 	for _, test := range tests {
 		if encodeCertificate(test.input) != test.want {
@@ -148,7 +148,7 @@ func TestEncodeObjectErrors(t *testing.T) {
 		{[]object.Object{object.Object{Type: object.OTExtraKey}}, ""},
 		{[]object.Object{object.Object{Type: object.OTNextKey}}, ""},
 		{[]object.Object{object.Object{Type: object.OTNextKey}}, ""},
-		{[]object.Object{object.Object{Type: object.ObjectType(-1)}}, ""},
+		{[]object.Object{object.Object{Type: object.Type(-1)}}, ""},
 	}
 	for _, test := range tests {
 		if encodeObjects(test.input, "") != test.want {

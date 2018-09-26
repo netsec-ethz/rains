@@ -9,6 +9,7 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/encoder"
@@ -23,7 +24,7 @@ import (
 //detail.
 type Config struct {
 	ZonefilePath    string
-	AuthServers     []connection.ConnInfo
+	AuthServers     []connection.Info
 	PrivateKeyPath  string
 	ShardingConf    ShardingConfig
 	PShardingConf   PShardingConfig
@@ -53,7 +54,7 @@ type PShardingConfig struct {
 
 //BloomFilterConfig specifies the bloom filter's meta data
 type BloomFilterConfig struct {
-	Hashfamily       []algorithmTypes.HashAlgorithmType
+	Hashfamily       []algorithmTypes.Hash
 	NofHashFunctions int
 	BFOpMode         sections.ModeOfOperationType
 	BloomFilterSize  int
@@ -66,7 +67,7 @@ type MetaDataConfig struct {
 	AddSigMetaDataToAssertions bool
 	AddSigMetaDataToShards     bool
 	AddSigMetaDataToPshards    bool
-	SignatureAlgorithm         algorithmTypes.SignatureAlgorithmType
+	SignatureAlgorithm         algorithmTypes.Signature
 	KeyPhase                   int
 	SigValidSince              time.Duration
 	SigValidUntil              time.Duration
@@ -82,7 +83,7 @@ type ConsistencyConfig struct {
 }
 
 //loadZonefile loads the zonefile from disk.
-func loadZonefile(path string, parser zonefile.ZoneFileParser) (*sections.ZoneSection, error) {
+func loadZonefile(path string, parser zonefile.ZoneFileParser) (*sections.Zone, error) {
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
 		log.Error("Was not able to read zone file", "path", path)
@@ -133,7 +134,7 @@ func loadPrivateKeys(path string) (map[keys.PublicKeyID]interface{}, error) {
 //removes the subjectZone and context of the contained assertions and shards after the signatures
 //have been added. It returns an error if it was unable to sign the zone or any of the contained
 //shards and assertions.
-func signZone(zone *sections.ZoneSection, path string, encoder encoder.SignatureFormatEncoder) error {
+func signZone(zone *sections.Zone, path string, encoder encoder.SignatureFormatEncoder) error {
 	if zone == nil {
 		return errors.New("zone is nil")
 	}
@@ -149,20 +150,20 @@ func signZone(zone *sections.ZoneSection, path string, encoder encoder.Signature
 	}
 	for _, sec := range zone.Content {
 		switch sec := sec.(type) {
-		case *sections.AssertionSection:
+		case *sections.Assertion:
 			if err := signAssertion(sec, keys, encoder); err != nil {
 				return err
 			}
 			sec.Context = ""
 			sec.SubjectZone = ""
-		case *sections.ShardSection:
+		case *sections.Shard:
 			if err := signShard(sec, keys, encoder); err != nil {
 				return err
 			}
 			sec.Context = ""
 			sec.SubjectZone = ""
 		default:
-			return fmt.Errorf("Zone contained unexpected type expected *ShardSection or *AssertionSection actual=%T", sec)
+			return fmt.Errorf("Zone contained unexpected type expected *Shard or *Assertion actual=%T", sec)
 		}
 	}
 	return nil
@@ -171,7 +172,7 @@ func signZone(zone *sections.ZoneSection, path string, encoder encoder.Signature
 //signShard signs the shard and all contained assertions with the zone's private key. It removes the
 //subjectZone and context of the contained assertions after the signatures have been added. It
 //returns an error if it was unable to sign the shard or any of the assertions.
-func signShard(s *sections.ShardSection, keys map[keys.PublicKeyID]interface{},
+func signShard(s *sections.Shard, keys map[keys.PublicKeyID]interface{},
 	encoder encoder.SignatureFormatEncoder) error {
 	if s == nil {
 		return errors.New("shard is nil")
@@ -194,7 +195,7 @@ func signShard(s *sections.ShardSection, keys map[keys.PublicKeyID]interface{},
 
 //signAssertion computes the signature data for all contained signatures.
 //It returns an error if it was unable to create all signatures on the assertion.
-func signAssertion(a *sections.AssertionSection, keys map[keys.PublicKeyID]interface{},
+func signAssertion(a *sections.Assertion, keys map[keys.PublicKeyID]interface{},
 	encoder encoder.SignatureFormatEncoder) error {
 	if a == nil {
 		return errors.New("assertion is nil")

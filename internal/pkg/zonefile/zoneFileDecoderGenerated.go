@@ -27,13 +27,13 @@ import (
 )
 
 //AddSigs adds signatures to section
-func AddSigs(section sections.MessageSectionWithSigForward, signatures []signature.Signature) {
+func AddSigs(section sections.SecWithSigForward, signatures []signature.Sig) {
 	for _, sig := range signatures {
 		section.AddSig(sig)
 	}
 }
 
-func DecodeBloomFilter(hashAlgos []algorithmTypes.HashAlgorithmType, modeOfOperation sections.ModeOfOperationType,
+func DecodeBloomFilter(hashAlgos []algorithmTypes.Hash, modeOfOperation sections.ModeOfOperationType,
 	nofHashFunctions, filter string) (sections.BloomFilter, error) {
 	funcs, err := strconv.Atoi(nofHashFunctions)
 	if err != nil {
@@ -86,13 +86,13 @@ func DecodeEd25519PublicKeyData(pkeyInput string, keyphase string) (keys.PublicK
 }
 
 func DecodeCertificate(ptype object.ProtocolType, usage object.CertificateUsage,
-	hashAlgo algorithmTypes.HashAlgorithmType, certificat string) (object.CertificateObject,
+	hashAlgo algorithmTypes.Hash, certificat string) (object.Certificate,
 	error) {
 	data, err := hex.DecodeString(certificat)
 	if err != nil {
-		return object.CertificateObject{}, err
+		return object.Certificate{}, err
 	}
-	return object.CertificateObject{
+	return object.Certificate{
 		Type:     ptype,
 		Usage:    usage,
 		HashAlgo: hashAlgo,
@@ -129,30 +129,30 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
 }
 
 //Result gets stored in this variable
-var output []sections.MessageSectionWithSigForward
+var output []sections.SecWithSigForward
 
 //line zonefileParser.y:141
 type ZFPSymType struct {
 	yys           int
 	str           string
-	assertion     *sections.AssertionSection
-	assertions    []*sections.AssertionSection
-	shard         *sections.ShardSection
-	pshard        *sections.PshardSection
-	zone          *sections.ZoneSection
-	sections      []sections.MessageSectionWithSigForward
+	assertion     *sections.Assertion
+	assertions    []*sections.Assertion
+	shard         *sections.Shard
+	pshard        *sections.Pshard
+	zone          *sections.Zone
+	sections      []sections.SecWithSigForward
 	objects       []object.Object
 	object        object.Object
-	objectTypes   []object.ObjectType
-	objectType    object.ObjectType
-	signatures    []signature.Signature
-	signature     signature.Signature
+	objectTypes   []object.Type
+	objectType    object.Type
+	signatures    []signature.Sig
+	signature     signature.Sig
 	shardRange    []string
 	publicKey     keys.PublicKey
 	protocolType  object.ProtocolType
 	certUsage     object.CertificateUsage
-	hashType      algorithmTypes.HashAlgorithmType
-	hashTypes     []algorithmTypes.HashAlgorithmType
+	hashType      algorithmTypes.Hash
+	hashTypes     []algorithmTypes.Hash
 	dataStructure sections.DataStructure
 	bfOpMode      sections.ModeOfOperationType
 }
@@ -601,7 +601,7 @@ type ZFPLexer interface {
 type ZFPParser interface {
 	Parse(ZFPLexer) int
 	Lookahead() int
-	Result() []sections.MessageSectionWithSigForward
+	Result() []sections.SecWithSigForward
 }
 
 type ZFPParserImpl struct {
@@ -614,7 +614,7 @@ func (p *ZFPParserImpl) Lookahead() int {
 	return p.char
 }
 
-func (p *ZFPParserImpl) Result() []sections.MessageSectionWithSigForward {
+func (p *ZFPParserImpl) Result() []sections.SecWithSigForward {
 	return output
 }
 func ZFPNewParser() ZFPParser {
@@ -966,7 +966,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-6 : ZFPpt+1]
 		//line zonefileParser.y:252
 		{
-			ZFPVAL.zone = &sections.ZoneSection{
+			ZFPVAL.zone = &sections.Zone{
 				SubjectZone: ZFPDollar[2].str,
 				Context:     ZFPDollar[3].str,
 				Content:     ZFPDollar[5].sections,
@@ -1007,7 +1007,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-7 : ZFPpt+1]
 		//line zonefileParser.y:285
 		{
-			ZFPVAL.shard = &sections.ShardSection{
+			ZFPVAL.shard = &sections.Shard{
 				SubjectZone: ZFPDollar[2].str,
 				Context:     ZFPDollar[3].str,
 				RangeFrom:   ZFPDollar[4].shardRange[0],
@@ -1019,7 +1019,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-5 : ZFPpt+1]
 		//line zonefileParser.y:295
 		{
-			ZFPVAL.shard = &sections.ShardSection{
+			ZFPVAL.shard = &sections.Shard{
 				RangeFrom: ZFPDollar[2].shardRange[0],
 				RangeTo:   ZFPDollar[2].shardRange[1],
 				Content:   ZFPDollar[4].assertions,
@@ -1072,7 +1072,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-5 : ZFPpt+1]
 		//line zonefileParser.y:337
 		{
-			ZFPVAL.pshard = &sections.PshardSection{
+			ZFPVAL.pshard = &sections.Pshard{
 				SubjectZone:   ZFPDollar[2].str,
 				Context:       ZFPDollar[3].str,
 				RangeFrom:     ZFPDollar[4].shardRange[0],
@@ -1084,7 +1084,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-3 : ZFPpt+1]
 		//line zonefileParser.y:347
 		{
-			ZFPVAL.pshard = &sections.PshardSection{
+			ZFPVAL.pshard = &sections.Pshard{
 				RangeFrom:     ZFPDollar[2].shardRange[0],
 				RangeTo:       ZFPDollar[2].shardRange[1],
 				Datastructure: ZFPDollar[3].dataStructure,
@@ -1107,7 +1107,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:370
 		{
-			ZFPVAL.hashTypes = []algorithmTypes.HashAlgorithmType{ZFPDollar[1].hashType}
+			ZFPVAL.hashTypes = []algorithmTypes.Hash{ZFPDollar[1].hashType}
 		}
 	case 31:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1144,7 +1144,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-5 : ZFPpt+1]
 		//line zonefileParser.y:399
 		{
-			ZFPVAL.assertion = &sections.AssertionSection{
+			ZFPVAL.assertion = &sections.Assertion{
 				SubjectName: ZFPDollar[2].str,
 				Content:     ZFPDollar[4].objects,
 			}
@@ -1153,7 +1153,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-7 : ZFPpt+1]
 		//line zonefileParser.y:406
 		{
-			ZFPVAL.assertion = &sections.AssertionSection{
+			ZFPVAL.assertion = &sections.Assertion{
 				SubjectZone: ZFPDollar[2].str,
 				Context:     ZFPDollar[3].str,
 				SubjectName: ZFPDollar[4].str,
@@ -1178,7 +1178,7 @@ ZFPdefault:
 		{
 			ZFPVAL.object = object.Object{
 				Type: object.OTName,
-				Value: object.NameObject{
+				Value: object.Name{
 					Name:  ZFPDollar[2].str,
 					Types: ZFPDollar[4].objectTypes,
 				},
@@ -1188,7 +1188,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:450
 		{
-			ZFPVAL.objectTypes = []object.ObjectType{ZFPDollar[1].objectType}
+			ZFPVAL.objectTypes = []object.Type{ZFPDollar[1].objectType}
 		}
 	case 56:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1631,7 +1631,7 @@ ZFPdefault:
 		ZFPDollar = ZFPS[ZFPpt-1 : ZFPpt+1]
 		//line zonefileParser.y:799
 		{
-			ZFPVAL.signatures = []signature.Signature{ZFPDollar[1].signature}
+			ZFPVAL.signatures = []signature.Sig{ZFPDollar[1].signature}
 		}
 	case 120:
 		ZFPDollar = ZFPS[ZFPpt-2 : ZFPpt+1]
@@ -1662,7 +1662,7 @@ ZFPdefault:
 			if err != nil {
 				log.Error("semantic error:", "DecodeValidity", err)
 			}
-			ZFPVAL.signature = signature.Signature{
+			ZFPVAL.signature = signature.Sig{
 				PublicKeyID: publicKeyID,
 				ValidSince:  validSince,
 				ValidUntil:  validUntil,

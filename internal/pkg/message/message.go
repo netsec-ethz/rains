@@ -14,22 +14,22 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
-//RainsMessage represents a Message
-type RainsMessage struct {
+//Message represents a Message
+type Message struct {
 	//Capabilities is a slice of capabilities or the hash thereof which the server originating the
 	//message has.
 	Capabilities []Capability
 	//Token is used to identify a message
 	Token token.Token
 	//Content is a slice of
-	Content []sections.MessageSection
-	//Signatures authenticate the content of this message. An encoding of RainsMessage is signed by the infrastructure key of the originating server.
-	Signatures []signature.Signature
+	Content []sections.Section
+	//Signatures authenticate the content of this message. An encoding of Message is signed by the infrastructure key of the originating server.
+	Signatures []signature.Sig
 }
 
 // MarshalCBOR writes the RAINS message to the provided writer.
 // Implements the CBORMarshaler interface.
-func (rm *RainsMessage) MarshalCBOR(w *borat.CBORWriter) error {
+func (rm *Message) MarshalCBOR(w *borat.CBORWriter) error {
 	if err := w.WriteTag(borat.CBORTag(0xE99BA8)); err != nil {
 		return err
 	}
@@ -52,15 +52,15 @@ func (rm *RainsMessage) MarshalCBOR(w *borat.CBORWriter) error {
 	msgsect := make([][2]interface{}, 0)
 	for _, sect := range rm.Content {
 		switch sect.(type) {
-		case *sections.AssertionSection:
+		case *sections.Assertion:
 			msgsect = append(msgsect, [2]interface{}{1, sect})
-		case *sections.ShardSection:
+		case *sections.Shard:
 			msgsect = append(msgsect, [2]interface{}{2, sect})
-		case *sections.ZoneSection:
+		case *sections.Zone:
 			msgsect = append(msgsect, [2]interface{}{3, sect})
-		case *sections.QuerySection:
+		case *sections.QueryForward:
 			msgsect = append(msgsect, [2]interface{}{4, sect})
-		case *sections.NotificationSection:
+		case *sections.Notification:
 			msgsect = append(msgsect, [2]interface{}{23, sect})
 		default:
 			return fmt.Errorf("unknown section type: %T", sect)
@@ -70,8 +70,8 @@ func (rm *RainsMessage) MarshalCBOR(w *borat.CBORWriter) error {
 	return w.WriteIntMap(m)
 }
 
-func (rm *RainsMessage) UnmarshalCBOR(r *borat.CBORReader) error {
-	// First read a tag to ensure we are parsing a RainsMessage
+func (rm *Message) UnmarshalCBOR(r *borat.CBORReader) error {
+	// First read a tag to ensure we are parsing a Message
 	tag, err := r.ReadTag()
 	if err != nil {
 		return fmt.Errorf("failed to read tag: %v", err)
@@ -85,7 +85,7 @@ func (rm *RainsMessage) UnmarshalCBOR(r *borat.CBORReader) error {
 	}
 	// Read the signatures
 	if sigs, ok := m[0]; ok {
-		rm.Signatures = make([]signature.Signature, 0)
+		rm.Signatures = make([]signature.Sig, 0)
 		// RAINS signatures have five common elements: the algorithm
 		// identifier, a keyspace identifier, a keyphase identifier, a
 		// valid-since timestamp, and a valid-until timestamp. Signatures are
@@ -93,13 +93,13 @@ func (rm *RainsMessage) UnmarshalCBOR(r *borat.CBORReader) error {
 		// elements containing the signature data itself, according to the
 		// algorithm identifier.
 		for _, sig := range sigs.([][]interface{}) {
-			alg := sig[0].(algorithmTypes.SignatureAlgorithmType)
+			alg := sig[0].(algorithmTypes.Signature)
 			ks := sig[1].(keys.KeySpaceID)
 			kp := sig[2].(int)
 			vs := sig[3].(int64)
 			vu := sig[4].(int64)
 			data := sig[5]
-			s := signature.Signature{
+			s := signature.Sig{
 				PublicKeyID: keys.PublicKeyID{
 					Algorithm: alg,
 					KeySpace:  ks,
@@ -132,36 +132,36 @@ func (rm *RainsMessage) UnmarshalCBOR(r *borat.CBORReader) error {
 		t := elem[0].(uint64)
 		switch t {
 		case 1:
-			// AssertionSection
-			as := &sections.AssertionSection{}
+			// Assertion
+			as := &sections.Assertion{}
 			if err := as.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
 			rm.Content = append(rm.Content, as)
 		case 2:
-			// ShardSection
-			ss := &sections.ShardSection{}
+			// Shard
+			ss := &sections.Shard{}
 			if err := ss.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
 			rm.Content = append(rm.Content, ss)
 		case 3:
-			// ZoneSection
-			zs := &sections.ZoneSection{}
+			// Zone
+			zs := &sections.Zone{}
 			if err := zs.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
 			rm.Content = append(rm.Content, zs)
 		case 4:
-			// QuerySection
-			qs := &sections.QuerySection{}
+			// QueryForward
+			qs := &sections.QueryForward{}
 			if err := qs.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
 			rm.Content = append(rm.Content, qs)
 		case 23:
-			// NotificationSection
-			ns := &sections.NotificationSection{}
+			// Notification
+			ns := &sections.Notification{}
 			if err := ns.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
@@ -173,33 +173,30 @@ func (rm *RainsMessage) UnmarshalCBOR(r *borat.CBORReader) error {
 
 //Sort sorts the sections in m.Content first by Message Section Type Codes (see RAINS Protocol Specification) and
 //second the sections of equal type according to their sort function.
-func (m *RainsMessage) Sort() {
-	var assertions []*sections.AssertionSection
-	var shards []*sections.ShardSection
-	var zones []*sections.ZoneSection
-	var queries []*sections.QuerySection
-	var addressAssertions []*sections.AddressAssertionSection
-	var addressZones []*sections.AddressZoneSection
-	var addressQueries []*sections.AddressQuerySection
-	var notifications []*sections.NotificationSection
+func (m *Message) Sort() {
+	var assertions []*sections.Assertion
+	var shards []*sections.Shard
+	var zones []*sections.Zone
+	var queries []*sections.QueryForward
+	var addressAssertions []*sections.AddrAssertion
+	var addressQueries []*sections.AddrQuery
+	var notifications []*sections.Notification
 	for _, sec := range m.Content {
 		sec.Sort()
 		switch sec := sec.(type) {
-		case *sections.AssertionSection:
+		case *sections.Assertion:
 			assertions = append(assertions, sec)
-		case *sections.ShardSection:
+		case *sections.Shard:
 			shards = append(shards, sec)
-		case *sections.ZoneSection:
+		case *sections.Zone:
 			zones = append(zones, sec)
-		case *sections.QuerySection:
+		case *sections.QueryForward:
 			queries = append(queries, sec)
-		case *sections.NotificationSection:
+		case *sections.Notification:
 			notifications = append(notifications, sec)
-		case *sections.AddressAssertionSection:
+		case *sections.AddrAssertion:
 			addressAssertions = append(addressAssertions, sec)
-		case *sections.AddressZoneSection:
-			addressZones = append(addressZones, sec)
-		case *sections.AddressQuerySection:
+		case *sections.AddrQuery:
 			addressQueries = append(addressQueries, sec)
 		default:
 			log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", sec))
@@ -210,14 +207,10 @@ func (m *RainsMessage) Sort() {
 	sort.Slice(zones, func(i, j int) bool { return zones[i].CompareTo(zones[j]) < 0 })
 	sort.Slice(queries, func(i, j int) bool { return queries[i].CompareTo(queries[j]) < 0 })
 	sort.Slice(addressAssertions, func(i, j int) bool { return addressAssertions[i].CompareTo(addressAssertions[j]) < 0 })
-	sort.Slice(addressZones, func(i, j int) bool { return addressZones[i].CompareTo(addressZones[j]) < 0 })
 	sort.Slice(addressQueries, func(i, j int) bool { return addressQueries[i].CompareTo(addressQueries[j]) < 0 })
 	sort.Slice(notifications, func(i, j int) bool { return notifications[i].CompareTo(notifications[j]) < 0 })
-	m.Content = []sections.MessageSection{}
+	m.Content = []sections.Section{}
 	for _, section := range addressQueries {
-		m.Content = append(m.Content, section)
-	}
-	for _, section := range addressZones {
 		m.Content = append(m.Content, section)
 	}
 	for _, section := range addressAssertions {

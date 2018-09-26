@@ -150,15 +150,15 @@ func sortedObjects(nofObj int) []Object {
 	return objects
 }
 
-func sortedAssertions(nof int) []*AssertionSection {
-	assertions := []*AssertionSection{}
+func sortedAssertions(nof int) []*Assertion {
+	assertions := []*Assertion{}
 	objs := sortedObjects(13)
 	for i := 0; i < nof; i++ {
 		for j := 0; j < nof; j++ {
 			for k := 0; k < nof; k++ {
 				//TODO CFE extend this test when we support multiple connection per assertion
 				for l := 0; l < 78; l++ {
-					assertions = append(assertions, &AssertionSection{
+					assertions = append(assertions, &Assertion{
 						SubjectName: strconv.Itoa(i),
 						SubjectZone: strconv.Itoa(j),
 						Context:     strconv.Itoa(k),
@@ -172,8 +172,8 @@ func sortedAssertions(nof int) []*AssertionSection {
 	return assertions
 }
 
-func sortedShards(nof int) []*ShardSection {
-	shards := []*ShardSection{}
+func sortedShards(nof int) []*Shard {
+	shards := []*Shard{}
 	assertions := sortedAssertions(2)
 	for i := 0; i < nof; i++ {
 		for j := 0; j < nof; j++ {
@@ -181,12 +181,12 @@ func sortedShards(nof int) []*ShardSection {
 				for l := 0; l < nof; l++ {
 					//TODO CFE extend this test when we support multiple connection per assertion
 					for m := 0; m < 312; m++ {
-						shards = append(shards, &ShardSection{
+						shards = append(shards, &Shard{
 							SubjectZone: strconv.Itoa(i),
 							Context:     strconv.Itoa(j),
 							RangeFrom:   strconv.Itoa(k),
 							RangeTo:     strconv.Itoa(l),
-							Content:     []*AssertionSection{assertions[m]},
+							Content:     []*Assertion{assertions[m]},
 						})
 					}
 				}
@@ -197,25 +197,25 @@ func sortedShards(nof int) []*ShardSection {
 	return shards
 }
 
-func sortedZones(nof int) []*ZoneSection {
-	zones := []*ZoneSection{}
+func sortedZones(nof int) []*Zone {
+	zones := []*Zone{}
 	assertions := sortedAssertions(5)
 	shards := sortedShards(2)
 	for i := 0; i < nof; i++ {
 		for j := 0; j < nof; j++ {
 			//TODO CFE extend this test when we support multiple connection per assertion
 			for l := 0; l < 9751; l++ {
-				zones = append(zones, &ZoneSection{
+				zones = append(zones, &Zone{
 					SubjectZone: strconv.Itoa(i),
 					Context:     strconv.Itoa(j),
-					Content:     []MessageSectionWithSigForward{assertions[l]},
+					Content:     []SecWithSigForward{assertions[l]},
 				})
 			}
 			for l := 0; l < 4993; l++ {
-				zones = append(zones, &ZoneSection{
+				zones = append(zones, &Zone{
 					SubjectZone: strconv.Itoa(i),
 					Context:     strconv.Itoa(j),
-					Content:     []MessageSectionWithSigForward{shards[l]},
+					Content:     []SecWithSigForward{shards[l]},
 				})
 			}
 		}
@@ -224,15 +224,15 @@ func sortedZones(nof int) []*ZoneSection {
 	return zones
 }
 
-func sortedQueries(nof int) []*QuerySection {
-	queries := []*QuerySection{}
+func sortedQueries(nof int) []*QueryForward {
+	queries := []*QueryForward{}
 	for i := 0; i < nof; i++ {
 		for j := 0; j < nof; j++ {
 			for k := 0; k < 13; k++ {
 				for l := 0; l < nof; l++ {
 					for m := 0; m < 8; m++ {
 						//TODO CFE extend this test when we support multiple connection per assertion
-						queries = append(queries, &QuerySection{
+						queries = append(queries, &QueryForward{
 							Context:    strconv.Itoa(i),
 							Name:       strconv.Itoa(j),
 							Types:      []ObjectType{ObjectType(k)},
@@ -243,7 +243,7 @@ func sortedQueries(nof int) []*QuerySection {
 					for m := 0; m < 7; m++ {
 						for n := m + 1; n < 8; n++ {
 							//TODO CFE extend this test when we support multiple connection per assertion
-							queries = append(queries, &QuerySection{
+							queries = append(queries, &QueryForward{
 								Context:    strconv.Itoa(i),
 								Name:       strconv.Itoa(j),
 								Types:      []ObjectType{ObjectType(k)},
@@ -261,14 +261,14 @@ func sortedQueries(nof int) []*QuerySection {
 	return queries
 }
 
-func sortedAddressAssertions(nof int) []*AddressAssertionSection {
+func sortedAddressAssertions(nof int) []*AddrAssertion {
 	if nof > 9 {
 		log.Error("nof must be smaller than 10", "nof", nof)
 		//otherwise subjectAddr first value is now 2 digit and in string comparison "10." sorts before "2.",
 		//which makes the test much more complicated
 		nof = 9
 	}
-	assertions := []*AddressAssertionSection{}
+	assertions := []*AddrAssertion{}
 	objs := sortedObjects(13)
 	for i := 1; i < nof+1; i++ {
 		//We start from 1 as leading zero's are omitted in IPv6 format while there are present in ipv4.
@@ -278,7 +278,7 @@ func sortedAddressAssertions(nof int) []*AddressAssertionSection {
 		for j := 0; j < nof; j++ {
 			//TODO CFE extend this test when we support multiple connection per assertion
 			for l := 0; l < 78; l++ {
-				assertions = append(assertions, &AddressAssertionSection{
+				assertions = append(assertions, &AddrAssertion{
 					SubjectAddr: subjectAddress,
 					Context:     strconv.Itoa(j),
 					Content:     []Object{objs[l]},
@@ -288,7 +288,7 @@ func sortedAddressAssertions(nof int) []*AddressAssertionSection {
 		for j := 0; j < nof; j++ {
 			//TODO CFE extend this test when we support multiple connection per assertion
 			for l := 0; l < 78; l++ {
-				assertions = append(assertions, &AddressAssertionSection{
+				assertions = append(assertions, &AddrAssertion{
 					SubjectAddr: subjectAddress2,
 					Context:     strconv.Itoa(j),
 					Content:     []Object{objs[l]},
@@ -321,7 +321,7 @@ func sortedAddressZones(nof int) []*AddressZoneSection {
 				zones = append(zones, &AddressZoneSection{
 					SubjectAddr: subjectAddress,
 					Context:     strconv.Itoa(j),
-					Content:     []*AddressAssertionSection{assertions[l]},
+					Content:     []*AddrAssertion{assertions[l]},
 				})
 			}
 		}
@@ -331,7 +331,7 @@ func sortedAddressZones(nof int) []*AddressZoneSection {
 				zones = append(zones, &AddressZoneSection{
 					SubjectAddr: subjectAddress2,
 					Context:     strconv.Itoa(j),
-					Content:     []*AddressAssertionSection{assertions[l]},
+					Content:     []*AddrAssertion{assertions[l]},
 				})
 			}
 		}
@@ -340,14 +340,14 @@ func sortedAddressZones(nof int) []*AddressZoneSection {
 	return zones
 }
 
-func sortedAddressQueries(nof int) []*AddressQuerySection {
+func sortedAddressQueries(nof int) []*AddrQuery {
 	if nof > 9 {
 		log.Error("nof must be smaller than 10", "nof", nof)
 		//otherwise subjectAddr first value is now 2 digit and in string comparison "10." sorts before "2.",
 		//which makes the test much more complicated
 		nof = 9
 	}
-	queries := []*AddressQuerySection{}
+	queries := []*AddrQuery{}
 	for i := 1; i < nof+1; i++ {
 		//We start from 1 as leading zero's are omitted in IPv6 format while there are present in ipv4.
 		//Thus leading zero is a special case. Where IPv6 are sorted before IPv4.
@@ -358,7 +358,7 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 				for l := 0; l < nof; l++ {
 					for m := 0; m < 8; m++ {
 						//TODO CFE extend this test when we support multiple connection per assertion
-						queries = append(queries, &AddressQuerySection{
+						queries = append(queries, &AddrQuery{
 							SubjectAddr: subjectAddress,
 							Context:     strconv.Itoa(j),
 							Types:       []ObjectType{ObjectType(k)},
@@ -369,7 +369,7 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 					for m := 0; m < 7; m++ {
 						for n := m + 1; n < 8; n++ {
 							//TODO CFE extend this test when we support multiple connection per assertion
-							queries = append(queries, &AddressQuerySection{
+							queries = append(queries, &AddrQuery{
 								SubjectAddr: subjectAddress,
 								Context:     strconv.Itoa(j),
 								Types:       []ObjectType{ObjectType(k)},
@@ -386,7 +386,7 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 				for l := 0; l < nof; l++ {
 					for m := 0; m < 8; m++ {
 						//TODO CFE extend this test when we support multiple connection per assertion
-						queries = append(queries, &AddressQuerySection{
+						queries = append(queries, &AddrQuery{
 							SubjectAddr: subjectAddress2,
 							Context:     strconv.Itoa(j),
 							Types:       []ObjectType{ObjectType(k)},
@@ -402,8 +402,8 @@ func sortedAddressQueries(nof int) []*AddressQuerySection {
 	return queries
 }
 
-func sortedNotifications(nofNotifications int) []*NotificationSection {
-	notifications := []*NotificationSection{}
+func sortedNotifications(nofNotifications int) []*Notification {
+	notifications := []*Notification{}
 	tokens := sortedTokens(nofNotifications)
 	typeNumbers := []int{100, 399, 400, 403, 404, 413, 500, 501, 504}
 	for i := 0; i < nofNotifications; i++ {
@@ -413,7 +413,7 @@ func sortedNotifications(nofNotifications int) []*NotificationSection {
 		}
 		for j := 0; j < nofTypes; j++ {
 			for k := 0; k < nofNotifications; k++ {
-				notifications = append(notifications, &NotificationSection{
+				notifications = append(notifications, &Notification{
 					Token: tokens[i],
 					Type:  NotificationType(typeNumbers[j]),
 					Data:  strconv.Itoa(k),

@@ -11,7 +11,7 @@ import (
 )
 
 func TestAssertionCopy(t *testing.T) {
-	assertion := GetMessage().Content[0].(*AssertionSection)
+	assertion := GetMessage().Content[0].(*Assertion)
 	aCopy := assertion.Copy(assertion.Context, assertion.SubjectZone)
 	CheckAssertion(assertion, aCopy, t)
 	if assertion == aCopy {
@@ -20,7 +20,7 @@ func TestAssertionCopy(t *testing.T) {
 }
 
 func TestShardCopy(t *testing.T) {
-	shard := GetMessage().Content[1].(*ShardSection)
+	shard := GetMessage().Content[1].(*Shard)
 	sCopy := shard.Copy(shard.Context, shard.SubjectZone)
 	CheckShard(shard, sCopy, t)
 	if shard == sCopy {
@@ -30,11 +30,11 @@ func TestShardCopy(t *testing.T) {
 
 func TestAssertionInterval(t *testing.T) {
 	var tests = []struct {
-		input *AssertionSection
+		input *Assertion
 		want  string
 	}{
-		{&AssertionSection{SubjectName: "test"}, "test"},
-		{new(AssertionSection), ""},
+		{&Assertion{SubjectName: "test"}, "test"},
+		{new(Assertion), ""},
 	}
 	for i, test := range tests {
 		if test.input.Begin() != test.want || test.input.End() != test.want {
@@ -45,12 +45,12 @@ func TestAssertionInterval(t *testing.T) {
 
 func TestShardInterval(t *testing.T) {
 	var tests = []struct {
-		input     *ShardSection
+		input     *Shard
 		wantBegin string
 		wantEnd   string
 	}{
-		{&ShardSection{RangeFrom: "a", RangeTo: "z"}, "a", "z"},
-		{new(ShardSection), "", ""},
+		{&Shard{RangeFrom: "a", RangeTo: "z"}, "a", "z"},
+		{new(Shard), "", ""},
 	}
 	for i, test := range tests {
 		if test.input.Begin() != test.wantBegin || test.input.End() != test.wantEnd {
@@ -62,10 +62,10 @@ func TestShardInterval(t *testing.T) {
 
 func TestZoneInterval(t *testing.T) {
 	var tests = []struct {
-		input *ZoneSection
+		input *Zone
 		want  string
 	}{
-		{new(ZoneSection), ""},
+		{new(Zone), ""},
 	}
 	for i, test := range tests {
 		if test.input.Begin() != test.want || test.input.End() != test.want {
@@ -76,12 +76,12 @@ func TestZoneInterval(t *testing.T) {
 
 func TestAssertionHash(t *testing.T) {
 	var tests = []struct {
-		input *AssertionSection
+		input *Assertion
 		want  string
 	}{
 		{nil, "A_nil"},
-		{new(AssertionSection), "A____[]_[]"},
-		{&AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "ctx", Content: GetAllValidObjects()[:3],
+		{new(Assertion), "A____[]_[]"},
+		{&Assertion{SubjectName: "name", SubjectZone: "zone", Context: "ctx", Content: GetAllValidObjects()[:3],
 			Signatures: []Signature{Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519}, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
 			"A_name_zone_ctx_[OT:1 OV:{example.com [3 2]} OT:2 OV:2001:db8:: OT:3 OV:192.0.2.0]_[{KS=0 AT=1 VS=1000 VU=2000 KP=0 data=53696744617461}]"},
 	}
@@ -94,12 +94,12 @@ func TestAssertionHash(t *testing.T) {
 
 func TestShardHash(t *testing.T) {
 	var tests = []struct {
-		input *ShardSection
+		input *Shard
 		want  string
 	}{
 		{nil, "S_nil"},
-		{new(ShardSection), "S_____[]_[]"},
-		{&ShardSection{SubjectZone: "zone", Context: "ctx", RangeFrom: "RB", RangeTo: "RT", Content: []*AssertionSection{new(AssertionSection)},
+		{new(Shard), "S_____[]_[]"},
+		{&Shard{SubjectZone: "zone", Context: "ctx", RangeFrom: "RB", RangeTo: "RT", Content: []*Assertion{new(Assertion)},
 			Signatures: []Signature{Signature{
 				PublicKeyID: PublicKeyID{
 					KeySpace:  RainsKeySpace,
@@ -120,12 +120,12 @@ func TestShardHash(t *testing.T) {
 
 func TestZoneHash(t *testing.T) {
 	var tests = []struct {
-		input *ZoneSection
+		input *Zone
 		want  string
 	}{
 		{nil, "Z_nil"},
-		{new(ZoneSection), "Z___[]_[]"},
-		{&ZoneSection{SubjectZone: "zone", Context: "ctx", Content: []MessageSectionWithSigForward{new(AssertionSection), new(ShardSection)},
+		{new(Zone), "Z___[]_[]"},
+		{&Zone{SubjectZone: "zone", Context: "ctx", Content: []SecWithSigForward{new(Assertion), new(Shard)},
 			Signatures: []Signature{Signature{
 				PublicKeyID: PublicKeyID{
 					KeySpace:  RainsKeySpace,
@@ -136,7 +136,7 @@ func TestZoneHash(t *testing.T) {
 				ValidUntil: 2000,
 				Data:       []byte("SigData")}}},
 			"Z_zone_ctx_[A____[]_[] S_____[]_[]]_[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461}]"},
-		{&ZoneSection{Content: []MessageSectionWithSigForward{new(ZoneSection)}}, ""},
+		{&Zone{Content: []SecWithSigForward{new(Zone)}}, ""},
 	}
 	for i, test := range tests {
 		if test.input.Hash() != test.want {
@@ -151,13 +151,13 @@ func TestAddressAssertionHash(t *testing.T) {
 	objects1 := append(GetAllValidObjects()[3:5], GetAllValidObjects()[9])
 	objects2 := []Object{GetAllValidObjects()[0]}
 	var tests = []struct {
-		input *AddressAssertionSection
+		input *AddrAssertion
 		want  string
 	}{
 		{nil, "AA_nil"},
-		{new(AddressAssertionSection), "AA_<nil>__[]_[]"},
+		{new(AddrAssertion), "AA_<nil>__[]_[]"},
 		{
-			&AddressAssertionSection{
+			&AddrAssertion{
 				SubjectAddr: subjectAddress1,
 				Context:     "ctx",
 				Content:     objects2,
@@ -177,7 +177,7 @@ func TestAddressAssertionHash(t *testing.T) {
 			"AA_192.0.2.0/32_ctx_[OT:1 OV:{example.com [3 2]}]_[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461}]",
 		},
 		{
-			&AddressAssertionSection{
+			&AddrAssertion{
 				SubjectAddr: subjectAddress2,
 				Context:     "ctx",
 				Content:     objects1,
@@ -217,9 +217,9 @@ func TestAddressZoneHash(t *testing.T) {
 			&AddressZoneSection{
 				SubjectAddr: subjectAddress1,
 				Context:     "ctx",
-				Content: []*AddressAssertionSection{
-					new(AddressAssertionSection),
-					new(AddressAssertionSection),
+				Content: []*AddrAssertion{
+					new(AddrAssertion),
+					new(AddrAssertion),
 				},
 				Signatures: []Signature{
 					Signature{
@@ -240,9 +240,9 @@ func TestAddressZoneHash(t *testing.T) {
 			&AddressZoneSection{
 				SubjectAddr: subjectAddress2,
 				Context:     "ctx",
-				Content: []*AddressAssertionSection{
-					new(AddressAssertionSection),
-					new(AddressAssertionSection),
+				Content: []*AddrAssertion{
+					new(AddrAssertion),
+					new(AddrAssertion),
 				},
 				Signatures: []Signature{
 					Signature{
@@ -269,23 +269,23 @@ func TestAddressZoneHash(t *testing.T) {
 
 func TestEqualContextZoneName(t *testing.T) {
 	var tests = []struct {
-		input *AssertionSection
-		param *AssertionSection
+		input *Assertion
+		param *Assertion
 		want  bool
 	}{
-		{new(AssertionSection), nil, false},
-		{new(AssertionSection), new(AssertionSection), true},
-		{&AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "ctx"}, new(AssertionSection), false},
-		{&AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "ctx"},
-			&AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "ctx"}, true},
-		{&AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "ctx"},
-			&AssertionSection{SubjectName: "diffname", SubjectZone: "zone", Context: "ctx"}, false},
-		{&AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "ctx"},
-			&AssertionSection{SubjectName: "name", SubjectZone: "diffzone", Context: "ctx"}, false},
-		{&AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "ctx"},
-			&AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "diffctx"}, false},
-		{&AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "ctx"},
-			&AssertionSection{SubjectName: "diffname", SubjectZone: "diffzone", Context: "diffctx"}, false},
+		{new(Assertion), nil, false},
+		{new(Assertion), new(Assertion), true},
+		{&Assertion{SubjectName: "name", SubjectZone: "zone", Context: "ctx"}, new(Assertion), false},
+		{&Assertion{SubjectName: "name", SubjectZone: "zone", Context: "ctx"},
+			&Assertion{SubjectName: "name", SubjectZone: "zone", Context: "ctx"}, true},
+		{&Assertion{SubjectName: "name", SubjectZone: "zone", Context: "ctx"},
+			&Assertion{SubjectName: "diffname", SubjectZone: "zone", Context: "ctx"}, false},
+		{&Assertion{SubjectName: "name", SubjectZone: "zone", Context: "ctx"},
+			&Assertion{SubjectName: "name", SubjectZone: "diffzone", Context: "ctx"}, false},
+		{&Assertion{SubjectName: "name", SubjectZone: "zone", Context: "ctx"},
+			&Assertion{SubjectName: "name", SubjectZone: "zone", Context: "diffctx"}, false},
+		{&Assertion{SubjectName: "name", SubjectZone: "zone", Context: "ctx"},
+			&Assertion{SubjectName: "diffname", SubjectZone: "diffzone", Context: "diffctx"}, false},
 	}
 	for i, test := range tests {
 		if test.input.EqualContextZoneName(test.param) != test.want {
@@ -296,13 +296,13 @@ func TestEqualContextZoneName(t *testing.T) {
 
 func TestAssertionString(t *testing.T) {
 	var tests = []struct {
-		input *AssertionSection
+		input *Assertion
 		want  string
 	}{
 		{nil, "Assertion:nil"},
-		{new(AssertionSection), "Assertion:[SN= SZ= CTX= CONTENT=[] SIG=[]]"},
+		{new(Assertion), "Assertion:[SN= SZ= CTX= CONTENT=[] SIG=[]]"},
 		{
-			&AssertionSection{
+			&Assertion{
 				SubjectName: "name",
 				SubjectZone: "zone",
 				Context:     "ctx",
@@ -324,19 +324,19 @@ func TestAssertionString(t *testing.T) {
 
 func TestShardString(t *testing.T) {
 	var tests = []struct {
-		input *ShardSection
+		input *Shard
 		want  string
 	}{
 		{nil, "Shard:nil"},
-		{new(ShardSection), "Shard:[SZ= CTX= RF= RT= CONTENT=[] SIG=[]]"},
+		{new(Shard), "Shard:[SZ= CTX= RF= RT= CONTENT=[] SIG=[]]"},
 		{
-			&ShardSection{
+			&Shard{
 				SubjectZone: "zone",
 				Context:     "ctx",
 				RangeFrom:   "RF",
 				RangeTo:     "RT",
-				Content: []*AssertionSection{
-					new(AssertionSection),
+				Content: []*Assertion{
+					new(Assertion),
 				},
 				Signatures: []Signature{
 					Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519, KeyPhase: 1}, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
@@ -351,23 +351,23 @@ func TestShardString(t *testing.T) {
 
 func TestZoneString(t *testing.T) {
 	var tests = []struct {
-		input *ZoneSection
+		input *Zone
 		want  string
 	}{
 		{nil, "Zone:nil"},
-		{new(ZoneSection), "Zone:[SZ= CTX= CONTENT=[] SIG=[]]"},
+		{new(Zone), "Zone:[SZ= CTX= CONTENT=[] SIG=[]]"},
 		{
-			&ZoneSection{
+			&Zone{
 				SubjectZone: "zone",
 				Context:     "ctx",
-				Content: []MessageSectionWithSigForward{
-					new(AssertionSection),
-					new(ShardSection),
+				Content: []SecWithSigForward{
+					new(Assertion),
+					new(Shard),
 				},
 				Signatures: []Signature{
 					Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519, KeyPhase: 1}, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
 			"Zone:[SZ=zone CTX=ctx CONTENT=[Assertion:[SN= SZ= CTX= CONTENT=[] SIG=[]] Shard:[SZ= CTX= RF= RT= CONTENT=[] SIG=[]]] SIG=[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461}]]"},
-		{&ZoneSection{Content: []MessageSectionWithSigForward{new(ZoneSection)}}, "Zone:[SZ= CTX= CONTENT=[Zone:[SZ= CTX= CONTENT=[] SIG=[]]] SIG=[]]"},
+		{&Zone{Content: []SecWithSigForward{new(Zone)}}, "Zone:[SZ= CTX= CONTENT=[Zone:[SZ= CTX= CONTENT=[] SIG=[]]] SIG=[]]"},
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {
@@ -382,13 +382,13 @@ func TestAddressAssertionString(t *testing.T) {
 	objects1 := append(GetAllValidObjects()[3:5], GetAllValidObjects()[9])
 	objects2 := []Object{GetAllValidObjects()[0]}
 	var tests = []struct {
-		input *AddressAssertionSection
+		input *AddrAssertion
 		want  string
 	}{
 		{nil, "AddressAssertion:nil"},
-		{new(AddressAssertionSection), "AddressAssertion:[SA=<nil> CTX= CONTENT=[] SIG=[]]"},
+		{new(AddrAssertion), "AddressAssertion:[SA=<nil> CTX= CONTENT=[] SIG=[]]"},
 		{
-			&AddressAssertionSection{
+			&AddrAssertion{
 				SubjectAddr: subjectAddress1,
 				Context:     "ctx",
 				Content:     objects2,
@@ -397,7 +397,7 @@ func TestAddressAssertionString(t *testing.T) {
 			"AddressAssertion:[SA=192.0.2.0/32 CTX=ctx CONTENT=[OT:1 OV:{example.com [3 2]}] SIG=[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461}]]",
 		},
 		{
-			&AddressAssertionSection{
+			&AddrAssertion{
 				SubjectAddr: subjectAddress2,
 				Context:     "ctx",
 				Content:     objects1,
@@ -428,9 +428,9 @@ func TestAddressZoneString(t *testing.T) {
 		{&AddressZoneSection{
 			SubjectAddr: subjectAddress1,
 			Context:     "ctx",
-			Content: []*AddressAssertionSection{
-				new(AddressAssertionSection),
-				new(AddressAssertionSection),
+			Content: []*AddrAssertion{
+				new(AddrAssertion),
+				new(AddrAssertion),
 			},
 			Signatures: []Signature{Signature{
 				PublicKeyID: PublicKeyID{
@@ -448,9 +448,9 @@ func TestAddressZoneString(t *testing.T) {
 			&AddressZoneSection{
 				SubjectAddr: subjectAddress2,
 				Context:     "ctx",
-				Content: []*AddressAssertionSection{
-					new(AddressAssertionSection),
-					new(AddressAssertionSection),
+				Content: []*AddrAssertion{
+					new(AddrAssertion),
+					new(AddrAssertion),
 				},
 				Signatures: []Signature{
 					Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519, KeyPhase: 1}, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
@@ -465,16 +465,16 @@ func TestAddressZoneString(t *testing.T) {
 
 func TestQueryString(t *testing.T) {
 	var tests = []struct {
-		input *QuerySection
+		input *QueryForward
 		want  string
 	}{
 		{nil, "Query:nil"},
 		{
-			new(QuerySection),
+			new(QueryForward),
 			"Query:[CTX= NA= TYPE=[] EXP=0 OPT=[]]",
 		},
 		{
-			&QuerySection{
+			&QueryForward{
 				Context:    "ctx",
 				Name:       "name",
 				Types:      []ObjectType{OTName},
@@ -495,16 +495,16 @@ func TestAddressQueryString(t *testing.T) {
 	_, subjectAddress1, _ := net.ParseCIDR(ip4TestAddrCIDR32)
 	_, subjectAddress2, _ := net.ParseCIDR(ip6TestAddrCIDR)
 	var tests = []struct {
-		input *AddressQuerySection
+		input *AddrQuery
 		want  string
 	}{
 		{nil, "AddressQuery:nil"},
 		{
-			new(AddressQuerySection),
+			new(AddrQuery),
 			"AddressQuery:[SA=<nil> CTX= TYPE=[] EXP=0 OPT=[]]",
 		},
 		{
-			&AddressQuerySection{
+			&AddrQuery{
 				SubjectAddr: subjectAddress1,
 				Context:     "ctx",
 				Types:       []ObjectType{OTName},
@@ -514,7 +514,7 @@ func TestAddressQueryString(t *testing.T) {
 			"AddressQuery:[SA=192.0.2.0/32 CTX=ctx TYPE=[1] EXP=100 OPT=[1 3]]",
 		},
 		{
-			&AddressQuerySection{
+			&AddrQuery{
 				SubjectAddr: subjectAddress2,
 				Context:     "ctx",
 				Types:       []ObjectType{OTName},
@@ -534,12 +534,12 @@ func TestAddressQueryString(t *testing.T) {
 func TestNotificationString(t *testing.T) {
 	token := GenerateToken()
 	var tests = []struct {
-		input *NotificationSection
+		input *Notification
 		want  string
 	}{
 		{nil, "Notification:nil"},
-		{new(NotificationSection), "Notification:[TOK=00000000000000000000000000000000 TYPE=0 DATA=]"},
-		{&NotificationSection{Token: token, Type: NTBadMessage, Data: "notificationData"},
+		{new(Notification), "Notification:[TOK=00000000000000000000000000000000 TYPE=0 DATA=]"},
+		{&Notification{Token: token, Type: NTBadMessage, Data: "notificationData"},
 			fmt.Sprintf("Notification:[TOK=%s TYPE=400 DATA=notificationData]", hex.EncodeToString(token[:]))},
 	}
 	for i, test := range tests {
@@ -564,8 +564,8 @@ func TestContainsOptions(t *testing.T) {
 		if containsOption(test.param, test.input) != test.want {
 			t.Errorf("%d: containsOptions response incorrect. expected=%v, actual=%v", i, test.want, containsOption(test.param, test.input))
 		}
-		query := &QuerySection{Options: test.input}
-		addressquery := &AddressQuerySection{Options: test.input}
+		query := &QueryForward{Options: test.input}
+		addressquery := &AddrQuery{Options: test.input}
 		if query.ContainsOption(test.param) != test.want {
 			t.Errorf("%d: query.ContainsOptions response incorrect. expected=%v, actual=%v", i, test.want, containsOption(test.param, test.input))
 		}
@@ -577,34 +577,34 @@ func TestContainsOptions(t *testing.T) {
 
 func TestNotificationCompareTo(t *testing.T) {
 	ns := sortedNotifications(9)
-	var shuffled []MessageSection
+	var shuffled []Section
 	for _, n := range ns {
 		shuffled = append(shuffled, n)
 	}
 	shuffleSections(shuffled)
 	sort.Slice(shuffled, func(i, j int) bool {
-		return shuffled[i].(*NotificationSection).CompareTo(shuffled[j].(*NotificationSection)) < 0
+		return shuffled[i].(*Notification).CompareTo(shuffled[j].(*Notification)) < 0
 	})
 	for i, n := range ns {
-		CheckNotification(n, shuffled[i].(*NotificationSection), t)
+		CheckNotification(n, shuffled[i].(*Notification), t)
 	}
 }
 
 func TestAssertionCompareTo(t *testing.T) {
 	assertions := sortedAssertions(10)
-	var shuffled []MessageSection
+	var shuffled []Section
 	for _, a := range assertions {
 		shuffled = append(shuffled, a)
 	}
 	shuffleSections(shuffled)
 	sort.Slice(shuffled, func(i, j int) bool {
-		return shuffled[i].(*AssertionSection).CompareTo(shuffled[j].(*AssertionSection)) < 0
+		return shuffled[i].(*Assertion).CompareTo(shuffled[j].(*Assertion)) < 0
 	})
 	for i, a := range assertions {
-		CheckAssertion(a, shuffled[i].(*AssertionSection), t)
+		CheckAssertion(a, shuffled[i].(*Assertion), t)
 	}
-	a1 := &AssertionSection{}
-	a2 := &AssertionSection{Content: []Object{Object{}}}
+	a1 := &Assertion{}
+	a2 := &Assertion{Content: []Object{Object{}}}
 	if a1.CompareTo(a2) != -1 {
 		t.Error("Different content length are not sorted correctly")
 	}
@@ -615,19 +615,19 @@ func TestAssertionCompareTo(t *testing.T) {
 
 func TestShardCompareTo(t *testing.T) {
 	shards := sortedShards(5)
-	var shuffled []MessageSection
+	var shuffled []Section
 	for _, s := range shards {
 		shuffled = append(shuffled, s)
 	}
 	shuffleSections(shuffled)
 	sort.Slice(shuffled, func(i, j int) bool {
-		return shuffled[i].(*ShardSection).CompareTo(shuffled[j].(*ShardSection)) < 0
+		return shuffled[i].(*Shard).CompareTo(shuffled[j].(*Shard)) < 0
 	})
 	for i, s := range shards {
-		CheckShard(s, shuffled[i].(*ShardSection), t)
+		CheckShard(s, shuffled[i].(*Shard), t)
 	}
-	s1 := &ShardSection{}
-	s2 := &ShardSection{Content: []*AssertionSection{&AssertionSection{}}}
+	s1 := &Shard{}
+	s2 := &Shard{Content: []*Assertion{&Assertion{}}}
 	if s1.CompareTo(s2) != -1 {
 		t.Error("Different content length are not sorted correctly")
 	}
@@ -638,62 +638,62 @@ func TestShardCompareTo(t *testing.T) {
 
 func TestZoneCompareTo(t *testing.T) {
 	zones := sortedZones(3)
-	var shuffled []MessageSection
+	var shuffled []Section
 	for _, z := range zones {
 		shuffled = append(shuffled, z)
 	}
 	shuffleSections(shuffled)
 	sort.Slice(shuffled, func(i, j int) bool {
-		return shuffled[i].(*ZoneSection).CompareTo(shuffled[j].(*ZoneSection)) < 0
+		return shuffled[i].(*Zone).CompareTo(shuffled[j].(*Zone)) < 0
 	})
 	for i, z := range zones {
-		CheckZone(z, shuffled[i].(*ZoneSection), t)
+		CheckZone(z, shuffled[i].(*Zone), t)
 	}
-	z1 := &ZoneSection{}
-	z2 := &ZoneSection{Content: []MessageSectionWithSigForward{&AssertionSection{}}}
+	z1 := &Zone{}
+	z2 := &Zone{Content: []SecWithSigForward{&Assertion{}}}
 	if z1.CompareTo(z2) != -1 {
 		t.Error("Different content length are not sorted correctly")
 	}
 	if z2.CompareTo(z1) != 1 {
 		t.Error("Different content length are not sorted correctly")
 	}
-	z1 = &ZoneSection{Content: []MessageSectionWithSigForward{&AssertionSection{}}}
-	z2 = &ZoneSection{Content: []MessageSectionWithSigForward{&ZoneSection{}}} //invalid type within Content
+	z1 = &Zone{Content: []SecWithSigForward{&Assertion{}}}
+	z2 = &Zone{Content: []SecWithSigForward{&Zone{}}} //invalid type within Content
 	if z2.CompareTo(z1) != 0 {
 		t.Error("Different content length are not sorted correctly")
 	}
 }
 func TestQueryCompareTo(t *testing.T) {
 	queries := sortedQueries(5)
-	var shuffled []MessageSection
+	var shuffled []Section
 	for _, q := range queries {
 		shuffled = append(shuffled, q)
 	}
 	shuffleSections(shuffled)
 	sort.Slice(shuffled, func(i, j int) bool {
-		return shuffled[i].(*QuerySection).CompareTo(shuffled[j].(*QuerySection)) < 0
+		return shuffled[i].(*QueryForward).CompareTo(shuffled[j].(*QueryForward)) < 0
 	})
 	for i, q := range queries {
-		CheckQuery(q, shuffled[i].(*QuerySection), t)
+		CheckQuery(q, shuffled[i].(*QueryForward), t)
 	}
 }
 
 func TestAddressAssertionCompareTo(t *testing.T) {
 	assertions := sortedAddressAssertions(9)
-	var shuffled []MessageSection
+	var shuffled []Section
 	for _, a := range assertions {
 		shuffled = append(shuffled, a)
 	}
 	shuffleSections(shuffled)
 	sort.Slice(shuffled, func(i, j int) bool {
-		return shuffled[i].(*AddressAssertionSection).CompareTo(shuffled[j].(*AddressAssertionSection)) < 0
+		return shuffled[i].(*AddrAssertion).CompareTo(shuffled[j].(*AddrAssertion)) < 0
 	})
 	for i, a := range assertions {
-		CheckAddressAssertion(a, shuffled[i].(*AddressAssertionSection), t)
+		CheckAddressAssertion(a, shuffled[i].(*AddrAssertion), t)
 	}
 	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR24)
-	a1 := &AddressAssertionSection{SubjectAddr: subjectAddress}
-	a2 := &AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{}}}
+	a1 := &AddrAssertion{SubjectAddr: subjectAddress}
+	a2 := &AddrAssertion{SubjectAddr: subjectAddress, Content: []Object{Object{}}}
 	if a1.CompareTo(a2) != -1 {
 		t.Error("Different content length are not sorted correctly")
 	}
@@ -704,7 +704,7 @@ func TestAddressAssertionCompareTo(t *testing.T) {
 
 func TestAddressZoneCompareTo(t *testing.T) {
 	zones := sortedAddressZones(4)
-	var shuffled []MessageSection
+	var shuffled []Section
 	for _, z := range zones {
 		shuffled = append(shuffled, z)
 	}
@@ -717,7 +717,7 @@ func TestAddressZoneCompareTo(t *testing.T) {
 	}
 	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR24)
 	z1 := &AddressZoneSection{SubjectAddr: subjectAddress}
-	z2 := &AddressZoneSection{SubjectAddr: subjectAddress, Content: []*AddressAssertionSection{&AddressAssertionSection{}}}
+	z2 := &AddressZoneSection{SubjectAddr: subjectAddress, Content: []*AddrAssertion{&AddrAssertion{}}}
 	if z1.CompareTo(z2) != -1 {
 		t.Error("Different content length are not sorted correctly")
 	}
@@ -728,20 +728,20 @@ func TestAddressZoneCompareTo(t *testing.T) {
 
 func TestAddressQueryCompareTo(t *testing.T) {
 	queries := sortedAddressQueries(2)
-	var shuffled []MessageSection
+	var shuffled []Section
 	for _, q := range queries {
 		shuffled = append(shuffled, q)
 	}
 	shuffleSections(shuffled)
 	sort.Slice(shuffled, func(i, j int) bool {
-		return shuffled[i].(*AddressQuerySection).CompareTo(shuffled[j].(*AddressQuerySection)) < 0
+		return shuffled[i].(*AddrQuery).CompareTo(shuffled[j].(*AddrQuery)) < 0
 	})
 	for i, q := range queries {
-		CheckAddressQuery(q, shuffled[i].(*AddressQuerySection), t)
+		CheckAddressQuery(q, shuffled[i].(*AddrQuery), t)
 	}
 }
 
-func shuffleSections(sections []MessageSection) {
+func shuffleSections(sections []Section) {
 	for i := len(sections) - 1; i > 0; i-- {
 		j := rand.Intn(i)
 		sections[i], sections[j] = sections[j], sections[i]
@@ -759,7 +759,7 @@ func TestAssertionSort(t *testing.T) {
 		},
 	}
 	for i, test := range tests {
-		a := &AssertionSection{Content: test.input}
+		a := &Assertion{Content: test.input}
 		a.Sort()
 		if !reflect.DeepEqual(a.Content, test.sorted) {
 			t.Errorf("%d: Assertion.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, a.Content)
@@ -769,22 +769,22 @@ func TestAssertionSort(t *testing.T) {
 
 func TestShardSort(t *testing.T) {
 	var tests = []struct {
-		input  []*AssertionSection
-		sorted []*AssertionSection
+		input  []*Assertion
+		sorted []*Assertion
 	}{
 		{
-			[]*AssertionSection{
-				&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
-				&AssertionSection{Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}},
+			[]*Assertion{
+				&Assertion{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+				&Assertion{Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}},
 			},
-			[]*AssertionSection{
-				&AssertionSection{Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
-				&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+			[]*Assertion{
+				&Assertion{Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
+				&Assertion{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
 			},
 		},
 	}
 	for i, test := range tests {
-		s := &ShardSection{Content: test.input}
+		s := &Shard{Content: test.input}
 		s.Sort()
 		if !reflect.DeepEqual(s.Content, test.sorted) {
 			t.Errorf("%d: Shard.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, s.Content)
@@ -794,47 +794,47 @@ func TestShardSort(t *testing.T) {
 
 func TestZoneSort(t *testing.T) {
 	var tests = []struct {
-		input  []MessageSectionWithSigForward
-		sorted []MessageSectionWithSigForward
+		input  []SecWithSigForward
+		sorted []SecWithSigForward
 	}{
 		{
-			[]MessageSectionWithSigForward{
-				&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}}, //Assertion compared with Assertion
-				&AssertionSection{Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}},
+			[]SecWithSigForward{
+				&Assertion{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}}, //Assertion compared with Assertion
+				&Assertion{Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}},
 			},
-			[]MessageSectionWithSigForward{
-				&AssertionSection{Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
-				&AssertionSection{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+			[]SecWithSigForward{
+				&Assertion{Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
+				&Assertion{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
 			},
 		},
 		{
-			[]MessageSectionWithSigForward{&ShardSection{}, &AssertionSection{}}, //Assertion compared with Shard
-			[]MessageSectionWithSigForward{&AssertionSection{}, &ShardSection{}},
+			[]SecWithSigForward{&Shard{}, &Assertion{}}, //Assertion compared with Shard
+			[]SecWithSigForward{&Assertion{}, &Shard{}},
 		},
 		{
-			[]MessageSectionWithSigForward{&AssertionSection{}, &ShardSection{}}, //Assertion compared with Shard
-			[]MessageSectionWithSigForward{&AssertionSection{}, &ShardSection{}},
+			[]SecWithSigForward{&Assertion{}, &Shard{}}, //Assertion compared with Shard
+			[]SecWithSigForward{&Assertion{}, &Shard{}},
 		},
 		{
-			[]MessageSectionWithSigForward{ //Shard compared with Shard
-				&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "b"}, &AssertionSection{SubjectName: "d"}}},
-				&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "c"}, &AssertionSection{SubjectName: "a"}}},
+			[]SecWithSigForward{ //Shard compared with Shard
+				&Shard{Content: []*Assertion{&Assertion{SubjectName: "b"}, &Assertion{SubjectName: "d"}}},
+				&Shard{Content: []*Assertion{&Assertion{SubjectName: "c"}, &Assertion{SubjectName: "a"}}},
 			},
-			[]MessageSectionWithSigForward{
-				&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "a"}, &AssertionSection{SubjectName: "c"}}},
-				&ShardSection{Content: []*AssertionSection{&AssertionSection{SubjectName: "b"}, &AssertionSection{SubjectName: "d"}}},
+			[]SecWithSigForward{
+				&Shard{Content: []*Assertion{&Assertion{SubjectName: "a"}, &Assertion{SubjectName: "c"}}},
+				&Shard{Content: []*Assertion{&Assertion{SubjectName: "b"}, &Assertion{SubjectName: "d"}}},
 			},
 		},
 	}
 	for i, test := range tests {
-		z := &ZoneSection{Content: test.input}
+		z := &Zone{Content: test.input}
 		z.Sort()
 		if !reflect.DeepEqual(z.Content, test.sorted) {
 			t.Errorf("%d: Zone.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, z.Content)
 		}
 	}
 	//no panic when invalid content
-	z := &ZoneSection{Content: []MessageSectionWithSigForward{&ZoneSection{}, &ZoneSection{}}}
+	z := &Zone{Content: []SecWithSigForward{&Zone{}, &Zone{}}}
 	z.Sort()
 }
 
@@ -846,7 +846,7 @@ func TestQuerySort(t *testing.T) {
 		{[]QueryOption{QueryOption(5), QueryOption(3)}, []QueryOption{QueryOption(3), QueryOption(5)}},
 	}
 	for i, test := range tests {
-		q := &QuerySection{Options: test.input}
+		q := &QueryForward{Options: test.input}
 		q.Sort()
 		if !reflect.DeepEqual(q.Options, test.sorted) {
 			t.Errorf("%d: Query.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, q.Options)
@@ -863,7 +863,7 @@ func TestAddressAssertionSort(t *testing.T) {
 			[]Object{Object{Type: OTName, Value: NameObject{Name: "name", Types: []ObjectType{OTName, OTDelegation}}}, Object{Type: OTIP4Addr, Value: "192.0.2.0"}}},
 	}
 	for i, test := range tests {
-		a := &AddressAssertionSection{Content: test.input}
+		a := &AddrAssertion{Content: test.input}
 		a.Sort()
 		if !reflect.DeepEqual(a.Content, test.sorted) {
 			t.Errorf("%d: AddressAssertion.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, a.Content)
@@ -874,17 +874,17 @@ func TestAddressAssertionSort(t *testing.T) {
 func TestAddressZoneSort(t *testing.T) {
 	_, subjectAddress, _ := net.ParseCIDR(ip4TestAddrCIDR24)
 	var tests = []struct {
-		input  []*AddressAssertionSection
-		sorted []*AddressAssertionSection
+		input  []*AddrAssertion
+		sorted []*AddrAssertion
 	}{
 		{
-			[]*AddressAssertionSection{
-				&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
-				&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}},
+			[]*AddrAssertion{
+				&AddrAssertion{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+				&AddrAssertion{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}},
 			},
-			[]*AddressAssertionSection{
-				&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
-				&AddressAssertionSection{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
+			[]*AddrAssertion{
+				&AddrAssertion{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
+				&AddrAssertion{SubjectAddr: subjectAddress, Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
 			},
 		},
 	}
@@ -905,7 +905,7 @@ func TestAddressQuerySort(t *testing.T) {
 		{[]QueryOption{QueryOption(5), QueryOption(3)}, []QueryOption{QueryOption(3), QueryOption(5)}},
 	}
 	for i, test := range tests {
-		q := &AddressQuerySection{Options: test.input}
+		q := &AddrQuery{Options: test.input}
 		q.Sort()
 		if !reflect.DeepEqual(q.Options, test.sorted) {
 			t.Errorf("%d: Query.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, q.Options)
@@ -922,23 +922,23 @@ func TestSigs(t *testing.T) {
 		{[]Signature{Signature{PublicKeyID: PublicKeyID{KeySpace: KeySpaceID(-1)}}, Signature{}}, RainsKeySpace, []Signature{Signature{}}},
 	}
 	for i, test := range tests {
-		var s MessageSectionWithSig
-		s = &AssertionSection{Signatures: test.input}
+		var s SecWithSig
+		s = &Assertion{Signatures: test.input}
 		sigs := s.Sigs(test.param)
 		if !reflect.DeepEqual(sigs, test.output) {
 			t.Errorf("%d: assertion.Sigs() does not return the expected signatures expected=%v actual=%v", i, test.output, sigs)
 		}
-		s = &ShardSection{Signatures: test.input}
+		s = &Shard{Signatures: test.input}
 		sigs = s.Sigs(test.param)
 		if !reflect.DeepEqual(sigs, test.output) {
 			t.Errorf("%d: shard.Sigs() does not return the expected signatures expected=%v actual=%v", i, test.output, sigs)
 		}
-		s = &ZoneSection{Signatures: test.input}
+		s = &Zone{Signatures: test.input}
 		sigs = s.Sigs(test.param)
 		if !reflect.DeepEqual(sigs, test.output) {
 			t.Errorf("%d: zone.Sigs() does not return the expected signatures expected=%v actual=%v", i, test.output, sigs)
 		}
-		s = &AddressAssertionSection{Signatures: test.input}
+		s = &AddrAssertion{Signatures: test.input}
 		sigs = s.Sigs(test.param)
 		if !reflect.DeepEqual(sigs, test.output) {
 			t.Errorf("%d: addressAssertion.Sigs() does not return the expected signatures expected=%v actual=%v", i, test.output, sigs)
@@ -952,10 +952,10 @@ func TestSigs(t *testing.T) {
 }
 
 func TestAssertionsByNameAndTypes(t *testing.T) {
-	ss := ShardSection{
-		Content: make([]*AssertionSection, 0),
+	ss := Shard{
+		Content: make([]*Assertion, 0),
 	}
-	as1 := &AssertionSection{
+	as1 := &Assertion{
 		SubjectName: "example",
 		SubjectZone: "com.",
 		Content: []Object{Object{
@@ -967,7 +967,7 @@ func TestAssertionsByNameAndTypes(t *testing.T) {
 				Value: "::1",
 			}},
 	}
-	as2 := &AssertionSection{
+	as2 := &Assertion{
 		SubjectName: "example",
 		SubjectZone: "com.",
 		Content: []Object{
@@ -982,7 +982,7 @@ func TestAssertionsByNameAndTypes(t *testing.T) {
 		}}
 	ss.Content = append(ss.Content, as1, as2)
 	res1 := ss.AssertionsByNameAndTypes("example", []ObjectType{OTRegistrar, OTIP6Addr})
-	expect1 := []*AssertionSection{as1, as2}
+	expect1 := []*Assertion{as1, as2}
 	if len(res1) != 2 {
 		t.Errorf("expected 2 assertionsections, but got %v", len(res1))
 	}
@@ -994,7 +994,7 @@ func TestAssertionsByNameAndTypes(t *testing.T) {
 		t.Errorf("expected 0 assertionsections but got %d: %v", len(res2), res2)
 	}
 	res3 := ss.AssertionsByNameAndTypes("example", []ObjectType{OTIP6Addr})
-	expect3 := []*AssertionSection{as1}
+	expect3 := []*Assertion{as1}
 	if len(res3) != 1 {
 		t.Errorf("expected 1 assertinsections but got %d: %v", len(res3), res3)
 	}
@@ -1004,7 +1004,7 @@ func TestAssertionsByNameAndTypes(t *testing.T) {
 }
 
 func TestInRange(t *testing.T) {
-	ss := ShardSection{
+	ss := Shard{
 		RangeFrom: "abc",
 		RangeTo:   "xyz",
 	}
@@ -1039,20 +1039,20 @@ func TestInRange(t *testing.T) {
 
 func TestIsConsistent(t *testing.T) {
 	testMatrix := []struct {
-		section    *ShardSection
+		section    *Shard
 		wellformed bool
 	}{
 		{
-			section:    &ShardSection{SubjectZone: "legitimate.zone"},
+			section:    &Shard{SubjectZone: "legitimate.zone"},
 			wellformed: true,
 		},
 		{
-			section: &ShardSection{
+			section: &Shard{
 				SubjectZone: "legitimate.zone",
 				RangeFrom:   "abc",
 				RangeTo:     "xyz",
-				Content: []*AssertionSection{
-					&AssertionSection{
+				Content: []*Assertion{
+					&Assertion{
 						SubjectName: "aaa",
 					},
 				},
@@ -1060,12 +1060,12 @@ func TestIsConsistent(t *testing.T) {
 			wellformed: false,
 		},
 		{
-			section: &ShardSection{
+			section: &Shard{
 				SubjectZone: "legitimate.zone",
 				RangeFrom:   "abc",
 				RangeTo:     "xyz",
-				Content: []*AssertionSection{
-					&AssertionSection{
+				Content: []*Assertion{
+					&Assertion{
 						SubjectName: "def",
 					},
 				},
@@ -1073,7 +1073,7 @@ func TestIsConsistent(t *testing.T) {
 			wellformed: true,
 		},
 		{
-			section: &ShardSection{
+			section: &Shard{
 				SubjectZone: "legitimate.zone",
 				RangeFrom:   "abc",
 				RangeTo:     "xyz",
@@ -1089,9 +1089,9 @@ func TestIsConsistent(t *testing.T) {
 }
 
 func TestSectionsByNamesAndTypes(t *testing.T) {
-	zs := &ZoneSection{
-		Content: []MessageSectionWithSigForward{
-			&AssertionSection{
+	zs := &Zone{
+		Content: []SecWithSigForward{
+			&Assertion{
 				SubjectName: "domain",
 				SubjectZone: "com.",
 				Content: []Object{
@@ -1101,7 +1101,7 @@ func TestSectionsByNamesAndTypes(t *testing.T) {
 					},
 				},
 			},
-			&AssertionSection{
+			&Assertion{
 				SubjectName: "example",
 				SubjectZone: "ch.",
 				Content: []Object{
@@ -1111,11 +1111,11 @@ func TestSectionsByNamesAndTypes(t *testing.T) {
 					},
 				},
 			},
-			&ShardSection{
+			&Shard{
 				RangeFrom: "as",
 				RangeTo:   "b",
-				Content: []*AssertionSection{
-					&AssertionSection{
+				Content: []*Assertion{
+					&Assertion{
 						SubjectName: "as559.net",
 						Content: []Object{
 							Object{
@@ -1131,24 +1131,24 @@ func TestSectionsByNamesAndTypes(t *testing.T) {
 	testMatrix := []struct {
 		subjectName string
 		types       []ObjectType
-		as          []*AssertionSection
-		ss          []*ShardSection
+		as          []*Assertion
+		ss          []*Shard
 	}{
 		{
 			subjectName: "example",
 			types:       []ObjectType{OTIP4Addr},
-			as:          []*AssertionSection{zs.Content[1].(*AssertionSection)},
+			as:          []*Assertion{zs.Content[1].(*Assertion)},
 		},
 		{
 			subjectName: "domain",
 			types:       []ObjectType{OTRegistrant},
-			as:          []*AssertionSection{zs.Content[0].(*AssertionSection)},
+			as:          []*Assertion{zs.Content[0].(*Assertion)},
 		},
 		{
 			subjectName: "as559.net",
 			types:       []ObjectType{OTIP6Addr},
-			as:          []*AssertionSection{zs.Content[2].(*ShardSection).Content[0]},
-			ss:          []*ShardSection{zs.Content[2].(*ShardSection)},
+			as:          []*Assertion{zs.Content[2].(*Shard).Content[0]},
+			ss:          []*Shard{zs.Content[2].(*Shard)},
 		},
 	}
 	for i, testCase := range testMatrix {

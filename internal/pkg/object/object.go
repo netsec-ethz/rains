@@ -8,19 +8,20 @@ import (
 	"strconv"
 
 	log "github.com/inconshreveable/log15"
+
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 )
 
 //Object contains a Value of to the specified Type
 type Object struct {
-	Type  ObjectType
+	Type  Type
 	Value interface{}
 }
 
 //Sort sorts the content of o lexicographically.
 func (o *Object) Sort() {
-	if name, ok := o.Value.(NameObject); ok {
+	if name, ok := o.Value.(Name); ok {
 		sort.Slice(name.Types, func(i, j int) bool { return name.Types[i] < name.Types[j] })
 	}
 	if o.Type == OTExtraKey {
@@ -36,8 +37,8 @@ func (o Object) CompareTo(object Object) int {
 		return 1
 	}
 	switch v1 := o.Value.(type) {
-	case NameObject:
-		if v2, ok := object.Value.(NameObject); ok {
+	case Name:
+		if v2, ok := object.Value.(Name); ok {
 			return v1.CompareTo(v2)
 		}
 		logObjectTypeAssertionFailure(object.Type, object.Value)
@@ -56,8 +57,8 @@ func (o Object) CompareTo(object Object) int {
 			return v1.CompareTo(v2)
 		}
 		logObjectTypeAssertionFailure(object.Type, object.Value)
-	case NamesetExpression:
-		if v2, ok := object.Value.(NamesetExpression); ok {
+	case NamesetExpr:
+		if v2, ok := object.Value.(NamesetExpr); ok {
 			if v1 < v2 {
 				return -1
 			} else if v1 > v2 {
@@ -66,8 +67,8 @@ func (o Object) CompareTo(object Object) int {
 		} else {
 			logObjectTypeAssertionFailure(object.Type, object.Value)
 		}
-	case CertificateObject:
-		if v2, ok := object.Value.(CertificateObject); ok {
+	case Certificate:
+		if v2, ok := object.Value.(Certificate); ok {
 			return v1.CompareTo(v2)
 		}
 		logObjectTypeAssertionFailure(object.Type, object.Value)
@@ -88,44 +89,44 @@ func (o Object) String() string {
 }
 
 //logObjectTypeAssertionFailure logs that it was not possible to type assert value as t
-func logObjectTypeAssertionFailure(t ObjectType, value interface{}) {
+func logObjectTypeAssertionFailure(t Type, value interface{}) {
 	log.Error("Object Type and corresponding type assertion of object's value do not match",
 		"objectType", t, "objectValueType", fmt.Sprintf("%T", value))
 }
 
-//ObjectType identifier for object connection. ID chosen according to RAINS Protocol Specification
-type ObjectType int
+//Type identifier for object connection. ID chosen according to RAINS Protocol Specification
+type Type int
 
 //String returns the ID as a string
-func (o ObjectType) String() string {
+func (o Type) String() string {
 	return strconv.Itoa(int(o))
 }
 
 const (
-	OTName        ObjectType = 1
-	OTIP6Addr     ObjectType = 2
-	OTIP4Addr     ObjectType = 3
-	OTRedirection ObjectType = 4
-	OTDelegation  ObjectType = 5
-	OTNameset     ObjectType = 6
-	OTCertInfo    ObjectType = 7
-	OTServiceInfo ObjectType = 8
-	OTRegistrar   ObjectType = 9
-	OTRegistrant  ObjectType = 10
-	OTInfraKey    ObjectType = 11
-	OTExtraKey    ObjectType = 12
-	OTNextKey     ObjectType = 13
+	OTName        Type = 1
+	OTIP6Addr     Type = 2
+	OTIP4Addr     Type = 3
+	OTRedirection Type = 4
+	OTDelegation  Type = 5
+	OTNameset     Type = 6
+	OTCertInfo    Type = 7
+	OTServiceInfo Type = 8
+	OTRegistrar   Type = 9
+	OTRegistrant  Type = 10
+	OTInfraKey    Type = 11
+	OTExtraKey    Type = 12
+	OTNextKey     Type = 13
 )
 
-//NameObject contains a name associated with a name as an alias. Types specifies for which object connection the alias is valid
-type NameObject struct {
+//Name contains a name associated with a name as an alias. Types specifies for which object connection the alias is valid
+type Name struct {
 	Name string
 	//Types for which the Name is valid
-	Types []ObjectType
+	Types []Type
 }
 
 //CompareTo compares two nameObjects and returns 0 if they are equal, 1 if n is greater than nameObject and -1 if n is smaller than nameObject
-func (n NameObject) CompareTo(nameObj NameObject) int {
+func (n Name) CompareTo(nameObj Name) int {
 	if n.Name < nameObj.Name {
 		return -1
 	} else if n.Name > nameObj.Name {
@@ -145,19 +146,19 @@ func (n NameObject) CompareTo(nameObj NameObject) int {
 	return 0
 }
 
-//NamesetExpression encodes a modified POSIX Extended Regular Expression format
-type NamesetExpression string
+//NamesetExpr encodes a modified POSIX Extended Regular Expression format
+type NamesetExpr string
 
-//CertificateObject contains a certificate and its meta data (type, usage and hash algorithm identifier)
-type CertificateObject struct {
+//Certificate contains a certificate and its meta data (type, usage and hash algorithm identifier)
+type Certificate struct {
 	Type     ProtocolType
 	Usage    CertificateUsage
-	HashAlgo algorithmTypes.HashAlgorithmType
+	HashAlgo algorithmTypes.Hash
 	Data     []byte
 }
 
 //CompareTo compares two certificateObject objects and returns 0 if they are equal, 1 if c is greater than cert and -1 if c is smaller than cert
-func (c CertificateObject) CompareTo(cert CertificateObject) int {
+func (c Certificate) CompareTo(cert Certificate) int {
 	if c.Type < cert.Type {
 		return -1
 	} else if c.Type > cert.Type {
@@ -175,7 +176,7 @@ func (c CertificateObject) CompareTo(cert CertificateObject) int {
 }
 
 //String implements Stringer interface
-func (c CertificateObject) String() string {
+func (c Certificate) String() string {
 	return fmt.Sprintf("{%d %d %d %s}", c.Type, c.Usage, c.HashAlgo, hex.EncodeToString(c.Data))
 }
 
@@ -221,7 +222,7 @@ func (s ServiceInfo) CompareTo(serviceInfo ServiceInfo) int {
 }
 
 //ContainsType returns the first object with oType and true if objects contains at least one
-func ContainsType(objects []Object, oType ObjectType) (Object, bool) {
+func ContainsType(objects []Object, oType Type) (Object, bool) {
 	for _, o := range objects {
 		if o.Type == oType {
 			return o, true

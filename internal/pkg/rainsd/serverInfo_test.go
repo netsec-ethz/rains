@@ -82,9 +82,9 @@ func TestConnectionCache(t *testing.T) {
 		conn1, _ := net.Dial("tcp", tcpAddr)
 		conn2, _ := net.Dial("tcp", tcpAddr2)
 		conn3, _ := net.Dial("tcp", tcpAddr3)
-		connInfo1 := connection.ConnInfo{Type: connection.TCP, TCPAddr: conn1.RemoteAddr().(*net.TCPAddr)}
-		connInfo2 := connection.ConnInfo{Type: connection.TCP, TCPAddr: conn2.RemoteAddr().(*net.TCPAddr)}
-		connInfo3 := connection.ConnInfo{Type: connection.TCP, TCPAddr: conn3.RemoteAddr().(*net.TCPAddr)}
+		connInfo1 := connection.Info{Type: connection.TCP, TCPAddr: conn1.RemoteAddr().(*net.TCPAddr)}
+		connInfo2 := connection.Info{Type: connection.TCP, TCPAddr: conn2.RemoteAddr().(*net.TCPAddr)}
+		connInfo3 := connection.Info{Type: connection.TCP, TCPAddr: conn3.RemoteAddr().(*net.TCPAddr)}
 		c.AddConnection(conn1)
 		c.AddConnection(conn2)
 		if c.Len() != 2 {
@@ -251,17 +251,17 @@ func TestZoneKeyCache(t *testing.T) {
 //FIXME CFE we cannot test if the cache logs correctly when the maximum number of delegations per
 //zone is reached. Should we return a value if so in which form (object, error)?
 func TestPendingKeyCache(t *testing.T) {
-	a0 := &sections.AssertionSection{SubjectZone: "com", Context: "."}
-	s1 := &sections.ShardSection{SubjectZone: "com", Context: "."}
-	z2 := &sections.ZoneSection{SubjectZone: "ch", Context: "."}
-	a3 := &sections.AssertionSection{SubjectZone: "ch", Context: "."}
+	a0 := &sections.Assertion{SubjectZone: "com", Context: "."}
+	s1 := &sections.Shard{SubjectZone: "com", Context: "."}
+	z2 := &sections.Zone{SubjectZone: "ch", Context: "."}
+	a3 := &sections.Assertion{SubjectZone: "ch", Context: "."}
 	m := []sectionWithSigSender{
-		sectionWithSigSender{Section: a0, Sender: connection.ConnInfo{}, Token: token.GenerateToken()},
-		sectionWithSigSender{Section: s1, Sender: connection.ConnInfo{}, Token: token.GenerateToken()},
-		sectionWithSigSender{Section: z2, Sender: connection.ConnInfo{}, Token: token.GenerateToken()},
-		sectionWithSigSender{Section: a3, Sender: connection.ConnInfo{}, Token: token.GenerateToken()},
+		sectionWithSigSender{Section: a0, Sender: connection.Info{}, Token: token.New()},
+		sectionWithSigSender{Section: s1, Sender: connection.Info{}, Token: token.New()},
+		sectionWithSigSender{Section: z2, Sender: connection.Info{}, Token: token.New()},
+		sectionWithSigSender{Section: a3, Sender: connection.Info{}, Token: token.New()},
 	}
-	tokens := []token.Token{token.GenerateToken(), token.GenerateToken()}
+	tokens := []token.Token{token.New(), token.New()}
 	var tests = []struct {
 		input pendingKeyCache
 	}{
@@ -296,20 +296,20 @@ func TestPendingKeyCache(t *testing.T) {
 			}
 		}
 		//Add token to cache entries
-		ok := c.AddToken(token.GenerateToken(), time.Now().Add(time.Second).Unix(), connection.ConnInfo{}, "de", ".")
+		ok := c.AddToken(token.New(), time.Now().Add(time.Second).Unix(), connection.Info{}, "de", ".")
 		if ok {
 			t.Errorf("%d:token added to non existing entry. len=%d", i, c.Len())
 		}
-		ok = c.AddToken(tokens[0], time.Now().Add(time.Second).Unix(), connection.ConnInfo{}, "com", ".")
+		ok = c.AddToken(tokens[0], time.Now().Add(time.Second).Unix(), connection.Info{}, "com", ".")
 		if !ok {
 			t.Errorf("%d:wrong return value of addToken()", i)
 		}
-		ok = c.AddToken(tokens[1], time.Now().Add(time.Second).Unix(), connection.ConnInfo{}, "ch", ".")
+		ok = c.AddToken(tokens[1], time.Now().Add(time.Second).Unix(), connection.Info{}, "ch", ".")
 		if !ok {
 			t.Errorf("%d:wrong return value of addToken()", i)
 		}
 		//Check if token in cache
-		newToken := token.GenerateToken()
+		newToken := token.New()
 		if c.ContainsToken(newToken) {
 			t.Errorf("%d:wrong return value of ContainsToken() actual=%v", i, newToken)
 		}
@@ -320,7 +320,7 @@ func TestPendingKeyCache(t *testing.T) {
 			t.Errorf("%d:wrong return value of ContainsToken() actual=%v", i, c.ContainsToken(tokens[1]))
 		}
 		//Check removal by token
-		v := c.GetAndRemoveByToken(token.GenerateToken())
+		v := c.GetAndRemoveByToken(token.New())
 		if v != nil || c.Len() != 3 {
 			t.Errorf("%d:Entry removed from cache with non matching token. len=%d", i, c.Len())
 		}
@@ -391,7 +391,7 @@ func TestPendingKeyCache(t *testing.T) {
 		if !sendQuery {
 			t.Errorf("%d:incorrect Add() return value. expected=true actual=%v", i, sendQuery)
 		}
-		ok = c.AddToken(tokens[0], time.Now().Unix(), connection.ConnInfo{}, "com", ".")
+		ok = c.AddToken(tokens[0], time.Now().Unix(), connection.Info{}, "com", ".")
 		if !ok {
 			t.Errorf("%d:wrong return value of addToken().", i)
 		}
@@ -413,27 +413,27 @@ func TestPendingKeyCache(t *testing.T) {
 }
 
 func TestPendingQueryCache(t *testing.T) {
-	a0 := &sections.AssertionSection{
+	a0 := &sections.Assertion{
 		SubjectName: "example",
 		SubjectZone: "com",
 		Context:     ".",
 		Content:     []object.Object{object.Object{Type: object.OTIP4Addr, Value: "192.0.2.0"}},
 	}
-	a1 := &sections.AssertionSection{
+	a1 := &sections.Assertion{
 		SubjectName: "example",
 		SubjectZone: "com",
 		Context:     ".",
 		Content:     []object.Object{object.Object{Type: object.OTIP4Addr, Value: "203.0.113.0"}},
 	}
-	s0 := &sections.ShardSection{SubjectZone: "net", RangeFrom: "e", RangeTo: "f"}
-	q0 := &sections.QuerySection{Name: "example.net", Context: ".", Types: []object.ObjectType{2}}
-	q1 := &sections.QuerySection{Name: "example.com", Context: ".", Types: []object.ObjectType{2}}
+	s0 := &sections.Shard{SubjectZone: "net", RangeFrom: "e", RangeTo: "f"}
+	q0 := &sections.QueryForward{Name: "example.net", Context: ".", Types: []object.Type{2}}
+	q1 := &sections.QueryForward{Name: "example.com", Context: ".", Types: []object.Type{2}}
 	m := []msgSectionSender{
-		msgSectionSender{Section: q0, Sender: connection.ConnInfo{}, Token: token.GenerateToken()},
-		msgSectionSender{Section: q0, Sender: connection.ConnInfo{}, Token: token.GenerateToken()},
-		msgSectionSender{Section: q1, Sender: connection.ConnInfo{}, Token: token.GenerateToken()},
+		msgSectionSender{Section: q0, Sender: connection.Info{}, Token: token.New()},
+		msgSectionSender{Section: q0, Sender: connection.Info{}, Token: token.New()},
+		msgSectionSender{Section: q1, Sender: connection.Info{}, Token: token.New()},
 	}
-	tokens := []token.Token{token.GenerateToken(), token.GenerateToken(), token.GenerateToken()}
+	tokens := []token.Token{token.New(), token.New(), token.New()}
 	var tests = []struct {
 		input pendingQueryCache
 	}{
@@ -468,33 +468,33 @@ func TestPendingQueryCache(t *testing.T) {
 			}
 		}
 		//Add token to cache entries
-		ok := c.AddToken(token.GenerateToken(), time.Now().Add(time.Second).Unix(),
-			connection.ConnInfo{}, "example.com", ".", []object.ObjectType{3})
+		ok := c.AddToken(token.New(), time.Now().Add(time.Second).Unix(),
+			connection.Info{}, "example.com", ".", []object.Type{3})
 		if ok {
 			t.Errorf("%d:token added to non existing entry. len=%d", i, c.Len())
 		}
-		ok = c.AddToken(token.GenerateToken(), time.Now().Add(time.Second).Unix(),
-			connection.ConnInfo{}, "example.com", "nonExistingContext", []object.ObjectType{2})
+		ok = c.AddToken(token.New(), time.Now().Add(time.Second).Unix(),
+			connection.Info{}, "example.com", "nonExistingContext", []object.Type{2})
 		if ok {
 			t.Errorf("%d:token added to non existing entry. len=%d", i, c.Len())
 		}
-		ok = c.AddToken(token.GenerateToken(), time.Now().Add(time.Second).Unix(),
-			connection.ConnInfo{}, "nonExistingName", ".", []object.ObjectType{2})
+		ok = c.AddToken(token.New(), time.Now().Add(time.Second).Unix(),
+			connection.Info{}, "nonExistingName", ".", []object.Type{2})
 		if ok {
 			t.Errorf("%d:token added to non existing entry. len=%d", i, c.Len())
 		}
-		ok = c.AddToken(tokens[0], time.Now().Add(time.Second).Unix(), connection.ConnInfo{}, q0.Name,
+		ok = c.AddToken(tokens[0], time.Now().Add(time.Second).Unix(), connection.Info{}, q0.Name,
 			q0.Context, q0.Types)
 		if !ok {
 			t.Errorf("%d:wrong return value of addToken()", i)
 		}
-		ok = c.AddToken(tokens[1], time.Now().Add(time.Second).Unix(), connection.ConnInfo{}, q1.Name,
+		ok = c.AddToken(tokens[1], time.Now().Add(time.Second).Unix(), connection.Info{}, q1.Name,
 			q1.Context, q1.Types)
 		if !ok {
 			t.Errorf("%d:wrong return value of addToken()", i)
 		}
 		//Get Query based on token
-		query, ok := c.GetQuery(token.GenerateToken())
+		query, ok := c.GetQuery(token.New())
 		if ok {
 			t.Errorf("%d.0:wrong return value of GetQuery() expected=[nil false] actual=[%v %v]", i, ok, query)
 		}
@@ -508,7 +508,7 @@ func TestPendingQueryCache(t *testing.T) {
 		}
 		//Add answers to cache entries
 		deadline := time.Now().Add(time.Second).UnixNano()
-		ok = c.AddAnswerByToken(a0, token.GenerateToken(), deadline)
+		ok = c.AddAnswerByToken(a0, token.New(), deadline)
 		if ok {
 			t.Errorf("%d.0:wrong return value of AddAnswerByToken() expected=false actual=%v", i, ok)
 		}
@@ -530,7 +530,7 @@ func TestPendingQueryCache(t *testing.T) {
 			t.Errorf("%d.4:wrong return value of AddAnswerByToken() ok=%v", i, ok)
 		}
 		//Token update
-		ok = c.UpdateToken(token.GenerateToken(), token.GenerateToken())
+		ok = c.UpdateToken(token.New(), token.New())
 		if !ok {
 			t.Errorf("%d.0:wrong return value of UpdateToken() ok=%v", i, ok)
 		}
@@ -543,7 +543,7 @@ func TestPendingQueryCache(t *testing.T) {
 			t.Errorf("%d.2:wrong return value of UpdateToken() ok=%v", i, ok)
 		}
 		//Check removal by token and get correct responses.
-		sectionSenders, answers := c.GetAndRemoveByToken(token.GenerateToken(), deadline)
+		sectionSenders, answers := c.GetAndRemoveByToken(token.New(), deadline)
 		if sectionSenders != nil || answers != nil {
 			t.Errorf("%d.0:wrong return value of GetAndRemoveByToken() queries=%v answers=%v", i,
 				sectionSenders, answers)
@@ -908,8 +908,8 @@ func TestConsistencyCache(t *testing.T) {
 func TestRedirectionCache(t *testing.T) {
 	tcpAddr0, _ := net.ResolveTCPAddr("tcp", "192.0.2.0:80")
 	tcpAddr1, _ := net.ResolveTCPAddr("tcp", "192.0.2.0:443")
-	connInfo0 := connection.ConnInfo{Type: connection.TCP, TCPAddr: tcpAddr0}
-	connInfo1 := connection.ConnInfo{Type: connection.TCP, TCPAddr: tcpAddr1}
+	connInfo0 := connection.Info{Type: connection.TCP, TCPAddr: tcpAddr0}
+	connInfo1 := connection.Info{Type: connection.TCP, TCPAddr: tcpAddr1}
 	exp := time.Now().Add(time.Hour).Unix()
 	var tests = []struct {
 		input redirectionCache
@@ -1030,11 +1030,11 @@ func TestNameCtxTypesKey(t *testing.T) {
 	var tests = []struct {
 		name    string
 		context string
-		types   []object.ObjectType
+		types   []object.Type
 		output  string
 	}{
 		{"example.com", ".", nil, "example.com . nil"},
-		{"example.com", ".", []object.ObjectType{5, 8, 1, 6}, "example.com . [1 5 6 8]"},
+		{"example.com", ".", []object.Type{5, 8, 1, 6}, "example.com . [1 5 6 8]"},
 	}
 	for i, test := range tests {
 		if nameCtxTypesKey(test.name, test.context, test.types) != test.output {
@@ -1063,7 +1063,7 @@ func TestZoneCtxKey(t *testing.T) {
 
 func TestAlgoPhaseKey(t *testing.T) {
 	var tests = []struct {
-		algoType algorithmTypes.SignatureAlgorithmType
+		algoType algorithmTypes.Signature
 		phase    int
 		output   string
 	}{
@@ -1079,15 +1079,15 @@ func TestAlgoPhaseKey(t *testing.T) {
 
 func TestSectionWithSigSenderHash(t *testing.T) {
 	tcpAddr, _ := net.ResolveTCPAddr("tcp", "192.0.2.0:80")
-	token := token.GenerateToken()
+	token := token.New()
 	var tests = []struct {
 		input  sectionWithSigSender
 		output string
 	}{
 		{
 			sectionWithSigSender{
-				Section: &sections.AssertionSection{SubjectName: "name", SubjectZone: "zone", Context: "context"},
-				Sender:  connection.ConnInfo{Type: connection.TCP, TCPAddr: tcpAddr},
+				Section: &sections.Assertion{SubjectName: "name", SubjectZone: "zone", Context: "context"},
+				Sender:  connection.Info{Type: connection.TCP, TCPAddr: tcpAddr},
 				Token:   token,
 			},
 			fmt.Sprintf("1_192.0.2.0:80_A_name_zone_context_[]_[]_%s", hex.EncodeToString(token[:])),
@@ -1101,8 +1101,8 @@ func TestSectionWithSigSenderHash(t *testing.T) {
 	}
 }
 
-func getExampleDelgations(tld string) []*sections.AssertionSection {
-	a1 := &sections.AssertionSection{
+func getExampleDelgations(tld string) []*sections.Assertion {
+	a1 := &sections.Assertion{
 		SubjectName: tld,
 		SubjectZone: ".",
 		Context:     ".",
@@ -1118,7 +1118,7 @@ func getExampleDelgations(tld string) []*sections.AssertionSection {
 			},
 		},
 	}
-	a2 := &sections.AssertionSection{ //same key phase as a1 but different key and validity period
+	a2 := &sections.Assertion{ //same key phase as a1 but different key and validity period
 		SubjectName: tld,
 		SubjectZone: ".",
 		Context:     ".",
@@ -1134,7 +1134,7 @@ func getExampleDelgations(tld string) []*sections.AssertionSection {
 			},
 		},
 	}
-	a3 := &sections.AssertionSection{ //different keyphase, everything else the same as a1
+	a3 := &sections.Assertion{ //different keyphase, everything else the same as a1
 		SubjectName: tld,
 		SubjectZone: ".",
 		Context:     ".",
@@ -1151,7 +1151,7 @@ func getExampleDelgations(tld string) []*sections.AssertionSection {
 		},
 	}
 	//expired delegation assertion
-	a4 := &sections.AssertionSection{ //different keyphase, everything else the same as a1
+	a4 := &sections.Assertion{ //different keyphase, everything else the same as a1
 		SubjectName: tld,
 		SubjectZone: ".",
 		Context:     ".",
@@ -1167,7 +1167,7 @@ func getExampleDelgations(tld string) []*sections.AssertionSection {
 			},
 		},
 	}
-	a5 := &sections.AssertionSection{ //different keyphase, everything else the same as a1
+	a5 := &sections.Assertion{ //different keyphase, everything else the same as a1
 		SubjectName: "@",
 		SubjectZone: ".",
 		Context:     ".",
@@ -1188,96 +1188,96 @@ func getExampleDelgations(tld string) []*sections.AssertionSection {
 	a3.UpdateValidity(time.Now().Unix(), time.Now().Add(24*time.Hour).Unix(), 24*time.Hour)
 	a4.UpdateValidity(time.Now().Add(-2*time.Hour).Unix(), time.Now().Add(-1*time.Hour).Unix(), time.Hour)
 	a5.UpdateValidity(time.Now().Unix(), time.Now().Add(24*time.Hour).Unix(), 24*time.Hour)
-	return []*sections.AssertionSection{a1, a2, a3, a4, a5}
+	return []*sections.Assertion{a1, a2, a3, a4, a5}
 }
 
-func getSignatureMetaData() []signature.SignatureMetaData {
+func getSignatureMetaData() []signature.MetaData {
 	//signature in the interval of the above public keys
-	s1 := signature.SignatureMetaData{
+	s1 := signature.MetaData{
 		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
 		ValidSince:  time.Now().Add(23 * time.Hour).Unix(),
 		ValidUntil:  time.Now().Add(24*time.Hour + 30*time.Minute).Unix(),
 	}
-	s2 := signature.SignatureMetaData{
+	s2 := signature.MetaData{
 		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
 		ValidSince:  time.Now().Add(24*time.Hour + 30*time.Minute).Unix(),
 		ValidUntil:  time.Now().Add(30 * time.Hour).Unix(),
 	}
-	s3 := signature.SignatureMetaData{
+	s3 := signature.MetaData{
 		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 1},
 		ValidSince:  time.Now().Add(23 * time.Hour).Unix(),
 		ValidUntil:  time.Now().Add(24*time.Hour + 30*time.Minute).Unix(),
 	}
 	//signature not in the interval of the above public keys
-	s4 := signature.SignatureMetaData{
+	s4 := signature.MetaData{
 		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
 		ValidSince:  time.Now().Add(-2 * time.Hour).Unix(),
 		ValidUntil:  time.Now().Add(-1 * time.Hour).Unix(),
 	}
-	s5 := signature.SignatureMetaData{
+	s5 := signature.MetaData{
 		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
 		ValidSince:  time.Now().Add(48*time.Hour + 1).Unix(),
 		ValidUntil:  time.Now().Add(50 * time.Hour).Unix(),
 	}
-	s6 := signature.SignatureMetaData{
+	s6 := signature.MetaData{
 		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
 		ValidSince:  time.Now().Add(24*time.Hour + 1).Unix(),
 		ValidUntil:  time.Now().Add(25*time.Hour - 1).Unix(),
 	}
 
-	return []signature.SignatureMetaData{s1, s2, s3, s4, s5, s6}
+	return []signature.MetaData{s1, s2, s3, s4, s5, s6}
 }
 
-func getAssertions() []*sections.AssertionSection {
-	s0 := &sections.AssertionSection{
+func getAssertions() []*sections.Assertion {
+	s0 := &sections.Assertion{
 		SubjectName: "b",
 		SubjectZone: "ch",
 		Context:     ".",
 	}
-	s1 := &sections.AssertionSection{
+	s1 := &sections.Assertion{
 		SubjectName: "e",
 		SubjectZone: "ch",
 		Context:     ".",
 	}
-	s2 := &sections.AssertionSection{
+	s2 := &sections.Assertion{
 		SubjectName: "a",
 		SubjectZone: "org",
 		Context:     ".",
 	}
-	s3 := &sections.AssertionSection{
+	s3 := &sections.Assertion{
 		SubjectName: "b",
 		SubjectZone: "org",
 		Context:     "test-cch",
 	}
-	return []*sections.AssertionSection{s0, s1, s2, s3}
+	return []*sections.Assertion{s0, s1, s2, s3}
 }
 
-func getShards() []*sections.ShardSection {
-	s0 := &sections.ShardSection{
+func getShards() []*sections.Shard {
+	s0 := &sections.Shard{
 		SubjectZone: "ch",
 		Context:     ".",
 		RangeFrom:   "a",
 		RangeTo:     "c",
 	}
-	s1 := &sections.ShardSection{
+	s1 := &sections.Shard{
 		SubjectZone: "ch",
 		Context:     ".",
 		RangeFrom:   "a",
 		RangeTo:     "b",
 	}
-	s2 := &sections.ShardSection{
+	s2 := &sections.Shard{
 		SubjectZone: "ch",
 		Context:     ".",
 		RangeFrom:   "c",
 		RangeTo:     "f",
 	}
-	s3 := &sections.ShardSection{
+	s3 := &sections.Shard{
 		SubjectZone: "org",
 		Context:     ".",
 		RangeFrom:   "c",
 		RangeTo:     "z",
 	}
-	s4 := &sections.ShardSection{
+	s4 := &sections.Shard{
 		SubjectZone: "net",
 		Context:     ".",
 		RangeFrom:   "s",
@@ -1288,24 +1288,24 @@ func getShards() []*sections.ShardSection {
 	s2.UpdateValidity(time.Now().Unix(), time.Now().Add(24*time.Hour).Unix(), 24*time.Hour)
 	s3.UpdateValidity(time.Now().Add(-2*time.Hour).Unix(), time.Now().Add(-1*time.Hour).Unix(), time.Hour)
 	s4.UpdateValidity(time.Now().Add(-2*time.Hour).Unix(), time.Now().Add(-1*time.Hour).Unix(), time.Hour)
-	return []*sections.ShardSection{s0, s1, s2, s3, s4}
+	return []*sections.Shard{s0, s1, s2, s3, s4}
 }
 
-func getZones() []*sections.ZoneSection {
-	s0 := &sections.ZoneSection{
+func getZones() []*sections.Zone {
+	s0 := &sections.Zone{
 		SubjectZone: "ch",
 		Context:     ".",
 	}
-	s1 := &sections.ZoneSection{
+	s1 := &sections.Zone{
 		SubjectZone: "org",
 		Context:     ".",
 	}
-	s2 := &sections.ZoneSection{
+	s2 := &sections.Zone{
 		SubjectZone: "org",
 		Context:     "test-cch",
 	}
 	s0.UpdateValidity(time.Now().Unix(), time.Now().Add(24*time.Hour).Unix(), 24*time.Hour)
 	s1.UpdateValidity(time.Now().Unix(), time.Now().Add(48*time.Hour).Unix(), 48*time.Hour)
 	s2.UpdateValidity(time.Now().Add(-2*time.Hour).Unix(), time.Now().Add(-1*time.Hour).Unix(), time.Hour)
-	return []*sections.ZoneSection{s0, s1, s2}
+	return []*sections.Zone{s0, s1, s2}
 }
