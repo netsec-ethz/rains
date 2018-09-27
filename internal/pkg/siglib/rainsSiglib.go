@@ -237,7 +237,7 @@ func SignMessage(msg *message.Message, privateKey interface{}, sig signature.Sig
 //sections of the given message do not contain a zone file type marker, i.e. not a substring
 //matching regrex expression '\s:\S+:\s'
 func checkMessageStringFields(msg *message.Message) bool {
-	if msg == nil || !checkCapabilites(msg.Capabilities) {
+	if msg == nil || !checkCapabilities(msg.Capabilities) {
 		return false
 	}
 	for _, s := range msg.Content {
@@ -362,7 +362,7 @@ func checkObjectFields(objs []object.Object) bool {
 	return true
 }
 
-func checkCapabilites(caps []message.Capability) bool {
+func checkCapabilities(caps []message.Capability) bool {
 	for _, c := range caps {
 		if containsZoneFileType(string(c)) {
 			return false

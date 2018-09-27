@@ -3,6 +3,16 @@ package data
 import (
 	"net"
 
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
+
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
+
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -23,11 +33,11 @@ const (
 )
 
 //GetMessage returns a messages containing all section. The assertion contains an instance of every objectTypes
-func GetMessage() RainsMessage {
-	signature := Signature{
-		PublicKeyID: PublicKeyID{
-			KeySpace:  RainsKeySpace,
-			Algorithm: Ed25519,
+func GetMessage() message.Message {
+	sig := signature.Sig{
+		PublicKeyID: keys.PublicKeyID{
+			KeySpace:  keys.RainsKeySpace,
+			Algorithm: algorithmTypes.Ed25519,
 		},
 		ValidSince: 1000,
 		ValidUntil: 2000,
@@ -37,165 +47,157 @@ func GetMessage() RainsMessage {
 	_, subjectAddress2, _ := net.ParseCIDR(ip4TestAddrCIDR24)
 	_, subjectAddress3, _ := net.ParseCIDR(ip6TestAddrCIDR)
 
-	assertion := &AssertionSection{
+	assertion := &section.Assertion{
 		Content:     GetAllValidObjects(),
 		Context:     globalContext,
 		SubjectName: testSubjectName,
 		SubjectZone: testSubjectName,
-		Signatures:  []Signature{signature},
+		Signatures:  []signature.Sig{sig},
 	}
 
-	shard := &ShardSection{
-		Content:     []*AssertionSection{assertion},
+	shard := &section.Shard{
+		Content:     []*section.Assertion{assertion},
 		Context:     globalContext,
 		SubjectZone: testSubjectName,
 		RangeFrom:   "aaa",
 		RangeTo:     "zzz",
-		Signatures:  []Signature{signature},
+		Signatures:  []signature.Sig{sig},
 	}
 
-	zone := &ZoneSection{
-		Content:     []MessageSectionWithSigForward{assertion, shard},
+	zone := &section.Zone{
+		Content:     []section.SecWithSigForward{assertion, shard},
 		Context:     globalContext,
 		SubjectZone: testSubjectName,
-		Signatures:  []Signature{signature},
+		Signatures:  []signature.Sig{sig},
 	}
 
-	query := &QuerySection{
+	q := &query.Name{
 		Context:    globalContext,
 		Expiration: 159159,
 		Name:       testDomain,
-		Options:    []QueryOption{QOMinE2ELatency, QOMinInfoLeakage},
-		Types:      []ObjectType{OTIP4Addr},
+		Options:    []query.Option{query.QOMinE2ELatency, query.QOMinInfoLeakage},
+		Types:      []object.Type{object.OTIP4Addr},
 	}
 
-	notification := &NotificationSection{
-		Token: GenerateToken(),
-		Type:  NTNoAssertionsExist,
+	notification := &section.Notification{
+		Token: token.New(),
+		Type:  section.NTNoAssertionsExist,
 		Data:  "Notification information",
 	}
 
-	addressAssertion1 := &AddressAssertionSection{
+	addressAssertion1 := &section.AddrAssertion{
 		SubjectAddr: subjectAddress1,
 		Context:     globalContext,
-		Content:     []Object{GetValidNameObject()},
-		Signatures:  []Signature{signature},
+		Content:     []object.Object{GetValidNameObject()},
+		Signatures:  []signature.Sig{sig},
 	}
 
-	addressAssertion2 := &AddressAssertionSection{
+	addressAssertion2 := &section.AddrAssertion{
 		SubjectAddr: subjectAddress2,
 		Context:     globalContext,
 		Content:     GetAllowedNetworkObjects(),
-		Signatures:  []Signature{signature},
+		Signatures:  []signature.Sig{sig},
 	}
 
-	addressAssertion3 := &AddressAssertionSection{
+	addressAssertion3 := &section.AddrAssertion{
 		SubjectAddr: subjectAddress3,
 		Context:     globalContext,
 		Content:     GetAllowedNetworkObjects(),
-		Signatures:  []Signature{signature},
+		Signatures:  []signature.Sig{sig},
 	}
 
-	addressZone := &AddressZoneSection{
-		SubjectAddr: subjectAddress2,
-		Context:     globalContext,
-		Content:     []*AddressAssertionSection{addressAssertion1, addressAssertion2, addressAssertion3},
-		Signatures:  []Signature{signature},
-	}
-
-	addressQuery := &AddressQuerySection{
+	addressQuery := &query.Address{
 		SubjectAddr: subjectAddress1,
 		Context:     globalContext,
 		Expiration:  7564859,
-		Types:       []ObjectType{OTName},
-		Options:     []QueryOption{QOMinE2ELatency, QOMinInfoLeakage},
+		Types:       []object.Type{object.OTName},
+		Options:     []query.Option{query.QOMinE2ELatency, query.QOMinInfoLeakage},
 	}
 
-	message := RainsMessage{
-		Content: []MessageSection{
+	message := message.Message{
+		Content: []section.Section{
 			assertion,
 			shard,
 			zone,
-			query,
+			q,
 			notification,
 			addressAssertion1,
 			addressAssertion2,
 			addressAssertion3,
-			addressZone,
 			addressQuery,
 		},
-		Token:        GenerateToken(),
-		Capabilities: []Capability{Capability("Test"), Capability("Yes!")},
-		Signatures:   []Signature{signature},
+		Token:        token.New(),
+		Capabilities: []message.Capability{message.Capability("Test"), message.Capability("Yes!")},
+		Signatures:   []signature.Sig{sig},
 	}
 	return message
 }
 
 //GetAllValidObjects returns all objects with valid content
-func GetAllValidObjects() []Object {
+func GetAllValidObjects() []object.Object {
 
 	pubKey, _, _ := ed25519.GenerateKey(nil)
-	publicKey := PublicKey{
-		PublicKeyID: PublicKeyID{
-			KeySpace:  RainsKeySpace,
-			Algorithm: Ed25519,
+	publicKey := keys.PublicKey{
+		PublicKeyID: keys.PublicKeyID{
+			KeySpace:  keys.RainsKeySpace,
+			Algorithm: algorithmTypes.Ed25519,
 		},
 		ValidSince: 10000,
 		ValidUntil: 50000,
 		Key:        pubKey,
 	}
-	certificate := CertificateObject{
-		Type:     PTTLS,
-		HashAlgo: Sha256,
-		Usage:    CUEndEntity,
+	certificate := object.Certificate{
+		Type:     object.PTTLS,
+		HashAlgo: algorithmTypes.Sha256,
+		Usage:    object.CUEndEntity,
 		Data:     []byte("certData"),
 	}
-	serviceInfo := ServiceInfo{
+	serviceInfo := object.ServiceInfo{
 		Name:     "srvName",
 		Port:     49830,
 		Priority: 1,
 	}
 
 	nameObject := GetValidNameObject()
-	ip6Object := Object{Type: OTIP6Addr, Value: ip6TestAddr}
-	ip4Object := Object{Type: OTIP4Addr, Value: ip4TestAddr}
-	redirObject := Object{Type: OTRedirection, Value: testDomain}
-	delegObject := Object{Type: OTDelegation, Value: publicKey}
-	nameSetObject := Object{Type: OTNameset, Value: NamesetExpression("Would be an expression")}
-	certObject := Object{Type: OTCertInfo, Value: certificate}
-	serviceInfoObject := Object{Type: OTServiceInfo, Value: serviceInfo}
-	registrarObject := Object{Type: OTRegistrar, Value: "Registrar information"}
-	registrantObject := Object{Type: OTRegistrant, Value: "Registrant information"}
-	infraObject := Object{Type: OTInfraKey, Value: publicKey}
-	extraObject := Object{Type: OTExtraKey, Value: publicKey}
-	nextKey := Object{Type: OTNextKey, Value: publicKey}
-	return []Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject, registrarObject,
+	ip6Object := object.Object{Type: object.OTIP6Addr, Value: ip6TestAddr}
+	ip4Object := object.Object{Type: object.OTIP4Addr, Value: ip4TestAddr}
+	redirObject := object.Object{Type: object.OTRedirection, Value: testDomain}
+	delegObject := object.Object{Type: object.OTDelegation, Value: publicKey}
+	nameSetObject := object.Object{Type: object.OTNameset, Value: object.NamesetExpr("Would be an expression")}
+	certObject := object.Object{Type: object.OTCertInfo, Value: certificate}
+	serviceInfoObject := object.Object{Type: object.OTServiceInfo, Value: serviceInfo}
+	registrarObject := object.Object{Type: object.OTRegistrar, Value: "Registrar information"}
+	registrantObject := object.Object{Type: object.OTRegistrant, Value: "Registrant information"}
+	infraObject := object.Object{Type: object.OTInfraKey, Value: publicKey}
+	extraObject := object.Object{Type: object.OTExtraKey, Value: publicKey}
+	nextKey := object.Object{Type: object.OTNextKey, Value: publicKey}
+	return []object.Object{nameObject, ip6Object, ip4Object, redirObject, delegObject, nameSetObject, certObject, serviceInfoObject, registrarObject,
 		registrantObject, infraObject, extraObject, nextKey}
 }
 
 //GetValidNameObject returns nameObject with valid content
-func GetValidNameObject() Object {
-	nameObjectContent := NameObject{
+func GetValidNameObject() object.Object {
+	nameObjectContent := object.Name{
 		Name:  testDomain,
-		Types: []ObjectType{OTIP4Addr, OTIP6Addr},
+		Types: []object.Type{object.OTIP4Addr, object.OTIP6Addr},
 	}
-	return Object{Type: OTName, Value: nameObjectContent}
+	return object.Object{Type: object.OTName, Value: nameObjectContent}
 }
 
 //GetAllowedNetworkObjects returns a list of objects that are allowed for network subjectAddresses; with valid content
-func GetAllowedNetworkObjects() []Object {
+func GetAllowedNetworkObjects() []object.Object {
 	pubKey, _, _ := ed25519.GenerateKey(nil)
-	publicKey := PublicKey{
-		PublicKeyID: PublicKeyID{
-			KeySpace:  RainsKeySpace,
-			Algorithm: Ed25519,
+	publicKey := keys.PublicKey{
+		PublicKeyID: keys.PublicKeyID{
+			KeySpace:  keys.RainsKeySpace,
+			Algorithm: algorithmTypes.Ed25519,
 		},
 		Key:        pubKey,
 		ValidSince: 10000,
 		ValidUntil: 50000,
 	}
-	redirObject := Object{Type: OTRedirection, Value: testDomain}
-	delegObject := Object{Type: OTDelegation, Value: publicKey}
-	registrantObject := Object{Type: OTRegistrant, Value: "Registrant information"}
-	return []Object{redirObject, delegObject, registrantObject}
+	redirObject := object.Object{Type: object.OTRedirection, Value: testDomain}
+	delegObject := object.Object{Type: object.OTDelegation, Value: publicKey}
+	registrantObject := object.Object{Type: object.OTRegistrant, Value: "Registrant information"}
+	return []object.Object{redirObject, delegObject, registrantObject}
 }
