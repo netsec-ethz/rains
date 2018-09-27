@@ -102,7 +102,7 @@ type msgSectionSender struct {
 //sectionWithSigSender contains a section with a signature and connection infos about the sender
 type sectionWithSigSender struct {
 	Sender  connection.Info
-	Section section.SecWithSig
+	Section section.WithSig
 	Token   token.Token
 }
 
@@ -225,7 +225,7 @@ type pendingQueryCache interface {
 	//AddAnswerByToken adds section to the cache entry matching token with the given deadline. It
 	//returns true if there is a matching token in the cache and section is not already stored for
 	//these pending queries. The pending queries are are not removed from the cache.
-	AddAnswerByToken(section section.SecWithSig, token token.Token, deadline int64) bool
+	AddAnswerByToken(section section.WithSig, token token.Token, deadline int64) bool
 	//GetAndRemoveByToken returns all queries waiting for a response to a query message containing
 	//token and deletes them from the cache if no other section has been added to this cache entry
 	//since section has been added by AddAnswerByToken(). Token is removed from the token map.
@@ -275,7 +275,7 @@ type negativeAssertionCache interface {
 	//Get returns true and a set of shards and zones matching subjectZone and context and overlap
 	//with interval if there exist some. When context is the empty string, a random context is
 	//chosen. Otherwise nil and false is returned.
-	Get(subjectZone, context string, interval section.Interval) ([]section.SecWithSigForward, bool)
+	Get(subjectZone, context string, interval section.Interval) ([]section.WithSigForward, bool)
 	//RemoveExpiredValues goes through the cache and removes all expired shards and zones from the
 	//assertionCache and the consistency cache.
 	RemoveExpiredValues()
@@ -288,12 +288,12 @@ type negativeAssertionCache interface {
 
 type consistencyCache interface {
 	//Add adds section to the consistency cache.
-	Add(section section.SecWithSigForward)
+	Add(section section.WithSigForward)
 	//Get returns all sections from the cache with the given zone and context that are overlapping
 	//with interval.
-	Get(subjectZone, context string, interval section.Interval) []section.SecWithSigForward
+	Get(subjectZone, context string, interval section.Interval) []section.WithSigForward
 	//Remove deletes section from the consistency cache
-	Remove(section section.SecWithSigForward)
+	Remove(section section.WithSigForward)
 }
 
 //addressSectionCache implements a data structure for fast reverse lookup.

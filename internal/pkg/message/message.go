@@ -6,8 +6,8 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
-	"github.com/britram/borat"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
@@ -30,8 +30,8 @@ type Message struct {
 
 // MarshalCBOR writes the RAINS message to the provided writer.
 // Implements the CBORMarshaler interface.
-func (rm *Message) MarshalCBOR(w *borat.CBORWriter) error {
-	if err := w.WriteTag(borat.CBORTag(0xE99BA8)); err != nil {
+func (rm *Message) MarshalCBOR(w cbor.Writer) error {
+	if err := w.WriteTag(cbor.RainsTag()); err != nil {
 		return err
 	}
 	m := make(map[int]interface{})
@@ -71,13 +71,13 @@ func (rm *Message) MarshalCBOR(w *borat.CBORWriter) error {
 	return w.WriteIntMap(m)
 }
 
-func (rm *Message) UnmarshalCBOR(r *borat.CBORReader) error {
+func (rm *Message) UnmarshalCBOR(r cbor.Reader) error {
 	// First read a tag to ensure we are parsing a Message
 	tag, err := r.ReadTag()
 	if err != nil {
 		return fmt.Errorf("failed to read tag: %v", err)
 	}
-	if tag != borat.CBORTag(0xE99BA8) {
+	if tag != cbor.RainsTag() {
 		return fmt.Errorf("expected tag for RAINS message but got: %v", tag)
 	}
 	m, err := r.ReadIntMapUntagged()

@@ -65,7 +65,7 @@ func GetMessage() message.Message {
 	}
 
 	zone := &section.Zone{
-		Content:     []section.SecWithSigForward{assertion, shard},
+		Content:     []section.WithSigForward{assertion, shard},
 		Context:     globalContext,
 		SubjectZone: testSubjectName,
 		Signatures:  []signature.Sig{sig},

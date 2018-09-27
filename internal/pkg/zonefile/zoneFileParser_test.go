@@ -85,7 +85,7 @@ func TestEncodeSection(t *testing.T) {
 		SubjectName: "ethz",
 	}
 	var tests = []struct {
-		input section.SecWithSigForward
+		input section.WithSigForward
 		want  string
 	}{
 		{assertion, ":A: ethz [ :ip4: 127.0.0.1 ]"},

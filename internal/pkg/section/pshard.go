@@ -5,8 +5,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
@@ -29,7 +29,7 @@ func (z *Pshard) UnmarshalMap(m map[int]interface{}) error {
 	return nil
 }
 
-func (p *Pshard) MarshalCBOR(w *borat.CBORWriter) error {
+func (p *Pshard) MarshalCBOR(w cbor.Writer) error {
 	//TODO CFE to implement
 	return nil
 }

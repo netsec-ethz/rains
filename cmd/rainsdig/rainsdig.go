@@ -13,7 +13,7 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
-	"github.com/britram/borat"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -120,7 +120,7 @@ func sendQuery(msg message.Message, token token.Token, connInfo connection.Info)
 	ec := make(chan error)
 	go listen(conn, token, done, ec)
 
-	writer := borat.NewCBORWriter(conn)
+	writer := cbor.NewWriter(conn)
 	if err := writer.Marshal(&msg); err != nil {
 		return fmt.Errorf("failed to marshal message: %v", err)
 	}
@@ -150,7 +150,7 @@ func createConnection(connInfo connection.Info) (conn net.Conn, err error) {
 }
 
 func listen(conn net.Conn, tok token.Token, done chan<- message.Message, ec chan<- error) {
-	reader := borat.NewCBORReader(conn)
+	reader := cbor.NewReader(conn)
 	var msg message.Message
 	if err := reader.Unmarshal(&msg); err != nil {
 		ec <- fmt.Errorf("failed to unmarshal response: %v", err)

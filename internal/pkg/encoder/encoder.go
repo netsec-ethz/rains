@@ -16,5 +16,5 @@ type SignatureFormatEncoder interface {
 	//EncodeSection transforms the given section into a signable format. The signature meta data
 	//must be present on the section. This method does not check for illegitimate content. The
 	//returned byte string is ready for signing.
-	EncodeSection(section section.SecWithSig) []byte
+	EncodeSection(section section.WithSig) []byte
 }

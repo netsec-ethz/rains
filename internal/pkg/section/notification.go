@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/britram/borat"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
@@ -36,7 +36,7 @@ func (n *Notification) UnmarshalMap(m map[int]interface{}) error {
 }
 
 // MarshalCBOR implements the CBORMarshaler interface.
-func (n *Notification) MarshalCBOR(w *borat.CBORWriter) error {
+func (n *Notification) MarshalCBOR(w cbor.Writer) error {
 	m := make(map[int]interface{})
 	m[2] = n.Token
 	m[21] = int(n.Type)

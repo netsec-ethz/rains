@@ -9,10 +9,9 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/britram/borat"
-
 	log "github.com/inconshreveable/log15"
 
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -33,7 +32,7 @@ import (
 //5) sign the encoding and compare the resulting signature data with the signature data received
 //   with the section. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func CheckSectionSignatures(s section.SecWithSig, pkeys map[keys.PublicKeyID][]keys.PublicKey,
+func CheckSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys.PublicKey,
 	maxVal util.MaxCacheValidity) bool {
 	log.Debug(fmt.Sprintf("Check %T signature", s), "section", s)
 	if s == nil {
@@ -52,7 +51,7 @@ func CheckSectionSignatures(s section.SecWithSig, pkeys map[keys.PublicKeyID][]k
 		return false //error already logged
 	}
 	encoding := new(bytes.Buffer)
-	if err := s.MarshalCBOR(borat.NewCBORWriter(encoding)); err != nil {
+	if err := s.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
 		log.Warn("Was not able to marshal section.", "error", err)
 		return false
 	}
@@ -109,7 +108,7 @@ func CheckMessageSignatures(msg *message.Message, publicKey keys.PublicKey) bool
 	}
 	msg.Sort()
 	encoding := new(bytes.Buffer)
-	if err := msg.MarshalCBOR(borat.NewCBORWriter(encoding)); err != nil {
+	if err := msg.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
 		log.Warn("Was not able to marshal message.", "error", err)
 		return false
 	}
@@ -127,7 +126,7 @@ func CheckMessageSignatures(msg *message.Message, publicKey keys.PublicKey) bool
 //ValidSectionAndSignature returns true if the section is not nil, all the signatures ValidUntil are
 //in the future, the string fields do not contain  <whitespace>:<non whitespace>:<whitespace>, and
 //the section's content is sorted (by sorting it).
-func ValidSectionAndSignature(s section.SecWithSig) bool {
+func ValidSectionAndSignature(s section.WithSig) bool {
 	log.Debug("Validating section and signature before signing")
 	if s == nil {
 		log.Warn("section is nil")
@@ -145,7 +144,7 @@ func ValidSectionAndSignature(s section.SecWithSig) bool {
 
 //CheckSignatureNotExpired returns true if s is nil or all the signatures ValidUntil are in the
 //future
-func CheckSignatureNotExpired(s section.SecWithSig) bool {
+func CheckSignatureNotExpired(s section.WithSig) bool {
 	if s == nil {
 		return true
 	}
@@ -162,10 +161,10 @@ func CheckSignatureNotExpired(s section.SecWithSig) bool {
 //the given signatures. The shard's or zone's content must already be sorted. It does not check the
 //validity of the signature or the section. Returns false if the signature was not added to the
 //section
-func SignSectionUnsafe(s section.SecWithSig, privateKey interface{}, sig signature.Sig) bool {
+func SignSectionUnsafe(s section.WithSig, privateKey interface{}, sig signature.Sig) bool {
 	log.Debug("Start Signing Section")
 	encoding := new(bytes.Buffer)
-	if err := s.MarshalCBOR(borat.NewCBORWriter(encoding)); err != nil {
+	if err := s.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
 		log.Warn("Was not able to marshal message.", "error", err)
 		return false
 	}
@@ -187,7 +186,7 @@ func SignSectionUnsafe(s section.SecWithSig, privateKey interface{}, sig signatu
 //4) encode section
 //5) sign the encoding and add it to the signature which will then be added to the section. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func SignSection(s section.SecWithSig, privateKey interface{}, sig signature.Sig) bool {
+func SignSection(s section.WithSig, privateKey interface{}, sig signature.Sig) bool {
 	s.AddSig(sig)
 	if !ValidSectionAndSignature(s) {
 		return false
@@ -221,7 +220,7 @@ func SignMessage(msg *message.Message, privateKey interface{}, sig signature.Sig
 	}
 	msg.Sort()
 	encoding := new(bytes.Buffer)
-	if err := msg.MarshalCBOR(borat.NewCBORWriter(encoding)); err != nil {
+	if err := msg.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
 		log.Warn("Was not able to marshal message.", "error", err)
 		return false
 	}

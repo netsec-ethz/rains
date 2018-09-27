@@ -13,7 +13,7 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
-	"github.com/britram/borat"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
@@ -42,7 +42,7 @@ func sendTo(msg message.Message, receiver connection.Info, retries, backoffMilli
 		msg.Capabilities = []message.Capability{message.Capability(capabilityHash)}
 	}
 	for _, conn := range conns {
-		writer := borat.NewCBORWriter(conn)
+		writer := cbor.NewWriter(conn)
 		if err := writer.Marshal(&msg); err != nil {
 			log.Warn(fmt.Sprintf("failed to marshal message to conn: %v", err))
 			connCache.CloseAndRemoveConnection(conn)
@@ -114,7 +114,7 @@ func deliverCBOR(msg *message.Message, sender connection.Info) {
 	for _, m := range msg.Content {
 		switch m := m.(type) {
 		case *section.Assertion, *section.Shard, *section.Zone, *section.AddrAssertion:
-			if !isZoneBlacklisted(m.(section.SecWithSig).GetSubjectZone()) {
+			if !isZoneBlacklisted(m.(section.WithSig).GetSubjectZone()) {
 				addMsgSectionToQueue(m, msg.Token, sender)
 			}
 		case *query.Name, *query.Address:
@@ -133,7 +133,7 @@ func deliverCBOR(msg *message.Message, sender connection.Info) {
 //handleConnection deframes all incoming messages on conn and passes them to the inbox along with the dstAddr
 func handleConnection(conn net.Conn, dstAddr connection.Info) {
 	var msg message.Message
-	reader := borat.NewCBORReader(conn)
+	reader := cbor.NewReader(conn)
 	for {
 		if err := reader.Unmarshal(&msg); err != nil {
 			log.Warn(fmt.Sprintf("failed to read from client: %v", err))

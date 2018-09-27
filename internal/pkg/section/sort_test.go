@@ -208,14 +208,14 @@ func sortedZones(nof int) []*Zone {
 				zones = append(zones, &Zone{
 					SubjectZone: strconv.Itoa(i),
 					Context:     strconv.Itoa(j),
-					Content:     []SecWithSigForward{assertions[l]},
+					Content:     []WithSigForward{assertions[l]},
 				})
 			}
 			for l := 0; l < 4993; l++ {
 				zones = append(zones, &Zone{
 					SubjectZone: strconv.Itoa(i),
 					Context:     strconv.Itoa(j),
-					Content:     []SecWithSigForward{shards[l]},
+					Content:     []WithSigForward{shards[l]},
 				})
 			}
 		}

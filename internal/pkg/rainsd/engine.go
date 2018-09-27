@@ -45,7 +45,7 @@ func assert(ss sectionWithSigSender, isAuthoritative bool) {
 
 //sectionIsInconsistent returns true if section is not consistent with cached element which are valid
 //at the same time.
-func sectionIsInconsistent(sec section.SecWithSig) bool {
+func sectionIsInconsistent(sec section.WithSig) bool {
 	//TODO CFE There are new run time checks. Add Todo's for those that are not yet implemented
 	//TODO CFE drop a shard or zone if it is not sorted.
 	switch sec := sec.(type) {
@@ -65,7 +65,7 @@ func sectionIsInconsistent(sec section.SecWithSig) bool {
 
 //sectionIsInconsistent returns true if section is not consistent with cached element which are valid
 //at the same time.
-func addSectionToCache(sec section.SecWithSig, isAuthoritative bool) {
+func addSectionToCache(sec section.WithSig, isAuthoritative bool) {
 	switch sec := sec.(type) {
 	case *section.Assertion:
 		if shouldAssertionBeCached(sec) {
@@ -255,7 +255,7 @@ func pendingQueriesCallback(swss sectionWithSigSender) {
 }
 
 //isAnswerToQuery returns true if section answers the query.
-func isAnswerToQuery(sec section.SecWithSig, q section.Section) bool {
+func isAnswerToQuery(sec section.WithSig, q section.Section) bool {
 	switch sec := sec.(type) {
 	case *section.Assertion:
 		if q, ok := q.(*query.Name); ok {
@@ -308,7 +308,7 @@ func getSubjectName(queryName, subjectZone string) (string, bool) {
 
 //sendAssertionAnswer sends all assertions arrived during a configurable waitTime back to all
 //pending queries waiting on token.
-func sendAssertionAnswer(section section.SecWithSig, query section.Section, token token.Token) {
+func sendAssertionAnswer(section section.WithSig, query section.Section, token token.Token) {
 	waitTime := 10 * time.Millisecond
 	deadline := time.Now().Add(waitTime).UnixNano()
 	pendingQueries.AddAnswerByToken(section, token, deadline)
@@ -696,7 +696,7 @@ func toSubjectZone(name string) (subject, zone string, e error) {
 //subjectZone and context. If it does not find an entry it sends the section back to the querier and
 //returns true. Otherwise it checks if the entry has an unexpired signature. In that case it sends
 //the assertion back to the querier and returns true, otherwise it return false
-func handleShardOrZoneQueryResponse(sec section.SecWithSigForward, subjectName, subjectZone,
+func handleShardOrZoneQueryResponse(sec section.WithSigForward, subjectName, subjectZone,
 	context string, queryType object.Type, sender connection.Info, token token.Token) bool {
 	assertions := []*section.Assertion{}
 	switch sec := sec.(type) {
@@ -714,7 +714,7 @@ func handleShardOrZoneQueryResponse(sec section.SecWithSigForward, subjectName, 
 			}
 		}
 	default:
-		log.Warn(fmt.Sprintf("Unexpected SecWithSigForward. Expected zone or shard. actual=%T", sec))
+		log.Warn(fmt.Sprintf("Unexpected WithSigForward. Expected zone or shard. actual=%T", sec))
 	}
 	if entryFound, hasSig := containedAssertionQueryResponse(assertions, subjectName,
 		subjectZone, context, queryType, sender, token); entryFound {

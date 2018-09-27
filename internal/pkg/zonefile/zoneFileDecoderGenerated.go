@@ -27,7 +27,7 @@ import (
 )
 
 //AddSigs adds signatures to section
-func AddSigs(sec section.SecWithSigForward, signatures []signature.Sig) {
+func AddSigs(sec section.WithSigForward, signatures []signature.Sig) {
 	for _, sig := range signatures {
 		sec.AddSig(sig)
 	}
@@ -129,7 +129,7 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
 }
 
 //Result gets stored in this variable
-var output []section.SecWithSigForward
+var output []section.WithSigForward
 
 //line zonefileParser.y:141
 type ZFPSymType struct {
@@ -140,7 +140,7 @@ type ZFPSymType struct {
 	shard         *section.Shard
 	pshard        *section.Pshard
 	zone          *section.Zone
-	sections      []section.SecWithSigForward
+	sections      []section.WithSigForward
 	objects       []object.Object
 	object        object.Object
 	objectTypes   []object.Type
@@ -601,7 +601,7 @@ type ZFPLexer interface {
 type ZFPParser interface {
 	Parse(ZFPLexer) int
 	Lookahead() int
-	Result() []section.SecWithSigForward
+	Result() []section.WithSigForward
 }
 
 type ZFPParserImpl struct {
@@ -614,7 +614,7 @@ func (p *ZFPParserImpl) Lookahead() int {
 	return p.char
 }
 
-func (p *ZFPParserImpl) Result() []section.SecWithSigForward {
+func (p *ZFPParserImpl) Result() []section.WithSigForward {
 	return output
 }
 func ZFPNewParser() ZFPParser {

@@ -61,7 +61,7 @@ func Load(path string, object interface{}) error {
 }
 
 //UpdateSectionValidity updates the validity of the section according to the signature validity and the publicKey validity used to verify this signature
-func UpdateSectionValidity(sec section.SecWithSig, pkeyValidSince, pkeyValidUntil, sigValidSince, sigValidUntil int64, maxVal MaxCacheValidity) {
+func UpdateSectionValidity(sec section.WithSig, pkeyValidSince, pkeyValidUntil, sigValidSince, sigValidUntil int64, maxVal MaxCacheValidity) {
 	if sec != nil {
 		var maxValidity time.Duration
 		switch sec.(type) {

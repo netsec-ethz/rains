@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 )
 
@@ -14,6 +15,17 @@ type AssertionUpdate struct {
 	HashValue  []byte
 	Expiration int64 //unix seconds
 	Options    []Option
+}
+
+// UnmarshalMap decodes the output from the CBOR decoder into this struct.
+func (q *AssertionUpdate) UnmarshalMap(m map[int]interface{}) error {
+	//TODO CFE to implement
+	return nil
+}
+
+func (q *AssertionUpdate) MarshalCBOR(w cbor.Writer) error {
+	//TODO CFE to implement
+	return nil
 }
 
 //String implements Stringer interface
@@ -33,6 +45,17 @@ type NegUpdate struct {
 	HashValue   []byte
 	Expiration  int64 //unix seconds
 	Options     []Option
+}
+
+// UnmarshalMap decodes the output from the CBOR decoder into this struct.
+func (q *NegUpdate) UnmarshalMap(m map[int]interface{}) error {
+	//TODO CFE to implement
+	return nil
+}
+
+func (q *NegUpdate) MarshalCBOR(w cbor.Writer) error {
+	//TODO CFE to implement
+	return nil
 }
 
 //String implements Stringer interface

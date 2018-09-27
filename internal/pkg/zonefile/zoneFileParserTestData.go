@@ -295,7 +295,7 @@ func getZonesAndEncodings() ([]*section.Zone, []string) {
 	shards, shardEncodings := getShardAndEncodings()
 
 	zone0 := &section.Zone{
-		Content:     []section.SecWithSigForward{assertions[0], shards[1]},
+		Content:     []section.WithSigForward{assertions[0], shards[1]},
 		Context:     ".",
 		SubjectZone: "ch.",
 		Signatures:  []signature.Sig{getSignature()},

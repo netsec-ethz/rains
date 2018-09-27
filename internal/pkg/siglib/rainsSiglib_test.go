@@ -91,7 +91,7 @@ func TestEncodeAndDecode(t *testing.T) {
 	}
 
 	zone := &section.Zone{
-		Content:     []section.SecWithSigForward{assertion, shard},
+		Content:     []section.WithSigForward{assertion, shard},
 		Context:     ".",
 		SubjectZone: "ch",
 	}
@@ -242,7 +242,7 @@ func TestCheckSectionSignaturesErrors(t *testing.T) {
 	keys1 := make(map[keys.PublicKeyID][]keys.PublicKey)
 	keys1[keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}] = []keys.PublicKey{}
 	var tests = []struct {
-		input           section.SecWithSig
+		input           section.WithSig
 		inputPublicKeys map[keys.PublicKeyID][]keys.PublicKey
 		want            bool
 	}{
@@ -630,8 +630,8 @@ func BenchmarkSignZone100(b *testing.B) { benchmarkSignZone("test/zonefile100000
 //zone is signed containing 100 shards containing each 1000 assertions
 func BenchmarkSignZone1000(b *testing.B) { benchmarkSignZone("test/zonefile100000", 1000, b) }
 
-func shardAssertions(assertions []*section.Assertion, assertionsPerShard int) []section.SecWithSigForward {
-	var shards []section.SecWithSigForward
+func shardAssertions(assertions []*section.Assertion, assertionsPerShard int) []section.WithSigForward {
+	var shards []section.WithSigForward
 	for i := 0; i < len(assertions); i++ {
 		shard := &section.Shard{
 			Context:     assertions[i].Context,

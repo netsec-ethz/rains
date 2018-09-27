@@ -125,7 +125,7 @@ func TestZoneHash(t *testing.T) {
 	}{
 		{nil, "Z_nil"},
 		{new(Zone), "Z___[]_[]"},
-		{&Zone{SubjectZone: "zone", Context: "ctx", Content: []SecWithSigForward{new(Assertion), new(Shard)},
+		{&Zone{SubjectZone: "zone", Context: "ctx", Content: []WithSigForward{new(Assertion), new(Shard)},
 			Signatures: []Signature{Signature{
 				PublicKeyID: PublicKeyID{
 					KeySpace:  RainsKeySpace,
@@ -136,7 +136,7 @@ func TestZoneHash(t *testing.T) {
 				ValidUntil: 2000,
 				Data:       []byte("SigData")}}},
 			"Z_zone_ctx_[A____[]_[] S_____[]_[]]_[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461}]"},
-		{&Zone{Content: []SecWithSigForward{new(Zone)}}, ""},
+		{&Zone{Content: []WithSigForward{new(Zone)}}, ""},
 	}
 	for i, test := range tests {
 		if test.input.Hash() != test.want {
@@ -360,14 +360,14 @@ func TestZoneString(t *testing.T) {
 			&Zone{
 				SubjectZone: "zone",
 				Context:     "ctx",
-				Content: []SecWithSigForward{
+				Content: []WithSigForward{
 					new(Assertion),
 					new(Shard),
 				},
 				Signatures: []Signature{
 					Signature{PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519, KeyPhase: 1}, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
 			"Zone:[SZ=zone CTX=ctx CONTENT=[Assertion:[SN= SZ= CTX= CONTENT=[] SIG=[]] Shard:[SZ= CTX= RF= RT= CONTENT=[] SIG=[]]] SIG=[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461}]]"},
-		{&Zone{Content: []SecWithSigForward{new(Zone)}}, "Zone:[SZ= CTX= CONTENT=[Zone:[SZ= CTX= CONTENT=[] SIG=[]]] SIG=[]]"},
+		{&Zone{Content: []WithSigForward{new(Zone)}}, "Zone:[SZ= CTX= CONTENT=[Zone:[SZ= CTX= CONTENT=[] SIG=[]]] SIG=[]]"},
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {
@@ -650,15 +650,15 @@ func TestZoneCompareTo(t *testing.T) {
 		CheckZone(z, shuffled[i].(*Zone), t)
 	}
 	z1 := &Zone{}
-	z2 := &Zone{Content: []SecWithSigForward{&Assertion{}}}
+	z2 := &Zone{Content: []WithSigForward{&Assertion{}}}
 	if z1.CompareTo(z2) != -1 {
 		t.Error("Different content length are not sorted correctly")
 	}
 	if z2.CompareTo(z1) != 1 {
 		t.Error("Different content length are not sorted correctly")
 	}
-	z1 = &Zone{Content: []SecWithSigForward{&Assertion{}}}
-	z2 = &Zone{Content: []SecWithSigForward{&Zone{}}} //invalid type within Content
+	z1 = &Zone{Content: []WithSigForward{&Assertion{}}}
+	z2 = &Zone{Content: []WithSigForward{&Zone{}}} //invalid type within Content
 	if z2.CompareTo(z1) != 0 {
 		t.Error("Different content length are not sorted correctly")
 	}
@@ -794,33 +794,33 @@ func TestShardSort(t *testing.T) {
 
 func TestZoneSort(t *testing.T) {
 	var tests = []struct {
-		input  []SecWithSigForward
-		sorted []SecWithSigForward
+		input  []WithSigForward
+		sorted []WithSigForward
 	}{
 		{
-			[]SecWithSigForward{
+			[]WithSigForward{
 				&Assertion{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}}, //Assertion compared with Assertion
 				&Assertion{Content: []Object{Object{Type: OTIP4Addr}, Object{Type: OTName}}},
 			},
-			[]SecWithSigForward{
+			[]WithSigForward{
 				&Assertion{Content: []Object{Object{Type: OTName}, Object{Type: OTIP4Addr}}},
 				&Assertion{Content: []Object{Object{Type: OTIP6Addr}, Object{Type: OTDelegation}}},
 			},
 		},
 		{
-			[]SecWithSigForward{&Shard{}, &Assertion{}}, //Assertion compared with Shard
-			[]SecWithSigForward{&Assertion{}, &Shard{}},
+			[]WithSigForward{&Shard{}, &Assertion{}}, //Assertion compared with Shard
+			[]WithSigForward{&Assertion{}, &Shard{}},
 		},
 		{
-			[]SecWithSigForward{&Assertion{}, &Shard{}}, //Assertion compared with Shard
-			[]SecWithSigForward{&Assertion{}, &Shard{}},
+			[]WithSigForward{&Assertion{}, &Shard{}}, //Assertion compared with Shard
+			[]WithSigForward{&Assertion{}, &Shard{}},
 		},
 		{
-			[]SecWithSigForward{ //Shard compared with Shard
+			[]WithSigForward{ //Shard compared with Shard
 				&Shard{Content: []*Assertion{&Assertion{SubjectName: "b"}, &Assertion{SubjectName: "d"}}},
 				&Shard{Content: []*Assertion{&Assertion{SubjectName: "c"}, &Assertion{SubjectName: "a"}}},
 			},
-			[]SecWithSigForward{
+			[]WithSigForward{
 				&Shard{Content: []*Assertion{&Assertion{SubjectName: "a"}, &Assertion{SubjectName: "c"}}},
 				&Shard{Content: []*Assertion{&Assertion{SubjectName: "b"}, &Assertion{SubjectName: "d"}}},
 			},
@@ -834,7 +834,7 @@ func TestZoneSort(t *testing.T) {
 		}
 	}
 	//no panic when invalid content
-	z := &Zone{Content: []SecWithSigForward{&Zone{}, &Zone{}}}
+	z := &Zone{Content: []WithSigForward{&Zone{}, &Zone{}}}
 	z.Sort()
 }
 
@@ -922,7 +922,7 @@ func TestSigs(t *testing.T) {
 		{[]Signature{Signature{PublicKeyID: PublicKeyID{KeySpace: KeySpaceID(-1)}}, Signature{}}, RainsKeySpace, []Signature{Signature{}}},
 	}
 	for i, test := range tests {
-		var s SecWithSig
+		var s WithSig
 		s = &Assertion{Signatures: test.input}
 		sigs := s.Sigs(test.param)
 		if !reflect.DeepEqual(sigs, test.output) {
@@ -1090,7 +1090,7 @@ func TestIsConsistent(t *testing.T) {
 
 func TestSectionsByNamesAndTypes(t *testing.T) {
 	zs := &Zone{
-		Content: []SecWithSigForward{
+		Content: []WithSigForward{
 			&Assertion{
 				SubjectName: "domain",
 				SubjectZone: "com.",

@@ -25,7 +25,7 @@ func TestMessageSectionWithSigSignatures(t *testing.T) {
 		Data:        []byte("testData2"),
 	}
 	var tests = []struct {
-		input SecWithSig
+		input WithSig
 	}{
 		{new(Assertion)},
 		{new(Shard)},
@@ -59,7 +59,7 @@ func TestMessageSectionWithSigSignatures(t *testing.T) {
 func TestMessageSectionWithSigGetContextAndSubjectZone(t *testing.T) {
 	_, sampleNet, _ := net.ParseCIDR("2001:db8::/32")
 	var tests = []struct {
-		input             SecWithSig
+		input             WithSig
 		exptectCtx        string
 		expectSubjectZone string
 	}{
@@ -484,18 +484,18 @@ func TestSort(t *testing.T) {
 		{ //Zone
 			[]Section{
 				&Zone{
-					Content: []SecWithSigForward{&Shard{SubjectZone: "a"}, &Assertion{SubjectZone: "b"}},
+					Content: []WithSigForward{&Shard{SubjectZone: "a"}, &Assertion{SubjectZone: "b"}},
 				},
 				&Zone{
-					Content: []SecWithSigForward{&Shard{SubjectZone: "b"}, &Assertion{SubjectZone: "a"}},
+					Content: []WithSigForward{&Shard{SubjectZone: "b"}, &Assertion{SubjectZone: "a"}},
 				},
 			},
 			[]Section{
 				&Zone{
-					Content: []SecWithSigForward{&Assertion{SubjectZone: "a"}, &Shard{SubjectZone: "b"}},
+					Content: []WithSigForward{&Assertion{SubjectZone: "a"}, &Shard{SubjectZone: "b"}},
 				},
 				&Zone{
-					Content: []SecWithSigForward{&Assertion{SubjectZone: "b"}, &Shard{SubjectZone: "a"}},
+					Content: []WithSigForward{&Assertion{SubjectZone: "b"}, &Shard{SubjectZone: "a"}},
 				},
 			},
 		},

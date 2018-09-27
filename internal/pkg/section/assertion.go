@@ -7,9 +7,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
@@ -175,7 +175,7 @@ func (a *Assertion) UnmarshalMap(m map[int]interface{}) error {
 }
 
 // MarshalCBOR implements the CBORMarshaler interface.
-func (a *Assertion) MarshalCBOR(w *borat.CBORWriter) error {
+func (a *Assertion) MarshalCBOR(w cbor.Writer) error {
 	m := make(map[int]interface{})
 	if len(a.Signatures) > 0 {
 		m[0] = a.Signatures
@@ -461,7 +461,7 @@ func (a *Assertion) NeededKeys(keysNeeded map[signature.MetaData]bool) {
 
 //extractNeededKeys adds all key metadata to sigData which are necessary to verify all section's
 //signatures.
-func extractNeededKeys(section SecWithSig, sigData map[signature.MetaData]bool) {
+func extractNeededKeys(section WithSig, sigData map[signature.MetaData]bool) {
 	for _, sig := range section.Sigs(keys.RainsKeySpace) {
 		sigData[sig.MetaData()] = true
 	}

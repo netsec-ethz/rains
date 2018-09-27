@@ -3,7 +3,7 @@ package section
 import (
 	"time"
 
-	"github.com/britram/borat"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
@@ -12,13 +12,13 @@ import (
 type Section interface {
 	Sort()
 	String() string
-	MarshalCBOR(w *borat.CBORWriter) error
+	MarshalCBOR(w cbor.Writer) error
 	UnmarshalMap(m map[int]interface{}) error
 }
 
-//SecWithSig is an interface for a section protected by a signature. In the current
+//WithSig is an interface for a section protected by a signature. In the current
 //implementation it can be an Assertion, Shard, Zone, AddressAssertion, AddressZone
-type SecWithSig interface {
+type WithSig interface {
 	Section
 	AllSigs() []signature.Sig
 	Sigs(keyspace keys.KeySpaceID) []signature.Sig
@@ -34,15 +34,15 @@ type SecWithSig interface {
 	NeededKeys(map[signature.MetaData]bool)
 }
 
-//SecWithSigForward can be either an Assertion, Shard or Zone
-type SecWithSigForward interface {
-	SecWithSig
+//WithSigForward can be either an Assertion, Shard or Zone
+type WithSigForward interface {
+	WithSig
 	Interval
 }
 
-//MessageSectionQuery is the interface for a query section. In the current implementation it can be
+//Query is the interface for a query section. In the current implementation it can be
 //a query or an addressQuery
-type MessageSectionQuery interface {
+type Query interface {
 	GetContext() string
 	GetExpiration() int64
 }

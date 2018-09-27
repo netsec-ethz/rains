@@ -29,7 +29,7 @@ import (
 )
 
 //AddSigs adds signatures to section
-func AddSigs(sec section.SecWithSigForward, signatures []signature.Sig) {
+func AddSigs(sec section.WithSigForward, signatures []signature.Sig) {
     for _, sig := range signatures {
         sec.AddSig(sig)
     }
@@ -131,7 +131,7 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
 }
 
 //Result gets stored in this variable
-var output []section.SecWithSigForward
+var output []section.WithSigForward
 
 %}
 
@@ -145,7 +145,7 @@ var output []section.SecWithSigForward
     shard           *section.Shard
     pshard          *section.Pshard
     zone            *section.Zone
-    sections        []section.SecWithSigForward
+    sections        []section.WithSigForward
     objects         []object.Object
     object          object.Object
     objectTypes     []object.Type

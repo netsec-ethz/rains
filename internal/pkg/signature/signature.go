@@ -12,8 +12,8 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
-	"github.com/britram/borat"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"golang.org/x/crypto/ed25519"
 )
@@ -61,7 +61,7 @@ func (sig *Sig) UnmarshalArray(in []interface{}) error {
 }
 
 // MarshalCBOR implements a CBORMarshaler.
-func (sig Sig) MarshalCBOR(w *borat.CBORWriter) error {
+func (sig Sig) MarshalCBOR(w cbor.Writer) error {
 	// RAINS signatures have five common elements: the algorithm identifier, a
 	// keyspace identifier, a keyphase identifier, a valid-since timestamp, and
 	// a valid-until timestamp. Signatures are represented as an array of these

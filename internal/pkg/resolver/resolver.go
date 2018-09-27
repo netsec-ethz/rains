@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 
-	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -72,7 +72,7 @@ func (r *Server) nameToQuery(name, context string, expTime int64, opts []query.O
 
 // listen waits for one message and passes it back on the provided channel, or an error on the error channel.
 func listen(conn net.Conn, tok token.Token, done chan<- *message.Message, ec chan<- error) {
-	reader := borat.NewCBORReader(conn)
+	reader := cbor.NewReader(conn)
 	var msg message.Message
 	if err := reader.Unmarshal(&msg); err != nil {
 		ec <- fmt.Errorf("failed to unmarshal response: %v", err)
@@ -102,7 +102,7 @@ func (r *Server) forwardQuery(q message.Message) (*message.Message, error) {
 			continue
 		}
 		defer conn.Close()
-		writer := borat.NewCBORWriter(conn)
+		writer := cbor.NewWriter(conn)
 		if err := writer.Marshal(q); err != nil {
 			errs = append(errs, fmt.Errorf("failed to marshal message to server: %v", err))
 			continue
@@ -153,7 +153,7 @@ func (r *Server) recursiveResolve(name, context string) (*message.Message, error
 			return nil, fmt.Errorf("failed to connect to resolver: %v", err)
 		}
 		defer conn.Close()
-		writer := borat.NewCBORWriter(conn)
+		writer := cbor.NewWriter(conn)
 		q := r.nameToQuery(name, context, time.Now().Add(15*time.Second).Unix(), []query.Option{})
 		if err := writer.Marshal(&q); err != nil {
 			return nil, fmt.Errorf("failed to marshal query to server: %v", err)

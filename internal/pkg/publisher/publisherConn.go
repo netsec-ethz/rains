@@ -7,7 +7,7 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
-	"github.com/britram/borat"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
@@ -31,7 +31,7 @@ func connectAndSendMsg(msg message.Message, server connection.Info, result chan<
 		}
 		success := make(chan bool)
 		go listen(conn, msg.Token, success)
-		writer := borat.NewCBORWriter(conn)
+		writer := cbor.NewWriter(conn)
 		if err := writer.Marshal(&msg); err != nil {
 			conn.Close()
 			log.Error("Was not able to frame the message.", "msg", msg, "server", server, "error", err)
@@ -80,7 +80,7 @@ func listen(conn net.Conn, token token.Token, success chan<- bool) {
 }
 
 func waitForResponse(conn net.Conn, token token.Token, serverError chan<- bool) {
-	reader := borat.NewCBORReader(conn)
+	reader := cbor.NewReader(conn)
 	var msg message.Message
 	if err := reader.Unmarshal(&msg); err != nil {
 		log.Warn("Was not able to decode received message", "error", err)

@@ -65,7 +65,7 @@ type ZoneFileParser interface {
 	//Decode takes as input a byte string of section(s) in zonefile format. It returns a slice of
 	//all contained assertions, shards, and zones in the provided order or an error in case of
 	//failure.
-	Decode(zoneFile []byte) ([]section.SecWithSigForward, error)
+	Decode(zoneFile []byte) ([]section.WithSigForward, error)
 
 	//DecodeZone takes as input a byte string of one zone in zonefile format. It returns the zone
 	//exactly as it is in the zonefile or an error in case of failure.
@@ -87,7 +87,7 @@ func (p Parser) Encode(s section.Section) string {
 }
 
 //Decode returns all assertions contained in the given zonefile
-func (p Parser) Decode(zoneFile []byte) ([]section.SecWithSigForward, error) {
+func (p Parser) Decode(zoneFile []byte) ([]section.WithSigForward, error) {
 	log.Error("Not yet supported")
 	return nil, nil
 }
@@ -116,7 +116,7 @@ func (p Parser) EncodeMessage(msg *message.Message) []byte {
 //EncodeSection transforms the given msg into a signable format
 //It must have already been verified that the section does not contain malicious content
 //Signature meta data is not added
-func (p Parser) EncodeSection(s section.SecWithSig) []byte {
+func (p Parser) EncodeSection(s section.WithSig) []byte {
 	encoding := GetEncoding(s, true)
 	return []byte(replaceWhitespaces(encoding))
 }

@@ -5,7 +5,7 @@ import (
 	"net"
 	"sort"
 
-	"github.com/britram/borat"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 )
 
@@ -24,7 +24,7 @@ func (q *Address) UnmarshalMap(m map[int]interface{}) error {
 	return nil
 }
 
-func (q *Address) MarshalCBOR(w *borat.CBORWriter) error {
+func (q *Address) MarshalCBOR(w cbor.Writer) error {
 	//TODO CFE to implement
 	return nil
 }

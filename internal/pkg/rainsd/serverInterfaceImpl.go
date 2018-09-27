@@ -672,7 +672,7 @@ func (c *pendingQueryCacheImpl) GetQuery(token token.Token) (section.Section, bo
 //returns a pending query from the entry and true if there is a matching token in the cache and
 //section is not already stored for these pending queries. The pending queries are are not removed
 //from the cache.
-func (c *pendingQueryCacheImpl) AddAnswerByToken(section section.SecWithSig,
+func (c *pendingQueryCacheImpl) AddAnswerByToken(section section.WithSig,
 	token token.Token, deadline int64) bool {
 	if entry, ok := c.tokenMap.Get(token.String()); ok {
 		v := entry.(*pendingQueryCacheValue)
@@ -1015,7 +1015,7 @@ type negAssertionCacheValue struct {
 }
 
 type sectionExpiration struct {
-	section    section.SecWithSigForward
+	section    section.WithSigForward
 	expiration int64
 }
 
@@ -1048,7 +1048,7 @@ func (c *negativeAssertionCacheImpl) AddZone(zone *section.Zone, expiration int6
 //add adds a section together with an expiration time (number of seconds since 01.01.1970) to
 //the cache. It returns false if the cache is full and an element was removed according to least
 //recently used strategy.
-func add(c *negativeAssertionCacheImpl, s section.SecWithSigForward, expiration int64, isInternal bool) bool {
+func add(c *negativeAssertionCacheImpl, s section.WithSigForward, expiration int64, isInternal bool) bool {
 	isFull := false
 	key := zoneCtxKey(s.GetSubjectZone(), s.GetContext())
 	cacheValue := negAssertionCacheValue{
@@ -1101,7 +1101,7 @@ func add(c *negativeAssertionCacheImpl, s section.SecWithSigForward, expiration 
 
 //Get returns true and a set of assertions matching the given key if there exist some. Otherwise
 //nil and false is returned.
-func (c *negativeAssertionCacheImpl) Get(zone, context string, interval section.Interval) ([]section.SecWithSigForward, bool) {
+func (c *negativeAssertionCacheImpl) Get(zone, context string, interval section.Interval) ([]section.WithSigForward, bool) {
 	key := zoneCtxKey(zone, context)
 	v, ok := c.cache.Get(key)
 	if !ok {
@@ -1113,7 +1113,7 @@ func (c *negativeAssertionCacheImpl) Get(zone, context string, interval section.
 	if value.deleted {
 		return nil, false
 	}
-	var secs []section.SecWithSigForward
+	var secs []section.WithSigForward
 	for _, sec := range value.sections {
 		if section.Intersect(sec.section, interval) {
 			secs = append(secs, sec.section)
@@ -1182,7 +1182,7 @@ func (c *negativeAssertionCacheImpl) Len() int {
 }
 
 type consistencyCacheValue struct {
-	sections map[string]section.SecWithSigForward
+	sections map[string]section.WithSigForward
 	mux      sync.RWMutex
 	deleted  bool
 }
@@ -1197,12 +1197,12 @@ type consistencyCacheImpl struct {
 }
 
 //Add adds section to the consistency cache.
-func (c *consistencyCacheImpl) Add(sec section.SecWithSigForward) {
+func (c *consistencyCacheImpl) Add(sec section.WithSigForward) {
 	ctxZoneMapKey := fmt.Sprintf("%s %s", sec.GetSubjectZone(), sec.GetContext())
 	c.mux.Lock()
 	v, ok := c.ctxZoneMap[ctxZoneMapKey]
 	if !ok {
-		v = &consistencyCacheValue{sections: make(map[string]section.SecWithSigForward)}
+		v = &consistencyCacheValue{sections: make(map[string]section.WithSigForward)}
 		c.ctxZoneMap[ctxZoneMapKey] = v
 	}
 	c.mux.Unlock()
@@ -1217,7 +1217,7 @@ func (c *consistencyCacheImpl) Add(sec section.SecWithSigForward) {
 
 //Get returns all sections from the cache with the given zone and context that are overlapping
 //with interval.
-func (c *consistencyCacheImpl) Get(subjectZone, context string, interval section.Interval) []section.SecWithSigForward {
+func (c *consistencyCacheImpl) Get(subjectZone, context string, interval section.Interval) []section.WithSigForward {
 	ctxZoneMapKey := fmt.Sprintf("%s %s", subjectZone, context)
 	c.mux.RLock()
 	v, ok := c.ctxZoneMap[ctxZoneMapKey]
@@ -1231,7 +1231,7 @@ func (c *consistencyCacheImpl) Get(subjectZone, context string, interval section
 	if v.deleted {
 		return nil
 	}
-	var secs []section.SecWithSigForward
+	var secs []section.WithSigForward
 	for _, sec := range v.sections {
 		if section.Intersect(sec, interval) {
 			secs = append(secs, sec)
@@ -1241,7 +1241,7 @@ func (c *consistencyCacheImpl) Get(subjectZone, context string, interval section
 }
 
 //Remove deletes section from the consistency cache
-func (c *consistencyCacheImpl) Remove(section section.SecWithSigForward) {
+func (c *consistencyCacheImpl) Remove(section section.WithSigForward) {
 	ctxZoneMapKey := fmt.Sprintf("%s %s", section.GetSubjectZone(), section.GetContext())
 	c.mux.Lock()
 	if v, ok := c.ctxZoneMap[ctxZoneMapKey]; ok {

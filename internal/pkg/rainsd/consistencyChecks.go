@@ -101,7 +101,7 @@ func isAddressAssertionConsistent(assertion *section.AddrAssertion) bool {
 }
 
 //togetherValid returns true if both sections are at some point both valid
-func togetherValid(s1, s2 section.SecWithSig) bool {
+func togetherValid(s1, s2 section.WithSig) bool {
 	return s1.ValidUntil() >= s2.ValidSince() && s1.ValidSince() <= s2.ValidUntil()
 }
 

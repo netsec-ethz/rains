@@ -669,7 +669,7 @@ func CreateDelegationAssertion(zone, context, outPath, gobOut string) error {
 
 // addSignature signs the section with the public key and adds the resulting
 // signature to the section.
-func addSignature(a section.SecWithSig, key ed25519.PrivateKey) bool {
+func addSignature(a section.WithSig, key ed25519.PrivateKey) bool {
 	signature := signature.Sig{
 		PublicKeyID: keys.PublicKeyID{
 			Algorithm: algorithmTypes.Ed25519,

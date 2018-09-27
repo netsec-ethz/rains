@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
@@ -19,7 +19,7 @@ type Zone struct {
 	Signatures  []signature.Sig
 	SubjectZone string
 	Context     string
-	Content     []SecWithSigForward
+	Content     []WithSigForward
 	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 }
@@ -48,7 +48,7 @@ func (z *Zone) UnmarshalMap(m map[int]interface{}) error {
 	}
 	// Content is an array of ShardSections and / or Assertionsection.
 	if content, ok := m[23]; ok {
-		z.Content = make([]SecWithSigForward, 0)
+		z.Content = make([]WithSigForward, 0)
 		for _, item := range content.([]interface{}) {
 			m := item.(map[int]interface{})
 			if _, ok := m[11]; ok {
@@ -73,7 +73,7 @@ func (z *Zone) UnmarshalMap(m map[int]interface{}) error {
 	return nil
 }
 
-func (z *Zone) MarshalCBOR(w *borat.CBORWriter) error {
+func (z *Zone) MarshalCBOR(w cbor.Writer) error {
 	m := make(map[int]interface{})
 	m[23] = z.Content
 	m[0] = z.Signatures

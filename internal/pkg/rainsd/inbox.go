@@ -69,7 +69,7 @@ func deliver(message []byte, sender connection.Info) {
 	for _, m := range msg.Content {
 		switch m := m.(type) {
 		case *section.Assertion, *section.Shard, *section.Zone, *section.AddrAssertion, *section.AddressZoneSection:
-			if !isZoneBlacklisted(m.(section.SecWithSig).GetSubjectZone()) {
+			if !isZoneBlacklisted(m.(section.WithSig).GetSubjectZone()) {
 				addMsgSectionToQueue(m, msg.Token, sender)
 				trace(msg.Token, fmt.Sprintf("added message section to queue: %v", m))
 			}
