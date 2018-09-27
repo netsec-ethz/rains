@@ -3,6 +3,7 @@ package section
 import (
 	"time"
 
+	"github.com/britram/borat"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
@@ -11,6 +12,8 @@ import (
 type Section interface {
 	Sort()
 	String() string
+	MarshalCBOR(w *borat.CBORWriter) error
+	UnmarshalMap(m map[int]interface{}) error
 }
 
 //SecWithSig is an interface for a section protected by a signature. In the current

@@ -5,6 +5,7 @@ import (
 	"net"
 	"sort"
 
+	"github.com/britram/borat"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 )
 
@@ -15,6 +16,17 @@ type Address struct {
 	Types       []object.Type
 	Expiration  int64 //Unix seconds
 	Options     []Option
+}
+
+// UnmarshalMap decodes the output from the CBOR decoder into this struct.
+func (q *Address) UnmarshalMap(m map[int]interface{}) error {
+	//TODO CFE to implement
+	return nil
+}
+
+func (q *Address) MarshalCBOR(w *borat.CBORWriter) error {
+	//TODO CFE to implement
+	return nil
 }
 
 //GetContext returns q's context

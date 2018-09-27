@@ -53,6 +53,12 @@ func (a *AddrAssertion) MarshalCBOR(w *borat.CBORWriter) error {
 	return w.WriteIntMap(m)
 }
 
+// UnmarshalMap decodes the output from the CBOR decoder into this struct.
+func (a *AddrAssertion) UnmarshalMap(m map[int]interface{}) error {
+	//TODO CFE to implement
+	return nil
+}
+
 //AllSigs return the assertion's signatures
 func (a *AddrAssertion) AllSigs() []signature.Sig {
 	return a.Signatures

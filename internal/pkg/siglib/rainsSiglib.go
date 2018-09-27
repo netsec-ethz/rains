@@ -4,13 +4,15 @@
 package siglib
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"time"
 
+	"github.com/britram/borat"
+
 	log "github.com/inconshreveable/log15"
 
-	"github.com/netsec-ethz/rains/internal/pkg/encoder"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -21,17 +23,17 @@ import (
 )
 
 //CheckSectionSignatures verifies all signatures on the section. Expired signatures are removed.
-//Returns true if all signatures are correct.
+//Returns true if all signatures are correct. The content of a shard or zone must be sorted. If it
+//is not, then the signature verification will fail.
 //
 //Process is defined as:
 //1) check that there is at least one signature
 //2) check that string fields do not contain  <whitespace>:<non whitespace>:<whitespace>
-//3) sort section
 //4) encode section
-//5) sign the encoding and compare the resulting signature data with the signature data received with the section. The encoding of the
+//5) sign the encoding and compare the resulting signature data with the signature data received
+//   with the section. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func CheckSectionSignatures(s section.SecWithSig,
-	pkeys map[keys.PublicKeyID][]keys.PublicKey, encoder encoder.SignatureFormatEncoder,
+func CheckSectionSignatures(s section.SecWithSig, pkeys map[keys.PublicKeyID][]keys.PublicKey,
 	maxVal util.MaxCacheValidity) bool {
 	log.Debug(fmt.Sprintf("Check %T signature", s), "section", s)
 	if s == nil {
@@ -49,8 +51,12 @@ func CheckSectionSignatures(s section.SecWithSig,
 	if !CheckStringFields(s) {
 		return false //error already logged
 	}
-	s.Sort()
-	encodedSection := encoder.EncodeSection(s)
+	encoding := new(bytes.Buffer)
+	if err := s.MarshalCBOR(borat.NewCBORWriter(encoding)); err != nil {
+		log.Warn("Was not able to marshal section.", "error", err)
+		return false
+	}
+	validSignature := false
 	for i, sig := range s.Sigs(keys.RainsKeySpace) {
 		if keys, ok := pkeys[sig.PublicKeyID]; ok {
 			if int64(sig.ValidUntil) < time.Now().Unix() {
@@ -59,12 +65,13 @@ func CheckSectionSignatures(s section.SecWithSig,
 				continue
 			}
 			if key, ok := getPublicKey(keys, sig.MetaData()); ok {
-				if !sig.VerifySignature(key.Key, string(encodedSection)) {
-					log.Warn("Sig does not match", "encoding", encodedSection, "signature", sig)
+				if !sig.VerifySignature(key.Key, encoding.String()) {
+					log.Warn("Sig does not match", "encoding", encoding.String(), "signature", sig)
 					return false
 				}
 				log.Debug("Sig was valid")
 				util.UpdateSectionValidity(s, key.ValidSince, key.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
+				validSignature = true
 			} else {
 				log.Warn("No time overlapping publicKey in keys for signature", "keys", keys, "signature", sig)
 				return false
@@ -74,7 +81,7 @@ func CheckSectionSignatures(s section.SecWithSig,
 			return false
 		}
 	}
-	return true
+	return validSignature
 }
 
 //CheckMessageSignatures verifies all signatures on the message. Signatures that are not valid now are removed.
@@ -87,7 +94,7 @@ func CheckSectionSignatures(s section.SecWithSig,
 //4) encode message
 //5) sign the encoding and compare the resulting signature data with the signature data received with the message. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func CheckMessageSignatures(msg *message.Message, publicKey keys.PublicKey, encoder encoder.SignatureFormatEncoder) bool {
+func CheckMessageSignatures(msg *message.Message, publicKey keys.PublicKey) bool {
 	log.Debug("Check Message signature")
 	if msg == nil {
 		log.Warn("msg is nil")
@@ -101,12 +108,16 @@ func CheckMessageSignatures(msg *message.Message, publicKey keys.PublicKey, enco
 		return false
 	}
 	msg.Sort()
-	encodedSection := encoder.EncodeMessage(msg)
+	encoding := new(bytes.Buffer)
+	if err := msg.MarshalCBOR(borat.NewCBORWriter(encoding)); err != nil {
+		log.Warn("Was not able to marshal message.", "error", err)
+		return false
+	}
 	for i, sig := range msg.Signatures {
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Debug("signature is expired", "signature", sig)
 			msg.Signatures = append(msg.Signatures[:i], msg.Signatures[i+1:]...)
-		} else if !sig.VerifySignature(publicKey.Key, string(encodedSection)) {
+		} else if !sig.VerifySignature(publicKey.Key, encoding.String()) {
 			return false
 		}
 	}
@@ -151,10 +162,14 @@ func CheckSignatureNotExpired(s section.SecWithSig) bool {
 //the given signatures. The shard's or zone's content must already be sorted. It does not check the
 //validity of the signature or the section. Returns false if the signature was not added to the
 //section
-func SignSectionUnsafe(s section.SecWithSig, privateKey interface{}, sig signature.Sig, encoder encoder.SignatureFormatEncoder) bool {
+func SignSectionUnsafe(s section.SecWithSig, privateKey interface{}, sig signature.Sig) bool {
 	log.Debug("Start Signing Section")
-	err := (&sig).SignData(privateKey, string(encoder.EncodeSection(s)))
-	if err != nil {
+	encoding := new(bytes.Buffer)
+	if err := s.MarshalCBOR(borat.NewCBORWriter(encoding)); err != nil {
+		log.Warn("Was not able to marshal message.", "error", err)
+		return false
+	}
+	if err := (&sig).SignData(privateKey, encoding.String()); err != nil {
 		return false
 	}
 	s.AddSig(sig)
@@ -172,13 +187,12 @@ func SignSectionUnsafe(s section.SecWithSig, privateKey interface{}, sig signatu
 //4) encode section
 //5) sign the encoding and add it to the signature which will then be added to the section. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func SignSection(s section.SecWithSig, privateKey interface{}, sig signature.Sig,
-	encoder encoder.SignatureFormatEncoder) bool {
+func SignSection(s section.SecWithSig, privateKey interface{}, sig signature.Sig) bool {
 	s.AddSig(sig)
 	if !ValidSectionAndSignature(s) {
 		return false
 	}
-	return SignSectionUnsafe(s, privateKey, sig, encoder)
+	return SignSectionUnsafe(s, privateKey, sig)
 }
 
 //SignMessage signs a message with the given private Key and adds the resulting bytestring to the given signature.
@@ -192,8 +206,7 @@ func SignSection(s section.SecWithSig, privateKey interface{}, sig signature.Sig
 //4) encode message
 //5) sign the encoding and add it to the signature which will then be added to the message. The encoding of the
 //   signature meta data is added in the verifySignature() method
-func SignMessage(msg *message.Message, privateKey interface{}, sig signature.Sig,
-	encoder encoder.SignatureFormatEncoder) bool {
+func SignMessage(msg *message.Message, privateKey interface{}, sig signature.Sig) bool {
 	log.Debug("Sign Message")
 	if msg == nil {
 		log.Warn("msg is nil")
@@ -207,7 +220,12 @@ func SignMessage(msg *message.Message, privateKey interface{}, sig signature.Sig
 		return false
 	}
 	msg.Sort()
-	err := (&sig).SignData(privateKey, string(encoder.EncodeMessage(msg)))
+	encoding := new(bytes.Buffer)
+	if err := msg.MarshalCBOR(borat.NewCBORWriter(encoding)); err != nil {
+		log.Warn("Was not able to marshal message.", "error", err)
+		return false
+	}
+	err := (&sig).SignData(privateKey, encoding.String())
 	if err != nil {
 		return false
 	}

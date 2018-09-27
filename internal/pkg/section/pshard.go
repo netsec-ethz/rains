@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
@@ -20,6 +21,17 @@ type Pshard struct {
 	Datastructure DataStructure
 	validSince    int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	validUntil    int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+}
+
+// UnmarshalMap decodes the output from the CBOR decoder into this struct.
+func (z *Pshard) UnmarshalMap(m map[int]interface{}) error {
+	//TODO CFE to implement
+	return nil
+}
+
+func (p *Pshard) MarshalCBOR(w *borat.CBORWriter) error {
+	//TODO CFE to implement
+	return nil
 }
 
 //AllSigs returns the pshard's signatures
