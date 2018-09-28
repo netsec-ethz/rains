@@ -1,6 +1,7 @@
 package signature
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
@@ -97,18 +98,22 @@ func (sig Sig) String() string {
 
 //SignData adds signature meta data to encoding. It then signs the encoding with privateKey and updates sig.Data field with the generated signature
 //In case of an error an error is returned indicating the cause, otherwise nil is returned
-func (sig *Sig) SignData(privateKey interface{}, encoding string) error {
+func (sig *Sig) SignData(privateKey interface{}, encoding []byte) error {
 	if privateKey == nil {
 		log.Warn("PrivateKey is nil")
 		return errors.New("privateKey is nil")
 	}
-	encoding += sig.MetaData().String()
-	data := []byte(encoding)
+	sigEncoding := new(bytes.Buffer)
+	log.Info(sig.String())
+	if err := sig.MarshalCBOR(cbor.NewWriter(sigEncoding)); err != nil {
+		return err
+	}
+	encoding = append(encoding, sigEncoding.Bytes()...)
 	switch sig.Algorithm {
 	case algorithmTypes.Ed25519:
 		if pkey, ok := privateKey.(ed25519.PrivateKey); ok {
 			log.Debug("Sign data", "signature", sig, "privateKey", hex.EncodeToString(privateKey.(ed25519.PrivateKey)), "encoding", encoding)
-			sig.Data = ed25519.Sign(pkey, data)
+			sig.Data = ed25519.Sign(pkey, encoding)
 			return nil
 		}
 		log.Warn("Could not assert type ed25519.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
@@ -117,7 +122,7 @@ func (sig *Sig) SignData(privateKey interface{}, encoding string) error {
 		return errors.New("ed448 not yet supported in SignData()")
 	case algorithmTypes.Ecdsa256:
 		if pkey, ok := privateKey.(*ecdsa.PrivateKey); ok {
-			hash := sha256.Sum256(data)
+			hash := sha256.Sum256(encoding)
 			r, s, err := ecdsa.Sign(rand.Reader, pkey, hash[:])
 			if err != nil {
 				log.Warn("Could not sign data", "error", err)
@@ -130,7 +135,7 @@ func (sig *Sig) SignData(privateKey interface{}, encoding string) error {
 		return errors.New("could not assert type ecdsa.PrivateKey")
 	case algorithmTypes.Ecdsa384:
 		if pkey, ok := privateKey.(*ecdsa.PrivateKey); ok {
-			hash := sha512.Sum384(data)
+			hash := sha512.Sum384(encoding)
 			r, s, err := ecdsa.Sign(rand.Reader, pkey, hash[:])
 			if err != nil {
 				log.Warn("Could not sign data", "error", err)
@@ -149,7 +154,7 @@ func (sig *Sig) SignData(privateKey interface{}, encoding string) error {
 
 //VerifySignature adds signature meta data to the encoding. It then signs the encoding with privateKey and compares the resulting signature with the sig.Data.
 //Returns true if there exist signatures and they are identical
-func (sig *Sig) VerifySignature(publicKey interface{}, encoding string) bool {
+func (sig *Sig) VerifySignature(publicKey interface{}, encoding []byte) bool {
 	if sig.Data == nil {
 		log.Warn("sig does not contain signature data", "sig", sig)
 		return false
@@ -158,12 +163,16 @@ func (sig *Sig) VerifySignature(publicKey interface{}, encoding string) bool {
 		log.Warn("PublicKey is nil")
 		return false
 	}
-	encoding += sig.MetaData().String()
-	data := []byte(encoding)
+	sigEncoding := new(bytes.Buffer)
+	if err := sig.MarshalCBOR(cbor.NewWriter(sigEncoding)); err != nil {
+		log.Error("Was not able to cbor encode signature")
+		return false
+	}
+	encoding = append(encoding, sigEncoding.Bytes()...)
 	switch sig.Algorithm {
 	case algorithmTypes.Ed25519:
 		if pkey, ok := publicKey.(ed25519.PublicKey); ok {
-			return ed25519.Verify(pkey, data, sig.Data.([]byte))
+			return ed25519.Verify(pkey, encoding, sig.Data.([]byte))
 		}
 		log.Warn("Could not assert type ed25519.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
 	case algorithmTypes.Ed448:
@@ -171,7 +180,7 @@ func (sig *Sig) VerifySignature(publicKey interface{}, encoding string) bool {
 	case algorithmTypes.Ecdsa256:
 		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
 			if sig, ok := sig.Data.([]*big.Int); ok && len(sig) == 2 {
-				hash := sha256.Sum256(data)
+				hash := sha256.Sum256(encoding)
 				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])
 			}
 			log.Warn("Could not assert type []*big.Int", "signatureDataType", fmt.Sprintf("%T", sig.Data))
@@ -181,7 +190,7 @@ func (sig *Sig) VerifySignature(publicKey interface{}, encoding string) bool {
 	case algorithmTypes.Ecdsa384:
 		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
 			if sig, ok := sig.Data.([]*big.Int); ok && len(sig) == 2 {
-				hash := sha512.Sum384(data)
+				hash := sha512.Sum384(encoding)
 				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])
 			}
 			log.Warn("Could not assert type []*big.Int", "signature", sig.Data)

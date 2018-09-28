@@ -64,7 +64,7 @@ func CheckSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 				continue
 			}
 			if key, ok := getPublicKey(keys, sig.MetaData()); ok {
-				if !sig.VerifySignature(key.Key, encoding.String()) {
+				if !sig.VerifySignature(key.Key, encoding.Bytes()) {
 					log.Warn("Sig does not match", "encoding", encoding.String(), "signature", sig)
 					return false
 				}
@@ -116,7 +116,7 @@ func CheckMessageSignatures(msg *message.Message, publicKey keys.PublicKey) bool
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Debug("signature is expired", "signature", sig)
 			msg.Signatures = append(msg.Signatures[:i], msg.Signatures[i+1:]...)
-		} else if !sig.VerifySignature(publicKey.Key, encoding.String()) {
+		} else if !sig.VerifySignature(publicKey.Key, encoding.Bytes()) {
 			return false
 		}
 	}
@@ -160,15 +160,22 @@ func CheckSignatureNotExpired(s section.WithSig) bool {
 //SignSectionUnsafe signs a section with the given private Key and adds the resulting bytestring to
 //the given signatures. The shard's or zone's content must already be sorted. It does not check the
 //validity of the signature or the section. Returns false if the signature was not added to the
-//section
+//section.
+//FIXME: Note that this function only works if one signature is added. Otherwise the cbor
+//marshaller also adds the previous signature to encoding which leads to a different signature.
 func SignSectionUnsafe(s section.WithSig, privateKey interface{}, sig signature.Sig) bool {
-	log.Debug("Start Signing Section")
+	if len(s.AllSigs()) != 0 {
+		log.Error("Section must not contain a signature. FIXME")
+		return false
+	}
 	encoding := new(bytes.Buffer)
 	if err := s.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
 		log.Warn("Was not able to marshal message.", "error", err)
 		return false
 	}
-	if err := (&sig).SignData(privateKey, encoding.String()); err != nil {
+	log.Debug("Marshalling section successful")
+	if err := (&sig).SignData(privateKey, encoding.Bytes()); err != nil {
+		log.Error(err.Error())
 		return false
 	}
 	s.AddSig(sig)
@@ -191,6 +198,7 @@ func SignSection(s section.WithSig, privateKey interface{}, sig signature.Sig) b
 	if !ValidSectionAndSignature(s) {
 		return false
 	}
+	log.Debug("Checks before signing were successful")
 	return SignSectionUnsafe(s, privateKey, sig)
 }
 
@@ -224,7 +232,7 @@ func SignMessage(msg *message.Message, privateKey interface{}, sig signature.Sig
 		log.Warn("Was not able to marshal message.", "error", err)
 		return false
 	}
-	err := (&sig).SignData(privateKey, encoding.String())
+	err := (&sig).SignData(privateKey, encoding.Bytes())
 	if err != nil {
 		return false
 	}
