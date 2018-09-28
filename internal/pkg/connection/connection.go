@@ -3,6 +3,7 @@ package connection
 import (
 	"fmt"
 	"net"
+	"time"
 
 	log "github.com/inconshreveable/log15"
 )
@@ -12,7 +13,8 @@ type Info struct {
 	//Type determines the network address type
 	Type Type
 
-	TCPAddr *net.TCPAddr
+	TCPAddr  *net.TCPAddr
+	ChanAddr ChannelAddr
 }
 
 //String returns the string representation of the connection information according to its type
@@ -29,7 +31,7 @@ func (c Info) String() string {
 //NetworkAndAddr returns the network name and addr of the connection separated by space
 func (c Info) NetworkAndAddr() string {
 	switch c.Type {
-	case TCP:
+	case TCP, Chan:
 		return fmt.Sprintf("%s %s", c.TCPAddr.Network(), c.String())
 	default:
 		log.Warn("Unsupported network address type", "type", c.Type)
@@ -61,5 +63,64 @@ type Type int
 //run 'go generate' in this directory if a new networkAddrType is added [source https://github.com/campoy/jsonenums]
 //go:generate jsonenums -type=Type
 const (
-	TCP Type = iota + 1
+	Chan Type = iota
+	TCP
 )
+
+type Message struct {
+	Sender *Channel
+	Msg    []byte
+}
+
+type ChannelAddr struct {
+	ID string
+}
+
+//Network returns channel
+func (c ChannelAddr) Network() string {
+	return "channel"
+}
+
+//String returns the channel's id
+func (c ChannelAddr) String() string {
+	return c.ID
+}
+
+type Channel struct {
+	Addr    ChannelAddr
+	Channel chan Message
+}
+
+func (c *Channel) Read(b []byte) (n int, err error) {
+	log.Warn("Don't use this method. Use ReadChannel instead")
+	return len(b), nil
+}
+func (c *Channel) ReadChannel() Message {
+	return <-c.Channel
+}
+func (c *Channel) Write(b []byte) (n int, err error) {
+	log.Warn("Don't use this method. Use WriteChannel instead")
+	return 0, nil
+}
+func (c *Channel) WriteChannel(msg Message) {
+	c.Channel <- msg
+}
+func (c *Channel) Close() error {
+	close(c.Channel)
+	return nil
+}
+func (c *Channel) LocalAddr() net.Addr {
+	return c.Addr
+}
+func (c *Channel) RemoteAddr() net.Addr {
+	return ChannelAddr{}
+}
+func (c *Channel) SetDeadline(t time.Time) error {
+	return nil
+}
+func (c *Channel) SetReadDeadline(t time.Time) error {
+	return nil
+}
+func (c *Channel) SetWriteDeadline(t time.Time) error {
+	return nil
+}

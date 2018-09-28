@@ -1,6 +1,7 @@
 package rainsd
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -11,6 +12,8 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -20,6 +23,8 @@ import (
 
 //Server represents a rainsd server instance.
 type Server struct {
+	//channel is used by this server to receive messages from other servers over a channel
+	channel connection.Channel
 	//config contains configurations of this server
 	config rainsdConfig
 	//authority states the names over which this server has authority
@@ -42,10 +47,10 @@ type Server struct {
 
 //New returns a pointer to a newly created rainsd server instance with the given config. The server
 //logs with the provided level of logging.
-func New(configPath string, logLevel log.Lvl) (server *Server, err error) {
+func New(configPath string, logLevel log.Lvl, id string) (server *Server, err error) {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(log.LvlFilterHandler(logLevel, h))
-	server = &Server{}
+	server = &Server{channel: connection.Channel{Addr: connection.ChannelAddr{ID: id}}}
 	if server.config, err = loadConfig(configPath); err != nil {
 		return nil, err
 	}
@@ -108,6 +113,19 @@ func (s *Server) Shutdown() {
 	for i := 0; i < 3; i++ {
 		s.shutdown <- true
 	}
+}
+
+//Write delivers an encoded rains message and a response channel to the server.
+func (s *Server) Write(msg connection.Message) {
+	s.caches.ConnCache.AddConnection(msg.Sender)
+	m := &message.Message{}
+	reader := cbor.NewReader(bytes.NewBuffer(msg.Msg))
+	if err := reader.Unmarshal(m); err != nil {
+		log.Warn(fmt.Sprintf("failed to unmarshal msg recv over channel: %v", err))
+		return
+	}
+	deliver(m, connection.Info{Type: connection.Chan, ChanAddr: msg.Sender.Addr},
+		s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)
 }
 
 //LoadConfig loads and stores server configuration

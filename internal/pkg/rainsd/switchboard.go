@@ -5,6 +5,7 @@
 package rainsd
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -103,8 +104,31 @@ func (s *Server) listen() {
 				log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 			}
 		}
+	case connection.Chan:
+		s.channel.Channel = make(chan connection.Message, 100)
+		s.handleChannel()
 	default:
 		log.Warn("Unsupported Network address type.")
+	}
+}
+
+//handleChannel handles incoming messages over the channel
+func (s *Server) handleChannel() {
+	for {
+		select {
+		case <-s.shutdown:
+			return
+		case msg := <-s.channel.Channel:
+			s.caches.ConnCache.AddConnection(msg.Sender)
+			m := &message.Message{}
+			reader := cbor.NewReader(bytes.NewBuffer(msg.Msg))
+			if err := reader.Unmarshal(m); err != nil {
+				log.Warn(fmt.Sprintf("failed to unmarshal msg recv over channel: %v", err))
+				continue
+			}
+			deliver(m, connection.Info{Type: connection.Chan, ChanAddr: msg.Sender.Addr},
+				s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)
+		}
 	}
 }
 
@@ -113,6 +137,11 @@ func (s *Server) handleConnection(conn net.Conn, dstAddr connection.Info) {
 	var msg message.Message
 	reader := cbor.NewReader(conn)
 	for {
+		select {
+		case <-s.shutdown:
+			return
+		default:
+		}
 		//FIXME CFE how to check efficiently that message is not too large?
 		if err := reader.Unmarshal(&msg); err != nil {
 			log.Warn(fmt.Sprintf("failed to read from client: %v", err))
