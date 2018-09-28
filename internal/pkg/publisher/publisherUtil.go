@@ -12,7 +12,6 @@ import (
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
-	"github.com/netsec-ethz/rains/internal/pkg/encoder"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
@@ -134,7 +133,7 @@ func loadPrivateKeys(path string) (map[keys.PublicKeyID]interface{}, error) {
 //removes the subjectZone and context of the contained assertions and shards after the signatures
 //have been added. It returns an error if it was unable to sign the zone or any of the contained
 //shards and assertions.
-func signZone(zone *section.Zone, path string, encoder encoder.SignatureFormatEncoder) error {
+func signZone(zone *section.Zone, path string) error {
 	if zone == nil {
 		return errors.New("zone is nil")
 	}
@@ -143,7 +142,7 @@ func signZone(zone *section.Zone, path string, encoder encoder.SignatureFormatEn
 		return errors.New("Was not able to load private keys")
 	}
 	for _, sig := range zone.Signatures {
-		if ok := siglib.SignSectionUnsafe(zone, keys[sig.PublicKeyID], sig, encoder); !ok {
+		if ok := siglib.SignSectionUnsafe(zone, keys[sig.PublicKeyID], sig); !ok {
 			log.Error("Was not able to sign and add the signature", "zone", zone, "signature", sig)
 			return errors.New("Was not able to sign and add the signature")
 		}
@@ -151,13 +150,13 @@ func signZone(zone *section.Zone, path string, encoder encoder.SignatureFormatEn
 	for _, sec := range zone.Content {
 		switch sec := sec.(type) {
 		case *section.Assertion:
-			if err := signAssertion(sec, keys, encoder); err != nil {
+			if err := signAssertion(sec, keys); err != nil {
 				return err
 			}
 			sec.Context = ""
 			sec.SubjectZone = ""
 		case *section.Shard:
-			if err := signShard(sec, keys, encoder); err != nil {
+			if err := signShard(sec, keys); err != nil {
 				return err
 			}
 			sec.Context = ""
@@ -172,19 +171,18 @@ func signZone(zone *section.Zone, path string, encoder encoder.SignatureFormatEn
 //signShard signs the shard and all contained assertions with the zone's private key. It removes the
 //subjectZone and context of the contained assertions after the signatures have been added. It
 //returns an error if it was unable to sign the shard or any of the assertions.
-func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{},
-	encoder encoder.SignatureFormatEncoder) error {
+func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{}) error {
 	if s == nil {
 		return errors.New("shard is nil")
 	}
 	for _, sig := range s.Signatures {
-		if ok := siglib.SignSectionUnsafe(s, keys[sig.PublicKeyID], sig, encoder); !ok {
+		if ok := siglib.SignSectionUnsafe(s, keys[sig.PublicKeyID], sig); !ok {
 			log.Error("Was not able to sign and add the signature", "shard", s, "signature", sig)
 			return errors.New("Was not able to sign and add the signature")
 		}
 	}
 	for _, a := range s.Content {
-		if err := signAssertion(a, keys, encoder); err != nil {
+		if err := signAssertion(a, keys); err != nil {
 			return err
 		}
 		a.Context = ""
@@ -195,13 +193,12 @@ func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{},
 
 //signAssertion computes the signature data for all contained signatures.
 //It returns an error if it was unable to create all signatures on the assertion.
-func signAssertion(a *section.Assertion, keys map[keys.PublicKeyID]interface{},
-	encoder encoder.SignatureFormatEncoder) error {
+func signAssertion(a *section.Assertion, keys map[keys.PublicKeyID]interface{}) error {
 	if a == nil {
 		return errors.New("assertion is nil")
 	}
 	for _, sig := range a.Signatures {
-		if ok := siglib.SignSectionUnsafe(a, keys[sig.PublicKeyID], sig, encoder); !ok {
+		if ok := siglib.SignSectionUnsafe(a, keys[sig.PublicKeyID], sig); !ok {
 			log.Error("Was not able to sign and add the signature", "assertion", a, "signature", sig)
 			return errors.New("Was not able to sign and add the signature")
 		}

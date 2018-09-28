@@ -10,7 +10,6 @@ import (
 
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
-	"github.com/netsec-ethz/rains/internal/pkg/encoder"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
@@ -24,17 +23,15 @@ import (
 //anything from just one step to the whole process of publishing information to the zone's
 //authoritative servers.
 type Rainspub struct {
-	Config     Config
-	zfParser   zonefile.ZoneFileParser
-	sigEncoder encoder.SignatureFormatEncoder
+	Config   Config
+	zfParser zonefile.ZoneFileParser
 }
 
 //New creates a Rainspub instance and returns a pointer to it.
 func New(config Config) *Rainspub {
 	return &Rainspub{
-		Config:     config,
-		zfParser:   zonefile.Parser{},
-		sigEncoder: zonefile.Parser{},
+		Config:   config,
+		zfParser: zonefile.Parser{},
 	}
 }
 
@@ -85,7 +82,7 @@ func (r *Rainspub) Publish() {
 		return
 	}
 	if r.Config.DoSigning {
-		if signZone(zone, r.Config.PrivateKeyPath, r.sigEncoder) != nil {
+		if signZone(zone, r.Config.PrivateKeyPath) != nil {
 			log.Error("Was not able to sign zone.")
 			return
 		}

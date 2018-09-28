@@ -84,7 +84,9 @@ func TestMarshalAssertion(t *testing.T) {
 
 	if !SignSectionUnsafe(sec, genPrivateKey, sig) {
 		t.Error("Was not able to sign assertion")
+		return
 	}
+	log.Info("Successful added sig", "sigLen", len(sec.AllSigs()))
 	newSig := sec.AllSigs()[0]
 	/*sec.DeleteSig(0)
 	if len(sec.AllSigs()) != 0 {
