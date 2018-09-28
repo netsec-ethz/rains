@@ -1,14 +1,8 @@
 package rainsd
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"strings"
-	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 
@@ -22,97 +16,13 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
-	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
-
-//InitServer initializes the server
-func InitServer(configPath, traceAddr, traceSrvID string, logLevel int) error {
-	h := log.CallerFileHandler(log.StdoutHandler)
-	log.Root().SetHandler(log.LvlFilterHandler(log.Lvl(logLevel), h))
-	//FIXME CFE replace with cbor parser
-	//msgParser = new(protoParser.ProtoParserAndFramer)
-	sigEncoder = new(zonefile.Parser)
-	var err error
-	if Config, err = loadConfig(configPath); err != nil {
-		return err
-	}
-	log.Debug("Successfully loaded Config")
-	serverConnInfo = Config.ServerAddress
-	loadAuthoritative(Config.ContextAuthority)
-	if roots, cert, err = loadTLSCertificate(Config.TLSCertificateFile, Config.TLSPrivateKeyFile); err != nil {
-		return err
-	}
-	log.Debug("Successfully loaded Certificate")
-	capabilityHash, capabilityList = initOwnCapabilities(Config.Capabilities)
-	initCaches()
-	log.Info("Root zone public key path", "value", Config.RootZonePublicKeyPath)
-	if err := loadRootZonePublicKey(Config.RootZonePublicKeyPath); err != nil {
-		log.Warn("Failed to load root zone public key")
-		return err
-	}
-	log.Info("Successfully loaded root zone public key")
-	// XXX(rayhaan): pass shutdown channel from main.
-	if err := initQueuesAndWorkers(make(chan bool)); err != nil {
-		return err
-	}
-	log.Debug("Successfully initiated queues and goroutines working on it")
-	initEngine()
-	log.Debug("Successfully initiated engine")
-	// Initialize the tracer
-	if traceAddr != "" {
-		t, err := NewTracer(traceSrvID, traceAddr)
-		if err != nil {
-			return fmt.Errorf("failed to initialize the tracer: %v", err)
-		}
-		globalTracer = t
-		go t.SendLoop()
-	}
-	log.Debug("successfully initialized tracer")
-	return nil
-}
 
 // trace is a wrapper function which all callees wishing to submit a trace should use,
 // as it will only send the trace if a tracer server is connected.
 func trace(tok token.Token, msg string) {
 	if globalTracer != nil {
 		globalTracer.SendMessage(tok, msg)
-	}
-}
-
-//LoadConfig loads and stores server configuration
-//TODO CFE do not load config directly into Config. But load it and then translate/cast elements to Config
-func loadConfig(configPath string) (rainsdConfig, error) {
-	config := rainsdConfig{}
-	file, err := ioutil.ReadFile(configPath)
-	if err != nil {
-		log.Warn("Could not open config file...", "path", configPath, "error", err)
-		return rainsdConfig{}, err
-	}
-	if err = json.Unmarshal(file, &config); err != nil {
-		log.Warn("Could not unmarshal json format of config", "error", err)
-		return rainsdConfig{}, err
-	}
-	Config.KeepAlivePeriod *= time.Second
-	Config.TCPTimeout *= time.Second
-	Config.DelegationQueryValidity *= time.Second
-	Config.ReapVerifyTimeout *= time.Second
-	Config.QueryValidity *= time.Second
-	Config.AddressQueryValidity *= time.Second
-	Config.ReapEngineTimeout *= time.Second
-	Config.MaxCacheValidity.AddressAssertionValidity *= time.Hour
-	Config.MaxCacheValidity.AddressZoneValidity *= time.Hour
-	Config.MaxCacheValidity.AssertionValidity *= time.Hour
-	Config.MaxCacheValidity.ShardValidity *= time.Hour
-	Config.MaxCacheValidity.ZoneValidity *= time.Hour
-	return config, nil
-}
-
-//loadAuthoritative stores to authoritative for which zone and context this server has authority.
-//Entries over which this server has authority will not be affected by the lru policy of the caches.
-func loadAuthoritative(contextAuthorities []string) {
-	authoritative = make(map[zoneContext]bool)
-	for i, context := range contextAuthorities {
-		authoritative[zoneContext{Zone: Config.ZoneAuthority[i], Context: context}] = true
 	}
 }
 
@@ -151,42 +61,6 @@ func loadRootZonePublicKey(keyPath string) error {
 	}
 	log.Info("Keys added to zoneKeyCache", "count", keysAdded)
 	return err
-}
-
-//loadTLSCertificate load a tls certificate from certPath
-func loadTLSCertificate(certPath string, TLSPrivateKeyPath string) (*x509.CertPool, tls.Certificate, error) {
-	pool := x509.NewCertPool()
-	file, err := ioutil.ReadFile(certPath)
-	if err != nil {
-		log.Error("error", err)
-		return nil, tls.Certificate{}, err
-	}
-
-	if ok := pool.AppendCertsFromPEM(file); !ok {
-		log.Error("failed to parse root certificate")
-		return nil, tls.Certificate{}, errors.New("failed to parse root certificate")
-	}
-	cert, err := tls.LoadX509KeyPair(certPath, TLSPrivateKeyPath)
-	if err != nil {
-		log.Error("Cannot load certificate. Path to CertificateFile or privateKeyFile might be invalid.",
-			"CertPath", certPath, "KeyPath", TLSPrivateKeyPath, "error", err)
-		return nil, tls.Certificate{}, err
-	}
-	return pool, cert, nil
-}
-
-//initOwnCapabilities sorts capabilities in lexicographically increasing order.
-//It stores the hex encoded sha256 hash of the sorted capabilities to capabilityHash
-//and a string representation of the capability list to capabilityList
-func initOwnCapabilities(capabilities []message.Capability) (string, string) {
-	//TODO CFE when we have CBOR use it to normalize&serialize the array before hashing it.
-	//Currently we use the hard coded version from the draft.
-	capabilityHash = "e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745"
-	cs := make([]string, len(capabilities))
-	for i, c := range capabilities {
-		cs[i] = string(c)
-	}
-	return capabilityHash, strings.Join(cs, " ")
 }
 
 //sendSections creates a messages containing token and sections and sends it to destination. If

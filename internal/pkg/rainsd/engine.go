@@ -1,22 +1,6 @@
 package rainsd
 
-import (
-	"fmt"
-	"net"
-	"strings"
-	"time"
-
-	log "github.com/inconshreveable/log15"
-
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
-	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/query"
-	"github.com/netsec-ethz/rains/internal/pkg/section"
-	"github.com/netsec-ethz/rains/internal/pkg/token"
-	"github.com/shirou/gopsutil/cpu"
-)
-
+/*
 //enoughSystemRessources returns true if the server has enough resources to make consistency checks
 var enoughSystemRessources bool
 
@@ -176,7 +160,8 @@ func addZoneToCache(zone *section.Zone, isAuthoritative bool) {
 
 //addAddressAssertionToCache adds a to the addressSection cache.
 func addAddressAssertionToCache(a *section.AddrAssertion, isAuthoritative bool) {
-	if err := getAddressCache(a.SubjectAddr, a.Context).AddAddressAssertion(a); err != nil {
+	log.Warn("Address assertion are not yet supported")
+	/*if err := getAddressCache(a.SubjectAddr, a.Context).AddAddressAssertion(a); err != nil {
 		log.Warn("Was not able to add addressAssertion to cache", "addressAssertion", a)
 	}
 }
@@ -629,8 +614,9 @@ func answerQuery(q *query.Name, sender connection.Info, oldToken token.Token) {
 //addressQuery directly answers the query if the result is cached. Otherwise it issues a new query
 //and adds this query to the pendingQueries Cache.
 func addressQuery(q *query.Address, sender connection.Info, oldToken token.Token) {
+	log.Warn("Address Queries not yet supported")
 	//FIXME CFE make it compatible with the new caches
-	log.Debug("Start processing address query", "addressQuery", q)
+	/*log.Debug("Start processing address query", "addressQuery", q)
 	assertion, ok := getAddressCache(q.SubjectAddr, q.Context).Get(q.SubjectAddr, q.Types)
 	//TODO CFE add heuristic which assertion to return
 	if ok {
@@ -759,4 +745,4 @@ func measureSystemRessources() {
 		}
 		time.Sleep(time.Second * 10)
 	}
-}
+}*/

@@ -817,7 +817,8 @@ func assertionCacheMapKeyFQDN(fqdn, context string, oType object.Type) string {
 //recently used strategy. It also adds the shard to the consistency cache.
 func (c *assertionCacheImpl) Add(a *section.Assertion, expiration int64, isInternal bool) bool {
 	isFull := false
-	consistCache.Add(a)
+	//FIXME CFE readd consistency checks
+	//consistCache.Add(a)
 	for _, o := range a.Content {
 		key := assertionCacheMapKey(a.SubjectName, a.SubjectZone, a.Context, o.Type)
 		cacheValue := assertionCacheValue{
@@ -848,7 +849,8 @@ func (c *assertionCacheImpl) Add(a *section.Assertion, expiration int64, isInter
 	//Remove a from consistency cache if it was not added to assertion cache.
 	c.mux.Lock()
 	if c.entriesPerAssertionMap[a.Hash()] == 0 {
-		consistCache.Remove(a)
+		//FIXME CFE readd consistency checks
+		//consistCache.Remove(a)
 	}
 	c.mux.Unlock()
 	//Remove elements according to lru strategy
@@ -872,8 +874,9 @@ func (c *assertionCacheImpl) Add(a *section.Assertion, expiration int64, isInter
 			c.mux.Lock()
 			c.entriesPerAssertionMap[val.assertion.Hash()]--
 			if c.entriesPerAssertionMap[val.assertion.Hash()] == 0 {
-				delete(c.entriesPerAssertionMap, val.assertion.Hash())
-				consistCache.Remove(val.assertion)
+				//FIXME CFE readd consistency checks
+				//delete(c.entriesPerAssertionMap, val.assertion.Hash())
+				//consistCache.Remove(val.assertion)
 			}
 			c.mux.Unlock()
 		}
@@ -950,8 +953,9 @@ func (c *assertionCacheImpl) RemoveExpiredValues() {
 				c.mux.Lock()
 				c.entriesPerAssertionMap[va.assertion.Hash()]--
 				if c.entriesPerAssertionMap[va.assertion.Hash()] == 0 {
-					delete(c.entriesPerAssertionMap, va.assertion.Hash())
-					consistCache.Remove(va.assertion)
+					//FIXME CFE readd consistency checks
+					//delete(c.entriesPerAssertionMap, va.assertion.Hash())
+					//consistCache.Remove(va.assertion)
 				}
 				c.mux.Unlock()
 				delete(value.assertions, key)
@@ -987,8 +991,9 @@ func (c *assertionCacheImpl) RemoveZone(zone string) {
 					c.mux.Lock()
 					c.entriesPerAssertionMap[val.assertion.Hash()]--
 					if c.entriesPerAssertionMap[val.assertion.Hash()] == 0 {
-						delete(c.entriesPerAssertionMap, val.assertion.Hash())
-						consistCache.Remove(val.assertion)
+						//FIXME CFE readd consistency checks
+						//delete(c.entriesPerAssertionMap, val.assertion.Hash())
+						//consistCache.Remove(val.assertion)
 					}
 					c.mux.Unlock()
 				}
@@ -1068,7 +1073,8 @@ func add(c *negativeAssertionCacheImpl, s section.WithSigForward, expiration int
 		val.(*safeHashMap.Map).Add(key, true)
 	}
 	if _, ok := value.sections[s.Hash()]; !ok {
-		consistCache.Add(s)
+		//FIXME CFE readd consistency checks
+		//consistCache.Add(s)
 		value.sections[s.Hash()] = sectionExpiration{section: s, expiration: expiration}
 		isFull = c.counter.Inc()
 	}
@@ -1091,7 +1097,8 @@ func add(c *negativeAssertionCacheImpl, s section.WithSigForward, expiration int
 			val.(*safeHashMap.Map).Remove(v.cacheKey)
 		}
 		for _, val := range v.sections {
-			consistCache.Remove(val.section)
+			//FIXME CFE readd consistency checks
+			//consistCache.Remove(val.section)
 		}
 		c.counter.Sub(len(v.sections))
 		v.mux.Unlock()
@@ -1135,9 +1142,10 @@ func (c *negativeAssertionCacheImpl) RemoveExpiredValues() {
 		}
 		for key, sec := range value.sections {
 			if sec.expiration < time.Now().Unix() {
-				consistCache.Remove(sec.section)
-				delete(value.sections, key)
-				deleteCount++
+				//FIXME CFE readd consistency checks
+				//consistCache.Remove(sec.section)
+				//delete(value.sections, key)
+				//deleteCount++
 			}
 		}
 		if len(value.sections) == 0 {
@@ -1167,7 +1175,8 @@ func (c *negativeAssertionCacheImpl) RemoveZone(zone string) {
 				}
 				value.deleted = true
 				for _, val := range value.sections {
-					consistCache.Remove(val.section)
+					//FIXME CFE readd consistency checks
+					//consistCache.Remove(val.section)
 				}
 				c.counter.Sub(len(value.sections))
 				value.mux.Unlock()

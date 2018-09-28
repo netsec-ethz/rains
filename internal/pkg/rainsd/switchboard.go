@@ -16,12 +16,12 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
-	"github.com/netsec-ethz/rains/internal/pkg/query"
-	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
 
 //sendTo sends message to the specified receiver.
-func sendTo(msg message.Message, receiver connection.Info, retries, backoffMilliSeconds int) (err error) {
+func sendTo(msg message.Message, receiver connection.Info, retries, backoffMilliSeconds int,
+	prioChannel chan msgSectionSender, normalChannel chan msgSectionSender,
+	notificationChannel chan msgSectionSender, pendingKeys pendingKeyCache) (err error) {
 	conns, ok := connCache.GetConnection(receiver)
 	if !ok {
 		conn, err := createConnection(receiver)
@@ -34,7 +34,8 @@ func sendTo(msg message.Message, receiver connection.Info, retries, backoffMilli
 		connCache.AddConnection(conn)
 		//handle connection
 		if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-			go handleConnection(conn, connection.Info{Type: connection.TCP, TCPAddr: tcpAddr})
+			go handleConnection(conn, connection.Info{Type: connection.TCP, TCPAddr: tcpAddr},
+				prioChannel, normalChannel, notificationChannel, pendingKeys)
 		} else {
 			log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 		}
@@ -53,7 +54,8 @@ func sendTo(msg message.Message, receiver connection.Info, retries, backoffMilli
 	}
 	if retries > 0 {
 		time.Sleep(time.Duration(backoffMilliSeconds) * time.Millisecond)
-		return sendTo(msg, receiver, retries-1, 2*backoffMilliSeconds)
+		return sendTo(msg, receiver, retries-1, 2*backoffMilliSeconds, prioChannel, normalChannel,
+			notificationChannel)
 	}
 	log.Error("Was not able to send the message. No retries left.", "receiver", receiver)
 	return errors.New("Was not able to send the mesage. No retries left")
@@ -73,7 +75,8 @@ func createConnection(receiver connection.Info) (net.Conn, error) {
 }
 
 //Listen listens for incoming connections and creates a go routine for each connection.
-func Listen() {
+func Listen(prioChannel chan msgSectionSender, normalChannel chan msgSectionSender,
+	notificationChannel chan msgSectionSender, pendingKeys pendingKeyCache) {
 	srvLogger := log.New("addr", serverConnInfo.String())
 	switch serverConnInfo.Type {
 	case connection.TCP:
@@ -97,7 +100,8 @@ func Listen() {
 			}
 			connCache.AddConnection(conn)
 			if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-				go handleConnection(conn, connection.Info{Type: connection.TCP, TCPAddr: tcpAddr})
+				go handleConnection(conn, connection.Info{Type: connection.TCP, TCPAddr: tcpAddr},
+					prioChannel, normalChannel, notificationChannel, pendingKeys)
 			} else {
 				log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 			}
@@ -107,39 +111,19 @@ func Listen() {
 	}
 }
 
-func deliverCBOR(msg *message.Message, sender connection.Info) {
-	// TODO: Check length of message.
-	processCapability(msg.Capabilities, sender, msg.Token)
-	//handle message content
-	for _, m := range msg.Content {
-		switch m := m.(type) {
-		case *section.Assertion, *section.Shard, *section.Zone, *section.AddrAssertion:
-			if !isZoneBlacklisted(m.(section.WithSig).GetSubjectZone()) {
-				addMsgSectionToQueue(m, msg.Token, sender)
-			}
-		case *query.Name, *query.Address:
-			log.Debug(fmt.Sprintf("add %T to normal queue", m))
-			normalChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
-		case *section.Notification:
-			log.Debug("Add notification to notification queue", "token", msg.Token)
-			notificationChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
-		default:
-			log.Warn(fmt.Sprintf("unsupported message section type %T", m))
-			return
-		}
-	}
-}
-
 //handleConnection deframes all incoming messages on conn and passes them to the inbox along with the dstAddr
-func handleConnection(conn net.Conn, dstAddr connection.Info) {
+func handleConnection(conn net.Conn, dstAddr connection.Info, prioChannel chan msgSectionSender,
+	normalChannel chan msgSectionSender, notificationChannel chan msgSectionSender, pendingKeys pendingKeyCache) {
 	var msg message.Message
 	reader := cbor.NewReader(conn)
 	for {
+		//FIXME CFE how to check efficiently that message is not too large?
 		if err := reader.Unmarshal(&msg); err != nil {
 			log.Warn(fmt.Sprintf("failed to read from client: %v", err))
 			break
 		}
-		deliverCBOR(&msg, connection.Info{Type: connection.TCP, TCPAddr: conn.RemoteAddr().(*net.TCPAddr)})
+		deliver(&msg, connection.Info{Type: connection.TCP, TCPAddr: conn.RemoteAddr().(*net.TCPAddr)},
+			prioChannel, normalChannel, notificationChannel, pendingKeys)
 	}
 	connCache.CloseAndRemoveConnection(conn)
 }

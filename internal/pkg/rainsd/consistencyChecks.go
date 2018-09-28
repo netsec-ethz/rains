@@ -1,17 +1,8 @@
 package rainsd
 
-import (
-	"fmt"
-	"sort"
-	"sync"
-
-	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/section"
-)
-
 //isAssertionConsistent checks if the incoming assertion is consistent with the elements in the cache.
 //If not, every element of this zone and context is dropped and it returns false
-func isAssertionConsistent(assertion *section.Assertion) bool {
+/*func isAssertionConsistent(assertion *section.Assertion) bool {
 	negAssertions := consistCache.Get(assertion.Context, assertion.SubjectZone, assertion)
 	for _, negAssertion := range negAssertions {
 		switch negAssertion := negAssertion.(type) {
@@ -372,4 +363,4 @@ func (s *sortedAssertions) Equal(s2 *sortedAssertions) bool {
 		}
 	}
 	return true
-}
+}*/

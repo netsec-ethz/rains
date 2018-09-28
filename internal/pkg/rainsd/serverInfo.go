@@ -1,8 +1,6 @@
 package rainsd
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"net"
 	"time"
@@ -12,32 +10,12 @@ import (
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
-	"github.com/netsec-ethz/rains/internal/pkg/encoder"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
-
-var serverConnInfo connection.Info
-var authoritative map[zoneContext]bool
-var roots *x509.CertPool
-
-//capabilityHash contains the sha256 hash of this server's capability list
-var capabilityHash string
-
-//capabilityList contains the string representation of this server's capability list.
-var capabilityList string
-
-//Config contains configurations for this server
-var Config rainsdConfig
-
-//cert holds the tls certificate of this server
-var cert tls.Certificate
-
-//sigEncoder is used to translate a message or section into a signable format
-var sigEncoder encoder.SignatureFormatEncoder
 
 // globalTracer is used to report traces to the tracing server.
 var globalTracer *Tracer
