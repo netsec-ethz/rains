@@ -3,20 +3,14 @@ package rainsd
 import (
 	"fmt"
 	"math"
-	"net"
-	"strings"
-	"time"
-
-	"github.com/netsec-ethz/rains/internal/pkg/query"
-	"github.com/netsec-ethz/rains/internal/pkg/section"
-	"github.com/netsec-ethz/rains/internal/pkg/token"
-
-	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
-	"github.com/netsec-ethz/rains/internal/pkg/signature"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
+
+	log "github.com/inconshreveable/log15"
 )
 
 //verify verifies msgSender.Section
@@ -24,24 +18,26 @@ import (
 //It validates all signatures (including contained once), stripping of expired once.
 //If no signature remains on an assertion, shard, zone, addressAssertion or addressZone it gets dropped (signatures of contained sections are not taken into account).
 //If there happens an error in the signature verification process of any signature, the whole section gets dropped (signatures of contained sections are also considered)
-func verify(msgSender msgSectionSender) {
+func (s *Server) verify(msgSender msgSectionSender) {
 	log.Info(fmt.Sprintf("Verify %T", msgSender.Section), "msgSection", msgSender.Section)
 	switch msgSender.Section.(type) {
 	case *section.Assertion, *section.Shard, *section.Zone,
 		*section.AddrAssertion:
-		sectionSender := sectionWithSigSender{
+		/*sectionSender := sectionWithSigSender{
 			Section: msgSender.Section.(section.WithSig),
 			Sender:  msgSender.Sender,
 			Token:   msgSender.Token,
 		}
-		verifySection(sectionSender)
+		verifySection(sectionSender)*/
 	case *query.Address, *query.Name:
-		verifyQuery(msgSender.Section.(section.Query), msgSender)
+		log.Info("Received Query")
+		//verifyQuery(msgSender.Section.(section.Query), msgSender)
 	default:
 		log.Warn("Not supported Msg section to verify", "msgSection", msgSender)
 	}
 }
 
+/*
 //verifySection forwards the received section protected by signature(s) to be processed if it is
 //consistent, all nonexpired signatures verify and there is at least one non expired signature.
 func verifySection(sectionSender sectionWithSigSender) {
@@ -188,18 +184,7 @@ func validSignature(sec section.WithSig, keys map[keys.PublicKeyID][]keys.Public
 	}
 }
 
-//validateSignatures returns true if all non expired signatures of section are valid and there is at
-//least one signature valid before Config.MaxValidity. It removes valid signatures that are expired
-func validateSignatures(section section.WithSig, keyMap map[keys.PublicKeyID][]keys.PublicKey) bool {
-	if !siglib.CheckSectionSignatures(section, keyMap, sigEncoder, Config.MaxCacheValidity) {
-		return false //already logged
-	}
-	if section.ValidSince() == math.MaxInt64 {
-		log.Info("No signature is valid before the MaxValidity date in the future.")
-		return false
-	}
-	return len(section.Sigs(keys.RainsKeySpace)) > 0
-}
+
 
 //validShardSignatures validates all signatures on the shard and contained assertions. It returns
 //false if there is a signatures that does not verify. It removes the context and subjectZone of all
@@ -295,4 +280,18 @@ func getQueryValidity(sigs []signature.Sig) (validity int64) {
 		validity = upperBound
 	}
 	return validity
+}
+*/
+
+//validateSignatures returns true if all non expired signatures of section are valid and there is at
+//least one signature valid before Config.MaxValidity. It removes valid signatures that are expired
+func validateSignatures(section section.WithSig, keyMap map[keys.PublicKeyID][]keys.PublicKey, maxValidity util.MaxCacheValidity) bool {
+	if !siglib.CheckSectionSignatures(section, keyMap, maxValidity) {
+		return false //already logged
+	}
+	if section.ValidSince() == math.MaxInt64 {
+		log.Info("No signature is valid before the MaxValidity date in the future.")
+		return false
+	}
+	return len(section.Sigs(keys.RainsKeySpace)) > 0
 }

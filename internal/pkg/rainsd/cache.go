@@ -7,6 +7,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeCounter"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeHashMap"
 	"github.com/netsec-ethz/rains/internal/pkg/lruCache"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
 )
 
 type Caches struct {
@@ -111,6 +112,19 @@ func initCaches(config rainsdConfig) *Caches {
 	caches.AddressCacheIPv6 = make(map[string]addressSectionCache)
 	caches.AddressCacheIPv6["."] = new(binaryTrie.TrieNode)
 	return caches
+}
+
+//createCapabilityCache returns a newly created capability cache
+func createCapabilityCache(hashToCapCacheSize int) capabilityCache {
+	cache := lruCache.New()
+	//TODO CFE after there are more capabilities do not use hardcoded value
+	cache.GetOrAdd("e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745",
+		[]message.Capability{message.TLSOverTCP}, true)
+	cache.GetOrAdd("76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71",
+		[]message.Capability{message.NoCapability}, false)
+	counter := safeCounter.New(hashToCapCacheSize)
+	counter.Add(2)
+	return &capabilityCacheImpl{capabilityMap: cache, counter: counter}
 }
 
 func initReapers(config rainsdConfig, caches *Caches, stop chan bool) {

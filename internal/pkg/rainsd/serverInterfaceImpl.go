@@ -1096,10 +1096,10 @@ func add(c *negativeAssertionCacheImpl, s section.WithSigForward, expiration int
 		if val, ok := c.zoneMap.Get(v.zone); ok {
 			val.(*safeHashMap.Map).Remove(v.cacheKey)
 		}
-		for _, val := range v.sections {
+		/*for _, val := range v.sections {
 			//FIXME CFE readd consistency checks
-			//consistCache.Remove(val.section)
-		}
+			consistCache.Remove(val.section)
+		}*/
 		c.counter.Sub(len(v.sections))
 		v.mux.Unlock()
 	}
@@ -1140,14 +1140,14 @@ func (c *negativeAssertionCacheImpl) RemoveExpiredValues() {
 			value.mux.Unlock()
 			continue
 		}
-		for key, sec := range value.sections {
+		/*for key, sec := range value.sections {
 			if sec.expiration < time.Now().Unix() {
 				//FIXME CFE readd consistency checks
 				//consistCache.Remove(sec.section)
 				//delete(value.sections, key)
 				//deleteCount++
 			}
-		}
+		}*/
 		if len(value.sections) == 0 {
 			value.deleted = true
 			c.cache.Remove(value.cacheKey)
@@ -1174,10 +1174,10 @@ func (c *negativeAssertionCacheImpl) RemoveZone(zone string) {
 					continue
 				}
 				value.deleted = true
-				for _, val := range value.sections {
+				/*for _, val := range value.sections {
 					//FIXME CFE readd consistency checks
-					//consistCache.Remove(val.section)
-				}
+					consistCache.Remove(val.section)
+				}*/
 				c.counter.Sub(len(value.sections))
 				value.mux.Unlock()
 			}

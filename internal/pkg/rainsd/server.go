@@ -5,12 +5,17 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"strings"
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
 //Server represents a rainsd server instance.
@@ -52,10 +57,7 @@ func New(configPath string, logLevel int) (server *Server, err error) {
 		return nil, err
 	}
 	server.capabilityHash, server.capabilityList = initOwnCapabilities(server.config.Capabilities)
-	if err = loadRootZonePublicKey(server.config.RootZonePublicKeyPath); err != nil {
-		log.Warn("Failed to load root zone public key")
-		return nil, err
-	}
+
 	server.shutdown = make(chan bool)
 	server.queues = InputQueues{
 		Prio:    make(chan msgSectionSender, server.config.PrioBufferSize),
@@ -66,7 +68,8 @@ func New(configPath string, logLevel int) (server *Server, err error) {
 		NotifyW: make(chan struct{}, server.config.NotificationWorkerCount),
 	}
 	server.caches = initCaches(server.config)
-	if err = loadRootZonePublicKey(server.config.RootZonePublicKeyPath); err != nil {
+	if err = loadRootZonePublicKey(server.config.RootZonePublicKeyPath, server.caches.ZoneKeyCache,
+		server.config.MaxCacheValidity); err != nil {
 		log.Warn("Failed to load root zone public key")
 		return nil, err
 	}
@@ -76,9 +79,9 @@ func New(configPath string, logLevel int) (server *Server, err error) {
 //Start starts up the server and it begins to listen for incoming connections according to its
 //config.
 func (s *Server) Start() error {
-	go workPrio(s.queues.Prio, s.queues.PrioW, s.shutdown)
-	go workBoth(s.queues.Prio, s.queues.Normal, s.queues.PrioW, s.queues.NormalW, s.shutdown)
-	go workNotification(s.queues.Notify, s.queues.NotifyW, s.shutdown, s.caches, s.config.ServerAddress, s.capabilityList)
+	go s.workPrio()
+	go s.workBoth()
+	go s.workNotification()
 	initReapers(s.config, s.caches, s.shutdown)
 	log.Debug("Goroutines working on input queue started")
 	//TODO init engine
@@ -94,7 +97,7 @@ func (s *Server) Start() error {
 		go t.SendLoop()
 	}
 	log.Debug("successfully initialized tracer")*/
-	Listen(s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)
+	s.listen()
 	return nil
 }
 
@@ -167,4 +170,41 @@ func initOwnCapabilities(capabilities []message.Capability) (string, string) {
 		cs[i] = string(c)
 	}
 	return capabilityHash, strings.Join(cs, " ")
+}
+
+//loadRootZonePublicKey stores the root zone public key from disk into the zoneKeyCache.
+func loadRootZonePublicKey(keyPath string, zoneKeyCache zonePublicKeyCache, maxValidity util.MaxCacheValidity) error {
+	a := new(section.Assertion)
+	err := util.Load(keyPath, a)
+	if err != nil {
+		log.Warn("Failed to load root zone public key", "err", err)
+		return err
+	}
+	log.Info("Content loaded from root zone public key", "a", a)
+	var keysAdded int
+	for _, c := range a.Content {
+		if c.Type == object.OTDelegation {
+			if publicKey, ok := c.Value.(keys.PublicKey); ok {
+				keyMap := make(map[keys.PublicKeyID][]keys.PublicKey)
+				keyMap[publicKey.PublicKeyID] = []keys.PublicKey{publicKey}
+				if validateSignatures(a, keyMap, maxValidity) {
+					if ok := zoneKeyCache.Add(a, publicKey, true); !ok {
+						return errors.New("Cache is smaller than the amount of root public keys")
+					}
+					log.Info("Added root public key to zone key cache.",
+						"context", a.Context,
+						"zone", a.SubjectZone,
+						"RootPublicKey", c.Value,
+					)
+					keysAdded++
+				} else {
+					return fmt.Errorf("Failed to validate signature for assertion: %v", a)
+				}
+			} else {
+				log.Warn(fmt.Sprintf("Was not able to cast to keys.PublicKey Got Type:%T", c.Value))
+			}
+		}
+	}
+	log.Info("Keys added to zoneKeyCache", "count", keysAdded)
+	return err
 }

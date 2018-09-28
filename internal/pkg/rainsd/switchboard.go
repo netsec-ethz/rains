@@ -6,6 +6,7 @@ package rainsd
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
@@ -19,34 +20,32 @@ import (
 )
 
 //sendTo sends message to the specified receiver.
-func sendTo(msg message.Message, receiver connection.Info, retries, backoffMilliSeconds int,
-	prioChannel chan msgSectionSender, normalChannel chan msgSectionSender,
-	notificationChannel chan msgSectionSender, pendingKeys pendingKeyCache) (err error) {
-	conns, ok := connCache.GetConnection(receiver)
+func (s *Server) sendTo(msg message.Message, receiver connection.Info, retries,
+	backoffMilliSeconds int) (err error) {
+	conns, ok := s.caches.ConnCache.GetConnection(receiver)
 	if !ok {
-		conn, err := createConnection(receiver)
+		conn, err := createConnection(receiver, s.config.KeepAlivePeriod, s.certPool)
 		//add connection to cache
 		conns = append(conns, conn)
 		if err != nil {
 			log.Warn("Could not establish connection", "error", err, "receiver", receiver)
 			return err
 		}
-		connCache.AddConnection(conn)
+		s.caches.ConnCache.AddConnection(conn)
 		//handle connection
 		if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-			go handleConnection(conn, connection.Info{Type: connection.TCP, TCPAddr: tcpAddr},
-				prioChannel, normalChannel, notificationChannel, pendingKeys)
+			go s.handleConnection(conn, connection.Info{Type: connection.TCP, TCPAddr: tcpAddr})
 		} else {
 			log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 		}
 		//add capabilities to message
-		msg.Capabilities = []message.Capability{message.Capability(capabilityHash)}
+		msg.Capabilities = []message.Capability{message.Capability(s.capabilityHash)}
 	}
 	for _, conn := range conns {
 		writer := cbor.NewWriter(conn)
 		if err := writer.Marshal(&msg); err != nil {
 			log.Warn(fmt.Sprintf("failed to marshal message to conn: %v", err))
-			connCache.CloseAndRemoveConnection(conn)
+			s.caches.ConnCache.CloseAndRemoveConnection(conn)
 			continue
 		}
 		log.Debug("Send successful", "receiver", receiver)
@@ -54,35 +53,34 @@ func sendTo(msg message.Message, receiver connection.Info, retries, backoffMilli
 	}
 	if retries > 0 {
 		time.Sleep(time.Duration(backoffMilliSeconds) * time.Millisecond)
-		return sendTo(msg, receiver, retries-1, 2*backoffMilliSeconds, prioChannel, normalChannel,
-			notificationChannel)
+		return s.sendTo(msg, receiver, retries-1, 2*backoffMilliSeconds)
 	}
 	log.Error("Was not able to send the message. No retries left.", "receiver", receiver)
 	return errors.New("Was not able to send the mesage. No retries left")
 }
 
 //createConnection establishes a connection with receiver
-func createConnection(receiver connection.Info) (net.Conn, error) {
+func createConnection(receiver connection.Info, keepAlive time.Duration, pool *x509.CertPool) (net.Conn, error) {
 	switch receiver.Type {
 	case connection.TCP:
 		dialer := &net.Dialer{
-			KeepAlive: Config.KeepAlivePeriod,
+			KeepAlive: keepAlive,
 		}
-		return tls.DialWithDialer(dialer, receiver.TCPAddr.Network(), receiver.String(), &tls.Config{RootCAs: roots, InsecureSkipVerify: true})
+		return tls.DialWithDialer(dialer, receiver.TCPAddr.Network(), receiver.String(), &tls.Config{RootCAs: pool, InsecureSkipVerify: true})
 	default:
 		return nil, errors.New("No matching type found for Connection info")
 	}
 }
 
 //Listen listens for incoming connections and creates a go routine for each connection.
-func Listen(prioChannel chan msgSectionSender, normalChannel chan msgSectionSender,
-	notificationChannel chan msgSectionSender, pendingKeys pendingKeyCache) {
-	srvLogger := log.New("addr", serverConnInfo.String())
-	switch serverConnInfo.Type {
+func (s *Server) listen() {
+	srvLogger := log.New("addr", s.config.ServerAddress.String())
+	switch s.config.ServerAddress.Type {
 	case connection.TCP:
 		srvLogger.Info("Start TCP listener")
-		tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}, InsecureSkipVerify: true}
-		listener, err := tls.Listen(serverConnInfo.TCPAddr.Network(), serverConnInfo.String(), tlsConfig)
+		tlsConfig := &tls.Config{Certificates: []tls.Certificate{s.tlsCert}, InsecureSkipVerify: true}
+		listener, err := tls.Listen(s.config.ServerAddress.TCPAddr.Network(),
+			s.config.ServerAddress.String(), tlsConfig)
 		if err != nil {
 			srvLogger.Error("Listener error on startup", "error", err)
 			return
@@ -98,10 +96,9 @@ func Listen(prioChannel chan msgSectionSender, normalChannel chan msgSectionSend
 			if isIPBlacklisted(conn.RemoteAddr()) {
 				continue
 			}
-			connCache.AddConnection(conn)
+			s.caches.ConnCache.AddConnection(conn)
 			if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-				go handleConnection(conn, connection.Info{Type: connection.TCP, TCPAddr: tcpAddr},
-					prioChannel, normalChannel, notificationChannel, pendingKeys)
+				go s.handleConnection(conn, connection.Info{Type: connection.TCP, TCPAddr: tcpAddr})
 			} else {
 				log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 			}
@@ -112,8 +109,7 @@ func Listen(prioChannel chan msgSectionSender, normalChannel chan msgSectionSend
 }
 
 //handleConnection deframes all incoming messages on conn and passes them to the inbox along with the dstAddr
-func handleConnection(conn net.Conn, dstAddr connection.Info, prioChannel chan msgSectionSender,
-	normalChannel chan msgSectionSender, notificationChannel chan msgSectionSender, pendingKeys pendingKeyCache) {
+func (s *Server) handleConnection(conn net.Conn, dstAddr connection.Info) {
 	var msg message.Message
 	reader := cbor.NewReader(conn)
 	for {
@@ -123,9 +119,9 @@ func handleConnection(conn net.Conn, dstAddr connection.Info, prioChannel chan m
 			break
 		}
 		deliver(&msg, connection.Info{Type: connection.TCP, TCPAddr: conn.RemoteAddr().(*net.TCPAddr)},
-			prioChannel, normalChannel, notificationChannel, pendingKeys)
+			s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)
 	}
-	connCache.CloseAndRemoveConnection(conn)
+	s.caches.ConnCache.CloseAndRemoveConnection(conn)
 }
 
 //isIPBlacklisted returns true if addr is blacklisted

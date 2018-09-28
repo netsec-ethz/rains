@@ -112,37 +112,36 @@ func isZoneBlacklisted(zone string) bool {
 //workBoth works on the prioChannel and on the normalChannel. A worker only fetches a message from
 //the normalChannel if the prioChannel is empty. the channel normalWorkers enforces a maximum number
 //of go routines working on the prioChannel and normalChannel.
-func workBoth(prioChannel chan msgSectionSender, normalChannel chan msgSectionSender,
-	prioWorkers chan struct{}, normalWorkers chan struct{}, stop chan bool) {
+func (s *Server) workBoth() {
 	for {
 		select {
-		case <-stop:
-			close(normalWorkers)
-			close(normalChannel)
+		case <-s.shutdown:
+			close(s.queues.Normal)
+			close(s.queues.NormalW)
 			return
 		default:
 		}
-		normalWorkers <- struct{}{}
+		s.queues.NormalW <- struct{}{}
 		select {
-		case msg := <-prioChannel:
-			go prioWorkerHandler(msg, prioWorkers, false)
+		case msg := <-s.queues.Prio:
+			go prioWorkerHandler(s, msg, false)
 			continue
 		default:
 			//do nothing
 		}
 		select {
-		case msg := <-normalChannel:
-			go normalWorkerHandler(msg, normalWorkers)
+		case msg := <-s.queues.Normal:
+			go normalWorkerHandler(s, msg)
 		default:
-			<-normalWorkers
+			<-s.queues.NormalW
 		}
 	}
 }
 
 //normalWorkerHandler handles sections on the normalChannel
-func normalWorkerHandler(msg msgSectionSender, normalWorkers <-chan struct{}) {
-	verify(msg)
-	<-normalWorkers
+func normalWorkerHandler(s *Server, msg msgSectionSender) {
+	s.verify(msg)
+	<-s.queues.NormalW
 }
 
 //workPrio works on the prioChannel. It waits on the prioChannel and creates a new go routine which handles the section.
@@ -153,51 +152,49 @@ func normalWorkerHandler(msg msgSectionSender, normalWorkers <-chan struct{}) {
 //3) For each non-delegation query that gets taken off the queue a new non-delegation query or expired
 //   delegation query wins against all waiting valid delegation-queries.
 //4) Then although the server is working all the time, no section is added to the caches.
-func workPrio(prioChannel chan msgSectionSender, prioWorkers chan struct{}, stop chan bool) {
+func (s *Server) workPrio() {
 	for {
 		select {
-		case <-stop:
-			close(prioWorkers)
-			close(prioChannel)
+		case <-s.shutdown:
+			close(s.queues.Prio)
+			close(s.queues.PrioW)
 			return
 		default:
 		}
-		prioWorkers <- struct{}{}
-		msg := <-prioChannel
-		go prioWorkerHandler(msg, prioWorkers, true)
+		s.queues.PrioW <- struct{}{}
+		msg := <-s.queues.Prio
+		go prioWorkerHandler(s, msg, true)
 	}
 }
 
 //prioWorkerHandler handles sections on the prioChannel
-func prioWorkerHandler(msg msgSectionSender, prioWorkers <-chan struct{}, prioWorker bool) {
-	verify(msg)
+func prioWorkerHandler(s *Server, msg msgSectionSender, prioWorker bool) {
+	s.verify(msg)
 	if prioWorker {
-		<-prioWorkers
+		<-s.queues.PrioW
 	}
 }
 
 //workNotification works on the notificationChannel. It waits on the notificationChannel and creates
 //a new go routine which handles the notification. the channel notificationWorkers enforces a
 //maximum number of go routines working on the notificationChannel
-func workNotification(notificationChannel chan msgSectionSender, notificationWorkers chan struct{},
-	stop chan bool, caches *Caches, serverConnInfo connection.Info, capabilityList string) {
+func (s *Server) workNotification() {
 	for {
 		select {
-		case <-stop:
-			close(notificationWorkers)
-			close(notificationChannel)
+		case <-s.shutdown:
+			close(s.queues.Notify)
+			close(s.queues.NotifyW)
 			return
 		default:
 		}
-		notificationWorkers <- struct{}{}
-		msg := <-notificationChannel
-		go handleNotification(msg, notificationWorkers, caches, serverConnInfo, capabilityList)
+		s.queues.NotifyW <- struct{}{}
+		msg := <-s.queues.Notify
+		go handleNotification(s, msg)
 	}
 }
 
 //handleNotification works on notificationChannel.
-func handleNotification(msg msgSectionSender, notificationWorkers <-chan struct{},
-	caches *Caches, serverConnInfo connection.Info, capabilityList string) {
-	notify(msg, caches, serverConnInfo, capabilityList)
-	<-notificationWorkers
+func handleNotification(s *Server, msg msgSectionSender) {
+	s.notify(msg)
+	<-s.queues.NormalW
 }
