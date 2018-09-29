@@ -27,7 +27,7 @@ import (
 func (s *Server) verify(msgSender msgSectionSender) {
 	log.Info(fmt.Sprintf("Verify %T", msgSender.Section), "msgSection", msgSender.Section)
 	switch msgSender.Section.(type) {
-	case *section.Assertion, *section.Shard, *section.Zone,
+	case *section.Assertion, *section.Shard, *section.Pshard, *section.Zone,
 		*section.AddrAssertion:
 		sectionSender := sectionWithSigSender{
 			Section: msgSender.Section.(section.WithSig),
@@ -38,6 +38,7 @@ func (s *Server) verify(msgSender msgSectionSender) {
 	case *query.Address, *query.Name:
 		log.Info("Received Query")
 		verifyQuery(msgSender.Section.(section.Query), msgSender, s)
+		//TODO CFE add update queries
 	default:
 		log.Warn("Not supported Msg section to verify", "msgSection", msgSender)
 	}

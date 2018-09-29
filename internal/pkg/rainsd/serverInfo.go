@@ -246,6 +246,10 @@ type negativeAssertionCache interface {
 	//the cache. It returns false if the cache is full and a non internal element has been removed
 	//according to some strategy. It also adds shard to the consistency cache.
 	AddShard(shard *section.Shard, expiration int64, isInternal bool) bool
+	//Add adds pshard together with an expiration time (number of seconds since 01.01.1970) to
+	//the cache. It returns false if the cache is full and a non internal element has been removed
+	//according to some strategy. It also adds shard to the consistency cache.
+	AddPshard(pshard *section.Pshard, expiration int64, isInternal bool) bool
 	//Add adds zone together with an expiration time (number of seconds since 01.01.1970) to
 	//the cache. It returns false if the cache is full and a non internal element has been removed
 	//according to some strategy. It also adds zone to the consistency cache.

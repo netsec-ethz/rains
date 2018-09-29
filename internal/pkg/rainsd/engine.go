@@ -78,6 +78,10 @@ func addSectionToCache(sec section.WithSig, isAuthoritative bool, assertionsCach
 		if shouldShardBeCached(sec) {
 			addShardToCache(sec, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
 		}
+	case *section.Pshard:
+		if shouldPshardBeCached(sec) {
+			addPshardToCache(sec, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
+		}
 	case *section.Zone:
 		if shouldZoneBeCached(sec) {
 			addZoneToCache(sec, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
@@ -101,6 +105,13 @@ func shouldAssertionBeCached(assertion *section.Assertion) bool {
 //shouldShardBeCached returns true if shard should be cached
 func shouldShardBeCached(shard *section.Shard) bool {
 	log.Info("Shard will be cached", "shard", shard)
+	//TODO CFE implement when necessary
+	return true
+}
+
+//shouldShardBeCached returns true if shard should be cached
+func shouldPshardBeCached(pshard *section.Pshard) bool {
+	log.Info("Shard will be cached", "shard", pshard)
 	//TODO CFE implement when necessary
 	return true
 }
@@ -154,6 +165,13 @@ func addShardToCache(shard *section.Shard, isAuthoritative bool, assertionsCache
 			addAssertionToCache(a, isAuthoritative, assertionsCache, zoneKeyCache)
 		}
 	}
+}
+
+//addPshardToCache adds pshard to the negAssertion cache
+func addPshardToCache(pshard *section.Pshard, isAuthoritative bool, assertionsCache assertionCache,
+	negAssertionCache negativeAssertionCache, zoneKeyCache zonePublicKeyCache) {
+	negAssertionCache.AddPshard(pshard, pshard.ValidUntil(), isAuthoritative)
+	log.Debug("Added pshard to cache", "pshard", *pshard)
 }
 
 //addZoneToCache adds zone and all contained shards to the negAssertion cache and all contained

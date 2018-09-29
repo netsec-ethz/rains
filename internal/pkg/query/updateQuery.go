@@ -37,6 +37,10 @@ func (q *AssertionUpdate) String() string {
 		q.Name, q.HashType, hex.EncodeToString(q.HashValue), q.Expiration, q.Options)
 }
 
+func (q *AssertionUpdate) Sort() {
+	//TODO CFE to implement
+}
+
 type NegUpdate struct {
 	Context     string
 	Name        string
@@ -66,4 +70,8 @@ func (q *NegUpdate) String() string {
 	return fmt.Sprintf("AssertionUpdateQuery:[CTX=%s NA=%s OTYPE=%v HTYPE=%v VAL=%s EXP=%d OPT=%v]",
 		q.Context, q.Name, q.ObjectTypes, q.HashType, hex.EncodeToString(q.HashValue), q.Expiration,
 		q.Options)
+}
+
+func (q *NegUpdate) Sort() {
+	//TODO CFE to implement
 }

@@ -1043,6 +1043,13 @@ func (c *negativeAssertionCacheImpl) AddShard(shard *section.Shard, expiration i
 	return add(c, shard, expiration, isInternal)
 }
 
+//Add adds a pshard together with an expiration time (number of seconds since 01.01.1970) to
+//the cache. It returns false if the cache is full and an element was removed according to least
+//recently used strategy. It also adds shard to the consistency cache.
+func (c *negativeAssertionCacheImpl) AddPshard(pshard *section.Pshard, expiration int64, isInternal bool) bool {
+	return add(c, pshard, expiration, isInternal)
+}
+
 //Add adds a zone together with an expiration time (number of seconds since 01.01.1970) to
 //the cache. It returns false if the cache is full and an element was removed according to least
 //recently used strategy. It also adds zone to the consistency cache.
