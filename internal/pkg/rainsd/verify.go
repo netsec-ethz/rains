@@ -3,11 +3,17 @@ package rainsd
 import (
 	"fmt"
 	"math"
+	"net"
+	"strings"
+	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 
 	log "github.com/inconshreveable/log15"
@@ -23,40 +29,39 @@ func (s *Server) verify(msgSender msgSectionSender) {
 	switch msgSender.Section.(type) {
 	case *section.Assertion, *section.Shard, *section.Zone,
 		*section.AddrAssertion:
-		/*sectionSender := sectionWithSigSender{
+		sectionSender := sectionWithSigSender{
 			Section: msgSender.Section.(section.WithSig),
 			Sender:  msgSender.Sender,
 			Token:   msgSender.Token,
 		}
-		verifySection(sectionSender)*/
+		verifySection(sectionSender, s)
 	case *query.Address, *query.Name:
 		log.Info("Received Query")
-		//verifyQuery(msgSender.Section.(section.Query), msgSender)
+		verifyQuery(msgSender.Section.(section.Query), msgSender, s)
 	default:
 		log.Warn("Not supported Msg section to verify", "msgSection", msgSender)
 	}
 }
 
-/*
 //verifySection forwards the received section protected by signature(s) to be processed if it is
 //consistent, all nonexpired signatures verify and there is at least one non expired signature.
-func verifySection(sectionSender sectionWithSigSender) {
+func verifySection(sectionSender sectionWithSigSender, s *Server) {
 	if !sectionSender.Section.IsConsistent() {
 		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, section.NTRcvInconsistentMsg,
-			"contained section has context or subjectZone")
+			"contained section has context or subjectZone", s)
 		return //already logged, that contained section is invalid
 	}
 	if contextInvalid(sectionSender.Section.GetContext()) {
 		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, section.NTRcvInconsistentMsg,
-			"invalid context")
+			"invalid context", s)
 		return //already logged, that context is invalid
 	}
 	if zone, ok := sectionSender.Section.(*section.Zone); ok && !containedShardsAreConsistent(zone) {
 		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, section.NTRcvInconsistentMsg,
-			"contained sections are inconsistent with outer section")
+			"contained sections are inconsistent with outer section", s)
 		return //already logged, that the zone is internally invalid
 	}
-	if verifySignatures(sectionSender) {
+	if verifySignatures(sectionSender, s) {
 		assert(sectionSender, authoritative[zoneContext{
 			Zone:    sectionSender.Section.GetSubjectZone(),
 			Context: sectionSender.Section.GetContext(),
@@ -65,9 +70,10 @@ func verifySection(sectionSender sectionWithSigSender) {
 }
 
 //verifyQuery forwards the received query to be processed if it is consistent and not expired.
-func verifyQuery(query section.Query, msgSender msgSectionSender) {
+func verifyQuery(query section.Query, msgSender msgSectionSender, s *Server) {
 	if contextInvalid(query.GetContext()) {
-		sendNotificationMsg(msgSender.Token, msgSender.Sender, section.NTRcvInconsistentMsg, "invalid context")
+		sendNotificationMsg(msgSender.Token, msgSender.Sender, section.NTRcvInconsistentMsg,
+			"invalid context", s)
 		return //already logged, that context is invalid
 	}
 	if !isQueryExpired(query.GetExpiration()) {
@@ -98,24 +104,26 @@ func isQueryExpired(expires int64) bool {
 //signatures. If a public key is missing a query is issued and the section is added to the pending
 //key cache. It returns false if there is no signature left on the message or when at least one
 //public keys is missing.
-func verifySignatures(sectionSender sectionWithSigSender) bool {
+func verifySignatures(sectionSender sectionWithSigSender, s *Server) bool {
 	section := sectionSender.Section
 	keysNeeded := make(map[signature.MetaData]bool)
 	section.NeededKeys(keysNeeded)
 	log.Debug("verifySignatures", "KeysNeeded", keysNeeded)
-	publicKeys, missingKeys, ok := publicKeysPresent(section.GetSubjectZone(), section.GetContext(), keysNeeded)
+	publicKeys, missingKeys, ok := publicKeysPresent(section.GetSubjectZone(), section.GetContext(),
+		keysNeeded, s.caches.ZoneKeyCache, s.caches.RevZoneKeyCache)
 	if ok {
 		log.Info("All public keys are present.", "msgSectionWithSig", section)
 		addZoneAndContextToContainedSections(section)
-		return validSignature(section, publicKeys)
+		return validSignature(section, publicKeys, s.config.MaxCacheValidity)
 	}
-	handleMissingKeys(sectionSender, missingKeys)
+	handleMissingKeys(sectionSender, missingKeys, s)
 	return false
 }
 
 //publicKeysPresent returns true if all public keys are already cached for sigs.
 //It also returns the set of cached publicKeys and a set of the missing publicKey identifiers
-func publicKeysPresent(zone, context string, sigMetaData map[signature.MetaData]bool) (
+func publicKeysPresent(zone, context string, sigMetaData map[signature.MetaData]bool,
+	zoneKeyCache zonePublicKeyCache, revZoneKeyCache revZonePublicKeyCache) (
 	map[keys.PublicKeyID][]keys.PublicKey, map[signature.MetaData]bool, bool) {
 	keys := make(map[keys.PublicKeyID][]keys.PublicKey)
 	missingKeys := make(map[signature.MetaData]bool)
@@ -170,27 +178,28 @@ func addZoneAndContextToContainedSections(sec section.WithSig) {
 //validSignature validates section's signatures and strips all expired signatures away. Returns
 //false if there are no signatures left (not considering internal sections) or if at least one
 //signature is invalid (due to incorrect signature)
-func validSignature(sec section.WithSig, keys map[keys.PublicKeyID][]keys.PublicKey) bool {
+func validSignature(sec section.WithSig, keys map[keys.PublicKeyID][]keys.PublicKey,
+	maxValidity util.MaxCacheValidity) bool {
 	switch sec := sec.(type) {
 	case *section.Assertion, *section.AddrAssertion:
-		return validateSignatures(sec, keys)
+		return validateSignatures(sec, keys, maxValidity)
 	case *section.Shard:
-		return validShardSignatures(sec, keys)
+		return validShardSignatures(sec, keys, maxValidity)
 	case *section.Zone:
-		return validZoneSignatures(sec, keys)
+		return validZoneSignatures(sec, keys, maxValidity)
 	default:
 		log.Warn("Not supported Msg Section")
 		return false
 	}
 }
 
-
-
 //validShardSignatures validates all signatures on the shard and contained assertions. It returns
 //false if there is a signatures that does not verify. It removes the context and subjectZone of all
 //contained assertions (which were necessary for signature verification)
-func validShardSignatures(section *section.Shard, keys map[keys.PublicKeyID][]keys.PublicKey) bool {
-	if !validateSignatures(section, keys) || !validContainedAssertions(section.Content, keys) {
+func validShardSignatures(section *section.Shard, keys map[keys.PublicKeyID][]keys.PublicKey,
+	maxValidity util.MaxCacheValidity) bool {
+	if !validateSignatures(section, keys, maxValidity) ||
+		!validContainedAssertions(section.Content, keys, maxValidity) {
 		return false
 	}
 	return true
@@ -199,19 +208,20 @@ func validShardSignatures(section *section.Shard, keys map[keys.PublicKeyID][]ke
 //validZoneSignatures validates all signatures on the zone and contained assertions and shards. It
 //returns false if there is a signatures that does not verify. It removes the subjectZone and
 //context of all contained assertions and shards (which were necessary for signature verification)
-func validZoneSignatures(zone *section.Zone, keys map[keys.PublicKeyID][]keys.PublicKey) bool {
-	if !validateSignatures(zone, keys) {
+func validZoneSignatures(zone *section.Zone, keys map[keys.PublicKeyID][]keys.PublicKey,
+	maxValidity util.MaxCacheValidity) bool {
+	if !validateSignatures(zone, keys, maxValidity) {
 		return false
 	}
 	for _, s := range zone.Content {
 		switch sec := s.(type) {
 		case *section.Assertion:
-			if !validContainedAssertions([]*section.Assertion{sec}, keys) {
+			if !validContainedAssertions([]*section.Assertion{sec}, keys, maxValidity) {
 				return false
 			}
 		case *section.Shard:
-			if !siglib.CheckSectionSignatures(sec, keys, sigEncoder, Config.MaxCacheValidity) ||
-				!validContainedAssertions(sec.Content, keys) {
+			if !siglib.CheckSectionSignatures(sec, keys, maxValidity) ||
+				!validContainedAssertions(sec.Content, keys, maxValidity) {
 				return false
 			}
 			sec.Context = ""
@@ -227,9 +237,10 @@ func validZoneSignatures(zone *section.Zone, keys map[keys.PublicKeyID][]keys.Pu
 //validContainedAssertions validates all signatures on assertions. It returns false if there is a
 //signature that does not verify. It removes the subjectZone and context of all contained assertions
 //(which were necessary for signature verification)
-func validContainedAssertions(assertions []*section.Assertion, keys map[keys.PublicKeyID][]keys.PublicKey) bool {
+func validContainedAssertions(assertions []*section.Assertion,
+	keys map[keys.PublicKeyID][]keys.PublicKey, maxValidity util.MaxCacheValidity) bool {
 	for _, assertion := range assertions {
-		if !siglib.CheckSectionSignatures(assertion, keys, sigEncoder, Config.MaxCacheValidity) {
+		if !siglib.CheckSectionSignatures(assertion, keys, maxValidity) {
 			return false
 		}
 		assertion.Context = ""
@@ -240,16 +251,16 @@ func validContainedAssertions(assertions []*section.Assertion, keys map[keys.Pub
 
 //handleMissingKeys adds sectionSender to the pending key cache and sends a delegation query if
 //necessary
-func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[signature.MetaData]bool) {
+func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[signature.MetaData]bool, s *Server) {
 	section := sectionSender.Section
 	log.Info("Some public keys are missing. Add section to pending signature cache",
 		"#missingKeys", len(missingKeys), "section", section)
 	for k := range missingKeys {
 		log.Info("MissingKeys", "key", k)
-		if sendQuery := pendingKeys.Add(sectionSender, k.Algorithm, k.KeyPhase); sendQuery {
+		if sendQuery := s.caches.PendingKeys.Add(sectionSender, k.Algorithm, k.KeyPhase); sendQuery {
 			token := token.New()
-			exp := getQueryValidity(section.Sigs(keys.RainsKeySpace))
-			if ok := pendingKeys.AddToken(token, exp, sectionSender.Sender,
+			exp := getQueryValidity(section.Sigs(keys.RainsKeySpace), s.config.DelegationQueryValidity)
+			if ok := s.caches.PendingKeys.AddToken(token, exp, sectionSender.Sender,
 				section.GetSubjectZone(), section.GetContext()); ok {
 				query := &query.Name{
 					Name:       section.GetSubjectZone(),
@@ -257,7 +268,7 @@ func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[signa
 					Expiration: exp,
 					Types:      []object.Type{object.OTDelegation},
 				}
-				sendSection(query, token, getRootAddr())
+				sendSection(query, token, getRootAddr(), s)
 				continue
 			}
 		}
@@ -268,20 +279,19 @@ func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[signa
 
 //getQueryValidity returns the expiration value for a delegation query. It is either a configured
 //upper bound or if smaller the longest validity time of all present signatures.
-func getQueryValidity(sigs []signature.Sig) (validity int64) {
+func getQueryValidity(sigs []signature.Sig, delegQValidity time.Duration) (validity int64) {
 	for _, sig := range sigs {
 		if sig.ValidUntil > validity {
 			validity = sig.ValidUntil
 		}
 	}
 	//upper bound the validity time
-	upperBound := time.Now().Add(Config.DelegationQueryValidity).Unix()
+	upperBound := time.Now().Add(delegQValidity).Unix()
 	if validity > upperBound {
 		validity = upperBound
 	}
 	return validity
 }
-*/
 
 //validateSignatures returns true if all non expired signatures of section are valid and there is at
 //least one signature valid before Config.MaxValidity. It removes valid signatures that are expired
