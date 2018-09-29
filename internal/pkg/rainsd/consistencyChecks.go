@@ -1,8 +1,18 @@
 package rainsd
 
+import (
+	"fmt"
+	"sort"
+	"sync"
+
+	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
+)
+
 //isAssertionConsistent checks if the incoming assertion is consistent with the elements in the cache.
 //If not, every element of this zone and context is dropped and it returns false
-/*func isAssertionConsistent(assertion *section.Assertion) bool {
+func isAssertionConsistent(assertion *section.Assertion, consistCache consistencyCache,
+	assertionsCache assertionCache, negAssertionCache negativeAssertionCache) bool {
 	negAssertions := consistCache.Get(assertion.Context, assertion.SubjectZone, assertion)
 	for _, negAssertion := range negAssertions {
 		switch negAssertion := negAssertion.(type) {
@@ -11,12 +21,12 @@ package rainsd
 		case *section.Shard:
 			if togetherValid(assertion, negAssertion) && !shardContainsAssertion(assertion, negAssertion) {
 				log.Warn("Inconsistency encountered between assertion and shard. Drop all sections for given context and zone.", "assertion", assertion, "shard", negAssertion)
-				dropAllWithContextZone(assertion.Context, assertion.SubjectZone)
+				dropAllWithContextZone(assertion.Context, assertion.SubjectZone, assertionsCache, negAssertionCache)
 				return false
 			}
 		case *section.Zone:
 			if togetherValid(assertion, negAssertion) && !zoneContainsAssertion(assertion, negAssertion) {
-				dropAllWithContextZone(assertion.Context, assertion.SubjectZone)
+				dropAllWithContextZone(assertion.Context, assertion.SubjectZone, assertionsCache, negAssertionCache)
 				return false
 			}
 		default:
@@ -28,23 +38,24 @@ package rainsd
 
 //isShardConsistent checks if the incoming shard is consistent with the elements in the cache.
 //If not every element of this zone is dropped and it return false
-func isShardConsistent(shard *section.Shard) bool {
+func isShardConsistent(shard *section.Shard, consistCache consistencyCache,
+	assertionsCache assertionCache, negAssertionCache negativeAssertionCache) bool {
 	secs := consistCache.Get(shard.Context, shard.SubjectZone, shard)
 	for _, v := range secs {
 		switch v := v.(type) {
 		case *section.Assertion:
 			if togetherValid(shard, v) && !shardContainsAssertion(v, shard) {
-				dropAllWithContextZone(shard.Context, shard.SubjectZone)
+				dropAllWithContextZone(shard.Context, shard.SubjectZone, assertionsCache, negAssertionCache)
 				return false
 			}
 		case *section.Shard:
 			if togetherValid(shard, v) && !isShardConsistentWithShard(shard, v) {
-				dropAllWithContextZone(shard.Context, shard.SubjectZone)
+				dropAllWithContextZone(shard.Context, shard.SubjectZone, assertionsCache, negAssertionCache)
 				return false
 			}
 		case *section.Zone:
 			if togetherValid(shard, v) && !isShardConsistentWithZone(shard, v) {
-				dropAllWithContextZone(shard.Context, shard.SubjectZone)
+				dropAllWithContextZone(shard.Context, shard.SubjectZone, assertionsCache, negAssertionCache)
 				return false
 			}
 		default:
@@ -56,24 +67,25 @@ func isShardConsistent(shard *section.Shard) bool {
 
 //isZoneConsistent checks if the incoming zone is consistent with the elements in the cache.
 //If not every element of this zone is dropped and it return false
-func isZoneConsistent(zone *section.Zone) bool {
+func isZoneConsistent(zone *section.Zone, assertionsCache assertionCache,
+	negAssertionCache negativeAssertionCache) bool {
 	secs, ok := negAssertionCache.Get(zone.Context, zone.SubjectZone, zone)
 	if ok {
 		for _, v := range secs {
 			switch v := v.(type) {
 			case *section.Assertion:
 				if togetherValid(zone, v) && !zoneContainsAssertion(v, zone) {
-					dropAllWithContextZone(zone.Context, zone.SubjectZone)
+					dropAllWithContextZone(zone.Context, zone.SubjectZone, assertionsCache, negAssertionCache)
 					return false
 				}
 			case *section.Shard:
 				if togetherValid(zone, v) && !isShardConsistentWithZone(v, zone) {
-					dropAllWithContextZone(zone.Context, zone.SubjectZone)
+					dropAllWithContextZone(zone.Context, zone.SubjectZone, assertionsCache, negAssertionCache)
 					return false
 				}
 			case *section.Zone:
 				if togetherValid(zone, v) && !isZoneConsistentWithZone(v, zone) {
-					dropAllWithContextZone(zone.Context, zone.SubjectZone)
+					dropAllWithContextZone(zone.Context, zone.SubjectZone, assertionsCache, negAssertionCache)
 					return false
 				}
 			default:
@@ -97,7 +109,8 @@ func togetherValid(s1, s2 section.WithSig) bool {
 }
 
 //dropAllWithContextZone deletes all assertions, shards and zones in the cache with the given context and zone
-func dropAllWithContextZone(context, zone string) {
+func dropAllWithContextZone(context, zone string, assertionsCache assertionCache,
+	negAssertionCache negativeAssertionCache) {
 	assertionsCache.RemoveZone(zone)
 	negAssertionCache.RemoveZone(zone)
 }
@@ -363,4 +376,4 @@ func (s *sortedAssertions) Equal(s2 *sortedAssertions) bool {
 		}
 	}
 	return true
-}*/
+}
