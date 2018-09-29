@@ -62,7 +62,7 @@ func verifySection(sectionSender sectionWithSigSender, s *Server) {
 		return //already logged, that the zone is internally invalid
 	}
 	if verifySignatures(sectionSender, s) {
-		assert(sectionSender, authoritative[zoneContext{
+		s.assert(sectionSender, s.authority[zoneContext{
 			Zone:    sectionSender.Section.GetSubjectZone(),
 			Context: sectionSender.Section.GetContext(),
 		}])
@@ -77,7 +77,7 @@ func verifyQuery(query section.Query, msgSender msgSectionSender, s *Server) {
 		return //already logged, that context is invalid
 	}
 	if !isQueryExpired(query.GetExpiration()) {
-		processQuery(msgSender)
+		s.processQuery(msgSender)
 	}
 }
 

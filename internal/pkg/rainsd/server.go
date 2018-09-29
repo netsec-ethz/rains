@@ -19,6 +19,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
+	"github.com/shirou/gopsutil/cpu"
 )
 
 //Server represents a rainsd server instance.
@@ -84,14 +85,15 @@ func New(configPath string, logLevel log.Lvl, id string) (server *Server, err er
 
 //Start starts up the server and it begins to listen for incoming connections according to its
 //config.
-func (s *Server) Start() error {
+func (s *Server) Start(monitorResources bool) error {
 	go s.workPrio()
 	go s.workBoth()
 	go s.workNotification()
 	initReapers(s.config, s.caches, s.shutdown)
 	log.Debug("Goroutines working on input queue started")
-	//TODO init engine
-	//initEngine()
+	if monitorResources {
+		go measureSystemRessources()
+	}
 	log.Debug("Successfully initiated engine")
 	// Initialize Rayhaan's tracer?
 	/*if traceAddr != "" {
@@ -226,4 +228,17 @@ func loadRootZonePublicKey(keyPath string, zoneKeyCache zonePublicKeyCache, maxV
 	}
 	log.Info("Keys added to zoneKeyCache", "count", keysAdded)
 	return err
+}
+
+//measureSystemRessources measures current cpu usage and updates enoughSystemRessources
+//TODO CFE make it configurable, experiment with different sampling rates
+func measureSystemRessources() {
+	for {
+		cpuStat, _ := cpu.Percent(time.Second/10, false)
+		enoughSystemRessources = cpuStat[0] < 75
+		if !enoughSystemRessources {
+			log.Warn("Not enough system resources to check for consistency")
+		}
+		time.Sleep(time.Second * 10)
+	}
 }
