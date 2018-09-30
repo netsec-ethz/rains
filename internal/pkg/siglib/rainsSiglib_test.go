@@ -88,10 +88,10 @@ func TestMarshalAssertion(t *testing.T) {
 	}
 	log.Info("Successful added sig", "sigLen", len(sec.AllSigs()))
 	newSig := sec.AllSigs()[0]
-	/*sec.DeleteSig(0)
+	sec.DeleteSig(0)
 	if len(sec.AllSigs()) != 0 {
 		t.Error("Not all sigs were deleted")
-	}*/
+	}
 	encoding := new(bytes.Buffer)
 	sec.MarshalCBOR(cbor.NewWriter(encoding))
 

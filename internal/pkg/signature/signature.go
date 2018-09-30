@@ -69,7 +69,10 @@ func (sig Sig) MarshalCBOR(w cbor.Writer) error {
 	// five values followed by additional elements containing the signature
 	// data itself, according to the algorithm identifier.
 	res := []interface{}{1, // FIXME: Hardcoded ED25519: there is no way to know what this is yet.
-		int(sig.KeySpace), sig.KeyPhase, sig.ValidSince, sig.ValidUntil, sig.Data}
+		int(sig.KeySpace), sig.KeyPhase, sig.ValidSince, sig.ValidUntil, []byte{}}
+	if data, ok := sig.Data.([]byte); ok && len(data) > 0 {
+		res[5] = sig.Data
+	}
 	return w.WriteArray(res)
 }
 
@@ -163,6 +166,8 @@ func (sig *Sig) VerifySignature(publicKey interface{}, encoding []byte) bool {
 		log.Warn("PublicKey is nil")
 		return false
 	}
+	sigData := sig.Data
+	sig.Data = []byte{}
 	sigEncoding := new(bytes.Buffer)
 	if err := sig.MarshalCBOR(cbor.NewWriter(sigEncoding)); err != nil {
 		log.Error("Was not able to cbor encode signature")
@@ -172,14 +177,14 @@ func (sig *Sig) VerifySignature(publicKey interface{}, encoding []byte) bool {
 	switch sig.Algorithm {
 	case algorithmTypes.Ed25519:
 		if pkey, ok := publicKey.(ed25519.PublicKey); ok {
-			return ed25519.Verify(pkey, encoding, sig.Data.([]byte))
+			return ed25519.Verify(pkey, encoding, sigData.([]byte))
 		}
 		log.Warn("Could not assert type ed25519.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
 	case algorithmTypes.Ed448:
 		log.Warn("Ed448 not yet Supported!")
 	case algorithmTypes.Ecdsa256:
 		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
-			if sig, ok := sig.Data.([]*big.Int); ok && len(sig) == 2 {
+			if sig, ok := sigData.([]*big.Int); ok && len(sig) == 2 {
 				hash := sha256.Sum256(encoding)
 				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])
 			}
@@ -189,7 +194,7 @@ func (sig *Sig) VerifySignature(publicKey interface{}, encoding []byte) bool {
 		log.Warn("Could not assert type ecdsa.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
 	case algorithmTypes.Ecdsa384:
 		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
-			if sig, ok := sig.Data.([]*big.Int); ok && len(sig) == 2 {
+			if sig, ok := sigData.([]*big.Int); ok && len(sig) == 2 {
 				hash := sha512.Sum384(encoding)
 				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])
 			}
