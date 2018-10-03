@@ -86,10 +86,22 @@ with a drop on the weekend according to [4]. But the granularity of [4] is the
 average per day. There is certainly a diurnal pattern as well and it is unclear
 how bursty it is.
 
-As for the second distribution we can use a Zipf distribution, modeling 
-
+As for the second distribution we can use a Zipf distribution. The Zipf's law
+state that the frequency of any word is inversely proportional to its rank in
+the frequency table [5]. This is in line with the fact, that there are few very
+popular web sites, some medium ones and a waste majority of infrequently visited
+ones.
+ 
 ### Topology characteristics
 
+As in the previous example, we need a distribution of query names. As a slightly
+simplified view, we can use the same zipf distribution as above. For a more
+accurate model, we would need to have better measurement tools and data. Next we
+have to distribute these queries to a number of clients. Then we have to
+generate query traces for each of these clients with timestamps and destination
+addresses. The timestamps will be chosen uniformly at random over the
+experimentation interval to get an overall balanced load. The destination
+address will be determined by the closest resolver a client has access to.
 
 ## Experiments
 
@@ -133,3 +145,4 @@ As for the second distribution we can use a Zipf distribution, modeling
 [2] domain name statistics https://www.verisign.com/en_US/domain-names/dnib/index.xhtml  
 [3] statics about number of queries per month per naming authority etc. https://www.icann.org/resources/pages/registry-reports  
 [4] Number of queries per second https://www.nic.ch/statistics/dns/
+[5] Zipf's law https://en.wikipedia.org/wiki/Zipf%27s_law
