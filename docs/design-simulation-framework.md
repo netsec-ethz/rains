@@ -66,6 +66,31 @@ according to a dynamics parameter.
 
 ## Query trace generator
 
+There are two different modes we want to simulate which ask for different
+information in the query trace(s). One where we evaluate the performance of a
+server and one where we evaluate the characteristics of different topologies.
+
+### Server performance
+
+To test the performance of a server, the delay to the querier does not matter
+and thus, his identity does not as well. We need a distribution of durations
+which describe when the next query arrives (query inter arrival time) and a
+distribution of how many times a name is queried.
+
+For the first we can use a poisson distribution for the amount of queries that
+will arrive in a given time interval assuming that the queries arrival time are
+independent of each other and that there is a constant rate per interval. The
+first assumption is given due to the large diversity of clients sending requests
+to a naming server while for the second one, it is pretty stable during the week
+with a drop on the weekend according to [4]. But the granularity of [4] is the
+average per day. There is certainly a diurnal pattern as well and it is unclear
+how bursty it is.
+
+As for the second distribution we can use a Zipf distribution, modeling 
+
+### Topology characteristics
+
+
 ## Experiments
 
 1) Signing time of assertion, shard, pshard, zone according to their size and
@@ -107,3 +132,4 @@ according to a dynamics parameter.
 [1] number of TLDs https://www.iana.org/domains/root/db  
 [2] domain name statistics https://www.verisign.com/en_US/domain-names/dnib/index.xhtml  
 [3] statics about number of queries per month per naming authority etc. https://www.icann.org/resources/pages/registry-reports  
+[4] Number of queries per second https://www.nic.ch/statistics/dns/
