@@ -26,11 +26,28 @@ A zone has the following characteristics:
 - Content: Distribution of assertion types.
 - Content size: Length distribution of its assertions, shards and zones.
 
-Some of these properties are correlated in most zones. e.g. a large zone size is
-more dynamic and has a smaller depth, small zones use a zone as non existence
-proofs while large ones are using shards, etc.
+Some of these properties are currently correlated in most zones. e.g. a large
+zone size is more dynamic and has a smaller depth, small zones use a zone as non
+existence proofs while large ones are using shards, etc.
 
-## Zone file generator(s)
+## Zone file(s) generator
+
+Due to lack of data and to experiment with new features requiring additional
+data, we need a way to generate zonefiles for our experiments that are close to
+reality. For large scale experiments, we need a zonefiles generator which
+creates a configurable amount of zonefiles according to a distribution that
+models the size/type of zones in the Internet. There are around 340 Million
+domains registered at the 1500 top level domains (TLDs) [1,2]. 150 Million are
+registered each at country-code TLDs and at .com together with .net. Most of the
+TLDs delegate parts of their namespace directly to customers, resulting in many
+small SLDs. A few TLDs, such as the uk, organize their SLDs according to the
+type of entity registering like academia and companies. There, the TLD zone is
+small but the SLD zones are large and contain many delegations to clients which
+are small again. ICANN publishes monthly reports of each TLD with some
+statistics about their operations [3] which we could use to model our zonefiles
+and query traces. As a rough approximation of the depth of the zones we can use
+a Zipf distribution with N = 10 and s = 4 where N is the max depth and s
+represents the exponent.
 
 ## Query trace generator
 
@@ -70,3 +87,8 @@ proofs while large ones are using shards, etc.
    Clients connect to closest dns server, cluster latency map to find good
    places to put dns server.
 8) same as 7)
+
+## Bibliography
+[1] number of TLDs https://www.iana.org/domains/root/db  
+[2] domain name statistics https://www.verisign.com/en_US/domain-names/dnib/index.xhtml  
+[3] statics about number of queries per month per naming authority etc. https://www.icann.org/resources/pages/registry-reports  
