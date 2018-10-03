@@ -47,7 +47,20 @@ are small again. ICANN publishes monthly reports of each TLD with some
 statistics about their operations [3] which we could use to model our zonefiles
 and query traces. As a rough approximation of the depth of the zones we can use
 a Zipf distribution with N = 10 and s = 4 where N is the max depth and s
-represents the exponent.
+represents the exponent. In each depth there are some large delegation zones,
+some middle sizes delegation zones and some small leaf zones. The ratio between
+these kind of zone types varies depending on the zones' depth.
+
+There will be four kinds of zonefile generators. A generic one that is highly
+configurable and one for each kind of zone type (small, middle, large) with
+reasonable default values. The name of the zone itself is an input parameter as
+there must be a delegation to it in the superordinate zone. The names within a
+zone are taken from a dictionary. If there is a distribution of the domain name
+length, it could be used instead to generate names accordingly as for most
+experiments the length is more important than the content as long as it is
+unique. The dynamics of a zone is not part of the zonefile generator. In case it
+is need there will be a zonefile modifier which alters the input zonefile
+according to a dynamics parameter.
 
 ## Query trace generator
 
