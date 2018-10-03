@@ -170,7 +170,7 @@ func SignSectionUnsafe(s section.WithSig, privateKey interface{}, sig signature.
 	}
 	encoding := new(bytes.Buffer)
 	if err := s.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
-		log.Warn("Was not able to marshal message.", "error", err)
+		log.Warn("Was not able to marshal section.", "error", err)
 		return false
 	}
 	log.Debug("Marshalling section successful")
@@ -198,8 +198,34 @@ func SignSection(s section.WithSig, privateKey interface{}, sig signature.Sig) b
 	if !ValidSectionAndSignature(s) {
 		return false
 	}
+	s.DeleteSig(0)
 	log.Debug("Checks before signing were successful")
 	return SignSectionUnsafe(s, privateKey, sig)
+}
+
+//SignMessageUnsafe signs a message with the given private Key and adds the resulting bytestring to
+//the given signature. The messages content must already be sorted. It does not check the
+//validity of the signature or the message. Returns false if the signature was not added to the
+//message.
+//FIXME: Note that this function only works if one signature is added. Otherwise the cbor
+//marshaller also adds the previous signature to encoding which leads to a different signature.
+func SignMessageUnsafe(msg *message.Message, privateKey interface{}, sig signature.Sig) bool {
+	if len(msg.Signatures) != 0 {
+		log.Error("Message must not contain a signature. FIXME")
+		return false
+	}
+	encoding := new(bytes.Buffer)
+	if err := msg.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
+		log.Warn("Was not able to marshal message.", "error", err)
+		return false
+	}
+	log.Debug("Marshalling section successful")
+	if err := (&sig).SignData(privateKey, encoding.Bytes()); err != nil {
+		log.Error(err.Error())
+		return false
+	}
+	msg.Signatures = append(msg.Signatures, sig)
+	return true
 }
 
 //SignMessage signs a message with the given private Key and adds the resulting bytestring to the given signature.
@@ -227,17 +253,7 @@ func SignMessage(msg *message.Message, privateKey interface{}, sig signature.Sig
 		return false
 	}
 	msg.Sort()
-	encoding := new(bytes.Buffer)
-	if err := msg.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
-		log.Warn("Was not able to marshal message.", "error", err)
-		return false
-	}
-	err := (&sig).SignData(privateKey, encoding.Bytes())
-	if err != nil {
-		return false
-	}
-	msg.Signatures = append(msg.Signatures, sig)
-	return true
+	return SignMessageUnsafe(msg, privateKey, sig)
 }
 
 //checkMessageStringFields returns true if the capabilities and all string fields in the contained

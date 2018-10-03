@@ -20,13 +20,43 @@ type Address struct {
 
 // UnmarshalMap decodes the output from the CBOR decoder into this struct.
 func (q *Address) UnmarshalMap(m map[int]interface{}) error {
-	//TODO CFE to implement
+	//FIXME subject addr does not work
+	_, q.SubjectAddr, _ = net.ParseCIDR(m[8].(string))
+	q.Context = m[6].(string)
+	q.Types = make([]object.Type, 0)
+	if types, ok := m[10]; ok {
+		for _, qt := range types.([]interface{}) {
+			q.Types = append(q.Types, object.Type(qt.(uint64)))
+		}
+	}
+	q.Expiration = int64(m[12].(uint64))
+	q.Options = make([]Option, 0)
+	if opts, ok := m[13]; ok {
+		for _, opt := range opts.([]interface{}) {
+			q.Options = append(q.Options, Option(opt.(uint64)))
+		}
+	}
 	return nil
 }
 
+// MarshalCBOR implements the CBORMarshaler interface.
 func (q *Address) MarshalCBOR(w cbor.Writer) error {
-	//TODO CFE to implement
-	return nil
+	m := make(map[int]interface{})
+	//FIXME subject addr does not work
+	m[8] = q.SubjectAddr.String()
+	m[6] = q.Context
+	qtypes := make([]int, len(q.Types))
+	for i, qtype := range q.Types {
+		qtypes[i] = int(qtype)
+	}
+	m[10] = qtypes
+	m[12] = q.Expiration
+	qopts := make([]int, len(q.Options))
+	for i, qopt := range q.Options {
+		qopts[i] = int(qopt)
+	}
+	m[13] = qopts
+	return w.WriteIntMap(m)
 }
 
 //GetContext returns q's context
