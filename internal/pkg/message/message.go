@@ -6,9 +6,7 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
-	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
-	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
@@ -57,10 +55,20 @@ func (rm *Message) MarshalCBOR(w cbor.Writer) error {
 			msgsect = append(msgsect, [2]interface{}{1, sect})
 		case *section.Shard:
 			msgsect = append(msgsect, [2]interface{}{2, sect})
+		case *section.Pshard:
+			msgsect = append(msgsect, [2]interface{}{7, sect})
 		case *section.Zone:
 			msgsect = append(msgsect, [2]interface{}{3, sect})
+		case *section.AddrAssertion:
+			msgsect = append(msgsect, [2]interface{}{-1, sect})
 		case *query.Name:
 			msgsect = append(msgsect, [2]interface{}{4, sect})
+		case *query.Address:
+			msgsect = append(msgsect, [2]interface{}{-4, sect})
+		case *query.AssertionUpdate:
+			msgsect = append(msgsect, [2]interface{}{5, sect})
+		case *query.NegUpdate:
+			msgsect = append(msgsect, [2]interface{}{6, sect})
 		case *section.Notification:
 			msgsect = append(msgsect, [2]interface{}{23, sect})
 		default:
@@ -86,31 +94,11 @@ func (rm *Message) UnmarshalCBOR(r cbor.Reader) error {
 	}
 	// Read the signatures
 	if sigs, ok := m[0]; ok {
-		rm.Signatures = make([]signature.Sig, 0)
-		// RAINS signatures have five common elements: the algorithm
-		// identifier, a keyspace identifier, a keyphase identifier, a
-		// valid-since timestamp, and a valid-until timestamp. Signatures are
-		// represented as an array of these five values followed by additional
-		// elements containing the signature data itself, according to the
-		// algorithm identifier.
-		for _, sig := range sigs.([][]interface{}) {
-			alg := sig[0].(algorithmTypes.Signature)
-			ks := sig[1].(keys.KeySpaceID)
-			kp := sig[2].(int)
-			vs := sig[3].(int64)
-			vu := sig[4].(int64)
-			data := sig[5]
-			s := signature.Sig{
-				PublicKeyID: keys.PublicKeyID{
-					Algorithm: alg,
-					KeySpace:  ks,
-					KeyPhase:  kp,
-				},
-				ValidSince: vs,
-				ValidUntil: vu,
-				Data:       data,
+		rm.Signatures = make([]signature.Sig, len(sigs.([]interface{})))
+		for i, sig := range sigs.([]interface{}) {
+			if err := rm.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
+				return err
 			}
-			rm.Signatures = append(rm.Signatures, s)
 		}
 	}
 	// Read the capabilities
@@ -130,43 +118,62 @@ func (rm *Message) UnmarshalCBOR(r cbor.Reader) error {
 	// read the message sections
 	for _, elem := range m[23].([]interface{}) {
 		elem := elem.([]interface{})
-		t := elem[0].(uint64)
+		t := elem[0].(int64)
 		switch t {
 		case 1:
-			// Assertion
-			as := &section.Assertion{}
-			if err := as.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
+			a := &section.Assertion{}
+			if err := a.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
-			rm.Content = append(rm.Content, as)
+			rm.Content = append(rm.Content, a)
 		case 2:
-			// Shard
-			ss := &section.Shard{}
-			if err := ss.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
+			s := &section.Shard{}
+			if err := s.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
-			rm.Content = append(rm.Content, ss)
+			rm.Content = append(rm.Content, s)
+		case 7:
+			s := &section.Pshard{}
+			if err := s.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
+				return err
+			}
+			rm.Content = append(rm.Content, s)
 		case 3:
-			// Zone
-			zs := &section.Zone{}
-			if err := zs.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
+			z := &section.Zone{}
+			if err := z.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
-			rm.Content = append(rm.Content, zs)
+			rm.Content = append(rm.Content, z)
 		case 4:
-			// Name
-			qs := &query.Name{}
-			if err := qs.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
+			q := &query.Name{}
+			if err := q.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
-			rm.Content = append(rm.Content, qs)
+			rm.Content = append(rm.Content, q)
+		case -4:
+			q := &query.Address{}
+			if err := q.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
+				return err
+			}
+			rm.Content = append(rm.Content, q)
+		case 5:
+			q := &query.AssertionUpdate{}
+			if err := q.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
+				return err
+			}
+			rm.Content = append(rm.Content, q)
+		case 6:
+			q := &query.NegUpdate{}
+			if err := q.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
+				return err
+			}
+			rm.Content = append(rm.Content, q)
 		case 23:
-			// Notification
-			ns := &section.Notification{}
-			if err := ns.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
+			n := &section.Notification{}
+			if err := n.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
-			rm.Content = append(rm.Content, ns)
+			rm.Content = append(rm.Content, n)
 		}
 	}
 	return nil

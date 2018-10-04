@@ -41,15 +41,7 @@ func (a *AddrAssertion) MarshalCBOR(w cbor.Writer) error {
 	if a.Context != "" {
 		m[6] = a.Context
 	}
-	objs := make([][]interface{}, 0)
-	for _, object := range a.Content {
-		res, err := objectToArrayCBOR(object)
-		if err != nil {
-			return err
-		}
-		objs = append(objs, res)
-	}
-	m[7] = objs
+	m[7] = a.Content
 	return w.WriteIntMap(m)
 }
 

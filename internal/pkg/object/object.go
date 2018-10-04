@@ -3,13 +3,17 @@ package object
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"net"
 	"sort"
 	"strconv"
 
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 )
 
@@ -17,6 +21,233 @@ import (
 type Object struct {
 	Type  Type
 	Value interface{}
+}
+
+// UnmarshalArray takes in a CBOR decoded array and populates the object.
+func (obj *Object) UnmarshalArray(in []interface{}) error {
+	objArr := in
+	switch Type(objArr[0].(uint64)) {
+	case OTName:
+		no := Name{Types: make([]Type, 0)}
+		no.Name = objArr[1].(string)
+		for _, ot := range objArr[2].([]interface{}) {
+			no.Types = append(no.Types, Type(ot.(int)))
+		}
+		obj.Value = no
+	case OTIP6Addr:
+		ip := net.IP(objArr[1].([]byte))
+		obj.Value = ip.String()
+	case OTIP4Addr:
+		ip := net.IP(objArr[1].([]byte))
+		obj.Value = ip.String()
+	case OTRedirection:
+		obj.Value = objArr[1]
+	case OTDelegation:
+		alg := objArr[1].(uint64)
+		ks := keys.KeySpaceID(objArr[2].(uint64))
+		kp := int(objArr[3].(uint64))
+		vs := int64(objArr[4].(uint64))
+		vu := int64(objArr[5].(uint64))
+		var key interface{}
+		switch algorithmTypes.Signature(alg) {
+		case algorithmTypes.Ed25519:
+			key = ed25519.PublicKey(objArr[6].([]byte))
+		case algorithmTypes.Ecdsa256:
+			return fmt.Errorf("unsupported algorithm: %v", alg)
+		case algorithmTypes.Ecdsa384:
+			return fmt.Errorf("unsupported algorithm: %v", alg)
+		default:
+			return fmt.Errorf("unsupported algorithm: %v", alg)
+		}
+		pkey := keys.PublicKey{
+			PublicKeyID: keys.PublicKeyID{
+				Algorithm: algorithmTypes.Signature(alg),
+				KeySpace:  ks,
+				KeyPhase:  kp,
+			},
+			ValidSince: vs,
+			ValidUntil: vu,
+			Key:        key,
+		}
+		obj.Value = pkey
+	case OTNameset:
+		obj.Value = NamesetExpr(objArr[1].(string))
+	case OTCertInfo:
+		co := Certificate{
+			Type:     ProtocolType(objArr[1].(int)),
+			Usage:    CertificateUsage(objArr[2].(int)),
+			HashAlgo: algorithmTypes.Hash(objArr[3].(int)),
+			Data:     objArr[4].([]byte),
+		}
+		obj.Value = co
+	case OTServiceInfo:
+		si := ServiceInfo{
+			Name:     objArr[1].(string),
+			Port:     uint16(objArr[2].(uint64)),
+			Priority: uint(objArr[3].(uint64)),
+		}
+		obj.Value = si
+	case OTRegistrar:
+		obj.Value = objArr[2].(string)
+	case OTRegistrant:
+		obj.Value = objArr[2].(string)
+	case OTInfraKey:
+		alg := objArr[1]
+		ks := objArr[2].(keys.KeySpaceID)
+		kp := objArr[3].(int)
+		vs := objArr[4].(int64)
+		vu := objArr[5].(int64)
+		var key interface{}
+		switch alg.(algorithmTypes.Signature) {
+		case algorithmTypes.Ed25519:
+			key = ed25519.PublicKey(objArr[6].([]byte))
+		case algorithmTypes.Ecdsa256:
+			return fmt.Errorf("unsupported algorithm: %v", alg)
+		case algorithmTypes.Ecdsa384:
+			return fmt.Errorf("unsupported algorithm: %v", alg)
+		default:
+			return fmt.Errorf("unsupported algorithm: %v", alg)
+		}
+		pkey := keys.PublicKey{
+			PublicKeyID: keys.PublicKeyID{
+				Algorithm: alg.(algorithmTypes.Signature),
+				KeySpace:  ks,
+				KeyPhase:  kp,
+			},
+			ValidSince: vs,
+			ValidUntil: vu,
+			Key:        key,
+		}
+		obj.Value = pkey
+	case OTExtraKey:
+		alg := objArr[1].(algorithmTypes.Signature)
+		ks := objArr[2].(keys.KeySpaceID)
+		var key interface{}
+		switch alg {
+		case algorithmTypes.Ed25519:
+			key = ed25519.PublicKey(objArr[3].([]byte))
+		case algorithmTypes.Ecdsa256:
+			return fmt.Errorf("unsupported algorithm: %v", alg)
+		case algorithmTypes.Ecdsa384:
+			return fmt.Errorf("unsupported algorithm: %v", alg)
+		default:
+			return fmt.Errorf("unsupported algorithm: %v", alg)
+		}
+		pk := keys.PublicKey{
+			PublicKeyID: keys.PublicKeyID{
+				Algorithm: alg,
+				KeySpace:  ks,
+			},
+			Key: key,
+		}
+		obj.Value = pk
+	case OTNextKey:
+		// TODO: Implement OTNextKey.
+		log.Error("not yet implemented")
+	default:
+		return errors.New("unknown object type in unmarshalling object")
+	}
+	obj.Type = Type(objArr[0].(uint64))
+	return nil
+}
+
+// MarshalCBOR implements a CBORMarshaler.
+func (obj Object) MarshalCBOR(w cbor.Writer) error {
+	var res []interface{}
+	switch obj.Type {
+	case OTName:
+		no, ok := obj.Value.(Name)
+		if !ok {
+			return fmt.Errorf("expected OTName to be Name but got: %T", obj.Value)
+		}
+		ots := make([]int, len(no.Types))
+		for i, ot := range no.Types {
+			ots[i] = int(ot)
+		}
+		res = []interface{}{OTName, no.Name, ots}
+	case OTIP6Addr:
+		addrStr := obj.Value.(string)
+		addr := net.ParseIP(addrStr)
+		res = []interface{}{OTIP6Addr, []byte(addr)}
+	case OTIP4Addr:
+		addrStr := obj.Value.(string)
+		addr := net.ParseIP(addrStr)
+		res = []interface{}{OTIP4Addr, []byte(addr)}
+	case OTRedirection:
+		res = []interface{}{OTRedirection, obj.Value}
+	case OTDelegation:
+		pkey, ok := obj.Value.(keys.PublicKey)
+		if !ok {
+			return fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", obj.Value)
+		}
+		// TODO: ValidSince and ValidUntil should be tagged.
+		b := pubkeyToCBORBytes(pkey)
+		res = []interface{}{OTDelegation, int(pkey.Algorithm), int(pkey.KeySpace), pkey.KeyPhase, pkey.ValidSince, pkey.ValidUntil, b}
+	case OTNameset:
+		nse, ok := obj.Value.(NamesetExpr)
+		if !ok {
+			return fmt.Errorf("expected OTNameset value to be NamesetExpr but got: %T", obj.Value)
+		}
+		res = []interface{}{OTNameset, string(nse)}
+	case OTCertInfo:
+		co, ok := obj.Value.(Certificate)
+		if !ok {
+			return fmt.Errorf("expected OTCertInfo object to be Certificate, but got: %T", obj.Value)
+		}
+		res = []interface{}{OTCertInfo, int(co.Type), int(co.Usage), int(co.HashAlgo), co.Data}
+	case OTServiceInfo:
+		si, ok := obj.Value.(ServiceInfo)
+		if !ok {
+			return fmt.Errorf("expected OTServiceInfo object to be ServiceInfo, but got: %T", obj.Value)
+		}
+		res = []interface{}{OTServiceInfo, si.Name, si.Port, si.Priority}
+	case OTRegistrar:
+		rstr, ok := obj.Value.(string)
+		if !ok {
+			return fmt.Errorf("expected OTRegistrar object to be string but got: %T", obj.Value)
+		}
+		res = []interface{}{OTRegistrar, rstr}
+	case OTRegistrant:
+		rstr, ok := obj.Value.(string)
+		if !ok {
+			return fmt.Errorf("expected OTRegistrant object to be string but got: %T", obj.Value)
+		}
+		res = []interface{}{OTRegistrant, rstr}
+	case OTInfraKey:
+		pkey, ok := obj.Value.(keys.PublicKey)
+		if !ok {
+			return fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", obj.Value)
+		}
+		// TODO: ValidSince and ValidUntl should be tagged.
+		b := pubkeyToCBORBytes(pkey)
+		res = []interface{}{OTInfraKey, int(pkey.Algorithm), int(pkey.KeySpace), pkey.KeyPhase, pkey.ValidSince, pkey.ValidUntil, b}
+	case OTExtraKey:
+		pkey, ok := obj.Value.(keys.PublicKey)
+		if !ok {
+			return fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", obj.Value)
+		}
+		b := pubkeyToCBORBytes(pkey)
+		res = []interface{}{OTExtraKey, int(pkey.Algorithm), int(pkey.KeySpace), b}
+	case OTNextKey:
+	default:
+		return fmt.Errorf("unknown object type: %v", obj.Type)
+	}
+	return w.WriteArray(res)
+}
+
+func pubkeyToCBORBytes(p keys.PublicKey) []byte {
+	switch p.Algorithm {
+	case algorithmTypes.Ed25519:
+		return []byte(p.Key.(ed25519.PublicKey))
+	case algorithmTypes.Ed448:
+		panic("Unsupported algorithm.")
+	case algorithmTypes.Ecdsa256:
+		panic("Unsupported algorithm.")
+	case algorithmTypes.Ecdsa384:
+		panic("Unsupported algorithm.")
+	default:
+		panic("Unsupported algorithm.")
+	}
 }
 
 //Sort sorts the content of o lexicographically.
@@ -78,7 +309,7 @@ func (o Object) CompareTo(object Object) int {
 		}
 		logObjectTypeAssertionFailure(object.Type, object.Value)
 	default:
-		log.Warn("Unsupported object.Value type", "type", fmt.Sprintf("%T", o.Value))
+		log.Warn("Unsupported Value type", "type", fmt.Sprintf("%T", o.Value))
 	}
 	return 0
 }

@@ -63,11 +63,6 @@ func (sig *Sig) UnmarshalArray(in []interface{}) error {
 
 // MarshalCBOR implements a CBORMarshaler.
 func (sig Sig) MarshalCBOR(w cbor.Writer) error {
-	// RAINS signatures have five common elements: the algorithm identifier, a
-	// keyspace identifier, a keyphase identifier, a valid-since timestamp, and
-	// a valid-until timestamp. Signatures are represented as an array of these
-	// five values followed by additional elements containing the signature
-	// data itself, according to the algorithm identifier.
 	res := []interface{}{1, // FIXME: Hardcoded ED25519: there is no way to know what this is yet.
 		int(sig.KeySpace), sig.KeyPhase, sig.ValidSince, sig.ValidUntil, []byte{}}
 	if data, ok := sig.Data.([]byte); ok && len(data) > 0 {
