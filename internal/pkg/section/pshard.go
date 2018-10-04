@@ -24,14 +24,27 @@ type Pshard struct {
 }
 
 // UnmarshalMap decodes the output from the CBOR decoder into this struct.
-func (z *Pshard) UnmarshalMap(m map[int]interface{}) error {
+func (s *Pshard) UnmarshalMap(m map[int]interface{}) error {
 	//TODO CFE to implement
 	return nil
 }
 
-func (p *Pshard) MarshalCBOR(w cbor.Writer) error {
-	//TODO CFE to implement
-	return nil
+func (s *Pshard) MarshalCBOR(w cbor.Writer) error {
+	fmt.Printf("Called MarshalCBOR on Shard")
+	m := make(map[int]interface{})
+	if len(s.Signatures) > 0 {
+		m[0] = s.Signatures
+	}
+	if s.SubjectZone != "" {
+		m[4] = s.SubjectZone
+	}
+	if s.Context != "" {
+		m[6] = s.Context
+	}
+	m[11] = []string{s.RangeFrom, s.RangeTo}
+	// TODO: Assertions SHOULD be sorted by name in ascending lexicographic order.
+	m[18] = s.Datastructure
+	return w.WriteIntMap(m)
 }
 
 //AllSigs returns the pshard's signatures

@@ -65,7 +65,6 @@ func (s *Shard) UnmarshalMap(m map[int]interface{}) error {
 
 // MarshalCBOR implements the CBORMarshaler interface.
 func (s *Shard) MarshalCBOR(w cbor.Writer) error {
-	fmt.Printf("Called MarshalCBOR on Shard")
 	m := make(map[int]interface{})
 	if len(s.Signatures) > 0 {
 		m[0] = s.Signatures

@@ -61,6 +61,27 @@ func TestSignShard(t *testing.T) {
 	}
 }
 
+func TestSignPshard(t *testing.T) {
+	//TODO impl testdata in pshard
+	/*genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
+	sec := testdata.Pshard()
+	if !SignSectionUnsafe(sec, genPrivateKey, testdata.Signature()) {
+		t.Error("Was not able to sign shard")
+		return
+	}
+	log.Info("Successful added sig", "sigLen", len(sec.AllSigs()))
+
+	newSig := sec.AllSigs()[0]
+	sec.DeleteSig(0)
+	encoding := new(bytes.Buffer)
+	sec.MarshalCBOR(cbor.NewWriter(encoding))
+
+	//Test signature
+	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
+		t.Error("Sig does not match")
+	}*/
+}
+
 func TestSignAddrAssertionIP4(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
 	sec := testdata.AddrAssertionIP4()

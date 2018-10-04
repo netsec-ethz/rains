@@ -10,14 +10,26 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
 	"github.com/spaolacci/murmur3"
 )
 
-//DS contains information about a datastructure. The Type defines the object in Data.
+//DataStructure contains information about a datastructure. The Type defines the object in Data.
 type DataStructure struct {
 	Type DataStructureType
 	Data interface{}
+}
+
+// UnmarshalMap decodes the output from the CBOR decoder into this struct.
+func (d *DataStructure) UnmarshalMap(m map[int]interface{}) error {
+	//TODO CFE to implement look at object's implementation
+	return nil
+}
+
+func (d *DataStructure) MarshalCBOR(w cbor.Writer) error {
+	//TODO CFE to implement look at object's implementation
+	return nil
 }
 
 //CompareTo compares two DS and returns 0 if they are equal, 1 if s is greater than
