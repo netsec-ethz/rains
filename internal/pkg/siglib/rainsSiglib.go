@@ -50,17 +50,17 @@ func CheckSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 	if !CheckStringFields(s) {
 		return false //error already logged
 	}
+	sigs := s.Sigs(keys.RainsKeySpace)
+	s.DeleteAllSigs()
 	encoding := new(bytes.Buffer)
 	if err := s.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
 		log.Warn("Was not able to marshal section.", "error", err)
 		return false
 	}
-	validSignature := false
-	for i, sig := range s.Sigs(keys.RainsKeySpace) {
+	for _, sig := range sigs {
 		if keys, ok := pkeys[sig.PublicKeyID]; ok {
 			if int64(sig.ValidUntil) < time.Now().Unix() {
 				log.Info("signature is expired", "signature", sig)
-				s.DeleteSig(i)
 				continue
 			}
 			if key, ok := getPublicKey(keys, sig.MetaData()); ok {
@@ -69,8 +69,8 @@ func CheckSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 					return false
 				}
 				log.Debug("Sig was valid")
+				s.AddSig(sig)
 				util.UpdateSectionValidity(s, key.ValidSince, key.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
-				validSignature = true
 			} else {
 				log.Warn("No time overlapping publicKey in keys for signature", "keys", keys, "signature", sig)
 				return false
@@ -80,7 +80,7 @@ func CheckSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 			return false
 		}
 	}
-	return validSignature
+	return len(s.AllSigs()) > 0
 }
 
 //CheckMessageSignatures verifies all signatures on the message. Signatures that are not valid now are removed.
@@ -100,27 +100,28 @@ func CheckMessageSignatures(msg *message.Message, publicKey keys.PublicKey) bool
 		return false
 	}
 	if len(msg.Signatures) == 0 {
-		log.Debug("Message contain no signatures")
+		log.Debug("Message does not contain signatures")
 		return false
 	}
 	if !checkMessageStringFields(msg) {
 		return false
 	}
 	msg.Sort()
+	sigs := msg.Signatures
+	msg.Signatures = []signature.Sig{}
 	encoding := new(bytes.Buffer)
 	if err := msg.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
 		log.Warn("Was not able to marshal message.", "error", err)
 		return false
 	}
-	for i, sig := range msg.Signatures {
+	for _, sig := range sigs {
 		if int64(sig.ValidUntil) < time.Now().Unix() {
 			log.Debug("signature is expired", "signature", sig)
-			msg.Signatures = append(msg.Signatures[:i], msg.Signatures[i+1:]...)
 		} else if !sig.VerifySignature(publicKey.Key, encoding.Bytes()) {
 			return false
 		}
 	}
-	return len(msg.Signatures) > 0
+	return true
 }
 
 //ValidSectionAndSignature returns true if the section is not nil, all the signatures ValidUntil are

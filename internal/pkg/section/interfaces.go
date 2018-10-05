@@ -24,6 +24,7 @@ type WithSig interface {
 	Sigs(keyspace keys.KeySpaceID) []signature.Sig
 	AddSig(sig signature.Sig)
 	DeleteSig(index int)
+	DeleteAllSigs()
 	GetContext() string
 	GetSubjectZone() string
 	UpdateValidity(validSince, validUntil int64, maxValidity time.Duration)

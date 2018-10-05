@@ -1,4 +1,4 @@
-package main
+package keycreator
 
 import (
 	"encoding/hex"
@@ -22,12 +22,12 @@ import (
 
 func main() {
 	CreatePublisherPrivateKeysFile("pubPrivateKeys.txt")
-	CreateDelegationAssertion(".", ".")
+	DelegationAssertion(".", ".")
 }
 
-//CreateDelegationAssertion generates a new public/private key pair for the given context and zone. It stores the private key and a delegation assertion to a file.
+//DelegationAssertion generates a new public/private key pair for the given context and zone. It stores the private key and a delegation assertion to a file.
 //In case of root public key the assertion is self signed (zone=.)
-func CreateDelegationAssertion(context, zone string) error {
+func DelegationAssertion(context, zone string) error {
 	//FIXME CFE change source of randomness
 	publicKey, privateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
@@ -54,14 +54,14 @@ func CreateDelegationAssertion(context, zone string) error {
 			return errors.New("Was not able to sign the assertion")
 		}
 	}
-	if err := storeKeyPair(publicKey, privateKey); err != nil {
+	if err := storeKeyPair(privateKey); err != nil {
 		return err
 	}
 	//Store root zone file
 	if zone == "." {
-		err = util.Save("selfSignedRootDelegationAssertion.gob", assertion)
+		err = util.Save("keys/selfSignedRootDelegationAssertion.gob", assertion)
 	} else {
-		err = util.Save("delegationAssertion.gob", assertion)
+		err = util.Save("keys/delegationAssertion.gob", assertion)
 	}
 	if err != nil {
 		log.Error("Was not able to encode the assertion", "assertion", assertion)
@@ -83,8 +83,9 @@ func addSignature(a section.WithSig, key ed25519.PrivateKey) bool {
 	return siglib.SignSection(a, key, sig)
 }
 
-//storeKeyPair stores the public and private key to separate files (hex encoded)
-func storeKeyPair(publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey) error {
+//storeKeyPair stores the public and private key to temp/private.key (hex
+//encoded). The public key is the second half of the private key's byte string.
+func storeKeyPair(privateKey ed25519.PrivateKey) error {
 	if _, err := os.Stat("tmp"); os.IsNotExist(err) {
 		os.Mkdir("tmp", 0775)
 	}
@@ -94,10 +95,7 @@ func storeKeyPair(publicKey ed25519.PublicKey, privateKey ed25519.PrivateKey) er
 	if err != nil {
 		return err
 	}
-	publicKeyEnc := make([]byte, hex.EncodedLen(len(publicKey)))
-	hex.Encode(publicKeyEnc, publicKey)
-	err = ioutil.WriteFile("tmp/public.key", publicKeyEnc, 0600)
-	return err
+	return nil
 }
 
 //SignDelegation signs the delegation stored at delegationPath with the private key stored at privateKeyPath

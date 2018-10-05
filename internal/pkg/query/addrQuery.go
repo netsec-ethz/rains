@@ -20,7 +20,7 @@ type Address struct {
 
 // UnmarshalMap decodes the output from the CBOR decoder into this struct.
 func (q *Address) UnmarshalMap(m map[int]interface{}) error {
-	//FIXME subject addr does not work
+	//FIXME encode subject addr as in the draft
 	_, q.SubjectAddr, _ = net.ParseCIDR(m[8].(string))
 	q.Context = m[6].(string)
 	q.Types = make([]object.Type, 0)
@@ -42,7 +42,7 @@ func (q *Address) UnmarshalMap(m map[int]interface{}) error {
 // MarshalCBOR implements the CBORMarshaler interface.
 func (q *Address) MarshalCBOR(w cbor.Writer) error {
 	m := make(map[int]interface{})
-	//FIXME subject addr does not work
+	//FIXME encode subject addr as in the draft
 	m[8] = q.SubjectAddr.String()
 	m[6] = q.Context
 	qtypes := make([]int, len(q.Types))

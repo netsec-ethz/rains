@@ -71,6 +71,11 @@ func (a *AddrAssertion) DeleteSig(i int) {
 	a.Signatures = append(a.Signatures[:i], a.Signatures[i+1:]...)
 }
 
+//DeleteAllSigs deletes all signature
+func (a *AddrAssertion) DeleteAllSigs() {
+	a.Signatures = []signature.Sig{}
+}
+
 //GetContext returns the context of the assertion
 func (a *AddrAssertion) GetContext() string {
 	return a.Context

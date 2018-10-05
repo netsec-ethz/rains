@@ -102,6 +102,11 @@ func (z *Zone) DeleteSig(i int) {
 	z.Signatures = append(z.Signatures[:i], z.Signatures[i+1:]...)
 }
 
+//DeleteAllSigs deletes all signature
+func (z *Zone) DeleteAllSigs() {
+	z.Signatures = []signature.Sig{}
+}
+
 //GetContext returns the context of the zone
 func (z *Zone) GetContext() string {
 	return z.Context

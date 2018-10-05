@@ -67,6 +67,11 @@ func (s *Pshard) DeleteSig(i int) {
 	s.Signatures = append(s.Signatures[:i], s.Signatures[i+1:]...)
 }
 
+//DeleteAllSigs deletes all signature
+func (s *Pshard) DeleteAllSigs() {
+	s.Signatures = []signature.Sig{}
+}
+
 //GetContext returns the context of the pshard
 func (s *Pshard) GetContext() string {
 	return s.Context

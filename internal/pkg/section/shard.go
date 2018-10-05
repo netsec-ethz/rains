@@ -101,6 +101,11 @@ func (s *Shard) DeleteSig(i int) {
 	s.Signatures = append(s.Signatures[:i], s.Signatures[i+1:]...)
 }
 
+//DeleteAllSigs deletes all signature
+func (s *Shard) DeleteAllSigs() {
+	s.Signatures = []signature.Sig{}
+}
+
 //GetContext returns the context of the shard
 func (s *Shard) GetContext() string {
 	return s.Context
