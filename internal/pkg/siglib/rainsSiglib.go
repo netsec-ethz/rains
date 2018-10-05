@@ -76,7 +76,7 @@ func CheckSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 				return false
 			}
 		} else {
-			log.Warn("No publicKey in keymap matching algorithm type", "keymap", pkeys, "algorithmType", sig.Algorithm)
+			log.Warn("No publicKey in keymap matching algorithm type", "keymap", pkeys, "publicKeyID", sig.PublicKeyID)
 			return false
 		}
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
 	"github.com/netsec-ethz/rains/tools/keycreator"
 )
@@ -14,6 +15,16 @@ func main() {
 		return
 	}
 	log.Info("Server successfully initialized")
-	server.Start(false)
+	go server.Start(false)
+
+	config, err := publisher.LoadConfig("config/publisher.conf")
+	if err != nil {
+		log.Error(err.Error())
+		return
+	}
+	pubServer := publisher.New(config)
+	pubServer.Publish()
+
 	server.Shutdown()
+	log.Info("Server shut down")
 }

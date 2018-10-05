@@ -81,6 +81,24 @@ type ConsistencyConfig struct {
 	CheckStringFields  bool
 }
 
+//LoadConfig loads configuration information from configPath
+func LoadConfig(configPath string) (Config, error) {
+	var config Config
+	file, err := ioutil.ReadFile(configPath)
+	if err != nil {
+		log.Error("Could not open config file...", "path", configPath, "error", err)
+		return Config{}, err
+	}
+	if err = json.Unmarshal(file, &config); err != nil {
+		log.Error("Could not unmarshal json format of config", "error", err)
+		return Config{}, err
+	}
+	config.MetaDataConf.SigValidSince *= time.Second
+	config.MetaDataConf.SigValidUntil *= time.Second
+	config.MetaDataConf.SigSigningInterval *= time.Second
+	return config, nil
+}
+
 //loadZonefile loads the zonefile from disk.
 func loadZonefile(path string, parser zonefile.ZoneFileParser) (*section.Zone, error) {
 	file, err := ioutil.ReadFile(path)

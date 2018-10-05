@@ -22,6 +22,10 @@ import (
 	"github.com/shirou/gopsutil/cpu"
 )
 
+const (
+	shutdownChannels = 3
+)
+
 //Server represents a rainsd server instance.
 type Server struct {
 	//channel is used by this server to receive messages from other servers over a channel
@@ -65,7 +69,7 @@ func New(configPath string, logLevel log.Lvl, id string) (server *Server, err er
 	}
 	server.capabilityHash, server.capabilityList = initOwnCapabilities(server.config.Capabilities)
 
-	server.shutdown = make(chan bool)
+	server.shutdown = make(chan bool, shutdownChannels)
 	server.queues = InputQueues{
 		Prio:    make(chan msgSectionSender, server.config.PrioBufferSize),
 		Normal:  make(chan msgSectionSender, server.config.NormalBufferSize),
@@ -112,9 +116,12 @@ func (s *Server) Start(monitorResources bool) error {
 //Shutdown closes the input channels and stops the function creating new go routines to handle the
 //input. Already running worker go routines will finish eventually.
 func (s *Server) Shutdown() {
-	for i := 0; i < 3; i++ {
+	for i := 0; i < shutdownChannels; i++ {
 		s.shutdown <- true
 	}
+	s.queues.Normal <- msgSectionSender{}
+	s.queues.Prio <- msgSectionSender{}
+	s.queues.Notify <- msgSectionSender{}
 }
 
 //Write delivers an encoded rains message and a response channel to the server.

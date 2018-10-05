@@ -1,11 +1,9 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"strings"
 	"time"
@@ -122,7 +120,7 @@ func main() {
 		log.Error("Wrong number of arguments, expected 1 (configPath) after the flags",
 			"Got", flag.NArg())
 	}
-	config, err := loadConfig(flag.Args()[0])
+	config, err := publisher.LoadConfig(flag.Args()[0])
 	if err != nil {
 		return
 	}
@@ -224,24 +222,6 @@ func main() {
 	//Call rainspub to do the work according to the updated config
 	server := publisher.New(config)
 	server.Publish()
-}
-
-//loadConfig loads configuration information from configPath
-func loadConfig(configPath string) (publisher.Config, error) {
-	var config publisher.Config
-	file, err := ioutil.ReadFile(configPath)
-	if err != nil {
-		log.Error("Could not open config file...", "path", configPath, "error", err)
-		return publisher.Config{}, err
-	}
-	if err = json.Unmarshal(file, &config); err != nil {
-		log.Error("Could not unmarshal json format of config", "error", err)
-		return publisher.Config{}, err
-	}
-	config.MetaDataConf.SigValidSince *= time.Second
-	config.MetaDataConf.SigValidUntil *= time.Second
-	config.MetaDataConf.SigSigningInterval *= time.Second
-	return config, nil
 }
 
 type addressesFlag struct {
