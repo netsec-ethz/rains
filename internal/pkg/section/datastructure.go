@@ -6,6 +6,7 @@ import (
 	"crypto/sha512"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"hash/fnv"
 
 	log "github.com/inconshreveable/log15"
@@ -21,15 +22,25 @@ type DataStructure struct {
 	Data interface{}
 }
 
-// UnmarshalMap decodes the output from the CBOR decoder into this struct.
-func (d *DataStructure) UnmarshalMap(m map[int]interface{}) error {
+// UnmarshalArray takes in a CBOR decoded array and populates the object.
+func (d *DataStructure) UnmarshalArray(in []interface{}) error {
 	//TODO CFE to implement look at object's implementation
 	return nil
 }
 
 func (d *DataStructure) MarshalCBOR(w cbor.Writer) error {
-	//TODO CFE to implement look at object's implementation
-	return nil
+	var res []interface{}
+	switch d.Type {
+	case BloomFilterType:
+		family := make([]int, len(q.Types))
+		for i, qtype := range q.Types {
+			qtypes[i] = int(qtype)
+		}
+		res = []interface{}{BloomFilterType, no.Name, ots}
+	default:
+		return fmt.Errorf("unknown datastructure type: %v", d.Type)
+	}
+	return w.WriteArray(res)
 }
 
 //CompareTo compares two DS and returns 0 if they are equal, 1 if s is greater than
