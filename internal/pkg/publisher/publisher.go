@@ -419,9 +419,9 @@ func (r *Rainspub) publishZone(zone *section.Zone, config Config) {
 	if config.DoPublish {
 		//TODO check if zone is not too large. If it is, split it up and send content separately.
 		msg := message.Message{
-			Token:   token.New(),
-			Content: []section.Section{zone},
-			//TODO CFE maybe add capabilities
+			Token:        token.New(),
+			Content:      []section.Section{zone},
+			Capabilities: []message.Capability{message.NoCapability},
 		}
 		unreachableServers := publishSections(msg, config.AuthServers)
 		if unreachableServers != nil {

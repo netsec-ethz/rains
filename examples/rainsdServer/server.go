@@ -22,7 +22,6 @@ func main() {
 		log.Error(err.Error())
 		return
 	}
-	log.Warn("", "", config)
 	pubServer := publisher.New(config)
 	pubServer.Publish()
 
