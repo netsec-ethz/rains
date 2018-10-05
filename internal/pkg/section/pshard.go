@@ -25,12 +25,34 @@ type Pshard struct {
 
 // UnmarshalMap decodes the output from the CBOR decoder into this struct.
 func (s *Pshard) UnmarshalMap(m map[int]interface{}) error {
-	//TODO CFE to implement
+	if sigs, ok := m[0]; ok {
+		s.Signatures = make([]signature.Sig, len(sigs.([]interface{})))
+		for i, sig := range sigs.([]interface{}) {
+			if err := s.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
+				return err
+			}
+		}
+	}
+	if zone, ok := m[4]; ok {
+		s.SubjectZone = zone.(string)
+	}
+	if ctx, ok := m[6]; ok {
+		s.Context = ctx.(string)
+	}
+	if sr, ok := m[11]; ok {
+		srange := sr.([]interface{})
+		s.RangeFrom = srange[0].(string)
+		s.RangeTo = srange[1].(string)
+	}
+	if ds, ok := m[18]; ok {
+		if err := s.Datastructure.UnmarshalArray(ds.([]interface{})); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (s *Pshard) MarshalCBOR(w cbor.Writer) error {
-	fmt.Printf("Called MarshalCBOR on Shard")
 	m := make(map[int]interface{})
 	if len(s.Signatures) > 0 {
 		m[0] = s.Signatures

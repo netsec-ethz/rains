@@ -25,33 +25,32 @@ type Object struct {
 
 // UnmarshalArray takes in a CBOR decoded array and populates the object.
 func (obj *Object) UnmarshalArray(in []interface{}) error {
-	objArr := in
-	switch Type(objArr[0].(uint64)) {
+	switch Type(in[0].(uint64)) {
 	case OTName:
 		no := Name{Types: make([]Type, 0)}
-		no.Name = objArr[1].(string)
-		for _, ot := range objArr[2].([]interface{}) {
+		no.Name = in[1].(string)
+		for _, ot := range in[2].([]interface{}) {
 			no.Types = append(no.Types, Type(ot.(int)))
 		}
 		obj.Value = no
 	case OTIP6Addr:
-		ip := net.IP(objArr[1].([]byte))
+		ip := net.IP(in[1].([]byte))
 		obj.Value = ip.String()
 	case OTIP4Addr:
-		ip := net.IP(objArr[1].([]byte))
+		ip := net.IP(in[1].([]byte))
 		obj.Value = ip.String()
 	case OTRedirection:
-		obj.Value = objArr[1]
+		obj.Value = in[1]
 	case OTDelegation:
-		alg := objArr[1].(uint64)
-		ks := keys.KeySpaceID(objArr[2].(uint64))
-		kp := int(objArr[3].(uint64))
-		vs := int64(objArr[4].(uint64))
-		vu := int64(objArr[5].(uint64))
+		alg := in[1].(uint64)
+		ks := keys.KeySpaceID(in[2].(uint64))
+		kp := int(in[3].(uint64))
+		vs := int64(in[4].(uint64))
+		vu := int64(in[5].(uint64))
 		var key interface{}
 		switch algorithmTypes.Signature(alg) {
 		case algorithmTypes.Ed25519:
-			key = ed25519.PublicKey(objArr[6].([]byte))
+			key = ed25519.PublicKey(in[6].([]byte))
 		case algorithmTypes.Ecdsa256:
 			return fmt.Errorf("unsupported algorithm: %v", alg)
 		case algorithmTypes.Ecdsa384:
@@ -71,36 +70,36 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		}
 		obj.Value = pkey
 	case OTNameset:
-		obj.Value = NamesetExpr(objArr[1].(string))
+		obj.Value = NamesetExpr(in[1].(string))
 	case OTCertInfo:
 		co := Certificate{
-			Type:     ProtocolType(objArr[1].(int)),
-			Usage:    CertificateUsage(objArr[2].(int)),
-			HashAlgo: algorithmTypes.Hash(objArr[3].(int)),
-			Data:     objArr[4].([]byte),
+			Type:     ProtocolType(in[1].(int)),
+			Usage:    CertificateUsage(in[2].(int)),
+			HashAlgo: algorithmTypes.Hash(in[3].(int)),
+			Data:     in[4].([]byte),
 		}
 		obj.Value = co
 	case OTServiceInfo:
 		si := ServiceInfo{
-			Name:     objArr[1].(string),
-			Port:     uint16(objArr[2].(uint64)),
-			Priority: uint(objArr[3].(uint64)),
+			Name:     in[1].(string),
+			Port:     uint16(in[2].(uint64)),
+			Priority: uint(in[3].(uint64)),
 		}
 		obj.Value = si
 	case OTRegistrar:
-		obj.Value = objArr[2].(string)
+		obj.Value = in[2].(string)
 	case OTRegistrant:
-		obj.Value = objArr[2].(string)
+		obj.Value = in[2].(string)
 	case OTInfraKey:
-		alg := objArr[1]
-		ks := objArr[2].(keys.KeySpaceID)
-		kp := objArr[3].(int)
-		vs := objArr[4].(int64)
-		vu := objArr[5].(int64)
+		alg := in[1]
+		ks := in[2].(keys.KeySpaceID)
+		kp := in[3].(int)
+		vs := in[4].(int64)
+		vu := in[5].(int64)
 		var key interface{}
 		switch alg.(algorithmTypes.Signature) {
 		case algorithmTypes.Ed25519:
-			key = ed25519.PublicKey(objArr[6].([]byte))
+			key = ed25519.PublicKey(in[6].([]byte))
 		case algorithmTypes.Ecdsa256:
 			return fmt.Errorf("unsupported algorithm: %v", alg)
 		case algorithmTypes.Ecdsa384:
@@ -120,12 +119,12 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		}
 		obj.Value = pkey
 	case OTExtraKey:
-		alg := objArr[1].(algorithmTypes.Signature)
-		ks := objArr[2].(keys.KeySpaceID)
+		alg := in[1].(algorithmTypes.Signature)
+		ks := in[2].(keys.KeySpaceID)
 		var key interface{}
 		switch alg {
 		case algorithmTypes.Ed25519:
-			key = ed25519.PublicKey(objArr[3].([]byte))
+			key = ed25519.PublicKey(in[3].([]byte))
 		case algorithmTypes.Ecdsa256:
 			return fmt.Errorf("unsupported algorithm: %v", alg)
 		case algorithmTypes.Ecdsa384:
@@ -147,7 +146,7 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 	default:
 		return errors.New("unknown object type in unmarshalling object")
 	}
-	obj.Type = Type(objArr[0].(uint64))
+	obj.Type = Type(in[0].(uint64))
 	return nil
 }
 
