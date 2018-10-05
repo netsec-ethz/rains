@@ -62,8 +62,7 @@ func TestSignShard(t *testing.T) {
 }
 
 func TestSignPshard(t *testing.T) {
-	//TODO impl testdata in pshard
-	/*genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
+	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
 	sec := testdata.Pshard()
 	if !SignSectionUnsafe(sec, genPrivateKey, testdata.Signature()) {
 		t.Error("Was not able to sign shard")
@@ -79,7 +78,7 @@ func TestSignPshard(t *testing.T) {
 	//Test signature
 	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
 		t.Error("Sig does not match")
-	}*/
+	}
 }
 
 func TestSignAddrAssertionIP4(t *testing.T) {

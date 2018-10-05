@@ -155,6 +155,17 @@ func Shard() *section.Shard {
 	}
 }
 
+//Pshard returns a shard containing an assertion with all object types that is valid.
+func Pshard() *section.Pshard {
+	return &section.Pshard{
+		Datastructure: Datastructure(),
+		Context:       globalContext,
+		SubjectZone:   testDomain,
+		RangeFrom:     "aaa",
+		RangeTo:       "zzz",
+	}
+}
+
 //Assertion returns an assertion containing all objects types that is valid.
 func Assertion() *section.Assertion {
 	return &section.Assertion{
@@ -244,6 +255,18 @@ func PublicKey() keys.PublicKey {
 		ValidSince: 10000,
 		ValidUntil: 50000,
 		Key:        pubKey,
+	}
+}
+
+//Datastructure returns a datastructure object with valid content
+func Datastructure() section.DataStructure {
+	return section.DataStructure{
+		Type: section.BloomFilterType,
+		Data: section.BloomFilter{
+			HashFamily:       []algorithmTypes.Hash{algorithmTypes.Murmur364},
+			NofHashFunctions: 10,
+			ModeOfOperation:  section.KirschMitzenmacher1,
+		},
 	}
 }
 
