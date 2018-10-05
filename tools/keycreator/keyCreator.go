@@ -54,9 +54,6 @@ func DelegationAssertion(context, zone string) error {
 			return errors.New("Was not able to sign the assertion")
 		}
 	}
-	if err := storeKeyPair(privateKey); err != nil {
-		return err
-	}
 	var keyPath string
 	//Store root zone file
 	if zone == "." {
@@ -70,7 +67,9 @@ func DelegationAssertion(context, zone string) error {
 		log.Error("Was not able to encode the assertion", "assertion", assertion)
 		return err
 	}
-	return writePrivateKeys(keyPath, []keys.PrivateKey{keys.PrivateKey{pkey.PublicKeyID, hex.EncodeToString(privateKey)}})
+	return writePrivateKeys(keyPath, []keys.PrivateKey{
+		keys.PrivateKey{PublicKeyID: pkey.PublicKeyID, Key: hex.EncodeToString(privateKey)},
+	})
 }
 
 //addSignature signs the section with the public key and adds the resulting signature to the section

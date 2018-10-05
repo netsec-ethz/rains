@@ -76,7 +76,6 @@ func (r *Rainspub) Publish() {
 			log.Error(err.Error())
 			return
 		}
-		log.Info("Adding Sig meta data completed successfully")
 	}
 	if !isConsistent(zone, r.Config.ConsistencyConf) {
 		return

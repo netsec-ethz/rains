@@ -6,17 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
-	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"github.com/netsec-ethz/rains/internal/pkg/message"
-	"github.com/netsec-ethz/rains/internal/pkg/token"
-	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
-
 	log "github.com/inconshreveable/log15"
 
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
+	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	"github.com/netsec-ethz/rains/test/testdata"
 	"golang.org/x/crypto/ed25519"
 )
