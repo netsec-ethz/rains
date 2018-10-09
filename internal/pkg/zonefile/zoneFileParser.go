@@ -5,13 +5,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"strings"
-
-	"github.com/netsec-ethz/rains/internal/pkg/message"
-	"github.com/netsec-ethz/rains/internal/pkg/query"
-	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"io/ioutil"
 
 	log "github.com/inconshreveable/log15"
+
+	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
 
 const (
@@ -71,20 +70,24 @@ type ZoneFileParser interface {
 	//exactly as it is in the zonefile or an error in case of failure.
 	DecodeZone(zoneFile []byte) (*section.Zone, error)
 
+	//LoadZone takes as input a path to a file containing a zone in zonefile
+	//format. It returns the zone exactly as it is in the zonefile or an error
+	//in case of failure.
+	LoadZone(path string) (*section.Zone, error)
+
 	//Encode returns the given section represented in zone file format if it is an assertion, shard,
 	//or zone. In all other cases it returns the section in a displayable format similar to the zone
 	//file format
 	Encode(section section.Section) string
+
+	//EncodeAndStore stores the given section represented in zone file format if
+	//it is an assertion, shard, pshard, or zone. In all other cases it stores
+	//the section in a displayable format similar to the zone file format
+	EncodeAndStore(path string, section section.Section) error
 }
 
 //Parser can be used to parse RAINS zone files
 type Parser struct{}
-
-//Encode returns the given section represented in the zone file format if it is a zoneSection.
-//In all other cases it returns the section in a displayable format similar to the zone file format
-func (p Parser) Encode(s section.Section) string {
-	return GetEncoding(s, false)
-}
 
 //Decode returns all assertions contained in the given zonefile
 func (p Parser) Decode(zoneFile []byte) ([]section.WithSigForward, error) {
@@ -98,6 +101,9 @@ func (p Parser) DecodeZone(zoneFile []byte) (*section.Zone, error) {
 	log.Debug("Preprocessed input", "data", lines)
 	parser := ZFPNewParser()
 	parser.Parse(&ZFPLex{lines: lines})
+	if len(parser.Result()) == 0 {
+		return nil, errors.New("zonefile malformed. Was not able to parse it.")
+	}
 	zone, ok := parser.Result()[0].(*section.Zone)
 	if !ok {
 		return nil, errors.New("First element of zonefile is not a zone. (Note, only the first element of the zonefile is considered)")
@@ -105,20 +111,29 @@ func (p Parser) DecodeZone(zoneFile []byte) (*section.Zone, error) {
 	return zone, nil
 }
 
-//EncodeMessage transforms the given msg into a signable format.
-//It must have already been verified that the msg does not contain malicious content.
-//Signature meta data is not added
-func (p Parser) EncodeMessage(msg *message.Message) []byte {
-	encoding := encodeMessage(msg)
-	return []byte(replaceWhitespaces(encoding))
+//LoadZone takes as input a path to a file containing a zone in zonefile format.
+//It returns the zone exactly as it is in the zonefile or an error in case of
+//failure.
+func (p Parser) LoadZone(path string) (*section.Zone, error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return p.DecodeZone(data)
 }
 
-//EncodeSection transforms the given msg into a signable format
-//It must have already been verified that the section does not contain malicious content
-//Signature meta data is not added
-func (p Parser) EncodeSection(s section.WithSig) []byte {
-	encoding := GetEncoding(s, true)
-	return []byte(replaceWhitespaces(encoding))
+//Encode returns the given section represented in the zone file format if it is a zoneSection.
+//In all other cases it returns the section in a displayable format similar to the zone file format
+func (p Parser) Encode(s section.Section) string {
+	return GetEncoding(s, false)
+}
+
+//EncodeAndStore stores the given section represented in zone file format if
+//it is an assertion, shard, pshard, or zone. In all other cases it stores
+//the section in a displayable format similar to the zone file format
+func (p Parser) EncodeAndStore(path string, section section.Section) error {
+	encoding := p.Encode(section)
+	return ioutil.WriteFile(path, []byte(encoding), 0600)
 }
 
 //GetEncoding returns an encoding in zonefile format
@@ -144,15 +159,4 @@ func GetEncoding(s section.Section, forSigning bool) string {
 		return ""
 	}
 	return encoding
-}
-
-//replaceWhitespaces replaces a single or consecutive whitespaces with a single space.
-func replaceWhitespaces(encoding string) string {
-	scanner := bufio.NewScanner(strings.NewReader(encoding))
-	scanner.Split(bufio.ScanWords)
-	var words []string
-	for scanner.Scan() {
-		words = append(words, scanner.Text())
-	}
-	return strings.Join(words, " ")
 }

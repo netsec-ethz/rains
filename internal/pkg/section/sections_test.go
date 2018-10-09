@@ -1,16 +1,6 @@
 package section
 
-import (
-	"encoding/hex"
-	"fmt"
-	"math/rand"
-	"net"
-	"reflect"
-	"sort"
-	"testing"
-)
-
-func TestAssertionCopy(t *testing.T) {
+/*func TestAssertionCopy(t *testing.T) {
 	assertion := GetMessage().Content[0].(*Assertion)
 	aCopy := assertion.Copy(assertion.Context, assertion.SubjectZone)
 	CheckAssertion(assertion, aCopy, t)
@@ -1160,4 +1150,4 @@ func TestSectionsByNamesAndTypes(t *testing.T) {
 			t.Errorf("case %d: mismatched shardSections: got %v, want %v", i, ss, testCase.ss)
 		}
 	}
-}
+}*/

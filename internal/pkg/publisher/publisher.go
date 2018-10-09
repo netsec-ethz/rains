@@ -2,7 +2,6 @@ package publisher
 
 import (
 	"errors"
-	"io/ioutil"
 	"sort"
 	"time"
 
@@ -408,9 +407,7 @@ func isConsistent(zone *section.Zone, config ConsistencyConfig) bool {
 //file in zonefile format.
 func (r *Rainspub) publishZone(zone *section.Zone, config Config) {
 	if config.OutputPath != "" {
-		encoding := r.zfParser.Encode(zone)
-		err := ioutil.WriteFile(config.OutputPath, []byte(encoding), 0600)
-		if err != nil {
+		if err := r.zfParser.EncodeAndStore(config.OutputPath, zone); err != nil {
 			log.Error(err.Error())
 		} else {
 			log.Info("Writing updated zonefile to disk completed successfully")

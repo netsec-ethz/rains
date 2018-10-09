@@ -1,16 +1,6 @@
 package section
 
-import (
-	"fmt"
-	"net"
-	"strconv"
-
-	log "github.com/inconshreveable/log15"
-
-	"golang.org/x/crypto/ed25519"
-)
-
-func sortedNameObjects(nof int) []NameObject {
+/*func sortedNameObjects(nof int) []NameObject {
 	objects := []NameObject{}
 	for i := 0; i < nof; i++ {
 		objTypes := nof
@@ -438,4 +428,4 @@ func sortedTokens(nofTokens int) []Token {
 		tokens = append(tokens, token)
 	}
 	return tokens
-}
+}*/

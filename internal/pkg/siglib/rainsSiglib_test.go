@@ -2,7 +2,6 @@ package siglib
 
 import (
 	"bytes"
-	"io/ioutil"
 	"testing"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	"github.com/netsec-ethz/rains/test/testdata"
 	"golang.org/x/crypto/ed25519"
@@ -496,14 +496,9 @@ func benchmarkSignAssertions(zonefileName string, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
 
 	parser := new(zonefile.Parser)
-	data, err := ioutil.ReadFile(zonefileName)
+	zone, err := parser.LoadZone(zonefileName)
 	if err != nil {
-		log.Error("Was not able to read zonefile", "error", err)
-		return
-	}
-	zone, err := parser.DecodeZone(data)
-	if err != nil {
-		log.Error("Was not able to decode zonefile", "error", err)
+		b.Error(err)
 		return
 	}
 	_, pkey, _ := ed25519.GenerateKey(nil)
@@ -513,7 +508,10 @@ func benchmarkSignAssertions(zonefileName string, b *testing.B) {
 	}
 	for n := 0; n < b.N; n++ {
 		for _, sec := range zone.Content {
-			result = SignSectionUnsafe(sec, pkey, sig)
+			if !SignSectionUnsafe(sec, pkey, sig) {
+				b.Error("Error in signing section")
+			}
+			sec.DeleteAllSigs()
 		}
 	}
 }
@@ -534,14 +532,9 @@ func BenchmarkSignAssertionDeleg100000(b *testing.B) {
 func benchmarkSignShard(zonefileName string, assertionsPerShard int, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
 	parser := new(zonefile.Parser)
-	data, err := ioutil.ReadFile(zonefileName)
+	zone, err := parser.LoadZone(zonefileName)
 	if err != nil {
-		log.Error("Was not able to read zonefile", "error", err)
-		return
-	}
-	zone, err := parser.DecodeZone(data)
-	if err != nil {
-		log.Error("Was not able to decode zonefile", "error", err)
+		b.Error(err)
 		return
 	}
 	shards := shardAssertions(zone.Content, assertionsPerShard)
@@ -573,14 +566,9 @@ func BenchmarkSignShard1000(b *testing.B) { benchmarkSignShard("test/zonefile100
 func benchmarkSignZone(zonefileName string, assertionsPerShard int, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
 	parser := new(zonefile.Parser)
-	data, err := ioutil.ReadFile(zonefileName)
+	zone, err := parser.LoadZone(zonefileName)
 	if err != nil {
-		log.Error("Was not able to read zonefile", "error", err)
-		return
-	}
-	zone, err := parser.DecodeZone(data)
-	if err != nil {
-		log.Error("Was not able to decode zonefile", "error", err)
+		b.Error(err)
 		return
 	}
 	shards := shardAssertions(zone.Content, assertionsPerShard)
@@ -627,3 +615,99 @@ func shardAssertions(sections []section.WithSigForward, assertionsPerShard int) 
 	}
 	return shards
 }
+
+func benchmarkSigningTest() {
+	//load zonefiles
+	//eval encoding time (to know how much encoding plays a role in signing and verifying)
+	//eval SignUnsafe time
+	//remove sigs
+	//eval Sig.Verify()
+	//print result -> is it possible to get these results from testing framework?
+}
+
+func benchmarkEncoding(zonefileName string, b *testing.B) {
+	log.Root().SetHandler(log.DiscardHandler())
+	parser := new(zonefile.Parser)
+	zone, err := parser.LoadZone(zonefileName)
+	if err != nil {
+		b.Error(err)
+		return
+	}
+	for n := 0; n < b.N; n++ {
+		for _, assertion := range zone.Content {
+			encoding := new(bytes.Buffer)
+			if err := assertion.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
+				b.Error("Was not able to marshal section.", "error", err)
+			}
+		}
+	}
+}
+
+func BenchmarkEncodingAssertion10000(b *testing.B)  { benchmarkEncoding("test/zonefile10000", b) }
+func BenchmarkEncodingAssertion100000(b *testing.B) { benchmarkEncoding("test/zonefile100000", b) }
+
+func benchmarkSigning(zonefileName string, b *testing.B) {
+	log.Root().SetHandler(log.DiscardHandler())
+	parser := new(zonefile.Parser)
+	zone, err := parser.LoadZone(zonefileName)
+	if err != nil {
+		b.Error(err)
+		return
+	}
+	_, pkey, _ := ed25519.GenerateKey(nil)
+	sig := signature.Sig{
+		PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519},
+		ValidUntil:  time.Now().Add(time.Hour).Unix(),
+	}
+	var encodings [][]byte
+	for _, assertion := range zone.Content {
+		encoding := new(bytes.Buffer)
+		if err := assertion.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
+			b.Error("Was not able to marshal section.", "error", err)
+		}
+		encodings = append(encodings, encoding.Bytes())
+	}
+	for n := 0; n < b.N; n++ {
+		for _, encoding := range encodings {
+			(&sig).SignData(pkey, encoding)
+		}
+	}
+}
+
+func BenchmarkSigningAssertion10000(b *testing.B)  { benchmarkSigning("test/zonefile10000", b) }
+func BenchmarkSigningAssertion100000(b *testing.B) { benchmarkSigning("test/zonefile100000", b) }
+
+func benchmarkVerify(zonefileName string, b *testing.B) {
+	log.Root().SetHandler(log.DiscardHandler())
+	parser := new(zonefile.Parser)
+	zone, err := parser.LoadZone(zonefileName)
+	if err != nil {
+		b.Error(err)
+		return
+	}
+	publicKey, privatekey, _ := ed25519.GenerateKey(nil)
+	sig := signature.Sig{
+		PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519},
+		ValidUntil:  time.Now().Add(time.Hour).Unix(),
+	}
+	for _, sec := range zone.Content {
+		if !SignSectionUnsafe(sec, privatekey, sig) {
+			b.Error("Error in signing section")
+		}
+	}
+	pkeys := make(map[keys.PublicKeyID][]keys.PublicKey)
+	pkeys[sig.PublicKeyID] = []keys.PublicKey{keys.PublicKey{
+		PublicKeyID: sig.PublicKeyID,
+		Key:         publicKey,
+	}}
+	for n := 0; n < b.N; n++ {
+		for _, sec := range zone.Content {
+			if !CheckSectionSignatures(sec, pkeys, util.MaxCacheValidity{}) {
+				b.Error("Error in signing section")
+			}
+		}
+	}
+}
+
+func BenchmarkVerifyAssertion10000(b *testing.B)  { benchmarkVerify("test/zonefile10000", b) }
+func BenchmarkVerifyAssertion100000(b *testing.B) { benchmarkVerify("test/zonefile100000", b) }

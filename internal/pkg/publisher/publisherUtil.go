@@ -106,7 +106,6 @@ func loadZonefile(path string, parser zonefile.ZoneFileParser) (*section.Zone, e
 		log.Error("Was not able to read zone file", "path", path)
 		return nil, err
 	}
-	//FIXME CFE replace with call to yacc generated zonefile parser.
 	zone, err := parser.DecodeZone(file)
 	if err != nil {
 		log.Error("Was not able to parse zone file.", "error", err)

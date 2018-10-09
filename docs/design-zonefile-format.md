@@ -76,7 +76,7 @@ are not part of the syntax.
 <regrbody> ::= ":regr:" <freeText>
 <regtbody> ::= ":regt:" <freeText>
 <infrabody> ::= ":infra:" ":ed25519:" <keyphase> <publicKeyData>
-<extrabody> ::= ":extra:" ":ed25519:" <keyphase> <publicKeyData>
+<extrabody> ::= ":extra:" ":ed25519:" <keyspace> <keyphase> <publicKeyData>
 <nextbody> ::= ":next:" ":ed25519:" <keyphase> <publicKeyData> <validFrom> <validSince>
 <objectTypes> ::= <objectType> | <objectTypes> <objectType>
 <objectType> ::= ":name:" | ":ip6:" | ":ip4:" | ":redir:" | ":deleg:" |  

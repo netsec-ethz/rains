@@ -2,14 +2,9 @@ package signature
 
 import (
 	"bytes"
-	"crypto/ecdsa"
-	"crypto/rand"
-	"crypto/sha256"
-	"crypto/sha512"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
 
 	log "github.com/inconshreveable/log15"
 
@@ -116,34 +111,6 @@ func (sig *Sig) SignData(privateKey interface{}, encoding []byte) error {
 		}
 		log.Warn("Could not assert type ed25519.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
 		return errors.New("could not assert type ed25519.PrivateKey")
-	case algorithmTypes.Ed448:
-		return errors.New("ed448 not yet supported in SignData()")
-	case algorithmTypes.Ecdsa256:
-		if pkey, ok := privateKey.(*ecdsa.PrivateKey); ok {
-			hash := sha256.Sum256(encoding)
-			r, s, err := ecdsa.Sign(rand.Reader, pkey, hash[:])
-			if err != nil {
-				log.Warn("Could not sign data", "error", err)
-				return err
-			}
-			sig.Data = []*big.Int{r, s}
-			return nil
-		}
-		log.Warn("Could not assert type ecdsa.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
-		return errors.New("could not assert type ecdsa.PrivateKey")
-	case algorithmTypes.Ecdsa384:
-		if pkey, ok := privateKey.(*ecdsa.PrivateKey); ok {
-			hash := sha512.Sum384(encoding)
-			r, s, err := ecdsa.Sign(rand.Reader, pkey, hash[:])
-			if err != nil {
-				log.Warn("Could not sign data", "error", err)
-				return err
-			}
-			sig.Data = []*big.Int{r, s}
-			return nil
-		}
-		log.Warn("Could not cast key to ecdsa.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
-		return errors.New("could not assert type ecdsa.PrivateKey")
 	default:
 		log.Warn("Sig algorithm type not supported", "type", sig.Algorithm)
 		return errors.New("signature algorithm type not supported")
@@ -175,28 +142,6 @@ func (sig *Sig) VerifySignature(publicKey interface{}, encoding []byte) bool {
 			return ed25519.Verify(pkey, encoding, sigData.([]byte))
 		}
 		log.Warn("Could not assert type ed25519.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
-	case algorithmTypes.Ed448:
-		log.Warn("Ed448 not yet Supported!")
-	case algorithmTypes.Ecdsa256:
-		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
-			if sig, ok := sigData.([]*big.Int); ok && len(sig) == 2 {
-				hash := sha256.Sum256(encoding)
-				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])
-			}
-			log.Warn("Could not assert type []*big.Int", "signatureDataType", fmt.Sprintf("%T", sig.Data))
-			return false
-		}
-		log.Warn("Could not assert type ecdsa.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
-	case algorithmTypes.Ecdsa384:
-		if pkey, ok := publicKey.(*ecdsa.PublicKey); ok {
-			if sig, ok := sigData.([]*big.Int); ok && len(sig) == 2 {
-				hash := sha512.Sum384(encoding)
-				return ecdsa.Verify(pkey, hash[:], sig[0], sig[1])
-			}
-			log.Warn("Could not assert type []*big.Int", "signature", sig.Data)
-			return false
-		}
-		log.Warn("Could not assert type ecdsa.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
 	default:
 		log.Warn("Sig algorithm type not supported", "type", sig.Algorithm)
 	}

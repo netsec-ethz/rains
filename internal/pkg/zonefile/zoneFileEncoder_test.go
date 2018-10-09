@@ -90,11 +90,11 @@ func TestEncodePublicKey(t *testing.T) {
 		input keys.PublicKey
 		want  string
 	}{
-		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519}, Key: pkey}, fmt.Sprintf("ed25519 %s", hex.EncodeToString(pkey))},
-		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519}, Key: []byte(" ")}, ""},
-		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed448}}, ""},
-		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: object.Ecdsa256}}, ""},
-		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: object.Ecdsa384}}, ""},
+		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}, Key: pkey}, fmt.Sprintf("ed25519 %s", hex.EncodeToString(pkey))},
+		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}, Key: []byte(" ")}, ""},
+		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed448}}, ""},
+		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ecdsa256}}, ""},
+		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ecdsa384}}, ""},
 		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Signature(-1)}}, ""},
 	}
 	for _, test := range tests {
@@ -106,11 +106,11 @@ func TestEncodePublicKey(t *testing.T) {
 
 func TestEncodeKeySpace(t *testing.T) {
 	var tests = []struct {
-		input object.KeySpaceID
+		input keys.KeySpaceID
 		want  string
 	}{
 		{keys.RainsKeySpace, "rains"},
-		{object.KeySpaceID(-1), ""},
+		{keys.KeySpaceID(-1), ""},
 	}
 	for _, test := range tests {
 		if encodeKeySpace(test.input) != test.want {

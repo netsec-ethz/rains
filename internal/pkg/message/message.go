@@ -42,7 +42,11 @@ func (rm *Message) MarshalCBOR(w cbor.Writer) error {
 	}
 	// A Message map MAY contain a capabilities (1) key.
 	if len(rm.Capabilities) > 0 {
-		m[1] = rm.Capabilities
+		caps := make([]string, len(rm.Capabilities))
+		for i, cap := range rm.Capabilities {
+			caps[i] = string(cap)
+		}
+		m[1] = caps
 	}
 	// A Message map MUST contain a token (2) key, whose value is a 16-byte array.
 	m[2] = rm.Token
@@ -101,11 +105,12 @@ func (rm *Message) UnmarshalCBOR(r cbor.Reader) error {
 			}
 		}
 	}
-	// Read the capabilities
+	// Read the capabilities, FIXME CFE maybe we can directly assign slice of
+	// Capability as they are an alias for string.
 	if caps, ok := m[1]; ok {
-		rm.Capabilities = make([]Capability, 0)
-		for _, cap := range caps.([]interface{}) {
-			rm.Capabilities = append(rm.Capabilities, Capability(cap.(string)))
+		rm.Capabilities = make([]Capability, len(caps.([]interface{})))
+		for i, cap := range caps.([]interface{}) {
+			rm.Capabilities[i] = Capability(cap.(string))
 		}
 	}
 	// read the token

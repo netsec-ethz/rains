@@ -22,11 +22,11 @@ func encodeZone(z *section.Zone, addZoneAndContext bool) string {
 	for _, sec := range z.Content {
 		switch s := sec.(type) {
 		case *section.Assertion:
-			zone += encodeAssertion(s, z.Context, z.SubjectZone, indent4, addZoneAndContext)
+			zone += encodeAssertion(s, z.Context, z.SubjectZone, indent4, addZoneAndContext) + "\n"
 		case *section.Shard:
-			zone += encodeShard(s, z.Context, z.SubjectZone, indent4, addZoneAndContext)
+			zone += encodeShard(s, z.Context, z.SubjectZone, indent4, addZoneAndContext) + "\n"
 		case *section.Pshard:
-			zone += encodePshard(s, z.Context, z.SubjectZone, indent4, addZoneAndContext)
+			zone += encodePshard(s, z.Context, z.SubjectZone, indent4, addZoneAndContext) + "\n"
 		default:
 			log.Warn("Unsupported message section type", "msgSection", s)
 		}
@@ -62,7 +62,7 @@ func encodeShard(s *section.Shard, context, subjectZone, indent string, addZoneA
 		shard = fmt.Sprintf("%s %s %s [\n", TypeShard, rangeFrom, rangeTo)
 	}
 	for _, assertion := range s.Content {
-		shard += encodeAssertion(assertion, context, subjectZone, indent+indent4, addZoneAndContext)
+		shard += encodeAssertion(assertion, context, subjectZone, indent+indent4, addZoneAndContext) + "\n"
 	}
 	if s.Signatures != nil {
 		var sigs []string
@@ -216,7 +216,7 @@ func encodeObjects(o []object.Object, indent string) string {
 			}
 		case object.OTExtraKey:
 			if pkey, ok := obj.Value.(keys.PublicKey); ok {
-				encoding += fmt.Sprintf("%s%s %s", addIndentToType(TypeExternalKey), encodeKeySpace(pkey.KeySpace), encodeEd25519PublicKey(pkey))
+				encoding += fmt.Sprintf("%s %s", addIndentToType(TypeExternalKey), encodeEd25519PublicKey(pkey))
 			} else {
 				log.Warn("Type assertion failed. Expected object.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
 				return ""

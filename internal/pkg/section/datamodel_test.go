@@ -1,17 +1,6 @@
 package section
 
-import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"net"
-	"reflect"
-	"testing"
-
-	"golang.org/x/crypto/ed25519"
-)
-
-func TestMessageSectionWithSigSignatures(t *testing.T) {
+/*func TestMessageSectionWithSigSignatures(t *testing.T) {
 	sig1 := Signature{
 		PublicKeyID: PublicKeyID{KeySpace: RainsKeySpace, Algorithm: Ed25519},
 		ValidSince:  1000,
@@ -688,4 +677,4 @@ func TestOverlapping(t *testing.T) {
 			t.Errorf("case %d: wrong return type from Intersect: got %t, want %t", i, out, entry.output)
 		}
 	}
-}
+}*/
