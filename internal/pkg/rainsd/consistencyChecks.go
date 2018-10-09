@@ -312,7 +312,7 @@ func (s *sortedAssertions) Add(a *section.Assertion) bool {
 	i := sort.Search(len(s.assertions), func(i int) bool {
 		return s.assertions[i].SubjectName >= a.SubjectName
 	})
-	if s.assertions[i].EqualContextZoneName(a) {
+	if i != len(s.assertions) && s.assertions[i].EqualContextZoneName(a) {
 		return false
 	}
 	s.assertions = append(s.assertions[:i], append([]*section.Assertion{a}, s.assertions[i:]...)...)
