@@ -1,19 +1,30 @@
 :Z: . . [
     :P: < ns.ch :bloomFilter: [ :murmur364: ] 1 :km1: 01040000010040000100 ( :sig: :ed25519: :rains: 1 10000 20000 )
+
     :P: ch > :bloomFilter: [ :murmur364: ] 1 :km1: 00000000000100000000 ( :sig: :ed25519: :rains: 1 10030 20030 )
+
     :S: < ch [
         :A: @ [ :ip4:     192.168.1.10 ] ( :sig: :ed25519: :rains: 1 10000 20000 )
+
     ] ( :sig: :ed25519: :rains: 1 10000 20000 )
+
     :S: @ ns.ch [
         :A: ch [ :ip4:     192.168.1.10 ] ( :sig: :ed25519: :rains: 1 10000 20000 )
+
         :A: ch [ :redir:   ns.ch. ] ( :sig: :ed25519: :rains: 1 10010 20010 )
+
         :A: ch [ :deleg:   :ed25519: 5 e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702 ] ( :sig: :ed25519: :rains: 1 10020 20020 )
+
         :A: ch [ 
             :ip6:     129.132.128.139
             :ip6:     2001:0db8:85a3:0000:0000:8a2e:0370:7334
         ] ( :sig: :ed25519: :rains: 1 10030 20030 )
+
     ] ( :sig: :ed25519: :rains: 1 10000 20000 )
+
     :S: ch > [
         :A: ns.ch [ :srv:     ns1.ch. 53 0 ] ( :sig: :ed25519: :rains: 1 10000 20000 )
+
     ] ( :sig: :ed25519: :rains: 1 10000 20000 )
+
 ]

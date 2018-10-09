@@ -30,8 +30,3 @@ func NewWriter(out io.Writer) Writer {
 func NewReader(in io.Reader) Reader {
 	return borat.NewCBORReader(in)
 }
-
-//RainsTag returns the rains cbor tag.
-func RainsTag() borat.CBORTag {
-	return borat.CBORTag(0xE99BA8)
-}

@@ -3,7 +3,8 @@ package section
 import (
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
+	cbor "github.com/britram/borat"
+
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
@@ -12,7 +13,7 @@ import (
 type Section interface {
 	Sort()
 	String() string
-	MarshalCBOR(w cbor.Writer) error
+	MarshalCBOR(w *cbor.CBORWriter) error
 	UnmarshalMap(m map[int]interface{}) error
 }
 

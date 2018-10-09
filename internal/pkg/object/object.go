@@ -9,12 +9,12 @@ import (
 	"sort"
 	"strconv"
 
+	cbor "github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
-	"golang.org/x/crypto/ed25519"
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"golang.org/x/crypto/ed25519"
 )
 
 //Object contains a Value of to the specified Type
@@ -25,7 +25,7 @@ type Object struct {
 
 // UnmarshalArray takes in a CBOR decoded array and populates the object.
 func (obj *Object) UnmarshalArray(in []interface{}) error {
-	switch Type(in[0].(uint64)) {
+	switch Type(in[0].(int)) {
 	case OTName:
 		no := Name{Types: make([]Type, 0)}
 		no.Name = in[1].(string)
@@ -42,11 +42,11 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 	case OTRedirection:
 		obj.Value = in[1]
 	case OTDelegation:
-		alg := in[1].(uint64)
-		ks := keys.KeySpaceID(in[2].(uint64))
-		kp := int(in[3].(uint64))
-		vs := int64(in[4].(uint64))
-		vu := int64(in[5].(uint64))
+		alg := in[1].(int)
+		ks := keys.KeySpaceID(in[2].(int))
+		kp := int(in[3].(int))
+		vs := int64(in[4].(int))
+		vu := int64(in[5].(int))
 		var key interface{}
 		switch algorithmTypes.Signature(alg) {
 		case algorithmTypes.Ed25519:
@@ -82,8 +82,8 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 	case OTServiceInfo:
 		si := ServiceInfo{
 			Name:     in[1].(string),
-			Port:     uint16(in[2].(uint64)),
-			Priority: uint(in[3].(uint64)),
+			Port:     uint16(in[2].(int)),
+			Priority: uint(in[3].(int)),
 		}
 		obj.Value = si
 	case OTRegistrar:
@@ -146,12 +146,12 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 	default:
 		return errors.New("unknown object type in unmarshalling object")
 	}
-	obj.Type = Type(in[0].(uint64))
+	obj.Type = Type(in[0].(int))
 	return nil
 }
 
 // MarshalCBOR implements a CBORMarshaler.
-func (obj Object) MarshalCBOR(w cbor.Writer) error {
+func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 	var res []interface{}
 	switch obj.Type {
 	case OTName:

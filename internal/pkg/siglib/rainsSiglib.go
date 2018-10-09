@@ -9,9 +9,9 @@ import (
 	"regexp"
 	"time"
 
+	cbor "github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
 
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -53,7 +53,7 @@ func CheckSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 	sigs := s.Sigs(keys.RainsKeySpace)
 	s.DeleteAllSigs()
 	encoding := new(bytes.Buffer)
-	if err := s.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
+	if err := s.MarshalCBOR(cbor.NewCBORWriter(encoding)); err != nil {
 		log.Warn("Was not able to marshal section.", "error", err)
 		return false
 	}
@@ -110,7 +110,7 @@ func CheckMessageSignatures(msg *message.Message, publicKey keys.PublicKey) bool
 	sigs := msg.Signatures
 	msg.Signatures = []signature.Sig{}
 	encoding := new(bytes.Buffer)
-	if err := msg.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
+	if err := msg.MarshalCBOR(cbor.NewCBORWriter(encoding)); err != nil {
 		log.Warn("Was not able to marshal message.", "error", err)
 		return false
 	}
@@ -170,7 +170,7 @@ func SignSectionUnsafe(s section.WithSig, privateKey interface{}, sig signature.
 		return false
 	}
 	encoding := new(bytes.Buffer)
-	if err := s.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
+	if err := s.MarshalCBOR(cbor.NewCBORWriter(encoding)); err != nil {
 		log.Warn("Was not able to marshal section.", "error", err)
 		return false
 	}
@@ -216,7 +216,7 @@ func SignMessageUnsafe(msg *message.Message, privateKey interface{}, sig signatu
 		return false
 	}
 	encoding := new(bytes.Buffer)
-	if err := msg.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
+	if err := msg.MarshalCBOR(cbor.NewCBORWriter(encoding)); err != nil {
 		log.Warn("Was not able to marshal message.", "error", err)
 		return false
 	}

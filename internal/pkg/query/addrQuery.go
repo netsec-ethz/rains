@@ -5,7 +5,8 @@ import (
 	"net"
 	"sort"
 
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
+	cbor "github.com/britram/borat"
+
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 )
 
@@ -40,7 +41,7 @@ func (q *Address) UnmarshalMap(m map[int]interface{}) error {
 }
 
 // MarshalCBOR implements the CBORMarshaler interface.
-func (q *Address) MarshalCBOR(w cbor.Writer) error {
+func (q *Address) MarshalCBOR(w *cbor.CBORWriter) error {
 	m := make(map[int]interface{})
 	//FIXME encode subject addr as in the draft
 	m[8] = q.SubjectAddr.String()

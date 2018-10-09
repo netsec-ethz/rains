@@ -76,15 +76,14 @@ func listen(conn net.Conn, token token.Token, success chan<- bool) {
 			}
 		}
 	}
-
 }
 
 func waitForResponse(conn net.Conn, token token.Token, serverError chan<- bool) {
 	reader := cbor.NewReader(conn)
 	var msg message.Message
 	if err := reader.Unmarshal(&msg); err != nil {
-		log.Warn("Was not able to decode received message", "error", err)
-		serverError <- false
+		//log.Warn("Was not able to decode received message", "error", err)
+		//serverError <- false
 		return
 	}
 	//Rainspub only accepts notification messages in response to published information.

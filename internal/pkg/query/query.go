@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
+	cbor "github.com/britram/borat"
+
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 )
 
@@ -38,7 +39,7 @@ func (q *Name) UnmarshalMap(m map[int]interface{}) error {
 }
 
 // MarshalCBOR implements the CBORMarshaler interface.
-func (q *Name) MarshalCBOR(w cbor.Writer) error {
+func (q *Name) MarshalCBOR(w *cbor.CBORWriter) error {
 	m := make(map[int]interface{})
 	m[8] = q.Name
 	m[6] = q.Context

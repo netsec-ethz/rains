@@ -7,8 +7,9 @@ import (
 	"sort"
 	"time"
 
+	cbor "github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
+
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
@@ -25,7 +26,7 @@ type AddrAssertion struct {
 }
 
 // MarshalCBOR implements the CBORMarshaler interface.
-func (a *AddrAssertion) MarshalCBOR(w cbor.Writer) error {
+func (a *AddrAssertion) MarshalCBOR(w *cbor.CBORWriter) error {
 	m := make(map[int]interface{})
 	m[0] = a.Signatures
 	var af int

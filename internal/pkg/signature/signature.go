@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 
+	cbor "github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"golang.org/x/crypto/ed25519"
 )
@@ -44,20 +44,20 @@ func (sig *Sig) UnmarshalArray(in []interface{}) error {
 	if len(in) < 6 {
 		return fmt.Errorf("expected at least 5 items in input array but got %d", len(in))
 	}
-	if in[0] != uint64(1) {
+	if in[0] != 1 {
 		return fmt.Errorf("only algorithm ED25519 is supported presently, but got: %d", in[0])
 	}
 	sig.PublicKeyID.Algorithm = algorithmTypes.Ed25519
-	sig.PublicKeyID.KeyPhase = int(in[1].(uint64))
-	sig.PublicKeyID.KeySpace = keys.KeySpaceID(in[2].(uint64))
-	sig.ValidSince = int64(in[3].(uint64))
-	sig.ValidUntil = int64(in[4].(uint64))
+	sig.PublicKeyID.KeyPhase = int(in[1].(int))
+	sig.PublicKeyID.KeySpace = keys.KeySpaceID(in[2].(int))
+	sig.ValidSince = int64(in[3].(int))
+	sig.ValidUntil = int64(in[4].(int))
 	sig.Data = in[5]
 	return nil
 }
 
 // MarshalCBOR implements a CBORMarshaler.
-func (sig Sig) MarshalCBOR(w cbor.Writer) error {
+func (sig Sig) MarshalCBOR(w *cbor.CBORWriter) error {
 	res := []interface{}{1, // FIXME: Hardcoded ED25519: there is no way to know what this is yet.
 		int(sig.KeySpace), sig.KeyPhase, sig.ValidSince, sig.ValidUntil, []byte{}}
 	if data, ok := sig.Data.([]byte); ok && len(data) > 0 {
@@ -98,7 +98,7 @@ func (sig *Sig) SignData(privateKey interface{}, encoding []byte) error {
 	}
 	sigEncoding := new(bytes.Buffer)
 	log.Info(sig.String())
-	if err := sig.MarshalCBOR(cbor.NewWriter(sigEncoding)); err != nil {
+	if err := sig.MarshalCBOR(cbor.NewCBORWriter(sigEncoding)); err != nil {
 		return err
 	}
 	encoding = append(encoding, sigEncoding.Bytes()...)
@@ -131,7 +131,7 @@ func (sig *Sig) VerifySignature(publicKey interface{}, encoding []byte) bool {
 	sigData := sig.Data
 	sig.Data = []byte{}
 	sigEncoding := new(bytes.Buffer)
-	if err := sig.MarshalCBOR(cbor.NewWriter(sigEncoding)); err != nil {
+	if err := sig.MarshalCBOR(cbor.NewCBORWriter(sigEncoding)); err != nil {
 		log.Error("Was not able to cbor encode signature")
 		return false
 	}

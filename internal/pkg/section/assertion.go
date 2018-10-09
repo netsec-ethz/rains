@@ -6,8 +6,9 @@ import (
 	"sort"
 	"time"
 
+	cbor "github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
+
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
@@ -57,7 +58,7 @@ func (a *Assertion) UnmarshalMap(m map[int]interface{}) error {
 }
 
 // MarshalCBOR implements the CBORMarshaler interface.
-func (a *Assertion) MarshalCBOR(w cbor.Writer) error {
+func (a *Assertion) MarshalCBOR(w *cbor.CBORWriter) error {
 	m := make(map[int]interface{})
 	if len(a.Signatures) > 0 {
 		m[0] = a.Signatures

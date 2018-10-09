@@ -4,8 +4,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	cbor "github.com/britram/borat"
+
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 )
 
@@ -23,7 +24,7 @@ func (q *AssertionUpdate) UnmarshalMap(m map[int]interface{}) error {
 	return nil
 }
 
-func (q *AssertionUpdate) MarshalCBOR(w cbor.Writer) error {
+func (q *AssertionUpdate) MarshalCBOR(w *cbor.CBORWriter) error {
 	//TODO CFE to implement
 	return nil
 }
@@ -57,7 +58,7 @@ func (q *NegUpdate) UnmarshalMap(m map[int]interface{}) error {
 	return nil
 }
 
-func (q *NegUpdate) MarshalCBOR(w cbor.Writer) error {
+func (q *NegUpdate) MarshalCBOR(w *cbor.CBORWriter) error {
 	//TODO CFE to implement
 	return nil
 }

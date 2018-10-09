@@ -9,9 +9,10 @@ import (
 	"fmt"
 	"hash/fnv"
 
+	cbor "github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
+
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
 	"github.com/spaolacci/murmur3"
 )
@@ -43,7 +44,7 @@ func (d *DataStructure) UnmarshalArray(in []interface{}) error {
 }
 
 // MarshalCBOR implements a CBORMarshaler.
-func (d *DataStructure) MarshalCBOR(w cbor.Writer) error {
+func (d *DataStructure) MarshalCBOR(w *cbor.CBORWriter) error {
 	var res []interface{}
 	switch d.Type {
 	case BloomFilterType:
