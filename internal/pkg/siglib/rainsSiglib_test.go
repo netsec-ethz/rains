@@ -711,3 +711,26 @@ func benchmarkVerify(zonefileName string, b *testing.B) {
 
 func BenchmarkVerifyAssertion10000(b *testing.B)  { benchmarkVerify("test/zonefile10000", b) }
 func BenchmarkVerifyAssertion100000(b *testing.B) { benchmarkVerify("test/zonefile100000", b) }
+
+func BenchmarkEd25519Signing(b *testing.B) {
+	_, privatekey, _ := ed25519.GenerateKey(nil)
+	encoding := []byte{}
+	for i := 0; i < 100; i++ {
+		encoding = append(encoding, 'a')
+	}
+	for n := 0; n < b.N; n++ {
+		ed25519.Sign(privatekey, encoding)
+	}
+}
+
+func BenchmarkEd25519Verify(b *testing.B) {
+	publicKey, privatekey, _ := ed25519.GenerateKey(nil)
+	encoding := []byte{}
+	for i := 0; i < 60; i++ {
+		encoding = append(encoding, 'a')
+	}
+	sig := ed25519.Sign(privatekey, encoding)
+	for n := 0; n < b.N; n++ {
+		ed25519.Verify(publicKey, encoding, sig)
+	}
+}
