@@ -4,12 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
-
-	"github.com/netsec-ethz/rains/internal/pkg/section"
-
 	log "github.com/inconshreveable/log15"
 
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
 
