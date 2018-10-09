@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
+	cbor "github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
@@ -32,7 +32,7 @@ func TestSignAssertion(t *testing.T) {
 	newSig := sec.AllSigs()[0]
 	sec.DeleteSig(0)
 	encoding := new(bytes.Buffer)
-	sec.MarshalCBOR(cbor.NewWriter(encoding))
+	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
 
 	//Test signature
 	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
@@ -52,7 +52,7 @@ func TestSignShard(t *testing.T) {
 	newSig := sec.AllSigs()[0]
 	sec.DeleteSig(0)
 	encoding := new(bytes.Buffer)
-	sec.MarshalCBOR(cbor.NewWriter(encoding))
+	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
 
 	//Test signature
 	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
@@ -72,7 +72,7 @@ func TestSignPshard(t *testing.T) {
 	newSig := sec.AllSigs()[0]
 	sec.DeleteSig(0)
 	encoding := new(bytes.Buffer)
-	sec.MarshalCBOR(cbor.NewWriter(encoding))
+	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
 
 	//Test signature
 	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
@@ -92,7 +92,7 @@ func TestSignAddrAssertionIP4(t *testing.T) {
 	newSig := sec.AllSigs()[0]
 	sec.DeleteSig(0)
 	encoding := new(bytes.Buffer)
-	sec.MarshalCBOR(cbor.NewWriter(encoding))
+	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
 
 	//Test signature
 	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
@@ -112,7 +112,7 @@ func TestSignAddrAssertionIP6(t *testing.T) {
 	newSig := sec.AllSigs()[0]
 	sec.DeleteSig(0)
 	encoding := new(bytes.Buffer)
-	sec.MarshalCBOR(cbor.NewWriter(encoding))
+	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
 
 	//Test signature
 	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
@@ -132,7 +132,7 @@ func TestSignZone(t *testing.T) {
 	newSig := sec.AllSigs()[0]
 	sec.DeleteSig(0)
 	encoding := new(bytes.Buffer)
-	sec.MarshalCBOR(cbor.NewWriter(encoding))
+	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
 
 	//Test signature
 	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
@@ -156,7 +156,7 @@ func TestSignQuery(t *testing.T) {
 	newSig := msg.Signatures[0]
 	msg.Signatures = []signature.Sig{}
 	encoding := new(bytes.Buffer)
-	msg.MarshalCBOR(cbor.NewWriter(encoding))
+	msg.MarshalCBOR(cbor.NewCBORWriter(encoding))
 
 	//Test signature
 	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
@@ -180,7 +180,7 @@ func TestSignAddrQuery(t *testing.T) {
 	newSig := msg.Signatures[0]
 	msg.Signatures = []signature.Sig{}
 	encoding := new(bytes.Buffer)
-	msg.MarshalCBOR(cbor.NewWriter(encoding))
+	msg.MarshalCBOR(cbor.NewCBORWriter(encoding))
 
 	//Test signature
 	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
@@ -204,7 +204,7 @@ func TestSignNotification(t *testing.T) {
 	newSig := msg.Signatures[0]
 	msg.Signatures = []signature.Sig{}
 	encoding := new(bytes.Buffer)
-	msg.MarshalCBOR(cbor.NewWriter(encoding))
+	msg.MarshalCBOR(cbor.NewCBORWriter(encoding))
 
 	//Test signature
 	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
@@ -636,7 +636,7 @@ func benchmarkEncoding(zonefileName string, b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		for _, assertion := range zone.Content {
 			encoding := new(bytes.Buffer)
-			if err := assertion.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
+			if err := assertion.MarshalCBOR(cbor.NewCBORWriter(encoding)); err != nil {
 				b.Error("Was not able to marshal section.", "error", err)
 			}
 		}
@@ -662,7 +662,7 @@ func benchmarkSigning(zonefileName string, b *testing.B) {
 	var encodings [][]byte
 	for _, assertion := range zone.Content {
 		encoding := new(bytes.Buffer)
-		if err := assertion.MarshalCBOR(cbor.NewWriter(encoding)); err != nil {
+		if err := assertion.MarshalCBOR(cbor.NewCBORWriter(encoding)); err != nil {
 			b.Error("Was not able to marshal section.", "error", err)
 		}
 		encodings = append(encodings, encoding.Bytes())

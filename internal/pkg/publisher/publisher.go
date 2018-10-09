@@ -49,7 +49,7 @@ func (r *Rainspub) Publish() {
 		return
 	}
 	if r.Config.ShardingConf.DoSharding {
-		if shards, err = doSharding(zone, assertions, shards, r.Config.ShardingConf, r.zfParser,
+		if shards, err = doSharding(zone.Context, zone.SubjectZone, assertions, shards, r.Config.ShardingConf, r.zfParser,
 			r.Config.ConsistencyConf.SortShards); err != nil {
 			log.Error(err.Error())
 			return
@@ -59,7 +59,8 @@ func (r *Rainspub) Publish() {
 		}
 	}
 	if r.Config.PShardingConf.DoPsharding {
-		if pshards, err = doPsharding(zone, assertions, pshards, r.Config.PShardingConf); err != nil {
+		if pshards, err = doPsharding(zone.Context, zone.SubjectZone, assertions, pshards, r.Config.PShardingConf,
+			!r.Config.ShardingConf.DoSharding && r.Config.ConsistencyConf.SortShards); err != nil {
 			log.Error(err.Error())
 			return
 		}
@@ -121,7 +122,7 @@ func splitZoneContent(zone *section.Zone, keepShards, keepPshards bool) (
 }
 
 //doSharding creates shards based on the zone's content and config.
-func doSharding(zone *section.Zone, assertions []*section.Assertion,
+func doSharding(ctx, zone string, assertions []*section.Assertion,
 	shards []*section.Shard, config ShardingConfig, encoder zonefile.ZoneFileParser,
 	sortShards bool) ([]*section.Shard, error) {
 	if sortShards {
@@ -130,13 +131,13 @@ func doSharding(zone *section.Zone, assertions []*section.Assertion,
 	var newShards []*section.Shard
 	var err error
 	if config.MaxShardSize > 0 {
-		newShards, err = groupAssertionsToShardsBySize(zone.SubjectZone, zone.Context, assertions,
+		newShards, err = groupAssertionsToShardsBySize(zone, ctx, assertions,
 			config, encoder)
 		if err != nil {
 			return nil, err
 		}
 	} else if config.NofAssertionsPerShard > 0 {
-		newShards = groupAssertionsToShardsByNumber(zone.SubjectZone, zone.Context, assertions, config)
+		newShards = groupAssertionsToShardsByNumber(zone, ctx, assertions, config)
 	} else {
 		return nil, errors.New("MaxShardSize or NofAssertionsPerShard must be positive when DoSharding is set")
 	}
@@ -150,12 +151,15 @@ func doSharding(zone *section.Zone, assertions []*section.Assertion,
 }
 
 //doPsharding creates pshards based on the zone's content and config.
-func doPsharding(zone *section.Zone, assertions []*section.Assertion,
-	pshards []*section.Pshard, conf PShardingConfig) ([]*section.Pshard, error) {
+func doPsharding(ctx, zone string, assertions []*section.Assertion,
+	pshards []*section.Pshard, conf PShardingConfig, sortShards bool) ([]*section.Pshard, error) {
+	if sortShards {
+		sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
+	}
 	var newPshards []*section.Pshard
 	var err error
 	if conf.NofAssertionsPerPshard > 0 {
-		if newPshards, err = groupAssertionsToPshards(zone.SubjectZone, zone.Context, assertions, conf); err != nil {
+		if newPshards, err = groupAssertionsToPshards(zone, ctx, assertions, conf); err != nil {
 			return nil, err
 		}
 	} else {
@@ -336,8 +340,8 @@ func addSignatureMetaData(zone *section.Zone, nofAssertions, nofPshards int,
 			KeyPhase:  config.KeyPhase,
 			KeySpace:  keys.RainsKeySpace,
 		},
-		ValidSince: int64(config.SigValidSince.Seconds()),
-		ValidUntil: int64(config.SigValidUntil.Seconds()),
+		ValidSince: config.SigValidSince,
+		ValidUntil: config.SigValidUntil,
 	}
 	firstShard := true
 	for _, sec := range zone.Content {
@@ -346,8 +350,8 @@ func addSignatureMetaData(zone *section.Zone, nofAssertions, nofPshards int,
 			return errors.New("standalone assertions in a zone are not supported")
 		case *section.Shard:
 			if firstShard {
-				signature.ValidSince = int64(config.SigValidSince.Seconds())
-				signature.ValidUntil = int64(config.SigValidUntil.Seconds())
+				signature.ValidSince = config.SigValidSince
+				signature.ValidUntil = config.SigValidUntil
 			}
 			if config.AddSigMetaDataToShards {
 				s.AddSig(signature)

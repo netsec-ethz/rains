@@ -68,8 +68,8 @@ type MetaDataConfig struct {
 	AddSigMetaDataToPshards    bool
 	SignatureAlgorithm         algorithmTypes.Signature
 	KeyPhase                   int
-	SigValidSince              time.Duration
-	SigValidUntil              time.Duration
+	SigValidSince              int64
+	SigValidUntil              int64
 	SigSigningInterval         time.Duration
 }
 
@@ -93,8 +93,6 @@ func LoadConfig(configPath string) (Config, error) {
 		log.Error("Could not unmarshal json format of config", "error", err)
 		return Config{}, err
 	}
-	config.MetaDataConf.SigValidSince *= time.Second
-	config.MetaDataConf.SigValidUntil *= time.Second
 	config.MetaDataConf.SigSigningInterval *= time.Second
 	return config, nil
 }
@@ -167,7 +165,13 @@ func signZone(zone *section.Zone, path string) error {
 	for _, sec := range zone.Content {
 		switch sec := sec.(type) {
 		case *section.Assertion:
-			if err := signAssertion(sec, keys); err != nil {
+			if err := signSection(sec, keys); err != nil {
+				return err
+			}
+			sec.Context = ""
+			sec.SubjectZone = ""
+		case *section.Pshard:
+			if err := signSection(sec, keys); err != nil {
 				return err
 			}
 			sec.Context = ""
@@ -199,7 +203,7 @@ func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{}) error {
 		}
 	}
 	for _, a := range s.Content {
-		if err := signAssertion(a, keys); err != nil {
+		if err := signSection(a, keys); err != nil {
 			return err
 		}
 		a.Context = ""
@@ -208,15 +212,15 @@ func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{}) error {
 	return nil
 }
 
-//signAssertion computes the signature data for all contained signatures.
+//signSection computes the signature data for all contained signatures.
 //It returns an error if it was unable to create all signatures on the assertion.
-func signAssertion(a *section.Assertion, keys map[keys.PublicKeyID]interface{}) error {
-	if a == nil {
+func signSection(s section.WithSigForward, keys map[keys.PublicKeyID]interface{}) error {
+	if s == nil {
 		return errors.New("assertion is nil")
 	}
-	for _, sig := range a.Signatures {
-		if ok := siglib.SignSectionUnsafe(a, keys[sig.PublicKeyID], sig); !ok {
-			log.Error("Was not able to sign and add the signature", "assertion", a, "signature", sig)
+	for _, sig := range s.AllSigs() {
+		if ok := siglib.SignSectionUnsafe(s, keys[sig.PublicKeyID], sig); !ok {
+			log.Error("Was not able to sign and add the signature", "section", s, "signature", sig)
 			return errors.New("Was not able to sign and add the signature")
 		}
 	}
