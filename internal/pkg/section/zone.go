@@ -53,20 +53,29 @@ func (z *Zone) UnmarshalMap(m map[int]interface{}) error {
 		z.Content = make([]WithSigForward, 0)
 		for _, item := range content.([]interface{}) {
 			m := item.(map[int]interface{})
-			if _, ok := m[11]; ok {
+			if _, ok := m[7]; ok {
 				// Shard.
 				ss := &Shard{}
 				if err := ss.UnmarshalMap(m); err != nil {
 					return fmt.Errorf("failed to unmarshal Shard map in Zone: %v", err)
 				}
 				z.Content = append(z.Content, ss)
-			} else {
+			} else if _, ok := m[18]; ok {
+				// Pshard.
+				ps := &Pshard{}
+				if err := ps.UnmarshalMap(m); err != nil {
+					return fmt.Errorf("failed to unmarshal Shard map in Zone: %v", err)
+				}
+				z.Content = append(z.Content, ps)
+			} else if _, ok := m[3]; ok {
 				// Assertion.
 				as := &Assertion{}
 				if err := as.UnmarshalMap(m); err != nil {
 					return fmt.Errorf("failed to unmarshal Assertion map in Zone: %v", err)
 				}
 				z.Content = append(z.Content, as)
+			} else {
+				log.Error("Unsupported section in zone content")
 			}
 		}
 	} else {
@@ -362,7 +371,7 @@ func (z *Zone) IsConsistent() bool {
 			log.Warn("Contained section has a subjectZone or context", "section", section)
 			return false
 		}
-		if shard := section.(*Shard); !shard.IsConsistent() {
+		if shard, ok := section.(*Shard); ok && !shard.IsConsistent() {
 			return false //already logged
 		}
 	}

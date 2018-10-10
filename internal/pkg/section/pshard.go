@@ -199,9 +199,9 @@ func (s *Pshard) CompareTo(shard *Pshard) int {
 //String implements Stringer interface
 func (s *Pshard) String() string {
 	if s == nil {
-		return "Shard:nil"
+		return "Pshard:nil"
 	}
-	return fmt.Sprintf("Shard:[SZ=%s CTX=%s RF=%s RT=%s DS=%v SIG=%v]",
+	return fmt.Sprintf("Pshard:[SZ=%s CTX=%s RF=%s RT=%s DS=%v SIG=%v]",
 		s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, s.Datastructure, s.Signatures)
 }
 

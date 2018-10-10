@@ -278,6 +278,7 @@ func groupAssertionsToPshards(subjectZone, context string, assertions []*section
 		if nameCount > config.NofAssertionsPerPshard {
 			pshard.RangeFrom = prevShardAssertionSubjectName
 			pshard.RangeTo = a.SubjectName
+			pshard.Datastructure.Type = section.BloomFilterType
 			pshard.Datastructure.Data = bloomFilter
 			pshards = append(pshards, pshard)
 			nameCount = 1
@@ -291,6 +292,7 @@ func groupAssertionsToPshards(subjectZone, context string, assertions []*section
 	}
 	pshard.RangeFrom = prevShardAssertionSubjectName
 	pshard.RangeTo = ""
+	pshard.Datastructure.Type = section.BloomFilterType
 	pshard.Datastructure.Data = bloomFilter
 	pshards = append(pshards, pshard)
 	log.Info("Sharding by number completed successfully")
@@ -419,7 +421,9 @@ func (r *Rainspub) publishZone(zone *section.Zone, config Config) {
 		}
 	}
 	if config.DoPublish {
-		//TODO check if zone is not too large. If it is, split it up and send content separately.
+		//TODO check if zone is not too large. If it is, split it up and send
+		//content separately.
+		log.Debug("published zone", "zone", zone)
 		msg := message.Message{
 			Token:        token.New(),
 			Content:      []section.Section{zone},

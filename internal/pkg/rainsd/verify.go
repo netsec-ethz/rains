@@ -217,6 +217,10 @@ func validZoneSignatures(zone *section.Zone, keys map[keys.PublicKeyID][]keys.Pu
 			if !validContainedAssertions([]*section.Assertion{sec}, keys, maxValidity) {
 				return false
 			}
+		case *section.Pshard:
+			if !siglib.CheckSectionSignatures(sec, keys, maxValidity) {
+				return false
+			}
 		case *section.Shard:
 			if !siglib.CheckSectionSignatures(sec, keys, maxValidity) ||
 				!validContainedAssertions(sec.Content, keys, maxValidity) {

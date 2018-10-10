@@ -300,6 +300,15 @@ func CheckStringFields(s section.Section) bool {
 			}
 		}
 		return !(containsZoneFileType(s.Context) || containsZoneFileType(s.SubjectZone))
+	case *section.Pshard:
+		if containsZoneFileType(s.RangeFrom) {
+			log.Warn("Section contains a string field with forbidden content", "RangeFrom", s.RangeFrom)
+			return false
+		}
+		if containsZoneFileType(s.RangeTo) {
+			log.Warn("Section contains a string field with forbidden content", "RangeTo", s.RangeTo)
+			return false
+		}
 	case *section.Zone:
 		for _, section := range s.Content {
 			if !CheckStringFields(section) {

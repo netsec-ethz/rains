@@ -25,15 +25,15 @@ type DataStructure struct {
 
 // UnmarshalArray takes in a CBOR decoded array and populates the object.
 func (d *DataStructure) UnmarshalArray(in []interface{}) error {
-	switch DataStructureType(in[0].(uint64)) {
+	switch DataStructureType(in[0].(int)) {
 	case BloomFilterType:
 		bf := BloomFilter{
-			NofHashFunctions: int(in[2].(uint64)),
-			ModeOfOperation:  ModeOfOperationType(in[3].(uint64)),
+			NofHashFunctions: int(in[2].(int)),
+			ModeOfOperation:  ModeOfOperationType(in[3].(int)),
 			Filter:           bitarray.BitArray(in[4].([]byte)),
 		}
 		for _, hash := range in[1].([]interface{}) {
-			bf.HashFamily = append(bf.HashFamily, algorithmTypes.Hash(hash.(uint64)))
+			bf.HashFamily = append(bf.HashFamily, algorithmTypes.Hash(hash.(int)))
 		}
 		d.Type = BloomFilterType
 		d.Data = bf
@@ -44,7 +44,7 @@ func (d *DataStructure) UnmarshalArray(in []interface{}) error {
 }
 
 // MarshalCBOR implements a CBORMarshaler.
-func (d *DataStructure) MarshalCBOR(w *cbor.CBORWriter) error {
+func (d DataStructure) MarshalCBOR(w *cbor.CBORWriter) error {
 	var res []interface{}
 	switch d.Type {
 	case BloomFilterType:
