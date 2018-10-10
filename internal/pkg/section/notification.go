@@ -20,10 +20,11 @@ type Notification struct {
 
 // UnmarshalMap unpacks a CBOR unmarshaled map to this object.
 func (n *Notification) UnmarshalMap(m map[int]interface{}) error {
-	if tok, ok := m[2]; ok {
-		n.Token = tok.(token.Token)
-	} else {
-		return fmt.Errorf("key [2] for token not found in map: %v", m)
+	if _, ok := m[2]; !ok {
+		return fmt.Errorf("token missing in notification message: %v", m)
+	}
+	for i, val := range m[2].([]interface{}) {
+		n.Token[i] = byte(val.(int))
 	}
 	if not, ok := m[21]; ok {
 		n.Type = NotificationType(not.(int))

@@ -3,6 +3,7 @@ package publisher
 import (
 	"crypto/tls"
 	"net"
+	"strings"
 	"time"
 
 	log "github.com/inconshreveable/log15"
@@ -82,7 +83,12 @@ func waitForResponse(conn net.Conn, token token.Token, serverError chan<- bool) 
 	reader := cbor.NewReader(conn)
 	var msg message.Message
 	if err := reader.Unmarshal(&msg); err != nil {
-		log.Warn("Was not able to decode received message", "error", err)
+		errs := strings.Split(err.Error(), ": ")
+		if errs[len(errs)-1] == "use of closed network connection" {
+			log.Info("Connection has been closed", "conn", conn.RemoteAddr())
+		} else {
+			log.Warn("Was not able to decode received message", "error", err)
+		}
 		serverError <- false
 		return
 	}

@@ -25,14 +25,14 @@ func (q *Name) UnmarshalMap(m map[int]interface{}) error {
 	q.Types = make([]object.Type, 0)
 	if types, ok := m[10]; ok {
 		for _, qt := range types.([]interface{}) {
-			q.Types = append(q.Types, object.Type(qt.(uint64)))
+			q.Types = append(q.Types, object.Type(qt.(int)))
 		}
 	}
-	q.Expiration = int64(m[12].(uint64))
+	q.Expiration = int64(m[12].(int))
 	q.Options = make([]Option, 0)
 	if opts, ok := m[13]; ok {
 		for _, opt := range opts.([]interface{}) {
-			q.Options = append(q.Options, Option(opt.(uint64)))
+			q.Options = append(q.Options, Option(opt.(int)))
 		}
 	}
 	return nil

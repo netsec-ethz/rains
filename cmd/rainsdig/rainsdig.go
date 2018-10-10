@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/section"
+
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
@@ -101,7 +103,7 @@ func main() {
 
 		err = sendQuery(msg, msg.Token, connInfo)
 		if err != nil {
-			log.Warn(fmt.Sprintf("could not send query: %v", err))
+			log.Info(fmt.Sprintf("could not send query: %v", err))
 			os.Exit(1)
 		}
 	}
@@ -132,7 +134,7 @@ func sendQuery(msg message.Message, token token.Token, connInfo connection.Info)
 			fmt.Println(zfParser.Encode(section))
 		}
 	case err := <-ec:
-		return fmt.Errorf("an error occurred querying the server: %v", err)
+		return err
 	case <-time.After(10 * time.Second):
 		return fmt.Errorf("timed out waiting for response")
 	}
@@ -153,12 +155,18 @@ func listen(conn net.Conn, tok token.Token, done chan<- message.Message, ec chan
 	reader := cbor.NewReader(conn)
 	var msg message.Message
 	if err := reader.Unmarshal(&msg); err != nil {
-		ec <- fmt.Errorf("failed to unmarshal response: %v", err)
+		if err.Error() == "failed to read tag: EOF" {
+			ec <- fmt.Errorf("connection has been closed")
+		} else {
+			ec <- fmt.Errorf("failed to unmarshal response: %v", err)
+		}
 		return
 	}
 	if msg.Token != tok {
-		ec <- fmt.Errorf("token response mismatch: got %v, want %v", msg.Token, tok)
-		return
+		if n, ok := msg.Content[0].(*section.Notification); !ok || n.Token != tok {
+			ec <- fmt.Errorf("token response mismatch: got %v, want %v", msg.Token, tok)
+			return
+		}
 	}
 	done <- msg
 }

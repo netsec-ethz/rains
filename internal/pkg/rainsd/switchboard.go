@@ -145,7 +145,11 @@ func (s *Server) handleConnection(conn net.Conn, dstAddr connection.Info) {
 		}
 		//FIXME CFE how to check efficiently that message is not too large?
 		if err := reader.Unmarshal(&msg); err != nil {
-			log.Warn(fmt.Sprintf("failed to read from client: %v", err))
+			if err.Error() == "failed to read tag: EOF" {
+				log.Info("Connection has been closed", "conn", dstAddr)
+			} else {
+				log.Warn(fmt.Sprintf("failed to read from client: %v", err))
+			}
 			break
 		}
 		deliver(&msg, connection.Info{Type: connection.TCP, TCPAddr: conn.RemoteAddr().(*net.TCPAddr)},

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
@@ -25,6 +27,7 @@ func main() {
 	pubServer := publisher.New(config)
 	pubServer.Publish()
 
+	time.Sleep(time.Hour)
 	server.Shutdown()
 	log.Info("Server shut down")
 }
