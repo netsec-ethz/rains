@@ -80,7 +80,7 @@ type msgSectionSender struct {
 //sectionWithSigSender contains a section with a signature and connection infos about the sender
 type sectionWithSigSender struct {
 	Sender  connection.Info
-	Section section.WithSig
+	Section section.WithSigForward
 	Token   token.Token
 }
 

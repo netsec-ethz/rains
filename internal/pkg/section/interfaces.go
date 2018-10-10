@@ -42,6 +42,8 @@ type WithSig interface {
 type WithSigForward interface {
 	WithSig
 	Interval
+	AddSigInMarshaller()
+	DontAddSigInMarshaller()
 }
 
 //Query is the interface for a query section. In the current implementation it can be

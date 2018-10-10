@@ -30,7 +30,7 @@ func TestSignAssertion(t *testing.T) {
 	log.Info("Successful added sig", "sigLen", len(sec.AllSigs()))
 
 	newSig := sec.AllSigs()[0]
-	sec.DeleteSig(0)
+	sec.DontAddSigInMarshaller()
 	encoding := new(bytes.Buffer)
 	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
 
@@ -50,7 +50,7 @@ func TestSignShard(t *testing.T) {
 	log.Info("Successful added sig", "sigLen", len(sec.AllSigs()))
 
 	newSig := sec.AllSigs()[0]
-	sec.DeleteSig(0)
+	sec.DontAddSigInMarshaller()
 	encoding := new(bytes.Buffer)
 	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
 
@@ -70,7 +70,7 @@ func TestSignPshard(t *testing.T) {
 	log.Info("Successful added sig", "sigLen", len(sec.AllSigs()))
 
 	newSig := sec.AllSigs()[0]
-	sec.DeleteSig(0)
+	sec.DontAddSigInMarshaller()
 	encoding := new(bytes.Buffer)
 	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
 
@@ -130,7 +130,7 @@ func TestSignZone(t *testing.T) {
 	log.Info("Successful added sig", "sigLen", len(sec.AllSigs()))
 
 	newSig := sec.AllSigs()[0]
-	sec.DeleteSig(0)
+	sec.DontAddSigInMarshaller()
 	encoding := new(bytes.Buffer)
 	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
 

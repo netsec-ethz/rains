@@ -228,7 +228,7 @@ func pendingQueriesCallback(swss sectionWithSigSender, s *Server) {
 	}
 	if isAnswerToQuery(swss.Section, query) {
 		switch section := swss.Section.(type) {
-		case *section.Assertion, *section.AddrAssertion:
+		case *section.Assertion:
 			sendAssertionAnswer(section, query, swss.Token, s)
 		case *section.Shard:
 			sendShardAnswer(section, query, swss.Token, s)
@@ -266,7 +266,6 @@ func pendingQueriesCallback(swss sectionWithSigSender, s *Server) {
 				}
 			}
 		}
-	case *section.AddrAssertion:
 	case *section.Shard, *section.Zone:
 	default:
 		log.Error("Not supported message section with sig. This case must be prevented beforehand")

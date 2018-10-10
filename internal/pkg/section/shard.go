@@ -25,6 +25,7 @@ type Shard struct {
 	Content     []*Assertion
 	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	sign        bool  //set to true before signing and false afterwards
 }
 
 // UnmarshalMap converts a CBOR decoded map to this Shard.
@@ -67,7 +68,7 @@ func (s *Shard) UnmarshalMap(m map[int]interface{}) error {
 // MarshalCBOR implements the CBORMarshaler interface.
 func (s *Shard) MarshalCBOR(w *cbor.CBORWriter) error {
 	m := make(map[int]interface{})
-	if len(s.Signatures) > 0 {
+	if len(s.Signatures) > 0 && !s.sign {
 		m[0] = s.Signatures
 	}
 	if s.SubjectZone != "" {
@@ -284,15 +285,6 @@ func (s *Shard) InRange(subjectName string) bool {
 		(s.RangeFrom < subjectName && s.RangeTo > subjectName)
 }
 
-//AddZoneAndContextToAssertions adds the shard's subjectZone and context value to all contained
-//assertions
-func (s *Shard) AddZoneAndContextToAssertions() {
-	for _, a := range s.Content {
-		a.SubjectZone = s.SubjectZone
-		a.Context = s.Context
-	}
-}
-
 //IsConsistent returns true if all contained assertions have no subjectZone and context and are
 //within the shards range.
 func (s *Shard) IsConsistent() bool {
@@ -321,5 +313,18 @@ func (s *Shard) NeededKeys(keysNeeded map[signature.MetaData]bool) {
 	extractNeededKeys(s, keysNeeded)
 	for _, a := range s.Content {
 		a.NeededKeys(keysNeeded)
+	}
+}
+
+func (s *Shard) AddSigInMarshaller() {
+	s.sign = false
+	for _, a := range s.Content {
+		a.AddSigInMarshaller()
+	}
+}
+func (s *Shard) DontAddSigInMarshaller() {
+	s.sign = true
+	for _, a := range s.Content {
+		a.DontAddSigInMarshaller()
 	}
 }

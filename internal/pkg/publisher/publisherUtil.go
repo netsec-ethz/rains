@@ -158,7 +158,8 @@ func signZone(zone *section.Zone, path string) error {
 	}
 	sigs := zone.AllSigs()
 	zone.DeleteAllSigs()
-	zone.AddZoneAndContextToSections()
+	zone.DontAddSigInMarshaller()
+	zone.AddCtxAndZoneToContent()
 	for _, sig := range sigs {
 		if sig.ValidUntil < time.Now().Unix() {
 			log.Error("Signature validUntil is in the past")
@@ -182,6 +183,7 @@ func signZone(zone *section.Zone, path string) error {
 		}
 	}
 	zone.RemoveCtxAndZoneFromContent()
+	zone.AddSigInMarshaller()
 	return nil
 }
 
@@ -196,6 +198,7 @@ func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{}, addCtxAn
 	s.DeleteAllSigs()
 	if addCtxAndZone {
 		s.AddCtxAndZoneToContent()
+		s.DontAddSigInMarshaller()
 	}
 	for _, sig := range sigs {
 		if sig.ValidUntil < time.Now().Unix() {
@@ -212,6 +215,7 @@ func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{}, addCtxAn
 	}
 	if addCtxAndZone {
 		s.RemoveCtxAndZoneFromContent()
+		s.AddSigInMarshaller()
 	}
 	return nil
 }

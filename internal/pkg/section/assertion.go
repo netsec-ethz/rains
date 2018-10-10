@@ -23,6 +23,7 @@ type Assertion struct {
 	Content     []object.Object
 	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	sign        bool  //set to true before signing and false afterwards
 }
 
 // UnmarshalMap provides functionality to unmarshal a map read in by CBOR.
@@ -60,7 +61,7 @@ func (a *Assertion) UnmarshalMap(m map[int]interface{}) error {
 // MarshalCBOR implements the CBORMarshaler interface.
 func (a *Assertion) MarshalCBOR(w *cbor.CBORWriter) error {
 	m := make(map[int]interface{})
-	if len(a.Signatures) > 0 {
+	if len(a.Signatures) > 0 && !a.sign {
 		m[0] = a.Signatures
 	}
 	if a.SubjectName != "" {
@@ -259,4 +260,11 @@ func extractNeededKeys(section WithSig, sigData map[signature.MetaData]bool) {
 //BloomFilterEncoding returns a string encoding of the assertion to add to or query a bloom filter
 func (a *Assertion) BloomFilterEncoding() string {
 	return fmt.Sprintf("%s.%s %s %d", a.SubjectName, a.SubjectZone, a.Context, a.Content[0].Type)
+}
+
+func (a *Assertion) AddSigInMarshaller() {
+	a.sign = false
+}
+func (a *Assertion) DontAddSigInMarshaller() {
+	a.sign = true
 }

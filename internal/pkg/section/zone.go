@@ -23,6 +23,7 @@ type Zone struct {
 	Content     []WithSigForward
 	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	sign        bool  //set to true before signing and false afterwards
 }
 
 // UnmarshalMap decodes the output from the CBOR decoder into this struct.
@@ -77,7 +78,9 @@ func (z *Zone) UnmarshalMap(m map[int]interface{}) error {
 func (z *Zone) MarshalCBOR(w *cbor.CBORWriter) error {
 	m := make(map[int]interface{})
 	m[23] = z.Content
-	m[0] = z.Signatures
+	if len(z.Signatures) > 0 && !z.sign {
+		m[0] = z.Signatures
+	}
 	m[4] = z.SubjectZone
 	m[6] = z.Context
 	return w.WriteIntMap(m)
@@ -352,27 +355,6 @@ func (z *Zone) SectionsByNameAndTypes(subjectName string, types []object.Type) (
 	return assertions, shards
 }
 
-//AddZoneAndContextToSections adds the zone's subjectZone and context value to all contained
-//assertions and shards
-func (z *Zone) AddZoneAndContextToSections() {
-	for _, sec := range z.Content {
-		switch sec := sec.(type) {
-		case *Assertion:
-			sec.SubjectZone = z.SubjectZone
-			sec.Context = z.Context
-		case *Shard:
-			sec.SubjectZone = z.SubjectZone
-			sec.Context = z.Context
-			for _, a := range sec.Content {
-				a.SubjectZone = z.SubjectZone
-				a.Context = z.Context
-			}
-		default:
-			log.Warn("Not supported message section inside zone")
-		}
-	}
-}
-
 //IsConsistent returns true if all contained assertions and shards are consistent
 func (z *Zone) IsConsistent() bool {
 	for _, section := range z.Content {
@@ -392,5 +374,18 @@ func (z *Zone) NeededKeys(keysNeeded map[signature.MetaData]bool) {
 	extractNeededKeys(z, keysNeeded)
 	for _, section := range z.Content {
 		section.NeededKeys(keysNeeded)
+	}
+}
+
+func (z *Zone) AddSigInMarshaller() {
+	z.sign = false
+	for _, s := range z.Content {
+		s.AddSigInMarshaller()
+	}
+}
+func (z *Zone) DontAddSigInMarshaller() {
+	z.sign = true
+	for _, s := range z.Content {
+		s.DontAddSigInMarshaller()
 	}
 }

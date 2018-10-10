@@ -22,6 +22,7 @@ type Pshard struct {
 	Datastructure DataStructure
 	validSince    int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	validUntil    int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	sign          bool  //set to true before signing and false afterwards
 }
 
 // UnmarshalMap decodes the output from the CBOR decoder into this struct.
@@ -55,7 +56,7 @@ func (s *Pshard) UnmarshalMap(m map[int]interface{}) error {
 
 func (s *Pshard) MarshalCBOR(w *cbor.CBORWriter) error {
 	m := make(map[int]interface{})
-	if len(s.Signatures) > 0 {
+	if len(s.Signatures) > 0 && !s.sign {
 		m[0] = s.Signatures
 	}
 	if s.SubjectZone != "" {
@@ -220,4 +221,11 @@ func (s *Pshard) IsConsistent() bool {
 //NeededKeys adds to keysNeeded key meta data which is necessary to verify all s's signatures.
 func (s *Pshard) NeededKeys(keysNeeded map[signature.MetaData]bool) {
 	extractNeededKeys(s, keysNeeded)
+}
+
+func (s *Pshard) AddSigInMarshaller() {
+	s.sign = false
+}
+func (s *Pshard) DontAddSigInMarshaller() {
+	s.sign = true
 }
