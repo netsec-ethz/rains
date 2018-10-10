@@ -118,6 +118,33 @@ func (z *Zone) GetSubjectZone() string {
 	return z.SubjectZone
 }
 
+func (z *Zone) SetContext(ctx string) {
+	z.Context = ctx
+}
+func (z *Zone) SetSubjectZone(zone string) {
+	z.SubjectZone = zone
+}
+
+func (z *Zone) AddCtxAndZoneToContent() {
+	for _, s := range z.Content {
+		s.SetContext(z.Context)
+		s.SetSubjectZone(z.SubjectZone)
+		if shard, ok := s.(*Shard); ok {
+			shard.AddCtxAndZoneToContent()
+		}
+	}
+}
+
+func (z *Zone) RemoveCtxAndZoneFromContent() {
+	for _, s := range z.Content {
+		s.SetContext("")
+		s.SetSubjectZone("")
+		if shard, ok := s.(*Shard); ok {
+			shard.RemoveCtxAndZoneFromContent()
+		}
+	}
+}
+
 //Begin returns the begining of the interval of this zone.
 func (z *Zone) Begin() string {
 	return ""

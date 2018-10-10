@@ -138,7 +138,10 @@ func (sig *Sig) VerifySignature(publicKey interface{}, encoding []byte) bool {
 	switch sig.Algorithm {
 	case algorithmTypes.Ed25519:
 		if pkey, ok := publicKey.(ed25519.PublicKey); ok {
-			return ed25519.Verify(pkey, encoding, sigData.([]byte))
+			if ok = ed25519.Verify(pkey, encoding, sigData.([]byte)); !ok {
+				sig.Data = sigData
+			}
+			return ok
 		}
 		log.Warn("Could not assert type ed25519.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))
 	default:

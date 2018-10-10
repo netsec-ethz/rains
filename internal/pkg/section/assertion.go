@@ -111,6 +111,13 @@ func (a *Assertion) GetSubjectZone() string {
 	return a.SubjectZone
 }
 
+func (a *Assertion) SetContext(ctx string) {
+	a.Context = ctx
+}
+func (a *Assertion) SetSubjectZone(zone string) {
+	a.SubjectZone = zone
+}
+
 //Copy creates a copy of the assertion with the given context and subjectZone values
 func (a *Assertion) Copy(context, subjectZone string) *Assertion {
 	stub := &Assertion{}

@@ -28,6 +28,8 @@ type WithSig interface {
 	DeleteAllSigs()
 	GetContext() string
 	GetSubjectZone() string
+	SetContext(ctx string)
+	SetSubjectZone(zone string)
 	UpdateValidity(validSince, validUntil int64, maxValidity time.Duration)
 	ValidSince() int64
 	ValidUntil() int64

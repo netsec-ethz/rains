@@ -104,6 +104,13 @@ func (s *Pshard) GetSubjectZone() string {
 	return s.SubjectZone
 }
 
+func (s *Pshard) SetContext(ctx string) {
+	s.Context = ctx
+}
+func (s *Pshard) SetSubjectZone(zone string) {
+	s.SubjectZone = zone
+}
+
 //Begin returns the begining of the interval of this pshard.
 func (s *Pshard) Begin() string {
 	return s.RangeFrom

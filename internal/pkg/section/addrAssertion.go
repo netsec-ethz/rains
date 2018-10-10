@@ -87,6 +87,13 @@ func (a *AddrAssertion) GetSubjectZone() string {
 	return a.SubjectAddr.String()
 }
 
+func (a *AddrAssertion) SetContext(ctx string) {
+	a.Context = ctx
+}
+func (a *AddrAssertion) SetSubjectZone(zone string) {
+	log.Error("AddrAssertion has no subject zone.")
+}
+
 //UpdateValidity updates the validity of this assertion if the validity period is extended.
 //It makes sure that the validity is never larger than maxValidity
 func (a *AddrAssertion) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {

@@ -117,6 +117,27 @@ func (s *Shard) GetSubjectZone() string {
 	return s.SubjectZone
 }
 
+func (s *Shard) SetContext(ctx string) {
+	s.Context = ctx
+}
+func (s *Shard) SetSubjectZone(zone string) {
+	s.SubjectZone = zone
+}
+
+func (s *Shard) AddCtxAndZoneToContent() {
+	for _, a := range s.Content {
+		a.Context = s.Context
+		a.SubjectZone = s.SubjectZone
+	}
+}
+
+func (s *Shard) RemoveCtxAndZoneFromContent() {
+	for _, a := range s.Content {
+		a.Context = ""
+		a.SubjectZone = ""
+	}
+}
+
 //Copy creates a copy of the shard with the given context and subjectZone values. The contained
 //assertions are not modified
 func (s *Shard) Copy(context, subjectZone string) *Shard {
