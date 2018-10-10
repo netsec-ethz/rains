@@ -343,6 +343,7 @@ func addSignatureMetaData(zone *section.Zone, nofAssertions, nofPshards int,
 		ValidSince: config.SigValidSince,
 		ValidUntil: config.SigValidUntil,
 	}
+	zone.AddSig(signature)
 	firstShard := true
 	for _, sec := range zone.Content {
 		switch s := sec.(type) {

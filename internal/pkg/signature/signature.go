@@ -48,8 +48,8 @@ func (sig *Sig) UnmarshalArray(in []interface{}) error {
 		return fmt.Errorf("only algorithm ED25519 is supported presently, but got: %d", in[0])
 	}
 	sig.PublicKeyID.Algorithm = algorithmTypes.Ed25519
-	sig.PublicKeyID.KeyPhase = int(in[1].(int))
-	sig.PublicKeyID.KeySpace = keys.KeySpaceID(in[2].(int))
+	sig.PublicKeyID.KeySpace = keys.KeySpaceID(in[1].(int))
+	sig.PublicKeyID.KeyPhase = int(in[2].(int))
 	sig.ValidSince = int64(in[3].(int))
 	sig.ValidUntil = int64(in[4].(int))
 	sig.Data = in[5]
@@ -97,7 +97,6 @@ func (sig *Sig) SignData(privateKey interface{}, encoding []byte) error {
 		return errors.New("privateKey is nil")
 	}
 	sigEncoding := new(bytes.Buffer)
-	log.Info(sig.String())
 	if err := sig.MarshalCBOR(cbor.NewCBORWriter(sigEncoding)); err != nil {
 		return err
 	}

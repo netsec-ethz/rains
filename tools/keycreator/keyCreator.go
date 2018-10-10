@@ -36,7 +36,7 @@ func DelegationAssertion(context, zone string) error {
 	pkey := keys.PublicKey{
 		PublicKeyID: keys.PublicKeyID{
 			KeySpace:  keys.RainsKeySpace,
-			KeyPhase:  1,
+			KeyPhase:  0,
 			Algorithm: algorithmTypes.Ed25519,
 		},
 		Key:        publicKey,

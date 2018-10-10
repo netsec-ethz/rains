@@ -138,7 +138,7 @@ func GetMessage() message.Message {
 func Zone() *section.Zone {
 	return &section.Zone{
 		//FIXME CFE add pshard
-		Content:     []section.WithSigForward{Assertion(), Shard()},
+		Content:     []section.WithSigForward{Assertion(), Shard(), Pshard()},
 		Context:     globalContext,
 		SubjectZone: testDomain,
 	}

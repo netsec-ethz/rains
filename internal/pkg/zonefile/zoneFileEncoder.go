@@ -349,8 +349,8 @@ func encodeHashAlgo(h algorithmTypes.Hash) string {
 
 func encodeEd25519Signature(sig signature.Sig) string {
 	signature := fmt.Sprintf("%s %s %s %d %d %d", TypeSignature, TypeEd25519, TypeKSRains, sig.PublicKeyID.KeyPhase, sig.ValidSince, sig.ValidUntil)
-	if pkey, ok := sig.Data.(ed25519.PublicKey); ok {
-		return fmt.Sprintf("%s %s", signature, hex.EncodeToString(pkey))
+	if len(sig.Data.([]byte)) > 0 {
+		return fmt.Sprintf("%s %s", signature, hex.EncodeToString(sig.Data.([]byte)))
 	}
 	return signature
 }

@@ -139,7 +139,7 @@ func loadPrivateKeys(path string) (map[keys.PublicKeyID]interface{}, error) {
 				"actual", len(privateKey))
 			return nil, errors.New("incorrect private key length")
 		}
-		output[keyData.PublicKeyID] = privateKey
+		output[keyData.PublicKeyID] = ed25519.PrivateKey(privateKey)
 	}
 	return output, nil
 }
@@ -156,7 +156,9 @@ func signZone(zone *section.Zone, path string) error {
 	if err != nil {
 		return errors.New("Was not able to load private keys")
 	}
-	for _, sig := range zone.Signatures {
+	sigs := zone.AllSigs()
+	zone.DeleteAllSigs()
+	for _, sig := range sigs {
 		if ok := siglib.SignSectionUnsafe(zone, keys[sig.PublicKeyID], sig); !ok {
 			log.Error("Was not able to sign and add the signature", "zone", zone, "signature", sig)
 			return errors.New("Was not able to sign and add the signature")
@@ -196,7 +198,9 @@ func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{}) error {
 	if s == nil {
 		return errors.New("shard is nil")
 	}
-	for _, sig := range s.Signatures {
+	sigs := s.AllSigs()
+	s.DeleteAllSigs()
+	for _, sig := range sigs {
 		if ok := siglib.SignSectionUnsafe(s, keys[sig.PublicKeyID], sig); !ok {
 			log.Error("Was not able to sign and add the signature", "shard", s, "signature", sig)
 			return errors.New("Was not able to sign and add the signature")
@@ -218,7 +222,9 @@ func signSection(s section.WithSigForward, keys map[keys.PublicKeyID]interface{}
 	if s == nil {
 		return errors.New("assertion is nil")
 	}
-	for _, sig := range s.AllSigs() {
+	sigs := s.AllSigs()
+	s.DeleteAllSigs()
+	for _, sig := range sigs {
 		if ok := siglib.SignSectionUnsafe(s, keys[sig.PublicKeyID], sig); !ok {
 			log.Error("Was not able to sign and add the signature", "section", s, "signature", sig)
 			return errors.New("Was not able to sign and add the signature")
