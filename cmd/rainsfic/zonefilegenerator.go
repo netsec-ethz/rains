@@ -26,7 +26,7 @@ var (
 func main() {
 	flag.Parse()
 	log.Info("Start generating zonefile")
-	data, err := ioutil.ReadFile("names.txt")
+	data, err := ioutil.ReadFile("../../data/names.txt")
 	if err != nil {
 		log.Error("Was not able to read file", "error", err)
 		return
