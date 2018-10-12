@@ -55,3 +55,6 @@ _testmain.go
 /tools/yacc/zoneFileDecoderGenerated.go
 /tools/yacc/y.output
 /tools/yacc/zonefileParser
+
+#example
+examples/test

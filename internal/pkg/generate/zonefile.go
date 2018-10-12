@@ -1,58 +1,159 @@
 package generate
 
 import (
+	"bufio"
+	"bytes"
 	"errors"
+	"fmt"
+	"io/ioutil"
+	"math/rand"
+	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
-	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
+	"golang.org/x/crypto/ed25519"
 )
 
-func Zonefile(fileName, zoneName, context string, size int, objDistr ObjTypeDistr,
+var privateKeys map[string]ed25519.PrivateKey
+
+func init() {
+	privateKeys = make(map[string]ed25519.PrivateKey)
+}
+
+func Zone(zoneName, context string, size int, objDistr ObjTypeDistr,
 	negProofs NonExistProofs, shardingConf publisher.ShardingConfig,
-	pshardingConf publisher.PShardingConfig) error {
+	pshardingConf publisher.PShardingConfig) (*section.Zone, error) {
 	zone := &section.Zone{
 		Context:     context,
 		SubjectZone: zoneName,
 	}
+	nextName := nameSeq()
 	assertions := make([]*section.Assertion, size)
 	for i := 0; i < size; i++ {
-		assertions[i] = &section.Assertion{
-			SubjectName: nextName(),
-			Content:     nextObject(objDistr),
+		names, objs := nextObject(objDistr, nextName(), zoneName)
+		for i, obj := range objs {
+			assertions[i] = &section.Assertion{
+				SubjectName: names[i],
+				Content:     []object.Object{obj},
+			}
+			i++
 		}
+		i--
 	}
 	switch negProofs {
 	case ShardAndPshard:
 		shards, err := publisher.DoSharding(context, zoneName, assertions, nil, shardingConf, true)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		pshards, err := publisher.DoPsharding(context, zoneName, assertions, nil, pshardingConf, true)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		publisher.CreateZone(zone, assertions, shards, pshards)
-	case Zone:
+	case ZoneType:
 		publisher.CreateZone(zone, assertions, nil, nil)
 	default:
-		return errors.New("unsupported nonExistProofs identifier")
+		return nil, errors.New("unsupported nonExistProofs identifier")
 	}
+	return zone, nil
+}
 
-	err := zonefile.Parser{}.EncodeAndStore("zonefiles/"+fileName, zone)
+func nameSeq() func() string {
+	i := -1
+	names := LoadNames("../../../data/names.txt")
+	j := -1
+	return func() string {
+		if len(names)-1 == i {
+			j++
+			i = -1
+		}
+		i++
+		if j == -1 {
+			return names[i]
+		}
+		return fmt.Sprintf("%s-%s", names[j], names[i])
+	}
+}
+
+//LoadNames returns a slice of unique names loaded from path
+func LoadNames(path string) []string {
+	data, err := ioutil.ReadFile(path)
 	if err != nil {
-		return err
+		panic(fmt.Sprintf("Was not able to read file : %s", err.Error()))
 	}
-	return nil
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	scanner.Split(bufio.ScanWords)
+	var names []string
+	for scanner.Scan() {
+		names = append(names, scanner.Text())
+	}
+	return names
 }
 
-func nextName() string {
-	return ""
+func nextObject(objDistr ObjTypeDistr, name, zoneName string) ([]string, []object.Object) {
+	switch objDistr {
+	case Delegation:
+		return delegationObject(name, zoneName)
+	case Leaf:
+		return []string{name}, leafObject()
+	default:
+		panic("unsupported objTypedistribution identifier")
+	}
 }
 
-func nextObject(objDistr ObjTypeDistr) []object.Object {
-	return []object.Object{}
+func leafObject() []object.Object {
+	if rand.Intn(2) == 0 {
+		return []object.Object{object.Object{
+			Type:  object.OTIP4Addr,
+			Value: fmt.Sprintf("%d.%d.%d.%d", rand.Intn(256), rand.Intn(256), rand.Intn(256), rand.Intn(256)),
+		}}
+	}
+	return []object.Object{object.Object{
+		Type: object.OTIP6Addr,
+		Value: fmt.Sprintf("2001:db8::%d%d%d%d:%d%d%d%d", rand.Intn(10), rand.Intn(10), rand.Intn(10),
+			rand.Intn(10), rand.Intn(10), rand.Intn(10), rand.Intn(10), rand.Intn(10)),
+	}}
+}
+
+func delegationObject(name, zoneName string) ([]string, []object.Object) {
+	pubKey, privKey, _ := ed25519.GenerateKey(nil)
+	privateKeys[fmt.Sprintf("%s.%s", name, zoneName)] = privKey
+	names := []string{name, name, "ns." + name, "ns1." + name}
+	objs := make([]object.Object, 4)
+	objs[0] = object.Object{
+		Type: object.OTDelegation,
+		Value: keys.PublicKey{
+			PublicKeyID: keys.PublicKeyID{
+				Algorithm: algorithmTypes.Ed25519,
+				KeyPhase:  1,
+				KeySpace:  keys.RainsKeySpace,
+			},
+			ValidSince: time.Now().Unix(),
+			ValidUntil: time.Now().Add(365 * 24 * time.Hour).Unix(),
+			Key:        pubKey,
+		},
+	}
+	objs[1] = object.Object{
+		Type:  object.OTRedirection,
+		Value: "ns." + name,
+	}
+	objs[2] = object.Object{
+		Type: object.OTServiceInfo,
+		Value: object.ServiceInfo{
+			Name:     "ns1." + name,
+			Port:     5022,
+			Priority: 0,
+		},
+	}
+	objs[3] = object.Object{
+		Type:  object.OTIP4Addr,
+		Value: fmt.Sprintf("%d.%d.%d.%d", rand.Intn(256), rand.Intn(256), rand.Intn(256), rand.Intn(256)),
+	}
+	return names, objs
 }
 
 //ObjTypeDistr is an enumeration of object type distributions
@@ -69,6 +170,6 @@ const (
 type NonExistProofs int
 
 const (
-	Zone NonExistProofs = iota
+	ZoneType NonExistProofs = iota
 	ShardAndPshard
 )

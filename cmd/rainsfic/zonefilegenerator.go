@@ -1,17 +1,15 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"strings"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/generate"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -26,22 +24,12 @@ var (
 func main() {
 	flag.Parse()
 	log.Info("Start generating zonefile")
-	data, err := ioutil.ReadFile("../../data/names.txt")
-	if err != nil {
-		log.Error("Was not able to read file", "error", err)
-		return
-	}
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-	scanner.Split(bufio.ScanWords)
-	var names []string
-	for scanner.Scan() && len(names) < *nofEntries {
-		names = append(names, scanner.Text())
-	}
+	names := generate.LoadNames("../../../data/names.txt")
 	nofNames := len(names)
 	i := 0
-	for len(names) < *nofEntries {
+	for nofNames < *nofEntries {
 		j := i
-		for len(names) < *nofEntries && j < nofNames {
+		for nofNames < *nofEntries && j < nofNames {
 			names = append(names, names[i]+"-"+names[j])
 			j++
 		}
