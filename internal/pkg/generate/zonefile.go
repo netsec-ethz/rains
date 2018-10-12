@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"math/rand"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -23,6 +25,49 @@ func init() {
 	privateKeys = make(map[string]ed25519.PrivateKey)
 }
 
+func LeafZone(fileName, zoneName, context string, size int) {
+	zone, err := Zone(zoneName, context, size, Leaf, ZoneAsNegProof, publisher.ShardingConfig{}, publisher.PShardingConfig{})
+	if err != nil {
+		panic(err.Error())
+	}
+	err = zonefile.Parser{}.EncodeAndStore(fileName, zone)
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
+func DelegationZone(fileName, zoneName, context string, zoneSize, maxShardSize int, namesPerPshard, probBound float64) {
+	//FIXME CFE namesPerPshard is used to calculate the filter parameters, but assertions per pshard
+	//should be used to have the correct probability bound!!!
+	filterSize := math.Ceil(namesPerPshard * math.Log(1/probBound) / math.Log(1/math.Pow(2, math.Log(2))))
+	nofHashFunction := math.Round((filterSize / namesPerPshard) * math.Log(2))
+	if zoneSize%4 != 0 {
+		panic("size must be a multiple of 4")
+	}
+	sconf := publisher.ShardingConfig{
+		DoSharding:   true,
+		MaxShardSize: maxShardSize,
+	}
+	pconf := publisher.PShardingConfig{
+		DoPsharding:            true,
+		NofAssertionsPerPshard: int(namesPerPshard),
+		BloomFilterConf: publisher.BloomFilterConfig{
+			BFOpMode:         section.KirschMitzenmacher1,
+			Hashfamily:       []algorithmTypes.Hash{algorithmTypes.Murmur364},
+			NofHashFunctions: int(nofHashFunction),
+			BloomFilterSize:  int(filterSize),
+		},
+	}
+	zone, err := Zone(zoneName, context, zoneSize, Delegation, ShardAndPshard, sconf, pconf)
+	if err != nil {
+		panic(err.Error())
+	}
+	err = zonefile.Parser{}.EncodeAndStore(fileName, zone)
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
 func Zone(zoneName, context string, size int, objDistr ObjTypeDistr,
 	negProofs NonExistProofs, shardingConf publisher.ShardingConfig,
 	pshardingConf publisher.PShardingConfig) (*section.Zone, error) {
@@ -30,13 +75,13 @@ func Zone(zoneName, context string, size int, objDistr ObjTypeDistr,
 		Context:     context,
 		SubjectZone: zoneName,
 	}
-	nextName := nameSeq()
+	nextName := nameSeq("../../data/names.txt")
 	assertions := make([]*section.Assertion, size)
 	for i := 0; i < size; i++ {
 		names, objs := nextObject(objDistr, nextName(), zoneName)
-		for i, obj := range objs {
+		for j, obj := range objs {
 			assertions[i] = &section.Assertion{
-				SubjectName: names[i],
+				SubjectName: names[j],
 				Content:     []object.Object{obj},
 			}
 			i++
@@ -53,8 +98,8 @@ func Zone(zoneName, context string, size int, objDistr ObjTypeDistr,
 		if err != nil {
 			return nil, err
 		}
-		publisher.CreateZone(zone, assertions, shards, pshards)
-	case ZoneType:
+		publisher.CreateZone(zone, nil, shards, pshards)
+	case ZoneAsNegProof:
 		publisher.CreateZone(zone, assertions, nil, nil)
 	default:
 		return nil, errors.New("unsupported nonExistProofs identifier")
@@ -62,9 +107,9 @@ func Zone(zoneName, context string, size int, objDistr ObjTypeDistr,
 	return zone, nil
 }
 
-func nameSeq() func() string {
+func nameSeq(path string) func() string {
 	i := -1
-	names := LoadNames("../../../data/names.txt")
+	names := LoadNames(path)
 	j := -1
 	return func() string {
 		if len(names)-1 == i {
@@ -170,6 +215,6 @@ const (
 type NonExistProofs int
 
 const (
-	ZoneType NonExistProofs = iota
+	ZoneAsNegProof NonExistProofs = iota
 	ShardAndPshard
 )
