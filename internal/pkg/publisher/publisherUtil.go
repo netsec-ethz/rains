@@ -15,7 +15,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
-	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -95,21 +94,6 @@ func LoadConfig(configPath string) (Config, error) {
 	}
 	config.MetaDataConf.SigSigningInterval *= time.Second
 	return config, nil
-}
-
-//loadZonefile loads the zonefile from disk.
-func loadZonefile(path string, parser zonefile.ZoneFileParser) (*section.Zone, error) {
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Error("Was not able to read zone file", "path", path)
-		return nil, err
-	}
-	zone, err := parser.DecodeZone(file)
-	if err != nil {
-		log.Error("Was not able to parse zone file.", "error", err)
-		return nil, err
-	}
-	return zone, nil
 }
 
 //loadPrivateKeys reads private keys from the path provided in the config and returns a map from
