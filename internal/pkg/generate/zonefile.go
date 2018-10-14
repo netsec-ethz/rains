@@ -25,8 +25,8 @@ func init() {
 	privateKeys = make(map[string]ed25519.PrivateKey)
 }
 
-func LeafZone(fileName, zoneName, context string, size int) {
-	zone, err := Zone(zoneName, context, size, Leaf, ZoneAsNegProof, publisher.ShardingConfig{}, publisher.PShardingConfig{})
+func LeafZone(fileName, zoneName, context string, zoneSize int) {
+	zone, err := Zone(zoneName, context, zoneSize, 0, ZoneAsNegProof, publisher.ShardingConfig{}, publisher.PShardingConfig{})
 	if err != nil {
 		panic(err.Error())
 	}
@@ -37,28 +37,8 @@ func LeafZone(fileName, zoneName, context string, size int) {
 }
 
 func DelegationZone(fileName, zoneName, context string, zoneSize, maxShardSize int, namesPerPshard, probBound float64) {
-	//FIXME CFE namesPerPshard is used to calculate the filter parameters, but assertions per pshard
-	//should be used to have the correct probability bound!!!
-	filterSize := math.Ceil(namesPerPshard * math.Log(1/probBound) / math.Log(1/math.Pow(2, math.Log(2))))
-	nofHashFunction := math.Round((filterSize / namesPerPshard) * math.Log(2))
-	if zoneSize%4 != 0 {
-		panic("size must be a multiple of 4")
-	}
-	sconf := publisher.ShardingConfig{
-		DoSharding:   true,
-		MaxShardSize: maxShardSize,
-	}
-	pconf := publisher.PShardingConfig{
-		DoPsharding:            true,
-		NofAssertionsPerPshard: int(namesPerPshard),
-		BloomFilterConf: publisher.BloomFilterConfig{
-			BFOpMode:         section.KirschMitzenmacher1,
-			Hashfamily:       []algorithmTypes.Hash{algorithmTypes.Murmur364},
-			NofHashFunctions: int(nofHashFunction),
-			BloomFilterSize:  int(filterSize),
-		},
-	}
-	zone, err := Zone(zoneName, context, zoneSize, Delegation, ShardAndPshard, sconf, pconf)
+	sconf, pconf := shardingConf(zoneSize, maxShardSize, namesPerPshard, probBound)
+	zone, err := Zone(zoneName, context, 0, zoneSize, ShardAndPshard, sconf, pconf)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -68,17 +48,37 @@ func DelegationZone(fileName, zoneName, context string, zoneSize, maxShardSize i
 	}
 }
 
-func Zone(zoneName, context string, size int, objDistr ObjTypeDistr,
-	negProofs NonExistProofs, shardingConf publisher.ShardingConfig,
-	pshardingConf publisher.PShardingConfig) (*section.Zone, error) {
+func HybridZone(fileName, zoneName, context string, leafSize, delegSize, maxShardSize int, namesPerPshard,
+	probBound float64) {
+	sconf, pconf := shardingConf(leafSize+delegSize, maxShardSize, namesPerPshard, probBound)
+	zone, err := Zone(zoneName, context, leafSize, delegSize, ShardAndPshard, sconf, pconf)
+	if err != nil {
+		panic(err.Error())
+	}
+	err = zonefile.Parser{}.EncodeAndStore(fileName, zone)
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
+func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistProofs,
+	shardingConf publisher.ShardingConfig, pshardingConf publisher.PShardingConfig) (
+	*section.Zone, error) {
 	zone := &section.Zone{
 		Context:     context,
 		SubjectZone: zoneName,
 	}
 	nextName := nameSeq("../../data/names.txt")
-	assertions := make([]*section.Assertion, size)
-	for i := 0; i < size; i++ {
-		names, objs := nextObject(objDistr, nextName(), zoneName)
+	assertions := make([]*section.Assertion, leafSize+delegSize)
+	for i := 0; i < leafSize; i++ {
+		names, objs := nextObject(Leaf, nextName(), zoneName)
+		assertions[i] = &section.Assertion{
+			SubjectName: names[0],
+			Content:     objs,
+		}
+	}
+	for i := leafSize; i < leafSize+delegSize; i++ {
+		names, objs := nextObject(Delegation, nextName(), zoneName)
 		for j, obj := range objs {
 			assertions[i] = &section.Assertion{
 				SubjectName: names[j],
@@ -199,6 +199,32 @@ func delegationObject(name, zoneName string) ([]string, []object.Object) {
 		Value: fmt.Sprintf("%d.%d.%d.%d", rand.Intn(256), rand.Intn(256), rand.Intn(256), rand.Intn(256)),
 	}
 	return names, objs
+}
+
+func shardingConf(zoneSize, maxShardSize int, namesPerPshard, probBound float64) (
+	publisher.ShardingConfig, publisher.PShardingConfig) {
+	//FIXME CFE namesPerPshard is used to calculate the filter parameters, but assertions per pshard
+	//should be used to have the correct probability bound!!!
+	filterSize := math.Ceil(namesPerPshard * math.Log(1/probBound) / math.Log(1/math.Pow(2, math.Log(2))))
+	nofHashFunction := math.Round((filterSize / namesPerPshard) * math.Log(2))
+	if zoneSize%4 != 0 {
+		panic("size must be a multiple of 4")
+	}
+	sconf := publisher.ShardingConfig{
+		DoSharding:   true,
+		MaxShardSize: maxShardSize,
+	}
+	pconf := publisher.PShardingConfig{
+		DoPsharding:            true,
+		NofAssertionsPerPshard: int(namesPerPshard),
+		BloomFilterConf: publisher.BloomFilterConfig{
+			BFOpMode:         section.KirschMitzenmacher1,
+			Hashfamily:       []algorithmTypes.Hash{algorithmTypes.Murmur364},
+			NofHashFunctions: int(nofHashFunction),
+			BloomFilterSize:  int(filterSize),
+		},
+	}
+	return sconf, pconf
 }
 
 //ObjTypeDistr is an enumeration of object type distributions
