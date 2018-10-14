@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"math/rand"
+	"sort"
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -26,7 +27,7 @@ type NameType struct {
 	Type object.Type
 }
 
-func Traces(clientToResolver map[int]int, maxQueriesPerClient int, nameTypes []NameType, start, end, seed int64,
+func Traces(clientToResolver map[int]int, maxQueriesPerClient, fractionNegQuery int, nameTypes []NameType, start, end, seed int64,
 	zipfS float64) {
 	traces := []Queries{}
 	zipf := rand.NewZipf(rand.New(rand.NewSource(seed)), zipfS, 1, uint64(len(nameTypes)))
@@ -45,8 +46,12 @@ func Traces(clientToResolver map[int]int, maxQueriesPerClient int, nameTypes []N
 				Options:    []query.Option{query.QOMinE2ELatency},
 				Types:      []object.Type{nameTypes[index].Type},
 			}
+			if (i+1)%fractionNegQuery == 0 {
+				q.Info.Name = "NonExistentName"
+			}
 			trace.Trace = append(trace.Trace, q)
 		}
+		sort.Slice(trace.Trace, func(i, j int) bool { return trace.Trace[i].SendTime < trace.Trace[j].SendTime })
 		traces = append(traces, trace)
 	}
 	encoding, _ := json.Marshal(traces)
