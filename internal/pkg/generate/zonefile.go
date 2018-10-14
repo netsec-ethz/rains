@@ -26,42 +26,19 @@ func init() {
 }
 
 func Zones() {
-	parser := zonefile.Parser{}
 	//create root zone
 	path := "zonefiles/zones/"
-	DelegationZone(path+"root.txt", ".", ".", 8, 500, 10, 10000000) //2 zones
+	names := DelegationZone(path+"root.txt", ".", ".", 8, 500, 10, 10000000) //2 zones
 	//create TLDs
-	zone, err := parser.LoadZone(path + "root.txt")
-	if err != nil {
-		panic(err.Error())
-	}
-	names := createDelegatedZones(path, zone.SubjectZone, zone.Content)
-	//create leaf zones
+	newNames := []string{}
 	for _, name := range names {
-		LeafZone(path+name+".txt", name, ".", 2)
+		newNames = append(newNames, DelegationZone(path+name+"txt", name, ".", 20, 500, 10, 10000000)...) //5 zones
+	}
+	//create second level leaf zones
+	for _, name := range newNames {
+		LeafZone(path+name+"txt", name, ".", 2)
 	}
 	//TODO create TLD that delegates all of its commercial names to co.TLDName
-}
-
-func createDelegatedZones(path, subjectZone string, content []section.WithSigForward) []string {
-	delegNames := []string{}
-	for _, sec := range content {
-		switch s := sec.(type) {
-		case *section.Assertion:
-			if s.Content[0].Type == object.OTDelegation {
-				names := DelegationZone(path+s.SubjectName+".txt", s.SubjectName, ".", 20, 500, 10, 10000000) //5 zones
-				delegNames = append(delegNames, names...)
-			}
-		case *section.Shard:
-			for _, a := range s.Content {
-				if a.Content[0].Type == object.OTDelegation {
-					names := DelegationZone(path+a.SubjectName+".txt", a.SubjectName, ".", 20, 500, 10, 10000000) //5 zones
-					delegNames = append(delegNames, names...)
-				}
-			}
-		}
-	}
-	return delegNames
 }
 
 func LeafZone(fileName, zoneName, context string, zoneSize int) {
@@ -124,7 +101,12 @@ func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistP
 	}
 	for i := leafSize; i < leafSize+delegSize; i++ {
 		names, objs := nextObject(Delegation, nextName(), zoneName)
-		delegNames = append(delegNames, names[0]+"."+zoneName)
+		if zoneName == "." {
+			delegNames = append(delegNames, names[0]+".")
+		} else {
+			delegNames = append(delegNames, names[0]+"."+zoneName)
+		}
+
 		for j, obj := range objs {
 			assertions[i] = &section.Assertion{
 				SubjectName: names[j],
