@@ -25,8 +25,10 @@ func init() {
 	privateKeys = make(map[string]ed25519.PrivateKey)
 }
 
-func Zones() {
+//Zones creates a number of zone files and returns the names of all leaf zones.
+func Zones() []string {
 	//create root zone
+	leafNames := []string{}
 	path := "zonefiles/zones/"
 	names := DelegationZone(path+"root.txt", ".", ".", 8, 500, 10, 10000000) //2 zones
 	//create TLDs
@@ -36,13 +38,14 @@ func Zones() {
 	}
 	//create second level leaf zones
 	for _, name := range newNames {
-		LeafZone(path+name+"txt", name, ".", 2)
+		leafNames = append(leafNames, LeafZone(path+name+"txt", name, ".", 2)...)
 	}
 	//TODO create TLD that delegates all of its commercial names to co.TLDName
+	return leafNames
 }
 
-func LeafZone(fileName, zoneName, context string, zoneSize int) {
-	zone, _, err := Zone(zoneName, context, zoneSize, 0, ZoneAsNegProof, publisher.ShardingConfig{}, publisher.PShardingConfig{})
+func LeafZone(fileName, zoneName, context string, zoneSize int) []string {
+	zone, _, names, err := Zone(zoneName, context, zoneSize, 0, ZoneAsNegProof, publisher.ShardingConfig{}, publisher.PShardingConfig{})
 	if err != nil {
 		panic(err.Error())
 	}
@@ -50,12 +53,13 @@ func LeafZone(fileName, zoneName, context string, zoneSize int) {
 	if err != nil {
 		panic(err.Error())
 	}
+	return names
 }
 
 func DelegationZone(fileName, zoneName, context string, zoneSize, maxShardSize int, namesPerPshard,
 	probBound float64) []string {
 	sconf, pconf := shardingConf(zoneSize, maxShardSize, namesPerPshard, probBound)
-	zone, names, err := Zone(zoneName, context, 0, zoneSize, ShardAndPshard, sconf, pconf)
+	zone, names, _, err := Zone(zoneName, context, 0, zoneSize, ShardAndPshard, sconf, pconf)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -67,9 +71,9 @@ func DelegationZone(fileName, zoneName, context string, zoneSize, maxShardSize i
 }
 
 func HybridZone(fileName, zoneName, context string, leafSize, delegSize, maxShardSize int, namesPerPshard,
-	probBound float64) []string {
+	probBound float64) ([]string, []string) {
 	sconf, pconf := shardingConf(leafSize+delegSize, maxShardSize, namesPerPshard, probBound)
-	zone, names, err := Zone(zoneName, context, leafSize, delegSize, ShardAndPshard, sconf, pconf)
+	zone, delegNames, leafNames, err := Zone(zoneName, context, leafSize, delegSize, ShardAndPshard, sconf, pconf)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -77,15 +81,16 @@ func HybridZone(fileName, zoneName, context string, leafSize, delegSize, maxShar
 	if err != nil {
 		panic(err.Error())
 	}
-	return names
+	return delegNames, leafNames
 }
 
 //Zone creates and stores a zonefile according to the given configuration. It returns the names of
-//all delegation assertions.
+//all delegation assertions and leaf assertions in to separate slices.
 func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistProofs,
 	shardingConf publisher.ShardingConfig, pshardingConf publisher.PShardingConfig) (
-	*section.Zone, []string, error) {
+	*section.Zone, []string, []string, error) {
 	delegNames := []string{}
+	leafNames := []string{}
 	zone := &section.Zone{
 		Context:     context,
 		SubjectZone: zoneName,
@@ -94,6 +99,11 @@ func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistP
 	assertions := make([]*section.Assertion, leafSize+delegSize)
 	for i := 0; i < leafSize; i++ {
 		names, objs := nextObject(Leaf, nextName(), zoneName)
+		if zoneName == "." {
+			leafNames = append(leafNames, names[0]+".")
+		} else {
+			leafNames = append(leafNames, names[0]+"."+zoneName)
+		}
 		assertions[i] = &section.Assertion{
 			SubjectName: names[0],
 			Content:     objs,
@@ -120,19 +130,19 @@ func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistP
 	case ShardAndPshard:
 		shards, err := publisher.DoSharding(context, zoneName, assertions, nil, shardingConf, true)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		pshards, err := publisher.DoPsharding(context, zoneName, assertions, nil, pshardingConf, true)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		publisher.CreateZone(zone, nil, shards, pshards)
 	case ZoneAsNegProof:
 		publisher.CreateZone(zone, assertions, nil, nil)
 	default:
-		return nil, nil, errors.New("unsupported nonExistProofs identifier")
+		return nil, nil, nil, errors.New("unsupported nonExistProofs identifier")
 	}
-	return zone, delegNames, nil
+	return zone, delegNames, leafNames, nil
 }
 
 func nameSeq(path string) func() string {
