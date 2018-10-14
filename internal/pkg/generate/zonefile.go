@@ -26,9 +26,9 @@ func init() {
 }
 
 //Zones creates a number of zone files and returns the names of all leaf zones.
-func Zones() []string {
+func Zones() []NameType {
 	//create root zone
-	leafNames := []string{}
+	leafNames := []NameType{}
 	path := "zonefiles/zones/"
 	names := DelegationZone(path+"root.txt", ".", ".", 8, 500, 10, 10000000) //2 zones
 	//create TLDs
@@ -44,8 +44,8 @@ func Zones() []string {
 	return leafNames
 }
 
-func LeafZone(fileName, zoneName, context string, zoneSize int) []string {
-	zone, _, names, err := Zone(zoneName, context, zoneSize, 0, ZoneAsNegProof, publisher.ShardingConfig{}, publisher.PShardingConfig{})
+func LeafZone(fileName, zoneName, context string, zoneSize int) []NameType {
+	zone, _, nameTypes, err := Zone(zoneName, context, zoneSize, 0, ZoneAsNegProof, publisher.ShardingConfig{}, publisher.PShardingConfig{})
 	if err != nil {
 		panic(err.Error())
 	}
@@ -53,7 +53,7 @@ func LeafZone(fileName, zoneName, context string, zoneSize int) []string {
 	if err != nil {
 		panic(err.Error())
 	}
-	return names
+	return nameTypes
 }
 
 func DelegationZone(fileName, zoneName, context string, zoneSize, maxShardSize int, namesPerPshard,
@@ -71,7 +71,7 @@ func DelegationZone(fileName, zoneName, context string, zoneSize, maxShardSize i
 }
 
 func HybridZone(fileName, zoneName, context string, leafSize, delegSize, maxShardSize int, namesPerPshard,
-	probBound float64) ([]string, []string) {
+	probBound float64) ([]string, []NameType) {
 	sconf, pconf := shardingConf(leafSize+delegSize, maxShardSize, namesPerPshard, probBound)
 	zone, delegNames, leafNames, err := Zone(zoneName, context, leafSize, delegSize, ShardAndPshard, sconf, pconf)
 	if err != nil {
@@ -88,9 +88,9 @@ func HybridZone(fileName, zoneName, context string, leafSize, delegSize, maxShar
 //all delegation assertions and leaf assertions in to separate slices.
 func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistProofs,
 	shardingConf publisher.ShardingConfig, pshardingConf publisher.PShardingConfig) (
-	*section.Zone, []string, []string, error) {
+	*section.Zone, []string, []NameType, error) {
 	delegNames := []string{}
-	leafNames := []string{}
+	leafNames := []NameType{}
 	zone := &section.Zone{
 		Context:     context,
 		SubjectZone: zoneName,
@@ -100,9 +100,9 @@ func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistP
 	for i := 0; i < leafSize; i++ {
 		names, objs := nextObject(Leaf, nextName(), zoneName)
 		if zoneName == "." {
-			leafNames = append(leafNames, names[0]+".")
+			leafNames = append(leafNames, NameType{Name: names[0] + ".", Type: objs[0].Type})
 		} else {
-			leafNames = append(leafNames, names[0]+"."+zoneName)
+			leafNames = append(leafNames, NameType{Name: names[0] + "." + zoneName, Type: objs[0].Type})
 		}
 		assertions[i] = &section.Assertion{
 			SubjectName: names[0],
