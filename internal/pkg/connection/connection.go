@@ -115,7 +115,7 @@ func (c *Channel) LocalAddr() net.Addr {
 	return c.Addr
 }
 func (c *Channel) RemoteAddr() net.Addr {
-	return ChannelAddr{}
+	return c.Addr
 }
 func (c *Channel) SetDeadline(t time.Time) error {
 	return nil

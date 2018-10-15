@@ -127,6 +127,14 @@ func (s *Server) Shutdown() {
 //Write delivers an encoded rains message and a response channel to the server.
 func (s *Server) Write(msg connection.Message) {
 	s.caches.ConnCache.AddConnection(msg.Sender)
+	info := connection.Info{
+		Type:     connection.Chan,
+		ChanAddr: msg.Sender.Addr,
+	}
+	if _, ok := s.caches.ConnCache.GetConnection(info); !ok {
+		log.Error("Connection not found in cache")
+		return
+	}
 	m := &message.Message{}
 	reader := cbor.NewReader(bytes.NewBuffer(msg.Msg))
 	if err := reader.Unmarshal(m); err != nil {
