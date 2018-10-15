@@ -229,3 +229,13 @@ func (s *Pshard) AddSigInMarshaller() {
 func (s *Pshard) DontAddSigInMarshaller() {
 	s.sign = true
 }
+
+//Copy creates a copy of the shard with the given context and subjectZone values. The contained
+//assertions are not modified
+func (s *Pshard) Copy(context, subjectZone string) *Pshard {
+	stub := &Pshard{}
+	*stub = *s
+	stub.Context = context
+	stub.SubjectZone = subjectZone
+	return stub
+}

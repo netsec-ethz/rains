@@ -255,6 +255,8 @@ func containedShardsAreConsistent(z *section.Zone) bool {
 				switch val := val.(type) {
 				case *section.Assertion:
 				//assertion is always consistent with another assertion
+				case *section.Pshard:
+					log.Info("Not yet implemented")
 				case *section.Shard:
 					if val.RangeFrom < v.SubjectName && val.RangeTo > v.SubjectName && !shardContainsAssertion(v, val) {
 						log.Info("zone is internally not consistent. Zone contains an assertion which is not present in a shard in the range",
@@ -274,6 +276,8 @@ func containedShardsAreConsistent(z *section.Zone) bool {
 							"assertion", *val, "shard", *v)
 						return false
 					}
+				case *section.Pshard:
+					log.Info("Not yet implemented")
 				case *section.Shard:
 					if val.RangeFrom < v.RangeTo && val.RangeTo > v.RangeFrom && !isShardConsistentWithShard(v, val) {
 						log.Info("zone is internally not consistent. Zone contains a shard which is not consistent with another shard")

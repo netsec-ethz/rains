@@ -187,6 +187,11 @@ func addZoneToCache(zone *section.Zone, isAuthoritative bool, assertionsCache as
 				a := sec.Copy(zone.Context, zone.SubjectZone)
 				addAssertionToCache(a, isAuthoritative, assertionsCache, zoneKeyCache)
 			}
+		case *section.Pshard:
+			if shouldPshardBeCached(sec) {
+				s := sec.Copy(zone.Context, zone.SubjectZone)
+				addPshardToCache(s, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
+			}
 		case *section.Shard:
 			if shouldShardBeCached(sec) {
 				s := sec.Copy(zone.Context, zone.SubjectZone)

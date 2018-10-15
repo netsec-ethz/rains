@@ -22,6 +22,8 @@ func (c Info) String() string {
 	switch c.Type {
 	case TCP:
 		return c.TCPAddr.String()
+	case Chan:
+		return c.ChanAddr.String()
 	default:
 		log.Warn("Unsupported network address", "typeCode", c.Type)
 		return ""
