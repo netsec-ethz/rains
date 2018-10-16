@@ -43,11 +43,19 @@ func (s *Server) sendTo(msg message.Message, receiver connection.Info, retries,
 		msg.Capabilities = []message.Capability{message.Capability(s.capabilityHash)}
 	}
 	for _, conn := range conns {
-		writer := cbor.NewWriter(conn)
-		if err := writer.Marshal(&msg); err != nil {
+		log.Debug("Send message", "dst", conn.RemoteAddr(), "content", msg)
+		//FIXME CFE, cannot write to conn directly because if conn is a channel it does not work.
+		//This is because the cbor library writes multiple times to the connection, but the channel
+		//receiver only listens for one message. Is there a way for the receiver to determine when a
+		//message is processed and then stop listening?
+		encoding := new(bytes.Buffer)
+		if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
 			log.Warn(fmt.Sprintf("failed to marshal message to conn: %v", err))
 			s.caches.ConnCache.CloseAndRemoveConnection(conn)
 			continue
+		}
+		if _, err := conn.Write(encoding.Bytes()); err != nil {
+			log.Warn("Was not able to send encoded message")
 		}
 		log.Debug("Send successful", "receiver", receiver)
 		return nil
@@ -76,6 +84,8 @@ func createConnection(receiver connection.Info, keepAlive time.Duration, pool *x
 //Listen listens for incoming connections and creates a go routine for each connection.
 func (s *Server) listen() {
 	srvLogger := log.New("addr", s.config.ServerAddress.String())
+	//always listen on channel
+	go s.handleChannel()
 	switch s.config.ServerAddress.Type {
 	case connection.TCP:
 		srvLogger.Info("Start TCP listener")
@@ -104,9 +114,6 @@ func (s *Server) listen() {
 				log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 			}
 		}
-	case connection.Chan:
-		s.channel.Channel = make(chan connection.Message, 100)
-		s.handleChannel()
 	default:
 		log.Warn("Unsupported Network address type.")
 	}
@@ -118,7 +125,9 @@ func (s *Server) handleChannel() {
 		select {
 		case <-s.shutdown:
 			return
-		case msg := <-s.channel.Channel:
+		case msg := <-s.channel.RemoteChan:
+			msg.Sender.LocalChan = s.channel.RemoteChan
+			msg.Sender.SetLocalAddr(s.channel.RemoteAddr().(connection.ChannelAddr))
 			s.caches.ConnCache.AddConnection(msg.Sender)
 			m := &message.Message{}
 			reader := cbor.NewReader(bytes.NewBuffer(msg.Msg))
@@ -126,7 +135,7 @@ func (s *Server) handleChannel() {
 				log.Warn(fmt.Sprintf("failed to unmarshal msg recv over channel: %v", err))
 				continue
 			}
-			deliver(m, connection.Info{Type: connection.Chan, ChanAddr: msg.Sender.Addr},
+			deliver(m, connection.Info{Type: connection.Chan, ChanAddr: msg.Sender.RemoteAddr().(connection.ChannelAddr)},
 				s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)
 		}
 	}

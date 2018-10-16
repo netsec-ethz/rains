@@ -13,6 +13,8 @@ _test
 #Large benchmarking files
 *zonefileDeleg1000000
 *zonefile1000000
+*zonefileDeleg100000
+*zonefile100000
 
 # Architecture specific extensions/prefixes
 *.[568vq]

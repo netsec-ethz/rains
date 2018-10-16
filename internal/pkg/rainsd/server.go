@@ -1,7 +1,6 @@
 package rainsd
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -12,7 +11,6 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
@@ -55,7 +53,8 @@ type Server struct {
 func New(configPath string, logLevel log.Lvl, id string) (server *Server, err error) {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(log.LvlFilterHandler(logLevel, h))
-	server = &Server{channel: connection.Channel{Addr: connection.ChannelAddr{ID: id}}}
+	server = &Server{channel: connection.Channel{RemoteChan: make(chan connection.Message, 100)}}
+	server.channel.SetRemoteAddr(connection.ChannelAddr{ID: id})
 	if server.config, err = loadConfig(configPath); err != nil {
 		return nil, err
 	}
@@ -126,23 +125,7 @@ func (s *Server) Shutdown() {
 
 //Write delivers an encoded rains message and a response channel to the server.
 func (s *Server) Write(msg connection.Message) {
-	s.caches.ConnCache.AddConnection(msg.Sender)
-	info := connection.Info{
-		Type:     connection.Chan,
-		ChanAddr: msg.Sender.Addr,
-	}
-	if _, ok := s.caches.ConnCache.GetConnection(info); !ok {
-		log.Error("Connection not found in cache")
-		return
-	}
-	m := &message.Message{}
-	reader := cbor.NewReader(bytes.NewBuffer(msg.Msg))
-	if err := reader.Unmarshal(m); err != nil {
-		log.Warn(fmt.Sprintf("failed to unmarshal msg recv over channel: %v", err))
-		return
-	}
-	deliver(m, connection.Info{Type: connection.Chan, ChanAddr: msg.Sender.Addr},
-		s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)
+	s.channel.RemoteChan <- msg
 }
 
 //LoadConfig loads and stores server configuration

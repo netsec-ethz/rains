@@ -48,7 +48,6 @@ func main() {
 			},
 		},
 	}
-	println(msg.Token.String())
 	encoding := new(bytes.Buffer)
 	if err := msg.MarshalCBOR(borat.NewCBORWriter(encoding)); err != nil {
 		log.Error(err.Error())
@@ -56,12 +55,10 @@ func main() {
 	}
 	rcvChan := make(chan connection.Message)
 	deliverable := connection.Message{
-		Msg: encoding.Bytes(),
-		Sender: &connection.Channel{
-			Addr:    connection.ChannelAddr{ID: "0"},
-			Channel: rcvChan,
-		},
+		Msg:    encoding.Bytes(),
+		Sender: &connection.Channel{RemoteChan: rcvChan},
 	}
+	deliverable.Sender.SetRemoteAddr(connection.ChannelAddr{ID: "1"})
 	go handleResponse(rcvChan)
 	server.Write(deliverable)
 
@@ -72,8 +69,8 @@ func main() {
 
 func handleResponse(channel chan connection.Message) {
 	data := <-channel
-	println(data.Sender.Addr.String())
+	log.Error(data.Sender.RemoteAddr().String(), "", data.Msg)
 	msg := &message.Message{}
 	msg.UnmarshalCBOR(borat.NewCBORReader(bytes.NewReader(data.Msg)))
-	println(msg.Token.String())
+	log.Error("", "", msg)
 }
