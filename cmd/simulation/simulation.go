@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/generate"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
@@ -27,43 +29,40 @@ const (
 	nofResolvers              = 1
 	nofClients                = 1
 	leafZoneSize              = 3
+	zfPath                    = "zonefiles/zf_"
 )
 
 func main() {
-	idToServer := make(map[int]*rainsd.Server)
-	authNames, fqdn := generate.Zones(nofTLDNamingServers, nofSLDNamingServersPerTLD, leafZoneSize, "zonefiles/zf_")
+	idToResolver := make(map[int]*rainsd.Server)
+	authNames, fqdn := generate.Zones(nofTLDNamingServers, nofSLDNamingServersPerTLD, leafZoneSize, zfPath)
 
-	for i := 0; i < nofTLDNamingServers+nofTLDNamingServers*nofSLDNamingServersPerTLD+nofRootNamingServers; i++ {
-		path := createConfig("conf/namingServer.conf", authNames[i])
+	for i, name := range authNames {
+		path := createConfig("conf/namingServer.conf", name)
 		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("nameServer%d", i))
 		panicOnError(err)
-		//idToServer[i] = server
 		go server.Start(false)
-		//TODO read and push zonefile to server (Write)
+		path = createPublisherConfig("conf/publisher.conf", name)
+		//TODO periodically invoke publisher (before current signatures expire)
+		config, err := publisher.LoadConfig(path)
+		panicOnError(err)
+		pubServer := publisher.New(config)
+		pubServer.Publish()
 	}
 	for i := 0; i < nofResolvers; i++ {
-		path := createConfig("conf/resolver.conf", "")
+		path := createConfig("conf/resolver.conf", strconv.Itoa(i))
 		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("resolver%d", i))
 		panicOnError(err)
-		idToServer[i] = server
+		idToResolver[i] = server
 		go server.Start(false)
 		//TODO preload cache
 	}
 	//TODO create client to resolver mapping
 	traces := generate.Traces(nil, 10, 5, fqdn, time.Now().Add(time.Second).Unix(), time.Now().Add(5*time.Second).Unix(), 0, 2)
 	for i := 0; i < nofClients; i++ {
-		go startClient(traces[i], idToServer[0])
+		go startClient(traces[i], idToResolver[0]) //TODO choose resolver based on mapping, not hardcoded
 	}
 
-	//Generate zonefiles
-	//Generate Traces
-	//Generate Mapping from IP to channel
-	//Initialize and start authoritative server and load zonefile.
 	//Initialize caching resolvers with the correct public and private keys and root server addr (channel)
-	//Optional: load some values into the caching resolver's cache
-	//Start caching resolver
-	//Start clients with trace => (start a go routine that issues a new go routine that sends the query
-	//in the client's name and tracks how long it takes to get an answer.)
 }
 
 func panicOnError(err error) {
@@ -118,6 +117,17 @@ func createConfig(path, authoritativeZone string) string {
 	panicOnError(err)
 	config := strings.Replace(string(content), "Port\": 5022", fmt.Sprintf("Port\": %d", port), 1)
 	config = strings.Replace(config, "zoneAuthValue", authoritativeZone, 1)
+	path = strings.Replace(path, ".conf", authoritativeZone+".conf", 1)
+	ioutil.WriteFile(path, []byte(config), 0600)
+	return path
+}
+
+func createPublisherConfig(path, name string) string {
+	content, err := ioutil.ReadFile(path)
+	panicOnError(err)
+	config := strings.Replace(string(content), "Port\": 5022", fmt.Sprintf("Port\": %d", port), 1)
+	config = strings.Replace(config, "zonefiles/zf_", "zonefiles/zf_"+name, 1)
+	config = strings.Replace(config, "keys/privateKey", "keys/privateKey"+name, 1)
 	path = strings.Replace(path, ".conf", fmt.Sprintf("%d.conf", port-5022), 1)
 	ioutil.WriteFile(path, []byte(config), 0600)
 	port++

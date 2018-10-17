@@ -3,6 +3,7 @@ package generate
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -19,12 +20,6 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-var privateKeys map[string]ed25519.PrivateKey
-
-func init() {
-	privateKeys = make(map[string]ed25519.PrivateKey)
-}
-
 //Zones creates a number of zone files and returns the names of all leaf zones.
 func Zones(nofTLDs, nofSLD, leafZoneSize int, path string) ([]string, []NameType) {
 	//create root zone
@@ -40,7 +35,7 @@ func Zones(nofTLDs, nofSLD, leafZoneSize int, path string) ([]string, []NameType
 		leafNames = append(leafNames, LeafZone(path+name+"txt", name, ".", leafZoneSize)...)
 	}
 	newNames = append(newNames, names...)
-	newNames = append(newNames, ".")
+	newNames = append(newNames, "root")
 	//TODO create TLD that delegates all of its commercial names to co.TLDName
 	return newNames, leafNames
 }
@@ -99,7 +94,7 @@ func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistP
 	nextName := nameSeq("../../data/names.txt")
 	assertions := make([]*section.Assertion, leafSize+delegSize)
 	for i := 0; i < leafSize; i++ {
-		names, objs := nextObject(Leaf, nextName(), zoneName)
+		names, objs, _ := nextObject(Leaf, nextName(), zoneName)
 		if zoneName == "." {
 			leafNames = append(leafNames, NameType{Name: names[0] + ".", Type: objs[0].Type})
 		} else {
@@ -111,7 +106,8 @@ func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistP
 		}
 	}
 	for i := leafSize; i < leafSize+delegSize; i++ {
-		names, objs := nextObject(Delegation, nextName(), zoneName)
+		names, objs, privKey := nextObject(Delegation, nextName(), zoneName)
+		storePrivateKey("keys/privateKey"+names[0]+".txt", privKey)
 		if zoneName == "." {
 			delegNames = append(delegNames, names[0]+".")
 		} else {
@@ -178,12 +174,12 @@ func LoadNames(path string) []string {
 	return names
 }
 
-func nextObject(objDistr ObjTypeDistr, name, zoneName string) ([]string, []object.Object) {
+func nextObject(objDistr ObjTypeDistr, name, zoneName string) ([]string, []object.Object, keys.PrivateKey) {
 	switch objDistr {
 	case Delegation:
 		return delegationObject(name, zoneName)
 	case Leaf:
-		return []string{name}, leafObject()
+		return []string{name}, leafObject(), keys.PrivateKey{}
 	default:
 		panic("unsupported objTypedistribution identifier")
 	}
@@ -203,22 +199,22 @@ func leafObject() []object.Object {
 	}}
 }
 
-func delegationObject(name, zoneName string) ([]string, []object.Object) {
+func delegationObject(name, zoneName string) ([]string, []object.Object, keys.PrivateKey) {
 	pubKey, privKey, _ := ed25519.GenerateKey(nil)
-	privateKeys[fmt.Sprintf("%s.%s", name, zoneName)] = privKey
 	names := []string{name, name, "ns." + name, "ns1." + name}
 	objs := make([]object.Object, 4)
+	publicKeyID := keys.PublicKeyID{
+		Algorithm: algorithmTypes.Ed25519,
+		KeyPhase:  1,
+		KeySpace:  keys.RainsKeySpace,
+	}
 	objs[0] = object.Object{
 		Type: object.OTDelegation,
 		Value: keys.PublicKey{
-			PublicKeyID: keys.PublicKeyID{
-				Algorithm: algorithmTypes.Ed25519,
-				KeyPhase:  1,
-				KeySpace:  keys.RainsKeySpace,
-			},
-			ValidSince: time.Now().Unix(),
-			ValidUntil: time.Now().Add(365 * 24 * time.Hour).Unix(),
-			Key:        pubKey,
+			PublicKeyID: publicKeyID,
+			ValidSince:  time.Now().Unix(),
+			ValidUntil:  time.Now().Add(365 * 24 * time.Hour).Unix(),
+			Key:         pubKey,
 		},
 	}
 	objs[1] = object.Object{
@@ -237,7 +233,7 @@ func delegationObject(name, zoneName string) ([]string, []object.Object) {
 		Type:  object.OTIP4Addr,
 		Value: fmt.Sprintf("%d.%d.%d.%d", rand.Intn(256), rand.Intn(256), rand.Intn(256), rand.Intn(256)),
 	}
-	return names, objs
+	return names, objs, keys.PrivateKey{PublicKeyID: publicKeyID, Key: privKey}
 }
 
 func shardingConf(zoneSize, maxShardSize int, namesPerPshard, probBound float64) (
@@ -264,6 +260,16 @@ func shardingConf(zoneSize, maxShardSize int, namesPerPshard, probBound float64)
 		},
 	}
 	return sconf, pconf
+}
+
+func storePrivateKey(path string, privateKey keys.PrivateKey) {
+	encoding, err := json.Marshal([]keys.PrivateKey{privateKey})
+	if err != nil {
+		panic(err)
+	}
+	if ioutil.WriteFile(path, encoding, 0600) != nil {
+		panic(err)
+	}
 }
 
 //ObjTypeDistr is an enumeration of object type distributions

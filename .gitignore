@@ -60,3 +60,9 @@ _testmain.go
 
 #example
 examples/test
+
+#simulation generated files
+cmd/conf/*
+cmd/keys/privateKey*
+!cmd/keys/privateKeyroot.txt
+cmd/zonefiles/*
