@@ -31,7 +31,6 @@ type MaxCacheValidity struct {
 	PhardValidity            time.Duration
 	ZoneValidity             time.Duration
 	AddressAssertionValidity time.Duration
-	AddressZoneValidity      time.Duration
 }
 
 //Save stores the object to the file located at the specified path gob encoded.

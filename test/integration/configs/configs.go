@@ -94,7 +94,6 @@ var (
                                         "ShardValidity": 720,
                                         "ZoneValidity": 720,
                                         "AddressAssertionValidity": 720,
-                                        "AddressZoneValidity": 720
                                     },
     "ReapVerifyTimeout":            1800,
     "ReapEngineTimeout":            1800,

@@ -148,7 +148,6 @@ func loadConfig(configPath string) (rainsdConfig, error) {
 	config.AddressQueryValidity *= time.Second
 	config.ReapEngineTimeout *= time.Second
 	config.MaxCacheValidity.AddressAssertionValidity *= time.Hour
-	config.MaxCacheValidity.AddressZoneValidity *= time.Hour
 	config.MaxCacheValidity.AssertionValidity *= time.Hour
 	config.MaxCacheValidity.ShardValidity *= time.Hour
 	config.MaxCacheValidity.ZoneValidity *= time.Hour

@@ -4,13 +4,21 @@ import (
 	"net"
 	"testing"
 
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
+
+	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"golang.org/x/crypto/ed25519"
 )
 
 //CFE To compare recursively if two structs contain the same elements one can use reflect.DeepEqual(x,y interface{}) bool.
 //Unfortunately the function does not return which element(s) are not equal. We want this in a test scenario.
 
-func CheckMessage(m1, m2 RainsMessage, t *testing.T) {
+func CheckMessage(m1, m2 message.Message, t *testing.T) {
 	if m1.Token != m2.Token {
 		t.Error("Token mismatch")
 	}
@@ -28,50 +36,44 @@ func CheckMessage(m1, m2 RainsMessage, t *testing.T) {
 	}
 	for i, s1 := range m1.Content {
 		switch s1 := s1.(type) {
-		case *AssertionSection:
-			if s2, ok := m2.Content[i].(*AssertionSection); ok {
+		case *section.Assertion:
+			if s2, ok := m2.Content[i].(*section.Assertion); ok {
 				CheckAssertion(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *ShardSection:
-			if s2, ok := m2.Content[i].(*ShardSection); ok {
+		case *section.Shard:
+			if s2, ok := m2.Content[i].(*section.Shard); ok {
 				CheckShard(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *ZoneSection:
-			if s2, ok := m2.Content[i].(*ZoneSection); ok {
+		case *section.Zone:
+			if s2, ok := m2.Content[i].(*section.Zone); ok {
 				CheckZone(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *QuerySection:
-			if s2, ok := m2.Content[i].(*QuerySection); ok {
+		case *query.Name:
+			if s2, ok := m2.Content[i].(*query.Name); ok {
 				CheckQuery(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *NotificationSection:
-			if s2, ok := m2.Content[i].(*NotificationSection); ok {
+		case *section.Notification:
+			if s2, ok := m2.Content[i].(*section.Notification); ok {
 				CheckNotification(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *AddressAssertionSection:
-			if s2, ok := m2.Content[i].(*AddressAssertionSection); ok {
+		case *section.AddrAssertion:
+			if s2, ok := m2.Content[i].(*section.AddrAssertion); ok {
 				CheckAddressAssertion(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *AddressZoneSection:
-			if s2, ok := m2.Content[i].(*AddressZoneSection); ok {
-				CheckAddressZone(s1, s2, t)
-				continue
-			}
-			t.Errorf("Types at position %d of Content slice are different", i)
-		case *AddressQuerySection:
-			if s2, ok := m2.Content[i].(*AddressQuerySection); ok {
+		case *query.Address:
+			if s2, ok := m2.Content[i].(*query.Address); ok {
 				CheckAddressQuery(s1, s2, t)
 				continue
 			}
@@ -82,7 +84,7 @@ func CheckMessage(m1, m2 RainsMessage, t *testing.T) {
 	}
 }
 
-func CheckSignatures(s1, s2 []Signature, t *testing.T) {
+func CheckSignatures(s1, s2 []signature.Sig, t *testing.T) {
 	if len(s1) != len(s2) {
 		t.Error("Signature count mismatch")
 		return
@@ -101,7 +103,7 @@ func CheckSignatures(s1, s2 []Signature, t *testing.T) {
 			t.Errorf("Signature ValidUntil mismatch in %d. Signature", i)
 		}
 		switch s1[i].Algorithm {
-		case Ed25519:
+		case algorithmTypes.Ed25519:
 			d1 := s1[i].Data.([]byte)
 			d2 := s2[i].Data.([]byte)
 			if len(d1) != len(d2) {
@@ -116,7 +118,7 @@ func CheckSignatures(s1, s2 []Signature, t *testing.T) {
 	}
 }
 
-func CheckAssertion(a1, a2 *AssertionSection, t *testing.T) {
+func CheckAssertion(a1, a2 *section.Assertion, t *testing.T) {
 	if a1.Context != a2.Context {
 		t.Errorf("Assertion Context mismatch a1.Context=%s a2.Context=%s", a1.Context, a2.Context)
 	}
@@ -130,7 +132,7 @@ func CheckAssertion(a1, a2 *AssertionSection, t *testing.T) {
 	CheckObjects(a1.Content, a2.Content, t)
 }
 
-func CheckShard(s1, s2 *ShardSection, t *testing.T) {
+func CheckShard(s1, s2 *section.Shard, t *testing.T) {
 	if s1.Context != s2.Context {
 		t.Error("Shard context mismatch")
 	}
@@ -152,7 +154,7 @@ func CheckShard(s1, s2 *ShardSection, t *testing.T) {
 	}
 }
 
-func CheckZone(z1, z2 *ZoneSection, t *testing.T) {
+func CheckZone(z1, z2 *section.Zone, t *testing.T) {
 	if z1.Context != z2.Context {
 		t.Error("Zone context mismatch")
 	}
@@ -165,14 +167,14 @@ func CheckZone(z1, z2 *ZoneSection, t *testing.T) {
 	}
 	for i, s1 := range z1.Content {
 		switch s1 := s1.(type) {
-		case *AssertionSection:
-			if s2, ok := z2.Content[i].(*AssertionSection); ok {
+		case *section.Assertion:
+			if s2, ok := z2.Content[i].(*section.Assertion); ok {
 				CheckAssertion(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *ShardSection:
-			if s2, ok := z2.Content[i].(*ShardSection); ok {
+		case *section.Shard:
+			if s2, ok := z2.Content[i].(*section.Shard); ok {
 				CheckShard(s1, s2, t)
 				continue
 			}
@@ -183,7 +185,7 @@ func CheckZone(z1, z2 *ZoneSection, t *testing.T) {
 	}
 }
 
-func CheckQuery(q1, q2 *QuerySection, t *testing.T) {
+func CheckQuery(q1, q2 *query.Name, t *testing.T) {
 	if q1.Context != q2.Context {
 		t.Error("Query context mismatch")
 	}
@@ -211,7 +213,7 @@ func CheckQuery(q1, q2 *QuerySection, t *testing.T) {
 	}
 }
 
-func CheckNotification(n1, n2 *NotificationSection, t *testing.T) {
+func CheckNotification(n1, n2 *section.Notification, t *testing.T) {
 	if n1.Type != n2.Type {
 		t.Error("Notification Type mismatch")
 	}
@@ -223,7 +225,7 @@ func CheckNotification(n1, n2 *NotificationSection, t *testing.T) {
 	}
 }
 
-func CheckAddressAssertion(a1, a2 *AddressAssertionSection, t *testing.T) {
+func CheckAddressAssertion(a1, a2 *section.AddrAssertion, t *testing.T) {
 	if a1.Context != a2.Context {
 		t.Error("AddressAssertion Context mismatch")
 	}
@@ -232,21 +234,7 @@ func CheckAddressAssertion(a1, a2 *AddressAssertionSection, t *testing.T) {
 	CheckObjects(a1.Content, a2.Content, t)
 }
 
-func CheckAddressZone(z1, z2 *AddressZoneSection, t *testing.T) {
-	if z1.Context != z2.Context {
-		t.Error("AddressZone Context mismatch")
-	}
-	CheckSignatures(z1.Signatures, z2.Signatures, t)
-	CheckSubjectAddress(z1.SubjectAddr, z2.SubjectAddr, t)
-	if len(z1.Content) != len(z2.Content) {
-		t.Error("AddressZone Content length mismatch")
-	}
-	for i, a1 := range z1.Content {
-		CheckAddressAssertion(a1, z2.Content[i], t)
-	}
-}
-
-func CheckAddressQuery(q1, q2 *AddressQuerySection, t *testing.T) {
+func CheckAddressQuery(q1, q2 *query.Address, t *testing.T) {
 	if q1.Context != q2.Context {
 		t.Error("AddressQuery context mismatch")
 	}
@@ -278,7 +266,7 @@ func CheckSubjectAddress(a1, a2 *net.IPNet, t *testing.T) {
 	}
 }
 
-func CheckObjects(objs1, objs2 []Object, t *testing.T) {
+func CheckObjects(objs1, objs2 []object.Object, t *testing.T) {
 	if len(objs1) != len(objs2) {
 		t.Error("Objects length mismatch")
 	}
@@ -288,9 +276,9 @@ func CheckObjects(objs1, objs2 []Object, t *testing.T) {
 			t.Errorf("Object Type mismatch at position %d", i)
 		}
 		switch o1.Type {
-		case OTName:
-			n1 := o1.Value.(NameObject)
-			n2 := o2.Value.(NameObject)
+		case object.OTName:
+			n1 := o1.Value.(object.NameObject)
+			n2 := o2.Value.(object.NameObject)
 			if n1.Name != n2.Name {
 				t.Errorf("Object Value name Name mismatch at position %d", i)
 			}
@@ -302,25 +290,25 @@ func CheckObjects(objs1, objs2 []Object, t *testing.T) {
 					t.Errorf("Object Value name type mismatch at byte %d of object %d", j, i)
 				}
 			}
-		case OTIP6Addr:
+		case object.OTIP6Addr:
 			if o1.Value.(string) != o2.Value.(string) {
 				t.Errorf("Object Value IP6 mismatch at position %d", i)
 			}
-		case OTIP4Addr:
+		case object.OTIP4Addr:
 			if o1.Value.(string) != o2.Value.(string) {
 				t.Errorf("Object Value IP4 mismatch at position %d", i)
 			}
-		case OTRedirection:
+		case object.OTRedirection:
 			if o1.Value.(string) != o2.Value.(string) {
 				t.Errorf("Object Value redirection mismatch at position %d", i)
 			}
-		case OTDelegation:
+		case object.OTDelegation:
 			CheckPublicKey(o1.Value.(PublicKey), o2.Value.(PublicKey), t)
-		case OTNameset:
+		case object.OTNameset:
 			if o1.Value.(NamesetExpression) != o2.Value.(NamesetExpression) {
 				t.Errorf("Object Value nameSet mismatch at position %d  of content slice. v1=%s v2=%s", i, o1.Value, o2.Value)
 			}
-		case OTCertInfo:
+		case object.OTCertInfo:
 			c1 := o1.Value.(CertificateObject)
 			c2 := o2.Value.(CertificateObject)
 			if c1.Type != c2.Type {
@@ -372,7 +360,7 @@ func CheckObjects(objs1, objs2 []Object, t *testing.T) {
 	}
 }
 
-func CheckPublicKey(p1, p2 PublicKey, t *testing.T) {
+func CheckPublicKey(p1, p2 keys.PublicKey, t *testing.T) {
 	if p1.KeySpace != p2.KeySpace {
 		t.Error("PublicKey KeySpace mismatch")
 	}

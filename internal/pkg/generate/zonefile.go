@@ -26,22 +26,23 @@ func init() {
 }
 
 //Zones creates a number of zone files and returns the names of all leaf zones.
-func Zones() []NameType {
+func Zones(nofTLDs, nofSLD, leafZoneSize int, path string) ([]string, []NameType) {
 	//create root zone
 	leafNames := []NameType{}
-	path := "zonefiles/zones/"
-	names := DelegationZone(path+"root.txt", ".", ".", 8, 500, 10, 10000000) //2 zones
+	names := DelegationZone(path+"root.txt", ".", ".", 4*nofTLDs, 500, 10, 10000000)
 	//create TLDs
 	newNames := []string{}
 	for _, name := range names {
-		newNames = append(newNames, DelegationZone(path+name+"txt", name, ".", 20, 500, 10, 10000000)...) //5 zones
+		newNames = append(newNames, DelegationZone(path+name+"txt", name, ".", 4*nofSLD, 500, 10, 10000000)...)
 	}
 	//create second level leaf zones
 	for _, name := range newNames {
-		leafNames = append(leafNames, LeafZone(path+name+"txt", name, ".", 2)...)
+		leafNames = append(leafNames, LeafZone(path+name+"txt", name, ".", leafZoneSize)...)
 	}
+	newNames = append(newNames, names...)
+	newNames = append(newNames, ".")
 	//TODO create TLD that delegates all of its commercial names to co.TLDName
-	return leafNames
+	return newNames, leafNames
 }
 
 func LeafZone(fileName, zoneName, context string, zoneSize int) []NameType {

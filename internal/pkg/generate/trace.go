@@ -1,8 +1,6 @@
 package generate
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"math/rand"
 	"sort"
 	"time"
@@ -30,8 +28,8 @@ type NameType struct {
 	Type object.Type
 }
 
-func Traces(clientToResolver map[string]string, maxQueriesPerClient, fractionNegQuery int, nameTypes []NameType, start, end, seed int64,
-	zipfS float64) {
+func Traces(clientToResolver map[string]string, maxQueriesPerClient, fractionNegQuery int,
+	nameTypes []NameType, start, end, seed int64, zipfS float64) []Queries {
 	traces := []Queries{}
 	zipf := rand.NewZipf(rand.New(rand.NewSource(seed)), zipfS, 1, uint64(len(nameTypes)))
 	for client, resolver := range clientToResolver {
@@ -64,10 +62,11 @@ func Traces(clientToResolver map[string]string, maxQueriesPerClient, fractionNeg
 		sort.Slice(trace.Trace, func(i, j int) bool { return trace.Trace[i].SendTime < trace.Trace[j].SendTime })
 		traces = append(traces, trace)
 	}
-	encoding, _ := json.Marshal(traces)
+	/*encoding, _ := json.Marshal(traces)
 	if err := ioutil.WriteFile("traces/traces.json", encoding, 0600); err != nil {
 		panic(err.Error())
-	}
+	}*/
+	return traces
 }
 
 //ClientResolverMapping returns a mapping from clients to resolvers.

@@ -3,11 +3,13 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
+	"strings"
 	"time"
 
-	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
 
+	"github.com/britram/borat"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/generate"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
@@ -15,26 +17,42 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
-func main() {
-	nofNamingServers := 2
-	nofResolvers := 1
-	nofClients := 5
-	idToServer := make(map[int]*rainsd.Server)
+var port = 5022
 
-	for i := 0; i < nofNamingServers; i++ {
-		server, err := rainsd.New("config/namingServer.conf", log.LvlDebug, fmt.Sprintf("nameServer%d", i))
+//Simulation parameters: TODO allow the user to overwrite them via command line
+const (
+	nofRootNamingServers      = 1
+	nofTLDNamingServers       = 1
+	nofSLDNamingServersPerTLD = 1
+	nofResolvers              = 1
+	nofClients                = 1
+	leafZoneSize              = 3
+)
+
+func main() {
+	idToServer := make(map[int]*rainsd.Server)
+	authNames, fqdn := generate.Zones(nofTLDNamingServers, nofSLDNamingServersPerTLD, leafZoneSize, "zonefiles/zf_")
+
+	for i := 0; i < nofTLDNamingServers+nofTLDNamingServers*nofSLDNamingServersPerTLD+nofRootNamingServers; i++ {
+		path := createConfig("conf/namingServer.conf", authNames[i])
+		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("nameServer%d", i))
 		panicOnError(err)
-		idToServer[i] = server
+		//idToServer[i] = server
 		go server.Start(false)
+		//TODO read and push zonefile to server (Write)
 	}
 	for i := 0; i < nofResolvers; i++ {
-		server, err := rainsd.New("config/resolver.conf", log.LvlDebug, fmt.Sprintf("resolver%d", i))
+		path := createConfig("conf/resolver.conf", "")
+		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("resolver%d", i))
 		panicOnError(err)
 		idToServer[i] = server
 		go server.Start(false)
+		//TODO preload cache
 	}
+	//TODO create client to resolver mapping
+	traces := generate.Traces(nil, 10, 5, fqdn, time.Now().Add(time.Second).Unix(), time.Now().Add(5*time.Second).Unix(), 0, 2)
 	for i := 0; i < nofClients; i++ {
-		go startClient(generate.Queries{}, idToServer[0])
+		go startClient(traces[i], idToServer[0])
 	}
 
 	//Generate zonefiles
@@ -62,6 +80,7 @@ func startClient(trace generate.Queries, server *rainsd.Server) {
 	channel.SetRemoteAddr(connection.ChannelAddr{ID: trace.ID})
 	go clientListener(trace.ID, len(trace.Trace), rcvChan, result)
 	for _, q := range trace.Trace {
+		//TODO CFE add dynamic delay
 		time.Sleep(time.Duration(q.SendTime - time.Now().UnixNano()))
 		q.SendTime = time.Now().UnixNano()
 		encoding := new(bytes.Buffer)
@@ -83,6 +102,7 @@ func clientListener(id string, nofQueries int, rcvChan chan connection.Message, 
 		msg := &message.Message{}
 		err := msg.UnmarshalCBOR(borat.NewCBORReader(bytes.NewReader(data.Msg)))
 		panicOnError(err)
+		//TODO CFE add dynamic delay
 		delayLog[msg.Token] = time.Now().UnixNano()
 		log.Debug(id, "RcvMsg", msg, "ContentType", fmt.Sprintf("%T", msg.Content[0]))
 	}
@@ -91,4 +111,15 @@ func clientListener(id string, nofQueries int, rcvChan chan connection.Message, 
 
 func nanoToMilliSecond(in int64) int64 {
 	return in / 1000000
+}
+
+func createConfig(path, authoritativeZone string) string {
+	content, err := ioutil.ReadFile(path)
+	panicOnError(err)
+	config := strings.Replace(string(content), "Port\": 5022", fmt.Sprintf("Port\": %d", port), 1)
+	config = strings.Replace(config, "zoneAuthValue", authoritativeZone, 1)
+	path = strings.Replace(path, ".conf", fmt.Sprintf("%d.conf", port-5022), 1)
+	ioutil.WriteFile(path, []byte(config), 0600)
+	port++
+	return path
 }
