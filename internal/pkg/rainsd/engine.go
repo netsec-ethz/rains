@@ -607,7 +607,10 @@ func answerQuery(q *query.Name, sender connection.Info, oldToken token.Token, s 
 		log.Info("Finished handling query (unsuccessful, cached answers only) ", "query", q)
 		return
 	}
-
+	if s.authority[zoneContext{q.Name, q.Context}] { //FIXME this is not working correctly. Check that Name contains the authority part
+		log.Warn("To implement: If I am the authority and I do not have an answer something went wrong")
+		return
+	}
 	trace(oldToken, "forwarding query")
 	//forward query (no answer in cache)
 	var delegate connection.Info

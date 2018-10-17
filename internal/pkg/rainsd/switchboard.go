@@ -68,6 +68,19 @@ func (s *Server) sendTo(msg message.Message, receiver connection.Info, retries,
 	return errors.New("Was not able to send the mesage. No retries left")
 }
 
+func (s *Server) sendToRecursiveResolver(msg message.Message) {
+	encoding := new(bytes.Buffer)
+	if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
+		log.Warn(fmt.Sprintf("failed to marshal message to conn: %v", err))
+	}
+	message := connection.Message{
+		Msg:    encoding.Bytes(),
+		Sender: s.inputChannel,
+	}
+	s.recursiveResolver.RemoteChan <- message
+	log.Debug("Send successfully to recursive resolver")
+}
+
 //createConnection establishes a connection with receiver
 func createConnection(receiver connection.Info, keepAlive time.Duration, pool *x509.CertPool) (net.Conn, error) {
 	switch receiver.Type {
@@ -125,9 +138,9 @@ func (s *Server) handleChannel() {
 		select {
 		case <-s.shutdown:
 			return
-		case msg := <-s.channel.RemoteChan:
-			msg.Sender.LocalChan = s.channel.RemoteChan
-			msg.Sender.SetLocalAddr(s.channel.RemoteAddr().(connection.ChannelAddr))
+		case msg := <-s.inputChannel.RemoteChan:
+			msg.Sender.LocalChan = s.inputChannel.RemoteChan
+			msg.Sender.SetLocalAddr(s.inputChannel.RemoteAddr().(connection.ChannelAddr))
 			s.caches.ConnCache.AddConnection(msg.Sender)
 			m := &message.Message{}
 			reader := cbor.NewReader(bytes.NewBuffer(msg.Msg))

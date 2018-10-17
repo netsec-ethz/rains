@@ -21,6 +21,9 @@ import (
 
 var port = 5022
 
+//FIXME Need mapping from IP addr of delegation zone to channel so recursive resolver knows where to
+//forward the query.
+
 //Simulation parameters: TODO allow the user to overwrite them via command line
 const (
 	nofRootNamingServers      = 1
@@ -38,7 +41,7 @@ func main() {
 
 	for i, name := range authNames {
 		path := createConfig("conf/namingServer.conf", name)
-		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("nameServer%d", i))
+		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("nameServer%d", i), nil)
 		panicOnError(err)
 		go server.Start(false)
 		path = createPublisherConfig("conf/publisher.conf", name)
@@ -50,7 +53,8 @@ func main() {
 	}
 	for i := 0; i < nofResolvers; i++ {
 		path := createConfig("conf/resolver.conf", strconv.Itoa(i))
-		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("resolver%d", i))
+		//TODO create and add recursive resolver
+		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("resolver%d", i), nil)
 		panicOnError(err)
 		idToResolver[i] = server
 		go server.Start(false)

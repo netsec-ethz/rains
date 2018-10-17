@@ -26,8 +26,11 @@ const (
 
 //Server represents a rainsd server instance.
 type Server struct {
-	//channel is used by this server to receive messages from other servers over a channel
-	channel connection.Channel
+	//inputChannel is used by this server to receive messages from other servers
+	inputChannel *connection.Channel
+	//recursiveResolver is the input channel of a recursive resolver which handles all recursive lookups
+	//of this server
+	recursiveResolver *connection.Channel
 	//config contains configurations of this server
 	config rainsdConfig
 	//authority states the names over which this server has authority
@@ -50,11 +53,15 @@ type Server struct {
 
 //New returns a pointer to a newly created rainsd server instance with the given config. The server
 //logs with the provided level of logging.
-func New(configPath string, logLevel log.Lvl, id string) (server *Server, err error) {
+func New(configPath string, logLevel log.Lvl, id string, recursiveResolver *connection.Channel) (
+	server *Server, err error) {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(log.LvlFilterHandler(logLevel, h))
-	server = &Server{channel: connection.Channel{RemoteChan: make(chan connection.Message, 100)}}
-	server.channel.SetRemoteAddr(connection.ChannelAddr{ID: id})
+	server = &Server{
+		inputChannel:      &connection.Channel{RemoteChan: make(chan connection.Message, 100)},
+		recursiveResolver: recursiveResolver,
+	}
+	server.inputChannel.SetRemoteAddr(connection.ChannelAddr{ID: id})
 	if server.config, err = loadConfig(configPath); err != nil {
 		return nil, err
 	}
@@ -123,9 +130,9 @@ func (s *Server) Shutdown() {
 	s.queues.Notify <- msgSectionSender{}
 }
 
-//Write delivers an encoded rains message and a response channel to the server.
+//Write delivers an encoded rains message and a response inputChannel to the server.
 func (s *Server) Write(msg connection.Message) {
-	s.channel.RemoteChan <- msg
+	s.inputChannel.RemoteChan <- msg
 }
 
 //LoadConfig loads and stores server configuration
