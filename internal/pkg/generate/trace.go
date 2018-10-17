@@ -7,19 +7,22 @@ import (
 	"sort"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
-type Query struct {
-	Info     query.Name
+type Message struct {
+	Info     message.Message
 	SendTime int64 //Nanoseconds since 1.1.1970
 }
 
 type Queries struct {
-	Trace []Query
-	Dst   int //resolver's identifier
-	ID    int //client ID
+	Trace []Message
+	Dst   string //resolver's identifier
+	ID    string //client ID
 }
 
 type NameType struct {
@@ -27,7 +30,7 @@ type NameType struct {
 	Type object.Type
 }
 
-func Traces(clientToResolver map[int]int, maxQueriesPerClient, fractionNegQuery int, nameTypes []NameType, start, end, seed int64,
+func Traces(clientToResolver map[string]string, maxQueriesPerClient, fractionNegQuery int, nameTypes []NameType, start, end, seed int64,
 	zipfS float64) {
 	traces := []Queries{}
 	zipf := rand.NewZipf(rand.New(rand.NewSource(seed)), zipfS, 1, uint64(len(nameTypes)))
@@ -38,16 +41,23 @@ func Traces(clientToResolver map[int]int, maxQueriesPerClient, fractionNegQuery 
 		}
 		for i := 0; i < rand.Intn(maxQueriesPerClient); i++ {
 			index := int(zipf.Uint64())
-			q := Query{SendTime: start + rand.Int63n(end-start)}
-			q.Info = query.Name{
-				Context:    ".", //TODO CFE currently only global context is supported.
-				Expiration: q.SendTime/int64(time.Second) + 2,
-				Name:       nameTypes[index].Name,
-				Options:    []query.Option{query.QOMinE2ELatency},
-				Types:      []object.Type{nameTypes[index].Type},
+			q := Message{SendTime: start + rand.Int63n(end-start)}
+			qName := "NonExistentName"
+			if (i+1)%fractionNegQuery != 0 {
+				qName = nameTypes[index].Name
 			}
-			if (i+1)%fractionNegQuery == 0 {
-				q.Info.Name = "NonExistentName"
+			q.Info = message.Message{
+				Capabilities: []message.Capability{message.NoCapability},
+				Token:        token.New(),
+				Content: []section.Section{
+					&query.Name{
+						Context:    ".", //TODO CFE currently only global context is supported.
+						Expiration: q.SendTime/int64(time.Second) + 2,
+						Name:       qName,
+						Options:    []query.Option{query.QOMinE2ELatency},
+						Types:      []object.Type{nameTypes[index].Type},
+					},
+				},
 			}
 			trace.Trace = append(trace.Trace, q)
 		}
