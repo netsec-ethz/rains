@@ -3,6 +3,7 @@ package resolver
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 
 	log "github.com/inconshreveable/log15"
 
@@ -22,7 +23,7 @@ type Server struct {
 	newTokenToMsg   map[token.Token]*message.Message
 }
 
-func New(id string, cachingResolver *connection.Channel, rootIPAddr string, ipToChan map[string]*connection.Channel) *Server {
+func New(id int, cachingResolver *connection.Channel, rootIPAddr string, ipToChan map[string]*connection.Channel) *Server {
 	server := &Server{
 		input:           &connection.Channel{RemoteChan: make(chan connection.Message, 100)},
 		cachingResolver: cachingResolver,
@@ -30,7 +31,7 @@ func New(id string, cachingResolver *connection.Channel, rootIPAddr string, ipTo
 		ipToChan:        ipToChan,
 		newTokenToMsg:   make(map[token.Token]*message.Message),
 	}
-	server.input.SetRemoteAddr(connection.ChannelAddr{ID: id})
+	server.input.SetRemoteAddr(connection.ChannelAddr{ID: strconv.Itoa(id)})
 	return server
 }
 

@@ -16,6 +16,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
+	"github.com/netsec-ethz/rains/internal/pkg/resolver"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
@@ -59,6 +60,7 @@ func main() {
 		//TODO create and add recursive resolver
 		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("resolver%d", i))
 		panicOnError(err)
+		resolver.New()
 		//FIXME add recursive resolver to server!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		idToResolver[i] = server
 		go server.Start(false)
