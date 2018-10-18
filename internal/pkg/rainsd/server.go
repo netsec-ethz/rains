@@ -53,13 +53,12 @@ type Server struct {
 
 //New returns a pointer to a newly created rainsd server instance with the given config. The server
 //logs with the provided level of logging.
-func New(configPath string, logLevel log.Lvl, id string, recursiveResolver *connection.Channel) (
+func New(configPath string, logLevel log.Lvl, id string) (
 	server *Server, err error) {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(log.LvlFilterHandler(logLevel, h))
 	server = &Server{
-		inputChannel:      &connection.Channel{RemoteChan: make(chan connection.Message, 100)},
-		recursiveResolver: recursiveResolver,
+		inputChannel: &connection.Channel{RemoteChan: make(chan connection.Message, 100)},
 	}
 	server.inputChannel.SetRemoteAddr(connection.ChannelAddr{ID: id})
 	if server.config, err = loadConfig(configPath); err != nil {
@@ -91,6 +90,11 @@ func New(configPath string, logLevel log.Lvl, id string, recursiveResolver *conn
 		return nil, err
 	}
 	return
+}
+
+//SetRecursiveResolver adds a channel which handles recursive lookups for this server
+func (s *Server) SetRecursiveResolver(c *connection.Channel) {
+	s.recursiveResolver = c
 }
 
 //Start starts up the server and it begins to listen for incoming connections according to its

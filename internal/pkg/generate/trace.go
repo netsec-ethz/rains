@@ -28,6 +28,11 @@ type NameType struct {
 	Type object.Type
 }
 
+type NameIPAddr struct {
+	Name   string
+	IPAddr string
+}
+
 func Traces(clientToResolver map[string]string, maxQueriesPerClient, fractionNegQuery int,
 	nameTypes []NameType, start, end, seed int64, zipfS float64) []Queries {
 	traces := []Queries{}

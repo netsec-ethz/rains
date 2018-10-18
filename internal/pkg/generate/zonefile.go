@@ -21,21 +21,21 @@ import (
 )
 
 //Zones creates a number of zone files and returns the names of all leaf zones.
-func Zones(nofTLDs, nofSLD, leafZoneSize int, path string) ([]string, []NameType) {
+func Zones(nofTLDs, nofSLD, leafZoneSize int, path, rootAddr string) ([]NameIPAddr, []NameType) {
 	//create root zone
 	leafNames := []NameType{}
 	names := DelegationZone(path+"root.txt", ".", ".", 4*nofTLDs, 500, 10, 10000000)
 	//create TLDs
-	newNames := []string{}
+	newNames := []NameIPAddr{}
 	for _, name := range names {
-		newNames = append(newNames, DelegationZone(path+name+"txt", name, ".", 4*nofSLD, 500, 10, 10000000)...)
+		newNames = append(newNames, DelegationZone(path+name.Name+"txt", name.Name, ".", 4*nofSLD, 500, 10, 10000000)...)
 	}
 	//create second level leaf zones
 	for _, name := range newNames {
-		leafNames = append(leafNames, LeafZone(path+name+"txt", name, ".", leafZoneSize)...)
+		leafNames = append(leafNames, LeafZone(path+name.Name+"txt", name.Name, ".", leafZoneSize)...)
 	}
 	newNames = append(newNames, names...)
-	newNames = append(newNames, "root")
+	newNames = append(newNames, NameIPAddr{"root", rootAddr})
 	//TODO create TLD that delegates all of its commercial names to co.TLDName
 	return newNames, leafNames
 }
@@ -53,7 +53,7 @@ func LeafZone(fileName, zoneName, context string, zoneSize int) []NameType {
 }
 
 func DelegationZone(fileName, zoneName, context string, zoneSize, maxShardSize int, namesPerPshard,
-	probBound float64) []string {
+	probBound float64) []NameIPAddr {
 	sconf, pconf := shardingConf(zoneSize, maxShardSize, namesPerPshard, probBound)
 	zone, names, _, err := Zone(zoneName, context, 0, zoneSize, ShardAndPshard, sconf, pconf)
 	if err != nil {
@@ -67,7 +67,7 @@ func DelegationZone(fileName, zoneName, context string, zoneSize, maxShardSize i
 }
 
 func HybridZone(fileName, zoneName, context string, leafSize, delegSize, maxShardSize int, namesPerPshard,
-	probBound float64) ([]string, []NameType) {
+	probBound float64) ([]NameIPAddr, []NameType) {
 	sconf, pconf := shardingConf(leafSize+delegSize, maxShardSize, namesPerPshard, probBound)
 	zone, delegNames, leafNames, err := Zone(zoneName, context, leafSize, delegSize, ShardAndPshard, sconf, pconf)
 	if err != nil {
@@ -84,8 +84,8 @@ func HybridZone(fileName, zoneName, context string, leafSize, delegSize, maxShar
 //all delegation assertions and leaf assertions in to separate slices.
 func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistProofs,
 	shardingConf publisher.ShardingConfig, pshardingConf publisher.PShardingConfig) (
-	*section.Zone, []string, []NameType, error) {
-	delegNames := []string{}
+	*section.Zone, []NameIPAddr, []NameType, error) {
+	delegNames := []NameIPAddr{}
 	leafNames := []NameType{}
 	zone := &section.Zone{
 		Context:     context,
@@ -109,9 +109,9 @@ func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistP
 		names, objs, privKey := nextObject(Delegation, nextName(), zoneName)
 		storePrivateKey("keys/privateKey"+names[0]+".txt", privKey)
 		if zoneName == "." {
-			delegNames = append(delegNames, names[0]+".")
+			delegNames = append(delegNames, NameIPAddr{Name: names[0] + ".", IPAddr: objs[3].Value.(string)})
 		} else {
-			delegNames = append(delegNames, names[0]+"."+zoneName)
+			delegNames = append(delegNames, NameIPAddr{Name: names[0] + "." + zoneName, IPAddr: objs[3].Value.(string)})
 		}
 
 		for j, obj := range objs {

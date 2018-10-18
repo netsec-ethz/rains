@@ -33,18 +33,21 @@ const (
 	nofClients                = 1
 	leafZoneSize              = 3
 	zfPath                    = "zonefiles/zf_"
+	rootAddr                  = "0.0.0.0"
 )
 
 func main() {
 	idToResolver := make(map[int]*rainsd.Server)
-	authNames, fqdn := generate.Zones(nofTLDNamingServers, nofSLDNamingServersPerTLD, leafZoneSize, zfPath)
-
+	authNames, fqdn := generate.Zones(nofTLDNamingServers, nofSLDNamingServersPerTLD, leafZoneSize,
+		zfPath, rootAddr)
+	ipToServer := make(map[string]*rainsd.Server)
 	for i, name := range authNames {
-		path := createConfig("conf/namingServer.conf", name)
-		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("nameServer%d", i), nil)
+		path := createConfig("conf/namingServer.conf", name.Name)
+		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("nameServer%d", i))
 		panicOnError(err)
+		ipToServer[name.IPAddr] = server
 		go server.Start(false)
-		path = createPublisherConfig("conf/publisher.conf", name)
+		path = createPublisherConfig("conf/publisher.conf", name.Name)
 		//TODO periodically invoke publisher (before current signatures expire)
 		config, err := publisher.LoadConfig(path)
 		panicOnError(err)
@@ -54,8 +57,9 @@ func main() {
 	for i := 0; i < nofResolvers; i++ {
 		path := createConfig("conf/resolver.conf", strconv.Itoa(i))
 		//TODO create and add recursive resolver
-		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("resolver%d", i), nil)
+		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("resolver%d", i))
 		panicOnError(err)
+		//FIXME add recursive resolver to server!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		idToResolver[i] = server
 		go server.Start(false)
 		//TODO preload cache
