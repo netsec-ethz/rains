@@ -54,7 +54,7 @@ func (s *Shard) UnmarshalMap(m map[int]interface{}) error {
 		s.RangeTo = srange[1].(string)
 	}
 	// Content
-	if cont, ok := m[7]; ok {
+	if cont, ok := m[23]; ok {
 		s.Content = make([]*Assertion, 0)
 		for _, obj := range cont.([]interface{}) {
 			as := &Assertion{}
@@ -79,7 +79,7 @@ func (s *Shard) MarshalCBOR(w *cbor.CBORWriter) error {
 	}
 	m[11] = []string{s.RangeFrom, s.RangeTo}
 	// TODO: Assertions SHOULD be sorted by name in ascending lexicographic order.
-	m[7] = s.Content
+	m[23] = s.Content
 	return w.WriteIntMap(m)
 }
 

@@ -60,6 +60,9 @@ _testmain.go
 
 #example
 examples/test
+examples/rainsdServer/data/newZonefile.txt
+examples/rainsdServer/keys/rootPrivateKey.txt
+examples/rainsdServer/keys/selfSignedRootDelegationAssertion.gob
 
 #simulation generated files
 cmd/simulation/conf/*
