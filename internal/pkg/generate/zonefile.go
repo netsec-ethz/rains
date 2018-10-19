@@ -16,6 +16,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
+	"github.com/netsec-ethz/rains/tools/keycreator"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -24,6 +25,7 @@ func Zones(nofTLDs, nofSLD, leafZoneSize int, path, rootAddr string) ([]NameIPAd
 	//create root zone
 	leafNames := []NameType{}
 	newNames := []NameIPAddr{NameIPAddr{"Root", rootAddr}}
+	keycreator.DelegationAssertion(".", ".", "keys/selfSignedRootDelegationAssertion.gob", "keys/privateKeyRoot.txt")
 	names := DelegationZone(path+"Root.txt", ".", ".", 4*nofTLDs, 500, 10, 10000000)
 	newNames = append(newNames, names...)
 	//create TLDs
