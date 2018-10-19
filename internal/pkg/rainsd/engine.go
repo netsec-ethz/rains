@@ -466,7 +466,13 @@ func iterativeLookupAllowed() bool {
 func (s *Server) processQuery(msgSender msgSectionSender) {
 	switch section := msgSender.Section.(type) {
 	case *query.Name:
-		answerQuery(section, msgSender.Sender, msgSender.Token, s)
+		if len(s.config.ZoneAuthority) == 0 {
+			//caching resolver
+			answerQuery(section, msgSender.Sender, msgSender.Token, s)
+		} else {
+			//naming server
+			answerQueryAuthoritative(section, msgSender.Sender, msgSender.Token, s)
+		}
 	case *query.Address:
 		addressQuery(section, msgSender.Sender, msgSender.Token)
 	default:
@@ -657,6 +663,79 @@ func answerQuery(q *query.Name, sender connection.Info, oldToken token.Token, s 
 	} else {
 		log.Info("Query already sent.")
 	}
+}
+
+//answerQueryAuthoritative is how an authoritative server answers queries
+func answerQueryAuthoritative(q *query.Name, sender connection.Info, oldToken token.Token, s *Server) {
+	log.Debug("Start processing query", "query", q)
+	trace(oldToken, fmt.Sprintf("Processing QueryForward for name: %v, connection: %v", q.Name, q.Types))
+	//FIXME CFE make it work with several authority zones and with context
+	if !strings.HasSuffix(q.Name, s.config.ZoneAuthority[0]) {
+		log.Info("Query is not about a name this zone has authority over", "name", q.Name, "authority", s.config.ZoneAuthority[0])
+		return
+	}
+
+	assertions := []section.Section{}
+	assertionSet := make(map[string]bool)
+	asKey := func(a *section.Assertion) string {
+		return fmt.Sprintf("%s_%s_%s", a.SubjectName, a.SubjectZone, a.Context)
+	}
+
+	for _, t := range q.Types {
+		if asserts, ok := s.caches.AssertionsCache.Get(q.Name, q.Context, t, true); ok {
+			for _, a := range asserts {
+				if _, ok := assertionSet[asKey(a)]; ok {
+					continue
+				}
+				if a.ValidUntil() > time.Now().Unix() {
+					log.Debug(fmt.Sprintf("appending valid assertion: %v", a))
+					assertions = append(assertions, a)
+					assertionSet[asKey(a)] = true
+				}
+			}
+		}
+	}
+	if len(assertions) > 0 {
+		sendSections(assertions, oldToken, sender, s)
+		log.Info("Finished handling query by sending assertion from cache", "query", q)
+		return
+	}
+	log.Debug("No direct entry found in assertion cache.", "name", q.Name,
+		"context", q.Context, "type", q.Types)
+
+	//negative answer lookup (note that it can occur a positive answer if assertion removed from cache)
+	subject, zone, err := toSubjectZone(q.Name)
+	if err != nil {
+		sendNotificationMsg(oldToken, sender, section.NTRcvInconsistentMsg,
+			"query name must end with root zone dot '.'", s)
+		log.Warn("failed to concert query name to subject and zone: %v", err)
+		return
+	}
+	negAssertion, ok := s.caches.NegAssertionCache.Get(zone, q.Context, section.StringInterval{Name: subject})
+	if ok {
+		//TODO CFE For each type check if one of the zone or shards contain the queried
+		//assertion. If there is at least one assertion answer with it. If no assertion is
+		//contained in a zone or shard for any of the queried connection, answer with the shortest
+		//element. shortest according to what? size in bytes? how to efficiently determine that.
+		//e.g. using gob encoding. alternatively we could also count the number of contained
+		//elements.
+		sendSection(negAssertion[0], oldToken, sender, s)
+		trace(oldToken, fmt.Sprintf("found negative assertion matching query: %v", negAssertion[0]))
+		log.Info("Finished handling query by sending shard or zone from cache", "query", q)
+		return
+	}
+	log.Debug("No entry found in negAssertion cache directly matching the query")
+	log.Debug("Fetch glue records")
+	types := []object.Type{object.OTDelegation, object.OTRedirection, object.OTServiceInfo, object.OTIP4Addr}
+	for _, t := range types {
+		if asserts, ok := s.caches.AssertionsCache.Get(q.Name, q.Context, t, false); !ok {
+			log.Error("No glue record in cache!")
+		} else {
+			assertions = append(assertions, asserts[0]) //FIXME CFE, handle if there are more assertions in response
+		}
+	}
+	sendSections(assertions, oldToken, sender, s)
+	log.Info("Finished handling query by sending glue records from cache", "query", q)
 }
 
 //addressQuery directly answers the query if the result is cached. Otherwise it issues a new query
