@@ -3,7 +3,6 @@ package resolver
 import (
 	"bytes"
 	"fmt"
-	"strconv"
 
 	log "github.com/inconshreveable/log15"
 
@@ -23,7 +22,7 @@ type Server struct {
 	newTokenToMsg   map[token.Token]*message.Message
 }
 
-func New(id int, cachingResolver func(connection.Message), rootIPAddr string, ipToChan map[string]func(connection.Message)) *Server {
+func New(id string, cachingResolver func(connection.Message), rootIPAddr string, ipToChan map[string]func(connection.Message)) *Server {
 	server := &Server{
 		input:           &connection.Channel{RemoteChan: make(chan connection.Message, 100)},
 		cachingResolver: cachingResolver,
@@ -31,7 +30,7 @@ func New(id int, cachingResolver func(connection.Message), rootIPAddr string, ip
 		ipToChan:        ipToChan,
 		newTokenToMsg:   make(map[token.Token]*message.Message),
 	}
-	server.input.SetRemoteAddr(connection.ChannelAddr{ID: strconv.Itoa(id)})
+	server.input.SetRemoteAddr(connection.ChannelAddr{ID: id})
 	return server
 }
 
@@ -46,13 +45,13 @@ func (s *Server) Start() {
 		}
 		if "-"+msg.Sender.RemoteAddr().String() == s.input.RemoteAddr().String() {
 			//New query from the caching resolver
-			log.Error("RR received message from caching resolver", "msg", m)
+			log.Error("RR received message from caching resolver", "resolver", msg.Sender.RemoteAddr().String(), "msg", m)
 			newToken := forwardQuery(*m, s.input, s.ipToChan[s.rootIPAddr], s.rootIPAddr)
 			s.newTokenToMsg[newToken] = m
 		} else {
 			//New answer from a recursive lookup
 			//FIXME does not work with self reference in subjectName (@)
-			log.Error("RR received message from a naming server", "msg", m)
+			log.Error("RR received message from a naming server", "namingServer", msg.Sender.RemoteAddr().String(), "msg", m)
 			oldMsg := s.newTokenToMsg[m.Token]
 			switch sec := m.Content[0].(type) {
 			case *section.Assertion:

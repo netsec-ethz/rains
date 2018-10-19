@@ -269,7 +269,8 @@ func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[signa
 					Types:      []object.Type{object.OTDelegation},
 				}
 				//sendSection(query, token, getRootAddr(), s)
-				s.sendToRecursiveResolver(message.Message{Token: token, Content: []section.Section{query}})
+				msg := message.Message{Token: token, Content: []section.Section{query}}
+				s.sendToRecursiveResolver(msg)
 				continue
 			}
 		}

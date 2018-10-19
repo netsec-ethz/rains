@@ -78,7 +78,7 @@ func (s *Server) sendToRecursiveResolver(msg message.Message) {
 		Sender: s.inputChannel,
 	}
 	s.sendToRecResolver(message)
-	log.Debug("Send successfully to recursive resolver")
+	log.Info("Send successfully to recursive resolver", "msg", msg)
 }
 
 //createConnection establishes a connection with receiver

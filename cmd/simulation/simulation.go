@@ -38,7 +38,6 @@ const (
 )
 
 func main() {
-
 	idToResolver := make(map[int]*rainsd.Server)
 	authNames, _ := generate.Zones(nofTLDNamingServers, nofSLDNamingServersPerTLD, leafZoneSize,
 		zfPath, rootAddr)
@@ -49,7 +48,8 @@ func main() {
 		path := createConfig("conf/namingServer.conf", name.Name)
 		server, err := rainsd.New(path, log.LvlInfo, fmt.Sprintf("nameServer%d", i))
 		panicOnError(err)
-		recursor := resolver.New(-i, server.Write, rootAddr, ipToServer) //It is ok to have an incomplete ipToServer map as only servers up to the root are necessary to get the delegations.
+		recursor := resolver.New(fmt.Sprintf("-nameServer%d", i), server.Write, rootAddr, ipToServer) //It is ok to have an incomplete ipToServer map as only servers up to the root are necessary to get the delegations.
+		go recursor.Start()
 		server.SetRecursiveResolver(recursor.Write)
 		ipToServer[name.IPAddr] = server.Write
 		go server.Start(false)
@@ -65,7 +65,8 @@ func main() {
 		//TODO create and add recursive resolver
 		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("resolver%d", i))
 		panicOnError(err)
-		recursor := resolver.New(-i, server.Write, rootAddr, ipToServer)
+		recursor := resolver.New(fmt.Sprintf("-resolver%d", i), server.Write, rootAddr, ipToServer)
+		go recursor.Start()
 		server.SetRecursiveResolver(recursor.Write)
 		idToResolver[i] = server
 		//go server.Start(false)
