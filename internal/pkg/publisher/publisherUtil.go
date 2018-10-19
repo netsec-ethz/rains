@@ -158,7 +158,9 @@ func signZone(zone *section.Zone, path string) error {
 	for _, sig := range sigs {
 		if sig.ValidUntil < time.Now().Unix() {
 			log.Error("Signature validUntil is in the past")
-		} else if ok := siglib.SignSectionUnsafe(zone, keys[sig.PublicKeyID], sig); !ok {
+		} else if privateKey, ok := keys[sig.PublicKeyID]; !ok {
+			log.Error("No matching private key for signature", "sig", sig.PublicKeyID, "privateKeys", keys)
+		} else if ok := siglib.SignSectionUnsafe(zone, privateKey, sig); !ok {
 			log.Error("Was not able to sign and add the signature", "zone", zone, "signature", sig)
 			return errors.New("Was not able to sign and add the signature")
 		}
