@@ -10,6 +10,7 @@ import (
 
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
@@ -466,9 +467,10 @@ func iterativeLookupAllowed() bool {
 func (s *Server) processQuery(msgSender msgSectionSender) {
 	switch section := msgSender.Section.(type) {
 	case *query.Name:
+		//answerQuery(section, msgSender.Sender, msgSender.Token, s) previous implementation
 		if len(s.config.ZoneAuthority) == 0 {
 			//caching resolver
-			answerQuery(section, msgSender.Sender, msgSender.Token, s)
+			answerQueryCachingResolver(section, msgSender.Sender, msgSender.Token, s)
 		} else {
 			//naming server
 			answerQueryAuthoritative(section, msgSender.Sender, msgSender.Token, s)
@@ -668,7 +670,6 @@ func answerQuery(q *query.Name, sender connection.Info, oldToken token.Token, s 
 //answerQueryAuthoritative is how an authoritative server answers queries
 func answerQueryAuthoritative(q *query.Name, sender connection.Info, oldToken token.Token, s *Server) {
 	log.Debug("Start processing query", "query", q)
-	trace(oldToken, fmt.Sprintf("Processing QueryForward for name: %v, connection: %v", q.Name, q.Types))
 	//FIXME CFE make it work with several authority zones and with context
 	if !strings.HasSuffix(q.Name, s.config.ZoneAuthority[0]) {
 		log.Info("Query is not about a name this zone has authority over", "name", q.Name, "authority", s.config.ZoneAuthority[0])
@@ -736,6 +737,90 @@ func answerQueryAuthoritative(q *query.Name, sender connection.Info, oldToken to
 	}
 	sendSections(assertions, oldToken, sender, s)
 	log.Info("Finished handling query by sending glue records from cache", "query", q)
+}
+
+//answerQueryAuthoritative is how an authoritative server answers queries
+func answerQueryCachingResolver(q *query.Name, sender connection.Info, oldToken token.Token, s *Server) {
+	log.Debug("Start processing query", "query", q)
+
+	assertions := []section.Section{}
+	assertionSet := make(map[string]bool)
+	asKey := func(a *section.Assertion) string {
+		return fmt.Sprintf("%s_%s_%s", a.SubjectName, a.SubjectZone, a.Context)
+	}
+
+	for _, t := range q.Types {
+		if asserts, ok := s.caches.AssertionsCache.Get(q.Name, q.Context, t, true); ok {
+			for _, a := range asserts {
+				if _, ok := assertionSet[asKey(a)]; ok {
+					continue
+				}
+				if a.ValidUntil() > time.Now().Unix() {
+					log.Debug(fmt.Sprintf("appending valid assertion: %v", a))
+					assertions = append(assertions, a)
+					assertionSet[asKey(a)] = true
+				}
+			}
+		}
+	}
+	if len(assertions) > 0 {
+		sendSections(assertions, oldToken, sender, s)
+		log.Info("Finished handling query by sending assertion from cache", "query", q)
+		return
+	}
+	log.Debug("No direct entry found in assertion cache.", "name", q.Name,
+		"context", q.Context, "type", q.Types)
+
+	//negative answer lookup (note that it can occur a positive answer if assertion removed from cache)
+	subject, zone, err := toSubjectZone(q.Name)
+	if err != nil {
+		sendNotificationMsg(oldToken, sender, section.NTRcvInconsistentMsg,
+			"query name must end with root zone dot '.'", s)
+		log.Warn("failed to concert query name to subject and zone: %v", err)
+		return
+	}
+	negAssertion, ok := s.caches.NegAssertionCache.Get(zone, q.Context, section.StringInterval{Name: subject})
+	if ok {
+		//TODO CFE For each type check if one of the zone or shards contain the queried
+		//assertion. If there is at least one assertion answer with it. If no assertion is
+		//contained in a zone or shard for any of the queried connection, answer with the shortest
+		//element. shortest according to what? size in bytes? how to efficiently determine that.
+		//e.g. using gob encoding. alternatively we could also count the number of contained
+		//elements.
+		sendSection(negAssertion[0], oldToken, sender, s)
+		log.Info("Finished handling query by sending shard or zone from cache", "query", q)
+		return
+	}
+	log.Debug("No entry found in negAssertion cache directly matching the query")
+	log.Debug("Put query on pending query cache")
+	tok := oldToken
+	if !q.ContainsOption(query.QOTokenTracing) {
+		tok = token.New()
+	}
+	validUntil := time.Now().Add(s.config.QueryValidity).Unix() //Upper bound for forwarded query expiration time
+	if q.Expiration < validUntil {
+		validUntil = q.Expiration
+	}
+	isNew := s.caches.PendingQueries.Add(msgSectionSender{Section: q, Sender: sender, Token: oldToken})
+	log.Info("Added query into to pending query cache", "query", q)
+	if isNew {
+		recResolverAddr := connection.Info{
+			Type:     connection.Chan,
+			ChanAddr: connection.ChannelAddr{ID: "-" + s.inputChannel.RemoteAddr().String()},
+		}
+		if s.caches.PendingQueries.AddToken(tok, validUntil, recResolverAddr, q.Name, q.Context, q.Types) {
+			newQuery := &query.Name{
+				Name:       q.Name,
+				Context:    q.Context,
+				Expiration: validUntil,
+				Types:      q.Types,
+			}
+			log.Debug("Forward query to recursive resolver")
+			s.sendToRecursiveResolver(message.Message{Token: tok, Content: []section.Section{newQuery}})
+		} //else answer already arrived and callback function has already been invoked
+	} else {
+		log.Info("Query already sent.")
+	}
 }
 
 //addressQuery directly answers the query if the result is cached. Otherwise it issues a new query
