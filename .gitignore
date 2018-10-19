@@ -62,7 +62,7 @@ _testmain.go
 examples/test
 
 #simulation generated files
-cmd/conf/*
-cmd/keys/privateKey*
-!cmd/keys/privateKeyroot.txt
-cmd/zonefiles/*
+cmd/simulation/conf/*
+cmd/simulation/keys/privateKey*
+!cmd/simulation/keys/privateKeyroot.txt
+cmd/simulation/zonefiles/*

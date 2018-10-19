@@ -3,7 +3,6 @@ package generate
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -24,18 +23,18 @@ import (
 func Zones(nofTLDs, nofSLD, leafZoneSize int, path, rootAddr string) ([]NameIPAddr, []NameType) {
 	//create root zone
 	leafNames := []NameType{}
-	names := DelegationZone(path+"root.txt", ".", ".", 4*nofTLDs, 500, 10, 10000000)
+	names := DelegationZone(path+"Root.txt", ".", ".", 4*nofTLDs, 500, 10, 10000000)
 	//create TLDs
 	newNames := []NameIPAddr{}
 	for _, name := range names {
-		newNames = append(newNames, DelegationZone(path+name.Name+"txt", name.Name, ".", 4*nofSLD, 500, 10, 10000000)...)
+		newNames = append(newNames, DelegationZone(path+name.Name+".txt", name.Name, ".", 4*nofSLD, 500, 10, 10000000)...)
 	}
 	//create second level leaf zones
 	for _, name := range newNames {
-		leafNames = append(leafNames, LeafZone(path+name.Name+"txt", name.Name, ".", leafZoneSize)...)
+		leafNames = append(leafNames, LeafZone(path+name.Name+".txt", name.Name, ".", leafZoneSize)...)
 	}
 	newNames = append(newNames, names...)
-	newNames = append(newNames, NameIPAddr{"root", rootAddr})
+	newNames = append(newNames, NameIPAddr{"Root", rootAddr})
 	//TODO create TLD that delegates all of its commercial names to co.TLDName
 	return newNames, leafNames
 }
@@ -94,7 +93,7 @@ func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistP
 	nextName := nameSeq("../../data/names.txt")
 	assertions := make([]*section.Assertion, leafSize+delegSize)
 	for i := 0; i < leafSize; i++ {
-		names, objs, _ := nextObject(Leaf, nextName(), zoneName)
+		names, objs, _ := nextObject(Leaf, nextName())
 		if zoneName == "." {
 			leafNames = append(leafNames, NameType{Name: names[0] + ".", Type: objs[0].Type})
 		} else {
@@ -106,13 +105,13 @@ func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistP
 		}
 	}
 	for i := leafSize; i < leafSize+delegSize; i++ {
-		names, objs, privKey := nextObject(Delegation, nextName(), zoneName)
-		storePrivateKey("keys/privateKey"+names[0]+".txt", privKey)
-		if zoneName == "." {
-			delegNames = append(delegNames, NameIPAddr{Name: names[0] + ".", IPAddr: objs[3].Value.(string)})
-		} else {
-			delegNames = append(delegNames, NameIPAddr{Name: names[0] + "." + zoneName, IPAddr: objs[3].Value.(string)})
+		names, objs, privKey := nextObject(Delegation, nextName())
+		name := names[0] + "."
+		if zoneName != "." {
+			name += zoneName
 		}
+		delegNames = append(delegNames, NameIPAddr{Name: name, IPAddr: objs[3].Value.(string)})
+		publisher.StorePrivateKey(fmt.Sprintf("keys/privateKey%s.txt", name), []keys.PrivateKey{privKey})
 
 		for j, obj := range objs {
 			assertions[i] = &section.Assertion{
@@ -174,10 +173,10 @@ func LoadNames(path string) []string {
 	return names
 }
 
-func nextObject(objDistr ObjTypeDistr, name, zoneName string) ([]string, []object.Object, keys.PrivateKey) {
+func nextObject(objDistr ObjTypeDistr, name string) ([]string, []object.Object, keys.PrivateKey) {
 	switch objDistr {
 	case Delegation:
-		return delegationObject(name, zoneName)
+		return delegationObject(name)
 	case Leaf:
 		return []string{name}, leafObject(), keys.PrivateKey{}
 	default:
@@ -199,7 +198,7 @@ func leafObject() []object.Object {
 	}}
 }
 
-func delegationObject(name, zoneName string) ([]string, []object.Object, keys.PrivateKey) {
+func delegationObject(name string) ([]string, []object.Object, keys.PrivateKey) {
 	pubKey, privKey, _ := ed25519.GenerateKey(nil)
 	names := []string{name, name, "ns." + name, "ns1." + name}
 	objs := make([]object.Object, 4)
@@ -260,16 +259,6 @@ func shardingConf(zoneSize, maxShardSize int, namesPerPshard, probBound float64)
 		},
 	}
 	return sconf, pconf
-}
-
-func storePrivateKey(path string, privateKey keys.PrivateKey) {
-	encoding, err := json.Marshal([]keys.PrivateKey{privateKey})
-	if err != nil {
-		panic(err)
-	}
-	if ioutil.WriteFile(path, encoding, 0600) != nil {
-		panic(err)
-	}
 }
 
 //ObjTypeDistr is an enumeration of object type distributions

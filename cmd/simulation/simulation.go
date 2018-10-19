@@ -32,7 +32,7 @@ const (
 	nofSLDNamingServersPerTLD = 1
 	nofResolvers              = 1
 	nofClients                = 1
-	leafZoneSize              = 3
+	leafZoneSize              = 2
 	zfPath                    = "zonefiles/zf_"
 	rootAddr                  = "0.0.0.0"
 )
@@ -95,7 +95,7 @@ func startClient(trace generate.Queries, server *rainsd.Server) {
 		encoding := new(bytes.Buffer)
 		err := q.Info.MarshalCBOR(borat.NewCBORWriter(encoding))
 		panicOnError(err)
-		server.Write(connection.Message{Msg: encoding.Bytes(), Sender: channel})
+		//server.Write(connection.Message{Msg: encoding.Bytes(), Sender: channel}) //FIXME write to server
 	}
 	delayLog := <-result
 	delaySum := int64(0) //in ms
@@ -125,9 +125,12 @@ func nanoToMilliSecond(in int64) int64 {
 func createConfig(path, authoritativeZone string) string {
 	content, err := ioutil.ReadFile(path)
 	panicOnError(err)
-	config := strings.Replace(string(content), "Port\": 5022", fmt.Sprintf("Port\": %d", port), 1)
-	config = strings.Replace(config, "zoneAuthValue", authoritativeZone, 1)
 	path = strings.Replace(path, ".conf", authoritativeZone+".conf", 1)
+	config := strings.Replace(string(content), "Port\": 5022", fmt.Sprintf("Port\": %d", port), 1)
+	if authoritativeZone == "Root" {
+		authoritativeZone = "."
+	}
+	config = strings.Replace(config, "zoneAuthValue", authoritativeZone, 1)
 	ioutil.WriteFile(path, []byte(config), 0600)
 	return path
 }

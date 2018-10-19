@@ -340,8 +340,6 @@ func CreateZone(zone *section.Zone, assertions []*section.Assertion,
 //assumes, that the zone content is sorted, i.e. pshards come before shards.
 func addSignatureMetaData(zone *section.Zone, nofAssertions, nofPshards int,
 	config MetaDataConfig) error {
-	waitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofAssertions)
-	pshardWaitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofPshards)
 	signature := signature.Sig{
 		PublicKeyID: keys.PublicKeyID{
 			Algorithm: config.SignatureAlgorithm,
@@ -356,8 +354,9 @@ func addSignatureMetaData(zone *section.Zone, nofAssertions, nofPshards int,
 	for _, sec := range zone.Content {
 		switch s := sec.(type) {
 		case *section.Assertion:
-			return errors.New("standalone assertions in a zone are not supported")
+			sec.AddSig(signature)
 		case *section.Shard:
+			waitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofAssertions)
 			if firstShard {
 				signature.ValidSince = config.SigValidSince
 				signature.ValidUntil = config.SigValidUntil
@@ -377,6 +376,7 @@ func addSignatureMetaData(zone *section.Zone, nofAssertions, nofPshards int,
 			}
 		case *section.Pshard:
 			if config.AddSigMetaDataToPshards {
+				pshardWaitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofPshards)
 				s.AddSig(signature)
 				signature.ValidSince += pshardWaitInterval / int64(time.Second)
 				signature.ValidUntil += pshardWaitInterval / int64(time.Second)
