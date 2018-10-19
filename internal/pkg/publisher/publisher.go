@@ -42,9 +42,8 @@ func (r *Rainspub) Publish() {
 		return
 	}
 	log.Info("Zonefile successful loaded")
-	assertions, shards, pshards, err := splitZoneContent(zone,
+	assertions, shards, pshards, nofAssertions, err := splitZoneContent(zone,
 		r.Config.ShardingConf.KeepExistingShards, r.Config.PShardingConf.KeepExistingPshards)
-	nofAssertions := len(assertions)
 	if err != nil {
 		return
 	}
@@ -100,7 +99,8 @@ func (r *Rainspub) Publish() {
 //splitZoneContent returns assertions, pshards and shards contained in zone as three separate
 //slices.
 func splitZoneContent(zone *section.Zone, keepShards, keepPshards bool) (
-	[]*section.Assertion, []*section.Shard, []*section.Pshard, error) {
+	[]*section.Assertion, []*section.Shard, []*section.Pshard, int, error) {
+	nofAssertions := 0
 	assertions := []*section.Assertion{}
 	shards := []*section.Shard{}
 	pshards := []*section.Pshard{}
@@ -108,6 +108,7 @@ func splitZoneContent(zone *section.Zone, keepShards, keepPshards bool) (
 		switch s := sec.(type) {
 		case *section.Assertion:
 			assertions = append(assertions, s)
+			nofAssertions++
 		case *section.Shard:
 			if keepShards {
 				shards = append(shards, s)
@@ -116,16 +117,17 @@ func splitZoneContent(zone *section.Zone, keepShards, keepPshards bool) (
 					assertions = append(assertions, a)
 				}
 			}
+			nofAssertions += len(s.Content)
 		case *section.Pshard:
 			if keepPshards {
 				pshards = append(pshards, s)
 			}
 		default:
 			log.Error("Invalid zone content", "section", s)
-			return nil, nil, nil, errors.New("Invalid zone content")
+			return nil, nil, nil, 0, errors.New("Invalid zone content")
 		}
 	}
-	return assertions, shards, pshards, nil
+	return assertions, shards, pshards, nofAssertions, nil
 }
 
 //DoSharding creates shards based on the zone's content and config.

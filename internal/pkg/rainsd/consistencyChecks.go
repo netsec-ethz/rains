@@ -287,6 +287,8 @@ func containedShardsAreConsistent(z *section.Zone) bool {
 					log.Warn(fmt.Sprintf("Not supported type. Expected *Shard or *Assertion. Got=%T", v))
 				}
 			}
+		case *section.Pshard:
+			log.Info("Not yet implemented")
 		default:
 			log.Warn(fmt.Sprintf("Not supported type. Expected *Shard or *Assertion. Got=%T", v))
 		}

@@ -39,7 +39,7 @@ const (
 
 func main() {
 	idToResolver := make(map[int]*rainsd.Server)
-	authNames, fqdn := generate.Zones(nofTLDNamingServers, nofSLDNamingServersPerTLD, leafZoneSize,
+	authNames, _ := generate.Zones(nofTLDNamingServers, nofSLDNamingServersPerTLD, leafZoneSize,
 		zfPath, rootAddr)
 	ipToServer := make(map[string]func(connection.Message))
 	//AuthNames: names must be sorted by their hierarchy level. All names that are higher up in the
@@ -71,11 +71,11 @@ func main() {
 		//TODO preload cache
 	}
 	//TODO create client to resolver mapping
-	traces := generate.Traces(nil, 10, 5, fqdn, time.Now().Add(time.Second).Unix(), time.Now().Add(5*time.Second).Unix(), 0, 2)
+	/*traces := generate.Traces(nil, 10, 5, fqdn, time.Now().Add(time.Second).Unix(), time.Now().Add(5*time.Second).Unix(), 0, 2)
 	for i := 0; i < nofClients; i++ {
 		go startClient(traces[i], idToResolver[0]) //TODO choose resolver based on mapping, not hardcoded
-	}
-
+	}*/
+	time.Sleep(time.Hour)
 	//Initialize caching resolvers with the correct public and private keys and root server addr (channel)
 }
 

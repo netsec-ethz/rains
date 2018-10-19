@@ -24,20 +24,22 @@ import (
 func Zones(nofTLDs, nofSLD, leafZoneSize int, path, rootAddr string) ([]NameIPAddr, []NameType) {
 	//create root zone
 	leafNames := []NameType{}
-	newNames := []NameIPAddr{NameIPAddr{"Root", rootAddr}}
+	delegNames := []NameIPAddr{NameIPAddr{"Root", rootAddr}}
 	keycreator.DelegationAssertion(".", ".", "keys/selfSignedRootDelegationAssertion.gob", "keys/privateKeyRoot.txt")
 	names := DelegationZone(path+"Root.txt", ".", ".", 4*nofTLDs, 500, 10, 10000000)
-	newNames = append(newNames, names...)
+	delegNames = append(delegNames, names...)
+	newNames := []NameIPAddr{}
 	//create TLDs
 	for _, name := range names {
 		newNames = append(newNames, DelegationZone(path+name.Name+".txt", name.Name, ".", 4*nofSLD, 500, 10, 10000000)...)
 	}
+	delegNames = append(delegNames, newNames...)
 	//create second level leaf zones
 	for _, name := range newNames {
 		leafNames = append(leafNames, LeafZone(path+name.Name+".txt", name.Name, ".", leafZoneSize)...)
 	}
 	//TODO create TLD that delegates all of its commercial names to co.TLDName
-	return newNames, leafNames
+	return delegNames, leafNames
 }
 
 func LeafZone(fileName, zoneName, context string, zoneSize int) []NameType {

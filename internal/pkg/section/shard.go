@@ -280,8 +280,8 @@ func (s *Shard) AssertionsByNameAndTypes(subjectName string, types []object.Type
 
 //InRange returns true if subjectName is inside the shard range
 func (s *Shard) InRange(subjectName string) bool {
-	return (s.RangeFrom == "" && s.RangeTo == "") || (s.RangeFrom == "" && s.RangeTo > subjectName) ||
-		(s.RangeTo == "" && s.RangeFrom < subjectName) ||
+	return (s.RangeFrom == "<" && s.RangeTo == ">") || (s.RangeFrom == "<" && s.RangeTo > subjectName) ||
+		(s.RangeTo == ">" && s.RangeFrom < subjectName) ||
 		(s.RangeFrom < subjectName && s.RangeTo > subjectName)
 }
 
