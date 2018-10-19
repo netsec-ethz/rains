@@ -42,10 +42,14 @@ func main() {
 	authNames, fqdn := generate.Zones(nofTLDNamingServers, nofSLDNamingServersPerTLD, leafZoneSize,
 		zfPath, rootAddr)
 	ipToServer := make(map[string]func(connection.Message))
+	//AuthNames: names must be sorted by their hierarchy level. All names that are higher up in the
+	//hierarchy must come prior to itself.
 	for i, name := range authNames {
 		path := createConfig("conf/namingServer.conf", name.Name)
 		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("nameServer%d", i))
 		panicOnError(err)
+		recursor := resolver.New(-i, server.Write, rootAddr, ipToServer) //It is ok to have an incomplete ipToServer map as only servers up to the root are necessary to get the delegations.
+		server.SetRecursiveResolver(recursor.Write)
 		ipToServer[name.IPAddr] = server.Write
 		go server.Start(false)
 		path = createPublisherConfig("conf/publisher.conf", name.Name)
@@ -55,7 +59,7 @@ func main() {
 		pubServer := publisher.New(config)
 		pubServer.Publish()
 	}
-	for i := 0; i < nofResolvers; i++ {
+	for i := len(authNames); i < len(authNames)+nofResolvers; i++ {
 		path := createConfig("conf/resolver.conf", strconv.Itoa(i))
 		//TODO create and add recursive resolver
 		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("resolver%d", i))

@@ -23,9 +23,10 @@ import (
 func Zones(nofTLDs, nofSLD, leafZoneSize int, path, rootAddr string) ([]NameIPAddr, []NameType) {
 	//create root zone
 	leafNames := []NameType{}
+	newNames := []NameIPAddr{NameIPAddr{"Root", rootAddr}}
 	names := DelegationZone(path+"Root.txt", ".", ".", 4*nofTLDs, 500, 10, 10000000)
+	newNames = append(newNames, names...)
 	//create TLDs
-	newNames := []NameIPAddr{}
 	for _, name := range names {
 		newNames = append(newNames, DelegationZone(path+name.Name+".txt", name.Name, ".", 4*nofSLD, 500, 10, 10000000)...)
 	}
@@ -33,8 +34,6 @@ func Zones(nofTLDs, nofSLD, leafZoneSize int, path, rootAddr string) ([]NameIPAd
 	for _, name := range newNames {
 		leafNames = append(leafNames, LeafZone(path+name.Name+".txt", name.Name, ".", leafZoneSize)...)
 	}
-	newNames = append(newNames, names...)
-	newNames = append(newNames, NameIPAddr{"Root", rootAddr})
 	//TODO create TLD that delegates all of its commercial names to co.TLDName
 	return newNames, leafNames
 }
