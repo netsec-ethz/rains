@@ -30,7 +30,7 @@ type Server struct {
 	inputChannel *connection.Channel
 	//recursiveResolver is the input channel of a recursive resolver which handles all recursive lookups
 	//of this server
-	recursiveResolver *connection.Channel
+	sendToRecResolver func(connection.Message)
 	//config contains configurations of this server
 	config rainsdConfig
 	//authority states the names over which this server has authority
@@ -93,8 +93,8 @@ func New(configPath string, logLevel log.Lvl, id string) (
 }
 
 //SetRecursiveResolver adds a channel which handles recursive lookups for this server
-func (s *Server) SetRecursiveResolver(c *connection.Channel) {
-	s.recursiveResolver = c
+func (s *Server) SetRecursiveResolver(write func(connection.Message)) {
+	s.sendToRecResolver = write
 }
 
 //Start starts up the server and it begins to listen for incoming connections according to its

@@ -77,7 +77,7 @@ func (s *Server) sendToRecursiveResolver(msg message.Message) {
 		Msg:    encoding.Bytes(),
 		Sender: s.inputChannel,
 	}
-	s.recursiveResolver.RemoteChan <- message
+	s.sendToRecResolver(message)
 	log.Debug("Send successfully to recursive resolver")
 }
 
