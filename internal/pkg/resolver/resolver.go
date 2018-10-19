@@ -46,11 +46,13 @@ func (s *Server) Start() {
 		}
 		if "-"+msg.Sender.RemoteAddr().String() == s.input.RemoteAddr().String() {
 			//New query from the caching resolver
-			newToken := forwardQuery(*m, s.input, s.ipToChan[s.rootIPAddr])
+			log.Error("RR received message from caching resolver", "msg", m)
+			newToken := forwardQuery(*m, s.input, s.ipToChan[s.rootIPAddr], s.rootIPAddr)
 			s.newTokenToMsg[newToken] = m
 		} else {
 			//New answer from a recursive lookup
 			//FIXME does not work with self reference in subjectName (@)
+			log.Error("RR received message from a naming server", "msg", m)
 			oldMsg := s.newTokenToMsg[m.Token]
 			switch sec := m.Content[0].(type) {
 			case *section.Assertion:
@@ -59,7 +61,8 @@ func (s *Server) Start() {
 				} else {
 					//FIXME CFE assumes that the response of a naming server contains 4 assertions
 					//where the last one is of ip4 type
-					newToken := forwardQuery(*m, s.input, s.ipToChan[m.Content[3].(*section.Assertion).Content[0].Value.(string)])
+					addr := m.Content[3].(*section.Assertion).Content[0].Value.(string)
+					newToken := forwardQuery(*m, s.input, s.ipToChan[addr], addr)
 					delete(s.newTokenToMsg, m.Token)
 					s.newTokenToMsg[newToken] = oldMsg
 				}
@@ -75,12 +78,13 @@ func (s *Server) Write(msg connection.Message) {
 	s.input.RemoteChan <- msg
 }
 
-func forwardQuery(msg message.Message, input *connection.Channel, forward func(connection.Message)) token.Token {
+func forwardQuery(msg message.Message, input *connection.Channel, forward func(connection.Message), addr string) token.Token {
 	msg.Token = token.New()
 	encoding := new(bytes.Buffer)
 	err := msg.MarshalCBOR(borat.NewCBORWriter(encoding))
 	panicOnError(err)
 	forward(connection.Message{Msg: encoding.Bytes(), Sender: input})
+	log.Error("RR sent message to naming server", "namingServer", addr, "msg", msg)
 	return msg.Token
 }
 
@@ -90,6 +94,7 @@ func returnToCachingResolver(oldToken token.Token, msg message.Message, input *c
 	err := msg.MarshalCBOR(borat.NewCBORWriter(encoding))
 	panicOnError(err)
 	output(connection.Message{Msg: encoding.Bytes(), Sender: input})
+	log.Error("RR sent message back to caching resolver", "msg", msg)
 }
 
 func panicOnError(err error) {
