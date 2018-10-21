@@ -53,10 +53,7 @@ type Server struct {
 
 //New returns a pointer to a newly created rainsd server instance with the given config. The server
 //logs with the provided level of logging.
-func New(configPath string, logLevel log.Lvl, id string) (
-	server *Server, err error) {
-	h := log.CallerFileHandler(log.StdoutHandler)
-	log.Root().SetHandler(log.LvlFilterHandler(logLevel, h))
+func New(configPath string, id string) (server *Server, err error) {
 	server = &Server{
 		inputChannel: &connection.Channel{RemoteChan: make(chan connection.Message, 100)},
 	}

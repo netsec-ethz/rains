@@ -38,6 +38,8 @@ const (
 )
 
 func main() {
+	h := log.CallerFileHandler(log.StdoutHandler)
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
 	idToResolver := make(map[int]*rainsd.Server)
 	authNames, fqdn := generate.Zones(nofTLDNamingServers, nofSLDNamingServersPerTLD, leafZoneSize,
 		zfPath, rootAddr)
@@ -46,7 +48,7 @@ func main() {
 	//hierarchy must come prior to itself.
 	for i, name := range authNames {
 		path := createConfig("conf/namingServer.conf", name.Name)
-		server, err := rainsd.New(path, log.LvlInfo, fmt.Sprintf("nameServer%d", i))
+		server, err := rainsd.New(path, fmt.Sprintf("nameServer%d", i))
 		panicOnError(err)
 		recursor := resolver.New(fmt.Sprintf("-nameServer%d", i), server.Write, rootAddr, ipToServer) //It is ok to have an incomplete ipToServer map as only servers up to the root are necessary to get the delegations.
 		go recursor.Start()
@@ -64,7 +66,7 @@ func main() {
 	for i := len(authNames); i < len(authNames)+nofResolvers; i++ {
 		path := createConfig("conf/resolver.conf", strconv.Itoa(i))
 		//TODO create and add recursive resolver
-		server, err := rainsd.New(path, log.LvlInfo, fmt.Sprintf("resolver%d", i))
+		server, err := rainsd.New(path, fmt.Sprintf("resolver%d", i))
 		panicOnError(err)
 		recursor := resolver.New(fmt.Sprintf("-resolver%d", i), server.Write, rootAddr, ipToServer)
 		go recursor.Start()

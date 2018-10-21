@@ -39,7 +39,7 @@ func New(id string, cachingResolver func(connection.Message), rootIPAddr string,
 }
 
 func (s *Server) Start() {
-	log.Error("Starting recursive resolver", "ID", s.input.RemoteAddr().String())
+	log.Info("Starting recursive resolver", "ID", s.input.RemoteAddr().String())
 	for {
 		msg := <-s.input.RemoteChan
 		m := &message.Message{}
@@ -50,7 +50,7 @@ func (s *Server) Start() {
 		}
 		if "-"+msg.Sender.RemoteAddr().String() == s.input.RemoteAddr().String() {
 			//New query from the caching resolver
-			log.Error("RR received message from caching resolver", "resolver", msg.Sender.RemoteAddr().String(), "msg", m)
+			log.Info("RR received message from caching resolver", "resolver", msg.Sender.RemoteAddr().String(), "msg", m)
 			q := m.Query()
 			if q.Types[0] == object.OTDelegation {
 				if a, ok := s.delegations[q.Name]; ok {
@@ -64,7 +64,7 @@ func (s *Server) Start() {
 		} else {
 			//New answer from a recursive lookup
 			//FIXME does not work with self reference in subjectName (@)
-			log.Error("RR received message from a naming server", "namingServer", msg.Sender.RemoteAddr().String(), "msg", m)
+			log.Info("RR received message from a naming server", "namingServer", msg.Sender.RemoteAddr().String(), "msg", m)
 			oldMsg := s.newTokenToMsg[m.Token]
 			switch sec := m.Content[0].(type) {
 			case *section.Assertion:
@@ -99,7 +99,7 @@ func forwardQuery(msg message.Message, input *connection.Channel, forward func(c
 	err := msg.MarshalCBOR(borat.NewCBORWriter(encoding))
 	panicOnError(err)
 	forward(connection.Message{Msg: encoding.Bytes(), Sender: input})
-	log.Error("RR sent message to naming server", "namingServer", addr, "msg", msg)
+	log.Info("RR sent message to naming server", "namingServer", addr, "msg", msg)
 	return msg.Token
 }
 
@@ -109,7 +109,7 @@ func returnToCachingResolver(oldToken token.Token, msg message.Message, input *c
 	err := msg.MarshalCBOR(borat.NewCBORWriter(encoding))
 	panicOnError(err)
 	output(connection.Message{Msg: encoding.Bytes(), Sender: input})
-	log.Error("RR sent message back to caching resolver", "msg", msg)
+	log.Info("RR sent message back to caching resolver", "msg", msg)
 }
 
 func panicOnError(err error) {
