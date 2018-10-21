@@ -39,7 +39,7 @@ const (
 
 func main() {
 	idToResolver := make(map[int]*rainsd.Server)
-	authNames, _ := generate.Zones(nofTLDNamingServers, nofSLDNamingServersPerTLD, leafZoneSize,
+	authNames, fqdn := generate.Zones(nofTLDNamingServers, nofSLDNamingServersPerTLD, leafZoneSize,
 		zfPath, rootAddr)
 	ipToServer := make(map[string]func(connection.Message))
 	//AuthNames: names must be sorted by their hierarchy level. All names that are higher up in the
@@ -64,20 +64,25 @@ func main() {
 	for i := len(authNames); i < len(authNames)+nofResolvers; i++ {
 		path := createConfig("conf/resolver.conf", strconv.Itoa(i))
 		//TODO create and add recursive resolver
-		server, err := rainsd.New(path, log.LvlDebug, fmt.Sprintf("resolver%d", i))
+		server, err := rainsd.New(path, log.LvlInfo, fmt.Sprintf("resolver%d", i))
 		panicOnError(err)
 		recursor := resolver.New(fmt.Sprintf("-resolver%d", i), server.Write, rootAddr, ipToServer)
 		go recursor.Start()
 		server.SetRecursiveResolver(recursor.Write)
 		idToResolver[i] = server
-		//go server.Start(false)
+		go server.Start(false)
 		//TODO preload cache
 	}
 	//TODO create client to resolver mapping
-	/*traces := generate.Traces(nil, 10, 5, fqdn, time.Now().Add(time.Second).Unix(), time.Now().Add(5*time.Second).Unix(), 0, 2)
+	clientToResolver := make(map[string]string)
+	//TODO use generated one which takes clostest resolver of client.
+	clientToResolver["0"] = strconv.Itoa(len(authNames))
+	time.Sleep(time.Second)
+	traces := generate.Traces(clientToResolver, 10, 5, fqdn, time.Now().Add(time.Second).UnixNano(), time.Now().Add(5*time.Second).UnixNano(), 0, 2)
+	log.Error("Queries", "", traces[0].Trace)
 	for i := 0; i < nofClients; i++ {
-		go startClient(traces[i], idToResolver[0]) //TODO choose resolver based on mapping, not hardcoded
-	}*/
+		go startClient(traces[i], idToResolver[len(authNames)]) //TODO choose resolver based on mapping, not hardcoded
+	}
 	time.Sleep(time.Hour)
 	//Initialize caching resolvers with the correct public and private keys and root server addr (channel)
 }
@@ -102,13 +107,14 @@ func startClient(trace generate.Queries, server *rainsd.Server) {
 		encoding := new(bytes.Buffer)
 		err := q.Info.MarshalCBOR(borat.NewCBORWriter(encoding))
 		panicOnError(err)
-		//server.Write(connection.Message{Msg: encoding.Bytes(), Sender: channel}) //FIXME write to server
+		server.Write(connection.Message{Msg: encoding.Bytes(), Sender: channel})
 	}
 	delayLog := <-result
 	delaySum := int64(0) //in ms
 	for _, q := range trace.Trace {
 		delaySum += nanoToMilliSecond(delayLog[q.Info.Token] - q.SendTime)
 	}
+	log.Info("Delay sum", "Milliseconds", delaySum)
 }
 
 func clientListener(id string, nofQueries int, rcvChan chan connection.Message, result chan map[token.Token]int64) {
