@@ -78,7 +78,7 @@ func main() {
 	//TODO use generated one which takes clostest resolver of client.
 	clientToResolver["0"] = strconv.Itoa(len(authNames))
 	time.Sleep(time.Second)
-	traces := generate.Traces(clientToResolver, 10, 5, fqdn, time.Now().Add(time.Second).UnixNano(), time.Now().Add(5*time.Second).UnixNano(), 0, 2)
+	traces := generate.Traces(clientToResolver, 20, 2, fqdn, time.Now().Add(time.Second).UnixNano(), time.Now().Add(5*time.Second).UnixNano(), 0, 2)
 	log.Error("Queries", "", traces[0].Trace)
 	for i := 0; i < nofClients; i++ {
 		go startClient(traces[i], idToResolver[len(authNames)]) //TODO choose resolver based on mapping, not hardcoded

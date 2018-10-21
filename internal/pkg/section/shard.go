@@ -124,6 +124,10 @@ func (s *Shard) SetContext(ctx string) {
 func (s *Shard) SetSubjectZone(zone string) {
 	s.SubjectZone = zone
 }
+func (s *Shard) RemoveContextAndSubjectZone() {
+	s.SubjectZone = ""
+	s.Context = ""
+}
 
 func (s *Shard) AddCtxAndZoneToContent() {
 	for _, a := range s.Content {

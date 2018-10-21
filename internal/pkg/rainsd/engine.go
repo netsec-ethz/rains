@@ -158,14 +158,15 @@ func addAssertionToCache(a *section.Assertion, isAuthoritative bool, assertionsC
 //assertionsCache.
 func addShardToCache(shard *section.Shard, isAuthoritative bool, assertionsCache assertionCache,
 	negAssertionCache negativeAssertionCache, zoneKeyCache zonePublicKeyCache) {
-	negAssertionCache.AddShard(shard, shard.ValidUntil(), isAuthoritative)
-	log.Debug("Added shard to cache", "shard", *shard)
 	for _, assertion := range shard.Content {
 		if shouldAssertionBeCached(assertion) {
 			a := assertion.Copy(shard.Context, shard.SubjectZone)
 			addAssertionToCache(a, isAuthoritative, assertionsCache, zoneKeyCache)
 		}
+		assertion.RemoveContextAndSubjectZone()
 	}
+	negAssertionCache.AddShard(shard, shard.ValidUntil(), isAuthoritative)
+	log.Debug("Added shard to cache", "shard", *shard)
 }
 
 //addPshardToCache adds pshard to the negAssertion cache
@@ -179,8 +180,6 @@ func addPshardToCache(pshard *section.Pshard, isAuthoritative bool, assertionsCa
 //assertions to the assertionCache.
 func addZoneToCache(zone *section.Zone, isAuthoritative bool, assertionsCache assertionCache,
 	negAssertionCache negativeAssertionCache, zoneKeyCache zonePublicKeyCache) {
-	negAssertionCache.AddZone(zone, zone.ValidUntil(), isAuthoritative)
-	log.Debug("Added zone to cache", "zone", *zone)
 	for _, sec := range zone.Content {
 		switch sec := sec.(type) {
 		case *section.Assertion:
@@ -188,20 +187,25 @@ func addZoneToCache(zone *section.Zone, isAuthoritative bool, assertionsCache as
 				a := sec.Copy(zone.Context, zone.SubjectZone)
 				addAssertionToCache(a, isAuthoritative, assertionsCache, zoneKeyCache)
 			}
+			sec.RemoveContextAndSubjectZone()
 		case *section.Pshard:
 			if shouldPshardBeCached(sec) {
 				s := sec.Copy(zone.Context, zone.SubjectZone)
 				addPshardToCache(s, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
 			}
+			sec.RemoveContextAndSubjectZone()
 		case *section.Shard:
 			if shouldShardBeCached(sec) {
 				s := sec.Copy(zone.Context, zone.SubjectZone)
 				addShardToCache(s, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
 			}
+			sec.RemoveContextAndSubjectZone()
 		default:
 			log.Warn(fmt.Sprintf("Not supported type. Expected *Shard or *Assertion. Got=%T", sec))
 		}
 	}
+	negAssertionCache.AddZone(zone, zone.ValidUntil(), isAuthoritative)
+	log.Debug("Added zone to cache", "zone", *zone)
 }
 
 //addAddressAssertionToCache adds a to the addressSection cache.
@@ -587,7 +591,7 @@ func answerQuery(q *query.Name, sender connection.Info, oldToken token.Token, s 
 	if err != nil {
 		sendNotificationMsg(oldToken, sender, section.NTRcvInconsistentMsg,
 			"query name must end with root zone dot '.'", s)
-		log.Warn("failed to concert query name to subject and zone: %v", err)
+		log.Warn("failed to concert query name to subject and zone", "error", err)
 		return
 	}
 	negAssertion, ok := s.caches.NegAssertionCache.Get(zone, q.Context, section.StringInterval{Name: subject})
@@ -709,7 +713,7 @@ func answerQueryAuthoritative(q *query.Name, sender connection.Info, oldToken to
 	if err != nil {
 		sendNotificationMsg(oldToken, sender, section.NTRcvInconsistentMsg,
 			"query name must end with root zone dot '.'", s)
-		log.Warn("failed to concert query name to subject and zone: %v", err)
+		log.Warn("failed to concert query name to subject and zone", "error", err)
 		return
 	}
 	negAssertion, ok := s.caches.NegAssertionCache.Get(zone, q.Context, section.StringInterval{Name: subject})
@@ -747,7 +751,7 @@ func answerQueryAuthoritative(q *query.Name, sender connection.Info, oldToken to
 	log.Info("Finished handling query by sending glue records from cache", "query", q)
 }
 
-//answerQueryAuthoritative is how an authoritative server answers queries
+//answerQueryCachingResolver is how a caching resolver answers queries
 func answerQueryCachingResolver(q *query.Name, sender connection.Info, oldToken token.Token, s *Server) {
 	log.Debug("Start processing query", "query", q)
 
@@ -784,7 +788,7 @@ func answerQueryCachingResolver(q *query.Name, sender connection.Info, oldToken 
 	if err != nil {
 		sendNotificationMsg(oldToken, sender, section.NTRcvInconsistentMsg,
 			"query name must end with root zone dot '.'", s)
-		log.Warn("failed to concert query name to subject and zone: %v", err)
+		log.Warn("failed to concert query name to subject and zone", "error", err)
 		return
 	}
 	negAssertion, ok := s.caches.NegAssertionCache.Get(zone, q.Context, section.StringInterval{Name: subject})

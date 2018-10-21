@@ -126,6 +126,10 @@ func (a *Assertion) SetContext(ctx string) {
 func (a *Assertion) SetSubjectZone(zone string) {
 	a.SubjectZone = zone
 }
+func (a *Assertion) RemoveContextAndSubjectZone() {
+	a.SubjectZone = ""
+	a.Context = ""
+}
 
 //Copy creates a copy of the assertion with the given context and subjectZone values
 func (a *Assertion) Copy(context, subjectZone string) *Assertion {

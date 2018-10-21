@@ -3,6 +3,7 @@ package generate
 import (
 	"math/rand"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/message"
@@ -36,7 +37,7 @@ type NameIPAddr struct {
 func Traces(clientToResolver map[string]string, maxQueriesPerClient, fractionNegQuery int,
 	nameTypes []NameType, start, end, seed int64, zipfS float64) []Queries {
 	traces := []Queries{}
-	zipf := rand.NewZipf(rand.New(rand.NewSource(seed)), zipfS, 1, uint64(len(nameTypes)))
+	zipf := rand.NewZipf(rand.New(rand.NewSource(seed)), zipfS, 1, uint64(len(nameTypes)-1))
 	for client, resolver := range clientToResolver {
 		trace := Queries{
 			Dst: resolver,
@@ -45,7 +46,9 @@ func Traces(clientToResolver map[string]string, maxQueriesPerClient, fractionNeg
 		for i := 0; i < rand.Intn(maxQueriesPerClient); i++ {
 			index := int(zipf.Uint64())
 			q := Message{SendTime: start + rand.Int63n(end-start)}
-			qName := "NonExistentName"
+			intermediateNames := strings.Split(nameTypes[index].Name, ".")
+			intermediateNames[0] = "NonExistentName"
+			qName := strings.Join(intermediateNames, ".")
 			if (i+1)%fractionNegQuery != 0 {
 				qName = nameTypes[index].Name
 			}
