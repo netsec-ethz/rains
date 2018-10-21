@@ -255,7 +255,7 @@ type zoneKeyCacheImpl struct {
 //will only be removed after it expired.
 func (c *zoneKeyCacheImpl) Add(assertion *section.Assertion, publicKey keys.PublicKey, internal bool) bool {
 	log.Info("Adding key to cache", "publicKey", publicKey, "assertion", assertion)
-	subjectName := assertion.SubjectName
+	subjectName := assertion.FQDN()
 	if assertion.SubjectName == "@" {
 		subjectName = assertion.SubjectZone
 	}

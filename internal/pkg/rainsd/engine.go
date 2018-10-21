@@ -31,7 +31,7 @@ func initEngine() {
 //The section's signatures MUST have already been verified and there MUST be at least one valid
 //rains signature on the message
 func (s *Server) assert(ss sectionWithSigSender, isAuthoritative bool) {
-	log.Debug("Adding assertion to cache", "assertion", ss)
+	log.Debug("Adding section to cache", "section", ss)
 	if enoughSystemRessources && sectionIsInconsistent(ss.Section, s.caches.ConsistCache,
 		s.caches.AssertionsCache, s.caches.NegAssertionCache) {
 		log.Warn("section is inconsistent with cached elements.", "section", ss.Section)

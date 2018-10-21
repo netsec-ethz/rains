@@ -24,8 +24,8 @@ type MetaData struct {
 }
 
 func (sig MetaData) String() string {
-	return fmt.Sprintf("%d %d %d %d %d",
-		sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, sig.KeyPhase)
+	return fmt.Sprintf("%s %d %d",
+		sig.PublicKeyID, sig.ValidSince, sig.ValidUntil)
 }
 
 //Sig contains meta data of the signature and the signature data itself.
@@ -37,6 +37,7 @@ type Sig struct {
 	ValidUntil int64
 	//Data holds the signature data
 	Data interface{}
+	sign bool //set to true before signing and false afterwards
 }
 
 // UnmarshalArray takes in a CBOR decoded aray and populates Sig.
@@ -60,7 +61,7 @@ func (sig *Sig) UnmarshalArray(in []interface{}) error {
 func (sig Sig) MarshalCBOR(w *cbor.CBORWriter) error {
 	res := []interface{}{1, // FIXME: Hardcoded ED25519: there is no way to know what this is yet.
 		int(sig.KeySpace), sig.KeyPhase, sig.ValidSince, sig.ValidUntil, []byte{}}
-	if data, ok := sig.Data.([]byte); ok && len(data) > 0 {
+	if data, ok := sig.Data.([]byte); ok && len(data) > 0 && !sig.sign {
 		res[5] = sig.Data
 	}
 	return w.WriteArray(res)
@@ -127,8 +128,9 @@ func (sig *Sig) VerifySignature(publicKey interface{}, encoding []byte) bool {
 		log.Warn("PublicKey is nil")
 		return false
 	}
-	sigData := sig.Data
-	sig.Data = []byte{}
+	//sigData := sig.Data
+	//sig.Data = []byte{}
+	sig.sign = true
 	sigEncoding := new(bytes.Buffer)
 	if err := sig.MarshalCBOR(cbor.NewCBORWriter(sigEncoding)); err != nil {
 		log.Error("Was not able to cbor encode signature")
@@ -138,9 +140,8 @@ func (sig *Sig) VerifySignature(publicKey interface{}, encoding []byte) bool {
 	switch sig.Algorithm {
 	case algorithmTypes.Ed25519:
 		if pkey, ok := publicKey.(ed25519.PublicKey); ok {
-			if ok = ed25519.Verify(pkey, encoding, sigData.([]byte)); !ok {
-				sig.Data = sigData
-			}
+			ok = ed25519.Verify(pkey, encoding, sig.Data.([]byte))
+			sig.sign = false
 			return ok
 		}
 		log.Warn("Could not assert type ed25519.PublicKey", "publicKeyType", fmt.Sprintf("%T", publicKey))

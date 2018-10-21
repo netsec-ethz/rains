@@ -144,9 +144,11 @@ func createConfig(path, authoritativeZone string) string {
 func createPublisherConfig(path, name string) string {
 	content, err := ioutil.ReadFile(path)
 	panicOnError(err)
-	config := strings.Replace(string(content), "Port\": 5022", fmt.Sprintf("Port\": %d", port), 1)
-	config = strings.Replace(config, "zonefiles/zf_", "zonefiles/zf_"+name, 1)
-	config = strings.Replace(config, "keys/privateKey", "keys/privateKey"+name, 1)
+	config := strings.Replace(string(content), "PortValue", strconv.Itoa(port), 1)
+	config = strings.Replace(config, "ZonefilePathValue", "zonefiles/zf_"+name, 1)
+	config = strings.Replace(config, "PrivateKeyPathValue", "keys/privateKey"+name, 1)
+	config = strings.Replace(config, "SigValidSinceValue", fmt.Sprintf("%d", time.Now().Unix()), 1)
+	config = strings.Replace(config, "SigValidUntilValue", fmt.Sprintf("%d", time.Now().Add(7*24*time.Hour).Unix()), 1)
 	path = strings.Replace(path, ".conf", fmt.Sprintf("%d.conf", port-5022), 1)
 	ioutil.WriteFile(path, []byte(config), 0600)
 	port++

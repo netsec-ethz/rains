@@ -35,6 +35,7 @@ func New(id string, cachingResolver func(connection.Message), rootIPAddr string,
 }
 
 func (s *Server) Start() {
+	log.Error("Starting recursive resolver", "ID", s.input.RemoteAddr().String())
 	for {
 		msg := <-s.input.RemoteChan
 		m := &message.Message{}
@@ -55,7 +56,7 @@ func (s *Server) Start() {
 			oldMsg := s.newTokenToMsg[m.Token]
 			switch sec := m.Content[0].(type) {
 			case *section.Assertion:
-				if oldMsg.Query().Name == fmt.Sprintf("%s.%s", sec.SubjectName, sec.SubjectZone) {
+				if oldMsg.Query().Name == sec.FQDN() {
 					returnToCachingResolver(oldMsg.Token, *m, s.input, s.cachingResolver)
 				} else {
 					//FIXME CFE assumes that the response of a naming server contains 4 assertions
