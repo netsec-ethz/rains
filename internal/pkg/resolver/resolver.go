@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+
 	log "github.com/inconshreveable/log15"
 
 	"github.com/britram/borat"
@@ -20,6 +22,7 @@ type Server struct {
 	rootIPAddr      string
 	ipToChan        map[string]func(connection.Message)
 	newTokenToMsg   map[token.Token]*message.Message
+	delegations     map[string]*section.Assertion
 }
 
 func New(id string, cachingResolver func(connection.Message), rootIPAddr string, ipToChan map[string]func(connection.Message)) *Server {
@@ -29,6 +32,7 @@ func New(id string, cachingResolver func(connection.Message), rootIPAddr string,
 		rootIPAddr:      rootIPAddr,
 		ipToChan:        ipToChan,
 		newTokenToMsg:   make(map[token.Token]*message.Message),
+		delegations:     make(map[string]*section.Assertion),
 	}
 	server.input.SetRemoteAddr(connection.ChannelAddr{ID: id})
 	return server
@@ -47,6 +51,14 @@ func (s *Server) Start() {
 		if "-"+msg.Sender.RemoteAddr().String() == s.input.RemoteAddr().String() {
 			//New query from the caching resolver
 			log.Error("RR received message from caching resolver", "resolver", msg.Sender.RemoteAddr().String(), "msg", m)
+			q := m.Query()
+			if q.Types[0] == object.OTDelegation {
+				if a, ok := s.delegations[q.Name]; ok {
+					m.Content = []section.Section{a}
+					returnToCachingResolver(m.Token, *m, s.input, s.cachingResolver)
+					continue
+				}
+			}
 			newToken := forwardQuery(*m, s.input, s.ipToChan[s.rootIPAddr], s.rootIPAddr)
 			s.newTokenToMsg[newToken] = m
 		} else {
@@ -56,13 +68,16 @@ func (s *Server) Start() {
 			oldMsg := s.newTokenToMsg[m.Token]
 			switch sec := m.Content[0].(type) {
 			case *section.Assertion:
+				if sec.Content[0].Type == object.OTDelegation {
+					s.delegations[sec.FQDN()] = sec
+				}
 				if oldMsg.Query().Name == sec.FQDN() {
 					returnToCachingResolver(oldMsg.Token, *m, s.input, s.cachingResolver)
 				} else {
 					//FIXME CFE assumes that the response of a naming server contains 4 assertions
 					//where the last one is of ip4 type
 					addr := m.Content[3].(*section.Assertion).Content[0].Value.(string)
-					newToken := forwardQuery(*m, s.input, s.ipToChan[addr], addr)
+					newToken := forwardQuery(*oldMsg, s.input, s.ipToChan[addr], addr)
 					delete(s.newTokenToMsg, m.Token)
 					s.newTokenToMsg[newToken] = oldMsg
 				}

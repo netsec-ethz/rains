@@ -89,6 +89,7 @@ func New(configPath string, logLevel log.Lvl, id string) (
 		log.Warn("Failed to load root zone public key")
 		return nil, err
 	}
+	log.Info("Successfully initialized server", "id", id)
 	return
 }
 

@@ -728,9 +728,17 @@ func answerQueryAuthoritative(q *query.Name, sender connection.Info, oldToken to
 	log.Debug("No entry found in negAssertion cache directly matching the query")
 	log.Debug("Fetch glue records")
 	types := []object.Type{object.OTDelegation, object.OTRedirection, object.OTServiceInfo, object.OTIP4Addr}
-	for _, t := range types {
-		if asserts, ok := s.caches.AssertionsCache.Get(q.Name, q.Context, t, false); !ok {
-			log.Error("No glue record in cache!")
+	name := strings.TrimSuffix(q.Name, s.config.ZoneAuthority[0])
+	names := strings.Split(name, ".")
+	if names[len(names)-1] == "" {
+		name = fmt.Sprintf("%s.%s", names[len(names)-2], s.config.ZoneAuthority[0])
+	} else {
+		name = names[len(names)-1] + s.config.ZoneAuthority[0]
+	}
+	names = []string{name, name, "ns." + name, "ns1." + name}
+	for i, t := range types {
+		if asserts, ok := s.caches.AssertionsCache.Get(names[i], q.Context, t, false); !ok {
+			log.Error("No glue record in cache!", "Name", names[i], "Type", t)
 		} else {
 			assertions = append(assertions, asserts[0]) //FIXME CFE, handle if there are more assertions in response
 		}

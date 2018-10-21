@@ -55,6 +55,7 @@ func main() {
 		go server.Start(false)
 		path = createPublisherConfig("conf/publisher.conf", name.Name)
 		//TODO periodically invoke publisher (before current signatures expire)
+		time.Sleep(100 * time.Millisecond) //wait for the server to listen on connection
 		config, err := publisher.LoadConfig(path)
 		panicOnError(err)
 		pubServer := publisher.New(config)
