@@ -264,6 +264,15 @@ func shardingConf(zoneSize, maxShardSize int, namesPerPshard, probBound float64)
 	return sconf, pconf
 }
 
+func namesPerTLD(nofTLDs, nofNames int, seed int64) []int {
+	result := make([]int, nofTLDs)
+	zipf := rand.NewZipf(rand.New(rand.NewSource(seed)), 1, 1, uint64(nofTLDs-1))
+	for ; nofNames > 0; nofNames-- {
+		result[int(zipf.Uint64())]++
+	}
+	return result
+}
+
 //ObjTypeDistr is an enumeration of object type distributions
 type ObjTypeDistr int
 
