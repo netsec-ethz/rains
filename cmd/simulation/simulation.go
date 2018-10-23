@@ -33,7 +33,7 @@ func main() {
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
 	conf := simulation.Example
 	idToResolver := make(map[int]*rainsd.Server)
-	authNames, fqdn, _ := generate.Zones(simulation.Example)
+	authNames, globalNames, localNames, _ := generate.Zones(simulation.Example)
 	ipToServer := make(map[string]func(connection.Message))
 	//AuthNames: names must be sorted by their hierarchy level. All names that are higher up in the
 	//hierarchy must come prior to itself.
@@ -54,7 +54,10 @@ func main() {
 		pubServer := publisher.New(config)
 		pubServer.Publish()
 	}
-	for i := len(authNames); i < len(authNames)+conf.NofResolvers; i++ {
+
+	clientToResolver := make(map[string]simulation.ClientInfo)
+	clientCounter := 0
+	for i := len(authNames); i < len(authNames)+conf.RootZone.Size; i++ { //Currently there is one caching resolver per country
 		path := createConfig("conf/resolver.conf", strconv.Itoa(i), conf)
 		//TODO create and add recursive resolver
 		server, err := rainsd.New(path, fmt.Sprintf("resolver%d", i))
@@ -64,16 +67,19 @@ func main() {
 		server.SetRecursiveResolver(recursor.Write)
 		idToResolver[i] = server
 		go server.Start(false)
+		for k := 0; k < len(localNames[i-len(authNames)])*conf.ClientsPerTLDName; k++ {
+			clientToResolver[strconv.Itoa(clientCounter)] = simulation.ClientInfo{strconv.Itoa(i), i - len(authNames)}
+			clientCounter++
+		}
 		//TODO preload cache
 	}
-	//TODO create client to resolver mapping
-	clientToResolver := make(map[string]string)
-	//TODO use generated one which takes clostest resolver of client.
-	clientToResolver["0"] = strconv.Itoa(len(authNames))
 	time.Sleep(time.Second)
-	traces := generate.Traces(clientToResolver, 20, 2, fqdn, time.Now().Add(time.Second).UnixNano(), time.Now().Add(5*time.Second).UnixNano(), 0, 2)
+	rand.Shuffle(len(globalNames), func(i, j int) { globalNames[i], globalNames[j] = globalNames[j], globalNames[i] })
+	conf.Start = time.Now().Add(time.Second).UnixNano()
+	conf.End = time.Now().Add(5 * time.Second).UnixNano()
+	traces := generate.Traces(clientToResolver, globalNames, localNames, conf)
 	log.Error("Queries", "", traces[0].Trace)
-	for i := 0; i < conf.NofClients; i++ {
+	for i := 0; i < conf.RootZone.Size; i++ {
 		go startClient(traces[i], idToResolver[len(authNames)]) //TODO choose resolver based on mapping, not hardcoded
 	}
 	time.Sleep(time.Hour)
@@ -86,14 +92,14 @@ func panicOnError(err error) {
 	}
 }
 
-func startClient(trace generate.Queries, server *rainsd.Server) {
+func startClient(trace simulation.Queries, server *rainsd.Server) {
 	//send queries based on trace. log delay
 	result := make(chan map[token.Token]int64)
 	rcvChan := make(chan connection.Message, 10)
 	channel := &connection.Channel{RemoteChan: rcvChan}
 	channel.SetRemoteAddr(connection.ChannelAddr{ID: trace.ID})
 	go clientListener(trace.ID, len(trace.Trace), rcvChan, result)
-	for _, q := range trace.Trace {
+	for _, q := range trace.Trace[:2] { //FIXME CFE process all queries
 		//TODO CFE add dynamic delay
 		time.Sleep(time.Duration(q.SendTime - time.Now().UnixNano()))
 		q.SendTime = time.Now().UnixNano()
@@ -104,7 +110,7 @@ func startClient(trace generate.Queries, server *rainsd.Server) {
 	}
 	delayLog := <-result
 	delaySum := int64(0) //in ms
-	for _, q := range trace.Trace {
+	for _, q := range trace.Trace[:2] {
 		delaySum += nanoToMilliSecond(delayLog[q.Info.Token] - q.SendTime)
 	}
 	log.Info("Delay sum", "Milliseconds", delaySum)

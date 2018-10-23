@@ -22,14 +22,16 @@ import (
 )
 
 //Zones creates a number of zone files and returns the names of all leaf zones.
-func Zones(config simulation.Config) ([]NameIPAddr, []NameType, map[string]int) {
-	leafNames := []NameType{}
-	delegNames := []NameIPAddr{NameIPAddr{config.RootZone.Name, config.RootIPAddr}}
+func Zones(config simulation.Config) ([]simulation.NameIPAddr, []simulation.NameType, [][]simulation.NameType, map[string]int) {
+	allLeafNames := []simulation.NameType{}
+	leafNames := make([][]simulation.NameType, config.RootZone.Size)
+	delegNames := []simulation.NameIPAddr{simulation.NameIPAddr{config.RootZone.Name, config.RootIPAddr}}
 	tldNames := createRootZone(config)
 	zoneToContinent := ZoneIPToContinent(tldNames, config)
+	nameToTLD := make(map[string]int)
 
 	//create TLDs
-	sldNames := []NameIPAddr{}
+	sldNames := []simulation.NameIPAddr{}
 	nofNamesPerTLD := namesPerTLD(config)
 	for i, name := range tldNames {
 		newNames := DelegationZone(fmt.Sprintf("%s%s.txt", config.Paths.ZonefilePath, name.Name),
@@ -37,9 +39,9 @@ func Zones(config simulation.Config) ([]NameIPAddr, []NameType, map[string]int) 
 			config.TLDZones.NofAssertionsPerPshard, config.TLDZones.ProbabilityBound)
 		for _, n := range newNames {
 			zoneToContinent[n.IPAddr] = zoneToContinent[name.IPAddr]
+			nameToTLD[n.Name] = i
 		}
 		sldNames = append(sldNames, newNames...)
-
 	}
 	delegNames = append(delegNames, tldNames...)
 
@@ -47,28 +49,32 @@ func Zones(config simulation.Config) ([]NameIPAddr, []NameType, map[string]int) 
 	zipf := rand.NewZipf(rand.New(rand.NewSource(config.Zipfs.LeafZoneSize.Seed)), config.Zipfs.LeafZoneSize.S, 1, config.Zipfs.LeafZoneSize.Size)
 	for len(sldNames) != 0 {
 		delegNames = append(delegNames, sldNames...)
-		nextNames := []NameIPAddr{}
+		nextNames := []simulation.NameIPAddr{}
 		for _, name := range sldNames {
 			if rand.Intn(101) < config.IsLeafZone {
-				leafNames = append(leafNames, LeafZone(fmt.Sprintf("%s%s.txt", config.Paths.ZonefilePath, name.Name),
-					name.Name, ".", 1+int(zipf.Uint64()))...)
+				newLeafNames := LeafZone(fmt.Sprintf("%s%s.txt", config.Paths.ZonefilePath, name.Name),
+					name.Name, ".", 1+int(zipf.Uint64()))
+				leafNames[nameToTLD[name.Name]] = append(leafNames[nameToTLD[name.Name]], newLeafNames...)
+				allLeafNames = append(allLeafNames, newLeafNames...)
 			} else {
 				newNextNames, newLeafNames := HybridZone(fmt.Sprintf("%s%s.txt", config.Paths.ZonefilePath, name.Name),
 					name.Name, ".", int(zipf.Uint64()), int(zipf.Uint64()), config.HybridZones.MaxShardSize,
 					config.HybridZones.NofAssertionsPerPshard, config.HybridZones.ProbabilityBound)
 				for _, n := range newNextNames {
 					zoneToContinent[n.IPAddr] = zoneToContinent[name.IPAddr]
+					nameToTLD[n.Name] = nameToTLD[name.Name]
 				}
 				nextNames = append(nextNames, newNextNames...)
-				leafNames = append(leafNames, newLeafNames...)
+				leafNames[nameToTLD[name.Name]] = append(leafNames[nameToTLD[name.Name]], newLeafNames...)
+				allLeafNames = append(allLeafNames, newLeafNames...)
 			}
 		}
 		sldNames = nextNames
 	}
-	return delegNames, leafNames, zoneToContinent
+	return delegNames, allLeafNames, leafNames, zoneToContinent
 }
 
-func LeafZone(fileName, zoneName, context string, zoneSize int) []NameType {
+func LeafZone(fileName, zoneName, context string, zoneSize int) []simulation.NameType {
 	zone, _, nameTypes, err := Zone(zoneName, context, zoneSize, 0, ZoneAsNegProof, publisher.ShardingConfig{}, publisher.PShardingConfig{})
 	if err != nil {
 		panic(err.Error())
@@ -81,7 +87,7 @@ func LeafZone(fileName, zoneName, context string, zoneSize int) []NameType {
 }
 
 func DelegationZone(fileName, zoneName, context string, zoneSize, maxShardSize int, namesPerPshard,
-	probBound float64) []NameIPAddr {
+	probBound float64) []simulation.NameIPAddr {
 	sconf, pconf := shardingConf(zoneSize, maxShardSize, namesPerPshard, probBound)
 	zone, names, _, err := Zone(zoneName, context, 0, zoneSize, ShardAndPshard, sconf, pconf)
 	if err != nil {
@@ -95,7 +101,7 @@ func DelegationZone(fileName, zoneName, context string, zoneSize, maxShardSize i
 }
 
 func HybridZone(fileName, zoneName, context string, leafSize, delegSize, maxShardSize int, namesPerPshard,
-	probBound float64) ([]NameIPAddr, []NameType) {
+	probBound float64) ([]simulation.NameIPAddr, []simulation.NameType) {
 	sconf, pconf := shardingConf(leafSize+delegSize, maxShardSize, namesPerPshard, probBound)
 	zone, delegNames, leafNames, err := Zone(zoneName, context, leafSize, delegSize, ShardAndPshard, sconf, pconf)
 	if err != nil {
@@ -112,9 +118,9 @@ func HybridZone(fileName, zoneName, context string, leafSize, delegSize, maxShar
 //all delegation assertions and leaf assertions in to separate slices.
 func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistProofs,
 	shardingConf publisher.ShardingConfig, pshardingConf publisher.PShardingConfig) (
-	*section.Zone, []NameIPAddr, []NameType, error) {
-	delegNames := []NameIPAddr{}
-	leafNames := []NameType{}
+	*section.Zone, []simulation.NameIPAddr, []simulation.NameType, error) {
+	delegNames := []simulation.NameIPAddr{}
+	leafNames := []simulation.NameType{}
 	zone := &section.Zone{
 		Context:     context,
 		SubjectZone: zoneName,
@@ -124,9 +130,9 @@ func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistP
 	for i := 0; i < leafSize; i++ {
 		names, objs, _ := nextObject(Leaf, nextName())
 		if zoneName == "." {
-			leafNames = append(leafNames, NameType{Name: names[0] + ".", Type: objs[0].Type})
+			leafNames = append(leafNames, simulation.NameType{Name: names[0] + ".", Type: objs[0].Type})
 		} else {
-			leafNames = append(leafNames, NameType{Name: names[0] + "." + zoneName, Type: objs[0].Type})
+			leafNames = append(leafNames, simulation.NameType{Name: names[0] + "." + zoneName, Type: objs[0].Type})
 		}
 		assertions[i] = &section.Assertion{
 			SubjectName: names[0],
@@ -139,7 +145,7 @@ func Zone(zoneName, context string, leafSize, delegSize int, negProofs NonExistP
 		if zoneName != "." {
 			name += zoneName
 		}
-		delegNames = append(delegNames, NameIPAddr{Name: name, IPAddr: objs[3].Value.(string)})
+		delegNames = append(delegNames, simulation.NameIPAddr{Name: name, IPAddr: objs[3].Value.(string)})
 		publisher.StorePrivateKey(fmt.Sprintf("keys/privateKey%s.txt", name), []keys.PrivateKey{privKey})
 
 		for j, obj := range objs {
@@ -290,7 +296,7 @@ func shardingConf(zoneSize, maxShardSize int, namesPerPshard, probBound float64)
 	return sconf, pconf
 }
 
-func createRootZone(config simulation.Config) []NameIPAddr {
+func createRootZone(config simulation.Config) []simulation.NameIPAddr {
 	keycreator.DelegationAssertion(".", ".", config.Paths.RootDelegAssertionFilePath,
 		fmt.Sprintf("%s%s%s.txt", config.Paths.KeysPath, config.Paths.PrivateKeyFileNamePrefix, config.RootZone.Name))
 	return DelegationZone(fmt.Sprintf("%s%s.txt", config.Paths.ZonefilePath, config.RootZone.Name),
@@ -307,7 +313,7 @@ func namesPerTLD(config simulation.Config) []int {
 	return result
 }
 
-func ZoneIPToContinent(tlds []NameIPAddr, config simulation.Config) map[string]int {
+func ZoneIPToContinent(tlds []simulation.NameIPAddr, config simulation.Config) map[string]int {
 	zoneToContinent := make(map[string]int)
 	zipf := rand.NewZipf(rand.New(rand.NewSource(config.Zipfs.TLDContinent.Seed)), config.Zipfs.TLDContinent.S, 1, config.Zipfs.TLDContinent.Size)
 	for _, tld := range tlds {

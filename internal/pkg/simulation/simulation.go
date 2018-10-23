@@ -1,21 +1,53 @@
 package simulation
 
-type Config struct {
-	Paths        Paths
-	RootZone     Zone
-	TLDZones     Zone
-	HybridZones  Zone
-	Zipfs        Zipfs
-	NofSLDs      int
-	IsLeafZone   int //probability that the zone is a leaf zone. Otherwise it is a hybrid zone. Value between 0 (never) and 100 (always)
-	RootIPAddr   string
-	NofResolvers int
-	NofClients   int
+import (
+	"time"
 
-	/*NofRootNamingServers      int
-	NofTLDNamingServers       int
-	NofSLDNamingServersPerTLD int
-	LeafZoneSize              int*/
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+)
+
+type Message struct {
+	Info     message.Message
+	SendTime int64 //Nanoseconds since 1.1.1970
+}
+
+type Queries struct {
+	Trace []Message
+	Dst   string //resolver's identifier
+	ID    string //client ID
+}
+
+type NameType struct {
+	Name string
+	Type object.Type
+}
+
+type NameIPAddr struct {
+	Name   string
+	IPAddr string
+}
+
+type ClientInfo struct {
+	Resolver string
+	TLD      int
+}
+
+type Config struct {
+	Paths                Paths
+	RootZone             Zone
+	TLDZones             Zone
+	HybridZones          Zone
+	Zipfs                Zipfs
+	NofSLDs              int
+	IsLeafZone           int //probability that the zone is a leaf zone. Otherwise it is a hybrid zone. Value between 0 (never) and 100 (always)
+	RootIPAddr           string
+	ClientsPerTLDName    int //is the number of clients a TLD/country has per name
+	MaxQueriesPerClient  int
+	FractionNegQuery     int
+	FractionLocalQueries int   //probability that the query is a local name. Value between 0 (never) and 100 (always)
+	Start                int64 //Start time of the experiment in nanoseconds since 1.1.1970
+	End                  int64 //End time of the experiment in nanoseconds since 1.1.1970
 }
 
 type Paths struct {
@@ -39,6 +71,8 @@ type Zipfs struct {
 	Root         ZipfParams
 	LeafZoneSize ZipfParams
 	TLDContinent ZipfParams
+	GlobalQuery  ZipfParams
+	LocalQuery   ZipfParams
 }
 
 type ZipfParams struct {
@@ -89,10 +123,22 @@ var Example = Config{
 			S:    1.01,
 			Seed: 0,
 		},
+		GlobalQuery: ZipfParams{
+			S:    1.01,
+			Seed: 0,
+		},
+		LocalQuery: ZipfParams{
+			S:    1.01,
+			Seed: 0,
+		},
 	},
-	NofSLDs:      1,
-	IsLeafZone:   100,
-	RootIPAddr:   "0.0.0.0",
-	NofResolvers: 1,
-	NofClients:   1,
+	NofSLDs:              1,
+	IsLeafZone:           100,
+	RootIPAddr:           "0.0.0.0",
+	ClientsPerTLDName:    1,
+	MaxQueriesPerClient:  20,
+	FractionNegQuery:     3,
+	FractionLocalQueries: 80,
+	Start:                time.Now().Add(time.Second).UnixNano(),
+	End:                  time.Now().Add(5 * time.Second).UnixNano(),
 }

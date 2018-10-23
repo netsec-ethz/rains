@@ -10,47 +10,35 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/simulation"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
-type Message struct {
-	Info     message.Message
-	SendTime int64 //Nanoseconds since 1.1.1970
-}
-
-type Queries struct {
-	Trace []Message
-	Dst   string //resolver's identifier
-	ID    string //client ID
-}
-
-type NameType struct {
-	Name string
-	Type object.Type
-}
-
-type NameIPAddr struct {
-	Name   string
-	IPAddr string
-}
-
-func Traces(clientToResolver map[string]string, maxQueriesPerClient, fractionNegQuery int,
-	nameTypes []NameType, start, end, seed int64, zipfS float64) []Queries {
-	traces := []Queries{}
-	zipf := rand.NewZipf(rand.New(rand.NewSource(seed)), zipfS, 1, uint64(len(nameTypes)-1))
-	for client, resolver := range clientToResolver {
-		trace := Queries{
-			Dst: resolver,
+func Traces(clientToResolver map[string]simulation.ClientInfo, globalNames []simulation.NameType, localNames [][]simulation.NameType, conf simulation.Config) []simulation.Queries {
+	traces := []simulation.Queries{}
+	zipf := rand.NewZipf(rand.New(rand.NewSource(conf.Zipfs.GlobalQuery.Seed)), conf.Zipfs.GlobalQuery.S, 1, uint64(len(globalNames)-1))
+	localZipfs := make([]*rand.Zipf, len(localNames))
+	for i, names := range localNames {
+		localZipfs[i] = rand.NewZipf(rand.New(rand.NewSource(conf.Zipfs.LocalQuery.Seed)), conf.Zipfs.LocalQuery.S, 1, uint64(len(names)-1))
+	}
+	for client, info := range clientToResolver {
+		trace := simulation.Queries{
+			Dst: info.Resolver,
 			ID:  client,
 		}
-		for i := 0; i < rand.Intn(maxQueriesPerClient); i++ {
-			index := int(zipf.Uint64())
-			q := Message{SendTime: start + rand.Int63n(end-start)}
-			intermediateNames := strings.Split(nameTypes[index].Name, ".")
+		for i := 0; i < rand.Intn(conf.MaxQueriesPerClient); i++ {
+			nameType := simulation.NameType{}
+			if rand.Intn(101) < conf.FractionLocalQueries {
+				nameType = localNames[info.TLD][int(localZipfs[info.TLD].Uint64())]
+			} else {
+				nameType = globalNames[int(zipf.Uint64())]
+			}
+			q := simulation.Message{SendTime: conf.Start + rand.Int63n(conf.End-conf.Start)}
+			intermediateNames := strings.Split(nameType.Name, ".")
 			intermediateNames[0] = "NonExistentName"
 			qName := strings.Join(intermediateNames, ".")
-			if (i+1)%fractionNegQuery != 0 {
-				qName = nameTypes[index].Name
+			if (i+1)%conf.FractionNegQuery != 0 {
+				qName = nameType.Name
 			}
 			q.Info = message.Message{
 				Capabilities: []message.Capability{message.NoCapability},
@@ -61,7 +49,7 @@ func Traces(clientToResolver map[string]string, maxQueriesPerClient, fractionNeg
 						Expiration: q.SendTime/int64(time.Second) + 2,
 						Name:       qName,
 						Options:    []query.Option{query.QOMinE2ELatency},
-						Types:      []object.Type{nameTypes[index].Type},
+						Types:      []object.Type{nameType.Type},
 					},
 				},
 			}
