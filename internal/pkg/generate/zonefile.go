@@ -22,19 +22,27 @@ import (
 )
 
 //Zones creates a number of zone files and returns the names of all leaf zones.
-func Zones(config simulation.Config) ([]NameIPAddr, []NameType) {
+func Zones(config simulation.Config) ([]NameIPAddr, []NameType, map[string]int) {
 	leafNames := []NameType{}
+	delegNames := []NameIPAddr{NameIPAddr{config.RootZone.Name, config.RootIPAddr}}
 	tldNames := createRootZone(config)
+	zoneToContinent := ZoneIPToContinent(tldNames, config)
+
+	//create TLDs
 	sldNames := []NameIPAddr{}
 	nofNamesPerTLD := namesPerTLD(config)
-	//create TLDs
 	for i, name := range tldNames {
-		sldNames = append(sldNames, DelegationZone(fmt.Sprintf("%s%s.txt", config.Paths.ZonefilePath, name.Name),
+		newNames := DelegationZone(fmt.Sprintf("%s%s.txt", config.Paths.ZonefilePath, name.Name),
 			name.Name, ".", 4*nofNamesPerTLD[i], config.TLDZones.MaxShardSize,
-			config.TLDZones.NofAssertionsPerPshard, config.TLDZones.ProbabilityBound)...)
+			config.TLDZones.NofAssertionsPerPshard, config.TLDZones.ProbabilityBound)
+		for _, n := range newNames {
+			zoneToContinent[n.IPAddr] = zoneToContinent[name.IPAddr]
+		}
+		sldNames = append(sldNames, newNames...)
+
 	}
-	delegNames := []NameIPAddr{NameIPAddr{config.RootZone.Name, config.RootIPAddr}}
 	delegNames = append(delegNames, tldNames...)
+
 	//create leaf and hybrid zones
 	zipf := rand.NewZipf(rand.New(rand.NewSource(config.Zipfs.LeafZoneSize.Seed)), config.Zipfs.LeafZoneSize.S, 1, config.Zipfs.LeafZoneSize.Size)
 	for len(sldNames) != 0 {
@@ -48,13 +56,16 @@ func Zones(config simulation.Config) ([]NameIPAddr, []NameType) {
 				newNextNames, newLeafNames := HybridZone(fmt.Sprintf("%s%s.txt", config.Paths.ZonefilePath, name.Name),
 					name.Name, ".", int(zipf.Uint64()), int(zipf.Uint64()), config.HybridZones.MaxShardSize,
 					config.HybridZones.NofAssertionsPerPshard, config.HybridZones.ProbabilityBound)
+				for _, n := range newNextNames {
+					zoneToContinent[n.IPAddr] = zoneToContinent[name.IPAddr]
+				}
 				nextNames = append(nextNames, newNextNames...)
 				leafNames = append(leafNames, newLeafNames...)
 			}
 		}
 		sldNames = nextNames
 	}
-	return delegNames, leafNames
+	return delegNames, leafNames, zoneToContinent
 }
 
 func LeafZone(fileName, zoneName, context string, zoneSize int) []NameType {
@@ -294,6 +305,15 @@ func namesPerTLD(config simulation.Config) []int {
 		result[int(zipf.Uint64())]++
 	}
 	return result
+}
+
+func ZoneIPToContinent(tlds []NameIPAddr, config simulation.Config) map[string]int {
+	zoneToContinent := make(map[string]int)
+	zipf := rand.NewZipf(rand.New(rand.NewSource(config.Zipfs.TLDContinent.Seed)), config.Zipfs.TLDContinent.S, 1, config.Zipfs.TLDContinent.Size)
+	for _, tld := range tlds {
+		zoneToContinent[tld.IPAddr] = int(zipf.Uint64())
+	}
+	return zoneToContinent
 }
 
 //ObjTypeDistr is an enumeration of object type distributions

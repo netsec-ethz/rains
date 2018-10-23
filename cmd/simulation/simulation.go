@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -32,7 +33,7 @@ func main() {
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
 	conf := simulation.Example
 	idToResolver := make(map[int]*rainsd.Server)
-	authNames, fqdn := generate.Zones(simulation.Example)
+	authNames, fqdn, _ := generate.Zones(simulation.Example)
 	ipToServer := make(map[string]func(connection.Message))
 	//AuthNames: names must be sorted by their hierarchy level. All names that are higher up in the
 	//hierarchy must come prior to itself.
@@ -107,6 +108,12 @@ func startClient(trace generate.Queries, server *rainsd.Server) {
 		delaySum += nanoToMilliSecond(delayLog[q.Info.Token] - q.SendTime)
 	}
 	log.Info("Delay sum", "Milliseconds", delaySum)
+	zipf := rand.NewZipf(rand.New(rand.NewSource(0)), 1.03, 1, 5)
+	counter := make([]int, 6)
+	for i := 0; i < 1000; i++ {
+		counter[int(zipf.Uint64())]++
+	}
+	log.Error("", "", counter)
 }
 
 func clientListener(id string, nofQueries int, rcvChan chan connection.Message, result chan map[token.Token]int64) {

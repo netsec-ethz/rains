@@ -38,6 +38,7 @@ type Zone struct {
 type Zipfs struct {
 	Root         ZipfParams
 	LeafZoneSize ZipfParams
+	TLDContinent ZipfParams
 }
 
 type ZipfParams struct {
@@ -75,12 +76,17 @@ var Example = Config{
 	},
 	Zipfs: Zipfs{
 		Root: ZipfParams{
-			S:    2,
+			S:    1.1,
 			Seed: 0,
 		},
 		LeafZoneSize: ZipfParams{
 			Size: 15,
-			S:    4,
+			S:    3,
+			Seed: 0,
+		},
+		TLDContinent: ZipfParams{
+			Size: 5,
+			S:    1.01,
 			Seed: 0,
 		},
 	},
