@@ -15,30 +15,45 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/simulation"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	"github.com/netsec-ethz/rains/tools/keycreator"
 	"golang.org/x/crypto/ed25519"
 )
 
 //Zones creates a number of zone files and returns the names of all leaf zones.
-func Zones(nofTLDs, nofSLD, leafZoneSize int, path, rootAddr string) ([]NameIPAddr, []NameType) {
-	//create root zone
+func Zones(config simulation.Config) ([]NameIPAddr, []NameType) {
 	leafNames := []NameType{}
-	delegNames := []NameIPAddr{NameIPAddr{"Root", rootAddr}}
-	keycreator.DelegationAssertion(".", ".", "keys/selfSignedRootDelegationAssertion.gob", "keys/privateKeyRoot.txt")
-	names := DelegationZone(path+"Root.txt", ".", ".", 4*nofTLDs, 500, 10, 10000000)
-	delegNames = append(delegNames, names...)
-	newNames := []NameIPAddr{}
+	tldNames := createRootZone(config)
+	sldNames := []NameIPAddr{}
+	nofNamesPerTLD := namesPerTLD(config)
 	//create TLDs
-	for _, name := range names {
-		newNames = append(newNames, DelegationZone(path+name.Name+".txt", name.Name, ".", 4*nofSLD, 500, 10, 10000000)...)
+	for i, name := range tldNames {
+		sldNames = append(sldNames, DelegationZone(fmt.Sprintf("%s%s.txt", config.Paths.ZonefilePath, name.Name),
+			name.Name, ".", 4*nofNamesPerTLD[i], config.TLDZones.MaxShardSize,
+			config.TLDZones.NofAssertionsPerPshard, config.TLDZones.ProbabilityBound)...)
 	}
-	delegNames = append(delegNames, newNames...)
-	//create second level leaf zones
-	for _, name := range newNames {
-		leafNames = append(leafNames, LeafZone(path+name.Name+".txt", name.Name, ".", leafZoneSize)...)
+	delegNames := []NameIPAddr{NameIPAddr{config.RootZone.Name, config.RootIPAddr}}
+	delegNames = append(delegNames, tldNames...)
+	//create leaf and hybrid zones
+	zipf := rand.NewZipf(rand.New(rand.NewSource(config.Zipfs.LeafZoneSize.Seed)), config.Zipfs.LeafZoneSize.S, 1, config.Zipfs.LeafZoneSize.Size)
+	for len(sldNames) != 0 {
+		delegNames = append(delegNames, sldNames...)
+		nextNames := []NameIPAddr{}
+		for _, name := range sldNames {
+			if rand.Intn(101) < config.IsLeafZone {
+				leafNames = append(leafNames, LeafZone(fmt.Sprintf("%s%s.txt", config.Paths.ZonefilePath, name.Name),
+					name.Name, ".", 1+int(zipf.Uint64()))...)
+			} else {
+				newNextNames, newLeafNames := HybridZone(fmt.Sprintf("%s%s.txt", config.Paths.ZonefilePath, name.Name),
+					name.Name, ".", int(zipf.Uint64()), int(zipf.Uint64()), config.HybridZones.MaxShardSize,
+					config.HybridZones.NofAssertionsPerPshard, config.HybridZones.ProbabilityBound)
+				nextNames = append(nextNames, newNextNames...)
+				leafNames = append(leafNames, newLeafNames...)
+			}
+		}
+		sldNames = nextNames
 	}
-	//TODO create TLD that delegates all of its commercial names to co.TLDName
 	return delegNames, leafNames
 }
 
@@ -264,10 +279,18 @@ func shardingConf(zoneSize, maxShardSize int, namesPerPshard, probBound float64)
 	return sconf, pconf
 }
 
-func namesPerTLD(nofTLDs, nofNames int, seed int64) []int {
-	result := make([]int, nofTLDs)
-	zipf := rand.NewZipf(rand.New(rand.NewSource(seed)), 1, 1, uint64(nofTLDs-1))
-	for ; nofNames > 0; nofNames-- {
+func createRootZone(config simulation.Config) []NameIPAddr {
+	keycreator.DelegationAssertion(".", ".", config.Paths.RootDelegAssertionFilePath,
+		fmt.Sprintf("%s%s%s.txt", config.Paths.KeysPath, config.Paths.PrivateKeyFileNamePrefix, config.RootZone.Name))
+	return DelegationZone(fmt.Sprintf("%s%s.txt", config.Paths.ZonefilePath, config.RootZone.Name),
+		".", ".", 4*config.RootZone.Size, config.RootZone.MaxShardSize,
+		config.RootZone.NofAssertionsPerPshard, config.RootZone.ProbabilityBound)
+}
+
+func namesPerTLD(config simulation.Config) []int {
+	result := make([]int, config.RootZone.Size)
+	zipf := rand.NewZipf(rand.New(rand.NewSource(config.Zipfs.Root.Seed)), config.Zipfs.Root.S, 1, uint64(config.RootZone.Size-1))
+	for ; config.NofSLDs > 0; config.NofSLDs-- {
 		result[int(zipf.Uint64())]++
 	}
 	return result
