@@ -22,13 +22,15 @@ import (
 )
 
 //Zones creates a number of zone files and returns the names of all leaf zones.
-func Zones(config simulation.Config) ([]simulation.NameIPAddr, []simulation.NameType, [][]simulation.NameType, map[string]int) {
+func Zones(config simulation.Config) ([]simulation.NameIPAddr, []simulation.NameType,
+	[][]simulation.NameType, map[string]int, map[string]int, []int) {
+
 	allLeafNames := []simulation.NameType{}
 	leafNames := make([][]simulation.NameType, config.RootZone.Size)
 	delegNames := []simulation.NameIPAddr{simulation.NameIPAddr{config.RootZone.Name, config.RootIPAddr}}
 	tldNames := createRootZone(config)
-	zoneToContinent := ZoneIPToContinent(tldNames, config)
-	nameToTLD := make(map[string]int)
+	zoneIPToContinent, tldIndexToContinent := ZoneIPToContinent(tldNames, config)
+	zoneIPToTLD := make(map[string]int)
 
 	//create TLDs
 	sldNames := []simulation.NameIPAddr{}
@@ -38,8 +40,8 @@ func Zones(config simulation.Config) ([]simulation.NameIPAddr, []simulation.Name
 			name.Name, ".", 4*nofNamesPerTLD[i], config.TLDZones.MaxShardSize,
 			config.TLDZones.NofAssertionsPerPshard, config.TLDZones.ProbabilityBound)
 		for _, n := range newNames {
-			zoneToContinent[n.IPAddr] = zoneToContinent[name.IPAddr]
-			nameToTLD[n.Name] = i
+			zoneIPToContinent[n.IPAddr] = zoneIPToContinent[name.IPAddr]
+			zoneIPToTLD[n.IPAddr] = i
 		}
 		sldNames = append(sldNames, newNames...)
 	}
@@ -54,24 +56,24 @@ func Zones(config simulation.Config) ([]simulation.NameIPAddr, []simulation.Name
 			if rand.Intn(101) < config.IsLeafZone {
 				newLeafNames := LeafZone(fmt.Sprintf("%s%s.txt", config.Paths.ZonefilePath, name.Name),
 					name.Name, ".", 1+int(zipf.Uint64()))
-				leafNames[nameToTLD[name.Name]] = append(leafNames[nameToTLD[name.Name]], newLeafNames...)
+				leafNames[zoneIPToTLD[name.IPAddr]] = append(leafNames[zoneIPToTLD[name.IPAddr]], newLeafNames...)
 				allLeafNames = append(allLeafNames, newLeafNames...)
 			} else {
 				newNextNames, newLeafNames := HybridZone(fmt.Sprintf("%s%s.txt", config.Paths.ZonefilePath, name.Name),
 					name.Name, ".", int(zipf.Uint64()), int(zipf.Uint64()), config.HybridZones.MaxShardSize,
 					config.HybridZones.NofAssertionsPerPshard, config.HybridZones.ProbabilityBound)
 				for _, n := range newNextNames {
-					zoneToContinent[n.IPAddr] = zoneToContinent[name.IPAddr]
-					nameToTLD[n.Name] = nameToTLD[name.Name]
+					zoneIPToContinent[n.IPAddr] = zoneIPToContinent[name.IPAddr]
+					zoneIPToTLD[n.IPAddr] = zoneIPToTLD[name.IPAddr]
 				}
 				nextNames = append(nextNames, newNextNames...)
-				leafNames[nameToTLD[name.Name]] = append(leafNames[nameToTLD[name.Name]], newLeafNames...)
+				leafNames[zoneIPToTLD[name.IPAddr]] = append(leafNames[zoneIPToTLD[name.IPAddr]], newLeafNames...)
 				allLeafNames = append(allLeafNames, newLeafNames...)
 			}
 		}
 		sldNames = nextNames
 	}
-	return delegNames, allLeafNames, leafNames, zoneToContinent
+	return delegNames, allLeafNames, leafNames, zoneIPToContinent, zoneIPToTLD, tldIndexToContinent
 }
 
 func LeafZone(fileName, zoneName, context string, zoneSize int) []simulation.NameType {
@@ -313,13 +315,15 @@ func namesPerTLD(config simulation.Config) []int {
 	return result
 }
 
-func ZoneIPToContinent(tlds []simulation.NameIPAddr, config simulation.Config) map[string]int {
+func ZoneIPToContinent(tlds []simulation.NameIPAddr, config simulation.Config) (map[string]int, []int) {
 	zoneToContinent := make(map[string]int)
+	indexToContinent := make([]int, config.RootZone.Size)
 	zipf := rand.NewZipf(rand.New(rand.NewSource(config.Zipfs.TLDContinent.Seed)), config.Zipfs.TLDContinent.S, 1, config.Zipfs.TLDContinent.Size)
-	for _, tld := range tlds {
+	for i, tld := range tlds {
 		zoneToContinent[tld.IPAddr] = int(zipf.Uint64())
+		indexToContinent[i] = zoneToContinent[tld.IPAddr]
 	}
-	return zoneToContinent
+	return zoneToContinent, indexToContinent
 }
 
 //ObjTypeDistr is an enumeration of object type distributions

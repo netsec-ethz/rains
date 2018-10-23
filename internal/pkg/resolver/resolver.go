@@ -3,7 +3,9 @@ package resolver
 import (
 	"bytes"
 	"fmt"
+	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/generate"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 
 	log "github.com/inconshreveable/log15"
@@ -23,9 +25,13 @@ type Server struct {
 	ipToChan        map[string]func(connection.Message)
 	newTokenToMsg   map[token.Token]*message.Message
 	delegations     map[string]*section.Assertion
+	continent       int
+	tld             int
+	delay           *generate.Delay
 }
 
-func New(id string, cachingResolver func(connection.Message), rootIPAddr string, ipToChan map[string]func(connection.Message)) *Server {
+func New(id string, cachingResolver func(connection.Message), rootIPAddr string,
+	ipToChan map[string]func(connection.Message), continent, tld int, delay *generate.Delay) *Server {
 	server := &Server{
 		input:           &connection.Channel{RemoteChan: make(chan connection.Message, 100)},
 		cachingResolver: cachingResolver,
@@ -33,6 +39,9 @@ func New(id string, cachingResolver func(connection.Message), rootIPAddr string,
 		ipToChan:        ipToChan,
 		newTokenToMsg:   make(map[token.Token]*message.Message),
 		delegations:     make(map[string]*section.Assertion),
+		continent:       continent,
+		tld:             tld,
+		delay:           delay,
 	}
 	server.input.SetRemoteAddr(connection.ChannelAddr{ID: id})
 	return server
@@ -59,7 +68,7 @@ func (s *Server) Start() {
 					continue
 				}
 			}
-			newToken := forwardQuery(*m, s.input, s.ipToChan[s.rootIPAddr], s.rootIPAddr)
+			newToken := forwardQuery(*m, s.input, s.ipToChan[s.rootIPAddr], s.rootIPAddr, s.continent, s.tld, s.delay)
 			s.newTokenToMsg[newToken] = m
 		} else {
 			//New answer from a recursive lookup
@@ -77,7 +86,7 @@ func (s *Server) Start() {
 					//FIXME CFE assumes that the response of a naming server contains 4 assertions
 					//where the last one is of ip4 type
 					addr := m.Content[3].(*section.Assertion).Content[0].Value.(string)
-					newToken := forwardQuery(*oldMsg, s.input, s.ipToChan[addr], addr)
+					newToken := forwardQuery(*oldMsg, s.input, s.ipToChan[addr], addr, s.continent, s.tld, s.delay)
 					delete(s.newTokenToMsg, m.Token)
 					s.newTokenToMsg[newToken] = oldMsg
 				}
@@ -93,11 +102,15 @@ func (s *Server) Write(msg connection.Message) {
 	s.input.RemoteChan <- msg
 }
 
-func forwardQuery(msg message.Message, input *connection.Channel, forward func(connection.Message), addr string) token.Token {
+func forwardQuery(msg message.Message, input *connection.Channel, forward func(connection.Message),
+	addr string, continent, tld int, delay *generate.Delay) token.Token {
 	msg.Token = token.New()
 	encoding := new(bytes.Buffer)
 	err := msg.MarshalCBOR(borat.NewCBORWriter(encoding))
 	panicOnError(err)
+	//TODO CFE instead of adding all the delay when sending, add half of it when it is received
+	log.Info("RTT to naming server", "Delay", delay.Calc(continent, tld, addr))
+	time.Sleep(delay.Calc(continent, tld, addr))
 	forward(connection.Message{Msg: encoding.Bytes(), Sender: input})
 	log.Info("RR sent message to naming server", "namingServer", addr, "msg", msg)
 	return msg.Token

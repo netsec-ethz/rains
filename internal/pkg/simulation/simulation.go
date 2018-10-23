@@ -49,6 +49,7 @@ type Config struct {
 	Start                int64 //Start time of the experiment in nanoseconds since 1.1.1970
 	End                  int64 //End time of the experiment in nanoseconds since 1.1.1970
 	ClientResolverDelay  time.Duration
+	StartPort            int
 }
 
 type Paths struct {
@@ -143,4 +144,5 @@ var Example = Config{
 	Start:                time.Now().Add(time.Second).UnixNano(),
 	End:                  time.Now().Add(5 * time.Second).UnixNano(),
 	ClientResolverDelay:  time.Millisecond,
+	StartPort:            5022,
 }

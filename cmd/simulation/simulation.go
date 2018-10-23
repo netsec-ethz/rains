@@ -23,46 +23,50 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
-var port = 5022
-
-//FIXME Need mapping from IP addr of delegation zone to channel so recursive resolver knows where to
-//forward the query.
-
 func main() {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
 	conf := simulation.Example
 	idToResolver := make(map[int]*rainsd.Server)
-	authNames, globalNames, localNames, _ := generate.Zones(simulation.Example)
+	authNames, globalNames, localNames, zoneIPToContinent, zoneIPToTLD, tldIndexToContinent := generate.Zones(simulation.Example)
 	ipToServer := make(map[string]func(connection.Message))
+	delay := &generate.Delay{
+		ZoneIPToContinent: zoneIPToContinent,
+		ZoneIPToTLD:       zoneIPToTLD,
+		RootIPAddr:        conf.RootIPAddr,
+	}
+	port := conf.StartPort
 	//AuthNames: names must be sorted by their hierarchy level. All names that are higher up in the
 	//hierarchy must come prior to itself.
 	for i, name := range authNames {
-		path := createConfig("conf/namingServer.conf", name.Name, conf)
+		path := createConfig("conf/namingServer.conf", name.Name, conf, port)
 		server, err := rainsd.New(path, fmt.Sprintf("nameServer%d", i))
 		panicOnError(err)
-		recursor := resolver.New(fmt.Sprintf("-nameServer%d", i), server.Write, conf.RootIPAddr, ipToServer) //It is ok to have an incomplete ipToServer map as only servers up to the root are necessary to get the delegations.
+		recursor := resolver.New(fmt.Sprintf("-nameServer%d", i), server.Write, conf.RootIPAddr,
+			ipToServer, zoneIPToContinent[name.IPAddr], zoneIPToTLD[name.IPAddr], delay) //It is ok to have an incomplete ipToServer map as only servers up to the root are necessary to get the delegations.
 		go recursor.Start()
 		server.SetRecursiveResolver(recursor.Write)
 		ipToServer[name.IPAddr] = server.Write
 		go server.Start(false)
-		path = createPublisherConfig("conf/publisher.conf", name.Name, conf)
+		path = createPublisherConfig("conf/publisher.conf", name.Name, conf, port)
 		//TODO periodically invoke publisher (before current signatures expire)
 		time.Sleep(100 * time.Millisecond) //wait for the server to listen on connection
 		config, err := publisher.LoadConfig(path)
 		panicOnError(err)
 		pubServer := publisher.New(config)
 		pubServer.Publish()
+		port++
 	}
 
 	clientToResolver := make(map[string]simulation.ClientInfo)
 	clientCounter := 0
 	for i := len(authNames); i < len(authNames)+conf.RootZone.Size; i++ { //Currently there is one caching resolver per country
-		path := createConfig("conf/resolver.conf", strconv.Itoa(i), conf)
-		//TODO create and add recursive resolver
+		path := createConfig("conf/resolver.conf", strconv.Itoa(i), conf, port)
+		port++
 		server, err := rainsd.New(path, fmt.Sprintf("resolver%d", i))
 		panicOnError(err)
-		recursor := resolver.New(fmt.Sprintf("-resolver%d", i), server.Write, conf.RootIPAddr, ipToServer)
+		recursor := resolver.New(fmt.Sprintf("-resolver%d", i), server.Write, conf.RootIPAddr,
+			ipToServer, tldIndexToContinent[i-len(authNames)], i-len(authNames), delay)
 		go recursor.Start()
 		server.SetRecursiveResolver(recursor.Write)
 		idToResolver[i] = server
@@ -139,7 +143,7 @@ func nanoToMilliSecond(in int64) int64 {
 	return in / 1000000
 }
 
-func createConfig(path, authoritativeZone string, conf simulation.Config) string {
+func createConfig(path, authoritativeZone string, conf simulation.Config, port int) string {
 	content, err := ioutil.ReadFile(path)
 	panicOnError(err)
 	path = strings.Replace(path, ".conf", authoritativeZone+".conf", 1)
@@ -153,16 +157,15 @@ func createConfig(path, authoritativeZone string, conf simulation.Config) string
 	return path
 }
 
-func createPublisherConfig(path, name string, conf simulation.Config) string {
+func createPublisherConfig(path, name string, conf simulation.Config, port int) string {
 	content, err := ioutil.ReadFile(path)
 	panicOnError(err)
-	config := strings.Replace(string(content), "PortValue", strconv.Itoa(port), 1)
+	config := strings.Replace(string(content), "PortValue", strconv.Itoa(conf.StartPort), 1)
 	config = strings.Replace(config, "ZonefilePathValue", conf.Paths.ZonefilePath+name, 1)
 	config = strings.Replace(config, "PrivateKeyPathValue", conf.Paths.KeysPath+conf.Paths.PrivateKeyFileNamePrefix+name, 1)
 	config = strings.Replace(config, "SigValidSinceValue", fmt.Sprintf("%d", time.Now().Unix()), 1)
 	config = strings.Replace(config, "SigValidUntilValue", fmt.Sprintf("%d", time.Now().Add(7*24*time.Hour).Unix()), 1)
-	path = strings.Replace(path, ".conf", fmt.Sprintf("%d.conf", port-5022), 1)
+	path = strings.Replace(path, ".conf", fmt.Sprintf("%d.conf", port-conf.StartPort), 1)
 	ioutil.WriteFile(path, []byte(config), 0600)
-	port++
 	return path
 }
