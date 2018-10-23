@@ -3,12 +3,16 @@
 *.a
 *.so
 
+#IDE
+.idea/
+
 # Folders
 _obj
 _test
 
-#Files
-/questions.md
+#Large benchmarking files
+*zonefileDeleg1000000
+*zonefile1000000
 
 # Architecture specific extensions/prefixes
 *.[568vq]
@@ -25,15 +29,29 @@ _testmain.go
 *.exe
 *.test
 *.prof
+*.out
 
 #server main() function binary
-/example/serverCH/serverCH
-/example/serverRoot/serverRoot
-/example/serverCHPub/serverCHPub
-/example/serverRootPub/serverRootPub
+/examples/serverCH/serverCH
+/examples/serverRoot/serverRoot
+/examples/serverCHPub/serverCHPub
+/examples/serverRootPub/serverRootPub
 
-#binary of rainsdig
-/rainsdig/rainsdig
+#binary of executables
+/cmd/rainsdig/rainsdig
+/cmd/zonepub/zonepub
+/cmd/zoneManager/zoneManager
+/cmd/resolve/resolve
+/cmd/rainsfic/rainsfic
+
+#zonepub test file
+/cmd/zonepub/data/newZonefile.txt
 
 #test coverage files
-coverage.out
+*coverage.out
+
+#Yacc
+/tools/yacc/y.go
+/tools/yacc/zoneFileDecoderGenerated.go
+/tools/yacc/y.output
+/tools/yacc/zonefileParser
