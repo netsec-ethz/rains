@@ -80,7 +80,7 @@ func main() {
 	traces := generate.Traces(clientToResolver, globalNames, localNames, conf)
 	log.Error("Queries", "", traces[0].Trace)
 	for i := 0; i < conf.RootZone.Size; i++ {
-		go startClient(traces[i], idToResolver[len(authNames)]) //TODO choose resolver based on mapping, not hardcoded
+		go startClient(traces[i], idToResolver[len(authNames)], conf) //TODO choose resolver based on mapping, not hardcoded
 	}
 	time.Sleep(time.Hour)
 	//Initialize caching resolvers with the correct public and private keys and root server addr (channel)
@@ -92,7 +92,7 @@ func panicOnError(err error) {
 	}
 }
 
-func startClient(trace simulation.Queries, server *rainsd.Server) {
+func startClient(trace simulation.Queries, server *rainsd.Server, conf simulation.Config) {
 	//send queries based on trace. log delay
 	result := make(chan map[token.Token]int64)
 	rcvChan := make(chan connection.Message, 10)
@@ -100,9 +100,8 @@ func startClient(trace simulation.Queries, server *rainsd.Server) {
 	channel.SetRemoteAddr(connection.ChannelAddr{ID: trace.ID})
 	go clientListener(trace.ID, len(trace.Trace), rcvChan, result)
 	for _, q := range trace.Trace[:2] { //FIXME CFE process all queries
-		//TODO CFE add dynamic delay
-		time.Sleep(time.Duration(q.SendTime - time.Now().UnixNano()))
 		q.SendTime = time.Now().UnixNano()
+		time.Sleep(time.Duration(q.SendTime - time.Now().UnixNano() + conf.ClientResolverDelay.Nanoseconds()))
 		encoding := new(bytes.Buffer)
 		err := q.Info.MarshalCBOR(borat.NewCBORWriter(encoding))
 		panicOnError(err)
@@ -111,7 +110,7 @@ func startClient(trace simulation.Queries, server *rainsd.Server) {
 	delayLog := <-result
 	delaySum := int64(0) //in ms
 	for _, q := range trace.Trace[:2] {
-		delaySum += nanoToMilliSecond(delayLog[q.Info.Token] - q.SendTime)
+		delaySum += nanoToMilliSecond(delayLog[q.Info.Token] - q.SendTime + conf.ClientResolverDelay.Nanoseconds())
 	}
 	log.Info("Delay sum", "Milliseconds", delaySum)
 	zipf := rand.NewZipf(rand.New(rand.NewSource(0)), 1.03, 1, 5)

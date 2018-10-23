@@ -48,6 +48,7 @@ type Config struct {
 	FractionLocalQueries int   //probability that the query is a local name. Value between 0 (never) and 100 (always)
 	Start                int64 //Start time of the experiment in nanoseconds since 1.1.1970
 	End                  int64 //End time of the experiment in nanoseconds since 1.1.1970
+	ClientResolverDelay  time.Duration
 }
 
 type Paths struct {
@@ -141,4 +142,5 @@ var Example = Config{
 	FractionLocalQueries: 80,
 	Start:                time.Now().Add(time.Second).UnixNano(),
 	End:                  time.Now().Add(5 * time.Second).UnixNano(),
+	ClientResolverDelay:  time.Millisecond,
 }
