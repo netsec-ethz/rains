@@ -102,8 +102,8 @@ func startClient(trace simulation.Queries, server *rainsd.Server, conf simulatio
 	rcvChan := make(chan connection.Message, 10)
 	channel := &connection.Channel{RemoteChan: rcvChan}
 	channel.SetRemoteAddr(connection.ChannelAddr{ID: trace.ID})
-	go clientListener(trace.ID, len(trace.Trace), rcvChan, result)
-	for _, q := range trace.Trace[:2] { //FIXME CFE process all queries
+	go clientListener(trace.ID, len(trace.Trace[:]), rcvChan, result) //FIXME CFE process all queries
+	for _, q := range trace.Trace[:] {                                //FIXME CFE process all queries
 		q.SendTime = time.Now().UnixNano()
 		time.Sleep(time.Duration(q.SendTime - time.Now().UnixNano() + conf.ClientResolverDelay.Nanoseconds()))
 		encoding := new(bytes.Buffer)
@@ -112,8 +112,8 @@ func startClient(trace simulation.Queries, server *rainsd.Server, conf simulatio
 		server.Write(connection.Message{Msg: encoding.Bytes(), Sender: channel})
 	}
 	delayLog := <-result
-	delaySum := int64(0) //in ms
-	for _, q := range trace.Trace[:2] {
+	delaySum := int64(0)               //in ms
+	for _, q := range trace.Trace[:] { //FIXME CFE process all queries
 		delaySum += nanoToMilliSecond(delayLog[q.Info.Token] - q.SendTime + conf.ClientResolverDelay.Nanoseconds())
 	}
 	log.Info("Delay sum", "Milliseconds", delaySum)
@@ -160,7 +160,7 @@ func createConfig(path, authoritativeZone string, conf simulation.Config, port i
 func createPublisherConfig(path, name string, conf simulation.Config, port int) string {
 	content, err := ioutil.ReadFile(path)
 	panicOnError(err)
-	config := strings.Replace(string(content), "PortValue", strconv.Itoa(conf.StartPort), 1)
+	config := strings.Replace(string(content), "PortValue", strconv.Itoa(port), 1)
 	config = strings.Replace(config, "ZonefilePathValue", conf.Paths.ZonefilePath+name, 1)
 	config = strings.Replace(config, "PrivateKeyPathValue", conf.Paths.KeysPath+conf.Paths.PrivateKeyFileNamePrefix+name, 1)
 	config = strings.Replace(config, "SigValidSinceValue", fmt.Sprintf("%d", time.Now().Unix()), 1)

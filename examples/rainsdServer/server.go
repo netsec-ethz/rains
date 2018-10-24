@@ -20,7 +20,7 @@ import (
 
 func main() {
 	keycreator.DelegationAssertion(".", ".", "keys/selfSignedRootDelegationAssertion.gob", "keys/rootPrivateKey.txt")
-	server, err := rainsd.New("config/server.conf", log.LvlDebug, "0")
+	server, err := rainsd.New("config/server.conf", "0")
 	if err != nil {
 		log.Error(err.Error())
 		return

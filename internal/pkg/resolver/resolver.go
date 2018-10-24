@@ -57,7 +57,9 @@ func (s *Server) Start() {
 			log.Warn(fmt.Sprintf("failed to unmarshal msg recv over channel: %v", err))
 			continue
 		}
-		if "-"+msg.Sender.RemoteAddr().String() == s.input.RemoteAddr().String() {
+		//if "-"+msg.Sender.RemoteAddr().String() == s.input.RemoteAddr().String() { FIXME CFE
+		//RemoteAddr is not correctly returned by naming server. Why?
+		if oldMsg, ok := s.newTokenToMsg[m.Token]; !ok {
 			//New query from the caching resolver
 			log.Info("RR received message from caching resolver", "resolver", msg.Sender.RemoteAddr().String(), "msg", m)
 			q := m.Query()
@@ -74,7 +76,7 @@ func (s *Server) Start() {
 			//New answer from a recursive lookup
 			//FIXME does not work with self reference in subjectName (@)
 			log.Info("RR received message from a naming server", "namingServer", msg.Sender.RemoteAddr().String(), "msg", m)
-			oldMsg := s.newTokenToMsg[m.Token]
+			//oldMsg := s.newTokenToMsg[m.Token] //FIXME CFE see above
 			switch sec := m.Content[0].(type) {
 			case *section.Assertion:
 				if sec.Content[0].Type == object.OTDelegation {

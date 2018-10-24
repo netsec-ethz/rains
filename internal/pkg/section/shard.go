@@ -286,7 +286,9 @@ func (s *Shard) AssertionsByNameAndTypes(subjectName string, types []object.Type
 func (s *Shard) InRange(subjectName string) bool {
 	return (s.RangeFrom == "<" && s.RangeTo == ">") || (s.RangeFrom == "<" && s.RangeTo > subjectName) ||
 		(s.RangeTo == ">" && s.RangeFrom < subjectName) ||
-		(s.RangeFrom < subjectName && s.RangeTo > subjectName)
+		(s.RangeFrom < subjectName && s.RangeTo > subjectName) ||
+		(s.RangeFrom == "" && s.RangeTo == "") || (s.RangeFrom == "" && s.RangeTo > subjectName) ||
+		(s.RangeTo == "" && s.RangeFrom < subjectName)
 }
 
 //IsConsistent returns true if all contained assertions have no subjectZone and context and are
