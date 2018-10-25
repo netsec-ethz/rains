@@ -15,14 +15,31 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
+	"github.com/lucas-clemente/quic-go"
+	"github.com/scionproto/scion/go/lib/addr"
+	"github.com/scionproto/scion/go/lib/snet"
+	"github.com/scionproto/scion/go/lib/snet/squic"
+
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 )
 
+const (
+	dispatcherPath = "/run/shm/dispatcher/default.sock"
+)
+
 //sendTo sends message to the specified receiver.
 func (s *Server) sendTo(msg message.Message, receiver connection.Info, retries,
 	backoffMilliSeconds int) (err error) {
+	// TODO: Implement caching and retries for SCION connections.
+	if receiver.Type == connection.SCION {
+		writer := cbor.NewWriter(*receiver.SCIONStream)
+		if err := writer.Marshal(&msg); err != nil {
+			log.Warn(fmt.Sprintf("failed to marshal message to conn: %v", err))
+			return err
+		}
+	}
 	conns, ok := s.caches.ConnCache.GetConnection(receiver)
 	if !ok {
 		conn, err := createConnection(receiver, s.config.KeepAlivePeriod, s.certPool)
@@ -73,10 +90,48 @@ func createConnection(receiver connection.Info, keepAlive time.Duration, pool *x
 	}
 }
 
+// defaultSciondPath returns the well known location of the scion socket.
+func defaultSciondPath(ia addr.IA) string {
+	return fmt.Sprintf("/run/shm/dispatcher/sd%s.sock", ia.FileFmt(false))
+}
+
+// initNetwork configures the SCION subsystem for listening on a server socket via squic.
+func initNetwork(addr *snet.Addr) error {
+	if err := snet.Init(addr.IA, defaultSciondPath(addr.IA), dispatcherPath); err != nil {
+		return fmt.Errorf("failed to initialize snet: %v", err)
+	}
+	log.Debug("Sucessfully initialized snet")
+	if err := squic.Init("", ""); err != nil {
+		return fmt.Errorf("failed to initialize squic: %v", err)
+	}
+	log.Debug("QUIC/SCION successfully initialized")
+	return nil
+}
+
 //Listen listens for incoming connections and creates a go routine for each connection.
 func (s *Server) listen() {
 	srvLogger := log.New("addr", s.config.ServerAddress.String())
 	switch s.config.ServerAddress.Type {
+	case connection.SCION:
+		srvLogger.Info("Starting SCION listener")
+		localAddr := s.config.ServerAddress.SCIONAddr
+		if err := initNetwork(localAddr); err != nil {
+			srvLogger.Error("Failed to initNetwork", "err", err)
+			return
+		}
+		qsock, err := squic.ListenSCION(nil, localAddr)
+		if err != nil {
+			srvLogger.Error("Failed to ListenScion", "err", err)
+			return
+		}
+		for {
+			qsess, err := qsock.Accept()
+			if err != nil {
+				srvLogger.Warn("Failed to accept connection", "err", err)
+				continue
+			}
+			go s.handleConnectionSCION(qsess, connection.Info{Type: connection.SCION})
+		}
 	case connection.TCP:
 		srvLogger.Info("Start TCP listener")
 		tlsConfig := &tls.Config{Certificates: []tls.Certificate{s.tlsCert}, InsecureSkipVerify: true}
@@ -129,6 +184,23 @@ func (s *Server) handleChannel() {
 			deliver(m, connection.Info{Type: connection.Chan, ChanAddr: msg.Sender.Addr},
 				s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)
 		}
+	}
+}
+
+func (s *Server) handleConnectionSCION(qsess quic.Session, ci connection.Info) {
+	qstr, err := qsess.AcceptStream()
+	if err != nil {
+		log.Warn("failed to accept quic stream from client", "err", err)
+	}
+	ci.SCIONStream = &qstr
+	var msg message.Message
+	reader := cbor.NewReader(qstr)
+	for {
+		if err := reader.Unmarshal(&msg); err != nil {
+			log.Warn("failed to read from quic stream", "err", err)
+			return
+		}
+		deliver(&msg, ci, s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)
 	}
 }
 

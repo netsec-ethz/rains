@@ -6,6 +6,9 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+
+	"github.com/lucas-clemente/quic-go"
+	"github.com/scionproto/scion/go/lib/snet"
 )
 
 //Info contains address information about one actor of a connection of the declared type
@@ -13,7 +16,12 @@ type Info struct {
 	//Type determines the network address type
 	Type Type
 
-	TCPAddr  *net.TCPAddr
+	TCPAddr *net.TCPAddr
+
+	// FIXME: SCIONAddr is currently unused.
+	SCIONAddr   *snet.Addr
+	SCIONStream *quic.Stream
+
 	ChanAddr ChannelAddr
 }
 
@@ -65,6 +73,7 @@ type Type int
 const (
 	Chan Type = iota
 	TCP
+	SCION
 )
 
 type Message struct {
