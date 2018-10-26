@@ -68,7 +68,6 @@ func statusServer() {
 
 func main() {
 	flag.Parse()
-
 	log.Info("Starting rains server...")
 	if *config == "" {
 		fmt.Fprintf(os.Stderr, "Config file must be specified.")
@@ -78,10 +77,13 @@ func main() {
 		fmt.Fprintf(os.Stderr, "trace_srv_id must be specified when trace_addr is")
 		return
 	}
-	if err := rainsd.InitServer(*config, *traceAddr, *traceID, *verbosity); err != nil {
+	srv, err := rainsd.New(*config, log.Lvl(*verbosity), "")
+	if err != nil {
 		fmt.Fprintf(os.Stderr, fmt.Sprintf("failed to start server: %v", err))
 		return
 	}
 	go statusServer()
-	rainsd.Listen()
+	if err := srv.Start(false); err != nil {
+		fmt.Fprintf(os.Stderr, fmt.Sprintf("failed to start server: %v", err))
+	}
 }

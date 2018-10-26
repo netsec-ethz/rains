@@ -92,7 +92,7 @@ func createConnection(receiver connection.Info, keepAlive time.Duration, pool *x
 
 // defaultSciondPath returns the well known location of the scion socket.
 func defaultSciondPath(ia addr.IA) string {
-	return fmt.Sprintf("/run/shm/dispatcher/sd%s.sock", ia.FileFmt(false))
+	return fmt.Sprintf("/run/shm/sciond/sd%s.sock", ia.FileFmt(false))
 }
 
 // initNetwork configures the SCION subsystem for listening on a server socket via squic.
