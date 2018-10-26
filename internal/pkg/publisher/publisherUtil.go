@@ -17,11 +17,14 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	"golang.org/x/crypto/ed25519"
+
+	"github.com/scionproto/scion/go/lib/snet"
 )
 
 //Config lists configurations for publishing zone information, see zonepub flag description for
 //detail.
 type Config struct {
+	LocalSCIONAddr  *snet.Addr
 	ZonefilePath    string
 	AuthServers     []connection.Info
 	PrivateKeyPath  string

@@ -16,6 +16,8 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
+
+	"github.com/scionproto/scion/go/lib/snet"
 )
 
 //Rainspub represents the publishing process of a zone authority. It can be configured to do
@@ -429,7 +431,7 @@ func (r *Rainspub) publishZone(zone *section.Zone, config Config) {
 			Content:      []section.Section{zone},
 			Capabilities: []message.Capability{message.NoCapability},
 		}
-		unreachableServers := publishSections(msg, config.AuthServers)
+		unreachableServers := publishSections(msg, config.AuthServers, r.Config.LocalSCIONAddr)
 		if unreachableServers != nil {
 			log.Warn("Was not able to connect to all authoritative servers", "unreachableServers", unreachableServers)
 		} else {
@@ -441,11 +443,11 @@ func (r *Rainspub) publishZone(zone *section.Zone, config Config) {
 //publishSections establishes connections to all authoritative servers according to the r.Config. It
 //then sends sections to all of them. It returns the connection information of those servers it was
 //not able to push sections, otherwise nil is returned.
-func publishSections(msg message.Message, authServers []connection.Info) []connection.Info {
+func publishSections(msg message.Message, authServers []connection.Info, local *snet.Addr) []connection.Info {
 	var errorConns []connection.Info
 	results := make(chan *connection.Info, len(authServers))
 	for _, conn := range authServers {
-		go connectAndSendMsg(msg, conn, results)
+		go connectAndSendMsg(msg, local, conn, results)
 	}
 	for i := 0; i < len(authServers); i++ {
 		if errorConn := <-results; errorConn != nil {

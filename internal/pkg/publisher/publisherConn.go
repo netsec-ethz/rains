@@ -2,7 +2,8 @@ package publisher
 
 import (
 	"crypto/tls"
-	"net"
+	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -13,16 +14,78 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
+
+	sd "github.com/scionproto/scion/go/lib/sciond"
+	"github.com/scionproto/scion/go/lib/snet"
+	"github.com/scionproto/scion/go/lib/snet/squic"
+	"github.com/scionproto/scion/go/lib/spath"
 )
+
+func setupPath(local, remote *snet.Addr) error {
+	if !remote.IA.Eq(local.IA) {
+		pathEntry := choosePath(local, remote)
+		if pathEntry == nil {
+			return fmt.Errorf("failed to find path from %s to %s", local, remote)
+		}
+		remote.Path = spath.New(pathEntry.Path.FwdPath)
+		remote.Path.InitOffsets()
+		remote.NextHop, _ = pathEntry.HostInfo.Overlay()
+	}
+	return nil
+}
+
+func choosePath(local, remote *snet.Addr) *sd.PathReplyEntry {
+	var paths []*sd.PathReplyEntry
+	var pathIndex uint64
+	pathMan := snet.DefNetwork.PathResolver()
+	pathSet := pathMan.Query(local.IA, remote.IA)
+	if len(pathSet) == 0 {
+		return nil
+	}
+	for _, p := range pathSet {
+		paths = append(paths, p.Entry)
+	}
+	// TODO: Insert any path choosing logic here.
+	return paths[pathIndex]
+}
 
 //connectAndSendMsg establishes a connection to server and sends msg. It returns the server info on
 //the result channel if it was not able to send the whole msg to it, else nil.
-func connectAndSendMsg(msg message.Message, server connection.Info, result chan<- *connection.Info) {
+func connectAndSendMsg(msg message.Message, localAddr *snet.Addr, server connection.Info, result chan<- *connection.Info) {
 	//TODO CFE use certificate for tls
 	conf := &tls.Config{
 		InsecureSkipVerify: true,
 	}
 	switch server.Type {
+	case connection.SCION:
+		setupPath(localAddr, server.SCIONAddr)
+		qsess, err := squic.DialSCION(nil, localAddr, server.SCIONAddr)
+		if err != nil {
+			log.Error("Was not able to DialSCION", "error", err)
+			result <- &server
+			return
+		}
+		defer qsess.Close()
+		qstr, err := qsess.OpenStreamSync()
+		if err != nil {
+			log.Error("failed to OpenStreamSync", "error", err)
+			result <- &server
+			return
+		}
+		success := make(chan bool)
+		go listen(qstr, msg.Token, success)
+		writer := cbor.NewWriter(qstr)
+		if err := writer.Marshal(&msg); err != nil {
+			log.Error("failed to write CBOR to stream", "error", err)
+			result <- &server
+			return
+		}
+		if <-success {
+			log.Debug("Successfully published message", "msg", msg)
+			result <- nil
+		} else {
+			result <- &server
+		}
 	case connection.TCP:
 		conn, err := tls.Dial(server.TCPAddr.Network(), server.String(), conf)
 		if err != nil {
@@ -54,7 +117,7 @@ func connectAndSendMsg(msg message.Message, server connection.Info, result chan<
 
 //listen receives incoming messages for one second. If the message's token matches the query's
 //token, it handles the response.
-func listen(conn net.Conn, token token.Token, success chan<- bool) {
+func listen(conn io.ReadCloser, token token.Token, success chan<- bool) {
 	//close connection after 1 second assuming everything went well
 	deadline := make(chan bool)
 	result := make(chan bool)
@@ -79,13 +142,13 @@ func listen(conn net.Conn, token token.Token, success chan<- bool) {
 	}
 }
 
-func waitForResponse(conn net.Conn, token token.Token, serverError chan<- bool) {
+func waitForResponse(conn io.ReadCloser, token token.Token, serverError chan<- bool) {
 	reader := cbor.NewReader(conn)
 	var msg message.Message
 	if err := reader.Unmarshal(&msg); err != nil {
 		errs := strings.Split(err.Error(), ": ")
 		if errs[len(errs)-1] == "use of closed network connection" {
-			log.Info("Connection has been closed", "conn", conn.RemoteAddr())
+			log.Info("Connection has been closed", "conn", conn)
 		} else {
 			log.Warn("Was not able to decode received message", "error", err)
 		}
@@ -94,7 +157,7 @@ func waitForResponse(conn net.Conn, token token.Token, serverError chan<- bool) 
 	}
 	//Rainspub only accepts notification messages in response to published information.
 	if n, ok := msg.Content[0].(*section.Notification); ok && n.Token == token {
-		if handleResponse(conn, msg.Content[0].(*section.Notification)) {
+		if handleResponse(msg.Content[0].(*section.Notification)) {
 			conn.Close()
 			serverError <- true
 			return
@@ -109,7 +172,7 @@ func waitForResponse(conn net.Conn, token token.Token, serverError chan<- bool) 
 
 //handleResponse handles the received notification message and returns true if the connection can
 //be closed.
-func handleResponse(conn net.Conn, n *section.Notification) bool {
+func handleResponse(n *section.Notification) bool {
 	switch n.Type {
 	case section.NTHeartbeat, section.NTNoAssertionsExist, section.NTNoAssertionAvail:
 	//nop

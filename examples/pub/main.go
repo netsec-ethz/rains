@@ -5,6 +5,8 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+
+	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 )
 
 var (
