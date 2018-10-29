@@ -22,34 +22,33 @@ import (
 //anything from just one step to the whole process of publishing information to the zone's
 //authoritative servers.
 type Rainspub struct {
-	Config   Config
-	zfParser zonefile.ZoneFileParser
+	Config Config
 }
 
 //New creates a Rainspub instance and returns a pointer to it.
 func New(config Config) *Rainspub {
 	return &Rainspub{
-		Config:   config,
-		zfParser: zonefile.Parser{},
+		Config: config,
 	}
 }
 
 //Publish performs various tasks of a zone's publishing process to rains servers according to its
 //configuration. This implementation assumes that there is exactly one zone per zonefile.
 func (r *Rainspub) Publish() {
-	zone, err := loadZonefile(r.Config.ZonefilePath, r.zfParser)
+	encoder := zonefile.Parser{}
+	zone, err := encoder.LoadZone(r.Config.ZonefilePath)
 	if err != nil {
+		log.Error(err.Error())
 		return
 	}
 	log.Info("Zonefile successful loaded")
-	assertions, shards, pshards, err := splitZoneContent(zone,
+	assertions, shards, pshards, nofAssertions, err := splitZoneContent(zone,
 		r.Config.ShardingConf.KeepExistingShards, r.Config.PShardingConf.KeepExistingPshards)
-	nofAssertions := len(assertions)
 	if err != nil {
 		return
 	}
 	if r.Config.ShardingConf.DoSharding {
-		if shards, err = doSharding(zone.Context, zone.SubjectZone, assertions, shards, r.Config.ShardingConf, r.zfParser,
+		if shards, err = DoSharding(zone.Context, zone.SubjectZone, assertions, shards, r.Config.ShardingConf,
 			r.Config.ConsistencyConf.SortShards); err != nil {
 			log.Error(err.Error())
 			return
@@ -59,7 +58,7 @@ func (r *Rainspub) Publish() {
 		}
 	}
 	if r.Config.PShardingConf.DoPsharding {
-		if pshards, err = doPsharding(zone.Context, zone.SubjectZone, assertions, pshards, r.Config.PShardingConf,
+		if pshards, err = DoPsharding(zone.Context, zone.SubjectZone, assertions, pshards, r.Config.PShardingConf,
 			!r.Config.ShardingConf.DoSharding && r.Config.ConsistencyConf.SortShards); err != nil {
 			log.Error(err.Error())
 			return
@@ -69,7 +68,7 @@ func (r *Rainspub) Publish() {
 		}
 	}
 	if r.Config.ShardingConf.DoSharding || r.Config.PShardingConf.DoPsharding {
-		createZone(zone, assertions, shards, pshards)
+		CreateZone(zone, assertions, shards, pshards)
 	}
 	if r.Config.MetaDataConf.AddSignatureMetaData {
 		if err = addSignatureMetaData(zone, nofAssertions, len(pshards), r.Config.MetaDataConf); err != nil {
@@ -87,13 +86,21 @@ func (r *Rainspub) Publish() {
 		}
 		log.Info("Signing completed successfully")
 	}
+	if r.Config.OutputPath != "" {
+		if err := encoder.EncodeAndStore(r.Config.OutputPath, zone); err != nil {
+			log.Error(err.Error())
+			return
+		}
+		log.Info("Writing updated zonefile to disk completed successfully")
+	}
 	r.publishZone(zone, r.Config)
 }
 
 //splitZoneContent returns assertions, pshards and shards contained in zone as three separate
 //slices.
 func splitZoneContent(zone *section.Zone, keepShards, keepPshards bool) (
-	[]*section.Assertion, []*section.Shard, []*section.Pshard, error) {
+	[]*section.Assertion, []*section.Shard, []*section.Pshard, int, error) {
+	nofAssertions := 0
 	assertions := []*section.Assertion{}
 	shards := []*section.Shard{}
 	pshards := []*section.Pshard{}
@@ -101,6 +108,7 @@ func splitZoneContent(zone *section.Zone, keepShards, keepPshards bool) (
 		switch s := sec.(type) {
 		case *section.Assertion:
 			assertions = append(assertions, s)
+			nofAssertions++
 		case *section.Shard:
 			if keepShards {
 				shards = append(shards, s)
@@ -109,22 +117,22 @@ func splitZoneContent(zone *section.Zone, keepShards, keepPshards bool) (
 					assertions = append(assertions, a)
 				}
 			}
+			nofAssertions += len(s.Content)
 		case *section.Pshard:
 			if keepPshards {
 				pshards = append(pshards, s)
 			}
 		default:
 			log.Error("Invalid zone content", "section", s)
-			return nil, nil, nil, errors.New("Invalid zone content")
+			return nil, nil, nil, 0, errors.New("Invalid zone content")
 		}
 	}
-	return assertions, shards, pshards, nil
+	return assertions, shards, pshards, nofAssertions, nil
 }
 
-//doSharding creates shards based on the zone's content and config.
-func doSharding(ctx, zone string, assertions []*section.Assertion,
-	shards []*section.Shard, config ShardingConfig, encoder zonefile.ZoneFileParser,
-	sortShards bool) ([]*section.Shard, error) {
+//DoSharding creates shards based on the zone's content and config.
+func DoSharding(ctx, zone string, assertions []*section.Assertion, shards []*section.Shard,
+	config ShardingConfig, sortShards bool) ([]*section.Shard, error) {
 	if sortShards {
 		sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
 	}
@@ -132,7 +140,7 @@ func doSharding(ctx, zone string, assertions []*section.Assertion,
 	var err error
 	if config.MaxShardSize > 0 {
 		newShards, err = groupAssertionsToShardsBySize(zone, ctx, assertions,
-			config, encoder)
+			config)
 		if err != nil {
 			return nil, err
 		}
@@ -150,8 +158,8 @@ func doSharding(ctx, zone string, assertions []*section.Assertion,
 	return shards, nil
 }
 
-//doPsharding creates pshards based on the zone's content and config.
-func doPsharding(ctx, zone string, assertions []*section.Assertion,
+//DoPsharding creates pshards based on the zone's content and config.
+func DoPsharding(ctx, zone string, assertions []*section.Assertion,
 	pshards []*section.Pshard, conf PShardingConfig, sortShards bool) ([]*section.Pshard, error) {
 	if sortShards {
 		sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
@@ -177,14 +185,14 @@ func doPsharding(ctx, zone string, assertions []*section.Assertion,
 //groupAssertionsToShardsBySize groups assertions into shards such that each shard is not exceeding
 //maxSize. It returns a slice of the created shards.
 func groupAssertionsToShardsBySize(subjectZone, context string, assertions []*section.Assertion,
-	config ShardingConfig, encoder zonefile.ZoneFileParser) ([]*section.Shard, error) {
+	config ShardingConfig) ([]*section.Shard, error) {
+	encoder := zonefile.Parser{}
 	shards := []*section.Shard{}
 	sameNameAssertions := groupAssertionByName(assertions, config)
 	prevShardAssertionSubjectName := ""
 	shard := &section.Shard{}
 	for i, sameNameA := range sameNameAssertions {
 		shard.Content = append(shard.Content, sameNameA...)
-		//FIXME CFE replace with cbor parser
 		if length := len(encoder.Encode(shard)); length > config.MaxShardSize {
 			shard.Content = shard.Content[:len(shard.Content)-len(sameNameA)]
 			if len(shard.Content) == 0 {
@@ -315,8 +323,8 @@ func newBloomFilter(config BloomFilterConfig) section.BloomFilter {
 	}
 }
 
-//createZone overwrites zone with assertions, pshards and shards in the correct order.
-func createZone(zone *section.Zone, assertions []*section.Assertion,
+//CreateZone overwrites zone with assertions, pshards and shards in the correct order.
+func CreateZone(zone *section.Zone, assertions []*section.Assertion,
 	shards []*section.Shard, pshards []*section.Pshard) {
 	zone.Content = nil
 	for _, a := range assertions {
@@ -334,8 +342,6 @@ func createZone(zone *section.Zone, assertions []*section.Assertion,
 //assumes, that the zone content is sorted, i.e. pshards come before shards.
 func addSignatureMetaData(zone *section.Zone, nofAssertions, nofPshards int,
 	config MetaDataConfig) error {
-	waitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofAssertions)
-	pshardWaitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofPshards)
 	signature := signature.Sig{
 		PublicKeyID: keys.PublicKeyID{
 			Algorithm: config.SignatureAlgorithm,
@@ -350,8 +356,9 @@ func addSignatureMetaData(zone *section.Zone, nofAssertions, nofPshards int,
 	for _, sec := range zone.Content {
 		switch s := sec.(type) {
 		case *section.Assertion:
-			return errors.New("standalone assertions in a zone are not supported")
+			sec.AddSig(signature)
 		case *section.Shard:
+			waitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofAssertions)
 			if firstShard {
 				signature.ValidSince = config.SigValidSince
 				signature.ValidUntil = config.SigValidUntil
@@ -371,6 +378,7 @@ func addSignatureMetaData(zone *section.Zone, nofAssertions, nofPshards int,
 			}
 		case *section.Pshard:
 			if config.AddSigMetaDataToPshards {
+				pshardWaitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofPshards)
 				s.AddSig(signature)
 				signature.ValidSince += pshardWaitInterval / int64(time.Second)
 				signature.ValidUntil += pshardWaitInterval / int64(time.Second)
@@ -413,13 +421,6 @@ func isConsistent(zone *section.Zone, config ConsistencyConfig) bool {
 //publishZone publishes the zone's content either to the specified authoritative servers or to a
 //file in zonefile format.
 func (r *Rainspub) publishZone(zone *section.Zone, config Config) {
-	if config.OutputPath != "" {
-		if err := r.zfParser.EncodeAndStore(config.OutputPath, zone); err != nil {
-			log.Error(err.Error())
-		} else {
-			log.Info("Writing updated zonefile to disk completed successfully")
-		}
-	}
 	if config.DoPublish {
 		//TODO check if zone is not too large. If it is, split it up and send
 		//content separately.

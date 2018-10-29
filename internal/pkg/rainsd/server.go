@@ -1,7 +1,6 @@
 package rainsd
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -12,7 +11,6 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
@@ -28,8 +26,11 @@ const (
 
 //Server represents a rainsd server instance.
 type Server struct {
-	//channel is used by this server to receive messages from other servers over a channel
-	channel connection.Channel
+	//inputChannel is used by this server to receive messages from other servers
+	inputChannel *connection.Channel
+	//recursiveResolver is the input channel of a recursive resolver which handles all recursive lookups
+	//of this server
+	sendToRecResolver func(connection.Message)
 	//config contains configurations of this server
 	config rainsdConfig
 	//authority states the names over which this server has authority
@@ -52,10 +53,11 @@ type Server struct {
 
 //New returns a pointer to a newly created rainsd server instance with the given config. The server
 //logs with the provided level of logging.
-func New(configPath string, logLevel log.Lvl, id string) (server *Server, err error) {
-	h := log.CallerFileHandler(log.StdoutHandler)
-	log.Root().SetHandler(log.LvlFilterHandler(logLevel, h))
-	server = &Server{channel: connection.Channel{Addr: connection.ChannelAddr{ID: id}}}
+func New(configPath string, id string) (server *Server, err error) {
+	server = &Server{
+		inputChannel: &connection.Channel{RemoteChan: make(chan connection.Message, 100)},
+	}
+	server.inputChannel.SetRemoteAddr(connection.ChannelAddr{ID: id})
 	if server.config, err = loadConfig(configPath); err != nil {
 		return nil, err
 	}
@@ -84,7 +86,13 @@ func New(configPath string, logLevel log.Lvl, id string) (server *Server, err er
 		log.Warn("Failed to load root zone public key")
 		return nil, err
 	}
+	log.Info("Successfully initialized server", "id", id)
 	return
+}
+
+//SetRecursiveResolver adds a channel which handles recursive lookups for this server
+func (s *Server) SetRecursiveResolver(write func(connection.Message)) {
+	s.sendToRecResolver = write
 }
 
 //Start starts up the server and it begins to listen for incoming connections according to its
@@ -124,17 +132,9 @@ func (s *Server) Shutdown() {
 	s.queues.Notify <- msgSectionSender{}
 }
 
-//Write delivers an encoded rains message and a response channel to the server.
+//Write delivers an encoded rains message and a response inputChannel to the server.
 func (s *Server) Write(msg connection.Message) {
-	s.caches.ConnCache.AddConnection(msg.Sender)
-	m := &message.Message{}
-	reader := cbor.NewReader(bytes.NewBuffer(msg.Msg))
-	if err := reader.Unmarshal(m); err != nil {
-		log.Warn(fmt.Sprintf("failed to unmarshal msg recv over channel: %v", err))
-		return
-	}
-	deliver(m, connection.Info{Type: connection.Chan, ChanAddr: msg.Sender.Addr},
-		s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)
+	s.inputChannel.RemoteChan <- msg
 }
 
 //LoadConfig loads and stores server configuration
@@ -157,7 +157,6 @@ func loadConfig(configPath string) (rainsdConfig, error) {
 	config.AddressQueryValidity *= time.Second
 	config.ReapEngineTimeout *= time.Second
 	config.MaxCacheValidity.AddressAssertionValidity *= time.Hour
-	config.MaxCacheValidity.AddressZoneValidity *= time.Hour
 	config.MaxCacheValidity.AssertionValidity *= time.Hour
 	config.MaxCacheValidity.ShardValidity *= time.Hour
 	config.MaxCacheValidity.ZoneValidity *= time.Hour

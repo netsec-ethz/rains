@@ -23,7 +23,7 @@ type PublicKeyID struct {
 }
 
 func (p PublicKeyID) String() string {
-	return fmt.Sprintf("AT=%s KS=%v KP=%d", p.Algorithm, p.KeySpace, p.KeyPhase)
+	return fmt.Sprintf("AT=%s KS=%s KP=%d", p.Algorithm, p.KeySpace, p.KeyPhase)
 }
 
 //Hash returns a string containing all information uniquely identifying a public key ID.
@@ -122,3 +122,12 @@ type KeySpaceID int
 const (
 	RainsKeySpace KeySpaceID = 0
 )
+
+func (k KeySpaceID) String() string {
+	switch k {
+	case RainsKeySpace:
+		return "rains"
+	default:
+		return "Unknown SignatureType"
+	}
+}

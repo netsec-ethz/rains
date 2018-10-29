@@ -20,14 +20,9 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-func main() {
-	CreatePublisherPrivateKeysFile("pubPrivateKeys.txt")
-	DelegationAssertion(".", ".")
-}
-
 //DelegationAssertion generates a new public/private key pair for the given context and zone. It stores the private key and a delegation assertion to a file.
 //In case of root public key the assertion is self signed (zone=.)
-func DelegationAssertion(context, zone string) error {
+func DelegationAssertion(context, zone, rootPath, keyPath string) error {
 	//FIXME CFE change source of randomness
 	publicKey, privateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
@@ -36,7 +31,7 @@ func DelegationAssertion(context, zone string) error {
 	pkey := keys.PublicKey{
 		PublicKeyID: keys.PublicKeyID{
 			KeySpace:  keys.RainsKeySpace,
-			KeyPhase:  0,
+			KeyPhase:  1,
 			Algorithm: algorithmTypes.Ed25519,
 		},
 		Key:        publicKey,
@@ -54,14 +49,11 @@ func DelegationAssertion(context, zone string) error {
 			return errors.New("Was not able to sign the assertion")
 		}
 	}
-	var keyPath string
 	//Store root zone file
 	if zone == "." {
-		err = util.Save("keys/selfSignedRootDelegationAssertion.gob", assertion)
-		keyPath = "keys/rootPrivateKey.txt"
+		err = util.Save(rootPath, assertion)
 	} else {
-		err = util.Save("keys/delegationAssertion.gob", assertion)
-		keyPath = "keys/privateKey.txt"
+		err = util.Save(rootPath, assertion)
 	}
 	if err != nil {
 		log.Error("Was not able to encode the assertion", "assertion", assertion)

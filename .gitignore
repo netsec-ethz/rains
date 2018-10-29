@@ -13,6 +13,8 @@ _test
 #Large benchmarking files
 *zonefileDeleg1000000
 *zonefile1000000
+*zonefileDeleg100000
+*zonefile100000
 
 # Architecture specific extensions/prefixes
 *.[568vq]
@@ -55,3 +57,17 @@ _testmain.go
 /tools/yacc/zoneFileDecoderGenerated.go
 /tools/yacc/y.output
 /tools/yacc/zonefileParser
+
+#example
+examples/test
+examples/rainsdServer/data/newZonefile.txt
+examples/rainsdServer/keys/rootPrivateKey.txt
+examples/rainsdServer/keys/selfSignedRootDelegationAssertion.gob
+
+#simulation generated files
+cmd/simulation/conf/*
+!cmd/simulation/conf/namingServer.conf
+!cmd/simulation/conf/publisher.conf
+!cmd/simulation/conf/resolver.conf
+cmd/simulation/keys/*
+cmd/simulation/zonefiles/*

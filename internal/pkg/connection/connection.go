@@ -22,6 +22,8 @@ func (c Info) String() string {
 	switch c.Type {
 	case TCP:
 		return c.TCPAddr.String()
+	case Chan:
+		return c.ChanAddr.String()
 	default:
 		log.Warn("Unsupported network address", "typeCode", c.Type)
 		return ""
@@ -31,8 +33,10 @@ func (c Info) String() string {
 //NetworkAndAddr returns the network name and addr of the connection separated by space
 func (c Info) NetworkAndAddr() string {
 	switch c.Type {
-	case TCP, Chan:
+	case TCP:
 		return fmt.Sprintf("%s %s", c.TCPAddr.Network(), c.String())
+	case Chan:
+		return fmt.Sprintf("%s %s", c.ChanAddr.Network(), c.String())
 	default:
 		log.Warn("Unsupported network address type", "type", c.Type)
 		return ""
@@ -87,33 +91,44 @@ func (c ChannelAddr) String() string {
 }
 
 type Channel struct {
-	Addr    ChannelAddr
-	Channel chan Message
+	localAddr  ChannelAddr
+	LocalChan  chan Message
+	remoteAddr ChannelAddr
+	RemoteChan chan Message
 }
 
 func (c *Channel) Read(b []byte) (n int, err error) {
-	log.Warn("Don't use this method. Use ReadChannel instead")
+	msg := <-c.LocalChan
+	c.localAddr = msg.Sender.RemoteAddr().(ChannelAddr)
+	c.LocalChan = msg.Sender.RemoteChan
 	return len(b), nil
 }
-func (c *Channel) ReadChannel() Message {
-	return <-c.Channel
-}
+
 func (c *Channel) Write(b []byte) (n int, err error) {
-	log.Warn("Don't use this method. Use WriteChannel instead")
-	return 0, nil
+	c.RemoteChan <- Message{
+		Msg: b,
+		Sender: &Channel{
+			remoteAddr: c.LocalAddr().(ChannelAddr),
+			RemoteChan: c.LocalChan,
+		},
+	}
+	return len(b), nil
 }
-func (c *Channel) WriteChannel(msg Message) {
-	c.Channel <- msg
-}
+
 func (c *Channel) Close() error {
-	close(c.Channel)
 	return nil
 }
 func (c *Channel) LocalAddr() net.Addr {
-	return c.Addr
+	return c.localAddr
+}
+func (c *Channel) SetLocalAddr(addr ChannelAddr) {
+	c.localAddr = addr
 }
 func (c *Channel) RemoteAddr() net.Addr {
-	return ChannelAddr{}
+	return c.remoteAddr
+}
+func (c *Channel) SetRemoteAddr(addr ChannelAddr) {
+	c.remoteAddr = addr
 }
 func (c *Channel) SetDeadline(t time.Time) error {
 	return nil

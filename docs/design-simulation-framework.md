@@ -89,7 +89,7 @@ how bursty it is.
 As for the second distribution we can use a Zipf distribution. The Zipf's law
 state that the frequency of any word is inversely proportional to its rank in
 the frequency table [5]. This is in line with the fact, that there are few very
-popular web sites, some medium ones and a waste majority of infrequently visited
+popular web sites, some medium ones and a vast majority of infrequently visited
 ones.
  
 ### Topology characteristics

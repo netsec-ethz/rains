@@ -28,9 +28,9 @@ func init() {
 type MaxCacheValidity struct {
 	AssertionValidity        time.Duration
 	ShardValidity            time.Duration
+	PhardValidity            time.Duration
 	ZoneValidity             time.Duration
 	AddressAssertionValidity time.Duration
-	AddressZoneValidity      time.Duration
 }
 
 //Save stores the object to the file located at the specified path gob encoded.
@@ -69,6 +69,8 @@ func UpdateSectionValidity(sec section.WithSig, pkeyValidSince, pkeyValidUntil, 
 			maxValidity = maxVal.AssertionValidity
 		case *section.Shard:
 			maxValidity = maxVal.ShardValidity
+		case *section.Pshard:
+			maxValidity = maxVal.ShardValidity //FIXME CFE replace with pshardvalidity
 		case *section.Zone:
 			maxValidity = maxVal.ZoneValidity
 		case *section.AddrAssertion:

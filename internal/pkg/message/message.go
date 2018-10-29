@@ -250,6 +250,15 @@ func (m *Message) Sort() {
 	}
 }
 
+//Query returns the first section in the messages content if it is a query. It panics if the message
+//has no content.
+func (m *Message) Query() *query.Name {
+	if q, ok := m.Content[0].(*query.Name); ok {
+		return q
+	}
+	return nil
+}
+
 //Capability is a urn of a capability
 type Capability string
 

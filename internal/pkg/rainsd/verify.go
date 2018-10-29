@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
@@ -250,28 +252,30 @@ func validContainedAssertions(assertions []*section.Assertion,
 //handleMissingKeys adds sectionSender to the pending key cache and sends a delegation query if
 //necessary
 func handleMissingKeys(sectionSender sectionWithSigSender, missingKeys map[signature.MetaData]bool, s *Server) {
-	section := sectionSender.Section
+	sec := sectionSender.Section
 	log.Info("Some public keys are missing. Add section to pending signature cache",
-		"#missingKeys", len(missingKeys), "section", section)
+		"#missingKeys", len(missingKeys), "section", sec)
 	for k := range missingKeys {
 		log.Info("MissingKeys", "key", k)
 		if sendQuery := s.caches.PendingKeys.Add(sectionSender, k.Algorithm, k.KeyPhase); sendQuery {
 			token := token.New()
-			exp := getQueryValidity(section.Sigs(keys.RainsKeySpace), s.config.DelegationQueryValidity)
+			exp := getQueryValidity(sec.Sigs(keys.RainsKeySpace), s.config.DelegationQueryValidity)
 			if ok := s.caches.PendingKeys.AddToken(token, exp, sectionSender.Sender,
-				section.GetSubjectZone(), section.GetContext()); ok {
+				sec.GetSubjectZone(), sec.GetContext()); ok {
 				query := &query.Name{
-					Name:       section.GetSubjectZone(),
-					Context:    section.GetContext(),
+					Name:       sec.GetSubjectZone(),
+					Context:    sec.GetContext(),
 					Expiration: exp,
 					Types:      []object.Type{object.OTDelegation},
 				}
-				sendSection(query, token, getRootAddr(), s)
+				//sendSection(query, token, getRootAddr(), s)
+				msg := message.Message{Token: token, Content: []section.Section{query}}
+				s.sendToRecursiveResolver(msg)
 				continue
 			}
 		}
 		log.Info("Already issued a delegation query for this context and zone.",
-			"zone", section.GetSubjectZone(), "context", section.GetContext())
+			"zone", sec.GetSubjectZone(), "context", sec.GetContext())
 	}
 }
 

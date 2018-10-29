@@ -111,6 +111,10 @@ func (s *Pshard) SetContext(ctx string) {
 func (s *Pshard) SetSubjectZone(zone string) {
 	s.SubjectZone = zone
 }
+func (s *Pshard) RemoveContextAndSubjectZone() {
+	s.SubjectZone = ""
+	s.Context = ""
+}
 
 //Begin returns the begining of the interval of this pshard.
 func (s *Pshard) Begin() string {
@@ -228,4 +232,14 @@ func (s *Pshard) AddSigInMarshaller() {
 }
 func (s *Pshard) DontAddSigInMarshaller() {
 	s.sign = true
+}
+
+//Copy creates a copy of the shard with the given context and subjectZone values. The contained
+//assertions are not modified
+func (s *Pshard) Copy(context, subjectZone string) *Pshard {
+	stub := &Pshard{}
+	*stub = *s
+	stub.Context = context
+	stub.SubjectZone = subjectZone
+	return stub
 }

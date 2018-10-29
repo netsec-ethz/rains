@@ -15,7 +15,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
-	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -97,24 +96,9 @@ func LoadConfig(configPath string) (Config, error) {
 	return config, nil
 }
 
-//loadZonefile loads the zonefile from disk.
-func loadZonefile(path string, parser zonefile.ZoneFileParser) (*section.Zone, error) {
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Error("Was not able to read zone file", "path", path)
-		return nil, err
-	}
-	zone, err := parser.DecodeZone(file)
-	if err != nil {
-		log.Error("Was not able to parse zone file.", "error", err)
-		return nil, err
-	}
-	return zone, nil
-}
-
-//loadPrivateKeys reads private keys from the path provided in the config and returns a map from
+//LoadPrivateKeys reads private keys from the path provided in the config and returns a map from
 //PublicKeyID to the corresponding private key data.
-func loadPrivateKeys(path string) (map[keys.PublicKeyID]interface{}, error) {
+func LoadPrivateKeys(path string) (map[keys.PublicKeyID]interface{}, error) {
 	var privateKeys []keys.PrivateKey
 	file, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -144,6 +128,17 @@ func loadPrivateKeys(path string) (map[keys.PublicKeyID]interface{}, error) {
 	return output, nil
 }
 
+func StorePrivateKey(path string, privateKeys []keys.PrivateKey) error {
+	for i, key := range privateKeys {
+		privateKeys[i].Key = hex.EncodeToString(key.Key.(ed25519.PrivateKey))
+	}
+	if encoding, err := json.Marshal(privateKeys); err != nil {
+		return err
+	} else {
+		return ioutil.WriteFile(path, encoding, 0600)
+	}
+}
+
 //signZone signs the zone and all contained shards and assertions with the zone's private key. It
 //removes the subjectZone and context of the contained assertions and shards after the signatures
 //have been added. It returns an error if it was unable to sign the zone or any of the contained
@@ -152,7 +147,7 @@ func signZone(zone *section.Zone, path string) error {
 	if zone == nil {
 		return errors.New("zone is nil")
 	}
-	keys, err := loadPrivateKeys(path)
+	keys, err := LoadPrivateKeys(path)
 	if err != nil {
 		return errors.New("Was not able to load private keys")
 	}
@@ -163,7 +158,9 @@ func signZone(zone *section.Zone, path string) error {
 	for _, sig := range sigs {
 		if sig.ValidUntil < time.Now().Unix() {
 			log.Error("Signature validUntil is in the past")
-		} else if ok := siglib.SignSectionUnsafe(zone, keys[sig.PublicKeyID], sig); !ok {
+		} else if privateKey, ok := keys[sig.PublicKeyID]; !ok {
+			log.Error("No matching private key for signature", "sig", sig.PublicKeyID, "privateKeys", keys)
+		} else if ok := siglib.SignSectionUnsafe(zone, privateKey, sig); !ok {
 			log.Error("Was not able to sign and add the signature", "zone", zone, "signature", sig)
 			return errors.New("Was not able to sign and add the signature")
 		}

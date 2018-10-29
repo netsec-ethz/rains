@@ -53,7 +53,7 @@ func (z *Zone) UnmarshalMap(m map[int]interface{}) error {
 		z.Content = make([]WithSigForward, 0)
 		for _, item := range content.([]interface{}) {
 			m := item.(map[int]interface{})
-			if _, ok := m[7]; ok {
+			if _, ok := m[23]; ok {
 				// Shard.
 				ss := &Shard{}
 				if err := ss.UnmarshalMap(m); err != nil {
@@ -211,7 +211,7 @@ func (z *Zone) Hash() string {
 	contentHashes := []string{}
 	for _, v := range z.Content {
 		switch v := v.(type) {
-		case *Assertion, *Shard:
+		case *Assertion, *Shard, *Pshard:
 			contentHashes = append(contentHashes, v.Hash())
 		default:
 			log.Warn(fmt.Sprintf("not supported zone section content, must be assertion or shard, got %T", v))

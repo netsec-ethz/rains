@@ -112,11 +112,23 @@ func (a *Assertion) GetSubjectZone() string {
 	return a.SubjectZone
 }
 
+//FQDN returns the fully qualified domain name of this assertion
+func (a *Assertion) FQDN() string {
+	if a.SubjectZone == "." {
+		return a.SubjectName + a.SubjectZone
+	}
+	return fmt.Sprintf("%s.%s", a.SubjectName, a.SubjectZone)
+}
+
 func (a *Assertion) SetContext(ctx string) {
 	a.Context = ctx
 }
 func (a *Assertion) SetSubjectZone(zone string) {
 	a.SubjectZone = zone
+}
+func (a *Assertion) RemoveContextAndSubjectZone() {
+	a.SubjectZone = ""
+	a.Context = ""
 }
 
 //Copy creates a copy of the assertion with the given context and subjectZone values
