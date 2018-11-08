@@ -516,7 +516,7 @@ func benchmarkSignAssertions(zonefileName string, b *testing.B) {
 	}
 }
 
-func BenchmarkSignAssertion10000(b *testing.B)  { benchmarkSignAssertions("test/zonefile10000", b) }
+func BenchmarkSignAssertion10000(b *testing.B)  { benchmarkSignAssertions("test/zonefile1000000", b) }
 func BenchmarkSignAssertion100000(b *testing.B) { benchmarkSignAssertions("test/zonefile100000", b) }
 
 //BenchmarkSignAssertionDeleg10000 has 40000 entries, a deleg, redir, srv and
@@ -588,13 +588,13 @@ func benchmarkSignZone(zonefileName string, assertionsPerShard int, b *testing.B
 }
 
 //zone is signed containing 10000 shards containing each 10 assertions
-func BenchmarkSignZone10(b *testing.B) { benchmarkSignZone("test/zonefile100000", 10, b) }
+func BenchmarkSignZone10(b *testing.B) { benchmarkSignZone("test/zonefile10000", 10, b) }
 
 //zone is signed containing 1000 shards containing each 100 assertions
-func BenchmarkSignZone100(b *testing.B) { benchmarkSignZone("test/zonefile100000", 100, b) }
+func BenchmarkSignZone100(b *testing.B) { benchmarkSignZone("test/zonefile10000", 100, b) }
 
 //zone is signed containing 100 shards containing each 1000 assertions
-func BenchmarkSignZone1000(b *testing.B) { benchmarkSignZone("test/zonefile100000", 1000, b) }
+func BenchmarkSignZone1000(b *testing.B) { benchmarkSignZone("test/zonefile10000", 1000, b) }
 
 func shardAssertions(sections []section.WithSigForward, assertionsPerShard int) []section.WithSigForward {
 	var shards []section.WithSigForward
@@ -709,8 +709,67 @@ func benchmarkVerify(zonefileName string, b *testing.B) {
 	}
 }
 
-func BenchmarkVerifyAssertion10000(b *testing.B)  { benchmarkVerify("test/zonefile10000", b) }
-func BenchmarkVerifyAssertion100000(b *testing.B) { benchmarkVerify("test/zonefile100000", b) }
+func BenchmarkVerifyAssertion1(b *testing.B)     { benchmarkVerify("test/zf1", b) }
+func BenchmarkVerifyAssertion10(b *testing.B)    { benchmarkVerify("test/zf10", b) }
+func BenchmarkVerifyAssertion100(b *testing.B)   { benchmarkVerify("test/zf100", b) }
+func BenchmarkVerifyAssertion1000(b *testing.B)  { benchmarkVerify("test/zf1000", b) }
+func BenchmarkVerifyAssertion10000(b *testing.B) { benchmarkVerify("test/zf10000", b) }
+
+func benchmarkVerifyShard(zonefileName string, apers int, b *testing.B) {
+	log.Root().SetHandler(log.DiscardHandler())
+	parser := new(zonefile.Parser)
+	zone, err := parser.LoadZone(zonefileName)
+	if err != nil {
+		b.Error(err)
+		return
+	}
+	shards := []section.WithSigForward{}
+	shard := &section.Shard{
+		Context:     ".",
+		SubjectZone: "TestSubject",
+		RangeFrom:   "asdfasdfasdf",
+		RangeTo:     "asdfasdfasdf",
+	}
+	for i := range zone.Content {
+		if i%apers == 0 {
+			shards = append(shards, shard)
+			shard = &section.Shard{
+				Context:     ".",
+				SubjectZone: "TestSubject",
+				RangeFrom:   "asdfasdfasdf",
+				RangeTo:     "asdfasdfasdf",
+			}
+		}
+		shard.Content = append(shard.Content, zone.Content[i].(*section.Assertion))
+	}
+	zone.Content = shards
+	publicKey, privatekey, _ := ed25519.GenerateKey(nil)
+	sig := signature.Sig{
+		PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519},
+		ValidUntil:  time.Now().Add(time.Hour).Unix(),
+	}
+	for _, sec := range zone.Content {
+		if !SignSectionUnsafe(sec, privatekey, sig) {
+			b.Error("Error in signing section")
+		}
+	}
+	pkeys := make(map[keys.PublicKeyID][]keys.PublicKey)
+	pkeys[sig.PublicKeyID] = []keys.PublicKey{keys.PublicKey{
+		PublicKeyID: sig.PublicKeyID,
+		Key:         publicKey,
+	}}
+	for n := 0; n < b.N; n++ {
+		for _, sec := range zone.Content {
+			if !CheckSectionSignatures(sec, pkeys, util.MaxCacheValidity{}) {
+				b.Error("Error in signing section")
+			}
+		}
+	}
+}
+
+func BenchmarkVerifyShard10(b *testing.B)   { benchmarkVerifyShard("test/zf100000", 10, b) }
+func BenchmarkVerifyShard100(b *testing.B)  { benchmarkVerifyShard("test/zf100000", 100, b) }
+func BenchmarkVerifyShard1000(b *testing.B) { benchmarkVerifyShard("test/zf1000", 1000, b) }
 
 func BenchmarkEd25519Signing(b *testing.B) {
 	_, privatekey, _ := ed25519.GenerateKey(nil)

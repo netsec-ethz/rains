@@ -24,14 +24,15 @@ var (
 func main() {
 	flag.Parse()
 	log.Info("Start generating zonefile")
-	names := generate.LoadNames("../../../data/names.txt")
-	nofNames := len(names)
+	names := generate.LoadNames("../../data/names.txt")
+	nofNames := 0
 	i := 0
 	for nofNames < *nofEntries {
 		j := i
-		for nofNames < *nofEntries && j < nofNames {
+		for nofNames < *nofEntries && j < len(names) {
 			names = append(names, names[i]+"-"+names[j])
 			j++
+			nofNames++
 		}
 		i++
 	}
@@ -45,7 +46,7 @@ func main() {
 			ip := fmt.Sprintf("%d.%d.%d.%d", rand.Intn(256), rand.Intn(256), rand.Intn(256), rand.Intn(256))
 			output = append(output, fmt.Sprintf("\t:A: ns1.%s [ :ip4: %s ]\n", names[i], ip))
 		} else {
-			//2x ipv4, 1x ipv6, 1x name or srv
+			//2x ipv4, 2x ipv6
 			ip := fmt.Sprintf("%d.%d.%d.%d", rand.Intn(256), rand.Intn(256), rand.Intn(256), rand.Intn(256))
 			output = append(output, fmt.Sprintf("\t:A: ns1.%s [ :ip4: %s ]\n", names[i], ip))
 			ip = fmt.Sprintf("%d.%d.%d.%d", rand.Intn(256), rand.Intn(256), rand.Intn(256), rand.Intn(256))
@@ -53,11 +54,14 @@ func main() {
 			ipv6 := fmt.Sprintf("2001:db8::%d%d%d%d:%d%d%d%d", rand.Intn(10), rand.Intn(10), rand.Intn(10),
 				rand.Intn(10), rand.Intn(10), rand.Intn(10), rand.Intn(10), rand.Intn(10))
 			output = append(output, fmt.Sprintf("\t:A: ns1.%s [ :ip6: %s ]\n", names[i], ipv6))
-			if i%2 == 0 {
+			ipv6 = fmt.Sprintf("2001:db8::%d%d%d%d:%d%d%d%d", rand.Intn(10), rand.Intn(10), rand.Intn(10),
+				rand.Intn(10), rand.Intn(10), rand.Intn(10), rand.Intn(10), rand.Intn(10))
+			output = append(output, fmt.Sprintf("\t:A: ns1.%s [ :ip6: %s ]\n", names[i], ipv6))
+			/*if i%2 == 0 {
 				output = append(output, fmt.Sprintf("\t:A: %s2 [ :name: %s [ ip4 ip6 ] ]\n", names[i], names[i]))
 			} else {
 				output = append(output, fmt.Sprintf("\t:A: srv.%s [ :srv: srv1.%s %d %d ]\n", names[i], names[i], rand.Intn(65536), rand.Intn(1000)))
-			}
+			}*/
 
 		}
 	}
