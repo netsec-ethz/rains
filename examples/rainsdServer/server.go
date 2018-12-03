@@ -69,8 +69,8 @@ func main() {
 
 func handleResponse(channel chan connection.Message) {
 	data := <-channel
-	log.Error(data.Sender.RemoteAddr().String(), "", data.Msg)
+	//log.Error(data.Sender.RemoteAddr().String(), "", data.Msg)
 	msg := &message.Message{}
 	msg.UnmarshalCBOR(borat.NewCBORReader(bytes.NewReader(data.Msg)))
-	log.Error("", "", msg)
+	log.Info("", "", msg)
 }

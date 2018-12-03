@@ -9,6 +9,8 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -144,4 +146,32 @@ func NewNotificationsMessage(tokens []token.Token, types []section.NotificationT
 func NewNotificationMessage(tok token.Token, t section.NotificationType, data string) message.Message {
 	msg, _ := NewNotificationsMessage([]token.Token{tok}, []section.NotificationType{t}, []string{data})
 	return msg
+}
+
+//SendQuery creates a connection with connInfo, frames msg and writes it to the connection.
+//It then waits for the response which it then outputs to the command line and if specified additionally stores to a file.
+func SendQuery(msg message.Message, token token.Token, connInfo connection.Info) (message.Message, error) {
+	conn, err := connection.CreateConnection(connInfo)
+	if err != nil {
+		return message.Message{}, err
+	}
+	defer conn.Close()
+
+	done := make(chan message.Message)
+	ec := make(chan error)
+	go connection.Listen(conn, token, done, ec)
+
+	writer := cbor.NewWriter(conn)
+	if err := writer.Marshal(&msg); err != nil {
+		return message.Message{}, fmt.Errorf("failed to marshal message: %v", err)
+	}
+
+	select {
+	case msg := <-done:
+		return msg, nil
+	case err := <-ec:
+		return message.Message{}, err
+	case <-time.After(10 * time.Second):
+		return message.Message{}, fmt.Errorf("timed out waiting for response")
+	}
 }
