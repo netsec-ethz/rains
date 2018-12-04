@@ -149,8 +149,10 @@ func NewNotificationMessage(tok token.Token, t section.NotificationType, data st
 }
 
 //SendQuery creates a connection with connInfo, frames msg and writes it to the connection.
-//It then waits for the response which it then outputs to the command line and if specified additionally stores to a file.
-func SendQuery(msg message.Message, token token.Token, connInfo connection.Info) (message.Message, error) {
+//It then waits for the response. When it receives the response or times out, it returns the answer
+//or an error.
+func SendQuery(msg message.Message, connInfo connection.Info, timeout time.Duration) (
+	message.Message, error) {
 	conn, err := connection.CreateConnection(connInfo)
 	if err != nil {
 		return message.Message{}, err
@@ -159,7 +161,7 @@ func SendQuery(msg message.Message, token token.Token, connInfo connection.Info)
 
 	done := make(chan message.Message)
 	ec := make(chan error)
-	go connection.Listen(conn, token, done, ec)
+	go connection.Listen(conn, msg.Token, done, ec)
 
 	writer := cbor.NewWriter(conn)
 	if err := writer.Marshal(&msg); err != nil {
@@ -171,7 +173,7 @@ func SendQuery(msg message.Message, token token.Token, connInfo connection.Info)
 		return msg, nil
 	case err := <-ec:
 		return message.Message{}, err
-	case <-time.After(10 * time.Second):
+	case <-time.After(timeout):
 		return message.Message{}, fmt.Errorf("timed out waiting for response")
 	}
 }

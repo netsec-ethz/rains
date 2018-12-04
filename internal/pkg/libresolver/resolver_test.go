@@ -1,4 +1,4 @@
-package resolver
+package libresolve
 
 import (
 	"fmt"

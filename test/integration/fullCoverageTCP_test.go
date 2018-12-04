@@ -90,7 +90,7 @@ func loadAnswers(t *testing.T) []section.WithSigForward {
 
 func sendQuery(t *testing.T, query query.Name, connInfo connection.Info, answer section.Section) {
 	msg := message.Message{Token: token.New(), Content: []section.Section{&query}}
-	answerMsg, err := util.SendQuery(msg, msg.Token, connInfo)
+	answerMsg, err := util.SendQuery(msg, connInfo, time.Second)
 	if err != nil {
 		t.Fatalf("could not send query or receive answer. query=%v err=%v", msg.Content, err)
 	}

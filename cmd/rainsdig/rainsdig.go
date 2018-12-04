@@ -95,7 +95,7 @@ func main() {
 
 		msg := util.NewQueryMessage(*name, *context, *expires, qt, queryOptions, token.New())
 
-		answerMsg, err := util.SendQuery(msg, msg.Token, connInfo)
+		answerMsg, err := util.SendQuery(msg, connInfo, time.Second)
 		if err != nil {
 			log.Info(fmt.Sprintf("could not send query: %v", err))
 			os.Exit(1)
