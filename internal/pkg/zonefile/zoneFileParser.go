@@ -91,8 +91,14 @@ type Parser struct{}
 
 //Decode returns all assertions contained in the given zonefile
 func (p Parser) Decode(zoneFile []byte) ([]section.WithSigForward, error) {
-	log.Error("Not yet supported")
-	return nil, nil
+	lines := removeComments(bufio.NewScanner(bytes.NewReader(zoneFile)))
+	log.Debug("Preprocessed input", "data", lines)
+	parser := ZFPNewParser()
+	parser.Parse(&ZFPLex{lines: lines})
+	if len(parser.Result()) == 0 {
+		return nil, errors.New("zonefile malformed. Was not able to parse it.")
+	}
+	return parser.Result(), nil
 }
 
 //DecodeZone returns a zone exactly as it is represented in the zonefile

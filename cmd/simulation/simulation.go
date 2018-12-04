@@ -25,7 +25,7 @@ import (
 
 func main() {
 	h := log.CallerFileHandler(log.StdoutHandler)
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, h))
 	conf := simulation.Example
 	idToResolver := make(map[int]*rainsd.Server)
 	authNames, globalNames, localNames, zoneIPToContinent, zoneIPToTLD, tldIndexToContinent := generate.Zones(simulation.Example)

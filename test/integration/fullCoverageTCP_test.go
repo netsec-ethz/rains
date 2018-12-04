@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
@@ -35,7 +36,7 @@ func TestFullCoverage(t *testing.T) {
 	answers := loadAnswers(t)
 	resolverAddr, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:5025")
 	for i, query := range queries {
-		sendQuery(t, query, connection.Info{Type: connection.TCP, TCPAddr: resolverAddr}, answers[i])
+		sendQuery(t, *query, connection.Info{Type: connection.TCP, TCPAddr: resolverAddr}, answers[i])
 	}
 
 	//Shut down authoritative servers
@@ -45,7 +46,7 @@ func TestFullCoverage(t *testing.T) {
 
 	//Send queries to client resolver and observe the cached results.
 	for i, query := range queries {
-		sendQuery(t, query, connection.Info{Type: connection.TCP, TCPAddr: resolverAddr}, answers[i])
+		sendQuery(t, *query, connection.Info{Type: connection.TCP, TCPAddr: resolverAddr}, answers[i])
 	}
 }
 
@@ -61,6 +62,7 @@ func startAuthServer(t *testing.T, name string) *rainsd.Server {
 	}
 	pubServer := publisher.New(config)
 	pubServer.Publish()
+	time.Sleep(100 * time.Millisecond)
 	return server
 }
 
@@ -73,13 +75,17 @@ func loadQueries(t *testing.T) []*query.Name {
 	return zfParser.DecodeNameQueriesUnsafe(encoding)
 }
 
-func loadAnswers(t *testing.T) []section.Section {
-	//TODO
-	var err error
+func loadAnswers(t *testing.T) []section.WithSigForward {
+	encoding, err := ioutil.ReadFile("messages/answers.txt")
 	if err != nil {
-		t.Fatal("Was not able to load answers: ", err)
+		t.Fatal("Was not able to open answers.txt file: ", err)
 	}
-	return nil
+	zfParser := zonefile.Parser{}
+	sections, err := zfParser.Decode(encoding)
+	if err != nil {
+		t.Fatal("Was not able to parse answers.txt file: ", err)
+	}
+	return sections
 }
 
 func sendQuery(t *testing.T, query query.Name, connInfo connection.Info, answer section.Section) {

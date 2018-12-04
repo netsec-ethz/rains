@@ -9,6 +9,7 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
@@ -731,8 +732,11 @@ func benchmarkVerifyShard(zonefileName string, apers int, b *testing.B) {
 		RangeTo:     "asdfasdfasdf",
 	}
 	for i := range zone.Content {
-		if i%apers == 0 {
+		if (i+1)%apers == 0 {
 			shards = append(shards, shard)
+			//encoding := new(bytes.Buffer)
+			//shard.MarshalCBOR(cbor.NewCBORWriter(encoding))
+			//b.Error(len(encoding.Bytes()))
 			shard = &section.Shard{
 				Context:     ".",
 				SubjectZone: "TestSubject",
@@ -767,8 +771,8 @@ func benchmarkVerifyShard(zonefileName string, apers int, b *testing.B) {
 	}
 }
 
-func BenchmarkVerifyShard10(b *testing.B)   { benchmarkVerifyShard("test/zf100000", 10, b) }
-func BenchmarkVerifyShard100(b *testing.B)  { benchmarkVerifyShard("test/zf100000", 100, b) }
+func BenchmarkVerifyShard10(b *testing.B)   { benchmarkVerifyShard("test/zf1000", 1000, b) }
+func BenchmarkVerifyShard100(b *testing.B)  { benchmarkVerifyShard("test/zf1000", 100, b) }
 func BenchmarkVerifyShard1000(b *testing.B) { benchmarkVerifyShard("test/zf1000", 1000, b) }
 
 func BenchmarkEd25519Signing(b *testing.B) {
@@ -792,4 +796,46 @@ func BenchmarkEd25519Verify(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		ed25519.Verify(publicKey, encoding, sig)
 	}
+}
+
+func calcSpaceSaving(zonefileName string, b *testing.B) {
+	log.Root().SetHandler(log.DiscardHandler())
+	parser := new(zonefile.Parser)
+	zone, err := parser.LoadZone(zonefileName)
+	if err != nil {
+		b.Error(err)
+		return
+	}
+	shard := &section.Shard{
+		Context:     ".",
+		SubjectZone: "TestSubject",
+		RangeFrom:   "asdfasdfasdf",
+		RangeTo:     "asdfasdfasdf",
+	}
+	pshard := &section.Pshard{
+		Context:     ".",
+		SubjectZone: "TestSubject",
+		RangeFrom:   "asdfasdfasdf",
+		RangeTo:     "asdfasdfasdf",
+		Datastructure: section.DataStructure{
+			Type: section.BloomFilterType,
+			Data: section.BloomFilter{
+				HashFamily:       []algorithmTypes.Hash{algorithmTypes.Murmur364},
+				ModeOfOperation:  section.KirschMitzenmacher1,
+				NofHashFunctions: 10,
+				Filter:           make(bitarray.BitArray, 120),
+			},
+		},
+	}
+	for _, sec := range zone.Content {
+		shard.Content = append(shard.Content, sec.(*section.Assertion))
+		pshard.Datastructure.Data.(section.BloomFilter).AddAssertion(sec.(*section.Assertion))
+	}
+	encoding := new(bytes.Buffer)
+	shard.MarshalCBOR(cbor.NewCBORWriter(encoding))
+	b.Error(len(encoding.Bytes()))
+}
+
+func BenchmarkSpace(b *testing.B) {
+	calcSpaceSaving("test/zf500", b)
 }
