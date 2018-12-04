@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/tls"
-	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -11,13 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/section"
-
 	log "github.com/inconshreveable/log15"
 
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
-	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
@@ -101,74 +95,16 @@ func main() {
 
 		msg := util.NewQueryMessage(*name, *context, *expires, qt, queryOptions, token.New())
 
-		err = sendQuery(msg, msg.Token, connInfo)
+		answerMsg, err := util.SendQuery(msg, msg.Token, connInfo)
 		if err != nil {
 			log.Info(fmt.Sprintf("could not send query: %v", err))
 			os.Exit(1)
 		}
-	}
-}
-
-//sendQuery creates a connection with connInfo, frames msg and writes it to the connection.
-//It then waits for the response which it then outputs to the command line and if specified additionally stores to a file.
-func sendQuery(msg message.Message, token token.Token, connInfo connection.Info) error {
-	conn, err := createConnection(connInfo)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	done := make(chan message.Message)
-	ec := make(chan error)
-	go listen(conn, token, done, ec)
-
-	writer := cbor.NewWriter(conn)
-	if err := writer.Marshal(&msg); err != nil {
-		return fmt.Errorf("failed to marshal message: %v", err)
-	}
-
-	select {
-	case msg := <-done:
-		for _, section := range msg.Content {
+		for _, section := range answerMsg.Content {
 			// TODO: validate signatures.
 			fmt.Println(zfParser.Encode(section))
 		}
-	case err := <-ec:
-		return err
-	case <-time.After(10 * time.Second):
-		return fmt.Errorf("timed out waiting for response")
 	}
-	return nil
-}
-
-//createConnection returns a newly created connection with connInfo or an error
-func createConnection(connInfo connection.Info) (conn net.Conn, err error) {
-	switch connInfo.Type {
-	case connection.TCP:
-		return tls.Dial(connInfo.TCPAddr.Network(), connInfo.String(), &tls.Config{InsecureSkipVerify: *insecureTLS})
-	default:
-		return nil, errors.New("unsupported Network address type")
-	}
-}
-
-func listen(conn net.Conn, tok token.Token, done chan<- message.Message, ec chan<- error) {
-	reader := cbor.NewReader(conn)
-	var msg message.Message
-	if err := reader.Unmarshal(&msg); err != nil {
-		if err.Error() == "failed to read tag: EOF" {
-			ec <- fmt.Errorf("connection has been closed")
-		} else {
-			ec <- fmt.Errorf("failed to unmarshal response: %v", err)
-		}
-		return
-	}
-	if msg.Token != tok {
-		if n, ok := msg.Content[0].(*section.Notification); !ok || n.Token != tok {
-			ec <- fmt.Errorf("token response mismatch: got %v, want %v", msg.Token, tok)
-			return
-		}
-	}
-	done <- msg
 }
 
 //qoptFlag defines the query options flag. It allows a user to specify multiple query options and their priority (by input sequence)

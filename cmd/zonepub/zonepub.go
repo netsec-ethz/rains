@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -186,10 +187,10 @@ func main() {
 		config.MetaDataConf.KeyPhase = *keyPhase
 	}
 	if *sigValidSince != -1 {
-		config.MetaDataConf.SigValidSince = time.Duration(*sigValidSince) * time.Second
+		config.MetaDataConf.SigValidSince = *sigValidSince
 	}
 	if *sigValidUntil != -1 {
-		config.MetaDataConf.SigValidUntil = time.Duration(*sigValidUntil) * time.Second
+		config.MetaDataConf.SigValidUntil = *sigValidUntil
 	}
 	if *sigSigningInterval != -1 {
 		config.MetaDataConf.SigSigningInterval = time.Duration(*sigSigningInterval) * time.Second
@@ -335,26 +336,11 @@ func (i *boolFlag) String() string {
 }
 
 func (i *boolFlag) Set(value string) error {
-	if isTrue(value) {
-		i.set = true
-		i.value = true
-		return nil
+	input, err := strconv.ParseBool(value)
+	if err != nil {
+		return fmt.Errorf("invalid boolean value")
 	}
-	if isFalse(value) {
-		i.set = true
-		return nil
-	}
-	return fmt.Errorf("invalid boolean value")
-}
-
-//isTrue returns true if a boolean flag is either true, True, TRUE, T, t or 1 (as in the flag
-//package)
-func isTrue(v string) bool {
-	return v == "true" || v == "True" || v == "TRUE" || v == "1" || v == "T" || v == "t"
-}
-
-//isFalse returns true if a boolean flag is either false, False, FALSE, F, f, 0 (as in the flag
-//package)
-func isFalse(v string) bool {
-	return v == "false" || v == "False" || v == "FALSE" || v == "0" || v == "F" || v == "f"
+	i.set = true
+	i.value = input
+	return nil
 }

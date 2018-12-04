@@ -1,11 +1,17 @@
 package connection
 
 import (
+	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
 //Info contains address information about one actor of a connection of the declared type
@@ -138,4 +144,34 @@ func (c *Channel) SetReadDeadline(t time.Time) error {
 }
 func (c *Channel) SetWriteDeadline(t time.Time) error {
 	return nil
+}
+
+//CreateConnection returns a newly created connection with connInfo or an error
+func CreateConnection(connInfo Info) (conn net.Conn, err error) {
+	switch connInfo.Type {
+	case TCP:
+		return tls.Dial(connInfo.TCPAddr.Network(), connInfo.String(), &tls.Config{InsecureSkipVerify: true})
+	default:
+		return nil, errors.New("unsupported Network address type")
+	}
+}
+
+func Listen(conn net.Conn, tok token.Token, done chan<- message.Message, ec chan<- error) {
+	reader := cbor.NewReader(conn)
+	var msg message.Message
+	if err := reader.Unmarshal(&msg); err != nil {
+		if err.Error() == "failed to read tag: EOF" {
+			ec <- fmt.Errorf("connection has been closed")
+		} else {
+			ec <- fmt.Errorf("failed to unmarshal response: %v", err)
+		}
+		return
+	}
+	if msg.Token != tok {
+		if n, ok := msg.Content[0].(*section.Notification); !ok || n.Token != tok {
+			ec <- fmt.Errorf("token response mismatch: got %v, want %v", msg.Token, tok)
+			return
+		}
+	}
+	done <- msg
 }
