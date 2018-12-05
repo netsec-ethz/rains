@@ -13,6 +13,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/libresolve"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
@@ -31,6 +32,8 @@ type Server struct {
 	//recursiveResolver is the input channel of a recursive resolver which handles all recursive lookups
 	//of this server
 	sendToRecResolver func(connection.Message)
+	//resolver can be configured as a forwarder or perform recursive lookup by itself.
+	resolver *libresolve.Resolver
 	//config contains configurations of this server
 	config rainsdConfig
 	//authority states the names over which this server has authority

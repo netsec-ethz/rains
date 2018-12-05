@@ -43,7 +43,7 @@ type Resolver struct {
 	DialTimeout     time.Duration
 	FailFast        bool
 	Delegations     *safeHashMap.Map
-	Connections     map[connection.Info]net.Conn
+	Connections     map[connection.Info]net.Conn //FIXME make this map concurency safe, use the connection cache from rainsd
 }
 
 //New creates a resolver with the given parameters and default settings
