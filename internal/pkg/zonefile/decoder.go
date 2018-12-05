@@ -16,6 +16,7 @@ func decodeNameQueryUnsafe(scanner *bufio.Scanner) *query.Name {
 	q.Context = scanner.Text()
 	scanner.Scan()
 	q.Name = scanner.Text()
+	scanner.Scan()
 	q.Types = decodeObjectTypesUnsafe(scanner)
 	scanner.Scan()
 	q.Expiration, _ = strconv.ParseInt(scanner.Text(), 10, 64)

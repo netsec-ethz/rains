@@ -35,7 +35,7 @@ func TestFullCoverage(t *testing.T) {
 	cachingResolver.SetResolver(libresolve.New([]connection.Info{rootServer.Addr()}, nil,
 		libresolve.Recursive, cachingResolver.Addr()))
 	go cachingResolver.Start(false)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(5000 * time.Millisecond)
 
 	//Send queries to client resolver and observe the recursive lookup results.
 	queries := loadQueries(t)
@@ -68,7 +68,7 @@ func startAuthServer(t *testing.T, name string, rootServers []connection.Info) *
 	}
 	pubServer := publisher.New(config)
 	pubServer.Publish()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 	return server
 }
 

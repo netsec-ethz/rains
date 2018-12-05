@@ -4,8 +4,7 @@
     :S: < > [
         :A: ch [ :redir:   ns.ch. ]
         :A: ch [ :deleg:   :ed25519: 1 5083912208feadbf07942cb13e12ad5ab45c616f9168897e76357d1370a591c0 ]
-        :A: ns.ch [ :srv:     ns1.ch. 5022 0 ]
-        :A: ns1.ch [ :ip4:     33.15.199.187 ]
+        :A: ns.ch [ :srv:     ns1.ch. 5023 0 ]
+        :A: ns1.ch [ :ip4:     127.0.0.1 ]
     ]
-
 ]

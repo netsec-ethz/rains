@@ -175,15 +175,16 @@ func (r *Resolver) forwardQuery(q *query.Name) (*message.Message, error) {
 func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
 	for _, root := range r.RootNameServers {
 		log.Debug("connecting to root server", "serverAddr", root, "query", q)
-		msg := message.Message{Token: token.New(), Content: []section.Section{q}}
 		connInfo := root
 		for {
+			msg := message.Message{Token: token.New(), Content: []section.Section{q}}
 			answer, err := util.SendQuery(msg, connInfo, r.DialTimeout*time.Millisecond)
 			if err != nil || len(answer.Content) == 0 {
 				continue
 			}
+			log.Warn("recursive lookup answer", "query", q, "answer", answer)
 			isFinal, isRedir, redirMap, srvMap, ipMap := r.handleAnswer(answer, q)
-			log.Debug("handling answer in recursive lookup", "serverAddr", connInfo, "isFinal",
+			log.Error("handling answer in recursive lookup", "serverAddr", connInfo, "isFinal",
 				isFinal, "isRedir", isRedir, "redirMap", redirMap, "srvMap", srvMap, "ipMap", ipMap)
 			if isFinal {
 				return &answer, nil
