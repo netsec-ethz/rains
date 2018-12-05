@@ -2,14 +2,16 @@
 package libresolve
 
 import (
-	"crypto/tls"
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"time"
 
+	"github.com/britram/borat"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"github.com/netsec-ethz/rains/internal/pkg/generate"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
@@ -48,7 +50,7 @@ type Resolver struct {
 }
 
 //New creates a resolver with the given parameters and default settings
-func New(rootNS, forwarders []connection.Info, mode ResolutionMode) *Resolver {
+func New(rootNS, forwarders []connection.Info, mode ResolutionMode, addr connection.Info) *Resolver {
 	return &Resolver{
 		RootNameServers: rootNS,
 		Forwarders:      forwarders,
@@ -98,12 +100,59 @@ func (r *Resolver) ServerLookup(query *query.Name, connInfo connection.Info) {
 
 func (r *Resolver) createConnAndWrite(connInfo connection.Info, msg message.Message) {
 	conn, err := connection.CreateConnection(connInfo)
+	r.Connections[connInfo] = conn
+	go r.answerDelegQueries(conn, connInfo)
 	writer := cbor.NewWriter(conn)
 	if err := writer.Marshal(&msg); err != nil {
 		log.Error("failed to marshal message", err)
+		delete(r.Connections, connInfo)
 	}
-	r.Connections[connInfo] = conn
-	//FIXME implement listener, to respond to server when he requests delegations
+}
+
+//answerDelegQueries answers delegation queries on conn from its cache. The cache is populated
+//through delegations received in a recursive lookup.
+func (r *Resolver) answerDelegQueries(conn net.Conn, connInfo connection.Info) {
+	var msg message.Message
+	reader := cbor.NewReader(conn)
+	writer := cbor.NewWriter(conn)
+	for {
+		if err := reader.Unmarshal(&msg); err != nil {
+			if err.Error() == "failed to read tag: EOF" {
+				log.Info("Connection has been closed", "conn", connInfo)
+			} else {
+				log.Warn(fmt.Sprintf("failed to read from client: %v", err))
+			}
+			delete(r.Connections, connInfo)
+			break
+		}
+		answer := r.getDelegations(msg)
+		msg = message.Message{Token: msg.Token, Content: answer}
+		if err := writer.Marshal(&msg); err != nil {
+			log.Error("failed to marshal message", err)
+			delete(r.Connections, connInfo)
+			break
+		}
+	}
+}
+
+//getDelegations returns all cached delegations answering a query in msg.
+func (r *Resolver) getDelegations(msg message.Message) []section.Section {
+	answer := []section.Section{}
+	for _, s := range msg.Content {
+		if q, ok := s.(*query.Name); ok {
+			for _, t := range q.Types {
+				if t == object.OTDelegation {
+					if a, ok := r.Delegations[q.Name]; ok {
+						answer = append(answer, a)
+					} else {
+						log.Warn("requested delegation is not cached. This should never happen")
+					}
+					break
+				}
+			}
+		}
+	}
+	return answer
 }
 
 func (r *Resolver) forwardQuery(q *query.Name) (*message.Message, error) {
@@ -132,165 +181,86 @@ func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
 				continue
 			}
 			//Check if answer is final or a delegation
-			//TODO maybe use a better heuristic
-			redir := false
+			types := make(map[object.Type]bool)
+			redirMap := make(map[string]string)
+			delegMap := make(map[string]string)
+			srvMap := make(map[string]object.ServiceInfo)
+			ipMap := make(map[string]string)
+			for _, t := range q.Types {
+				types[t] = true
+			}
+			isRedir := false
+			finalAnswer := false
 			for _, sec := range answer.Content {
-				if a, ok := sec.(*section.Assertion); ok {
-					for _, o := range a.Content {
-						if o.Type == object.OTRedirection {
-							redir = true
-						}
+				switch s := sec.(type) {
+				case *section.Assertion:
+					handleAssertion()
+				case *section.Shard:
+					handleShard()
+				case *section.Zone:
+					handleZone()
+				}
+			}
+			if finalAnswer {
+				//send back
+			} else if isRedir {
+				// If we are here, there is some recursion required or there is no answer.
+				// Firstly we check if there is some redirection for a suffix we are interested in.
+				redirTarget := ""
+				for key, value := range redirectMap {
+					if strings.HasSuffix(name, key) {
+						redirTarget = value
 					}
 				}
-			}
-		}
-		d := &net.Dialer{
-			Timeout: r.DialTimeout,
-		}
-		conn, err := tls.DialWithDialer(d, "tcp", latestResolver, &tls.Config{InsecureSkipVerify: r.InsecureTLS})
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect to resolver: %v", err)
-		}
-		defer conn.Close()
-		writer := cbor.NewWriter(conn)
-		q := r.nameToQuery(name, context, time.Now().Add(15*time.Second).Unix(), []query.Option{})
-		if err := writer.Marshal(&q); err != nil {
-			return nil, fmt.Errorf("failed to marshal query to server: %v", err)
-		}
-		done := make(chan *message.Message)
-		ec := make(chan error)
-		go listen(conn, q.Token, done, ec)
-		select {
-		case msg := <-done:
-			resp = msg
-		case err := <-ec:
-			return nil, err
-		}
-		if len(resp.Content) == 0 {
-			return nil, errors.New("got empty response")
-		}
-		// The response can either be a redirection chain or a response.
-		redirectMap := make(map[string]string)
-		srvMap := make(map[string]object.ServiceInfo)
-		concreteMap := make(map[string]string)
-		for _, sec := range resp.Content {
-			switch sec.(type) {
-			case *section.Zone:
-				// If we were given a whole zone it's because we asked for it or it's non-existance proof.
-				return resp, nil
-			case *section.Assertion:
-				as := sec.(*section.Assertion)
-				sz := mergeSubjectZone(as.SubjectName, as.SubjectZone)
-				if sz == name {
-					return resp, nil
+				if redirTarget == "" {
+					return nil, fmt.Errorf("failed to find result or redirection, response was: %v", resp)
 				}
-				for _, obj := range as.Content {
-					switch obj.Type {
-					case object.OTRedirection:
-						redirectMap[sz] = obj.Value.(string)
-					case object.OTServiceInfo:
-						si := obj.Value.(object.ServiceInfo)
-						srvMap[sz] = si
-					case object.OTIP4Addr:
-						concreteMap[sz] = obj.Value.(string)
-					case object.OTIP6Addr:
-						concreteMap[sz] = fmt.Sprintf("[%s]", obj.Value.(string))
+				// Follow redir until we encounter a srv.
+				seen := make(map[string]bool)
+				for {
+					if _, ok := seen[redirTarget]; ok {
+						return nil, fmt.Errorf("redirect loop detected, target %q, response: %v", redirTarget, resp)
+					}
+					seen[redirTarget] = true
+					if next, ok := redirectMap[redirTarget]; ok {
+						redirTarget = next
+					} else {
+						break
 					}
 				}
-			case *section.Shard:
-				return resp, nil
-			default:
-				return nil, fmt.Errorf("got unknown type: %T", sec)
-			}
-		}
-		// If we are here, there is some recursion required or there is no answer.
-		// Firstly we check if there is some redirection for a suffix we are interested in.
-		redirTarget := ""
-		for key, value := range redirectMap {
-			if strings.HasSuffix(name, key) {
-				redirTarget = value
-			}
-		}
-		if redirTarget == "" {
-			return nil, fmt.Errorf("failed to find result or redirection, response was: %v", resp)
-		}
-		// Follow redir until we encounter a srv.
-		seen := make(map[string]bool)
-		for {
-			if _, ok := seen[redirTarget]; ok {
-				return nil, fmt.Errorf("redirect loop detected, target %q, response: %v", redirTarget, resp)
-			}
-			seen[redirTarget] = true
-			if next, ok := redirectMap[redirTarget]; ok {
-				redirTarget = next
+				// There should now be a mapping between the next redirTarget and a serviceinfo object.
+				if srvInfo, ok := srvMap[redirTarget]; ok {
+					// srvInfo should contain a name
+					if concreteTarget, ok := concreteMap[srvInfo.Name]; ok {
+						latestResolver = fmt.Sprintf("%s:%d", concreteTarget, srvInfo.Port)
+					} else {
+						return nil, fmt.Errorf("serviceInfo target could not be found in response, target: %q, resp: %v", srvInfo.Name, resp)
+					}
+				} else {
+					return nil, fmt.Errorf("recieved incomplete response, missing serviceInfo for target FQDN %q, resp: %v", redirTarget, resp)
+				}
+				//TODO warn, if no delegation assertion was received. Must request it so we can
+				//answer caching resolver or client.
 			} else {
+				log.Warn("received unexpected answer to query. Recursive lookup cannot be continued")
 				break
 			}
+
 		}
-		// There should now be a mapping between the next redirTarget and a serviceinfo object.
-		if srvInfo, ok := srvMap[redirTarget]; ok {
-			// srvInfo should contain a name
-			if concreteTarget, ok := concreteMap[srvInfo.Name]; ok {
-				latestResolver = fmt.Sprintf("%s:%d", concreteTarget, srvInfo.Port)
-			} else {
-				return nil, fmt.Errorf("serviceInfo target could not be found in response, target: %q, resp: %v", srvInfo.Name, resp)
-			}
-		} else {
-			return nil, fmt.Errorf("recieved incomplete response, missing serviceInfo for target FQDN %q, resp: %v", redirTarget, resp)
-		}
+
 	}
 }
 
-/*func (s *Server) Start() {
-	log.Info("Starting recursive resolver", "ID", s.input.RemoteAddr().String())
-	for {
-		msg := <-s.input.RemoteChan
-		m := &message.Message{}
-		reader := cbor.NewReader(bytes.NewBuffer(msg.Msg))
-		if err := reader.Unmarshal(m); err != nil {
-			log.Warn(fmt.Sprintf("failed to unmarshal msg recv over channel: %v", err))
-			continue
-		}
-		//if "-"+msg.Sender.RemoteAddr().String() == s.input.RemoteAddr().String() { FIXME CFE
-		//RemoteAddr is not correctly returned by naming server. Why?
-		if oldMsg, ok := s.newTokenToMsg[m.Token]; !ok {
-			//New query from the caching resolver
-			log.Info("RR received message from caching resolver", "resolver", msg.Sender.RemoteAddr().String(), "msg", m)
-			q := m.Query()
-			if q.Types[0] == object.OTDelegation {
-				if a, ok := s.delegations[q.Name]; ok {
-					m.Content = []section.Section{a}
-					returnToCachingResolver(m.Token, *m, s.input, s.cachingResolver)
-					continue
-				}
-			}
-			newToken := forwardQuery(*m, s.input, s.ipToChan[s.rootIPAddr], s.rootIPAddr, s.continent, s.tld, s.delay)
-			s.newTokenToMsg[newToken] = m
-		} else {
-			//New answer from a recursive lookup
-			//FIXME does not work with self reference in subjectName (@)
-			log.Info("RR received message from a naming server", "namingServer", msg.Sender.RemoteAddr().String(), "msg", m)
-			//oldMsg := s.newTokenToMsg[m.Token] //FIXME CFE see above
-			switch sec := m.Content[0].(type) {
-			case *section.Assertion:
-				if sec.Content[0].Type == object.OTDelegation {
-					s.delegations[sec.FQDN()] = sec
-				}
-				if oldMsg.Query().Name == sec.FQDN() {
-					returnToCachingResolver(oldMsg.Token, *m, s.input, s.cachingResolver)
-				} else {
-					//FIXME CFE assumes that the response of a naming server contains 4 assertions
-					//where the last one is of ip4 type
-					addr := m.Content[3].(*section.Assertion).Content[0].Value.(string)
-					newToken := forwardQuery(*oldMsg, s.input, s.ipToChan[addr], addr, s.continent, s.tld, s.delay)
-					delete(s.newTokenToMsg, m.Token)
-					s.newTokenToMsg[newToken] = oldMsg
-				}
-			case *section.Shard, *section.Zone:
-				returnToCachingResolver(oldMsg.Token, *m, s.input, s.cachingResolver)
-			}
-		}
-	}
+func handleAssertion() {
+	//TODO
+}
+
+func handleShard() {
+	//TODO
+}
+
+func handleZone() {
+	//TODO
 }
 
 func forwardQuery(msg message.Message, input *connection.Channel, forward func(connection.Message),
@@ -305,7 +275,7 @@ func forwardQuery(msg message.Message, input *connection.Channel, forward func(c
 	forward(connection.Message{Msg: encoding.Bytes(), Sender: input})
 	log.Info("RR sent message to naming server", "namingServer", addr, "msg", msg)
 	return msg.Token
-}*/
+}
 
 func NameToLabels(name string) ([]string, error) {
 	if !strings.HasSuffix(name, ".") {
