@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
-
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeHashMap"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
@@ -42,7 +42,7 @@ type Resolver struct {
 	InsecureTLS     bool
 	DialTimeout     time.Duration
 	FailFast        bool
-	Delegations     map[string]*section.Assertion
+	Delegations     *safeHashMap.Map
 	Connections     map[connection.Info]net.Conn
 }
 
@@ -55,7 +55,7 @@ func New(rootNS, forwarders []connection.Info, mode ResolutionMode, addr connect
 		InsecureTLS:     defaultInsecureTLS,
 		DialTimeout:     defaultTimeout,
 		FailFast:        defaultFailFast,
-		Delegations:     make(map[string]*section.Assertion),
+		Delegations:     safeHashMap.New(),
 		Connections:     make(map[connection.Info]net.Conn),
 	}
 }
@@ -143,8 +143,8 @@ func (r *Resolver) getDelegations(msg message.Message) []section.Section {
 		if q, ok := s.(*query.Name); ok {
 			for _, t := range q.Types {
 				if t == object.OTDelegation {
-					if a, ok := r.Delegations[q.Name]; ok {
-						answer = append(answer, a)
+					if a, ok := r.Delegations.Get(q.Name); ok {
+						answer = append(answer, a.(*section.Assertion))
 					} else {
 						log.Warn("requested delegation is not cached. This should never happen")
 					}
@@ -295,7 +295,7 @@ func (r *Resolver) handleAssertion(a *section.Assertion, redirMap map[string]str
 				*isRedir = true
 			}
 		case object.OTDelegation:
-			r.Delegations[a.FQDN()] = a
+			r.Delegations.Add(a.FQDN(), a)
 		case object.OTServiceInfo:
 			srvMap[a.FQDN()] = o.Value.(object.ServiceInfo)
 		case object.OTIP6Addr:
