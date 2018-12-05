@@ -2,16 +2,13 @@
 package libresolve
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"time"
 
-	"github.com/britram/borat"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
-	"github.com/netsec-ethz/rains/internal/pkg/generate"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
@@ -180,75 +177,96 @@ func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
 			if err != nil || len(answer.Content) == 0 {
 				continue
 			}
-			//Check if answer is final or a delegation
-			types := make(map[object.Type]bool)
-			redirMap := make(map[string]string)
-			delegMap := make(map[string]string)
-			srvMap := make(map[string]object.ServiceInfo)
-			ipMap := make(map[string]string)
-			for _, t := range q.Types {
-				types[t] = true
-			}
-			isRedir := false
-			finalAnswer := false
-			for _, sec := range answer.Content {
-				switch s := sec.(type) {
-				case *section.Assertion:
-					handleAssertion()
-				case *section.Shard:
-					handleShard()
-				case *section.Zone:
-					handleZone()
-				}
-			}
-			if finalAnswer {
-				//send back
+			isFinal, isRedir, redirMap, srvMap, ipMap := r.handleAnswer(msg, q)
+			if isFinal {
+				return &msg, nil
 			} else if isRedir {
-				// If we are here, there is some recursion required or there is no answer.
-				// Firstly we check if there is some redirection for a suffix we are interested in.
+				// Check if there is a redirection for a suffix we are interested in.
 				redirTarget := ""
-				for key, value := range redirectMap {
-					if strings.HasSuffix(name, key) {
+				for key, value := range redirMap {
+					if strings.HasSuffix(q.Name, key) {
 						redirTarget = value
+						break
 					}
 				}
 				if redirTarget == "" {
-					return nil, fmt.Errorf("failed to find result or redirection, response was: %v", resp)
+					return nil, fmt.Errorf("failed to find result or redirection, response was: %v",
+						msg)
 				}
+
 				// Follow redir until we encounter a srv.
 				seen := make(map[string]bool)
 				for {
 					if _, ok := seen[redirTarget]; ok {
-						return nil, fmt.Errorf("redirect loop detected, target %q, response: %v", redirTarget, resp)
+						return nil, fmt.Errorf("redirect loop detected, target %q, response: %v",
+							redirTarget, msg)
 					}
 					seen[redirTarget] = true
-					if next, ok := redirectMap[redirTarget]; ok {
+					if next, ok := redirMap[redirTarget]; ok {
 						redirTarget = next
 					} else {
 						break
 					}
 				}
-				// There should now be a mapping between the next redirTarget and a serviceinfo object.
+
+				// Lookup service information and destination address
 				if srvInfo, ok := srvMap[redirTarget]; ok {
-					// srvInfo should contain a name
-					if concreteTarget, ok := concreteMap[srvInfo.Name]; ok {
-						latestResolver = fmt.Sprintf("%s:%d", concreteTarget, srvInfo.Port)
+					if ipAddr, ok := ipMap[srvInfo.Name]; ok {
+						connInfo.TCPAddr, err = net.ResolveTCPAddr("tcp",
+							fmt.Sprintf("%s:%d", ipAddr, srvInfo.Port))
+						if err != nil {
+							return nil, fmt.Errorf("received IP address or port is malformed: %v",
+								msg)
+						}
 					} else {
-						return nil, fmt.Errorf("serviceInfo target could not be found in response, target: %q, resp: %v", srvInfo.Name, resp)
+						return nil, fmt.Errorf(
+							"serviceInfo target could not be found in response, target: %q, response: %v",
+							srvInfo.Name, msg)
 					}
 				} else {
-					return nil, fmt.Errorf("recieved incomplete response, missing serviceInfo for target FQDN %q, resp: %v", redirTarget, resp)
+					return nil, fmt.Errorf(
+						"received incomplete response, missing serviceInfo for target FQDN %q, response: %v",
+						redirTarget, msg)
 				}
-				//TODO warn, if no delegation assertion was received. Must request it so we can
-				//answer caching resolver or client.
 			} else {
-				log.Warn("received unexpected answer to query. Recursive lookup cannot be continued")
+				log.Warn("received unexpected answer to query. Recursive lookup cannot be continued",
+					"authServer", connInfo)
 				break
 			}
-
 		}
-
 	}
+	return nil, fmt.Errorf("Was not able to obtain an answer through a recursive lookup for query: %s",
+		q.String())
+}
+
+//handleAnswer stores delegation assertions in the delegationCache. It informs the caller if msg
+//answers q. It also returns if the msg contains a redirect assertion which indicates that
+//another lookup must be performed. Information that is relevant for the next lookup are returned in
+//maps.
+func (r *Resolver) handleAnswer(msg message.Message, q *query.Name) (isFinal bool, isRedir bool,
+	redirMap map[string]string, srvMap map[string]object.ServiceInfo, ipMap map[string]string) {
+	types := make(map[object.Type]bool)
+	redirMap := make(map[string]string)
+	delegMap := make(map[string]string)
+	srvMap := make(map[string]object.ServiceInfo)
+	ipMap := make(map[string]string)
+	for _, t := range q.Types {
+		types[t] = true
+	}
+	isRedir := false
+	finalAnswer := false
+	for _, sec := range answer.Content {
+		switch s := sec.(type) {
+		case *section.Assertion:
+			handleAssertion()
+		case *section.Shard:
+			handleShard()
+		case *section.Zone:
+			handleZone()
+		}
+	}
+	//TODO warn, if no delegation assertion was received. Must request it so we can
+	//answer caching resolver or client. in case we also got a redir.
 }
 
 func handleAssertion() {
@@ -261,47 +279,4 @@ func handleShard() {
 
 func handleZone() {
 	//TODO
-}
-
-func forwardQuery(msg message.Message, input *connection.Channel, forward func(connection.Message),
-	addr string, continent, tld int, delay *generate.Delay) token.Token {
-	msg.Token = token.New()
-	encoding := new(bytes.Buffer)
-	err := msg.MarshalCBOR(borat.NewCBORWriter(encoding))
-	panicOnError(err)
-	//TODO CFE instead of adding all the delay when sending, add half of it when it is received
-	log.Info("RTT to naming server", "Delay", delay.Calc(continent, tld, addr))
-	time.Sleep(delay.Calc(continent, tld, addr))
-	forward(connection.Message{Msg: encoding.Bytes(), Sender: input})
-	log.Info("RR sent message to naming server", "namingServer", addr, "msg", msg)
-	return msg.Token
-}
-
-func NameToLabels(name string) ([]string, error) {
-	if !strings.HasSuffix(name, ".") {
-		return nil, fmt.Errorf("domain name must end with root qualifier '.', got %s", name)
-	}
-	parts := strings.Split(name, ".")
-	// Last element is empty because of root dot, so discard it.
-	return parts[:len(parts)-1], nil
-}
-
-func (r *Resolver) nameToQuery(name, context string, expTime int64, opts []query.Option) message.Message {
-	types := []object.Type{object.OTIP4Addr, object.OTIP6Addr, object.OTDelegation, object.OTServiceInfo, object.OTRedirection}
-	return util.NewQueryMessage(name, context, expTime, types, opts, token.New())
-}
-
-// listen waits for one message and passes it back on the provided channel, or an error on the error channel.
-func listen(conn net.Conn, tok token.Token, done chan<- *message.Message, ec chan<- error) {
-	reader := cbor.NewReader(conn)
-	var msg message.Message
-	if err := reader.Unmarshal(&msg); err != nil {
-		ec <- fmt.Errorf("failed to unmarshal response: %v", err)
-		return
-	}
-	if msg.Token != tok {
-		ec <- fmt.Errorf("token response mismatch: got %v, want %v", msg.Token, tok)
-		return
-	}
-	done <- &msg
 }
