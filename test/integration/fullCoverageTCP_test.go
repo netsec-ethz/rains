@@ -3,11 +3,12 @@ package integration
 import (
 	"fmt"
 	"io/ioutil"
-	"net"
 	"testing"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"github.com/netsec-ethz/rains/internal/pkg/libresolve"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
@@ -19,24 +20,28 @@ import (
 )
 
 func TestFullCoverage(t *testing.T) {
+	h := log.CallerFileHandler(log.StdoutHandler)
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
 	//Start authoritative Servers and publish zonefiles to them
-	rootServer := startAuthServer(t, "Root")
-	chServer := startAuthServer(t, "ch")
-	ethzChServer := startAuthServer(t, "ethz.ch")
+	rootServer := startAuthServer(t, "Root", nil)
+	chServer := startAuthServer(t, "ch", []connection.Info{rootServer.Addr()})
+	ethzChServer := startAuthServer(t, "ethz.ch", []connection.Info{rootServer.Addr()})
 
 	//Start client resolver
-	resolver, err := rainsd.New("testdata/conf/resolver.conf", "resolver")
+	cachingResolver, err := rainsd.New("testdata/conf/resolver.conf", "resolver")
 	if err != nil {
 		t.Fatalf("Was not able to create client resolver: %v", err)
 	}
-	go resolver.Start(false)
+	cachingResolver.SetResolver(libresolve.New([]connection.Info{rootServer.Addr()}, nil,
+		libresolve.Recursive, cachingResolver.Addr()))
+	go cachingResolver.Start(false)
+	time.Sleep(100 * time.Millisecond)
 
 	//Send queries to client resolver and observe the recursive lookup results.
 	queries := loadQueries(t)
 	answers := loadAnswers(t)
-	resolverAddr, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:5025")
 	for i, query := range queries {
-		sendQuery(t, *query, connection.Info{Type: connection.TCP, TCPAddr: resolverAddr}, answers[i])
+		sendQuery(t, *query, cachingResolver.Addr(), answers[i])
 	}
 
 	//Shut down authoritative servers
@@ -46,15 +51,16 @@ func TestFullCoverage(t *testing.T) {
 
 	//Send queries to client resolver and observe the cached results.
 	for i, query := range queries {
-		sendQuery(t, *query, connection.Info{Type: connection.TCP, TCPAddr: resolverAddr}, answers[i])
+		sendQuery(t, *query, cachingResolver.Addr(), answers[i])
 	}
 }
 
-func startAuthServer(t *testing.T, name string) *rainsd.Server {
+func startAuthServer(t *testing.T, name string, rootServers []connection.Info) *rainsd.Server {
 	server, err := rainsd.New("testdata/conf/namingServer"+name+".conf", "nameServerRoot")
 	if err != nil {
 		t.Fatal(fmt.Sprintf("Was not able to create %s server: ", name), err)
 	}
+	server.SetResolver(libresolve.New(rootServers, nil, libresolve.Recursive, server.Addr()))
 	go server.Start(false)
 	config, err := publisher.LoadConfig("testdata/conf/publisher" + name + ".conf")
 	if err != nil {
@@ -67,16 +73,20 @@ func startAuthServer(t *testing.T, name string) *rainsd.Server {
 }
 
 func loadQueries(t *testing.T) []*query.Name {
-	encoding, err := ioutil.ReadFile("messages/queries.txt")
+	encoding, err := ioutil.ReadFile("testdata/messages/queries.txt")
 	if err != nil {
 		t.Fatal("Was not able to open queries.txt file: ", err)
 	}
 	zfParser := zonefile.Parser{}
-	return zfParser.DecodeNameQueriesUnsafe(encoding)
+	queries := zfParser.DecodeNameQueriesUnsafe(encoding)
+	for _, q := range queries {
+		q.Expiration = time.Now().Add(time.Hour).Unix()
+	}
+	return queries
 }
 
 func loadAnswers(t *testing.T) []section.WithSigForward {
-	encoding, err := ioutil.ReadFile("messages/answers.txt")
+	encoding, err := ioutil.ReadFile("testdata/messages/answers.txt")
 	if err != nil {
 		t.Fatal("Was not able to open answers.txt file: ", err)
 	}

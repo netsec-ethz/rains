@@ -127,6 +127,7 @@ func (r *Resolver) answerDelegQueries(conn net.Conn, connInfo connection.Info) {
 			break
 		}
 		answer := r.getDelegations(msg)
+		log.Info("received delegation query. Answer with cached assertions", "query", msg, "assertions", answer)
 		msg = message.Message{Token: msg.Token, Content: answer}
 		if err := writer.Marshal(&msg); err != nil {
 			log.Error("failed to marshal message", err)
@@ -181,15 +182,17 @@ func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
 			if err != nil || len(answer.Content) == 0 {
 				continue
 			}
-			isFinal, isRedir, redirMap, srvMap, ipMap := r.handleAnswer(msg, q)
+			isFinal, isRedir, redirMap, srvMap, ipMap := r.handleAnswer(answer, q)
+			log.Debug("handling answer in recursive lookup", "serverAddr", connInfo, "isFinal",
+				isFinal, "isRedir", isRedir, "redirMap", redirMap, "srvMap", srvMap, "ipMap", ipMap)
 			if isFinal {
-				return &msg, nil
+				return &answer, nil
 			} else if isRedir {
-				redirTarget, err := followRedirect(redirMap, msg, q.Name)
+				redirTarget, err := followRedirect(redirMap, answer, q.Name)
 				if err != nil {
 					return nil, err
 				}
-				if err := updateConnInfo(msg, redirTarget, srvMap, ipMap, &connInfo); err != nil {
+				if err := updateConnInfo(answer, redirTarget, srvMap, ipMap, &connInfo); err != nil {
 					return nil, err
 				}
 			} else {

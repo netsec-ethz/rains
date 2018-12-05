@@ -93,9 +93,19 @@ func New(configPath string, id string) (server *Server, err error) {
 	return
 }
 
+//Addr returns the server's address
+func (s *Server) Addr() connection.Info {
+	return s.config.ServerAddress
+}
+
 //SetRecursiveResolver adds a channel which handles recursive lookups for this server
 func (s *Server) SetRecursiveResolver(write func(connection.Message)) {
 	s.sendToRecResolver = write
+}
+
+//SetResolver adds a resolver which can forward or recursively resolve queries for this server
+func (s *Server) SetResolver(resolver *libresolve.Resolver) {
+	s.resolver = resolver
 }
 
 //Start starts up the server and it begins to listen for incoming connections according to its
