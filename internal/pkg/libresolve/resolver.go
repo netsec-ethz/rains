@@ -174,6 +174,16 @@ func (r *Resolver) forwardQuery(q *query.Name) (*message.Message, error) {
 
 // recursiveResolve starts at the root and follows delegations until it receives an answer.
 func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
+	//Check for cached delegation assertion
+	for _, t := range q.Types {
+		if t == object.OTDelegation {
+			if a, ok := r.Delegations.Get(q.Name); ok {
+				return &message.Message{Content: []section.Section{a.(*section.Assertion)}}, nil
+			}
+			break
+		}
+	}
+	//Start recursive lookup
 	for _, root := range r.RootNameServers {
 		log.Debug("connecting to root server", "serverAddr", root, "query", q)
 		connInfo := root
