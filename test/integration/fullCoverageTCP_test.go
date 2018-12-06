@@ -26,7 +26,7 @@ func TestFullCoverage(t *testing.T) {
 	rootServer := startAuthServer(t, "Root", nil)
 	chServer := startAuthServer(t, "ch", []connection.Info{rootServer.Addr()})
 	ethzChServer := startAuthServer(t, "ethz.ch", []connection.Info{rootServer.Addr()})
-
+	log.Info("all authoritative servers successfully started")
 	//Start client resolver
 	cachingResolver, err := rainsd.New("testdata/conf/resolver.conf", "resolver")
 	if err != nil {
@@ -35,23 +35,26 @@ func TestFullCoverage(t *testing.T) {
 	cachingResolver.SetResolver(libresolve.New([]connection.Info{rootServer.Addr()}, nil,
 		libresolve.Recursive, cachingResolver.Addr()))
 	go cachingResolver.Start(false)
-	time.Sleep(5000 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
+	log.Info("caching server successfully started")
 
 	//Send queries to client resolver and observe the recursive lookup results.
 	queries := loadQueries(t)
 	answers := loadAnswers(t)
+	log.Info("begin sending queries which require recursive lookup")
 	for i, query := range queries {
-		sendQuery(t, *query, cachingResolver.Addr(), answers[i])
+		sendQueryVerifyResponse(t, *query, cachingResolver.Addr(), answers[i])
 	}
 
 	//Shut down authoritative servers
 	rootServer.Shutdown()
 	chServer.Shutdown()
 	ethzChServer.Shutdown()
-
+	time.Sleep(500 * time.Millisecond)
+	log.Info("begin sending queries which should be cached")
 	//Send queries to client resolver and observe the cached results.
 	for i, query := range queries {
-		sendQuery(t, *query, cachingResolver.Addr(), answers[i])
+		sendQueryVerifyResponse(t, *query, cachingResolver.Addr(), answers[i])
 	}
 }
 
@@ -98,13 +101,38 @@ func loadAnswers(t *testing.T) []section.WithSigForward {
 	return sections
 }
 
-func sendQuery(t *testing.T, query query.Name, connInfo connection.Info, answer section.Section) {
+func sendQueryVerifyResponse(t *testing.T, query query.Name, connInfo connection.Info,
+	answer section.Section) {
 	msg := message.Message{Token: token.New(), Content: []section.Section{&query}}
 	answerMsg, err := util.SendQuery(msg, connInfo, time.Second)
 	if err != nil {
 		t.Fatalf("could not send query or receive answer. query=%v err=%v", msg.Content, err)
 	}
-	if len(answerMsg.Content) != 1 || answerMsg.Content[0] != answer {
+	if len(answerMsg.Content) != 1 {
+		t.Fatalf("Got not exactly one answer for the query. msg=%v", answerMsg)
+	}
+	correctAnswer := false
+	switch s := answerMsg.Content[0].(type) {
+	case *section.Assertion:
+		if a, ok := answer.(*section.Assertion); ok {
+			correctAnswer = s.CompareTo(a) == 0
+		}
+	case *section.Shard:
+		if a, ok := answer.(*section.Shard); ok {
+			correctAnswer = s.CompareTo(a) == 0
+		}
+	case *section.Pshard:
+		if a, ok := answer.(*section.Pshard); ok {
+			correctAnswer = s.CompareTo(a) == 0
+		}
+	case *section.Zone:
+		if a, ok := answer.(*section.Zone); ok {
+			correctAnswer = s.CompareTo(a) == 0
+		}
+	default:
+		t.Fatalf("Not yet implemented! So far only assertion, shard, pshard and zones are supported")
+	}
+	if !correctAnswer {
 		t.Fatalf("Answer does not match expected result. actual=%v expected=%v",
 			answerMsg.Content[0], answer)
 	}

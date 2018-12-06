@@ -140,7 +140,9 @@ func (s *Server) workBoth() {
 
 //normalWorkerHandler handles sections on the normalChannel
 func normalWorkerHandler(s *Server, msg msgSectionSender) {
-	s.verify(msg)
+	if msg.Section != nil {
+		s.verify(msg)
+	}
 	<-s.queues.NormalW
 }
 
@@ -169,7 +171,9 @@ func (s *Server) workPrio() {
 
 //prioWorkerHandler handles sections on the prioChannel
 func prioWorkerHandler(s *Server, msg msgSectionSender, prioWorker bool) {
-	s.verify(msg)
+	if msg.Section != nil {
+		s.verify(msg)
+	}
 	if prioWorker {
 		<-s.queues.PrioW
 	}
@@ -195,6 +199,8 @@ func (s *Server) workNotification() {
 
 //handleNotification works on notificationChannel.
 func handleNotification(s *Server, msg msgSectionSender) {
-	s.notify(msg)
+	if msg.Section != nil {
+		s.notify(msg)
+	}
 	<-s.queues.NormalW
 }

@@ -75,7 +75,7 @@ func (r *Resolver) ClientLookup(query *query.Name) (*message.Message, error) {
 
 //ServerLookup forwards the query to the specified forwarders or performs a recursive lookup
 //starting at the specified root servers. It sends the received information to conInfo.
-func (r *Resolver) ServerLookup(query *query.Name, connInfo connection.Info) {
+func (r *Resolver) ServerLookup(query *query.Name, connInfo connection.Info, token token.Token) {
 	var msg *message.Message
 	switch r.Mode {
 	case Recursive:
@@ -85,9 +85,10 @@ func (r *Resolver) ServerLookup(query *query.Name, connInfo connection.Info) {
 	default:
 		log.Error("Unsupported resolution mode", "mode", r.Mode)
 	}
+	msg.Token = token
 	if conn, ok := r.Connections[connInfo]; ok {
 		writer := cbor.NewWriter(conn)
-		if err := writer.Marshal(&msg); err != nil {
+		if err := writer.Marshal(msg); err != nil {
 			r.createConnAndWrite(connInfo, msg) //Connection has been closed in the mean time
 		}
 	} else {

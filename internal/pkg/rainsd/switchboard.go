@@ -73,7 +73,7 @@ func (s *Server) sendToRecursiveResolver(msg message.Message) {
 	if s.resolver != nil {
 		for _, sec := range msg.Content {
 			if q, ok := sec.(*query.Name); ok {
-				go s.resolver.ServerLookup(q, s.config.ServerAddress)
+				go s.resolver.ServerLookup(q, s.config.ServerAddress, msg.Token)
 			}
 		}
 	} else {
