@@ -34,10 +34,7 @@ _testmain.go
 *.out
 
 #server main() function binary
-/examples/serverCH/serverCH
-/examples/serverRoot/serverRoot
-/examples/serverCHPub/serverCHPub
-/examples/serverRootPub/serverRootPub
+/examples/rainsdServer/rainsdServer
 
 #binary of executables
 /cmd/rainsdig/rainsdig
@@ -45,6 +42,7 @@ _testmain.go
 /cmd/zoneManager/zoneManager
 /cmd/resolve/resolve
 /cmd/rainsfic/rainsfic
+/cmd/rainsd/rainsd
 
 #zonepub test file
 /cmd/zonepub/data/newZonefile.txt
