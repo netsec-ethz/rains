@@ -77,6 +77,7 @@ func (r *Resolver) ClientLookup(query *query.Name) (*message.Message, error) {
 //starting at the specified root servers. It sends the received information to conInfo.
 func (r *Resolver) ServerLookup(query *query.Name, connInfo connection.Info, token token.Token) {
 	var msg *message.Message
+	log.Info("recResolver received query", "query", query, "token", token)
 	switch r.Mode {
 	case Recursive:
 		msg, _ = r.recursiveResolve(query)
@@ -87,6 +88,7 @@ func (r *Resolver) ServerLookup(query *query.Name, connInfo connection.Info, tok
 	}
 	msg.Token = token
 	if conn, ok := r.Connections[connInfo]; ok {
+		log.Info("recResolver answers query", "answer", msg, "token", token, "conn", conn.RemoteAddr(), "resolver", conn.LocalAddr())
 		writer := cbor.NewWriter(conn)
 		if err := writer.Marshal(msg); err != nil {
 			r.createConnAndWrite(connInfo, msg) //Connection has been closed in the mean time
@@ -103,7 +105,7 @@ func (r *Resolver) createConnAndWrite(connInfo connection.Info, msg *message.Mes
 		return
 	}
 	r.Connections[connInfo] = conn
-	go r.answerDelegQueries(conn, connInfo)
+	//go r.answerDelegQueries(conn, connInfo)
 	writer := cbor.NewWriter(conn)
 	if err := writer.Marshal(msg); err != nil {
 		log.Error("failed to marshal message", err)
@@ -111,9 +113,12 @@ func (r *Resolver) createConnAndWrite(connInfo connection.Info, msg *message.Mes
 	}
 }
 
+//CFE the following commented code would be necessary, when a rains server asks the sender of a
+//section for the required delegation assertions instead of doing a recursive lookup.
+
 //answerDelegQueries answers delegation queries on conn from its cache. The cache is populated
 //through delegations received in a recursive lookup.
-func (r *Resolver) answerDelegQueries(conn net.Conn, connInfo connection.Info) {
+/*func (r *Resolver) answerDelegQueries(conn net.Conn, connInfo connection.Info) {
 	var msg message.Message
 	reader := cbor.NewReader(conn)
 	writer := cbor.NewWriter(conn)
@@ -156,7 +161,7 @@ func (r *Resolver) getDelegations(msg message.Message) []section.Section {
 		}
 	}
 	return answer
-}
+}*/
 
 func (r *Resolver) forwardQuery(q *query.Name) (*message.Message, error) {
 	if len(r.Forwarders) == 0 {
@@ -178,6 +183,7 @@ func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
 	for _, t := range q.Types {
 		if t == object.OTDelegation {
 			if a, ok := r.Delegations.Get(q.Name); ok {
+				log.Info("respond with a cached delegation", "delegation", a, "query", q)
 				return &message.Message{Content: []section.Section{a.(*section.Assertion)}}, nil
 			}
 			break
@@ -193,9 +199,9 @@ func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
 			if err != nil || len(answer.Content) == 0 {
 				continue
 			}
-			log.Warn("recursive lookup answer", "query", q, "answer", answer)
+			log.Info("recursive resolver rcv answer", "answer", answer, "query", q)
 			isFinal, isRedir, redirMap, srvMap, ipMap := r.handleAnswer(answer, q)
-			log.Error("handling answer in recursive lookup", "serverAddr", connInfo, "isFinal",
+			log.Info("handling answer in recursive lookup", "serverAddr", connInfo, "isFinal",
 				isFinal, "isRedir", isRedir, "redirMap", redirMap, "srvMap", srvMap, "ipMap", ipMap)
 			if isFinal {
 				return &answer, nil

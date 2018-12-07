@@ -2,6 +2,7 @@ package rainsd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
@@ -116,6 +117,9 @@ func (s *Server) workBoth() {
 	for {
 		select {
 		case <-s.shutdown:
+			//Avoid closing the s.queues.Normal channel before server.Shutdown() has sent a dummy
+			//message in case this worker is not waiting on the s.queues.Normal channel
+			time.Sleep(time.Second)
 			close(s.queues.Normal)
 			close(s.queues.NormalW)
 			return
@@ -158,6 +162,9 @@ func (s *Server) workPrio() {
 	for {
 		select {
 		case <-s.shutdown:
+			//Avoid closing the s.queues.Prio channel before server.Shutdown() has sent a dummy
+			//message in case this worker is not waiting on the s.queues.Prio channel
+			time.Sleep(time.Second)
 			close(s.queues.Prio)
 			close(s.queues.PrioW)
 			return
@@ -186,6 +193,9 @@ func (s *Server) workNotification() {
 	for {
 		select {
 		case <-s.shutdown:
+			//Avoid closing the s.queues.Notify channel before server.Shutdown() has sent a dummy
+			//message in case this worker is not waiting on the s.queues.Notify channel
+			time.Sleep(time.Second)
 			close(s.queues.Notify)
 			close(s.queues.NotifyW)
 			return

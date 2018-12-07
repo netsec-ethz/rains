@@ -165,10 +165,10 @@ func (s *Server) handleChannel() {
 
 //handleConnection deframes all incoming messages on conn and passes them to the inbox along with the dstAddr
 func (s *Server) handleConnection(conn net.Conn, dstAddr connection.Info) {
-	log.Info("Handling connection", "serverAddr", s.Addr(), "conn", dstAddr)
-	var msg message.Message
+	log.Info("New connection", "serverAddr", s.Addr(), "conn", dstAddr)
 	reader := cbor.NewReader(conn)
 	for {
+		var msg message.Message
 		select {
 		case <-s.shutdown:
 			return

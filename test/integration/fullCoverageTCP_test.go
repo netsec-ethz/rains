@@ -121,7 +121,7 @@ func decodeAnswers(input []byte, t *testing.T) []section.WithSigForward {
 func sendQueryVerifyResponse(t *testing.T, query query.Name, connInfo connection.Info,
 	answer section.Section) {
 	msg := message.Message{Token: token.New(), Content: []section.Section{&query}}
-	log.Info("Integration test sends query", "msg", msg)
+	log.Error("Integration test sends query", "msg", msg)
 	answerMsg, err := util.SendQuery(msg, connInfo, time.Second)
 	if err != nil {
 		t.Fatalf("could not send query or receive answer. query=%v err=%v", msg.Content, err)
