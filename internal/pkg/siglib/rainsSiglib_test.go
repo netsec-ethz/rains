@@ -17,14 +17,14 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
-	"github.com/netsec-ethz/rains/test/testdata"
+	"github.com/netsec-ethz/rains/test/data"
 	"golang.org/x/crypto/ed25519"
 )
 
 func TestSignAssertion(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := testdata.Assertion()
-	if !SignSectionUnsafe(sec, genPrivateKey, testdata.Signature()) {
+	sec := data.Assertion()
+	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
 		t.Error("Was not able to sign assertion")
 		return
 	}
@@ -43,8 +43,8 @@ func TestSignAssertion(t *testing.T) {
 
 func TestSignShard(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := testdata.Shard()
-	if !SignSectionUnsafe(sec, genPrivateKey, testdata.Signature()) {
+	sec := data.Shard()
+	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
 		t.Error("Was not able to sign shard")
 		return
 	}
@@ -63,8 +63,8 @@ func TestSignShard(t *testing.T) {
 
 func TestSignPshard(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := testdata.Pshard()
-	if !SignSectionUnsafe(sec, genPrivateKey, testdata.Signature()) {
+	sec := data.Pshard()
+	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
 		t.Error("Was not able to sign shard")
 		return
 	}
@@ -83,8 +83,8 @@ func TestSignPshard(t *testing.T) {
 
 func TestSignAddrAssertionIP4(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := testdata.AddrAssertionIP4()
-	if !SignSectionUnsafe(sec, genPrivateKey, testdata.Signature()) {
+	sec := data.AddrAssertionIP4()
+	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
 		t.Error("Was not able to sign addr assertion")
 		return
 	}
@@ -103,8 +103,8 @@ func TestSignAddrAssertionIP4(t *testing.T) {
 
 func TestSignAddrAssertionIP6(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := testdata.AddrAssertionIP6()
-	if !SignSectionUnsafe(sec, genPrivateKey, testdata.Signature()) {
+	sec := data.AddrAssertionIP6()
+	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
 		t.Error("Was not able to sign addr assertion")
 		return
 	}
@@ -123,8 +123,8 @@ func TestSignAddrAssertionIP6(t *testing.T) {
 
 func TestSignZone(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := testdata.Zone()
-	if !SignSectionUnsafe(sec, genPrivateKey, testdata.Signature()) {
+	sec := data.Zone()
+	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
 		t.Error("Was not able to sign zone")
 		return
 	}
@@ -146,9 +146,9 @@ func TestSignQuery(t *testing.T) {
 	msg := &message.Message{
 		Token:        token.New(),
 		Capabilities: []message.Capability{message.NoCapability, message.TLSOverTCP},
-		Content:      []section.Section{testdata.Query()},
+		Content:      []section.Section{data.Query()},
 	}
-	if !SignMessageUnsafe(msg, genPrivateKey, testdata.Signature()) {
+	if !SignMessageUnsafe(msg, genPrivateKey, data.Signature()) {
 		t.Error("Was not able to sign query")
 		return
 	}
@@ -170,9 +170,9 @@ func TestSignAddrQuery(t *testing.T) {
 	msg := &message.Message{
 		Token:        token.New(),
 		Capabilities: []message.Capability{message.NoCapability, message.TLSOverTCP},
-		Content:      []section.Section{testdata.AddrQuery()},
+		Content:      []section.Section{data.AddrQuery()},
 	}
-	if !SignMessageUnsafe(msg, genPrivateKey, testdata.Signature()) {
+	if !SignMessageUnsafe(msg, genPrivateKey, data.Signature()) {
 		t.Error("Was not able to sign addr query")
 		return
 	}
@@ -194,9 +194,9 @@ func TestSignNotification(t *testing.T) {
 	msg := &message.Message{
 		Token:        token.New(),
 		Capabilities: []message.Capability{message.NoCapability, message.TLSOverTCP},
-		Content:      []section.Section{testdata.Notification(), testdata.NotificationNoData()},
+		Content:      []section.Section{data.Notification(), data.NotificationNoData()},
 	}
-	if !SignMessageUnsafe(msg, genPrivateKey, testdata.Signature()) {
+	if !SignMessageUnsafe(msg, genPrivateKey, data.Signature()) {
 		t.Error("Was not able to sign query")
 		return
 	}

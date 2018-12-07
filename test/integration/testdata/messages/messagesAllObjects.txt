@@ -1,0 +1,39 @@
+:Q: . www.ethz.ch. [ 3 ] -1 [ ]
+:A: www ethz.ch. . [ :ip4: 198.175.162.241 ]
+
+:Q: . www.ethz.ch. [ 2 ] -1 [ ]
+:A: www ethz.ch. . [ :ip6: 2001:db8:: ]
+
+:Q: . www.ethz.ch. [ 1 ] -1 [ ]
+:A: www ethz.ch. . [ :name: a [ :ip4: :ip6: ] ]
+
+:Q: . www.ethz.ch. [ 6 ] -1 [ ]
+:A: www ethz.ch. . [ :nameset: nameset expression ]
+
+:Q: . www.ethz.ch. [ 7 ] -1 [ ]
+:A: www ethz.ch. . [ :cert: :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
+
+:Q: . www.ethz.ch. [ 8 ] -1 [ ]
+:A: www ethz.ch. . [ :srv: ftp 20 0 ]
+
+:Q: . www.ethz.ch. [ 9 ] -1 [ ]
+:A: www ethz.ch. . [ :regr: registrar info ]
+
+:Q: . www.ethz.ch. [ 10 ] -1 [ ]
+:A: www ethz.ch. . [ :regt: registrant info ]
+
+:Q: . www.ethz.ch. [ 11 ] -1 [ ]
+:A: www ethz.ch. . [ :infra: :ed25519: 5
+e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
+]
+
+:Q: . www.ethz.ch. [ 12 ] -1 [ ]
+:A: www ethz.ch. . [ :extra: :ed25519: 5
+e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
+]
+
+:Q: . www.ethz.ch. [ 13 ] -1 [ ]
+:A: www ethz.ch. . [ :next: :ed25519: 5
+e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
+100000 20000000
+]

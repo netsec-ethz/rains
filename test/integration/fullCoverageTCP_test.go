@@ -1,8 +1,11 @@
 package integration
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,8 +42,11 @@ func TestFullCoverage(t *testing.T) {
 	log.Info("caching server successfully started")
 
 	//Send queries to client resolver and observe the recursive lookup results.
-	queries := loadQueries(t)
-	answers := loadAnswers(t)
+	qs, as := loadQueriesAndAnswers(t)
+	queries := decodeQueries([]byte(qs))
+	log.Info("successfully decoded queries", "queries", queries, "length", len(queries))
+	answers := decodeAnswers([]byte(as), t)
+	log.Info("successfully decoded answers", "answers", answers)
 	log.Info("begin sending queries which require recursive lookup")
 	for i, query := range queries {
 		sendQueryVerifyResponse(t, *query, cachingResolver.Addr(), answers[i])
@@ -75,26 +81,37 @@ func startAuthServer(t *testing.T, name string, rootServers []connection.Info) *
 	return server
 }
 
-func loadQueries(t *testing.T) []*query.Name {
-	encoding, err := ioutil.ReadFile("testdata/messages/queries.txt")
+func loadQueriesAndAnswers(t *testing.T) (string, string) {
+	var answers, queries []string
+	input, err := ioutil.ReadFile("testdata/messages/messages.txt")
 	if err != nil {
-		t.Fatal("Was not able to open queries.txt file: ", err)
+		t.Fatal("Was not able to open messages.txt file: ", err)
 	}
+	scanner := bufio.NewScanner(bytes.NewReader(input))
+	for scanner.Scan() {
+		queries = append(queries, scanner.Text())
+		for scanner.Scan() {
+			if scanner.Text() == "" {
+				break
+			}
+			answers = append(answers, scanner.Text())
+		}
+	}
+	return strings.Join(queries, "\n"), strings.Join(answers, "\n")
+}
+
+func decodeQueries(input []byte) []*query.Name {
 	zfParser := zonefile.Parser{}
-	queries := zfParser.DecodeNameQueriesUnsafe(encoding)
+	queries := zfParser.DecodeNameQueriesUnsafe(input)
 	for _, q := range queries {
 		q.Expiration = time.Now().Add(time.Hour).Unix()
 	}
 	return queries
 }
 
-func loadAnswers(t *testing.T) []section.WithSigForward {
-	encoding, err := ioutil.ReadFile("testdata/messages/answers.txt")
-	if err != nil {
-		t.Fatal("Was not able to open answers.txt file: ", err)
-	}
+func decodeAnswers(input []byte, t *testing.T) []section.WithSigForward {
 	zfParser := zonefile.Parser{}
-	sections, err := zfParser.Decode(encoding)
+	sections, err := zfParser.Decode(input)
 	if err != nil {
 		t.Fatal("Was not able to parse answers.txt file: ", err)
 	}
@@ -104,6 +121,7 @@ func loadAnswers(t *testing.T) []section.WithSigForward {
 func sendQueryVerifyResponse(t *testing.T, query query.Name, connInfo connection.Info,
 	answer section.Section) {
 	msg := message.Message{Token: token.New(), Content: []section.Section{&query}}
+	log.Info("Integration test sends query", "msg", msg)
 	answerMsg, err := util.SendQuery(msg, connInfo, time.Second)
 	if err != nil {
 		t.Fatalf("could not send query or receive answer. query=%v err=%v", msg.Content, err)
@@ -130,7 +148,8 @@ func sendQueryVerifyResponse(t *testing.T, query query.Name, connInfo connection
 			correctAnswer = s.CompareTo(a) == 0
 		}
 	default:
-		t.Fatalf("Not yet implemented! So far only assertion, shard, pshard and zones are supported")
+		t.Fatalf("Not yet implemented! So far only assertion, shard, pshard and zones are supported. section=%v",
+			s)
 	}
 	if !correctAnswer {
 		t.Fatalf("Answer does not match expected result. actual=%v expected=%v",

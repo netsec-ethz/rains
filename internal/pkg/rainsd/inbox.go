@@ -67,7 +67,7 @@ func deliver(msg *message.Message, sender connection.Info, prioChannel chan msgS
 //processCapability processes capabilities and sends a notification back to the sender if the hash
 //is not understood.
 func processCapability(caps []message.Capability, sender connection.Info, token token.Token) {
-	log.Warn("Processing Capabilities not yet supported")
+	log.Debug("Processing Capabilities not yet supported")
 	/*log.Debug("Process capabilities", "capabilities", caps)
 	if len(caps) > 0 {
 		isHash := !strings.HasPrefix(string(caps[0]), "urn:")
@@ -105,7 +105,7 @@ func addMsgSectionToQueue(msgSection section.Section, tok token.Token, sender co
 
 //isZoneBlacklisted returns true if zone is blacklisted
 func isZoneBlacklisted(zone string) bool {
-	log.Warn("TODO CFE zone blacklist not yet implemented")
+	log.Debug("TODO CFE zone blacklist not yet implemented")
 	return false
 }
 

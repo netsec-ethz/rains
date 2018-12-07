@@ -51,6 +51,7 @@ _testmain.go
 
 #test coverage files
 *coverage.out
+*coverage.html
 
 #Yacc
 /tools/yacc/y.go

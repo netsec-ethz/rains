@@ -191,6 +191,6 @@ func (s *Server) handleConnection(conn net.Conn, dstAddr connection.Info) {
 
 //isIPBlacklisted returns true if addr is blacklisted
 func isIPBlacklisted(addr net.Addr) bool {
-	log.Warn("TODO CFE ip blacklist not yet implemented")
+	log.Debug("TODO CFE ip blacklist not yet implemented")
 	return false
 }
