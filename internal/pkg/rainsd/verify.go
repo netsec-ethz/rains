@@ -7,11 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/message"
-
 	log "github.com/inconshreveable/log15"
-
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
@@ -27,7 +25,7 @@ import (
 //If no signature remains on an assertion, shard, zone, addressAssertion or addressZone it gets dropped (signatures of contained sections are not taken into account).
 //If there happens an error in the signature verification process of any signature, the whole section gets dropped (signatures of contained sections are also considered)
 func (s *Server) verify(msgSender msgSectionSender) {
-	log.Info(fmt.Sprintf("Verify %T", msgSender.Section), "msgSection", msgSender.Section)
+	log.Info(fmt.Sprintf("Verify %T", msgSender.Section), "server", s.Addr(), "msgSectionSender", msgSender)
 	switch msgSender.Section.(type) {
 	case *section.Assertion, *section.Shard, *section.Pshard, *section.Zone:
 		sectionSender := sectionWithSigSender{
@@ -37,7 +35,6 @@ func (s *Server) verify(msgSender msgSectionSender) {
 		}
 		verifySection(sectionSender, s)
 	case *query.Address, *query.Name:
-		log.Info("Received Query")
 		verifyQuery(msgSender.Section.(section.Query), msgSender, s)
 		//TODO CFE add update queries
 	default:
@@ -96,10 +93,10 @@ func contextInvalid(context string) bool {
 //isQueryExpired returns true if the query has expired
 func isQueryExpired(expires int64) bool {
 	if expires < time.Now().Unix() {
-		log.Info("Query expired", "expirationTime", expires, "now", time.Now().Unix())
+		log.Warn("Query expired", "expirationTime", expires, "now", time.Now().Unix())
 		return true
 	}
-	log.Info("Query is not expired")
+	log.Debug("Query is not expired")
 	return false
 }
 

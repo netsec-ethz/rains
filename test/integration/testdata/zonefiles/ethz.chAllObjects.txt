@@ -1,0 +1,19 @@
+:Z: ethz.ch. . [
+    :A: www  [ :ip4:     198.175.162.241 ]
+    :A: www  [ :ip6:     2001:db8:: ]
+    :A: www  [ :name: a [ :ip4: :ip6: ] ]
+    :A: www  [ :nameset: nameset expression ]
+    :A: www  [ :cert: :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
+    :A: www  [ :srv: ftp 20 0 ]
+    :A: www  [ :regr: registrar info ]
+    :A: www  [ :regt: registrant info ]
+    :A: www  [ :infra: :ed25519: 5
+    e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
+    ]
+    :A: www  [ :extra: :ed25519: 5
+    e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
+    ]
+    :A: www  [ :next: :ed25519: 5
+    e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
+    100000 20000000 ]
+]

@@ -2,6 +2,7 @@ package rainsd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
@@ -67,7 +68,7 @@ func deliver(msg *message.Message, sender connection.Info, prioChannel chan msgS
 //processCapability processes capabilities and sends a notification back to the sender if the hash
 //is not understood.
 func processCapability(caps []message.Capability, sender connection.Info, token token.Token) {
-	log.Warn("Processing Capabilities not yet supported")
+	log.Debug("Processing Capabilities not yet supported")
 	/*log.Debug("Process capabilities", "capabilities", caps)
 	if len(caps) > 0 {
 		isHash := !strings.HasPrefix(string(caps[0]), "urn:")
@@ -105,7 +106,7 @@ func addMsgSectionToQueue(msgSection section.Section, tok token.Token, sender co
 
 //isZoneBlacklisted returns true if zone is blacklisted
 func isZoneBlacklisted(zone string) bool {
-	log.Warn("TODO CFE zone blacklist not yet implemented")
+	log.Debug("TODO CFE zone blacklist not yet implemented")
 	return false
 }
 
@@ -116,6 +117,9 @@ func (s *Server) workBoth() {
 	for {
 		select {
 		case <-s.shutdown:
+			//Avoid closing the s.queues.Normal channel before server.Shutdown() has sent a dummy
+			//message in case this worker is not waiting on the s.queues.Normal channel
+			time.Sleep(time.Second)
 			close(s.queues.Normal)
 			close(s.queues.NormalW)
 			return
@@ -140,7 +144,9 @@ func (s *Server) workBoth() {
 
 //normalWorkerHandler handles sections on the normalChannel
 func normalWorkerHandler(s *Server, msg msgSectionSender) {
-	s.verify(msg)
+	if msg.Section != nil {
+		s.verify(msg)
+	}
 	<-s.queues.NormalW
 }
 
@@ -156,6 +162,9 @@ func (s *Server) workPrio() {
 	for {
 		select {
 		case <-s.shutdown:
+			//Avoid closing the s.queues.Prio channel before server.Shutdown() has sent a dummy
+			//message in case this worker is not waiting on the s.queues.Prio channel
+			time.Sleep(time.Second)
 			close(s.queues.Prio)
 			close(s.queues.PrioW)
 			return
@@ -169,7 +178,9 @@ func (s *Server) workPrio() {
 
 //prioWorkerHandler handles sections on the prioChannel
 func prioWorkerHandler(s *Server, msg msgSectionSender, prioWorker bool) {
-	s.verify(msg)
+	if msg.Section != nil {
+		s.verify(msg)
+	}
 	if prioWorker {
 		<-s.queues.PrioW
 	}
@@ -182,6 +193,9 @@ func (s *Server) workNotification() {
 	for {
 		select {
 		case <-s.shutdown:
+			//Avoid closing the s.queues.Notify channel before server.Shutdown() has sent a dummy
+			//message in case this worker is not waiting on the s.queues.Notify channel
+			time.Sleep(time.Second)
 			close(s.queues.Notify)
 			close(s.queues.NotifyW)
 			return
@@ -195,6 +209,8 @@ func (s *Server) workNotification() {
 
 //handleNotification works on notificationChannel.
 func handleNotification(s *Server, msg msgSectionSender) {
-	s.notify(msg)
+	if msg.Section != nil {
+		s.notify(msg)
+	}
 	<-s.queues.NormalW
 }

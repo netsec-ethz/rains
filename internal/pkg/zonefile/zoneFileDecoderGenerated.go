@@ -10,6 +10,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"strconv"
+	"strings"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
@@ -18,11 +21,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
-
-	"io/ioutil"
-	"strconv"
-	"strings"
-
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -1154,9 +1152,9 @@ ZFPdefault:
 		//line zonefileParser.y:406
 		{
 			ZFPVAL.assertion = &section.Assertion{
-				SubjectZone: ZFPDollar[2].str,
-				Context:     ZFPDollar[3].str,
-				SubjectName: ZFPDollar[4].str,
+				SubjectName: ZFPDollar[2].str,
+				SubjectZone: ZFPDollar[3].str,
+				Context:     ZFPDollar[4].str,
 				Content:     ZFPDollar[6].objects,
 			}
 		}

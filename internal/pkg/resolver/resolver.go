@@ -5,15 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/generate"
-	"github.com/netsec-ethz/rains/internal/pkg/object"
-
-	log "github.com/inconshreveable/log15"
-
 	"github.com/britram/borat"
+	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"github.com/netsec-ethz/rains/internal/pkg/generate"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 )

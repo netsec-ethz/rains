@@ -9,23 +9,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/simulation"
-
-	log "github.com/inconshreveable/log15"
-
 	"github.com/britram/borat"
+	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/generate"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
 	"github.com/netsec-ethz/rains/internal/pkg/resolver"
+	"github.com/netsec-ethz/rains/internal/pkg/simulation"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
 func main() {
 	h := log.CallerFileHandler(log.StdoutHandler)
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
+	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, h))
 	conf := simulation.Example
 	idToResolver := make(map[int]*rainsd.Server)
 	authNames, globalNames, localNames, zoneIPToContinent, zoneIPToTLD, tldIndexToContinent := generate.Zones(simulation.Example)

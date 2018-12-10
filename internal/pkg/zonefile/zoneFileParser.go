@@ -54,11 +54,6 @@ const (
 	indent12 = indent8 + indent4
 )
 
-func init() {
-	/*h := log.CallerFileHandler(log.StdoutHandler)
-	log.Root().SetHandler(h)*/
-}
-
 //ZoneFileParser is the interface for all parsers of zone files for RAINS
 type ZoneFileParser interface {
 	//Decode takes as input a byte string of section(s) in zonefile format. It returns a slice of
@@ -69,6 +64,11 @@ type ZoneFileParser interface {
 	//DecodeZone takes as input a byte string of one zone in zonefile format. It returns the zone
 	//exactly as it is in the zonefile or an error in case of failure.
 	DecodeZone(zoneFile []byte) (*section.Zone, error)
+
+	//DecodeNameQueriesUnsafe takes as input a byte string of name queries encoded in a format
+	//resembling the zone file format. It returns the queries. It panics when the input format is
+	//incorrect.
+	DecodeNameQueriesUnsafe(encoding []byte) []*query.Name
 
 	//LoadZone takes as input a path to a file containing a zone in zonefile
 	//format. It returns the zone exactly as it is in the zonefile or an error
@@ -91,8 +91,14 @@ type Parser struct{}
 
 //Decode returns all assertions contained in the given zonefile
 func (p Parser) Decode(zoneFile []byte) ([]section.WithSigForward, error) {
-	log.Error("Not yet supported")
-	return nil, nil
+	lines := removeComments(bufio.NewScanner(bytes.NewReader(zoneFile)))
+	log.Debug("Preprocessed input", "data", lines)
+	parser := ZFPNewParser()
+	parser.Parse(&ZFPLex{lines: lines})
+	if len(parser.Result()) == 0 {
+		return nil, errors.New("zonefile malformed. Was not able to parse it.")
+	}
+	return parser.Result(), nil
 }
 
 //DecodeZone returns a zone exactly as it is represented in the zonefile
@@ -109,6 +115,19 @@ func (p Parser) DecodeZone(zoneFile []byte) (*section.Zone, error) {
 		return nil, errors.New("First element of zonefile is not a zone. (Note, only the first element of the zonefile is considered)")
 	}
 	return zone, nil
+}
+
+//DecodeNameQueriesUnsafe takes as input a byte string of name queries encoded in a format
+//resembling the zone file format. It returns the queries. It panics when the input format is
+//incorrect.
+func (p Parser) DecodeNameQueriesUnsafe(encoding []byte) []*query.Name {
+	queries := []*query.Name{}
+	scanner := bufio.NewScanner(bytes.NewReader(encoding))
+	scanner.Split(bufio.ScanWords)
+	for scanner.Scan() {
+		queries = append(queries, decodeNameQueryUnsafe(scanner))
+	}
+	return queries
 }
 
 //LoadZone takes as input a path to a file containing a zone in zonefile format.

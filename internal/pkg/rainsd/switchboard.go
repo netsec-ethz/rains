@@ -18,6 +18,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
 )
 
 //sendTo sends message to the specified receiver.
@@ -69,16 +70,24 @@ func (s *Server) sendTo(msg message.Message, receiver connection.Info, retries,
 }
 
 func (s *Server) sendToRecursiveResolver(msg message.Message) {
-	encoding := new(bytes.Buffer)
-	if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
-		log.Warn(fmt.Sprintf("failed to marshal message to conn: %v", err))
+	if s.resolver != nil {
+		for _, sec := range msg.Content {
+			if q, ok := sec.(*query.Name); ok {
+				go s.resolver.ServerLookup(q, s.config.ServerAddress, msg.Token)
+			}
+		}
+	} else {
+		encoding := new(bytes.Buffer)
+		if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
+			log.Warn(fmt.Sprintf("failed to marshal message to conn: %v", err))
+		}
+		message := connection.Message{
+			Msg:    encoding.Bytes(),
+			Sender: s.inputChannel,
+		}
+		s.sendToRecResolver(message)
+		log.Info("Send successfully to recursive resolver", "msg", msg)
 	}
-	message := connection.Message{
-		Msg:    encoding.Bytes(),
-		Sender: s.inputChannel,
-	}
-	s.sendToRecResolver(message)
-	log.Info("Send successfully to recursive resolver", "msg", msg)
 }
 
 //createConnection establishes a connection with receiver
@@ -156,10 +165,10 @@ func (s *Server) handleChannel() {
 
 //handleConnection deframes all incoming messages on conn and passes them to the inbox along with the dstAddr
 func (s *Server) handleConnection(conn net.Conn, dstAddr connection.Info) {
-	log.Info("Handling connection", "conn", dstAddr)
-	var msg message.Message
+	log.Info("New connection", "serverAddr", s.Addr(), "conn", dstAddr)
 	reader := cbor.NewReader(conn)
 	for {
+		var msg message.Message
 		select {
 		case <-s.shutdown:
 			return
@@ -182,6 +191,6 @@ func (s *Server) handleConnection(conn net.Conn, dstAddr connection.Info) {
 
 //isIPBlacklisted returns true if addr is blacklisted
 func isIPBlacklisted(addr net.Addr) bool {
-	log.Warn("TODO CFE ip blacklist not yet implemented")
+	log.Debug("TODO CFE ip blacklist not yet implemented")
 	return false
 }

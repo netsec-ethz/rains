@@ -702,7 +702,8 @@ func answerQueryAuthoritative(q *query.Name, sender connection.Info, oldToken to
 	}
 	if len(assertions) > 0 {
 		sendSections(assertions, oldToken, sender, s)
-		log.Info("Finished handling query by sending assertion from cache", "query", q)
+		log.Info("Finished handling query by sending assertion from cache", "query", q,
+			"answer", assertions)
 		return
 	}
 	log.Debug("No direct entry found in assertion cache.", "name", q.Name,
@@ -814,7 +815,8 @@ func answerQueryCachingResolver(q *query.Name, sender connection.Info, oldToken 
 		validUntil = q.Expiration
 	}
 	isNew := s.caches.PendingQueries.Add(msgSectionSender{Section: q, Sender: sender, Token: oldToken})
-	log.Info("Added query into to pending query cache", "query", q)
+	log.Info("Added query into to pending query cache", "info",
+		msgSectionSender{Section: q, Sender: sender, Token: oldToken}, "newToken", tok)
 	if isNew {
 		recResolverAddr := connection.Info{
 			Type:     connection.Chan,

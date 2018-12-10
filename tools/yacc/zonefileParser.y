@@ -405,9 +405,9 @@ assertionBody   : assertionType ID lBracket objects rBracket
                 | assertionType ID ID ID lBracket objects rBracket
                 {
                     $$ = &section.Assertion{
-                        SubjectZone: $2, 
-                        Context: $3,
-                        SubjectName: $4,
+                        SubjectName: $2,
+                        SubjectZone: $3, 
+                        Context: $4,
                         Content: $6,
                     }
                 }
