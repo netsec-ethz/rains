@@ -16,10 +16,6 @@ func (s Signature) String() string {
 		return "ed25519"
 	case Ed448:
 		return "Ed448"
-	case Ecdsa256:
-		return "Ecdsa256"
-	case Ecdsa384:
-		return "Ecdsa384"
 	default:
 		return "Unknown SignatureType"
 	}
