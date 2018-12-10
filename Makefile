@@ -6,7 +6,7 @@ BUILD_PATH=${PWD}/build/
 
 LDFLAGS = -ldflags "-X main.buildinfo_hostname=${HOSTNAME} -X main.buildinfo_commit=${COMMIT} -X main.buildinfo_branch=${BRANCH}"
 
-all: clean rainsd rainspub rainsdig integration resolve
+all: clean rainsd rainsd zonepub rainsdig zoneman resolve
 
 clean:
 	rm -rf ${BUILD_PATH}
@@ -14,27 +14,27 @@ clean:
 
 rainsd:
 	cd ${BUILD_PATH}; \
-	go build ${LDFLAGS} -o rainsd github.com/netsec-ethz/rains/example/server ; \
+	go build ${LDFLAGS} -o rainsd github.com/netsec-ethz/rains/cmd/rainsd ; \
 	cd - >/dev/null
 
-rainspub:
+zonepub:
 	cd ${BUILD_PATH}; \
-	go build ${LDFLAGS} -o rainspub github.com/netsec-ethz/rains/example/pub ; \
+	go build ${LDFLAGS} -o publisher github.com/netsec-ethz/rains/cmd/zonepub ; \
 	cd - >/dev/null
 
 rainsdig:
 	cd ${BUILD_PATH}; \
-	go build ${LDFLAGS} -o rainsdig github.com/netsec-ethz/rains/rainsdig ; \
+	go build ${LDFLAGS} -o rainsdig github.com/netsec-ethz/rains/cmd/rainsdig ; \
 	cd - >/dev/null
 
-integration:
+zoneman:
 	cd ${BUILD_PATH}; \
-	go build ${LDFLAGS} -o integration github.com/netsec-ethz/rains/integration ;\
+	go build ${LDFLAGS} -o zoneman github.com/netsec-ethz/rains/cmd/zonemanager ;\
 	cd - >/dev/null
 
 resolve:
 	cd ${BUILD_PATH}; \
-	go build ${LDFLAGS} -o resolve github.com/netsec-ethz/rains/resolve; \
+	go build ${LDFLAGS} -o resolve github.com/netsec-ethz/rains/cmd/resolve ; \
 	cd - >/dev/null
 
-.PHONY: clean rainsd rainspub rainsdig integration resolve
+.PHONY: clean rainsd zonepub rainsdig zoneman resolve
