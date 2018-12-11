@@ -36,17 +36,22 @@ func (c Info) String() string {
 	}
 }
 
-//NetworkAndAddr returns the network name and addr of the connection separated by space
-func (c Info) NetworkAndAddr() string {
+//Network returns the address's network name
+func (c Info) Network() string {
 	switch c.Type {
 	case TCP:
-		return fmt.Sprintf("%s %s", c.TCPAddr.Network(), c.String())
+		return c.TCPAddr.Network()
 	case Chan:
-		return fmt.Sprintf("%s %s", c.ChanAddr.Network(), c.String())
+		return c.ChanAddr.Network()
 	default:
-		log.Warn("Unsupported network address type", "type", c.Type)
+		log.Warn("Unsupported network address", "typeCode", c.Type)
 		return ""
 	}
+}
+
+//NetworkAndAddr returns the network name and addr of the connection separated by space
+func (c Info) NetworkAndAddr() string {
+	return fmt.Sprintf("%s %s", c.Network(), c.String())
 }
 
 //Hash returns a string containing all information uniquely identifying a Info.
@@ -72,6 +77,7 @@ type Type int
 
 //run 'go generate' in this directory if a new networkAddrType is added [source https://github.com/campoy/jsonenums]
 //go:generate jsonenums -type=Type
+//go:generate stringer -type=Type
 const (
 	Chan Type = iota
 	TCP

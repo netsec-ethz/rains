@@ -12,6 +12,6 @@
                         :A: ch  [ :srv: dns 53 0 ]
          ]
          :A: ch  [ :ip4: 192.168.1.10 ]
-         :P: a f :bloomFilter: [ :murmur364: ] 1 :standard: e28b1bd3a73882b198dfe28b1bd3a738
+         :P: a f :bloomFilter: [ :fnv128: ] 1 :standard: e28b1bd3a73882b198dfe28b1bd3a738
          :P: a f :bloomFilter: [ :fnv64: :sha256: ] 5 :km1: e28b1bd3a73882b198dfe28b1bd3a738
 ] ; ( :sig: :ed25519: :rains: 1 2000 5000 )

@@ -91,6 +91,7 @@ func filterSigs(signatures []signature.Sig, keySpace keys.KeySpaceID) []signatur
 //NotificationType defines the type of a notification section
 type NotificationType int
 
+//go:generate -type=NotificationType
 const (
 	NTHeartbeat          NotificationType = 100
 	NTCapHashNotKnown    NotificationType = 399

@@ -4,7 +4,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"time"
 
@@ -75,8 +74,6 @@ func UpdateSectionValidity(sec section.WithSig, pkeyValidSince, pkeyValidUntil, 
 			maxValidity = maxVal.ShardValidity //FIXME CFE replace with pshardvalidity
 		case *section.Zone:
 			maxValidity = maxVal.ZoneValidity
-		case *section.AddrAssertion:
-			maxValidity = maxVal.AddressAssertionValidity
 		default:
 			log.Warn("Not supported section", "type", fmt.Sprintf("%T", sec))
 			return
@@ -109,19 +106,6 @@ func NewQueryMessage(name, context string, expTime int64, objType []object.Type,
 		Options:    queryOptions,
 	}
 	return message.Message{Token: token, Content: []section.Section{&query}}
-}
-
-//NewAddressQueryMessage creates a new message containing an addressQuery body with values obtained from the input parameter
-func NewAddressQueryMessage(context string, ipNet *net.IPNet, expTime int64, objType []object.Type,
-	queryOptions []query.Option, token token.Token) message.Message {
-	addressQuery := query.Address{
-		Context:     context,
-		SubjectAddr: ipNet,
-		Expiration:  expTime,
-		Types:       objType,
-		Options:     queryOptions,
-	}
-	return message.Message{Token: token, Content: []section.Section{&addressQuery}}
 }
 
 //NewNotificationsMessage creates a new message containing notification bodies with values obtained from the input parameter

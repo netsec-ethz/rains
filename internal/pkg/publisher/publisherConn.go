@@ -18,7 +18,6 @@ import (
 //connectAndSendMsg establishes a connection to server and sends msg. It returns the server info on
 //the result channel if it was not able to send the whole msg to it, else nil.
 func connectAndSendMsg(msg message.Message, server connection.Info, result chan<- *connection.Info) {
-	//TODO CFE use certificate for tls
 	conf := &tls.Config{
 		InsecureSkipVerify: true,
 	}

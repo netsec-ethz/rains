@@ -93,8 +93,6 @@ func TestEncodePublicKey(t *testing.T) {
 		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}, Key: pkey}, fmt.Sprintf("ed25519 %s", hex.EncodeToString(pkey))},
 		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}, Key: []byte(" ")}, ""},
 		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed448}}, ""},
-		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ecdsa256}}, ""},
-		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ecdsa384}}, ""},
 		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Signature(-1)}}, ""},
 	}
 	for _, test := range tests {

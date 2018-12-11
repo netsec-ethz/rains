@@ -201,7 +201,7 @@ var output []section.WithSigForward
 // Certificate types
 %token unspecified tls trustAnchor endEntity 
 // Hash algorithm types
-%token noHash sha256 sha384 sha512 fnv64 murmur364
+%token noHash sha256 sha384 sha512 shake256 fnv64 fnv128
 // Data structure types
 %token bloomFilterType
 // Bloom filter mode of operations
@@ -775,13 +775,17 @@ hashType        : noHash
                 {
                     $$ = algorithmTypes.Sha512
                 }
+                | shake256
+                {
+                    $$ = algorithmTypes.Shake256
+                }
                 | fnv64
                 {
                     $$ = algorithmTypes.Fnv64
                 }
-                | murmur364
+                | fnv128
                 {
-                    $$ = algorithmTypes.Murmur364
+                    $$ = algorithmTypes.Fnv128
                 }
 
 freeText        : ID
@@ -920,10 +924,12 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
         return sha384
     case zonefile.TypeSha512 :
         return sha512
+    case zonefile.TypeShake256 :
+        return shake256
     case zonefile.TypeFnv64 :
         return fnv64
-    case zonefile.TypeMurmur364 :
-        return murmur364
+    case zonefile.TypeFnv128 :
+        return fnv128
     case zonefile.TypeBloomFilter :
         return bloomFilterType
     case zonefile.TypeStandard :

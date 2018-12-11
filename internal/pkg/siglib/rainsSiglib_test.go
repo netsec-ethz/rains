@@ -820,7 +820,7 @@ func calcSpaceSaving(zonefileName string, b *testing.B) {
 		Datastructure: section.DataStructure{
 			Type: section.BloomFilterType,
 			Data: section.BloomFilter{
-				HashFamily:       []algorithmTypes.Hash{algorithmTypes.Murmur364},
+				HashFamily:       []algorithmTypes.Hash{algorithmTypes.Fnv128},
 				ModeOfOperation:  section.KirschMitzenmacher1,
 				NofHashFunctions: 10,
 				Filter:           make(bitarray.BitArray, 120),

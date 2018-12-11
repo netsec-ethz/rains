@@ -1,16 +1,6 @@
 package object
 
-import (
-	"fmt"
-	"math/rand"
-	"reflect"
-	"sort"
-	"testing"
-
-	"golang.org/x/crypto/ed25519"
-)
-
-func TestNameObjectCompareTo(t *testing.T) {
+/*func TestNameObjectCompareTo(t *testing.T) {
 	nos := sortedNameObjects(9)
 	var shuffled []Name
 	for _, no := range nos {
@@ -302,4 +292,4 @@ func TestObjectSort(t *testing.T) {
 	//error case
 	obj = Object{Type: OTExtraKey, Value: ""}
 	obj.Sort()
-}
+}*/

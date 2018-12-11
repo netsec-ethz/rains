@@ -44,12 +44,12 @@ func deliver(msg *message.Message, sender connection.Info, prioChannel chan msgS
 	//handle message content
 	for _, m := range msg.Content {
 		switch m := m.(type) {
-		case *section.Assertion, *section.Shard, *section.Pshard, *section.Zone, *section.AddrAssertion:
+		case *section.Assertion, *section.Shard, *section.Pshard, *section.Zone:
 			if !isZoneBlacklisted(m.(section.WithSig).GetSubjectZone()) {
 				addMsgSectionToQueue(m, msg.Token, sender, prioChannel, normalChannel, pendingKeys)
 				trace(msg.Token, fmt.Sprintf("added message section to queue: %v", m))
 			}
-		case *query.Name, *query.Address, *query.AssertionUpdate, *query.NegUpdate:
+		case *query.Name:
 			log.Debug(fmt.Sprintf("add %T to normal queue", m))
 			normalChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
 			trace(msg.Token, fmt.Sprintf("sent query section %v to normal channel", m))

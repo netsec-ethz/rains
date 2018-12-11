@@ -58,8 +58,6 @@ func sectionIsInconsistent(sec section.WithSig, consistCache consistencyCache,
 		return !isShardConsistent(sec, consistCache, assertionsCache, negAssertionCache)
 	case *section.Zone:
 		return !isZoneConsistent(sec, assertionsCache, negAssertionCache)
-	case *section.AddrAssertion:
-		return !isAddressAssertionConsistent(sec)
 	default:
 		log.Error("Not supported message section with sig. This case must be prevented beforehand")
 		return true
@@ -86,10 +84,6 @@ func addSectionToCache(sec section.WithSig, isAuthoritative bool, assertionsCach
 	case *section.Zone:
 		if shouldZoneBeCached(sec) {
 			addZoneToCache(sec, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
-		}
-	case *section.AddrAssertion:
-		if shouldAddressAssertionBeCached(sec) {
-			addAddressAssertionToCache(sec, isAuthoritative)
 		}
 	default:
 		log.Error("Not supported message section with sig. This case must be prevented beforehand")
@@ -120,13 +114,6 @@ func shouldPshardBeCached(pshard *section.Pshard) bool {
 //shouldZoneBeCached returns true if zone should be cached
 func shouldZoneBeCached(zone *section.Zone) bool {
 	log.Info("Zone will be cached", "zone", zone)
-	//TODO CFE implement when necessary
-	return true
-}
-
-//shouldAddressAssertionBeCached returns true if assertion should be cached
-func shouldAddressAssertionBeCached(assertion *section.AddrAssertion) bool {
-	log.Info("Assertion will be cached", "AddressAssertion", assertion)
 	//TODO CFE implement when necessary
 	return true
 }
@@ -206,14 +193,6 @@ func addZoneToCache(zone *section.Zone, isAuthoritative bool, assertionsCache as
 	}
 	negAssertionCache.AddZone(zone, zone.ValidUntil(), isAuthoritative)
 	log.Debug("Added zone to cache", "zone", *zone)
-}
-
-//addAddressAssertionToCache adds a to the addressSection cache.
-func addAddressAssertionToCache(a *section.AddrAssertion, isAuthoritative bool) {
-	log.Warn("Address assertion are not yet supported")
-	/*if err := getAddressCache(a.SubjectAddr, a.Context).AddAddressAssertion(a); err != nil {
-		log.Warn("Was not able to add addressAssertion to cache", "addressAssertion", a)
-	}*/
 }
 
 func pendingKeysCallback(swss sectionWithSigSender, pendingKeys pendingKeyCache, normalChannel chan msgSectionSender) {
@@ -316,11 +295,6 @@ func isAnswerToQuery(sec section.WithSig, q section.Section) bool {
 			}
 		}
 		return false
-	case *section.AddrAssertion:
-		//TODO CFE implement the host address and network address case if delegation is a response
-		//or not.
-		_, ok := q.(*query.Address)
-		return ok
 	default:
 		log.Error("Not supported message section with sig. This case must be prevented beforehand")
 	}
@@ -479,8 +453,6 @@ func (s *Server) processQuery(msgSender msgSectionSender) {
 			//naming server
 			answerQueryAuthoritative(section, msgSender.Sender, msgSender.Token, s)
 		}
-	case *query.Address:
-		addressQuery(section, msgSender.Sender, msgSender.Token)
 	default:
 		log.Error("Not supported query message section. This case must be prevented beforehand")
 	}
@@ -835,53 +807,6 @@ func answerQueryCachingResolver(q *query.Name, sender connection.Info, oldToken 
 	} else {
 		log.Info("Query already sent.")
 	}
-}
-
-//addressQuery directly answers the query if the result is cached. Otherwise it issues a new query
-//and adds this query to the pendingQueries Cache.
-func addressQuery(q *query.Address, sender connection.Info, oldToken token.Token) {
-	log.Warn("Address Queries not yet supported")
-	//FIXME CFE make it compatible with the new caches
-	/*log.Debug("Start processing address query", "addressQuery", q)
-	assertion, ok := getAddressCache(q.SubjectAddr, q.Context).Get(q.SubjectAddr, q.Types)
-	//TODO CFE add heuristic which assertion to return
-	if ok {
-		if assertion != nil {
-			sendSection(assertion, oldToken, sender)
-			log.Debug("Finished handling query by sending address assertion from cache", "q", q)
-			return
-		}
-	}
-	log.Debug("No entry found in address cache matching the query")
-
-	if q.ContainsOption(query.QOCachedAnswersOnly) {
-		log.Debug("Send a notification message back to the sender due to query option: 'Cached Answers only'")
-		sendNotificationMsg(oldToken, sender, section.NTNoAssertionAvail, "")
-		log.Debug("Finished handling query (unsuccessful) ", "query", q)
-		return
-	}
-
-	delegate := getRootAddr()
-	if delegate.Equal(serverConnInfo) {
-		sendNotificationMsg(oldToken, sender, section.NTNoAssertionAvail, "")
-		log.Error("Stop processing query. I am authoritative and have no answer in cache")
-		return
-	}
-	//we have a valid delegation
-	tok := oldToken
-	if !q.ContainsOption(query.QOTokenTracing) {
-		tok = token.New()
-	}
-	newQuery := *q
-	//Upper bound for forwarded query expiration time
-	if newQuery.Expiration > time.Now().Add(Config.AddressQueryValidity).Unix() {
-		newQuery.Expiration = time.Now().Add(Config.AddressQueryValidity).Unix()
-	}
-	//FIXME CFE allow multiple connection
-	//FIXME CFE only send query if not already in cache.
-	pendingQueries.Add(msgSectionSender{Section: q, Sender: sender, Token: oldToken})
-	log.Debug("Added query into to pending query cache", "query", q)
-	sendSection(&newQuery, tok, delegate)*/
 }
 
 // toSubjectZone splits a name into a subject and zone.

@@ -41,8 +41,9 @@ const (
 	TypeSha256        = ":sha256:"
 	TypeSha384        = ":sha384:"
 	TypeSha512        = ":sha512:"
+	TypeShake256      = ":shake256:"
 	TypeFnv64         = ":fnv64:"
-	TypeMurmur364     = ":murmur364:"
+	TypeFnv128        = ":fnv128:"
 	TypeBloomFilter   = ":bloomFilter:"
 	TypeStandard      = ":standard:"
 	TypeKM1           = ":km1:"
@@ -163,16 +164,14 @@ func GetEncoding(s section.Section, forSigning bool) string {
 		encoding = encodeAssertion(s, s.Context, s.SubjectZone, "", forSigning)
 	case *section.Shard:
 		encoding = encodeShard(s, s.Context, s.SubjectZone, "", forSigning)
+	case *section.Pshard:
+		log.Error("TODO implement")
 	case *section.Zone:
 		encoding = encodeZone(s, forSigning)
 	case *query.Name:
 		encoding = encodeQuery(s)
 	case *section.Notification:
 		encoding = encodeNotification(s)
-	case *section.AddrAssertion:
-		encoding = encodeAddressAssertion(s)
-	case *query.Address:
-		encoding = encodeAddressQuery(s)
 	default:
 		log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))
 		return ""

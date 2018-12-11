@@ -92,7 +92,7 @@ func benchmarkPsharding(zonefileName string, shardSize, nofHashfunc int, b *test
 		BloomFilterConf: BloomFilterConfig{
 			BFOpMode:         section.KirschMitzenmacher1,
 			BloomFilterSize:  1000,
-			Hashfamily:       []algorithmTypes.Hash{algorithmTypes.Murmur364},
+			Hashfamily:       []algorithmTypes.Hash{algorithmTypes.Fnv128},
 			NofHashFunctions: nofHashfunc,
 		},
 		DoPsharding:            true,

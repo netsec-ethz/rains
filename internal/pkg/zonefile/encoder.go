@@ -22,33 +22,10 @@ func encodeMessage(m *message.Message) string {
 	return fmt.Sprintf(":M: %s %s [\n%s\n]", encodeCapabilities(m.Capabilities), m.Token.String(), strings.Join(content, "\n"))
 }
 
-//encodeAddressAssertion returns an address assertion in signable format (which resembles the zone file format)
-func encodeAddressAssertion(a *section.AddrAssertion) string {
-	return fmt.Sprintf(":AA: %s %s [ %s ]", encodeSubjectAddress(a.SubjectAddr), a.Context, encodeObjects(a.Content, ""))
-}
-
-//encodeAddressQuery returns an encoding which resembles the zone file format
-func encodeAddressQuery(q *query.Address) string {
-	return fmt.Sprintf(":AQ: %s %s %s %d %s", encodeSubjectAddress(q.SubjectAddr), q.Context,
-		encodeObjectTypes(q.Types), q.Expiration, encodeQueryOptions(q.Options))
-}
-
 //encodeQuery returns an encoding which resembles the zone file format
 func encodeQuery(q *query.Name) string {
 	return fmt.Sprintf(":Q: %s %s %s %d %s", q.Context, q.Name, encodeObjectTypes(q.Types),
 		q.Expiration, encodeQueryOptions(q.Options))
-}
-
-//encodeAssertionUpdateQuery returns an encoding which resembles the zone file format
-func encodeAssertionUpdateQuery(q *query.AssertionUpdate) string {
-	return fmt.Sprintf(":AUQ: %s %v %s %d %s", q.Name, q.HashType, hex.EncodeToString(q.HashValue),
-		q.Expiration, encodeQueryOptions(q.Options))
-}
-
-//encodeNonExistenceUpdateQuery returns an encoding which resembles the zone file format
-func encodeNonExistenceUpdateQuery(q *query.NegUpdate) string {
-	return fmt.Sprintf(":NUQ: %s %s %s %v %s %d %s", q.Context, q.Name, encodeObjectTypes(q.ObjectTypes),
-		q.HashType, hex.EncodeToString(q.HashValue), q.Expiration, encodeQueryOptions(q.Options))
 }
 
 //encodeNotification returns a notification in signable format (which resembles the zone file format)

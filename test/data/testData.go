@@ -263,7 +263,7 @@ func Datastructure() section.DataStructure {
 	return section.DataStructure{
 		Type: section.BloomFilterType,
 		Data: section.BloomFilter{
-			HashFamily:       []algorithmTypes.Hash{algorithmTypes.Murmur364},
+			HashFamily:       []algorithmTypes.Hash{algorithmTypes.Fnv128},
 			NofHashFunctions: 10,
 			ModeOfOperation:  section.KirschMitzenmacher1,
 		},
