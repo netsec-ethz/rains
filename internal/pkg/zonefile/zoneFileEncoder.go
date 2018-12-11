@@ -337,10 +337,12 @@ func encodeHashAlgo(h algorithmTypes.Hash) string {
 		return TypeSha384
 	case algorithmTypes.Sha512:
 		return TypeSha512
+	case algorithmTypes.Shake256:
+		return TypeShake256
 	case algorithmTypes.Fnv64:
 		return TypeFnv64
-	case algorithmTypes.Murmur364:
-		return TypeMurmur364
+	case algorithmTypes.Fnv128:
+		return TypeFnv128
 	default:
 		log.Warn("Unsupported certificate hash algorithm type", "hashAlgoType", h)
 		return ""

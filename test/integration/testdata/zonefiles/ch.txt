@@ -1,5 +1,5 @@
 :Z: ch. . [
-    :P: < > :bloomFilter: [ :murmur364: ] 23 :km1: 22e0002a88822aa8060ab0204a80000ba20882a0088aa0408a20010aa40808a2200aa2a00a81020ea810
+    :P: < > :bloomFilter: [ :fnv128: ] 23 :km1: 22e0002a88822aa8060ab0204a80000ba20882a0088aa0408a20010aa40808a2200aa2a00a81020ea810
 
     :S: < > [
         :A: ethz [ :redir:   ns.ethz.ch. ]

@@ -3,7 +3,6 @@ package rainsd
 import (
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/datastructures/binaryTrie"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeCounter"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeHashMap"
 	"github.com/netsec-ethz/rains/internal/pkg/lruCache"
@@ -46,12 +45,6 @@ type Caches struct {
 
 	//redirectCache allows fast retrieval of connection information for a given subjectZone
 	RedirectCache redirectionCache
-
-	//addressCache contains a set of valid IPv4 address assertions and address zones where some of them might be expired per context.
-	AddressCacheIPv4 map[string]addressSectionCache
-
-	//addressCache contains a set of valid IPv6 address assertions and address zones where some of them might be expired per context.
-	AddressCacheIPv6 map[string]addressSectionCache
 }
 
 func initCaches(config rainsdConfig) *Caches {
@@ -106,11 +99,6 @@ func initCaches(config rainsdConfig) *Caches {
 		warnSize:    config.RedirectionCacheWarnSize,
 	}
 
-	//FIXME CFE implement cache according to design document
-	caches.AddressCacheIPv4 = make(map[string]addressSectionCache)
-	caches.AddressCacheIPv4["."] = new(binaryTrie.TrieNode)
-	caches.AddressCacheIPv6 = make(map[string]addressSectionCache)
-	caches.AddressCacheIPv6["."] = new(binaryTrie.TrieNode)
 	return caches
 }
 

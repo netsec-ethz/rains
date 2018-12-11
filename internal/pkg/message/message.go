@@ -67,16 +67,8 @@ func (rm *Message) MarshalCBOR(w *cbor.CBORWriter) error {
 			msgsect = append(msgsect, [2]interface{}{7, sect})
 		case *section.Zone:
 			msgsect = append(msgsect, [2]interface{}{3, sect})
-		case *section.AddrAssertion:
-			msgsect = append(msgsect, [2]interface{}{-1, sect})
 		case *query.Name:
 			msgsect = append(msgsect, [2]interface{}{4, sect})
-		case *query.Address:
-			msgsect = append(msgsect, [2]interface{}{-4, sect})
-		case *query.AssertionUpdate:
-			msgsect = append(msgsect, [2]interface{}{5, sect})
-		case *query.NegUpdate:
-			msgsect = append(msgsect, [2]interface{}{6, sect})
 		case *section.Notification:
 			msgsect = append(msgsect, [2]interface{}{23, sect})
 		default:
@@ -159,24 +151,6 @@ func (rm *Message) UnmarshalCBOR(r *cbor.CBORReader) error {
 				return err
 			}
 			rm.Content = append(rm.Content, q)
-		case -4:
-			q := &query.Address{}
-			if err := q.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
-				return err
-			}
-			rm.Content = append(rm.Content, q)
-		case 5:
-			q := &query.AssertionUpdate{}
-			if err := q.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
-				return err
-			}
-			rm.Content = append(rm.Content, q)
-		case 6:
-			q := &query.NegUpdate{}
-			if err := q.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
-				return err
-			}
-			rm.Content = append(rm.Content, q)
 		case 23:
 			n := &section.Notification{}
 			if err := n.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
@@ -193,10 +167,9 @@ func (rm *Message) UnmarshalCBOR(r *cbor.CBORReader) error {
 func (m *Message) Sort() {
 	var assertions []*section.Assertion
 	var shards []*section.Shard
+	var pshards []*section.Pshard
 	var zones []*section.Zone
 	var queries []*query.Name
-	var addressAssertions []*section.AddrAssertion
-	var addressQueries []*query.Address
 	var notifications []*section.Notification
 	for _, sec := range m.Content {
 		sec.Sort()
@@ -205,38 +178,32 @@ func (m *Message) Sort() {
 			assertions = append(assertions, sec)
 		case *section.Shard:
 			shards = append(shards, sec)
+		case *section.Pshard:
+			pshards = append(pshards, sec)
 		case *section.Zone:
 			zones = append(zones, sec)
 		case *query.Name:
 			queries = append(queries, sec)
 		case *section.Notification:
 			notifications = append(notifications, sec)
-		case *section.AddrAssertion:
-			addressAssertions = append(addressAssertions, sec)
-		case *query.Address:
-			addressQueries = append(addressQueries, sec)
 		default:
 			log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", sec))
 		}
 	}
 	sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
 	sort.Slice(shards, func(i, j int) bool { return shards[i].CompareTo(shards[j]) < 0 })
+	sort.Slice(pshards, func(i, j int) bool { return pshards[i].CompareTo(pshards[j]) < 0 })
 	sort.Slice(zones, func(i, j int) bool { return zones[i].CompareTo(zones[j]) < 0 })
 	sort.Slice(queries, func(i, j int) bool { return queries[i].CompareTo(queries[j]) < 0 })
-	sort.Slice(addressAssertions, func(i, j int) bool { return addressAssertions[i].CompareTo(addressAssertions[j]) < 0 })
-	sort.Slice(addressQueries, func(i, j int) bool { return addressQueries[i].CompareTo(addressQueries[j]) < 0 })
 	sort.Slice(notifications, func(i, j int) bool { return notifications[i].CompareTo(notifications[j]) < 0 })
 	m.Content = []section.Section{}
-	for _, section := range addressQueries {
-		m.Content = append(m.Content, section)
-	}
-	for _, section := range addressAssertions {
-		m.Content = append(m.Content, section)
-	}
 	for _, section := range assertions {
 		m.Content = append(m.Content, section)
 	}
 	for _, section := range shards {
+		m.Content = append(m.Content, section)
+	}
+	for _, section := range pshards {
 		m.Content = append(m.Content, section)
 	}
 	for _, section := range zones {

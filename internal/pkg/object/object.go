@@ -51,10 +51,6 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		switch algorithmTypes.Signature(alg) {
 		case algorithmTypes.Ed25519:
 			key = ed25519.PublicKey(in[6].([]byte))
-		case algorithmTypes.Ecdsa256:
-			return fmt.Errorf("unsupported algorithm: %v", alg)
-		case algorithmTypes.Ecdsa384:
-			return fmt.Errorf("unsupported algorithm: %v", alg)
 		default:
 			return fmt.Errorf("unsupported algorithm: %v", alg)
 		}
@@ -100,10 +96,6 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		switch alg.(algorithmTypes.Signature) {
 		case algorithmTypes.Ed25519:
 			key = ed25519.PublicKey(in[6].([]byte))
-		case algorithmTypes.Ecdsa256:
-			return fmt.Errorf("unsupported algorithm: %v", alg)
-		case algorithmTypes.Ecdsa384:
-			return fmt.Errorf("unsupported algorithm: %v", alg)
 		default:
 			return fmt.Errorf("unsupported algorithm: %v", alg)
 		}
@@ -125,10 +117,6 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		switch alg {
 		case algorithmTypes.Ed25519:
 			key = ed25519.PublicKey(in[3].([]byte))
-		case algorithmTypes.Ecdsa256:
-			return fmt.Errorf("unsupported algorithm: %v", alg)
-		case algorithmTypes.Ecdsa384:
-			return fmt.Errorf("unsupported algorithm: %v", alg)
 		default:
 			return fmt.Errorf("unsupported algorithm: %v", alg)
 		}
@@ -239,10 +227,6 @@ func pubkeyToCBORBytes(p keys.PublicKey) []byte {
 	case algorithmTypes.Ed25519:
 		return []byte(p.Key.(ed25519.PublicKey))
 	case algorithmTypes.Ed448:
-		panic("Unsupported algorithm.")
-	case algorithmTypes.Ecdsa256:
-		panic("Unsupported algorithm.")
-	case algorithmTypes.Ecdsa384:
 		panic("Unsupported algorithm.")
 	default:
 		panic("Unsupported algorithm.")

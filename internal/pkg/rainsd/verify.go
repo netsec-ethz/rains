@@ -34,7 +34,7 @@ func (s *Server) verify(msgSender msgSectionSender) {
 			Token:   msgSender.Token,
 		}
 		verifySection(sectionSender, s)
-	case *query.Address, *query.Name:
+	case *query.Name:
 		verifyQuery(msgSender.Section.(section.Query), msgSender, s)
 		//TODO CFE add update queries
 	default:

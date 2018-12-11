@@ -6,26 +6,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 )
 
-func TestEncodeAddressAssertion(t *testing.T) {
-	assertions, encodings := getAddressAssertionsAndEncodings()
-	for i, assertion := range assertions {
-		encodedAA := encodeAddressAssertion(assertion)
-		if encodedAA != encodings[i] {
-			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedAA)
-		}
-	}
-}
-
-func TestEncodeAddressQuery(t *testing.T) {
-	queries, encodings := getAddressQueriesAndEncodings()
-	for i, query := range queries {
-		encodedAQ := encodeAddressQuery(query)
-		if encodedAQ != encodings[i] {
-			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedAQ)
-		}
-	}
-}
-
 func TestEncodeQuery(t *testing.T) {
 	queries, encodings := getQueriesAndEncodings()
 	for i, query := range queries {

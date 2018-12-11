@@ -11,10 +11,9 @@ import (
 
 	cbor "github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
-
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
-	"github.com/spaolacci/murmur3"
+	"golang.org/x/crypto/sha3"
 )
 
 //DataStructure contains information about a datastructure. The Type defines the object in Data.
@@ -210,11 +209,16 @@ func calcHash(hashType algorithmTypes.Hash, encoding string) uint64 {
 	case algorithmTypes.Sha512:
 		hash := sha512.Sum512([]byte(encoding))
 		return binary.BigEndian.Uint64(hash[:])
+	case algorithmTypes.Shake256:
+		hash := make([]byte, 64)
+		sha3.ShakeSum256(hash, []byte(encoding))
+		return binary.BigEndian.Uint64(hash[:])
 	case algorithmTypes.Fnv64:
 		hash := fnv.New64()
-		return hash.Sum64()
-	case algorithmTypes.Murmur364:
-		return murmur3.Sum64([]byte(encoding))
+		return binary.BigEndian.Uint64(hash.Sum([]byte(encoding))[:])
+	case algorithmTypes.Fnv128:
+		hash := fnv.New128()
+		return binary.BigEndian.Uint64(hash.Sum([]byte(encoding))[:])
 	default:
 		log.Error("Unsupported hash algorithm type")
 		return 0

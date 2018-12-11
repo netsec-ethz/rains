@@ -278,7 +278,7 @@ func TestPendingKeyCache(t *testing.T) {
 		//Add: different cacheValues and same cacheValue, same Algo, different Hash
 		expectedValues := []bool{true, false, true}
 		for j := 0; j < 3; j++ {
-			sendQuery := c.Add(m[j], keys.Ed25519, 1)
+			sendQuery := c.Add(m[j], algorithmTypes.Ed25519, 1)
 			if c.Len() != j+1 {
 				t.Errorf("%d.%d:section was not added to the cache. len=%d", i, j, c.Len())
 			}
@@ -288,7 +288,7 @@ func TestPendingKeyCache(t *testing.T) {
 		}
 		//check that no matter what the new section is, it gets dropped in case the cache is full
 		for j := 0; j < len(m); j++ {
-			sendQuery := c.Add(m[j], keys.Ed25519, 1)
+			sendQuery := c.Add(m[j], algorithmTypes.Ed25519, 1)
 			if c.Len() != 3 {
 				t.Errorf("%d.%d:section was added to the cache. len=%d", i, j, c.Len())
 			}
@@ -332,21 +332,21 @@ func TestPendingKeyCache(t *testing.T) {
 		}
 		//Check remaining Add() cases: same cacheValue and different algo type or phase;
 		//same cacheValue, same algo, same hash
-		sendQuery := c.Add(m[3], keys.Ed448, 1) //different algo type
+		sendQuery := c.Add(m[3], algorithmTypes.Ed25519, 1) //different algo type
 		if c.Len() != 2 {
 			t.Errorf("%d:section was not added to the cache. len=%d", i, c.Len())
 		}
 		if sendQuery {
 			t.Errorf("%d:incorrect Add() return value. expected=false actual=%v", i, sendQuery)
 		}
-		sendQuery = c.Add(m[3], keys.Ed448, 1) //duplicate
+		sendQuery = c.Add(m[3], algorithmTypes.Ed25519, 1) //duplicate
 		if c.Len() != 2 {
 			t.Errorf("%d:same section was added again to the cache. len=%d", i, c.Len())
 		}
 		if sendQuery {
 			t.Errorf("%d:incorrect Add() return value. expected=false actual=%v", i, sendQuery)
 		}
-		sendQuery = c.Add(m[3], keys.Ed25519, 0) //different phase
+		sendQuery = c.Add(m[3], algorithmTypes.Ed25519, 0) //different phase
 		if c.Len() != 3 {
 			t.Errorf("%d:section was not added to the cache. len=%d", i, c.Len())
 		}
@@ -355,37 +355,37 @@ func TestPendingKeyCache(t *testing.T) {
 		}
 		//Check GetAndRemove()
 		//non existing elements
-		v = c.GetAndRemove("none contained zone", ".", keys.Ed25519, 0)
+		v = c.GetAndRemove("none contained zone", ".", algorithmTypes.Ed25519, 0)
 		if v != nil || c.Len() != 3 {
 			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
 		}
-		v = c.GetAndRemove("ch", "non contained context", keys.Ed448, 0)
+		v = c.GetAndRemove("ch", "non contained context", algorithmTypes.Ed25519, 0)
 		if v != nil || c.Len() != 3 {
 			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
 		}
-		v = c.GetAndRemove("ch", ".", keys.Ed448, 0)
+		v = c.GetAndRemove("ch", ".", algorithmTypes.Ed25519, 0)
 		if v != nil || c.Len() != 3 {
 			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
 		}
-		v = c.GetAndRemove("ch", ".", keys.Ed25519, 2)
+		v = c.GetAndRemove("ch", ".", algorithmTypes.Ed25519, 2)
 		if v != nil || c.Len() != 3 {
 			t.Errorf("%d:Entry removed from cache with non argument. len=%d", i, c.Len())
 		}
 		//actual remove
-		v = c.GetAndRemove("ch", ".", keys.Ed448, 1)
+		v = c.GetAndRemove("ch", ".", algorithmTypes.Ed25519, 1)
 		if c.Len() != 2 || len(v) != 1 || v[0] != m[3] {
 			t.Errorf("%d:GetAndRemove() wrong return values. len=%d expectedValue= %v returnValue=%v", i, c.Len(), m[3], v[0])
 		}
-		v = c.GetAndRemove("ch", ".", keys.Ed25519, 0)
+		v = c.GetAndRemove("ch", ".", algorithmTypes.Ed25519, 0)
 		if c.Len() != 1 || len(v) != 1 || v[0] != m[3] {
 			t.Errorf("%d:GetAndRemove() wrong return values. len=%d expectedValue= %v returnValue=%v", i, c.Len(), m[3], v[0])
 		}
-		v = c.GetAndRemove("ch", ".", keys.Ed25519, 1)
+		v = c.GetAndRemove("ch", ".", algorithmTypes.Ed25519, 1)
 		if c.Len() != 0 || len(v) != 1 || v[0] != m[2] {
 			t.Errorf("%d:GetAndRemove() wrong return values. len=%d expectedValue= %v returnValue=%v", i, c.Len(), m[2], v[0])
 		}
 		//correct cleanup of hash map keys
-		sendQuery = c.Add(m[0], keys.Ed25519, 0)
+		sendQuery = c.Add(m[0], algorithmTypes.Ed25519, 0)
 		if c.Len() != 1 {
 			t.Errorf("%d:section was not added to the cache. len=%d", i, c.Len())
 		}
@@ -398,7 +398,7 @@ func TestPendingKeyCache(t *testing.T) {
 		}
 		time.Sleep(2 * time.Second)
 		//resend after expiration
-		sendQuery = c.Add(m[0], keys.Ed25519, 0)
+		sendQuery = c.Add(m[0], algorithmTypes.Ed25519, 0)
 		if c.Len() != 1 {
 			t.Errorf("%d:same section was added again to the cache. len=%d", i, c.Len())
 		}
@@ -595,7 +595,7 @@ func TestPendingQueryCache(t *testing.T) {
 }
 
 func TestAssertionCache(t *testing.T) {
-	consistCache = &consistencyCacheImpl{
+	consistCache := &consistencyCacheImpl{
 		ctxZoneMap: make(map[string]*consistencyCacheValue),
 	}
 	var tests = []struct {
@@ -731,7 +731,7 @@ func TestAssertionCache(t *testing.T) {
 }
 
 func TestNegAssertionCache(t *testing.T) {
-	consistCache = &consistencyCacheImpl{
+	consistCache := &consistencyCacheImpl{
 		ctxZoneMap: make(map[string]*consistencyCacheValue),
 	}
 	var tests = []struct {
@@ -879,17 +879,17 @@ func TestConsistencyCache(t *testing.T) {
 		}
 		//Get border case: point is on the interval border (interval borders are exclusive)
 		sections = c.Get(shards[0].SubjectZone, shards[0].Context,
-			object.StringInterval{Name: shards[0].End()})
+			section.StringInterval{Name: shards[0].End()})
 		if len(sections) != 0 {
 			t.Errorf("%d:Border should be excluding. actual=%v", i, sections)
 		}
-		sections = c.Get(zones[2].SubjectZone, zones[2].Context, object.StringInterval{Name: "m"})
+		sections = c.Get(zones[2].SubjectZone, zones[2].Context, section.StringInterval{Name: "m"})
 		if len(sections) != 1 || sections[0] != zones[2] {
 			t.Errorf("%d:Not the correct sections have been returned or added. actual=%v", i, sections)
 		}
 		//Test Remove
 		c.Remove(zones[2])
-		sections = c.Get(zones[2].SubjectZone, zones[2].Context, object.StringInterval{Name: "m"})
+		sections = c.Get(zones[2].SubjectZone, zones[2].Context, section.StringInterval{Name: "m"})
 		if len(sections) != 0 {
 			t.Errorf("%d:Not the correct element was removed. actual=%v", i, sections)
 		}
@@ -1068,7 +1068,7 @@ func TestAlgoPhaseKey(t *testing.T) {
 		phase    int
 		output   string
 	}{
-		{keys.Ed25519, 2, "1 2"},
+		{algorithmTypes.Ed25519, 2, "1 2"},
 	}
 	for i, test := range tests {
 		if algoPhaseKey(test.algoType, test.phase) != test.output {
@@ -1111,7 +1111,7 @@ func getExampleDelgations(tld string) []*section.Assertion {
 			object.Object{
 				Type: object.OTDelegation,
 				Value: keys.PublicKey{
-					PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
+					PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519, KeyPhase: 0},
 					ValidSince:  time.Now().Unix(),
 					ValidUntil:  time.Now().Add(24 * time.Hour).Unix(),
 					Key:         ed25519.PublicKey([]byte("TestKey")),
@@ -1127,7 +1127,7 @@ func getExampleDelgations(tld string) []*section.Assertion {
 			object.Object{
 				Type: object.OTDelegation,
 				Value: keys.PublicKey{
-					PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
+					PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519, KeyPhase: 0},
 					ValidSince:  time.Now().Add(25 * time.Hour).Unix(),
 					ValidUntil:  time.Now().Add(48 * time.Hour).Unix(),
 					Key:         ed25519.PublicKey([]byte("TestKey2")),
@@ -1143,7 +1143,7 @@ func getExampleDelgations(tld string) []*section.Assertion {
 			object.Object{
 				Type: object.OTDelegation,
 				Value: keys.PublicKey{
-					PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 1},
+					PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519, KeyPhase: 1},
 					ValidSince:  time.Now().Unix(),
 					ValidUntil:  time.Now().Add(24 * time.Hour).Unix(),
 					Key:         ed25519.PublicKey([]byte("TestKey")),
@@ -1160,7 +1160,7 @@ func getExampleDelgations(tld string) []*section.Assertion {
 			object.Object{
 				Type: object.OTDelegation,
 				Value: keys.PublicKey{
-					PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 1},
+					PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519, KeyPhase: 1},
 					ValidSince:  time.Now().Add(-2 * time.Hour).Unix(),
 					ValidUntil:  time.Now().Add(-1 * time.Hour).Unix(),
 					Key:         ed25519.PublicKey([]byte("TestKey")),
@@ -1176,7 +1176,7 @@ func getExampleDelgations(tld string) []*section.Assertion {
 			object.Object{
 				Type: object.OTDelegation,
 				Value: keys.PublicKey{
-					PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
+					PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519, KeyPhase: 0},
 					ValidSince:  time.Now().Unix(),
 					ValidUntil:  time.Now().Add(24 * time.Hour).Unix(),
 					Key:         ed25519.PublicKey([]byte("TestKey")),
@@ -1195,33 +1195,33 @@ func getExampleDelgations(tld string) []*section.Assertion {
 func getSignatureMetaData() []signature.MetaData {
 	//signature in the interval of the above public keys
 	s1 := signature.MetaData{
-		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
+		PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519, KeyPhase: 0},
 		ValidSince:  time.Now().Add(23 * time.Hour).Unix(),
 		ValidUntil:  time.Now().Add(24*time.Hour + 30*time.Minute).Unix(),
 	}
 	s2 := signature.MetaData{
-		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
+		PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519, KeyPhase: 0},
 		ValidSince:  time.Now().Add(24*time.Hour + 30*time.Minute).Unix(),
 		ValidUntil:  time.Now().Add(30 * time.Hour).Unix(),
 	}
 	s3 := signature.MetaData{
-		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 1},
+		PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519, KeyPhase: 1},
 		ValidSince:  time.Now().Add(23 * time.Hour).Unix(),
 		ValidUntil:  time.Now().Add(24*time.Hour + 30*time.Minute).Unix(),
 	}
 	//signature not in the interval of the above public keys
 	s4 := signature.MetaData{
-		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
+		PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519, KeyPhase: 0},
 		ValidSince:  time.Now().Add(-2 * time.Hour).Unix(),
 		ValidUntil:  time.Now().Add(-1 * time.Hour).Unix(),
 	}
 	s5 := signature.MetaData{
-		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
+		PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519, KeyPhase: 0},
 		ValidSince:  time.Now().Add(48*time.Hour + 1).Unix(),
 		ValidUntil:  time.Now().Add(50 * time.Hour).Unix(),
 	}
 	s6 := signature.MetaData{
-		PublicKeyID: keys.PublicKeyID{Algorithm: keys.Ed25519, KeyPhase: 0},
+		PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519, KeyPhase: 0},
 		ValidSince:  time.Now().Add(24*time.Hour + 1).Unix(),
 		ValidUntil:  time.Now().Add(25*time.Hour - 1).Unix(),
 	}

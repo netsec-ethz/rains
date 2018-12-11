@@ -119,15 +119,7 @@ func (p PrivateKey) String() string {
 //KeySpaceID identifies a key space
 type KeySpaceID int
 
+//go:generate stringer -type=KeySpaceID
 const (
 	RainsKeySpace KeySpaceID = 0
 )
-
-func (k KeySpaceID) String() string {
-	switch k {
-	case RainsKeySpace:
-		return "rains"
-	default:
-		return "Unknown SignatureType"
-	}
-}

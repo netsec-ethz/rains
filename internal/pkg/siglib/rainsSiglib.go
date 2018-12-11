@@ -329,13 +329,6 @@ func CheckStringFields(s section.Section) bool {
 			log.Warn("Section contains a string field with forbidden content", "NotificationData", s.Data)
 			return false
 		}
-	case *section.AddrAssertion:
-		if !checkObjectFields(s.Content) {
-			return false
-		}
-		return !containsZoneFileType(s.Context)
-	case *query.Address:
-		return !containsZoneFileType(s.Context)
 	default:
 		log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", s))
 		return false

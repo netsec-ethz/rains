@@ -269,10 +269,12 @@ func (i *hashFamilyFlag) Set(value string) error {
 			i.value = append(i.value, algorithmTypes.Sha384)
 		case parser.TypeSha512:
 			i.value = append(i.value, algorithmTypes.Sha512)
+		case parser.TypeShake256:
+			i.value = append(i.value, algorithmTypes.Shake256)
 		case parser.TypeFnv64:
 			i.value = append(i.value, algorithmTypes.Fnv64)
-		case parser.TypeMurmur364:
-			i.value = append(i.value, algorithmTypes.Murmur364)
+		case parser.TypeFnv128:
+			i.value = append(i.value, algorithmTypes.Fnv128)
 		default:
 			return errors.New("unknown hash algorithm type")
 		}
