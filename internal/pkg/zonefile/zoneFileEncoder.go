@@ -20,16 +20,7 @@ import (
 func encodeZone(z *section.Zone, addZoneAndContext bool) string {
 	zone := fmt.Sprintf("%s %s %s [\n", TypeZone, z.SubjectZone, z.Context)
 	for _, sec := range z.Content {
-		switch s := sec.(type) {
-		case *section.Assertion:
-			zone += encodeAssertion(s, z.Context, z.SubjectZone, indent4, addZoneAndContext) + "\n"
-		case *section.Shard:
-			zone += encodeShard(s, z.Context, z.SubjectZone, indent4, addZoneAndContext) + "\n"
-		case *section.Pshard:
-			zone += encodePshard(s, z.Context, z.SubjectZone, indent4, addZoneAndContext) + "\n"
-		default:
-			log.Warn("Unsupported message section type", "msgSection", s)
-		}
+		zone += encodeAssertion(sec, z.Context, z.SubjectZone, indent4, addZoneAndContext) + "\n"
 	}
 	if z.Signatures != nil {
 		var sigs []string

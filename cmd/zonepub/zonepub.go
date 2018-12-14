@@ -15,7 +15,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
-	parser "github.com/netsec-ethz/rains/internal/pkg/zonefile"
+	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
 
 var configPath string
@@ -23,15 +23,15 @@ var zonefilePath = flag.String("zonefilePath", "", "Path to the zonefile")
 var authServers addressesFlag
 var privateKeyPath = flag.String("privateKeyPath", "", `Path to a file storing the private keys. 
 Each line contains a key phase and a private key encoded in hexadecimal separated by a space.`)
+var includeShards boolFlag
 var doSharding boolFlag
-var keepExistingShards boolFlag
 var nofAssertionsPerShard = flag.Int("nofAssertionsPerShard", -1, `Defines the number of assertions
 per shard if sharding is performed`)
 var maxShardSize = flag.Int("maxShardSize", -1, `this option only has an effect when DoSharding is 
 true. Assertions are added to a shard until its size would become larger than maxShardSize. Then the
 process is repeated with a new shard.`)
+var includePshards boolFlag
 var doPsharding boolFlag
-var keepExistingPshards boolFlag
 var nofAssertionsPerPshard = flag.Int("nofAssertionsPerPshard", -1, `this option only has an effect
 when doPsharding is true. Defines the number of assertions with different names per pshard if
 sharding is performed. Because the number of assertions per name can vary, shards may have different
@@ -55,6 +55,7 @@ var sigSigningInterval = flag.Int64("sigSigningInterval", -1, `Defines the time 
 over which the assertions' signature lifetimes are uniformly spread out.`)
 var doConsistencyCheck boolFlag
 var sortShards boolFlag
+var sortZone boolFlag
 var sigNotExpired boolFlag
 var checkStringFields boolFlag
 var doSigning boolFlag
@@ -73,15 +74,15 @@ func init() {
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, h))
 	flag.Var(&authServers, "authServers", `Authoritative server addresses to which the 
 	sections in the zone file are forwarded.`)
-	flag.Var(&doSharding, "doSharding", `If set to true, only assertions in the zonefile are 
+	flag.Var(&includeShards, "includeShards", `If set to true, only assertions in the zonefile are 
 	considered and grouped into shards based on configuration`)
-	flag.Var(&keepExistingShards, "keepExistingShards", `this option only has an effect when 
+	flag.Var(&doSharding, "keepExistingShards", `this option only has an effect when 
 	DoSharding is true. If the zonefile already contains shards and keepExistingShards is true, the 
 	shards are kept. Otherwise, all existing shards are removed before the new ones are created.`)
-	flag.Var(&doPsharding, "doPsharding", `If set to true, all assertions in the zonefile
+	flag.Var(&includePshards, "doPsharding", `If set to true, all assertions in the zonefile
 	are grouped into pshards based on KeepExistingPshards, NofAssertionsPerPshard, Hashfamily,
 	NofHashFunctions, BFOpMode, and BloomFilterSize parameters.`)
-	flag.Var(&keepExistingPshards, "keepExistingPshards", `this option only has an effect when 
+	flag.Var(&doPsharding, "keepExistingPshards", `this option only has an effect when 
 	DoPsharding is true. If the zonefile already contains pshards and keepExistingPshards is true,
 	the pshards are kept. Otherwise, all existing pshards are removed before the new ones are
 	created.`)
@@ -103,6 +104,8 @@ func init() {
 	flag.Var(&doConsistencyCheck, "doConsistencyCheck", `Performs all consistency checks if set to 
 	true. The check involves: TODO CFE`)
 	flag.Var(&sortShards, "sortShards", `If set, makes sure that the assertions withing the shard 
+	are sorted.`)
+	flag.Var(&sortZone, "sortZone", `If set, makes sure that the assertions withing the zone 
 	are sorted.`)
 	flag.Var(&sigNotExpired, "sigNotExpired", `If set, checks that all signatures have a validUntil
 	time in the future`)
@@ -135,11 +138,11 @@ func main() {
 	if *privateKeyPath != "" {
 		config.PrivateKeyPath = *privateKeyPath
 	}
+	if includeShards.set {
+		config.ShardingConf.IncludeShards = includeShards.value
+	}
 	if doSharding.set {
 		config.ShardingConf.DoSharding = doSharding.value
-	}
-	if keepExistingShards.set {
-		config.ShardingConf.KeepExistingShards = keepExistingShards.value
 	}
 	if *nofAssertionsPerShard != -1 {
 		config.ShardingConf.NofAssertionsPerShard = *nofAssertionsPerShard
@@ -147,11 +150,11 @@ func main() {
 	if *maxShardSize != -1 {
 		config.ShardingConf.MaxShardSize = *maxShardSize
 	}
+	if includePshards.set {
+		config.PShardingConf.IncludePshards = includePshards.value
+	}
 	if doPsharding.set {
 		config.PShardingConf.DoPsharding = doPsharding.value
-	}
-	if keepExistingPshards.set {
-		config.PShardingConf.KeepExistingPshards = keepExistingPshards.value
 	}
 	if *nofAssertionsPerPshard != -1 {
 		config.PShardingConf.NofAssertionsPerPshard = *nofAssertionsPerPshard
@@ -200,6 +203,9 @@ func main() {
 	}
 	if sortShards.set {
 		config.ConsistencyConf.SortShards = sortShards.value
+	}
+	if sortZone.set {
+		config.ConsistencyConf.SortZone = sortZone.value
 	}
 	if sigNotExpired.set {
 		config.ConsistencyConf.SigNotExpired = sigNotExpired.value
@@ -263,17 +269,17 @@ func (i *hashFamilyFlag) Set(value string) error {
 	i.set = true
 	for _, algo := range algos {
 		switch algo {
-		case parser.TypeSha256:
+		case zonefile.TypeSha256:
 			i.value = append(i.value, algorithmTypes.Sha256)
-		case parser.TypeSha384:
+		case zonefile.TypeSha384:
 			i.value = append(i.value, algorithmTypes.Sha384)
-		case parser.TypeSha512:
+		case zonefile.TypeSha512:
 			i.value = append(i.value, algorithmTypes.Sha512)
-		case parser.TypeShake256:
+		case zonefile.TypeShake256:
 			i.value = append(i.value, algorithmTypes.Shake256)
-		case parser.TypeFnv64:
+		case zonefile.TypeFnv64:
 			i.value = append(i.value, algorithmTypes.Fnv64)
-		case parser.TypeFnv128:
+		case zonefile.TypeFnv128:
 			i.value = append(i.value, algorithmTypes.Fnv128)
 		default:
 			return errors.New("unknown hash algorithm type")
@@ -293,7 +299,7 @@ func (i *algorithmFlag) String() string {
 
 func (i *algorithmFlag) Set(value string) error {
 	switch value {
-	case parser.TypeEd25519, "ed25519", "1":
+	case zonefile.TypeEd25519, "ed25519", "1":
 		i.set = true
 		i.value = algorithmTypes.Ed25519
 	default:
@@ -313,13 +319,13 @@ func (i *bfOpModeFlag) String() string {
 
 func (i *bfOpModeFlag) Set(value string) error {
 	switch value {
-	case parser.TypeStandard, "standard", "0":
+	case zonefile.TypeStandard, "standard", "0":
 		i.set = true
 		i.value = section.StandardOpType
-	case parser.TypeKM1, "km1", "1":
+	case zonefile.TypeKM1, "km1", "1":
 		i.set = true
 		i.value = section.KirschMitzenmacher1
-	case parser.TypeKM2, "km2", "2":
+	case zonefile.TypeKM2, "km2", "2":
 		i.set = true
 		i.value = section.KirschMitzenmacher2
 	default:

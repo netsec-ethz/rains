@@ -432,8 +432,8 @@ var result bool
 func benchmarkSignAssertions(zonefileName string, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
 
-	parser := new(zonefile.Parser)
-	zone, err := parser.LoadZone(zonefileName)
+	parser := new(zonefile.IO)
+	zone, err := parser.LoadZonefile(zonefileName)
 	if err != nil {
 		b.Error(err)
 		return
@@ -468,8 +468,8 @@ func BenchmarkSignAssertionDeleg100000(b *testing.B) {
 //Shard ranges are not chosen correctly
 func benchmarkSignShard(zonefileName string, assertionsPerShard int, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
-	parser := new(zonefile.Parser)
-	zone, err := parser.LoadZone(zonefileName)
+	parser := new(zonefile.IO)
+	zone, err := parser.LoadZonefile(zonefileName)
 	if err != nil {
 		b.Error(err)
 		return
@@ -502,8 +502,8 @@ func BenchmarkSignShard1000(b *testing.B) { benchmarkSignShard("test/zonefile100
 //contained in shards.
 func benchmarkSignZone(zonefileName string, assertionsPerShard int, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
-	parser := new(zonefile.Parser)
-	zone, err := parser.LoadZone(zonefileName)
+	parser := new(zonefile.IO)
+	zone, err := parser.LoadZonefile(zonefileName)
 	if err != nil {
 		b.Error(err)
 		return
@@ -564,8 +564,8 @@ func benchmarkSigningTest() {
 
 func benchmarkEncoding(zonefileName string, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
-	parser := new(zonefile.Parser)
-	zone, err := parser.LoadZone(zonefileName)
+	parser := new(zonefile.IO)
+	zone, err := parser.LoadZonefile(zonefileName)
 	if err != nil {
 		b.Error(err)
 		return
@@ -585,8 +585,8 @@ func BenchmarkEncodingAssertion100000(b *testing.B) { benchmarkEncoding("test/zo
 
 func benchmarkSigning(zonefileName string, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
-	parser := new(zonefile.Parser)
-	zone, err := parser.LoadZone(zonefileName)
+	parser := new(zonefile.IO)
+	zone, err := parser.LoadZonefile(zonefileName)
 	if err != nil {
 		b.Error(err)
 		return
@@ -616,8 +616,8 @@ func BenchmarkSigningAssertion100000(b *testing.B) { benchmarkSigning("test/zone
 
 func benchmarkVerify(zonefileName string, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
-	parser := new(zonefile.Parser)
-	zone, err := parser.LoadZone(zonefileName)
+	parser := new(zonefile.IO)
+	zone, err := parser.LoadZonefile(zonefileName)
 	if err != nil {
 		b.Error(err)
 		return
@@ -654,8 +654,8 @@ func BenchmarkVerifyAssertion10000(b *testing.B) { benchmarkVerify("test/zf10000
 
 func benchmarkVerifyShard(zonefileName string, apers int, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
-	parser := new(zonefile.Parser)
-	zone, err := parser.LoadZone(zonefileName)
+	parser := new(zonefile.IO)
+	zone, err := parser.LoadZonefile(zonefileName)
 	if err != nil {
 		b.Error(err)
 		return
@@ -736,8 +736,8 @@ func BenchmarkEd25519Verify(b *testing.B) {
 
 func calcSpaceSaving(zonefileName string, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
-	parser := new(zonefile.Parser)
-	zone, err := parser.LoadZone(zonefileName)
+	parser := new(zonefile.IO)
+	zone, err := parser.LoadZonefile(zonefileName)
 	if err != nil {
 		b.Error(err)
 		return

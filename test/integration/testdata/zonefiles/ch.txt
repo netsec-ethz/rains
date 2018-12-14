@@ -1,10 +1,14 @@
 :Z: ch. . [
-    :P: < > :bloomFilter: [ :fnv128: ] 23 :km1: 22e0002a88822aa8060ab0204a80000ba20882a0088aa0408a20010aa40808a2200aa2a00a81020ea810
+    :A: ethz [ :redir:   ns.ethz.ch. ]
+    :A: ethz [ :deleg:   :ed25519: 1 92c52fecc581eefacd2114c4acb2d42ee293d7f44ddf6bc25ece70478fd8e97a ]
+    :A: ns.ethz [ :srv:     ns1.ethz.ch. 5024 0 ]
+    :A: ns1.ethz [ :ip4:     127.0.0.1 ]
+]
+ :P: < > :bloomFilter: [ :fnv128: ] 23 :km1: 22e0002a88822aa8060ab0204a80000ba20882a0088aa0408a20010aa40808a2200aa2a00a81020ea810
 
-    :S: < > [
-        :A: ethz [ :redir:   ns.ethz.ch. ]
-        :A: ethz [ :deleg:   :ed25519: 1 92c52fecc581eefacd2114c4acb2d42ee293d7f44ddf6bc25ece70478fd8e97a ]
-        :A: ns.ethz [ :srv:     ns1.ethz.ch. 5024 0 ]
-        :A: ns1.ethz [ :ip4:     127.0.0.1 ]
-    ]
+:S: < > [
+    :A: ethz [ :redir:   ns.ethz.ch. ]
+    :A: ethz [ :deleg:   :ed25519: 1 92c52fecc581eefacd2114c4acb2d42ee293d7f44ddf6bc25ece70478fd8e97a ]
+    :A: ns.ethz [ :srv:     ns1.ethz.ch. 5024 0 ]
+    :A: ns1.ethz [ :ip4:     127.0.0.1 ]
 ]

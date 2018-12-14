@@ -137,28 +137,11 @@ func addPshardToCache(pshard *section.Pshard, isAuthoritative bool, assertionsCa
 func addZoneToCache(zone *section.Zone, isAuthoritative bool, assertionsCache assertionCache,
 	negAssertionCache negativeAssertionCache, zoneKeyCache zonePublicKeyCache) {
 	for _, sec := range zone.Content {
-		switch sec := sec.(type) {
-		case *section.Assertion:
-			if shouldAssertionBeCached(sec) {
-				a := sec.Copy(zone.Context, zone.SubjectZone)
-				addAssertionToCache(a, isAuthoritative, assertionsCache, zoneKeyCache)
-			}
-			sec.RemoveContextAndSubjectZone()
-		case *section.Pshard:
-			if shouldPshardBeCached(sec) {
-				s := sec.Copy(zone.Context, zone.SubjectZone)
-				addPshardToCache(s, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
-			}
-			sec.RemoveContextAndSubjectZone()
-		case *section.Shard:
-			if shouldShardBeCached(sec) {
-				s := sec.Copy(zone.Context, zone.SubjectZone)
-				addShardToCache(s, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
-			}
-			sec.RemoveContextAndSubjectZone()
-		default:
-			log.Warn(fmt.Sprintf("Not supported type. Expected *Shard or *Assertion. Got=%T", sec))
+		if shouldAssertionBeCached(sec) {
+			a := sec.Copy(zone.Context, zone.SubjectZone)
+			addAssertionToCache(a, isAuthoritative, assertionsCache, zoneKeyCache)
 		}
+		sec.RemoveContextAndSubjectZone()
 	}
 	negAssertionCache.AddZone(zone, zone.ValidUntil(), isAuthoritative)
 	log.Debug("Added zone to cache", "zone", *zone)

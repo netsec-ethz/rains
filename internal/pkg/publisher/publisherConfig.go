@@ -26,16 +26,16 @@ type Config struct {
 
 //ShardingConfig contains configuration options on how to split a zone into shards.
 type ShardingConfig struct {
+	IncludeShards         bool
 	DoSharding            bool
-	KeepExistingShards    bool
 	NofAssertionsPerShard int
 	MaxShardSize          int
 }
 
 //PShardingConfig contains configuration options on how to split a zone into probabilistic shards.
 type PShardingConfig struct {
+	IncludePshards         bool
 	DoPsharding            bool
-	KeepExistingPshards    bool
 	NofAssertionsPerPshard int
 	BloomFilterConf        BloomFilterConfig
 }
@@ -66,6 +66,7 @@ type MetaDataConfig struct {
 type ConsistencyConfig struct {
 	DoConsistencyCheck bool
 	SortShards         bool
+	SortZone           bool
 	SigNotExpired      bool
 	CheckStringFields  bool
 }

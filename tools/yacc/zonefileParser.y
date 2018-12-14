@@ -165,12 +165,12 @@ var output []section.WithSigForward
 // any non-terminal which returns a value needs a type, which must be a field 
 // name in the above union struct
 %type <zone>            zone zoneBody
-%type <sections>        zoneContent sections
+%type <sections>        sections
 %type <shard>           shard shardBody
 %type <shardRange>      shardRange
 %type <pshard>          pshard pshardBody
 %type <dataStructure>   pshardContent bloomFilter
-%type <assertions>      shardContent
+%type <assertions>      shardContent zoneContent
 %type <assertion>       assertion assertionBody
 %type <objects>         objects name ip4 ip6 redir deleg nameset cert
 %type <objects>         srv regr regt infra extra next
@@ -262,14 +262,6 @@ zoneContent     : /* empty */
                     $$ = nil
                 }
                 | zoneContent assertion
-                {
-                    $$ = append($1, $2)
-                }
-                | zoneContent shard
-                {
-                    $$ = append($1, $2)
-                }
-                | zoneContent pshard
                 {
                     $$ = append($1, $2)
                 }

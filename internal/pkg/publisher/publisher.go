@@ -2,6 +2,7 @@ package publisher
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"time"
 
@@ -35,105 +36,101 @@ func New(config Config) *Rainspub {
 //Publish performs various tasks of a zone's publishing process to rains servers according to its
 //configuration. This implementation assumes that there is exactly one zone per zonefile.
 func (r *Rainspub) Publish() {
-	encoder := zonefile.Parser{}
-	zone, err := encoder.LoadZone(r.Config.ZonefilePath)
+	encoder := zonefile.IO{}
+	zoneContent, err := encoder.LoadZonefile(r.Config.ZonefilePath)
 	if err != nil {
 		log.Error(err.Error())
 		return
 	}
 	log.Info("Zonefile successful loaded")
-	assertions, shards, pshards, nofAssertions, err := splitZoneContent(zone,
-		r.Config.ShardingConf.KeepExistingShards, r.Config.PShardingConf.KeepExistingPshards)
+	zone, shards, pshards, err := splitZoneContent(zoneContent,
+		!r.Config.ShardingConf.IncludeShards, !r.Config.PShardingConf.IncludePshards)
 	if err != nil {
+		log.Error(err.Error())
 		return
 	}
 	if r.Config.ShardingConf.DoSharding {
-		if shards, err = DoSharding(zone.Context, zone.SubjectZone, assertions, shards, r.Config.ShardingConf,
-			r.Config.ConsistencyConf.SortShards); err != nil {
+		if shards, err = DoSharding(zone.SubjectZone, zone.Context, zone.Content, shards,
+			r.Config.ShardingConf, r.Config.ConsistencyConf.SortShards); err != nil {
 			log.Error(err.Error())
 			return
 		}
-		if !r.Config.PShardingConf.DoPsharding {
-			assertions = nil
-		}
 	}
+	//FIXME CFE test if zone.Content is sorted
 	if r.Config.PShardingConf.DoPsharding {
-		if pshards, err = DoPsharding(zone.Context, zone.SubjectZone, assertions, pshards, r.Config.PShardingConf,
-			!r.Config.ShardingConf.DoSharding && r.Config.ConsistencyConf.SortShards); err != nil {
+		if pshards, err = DoPsharding(zone.SubjectZone, zone.Context, zone.Content, pshards,
+			r.Config.PShardingConf,
+			!r.Config.ShardingConf.IncludeShards && r.Config.ConsistencyConf.SortShards); err != nil {
 			log.Error(err.Error())
 			return
 		}
-		if r.Config.ShardingConf.DoSharding {
-			assertions = nil
-		}
 	}
-	if r.Config.ShardingConf.DoSharding || r.Config.PShardingConf.DoPsharding {
-		CreateZone(zone, assertions, shards, pshards)
+	if r.Config.ConsistencyConf.SortZone {
+		sort.Slice(zone.Content, func(i, j int) bool { return zone.Content[i].CompareTo(zone.Content[j]) < 0 })
 	}
 	if r.Config.MetaDataConf.AddSignatureMetaData {
-		if err = addSignatureMetaData(zone, nofAssertions, len(pshards), r.Config.MetaDataConf); err != nil {
-			log.Error(err.Error())
-			return
-		}
+		addSignatureMetaData(zone, shards, pshards, r.Config.MetaDataConf)
 	}
-	if !isConsistent(zone, r.Config.ConsistencyConf) {
+	if !isConsistent(zone, shards, pshards, r.Config.ConsistencyConf) {
 		return
 	}
 	if r.Config.DoSigning {
-		if signZone(zone, r.Config.PrivateKeyPath) != nil {
-			log.Error("Was not able to sign zone.")
+		if err := signZoneContent(zone, shards, pshards, r.Config.PrivateKeyPath); err != nil {
+			log.Error(err.Error())
 			return
 		}
 		log.Info("Signing completed successfully")
 	}
+	output := []section.Section{zone}
+	for _, shard := range shards {
+		output = append(output, shard)
+	}
+	for _, pshard := range pshards {
+		output = append(output, pshard)
+	}
 	if r.Config.OutputPath != "" {
-		if err := encoder.EncodeAndStore(r.Config.OutputPath, zone); err != nil {
+		if err := encoder.EncodeAndStore(r.Config.OutputPath, output); err != nil {
 			log.Error(err.Error())
 			return
 		}
 		log.Info("Writing updated zonefile to disk completed successfully")
 	}
-	r.publishZone(zone, r.Config)
+	r.publishZone(output, r.Config)
 }
 
 //splitZoneContent returns assertions, pshards and shards contained in zone as three separate
 //slices.
-func splitZoneContent(zone *section.Zone, keepShards, keepPshards bool) (
-	[]*section.Assertion, []*section.Shard, []*section.Pshard, int, error) {
-	nofAssertions := 0
-	assertions := []*section.Assertion{}
+func splitZoneContent(zoneContent []section.WithSigForward, keepShards, keepPshards bool) (
+	*section.Zone, []*section.Shard, []*section.Pshard, error) {
 	shards := []*section.Shard{}
 	pshards := []*section.Pshard{}
-	for _, sec := range zone.Content {
-		switch s := sec.(type) {
-		case *section.Assertion:
-			assertions = append(assertions, s)
-			nofAssertions++
+	var zone *section.Zone
+	for _, s := range zoneContent {
+		switch s := s.(type) {
 		case *section.Shard:
 			if keepShards {
 				shards = append(shards, s)
-			} else {
-				for _, a := range s.Content {
-					assertions = append(assertions, a)
-				}
 			}
-			nofAssertions += len(s.Content)
 		case *section.Pshard:
 			if keepPshards {
 				pshards = append(pshards, s)
 			}
+		case *section.Zone:
+			zone = s
 		default:
-			log.Error("Invalid zone content", "section", s)
-			return nil, nil, nil, 0, errors.New("Invalid zone content")
+			return nil, nil, nil, fmt.Errorf("Unexpected type in zonefile: %T", s)
 		}
 	}
-	return assertions, shards, pshards, nofAssertions, nil
+	if zone == nil {
+		return nil, nil, nil, fmt.Errorf("Zone is not in zonefile: %v", zoneContent)
+	}
+	return zone, shards, pshards, nil
 }
 
 //DoSharding creates shards based on the zone's content and config.
-func DoSharding(ctx, zone string, assertions []*section.Assertion, shards []*section.Shard,
-	config ShardingConfig, sortShards bool) ([]*section.Shard, error) {
-	if sortShards {
+func DoSharding(zone, ctx string, assertions []*section.Assertion, shards []*section.Shard,
+	config ShardingConfig, sortAssertions bool) ([]*section.Shard, error) {
+	if sortAssertions {
 		sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
 	}
 	var newShards []*section.Shard
@@ -159,9 +156,9 @@ func DoSharding(ctx, zone string, assertions []*section.Assertion, shards []*sec
 }
 
 //DoPsharding creates pshards based on the zone's content and config.
-func DoPsharding(ctx, zone string, assertions []*section.Assertion,
-	pshards []*section.Pshard, conf PShardingConfig, sortShards bool) ([]*section.Pshard, error) {
-	if sortShards {
+func DoPsharding(zone, ctx string, assertions []*section.Assertion,
+	pshards []*section.Pshard, conf PShardingConfig, sortAssertions bool) ([]*section.Pshard, error) {
+	if sortAssertions {
 		sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
 	}
 	var newPshards []*section.Pshard
@@ -186,14 +183,14 @@ func DoPsharding(ctx, zone string, assertions []*section.Assertion,
 //maxSize. It returns a slice of the created shards.
 func groupAssertionsToShardsBySize(subjectZone, context string, assertions []*section.Assertion,
 	config ShardingConfig) ([]*section.Shard, error) {
-	encoder := zonefile.Parser{}
+	encoder := zonefile.IO{}
 	shards := []*section.Shard{}
 	sameNameAssertions := groupAssertionByName(assertions, config)
 	prevShardAssertionSubjectName := ""
 	shard := &section.Shard{}
 	for i, sameNameA := range sameNameAssertions {
 		shard.Content = append(shard.Content, sameNameA...)
-		if length := len(encoder.Encode(shard)); length > config.MaxShardSize {
+		if length := len(encoder.EncodeSection(shard)); length > config.MaxShardSize {
 			shard.Content = shard.Content[:len(shard.Content)-len(sameNameA)]
 			if len(shard.Content) == 0 {
 				log.Error("Assertions with the same name are larger than maxShardSize",
@@ -206,7 +203,7 @@ func groupAssertionsToShardsBySize(subjectZone, context string, assertions []*se
 			shard = &section.Shard{}
 			prevShardAssertionSubjectName = sameNameAssertions[i-1][0].SubjectName
 			shard.Content = append(shard.Content, sameNameA...)
-			if length := len(encoder.Encode(shard)); length > config.MaxShardSize {
+			if length := len(encoder.EncodeSection(shard)); length > config.MaxShardSize {
 				log.Error("Assertions with the same name are larger than maxShardSize",
 					"assertions", sameNameA, "length", length, "maxShardSize", config.MaxShardSize)
 				return nil, errors.New("Assertions with the same name are too long")
@@ -323,25 +320,9 @@ func newBloomFilter(config BloomFilterConfig) section.BloomFilter {
 	}
 }
 
-//CreateZone overwrites zone with assertions, pshards and shards in the correct order.
-func CreateZone(zone *section.Zone, assertions []*section.Assertion,
-	shards []*section.Shard, pshards []*section.Pshard) {
-	zone.Content = nil
-	for _, a := range assertions {
-		zone.Content = append(zone.Content, a)
-	}
-	for _, s := range pshards {
-		zone.Content = append(zone.Content, s)
-	}
-	for _, s := range shards {
-		zone.Content = append(zone.Content, s)
-	}
-}
-
-//addSignatureMetaData adds signature meta data to the zone content based on the configuration. It
-//assumes, that the zone content is sorted, i.e. pshards come before shards.
-func addSignatureMetaData(zone *section.Zone, nofAssertions, nofPshards int,
-	config MetaDataConfig) error {
+//addSignatureMetaData adds signature meta data to the section based on the configuration.
+func addSignatureMetaData(zone *section.Zone, shards []*section.Shard, pshards []*section.Pshard,
+	config MetaDataConfig) {
 	signature := signature.Sig{
 		PublicKeyID: keys.PublicKeyID{
 			Algorithm: config.SignatureAlgorithm,
@@ -352,64 +333,78 @@ func addSignatureMetaData(zone *section.Zone, nofAssertions, nofPshards int,
 		ValidUntil: config.SigValidUntil,
 	}
 	zone.AddSig(signature)
-	firstShard := true
-	for _, sec := range zone.Content {
-		switch s := sec.(type) {
-		case *section.Assertion:
-			sec.AddSig(signature)
-		case *section.Shard:
-			waitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofAssertions)
-			if firstShard {
-				signature.ValidSince = config.SigValidSince
-				signature.ValidUntil = config.SigValidUntil
-			}
-			if config.AddSigMetaDataToShards {
-				s.AddSig(signature)
-			}
-			if config.AddSigMetaDataToAssertions {
-				for _, assertion := range s.Content {
-					assertion.AddSig(signature)
-					signature.ValidSince += waitInterval / int64(time.Second)
-					signature.ValidUntil += waitInterval / int64(time.Second)
-				}
-			} else {
-				signature.ValidSince += waitInterval * int64(len(s.Content)) / int64(time.Second)
-				signature.ValidUntil += waitInterval * int64(len(s.Content)) / int64(time.Second)
-			}
-		case *section.Pshard:
-			if config.AddSigMetaDataToPshards {
-				pshardWaitInterval := config.SigSigningInterval.Nanoseconds() / int64(nofPshards)
-				s.AddSig(signature)
-				signature.ValidSince += pshardWaitInterval / int64(time.Second)
-				signature.ValidUntil += pshardWaitInterval / int64(time.Second)
-			}
-		default:
-			return errors.New("unknown section type in zone")
-		}
-
+	assertionWaitInterval := config.SigSigningInterval.Nanoseconds() / int64(len(zone.Content))
+	shardWaitInterval := config.SigSigningInterval.Nanoseconds()
+	pshardWaitInterval := config.SigSigningInterval.Nanoseconds()
+	if len(shards) != 0 {
+		shardWaitInterval /= int64(len(shards))
 	}
-	return nil
+	if len(pshards) != 0 {
+		pshardWaitInterval /= int64(len(pshards))
+	}
+	for _, assertion := range zone.Content {
+		assertion.AddSig(signature)
+		signature.ValidSince += assertionWaitInterval / int64(time.Second)
+		signature.ValidUntil += assertionWaitInterval / int64(time.Second)
+	}
+	signature.ValidSince = config.SigValidSince
+	signature.ValidUntil = config.SigValidUntil
+	for _, shard := range shards {
+		if config.AddSigMetaDataToPshards {
+			shard.AddSig(signature)
+			signature.ValidSince += shardWaitInterval / int64(time.Second)
+			signature.ValidUntil += shardWaitInterval / int64(time.Second)
+		}
+	}
+	signature.ValidSince = config.SigValidSince
+	signature.ValidUntil = config.SigValidUntil
+	for _, pshard := range pshards {
+		if config.AddSigMetaDataToPshards {
+			pshard.AddSig(signature)
+			signature.ValidSince += pshardWaitInterval / int64(time.Second)
+			signature.ValidUntil += pshardWaitInterval / int64(time.Second)
+		}
+	}
 }
 
 //isConsistent performs the checks specified in config
-func isConsistent(zone *section.Zone, config ConsistencyConfig) bool {
+func isConsistent(zone *section.Zone, shards []*section.Shard, pshards []*section.Pshard,
+	config ConsistencyConfig) bool {
+	if !doConsistencyCheck(zone, config) {
+		return false
+	}
+	for _, shard := range shards {
+		if !doConsistencyCheck(shard, config) {
+			return false
+		}
+	}
+	for _, pshard := range pshards {
+		if !doConsistencyCheck(pshard, config) {
+			return false
+		}
+	}
+	return true
+}
+
+//doConsistencyCheck returns true if section is consistent
+func doConsistencyCheck(section section.WithSigForward, config ConsistencyConfig) bool {
 	if config.DoConsistencyCheck {
-		if !siglib.ValidSectionAndSignature(zone) {
+		if !siglib.ValidSectionAndSignature(section) {
 			log.Error("zone content is not consistent")
 			return false
 		}
 	} else {
 		if config.SortShards {
-			zone.Sort()
+			section.Sort()
 		}
 		if config.CheckStringFields {
-			if !siglib.CheckStringFields(zone) {
+			if !siglib.CheckStringFields(section) {
 				log.Error("zone content is not consistent")
 				return false
 			}
 		}
 		if config.SigNotExpired {
-			if !siglib.CheckSignatureNotExpired(zone) {
+			if !siglib.CheckSignatureNotExpired(section) {
 				log.Error("zone content is not consistent")
 				return false
 			}
@@ -418,16 +413,38 @@ func isConsistent(zone *section.Zone, config ConsistencyConfig) bool {
 	return true
 }
 
+func signZoneContent(zone *section.Zone, shards []*section.Shard, pshards []*section.Pshard,
+	keyPath string) error {
+	keys, err := LoadPrivateKeys(keyPath)
+	if err != nil {
+		return errors.New("Was not able to load private keys")
+	}
+	if err := signZone(zone, keys); err != nil {
+		return err
+	}
+	for _, shard := range shards {
+		if err := signShard(shard, keys); err != nil {
+			return err
+		}
+	}
+	for _, pshard := range pshards {
+		if err := signSection(pshard, keys); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 //publishZone publishes the zone's content either to the specified authoritative servers or to a
 //file in zonefile format.
-func (r *Rainspub) publishZone(zone *section.Zone, config Config) {
+func (r *Rainspub) publishZone(zoneContent []section.Section, config Config) {
 	if config.DoPublish {
 		//TODO check if zone is not too large. If it is, split it up and send
 		//content separately.
-		log.Debug("published zone", "zone", zone)
+		log.Debug("published zone", "zone", zoneContent)
 		msg := message.Message{
 			Token:        token.New(),
-			Content:      []section.Section{zone},
+			Content:      zoneContent,
 			Capabilities: []message.Capability{message.NoCapability},
 		}
 		unreachableServers := publishSections(msg, config.AuthServers)

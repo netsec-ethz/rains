@@ -11,7 +11,6 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
 
@@ -20,7 +19,7 @@ type Zone struct {
 	Signatures  []signature.Sig
 	SubjectZone string
 	Context     string
-	Content     []WithSigForward
+	Content     []*Assertion
 	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
 	sign        bool  //set to true before signing and false afterwards
@@ -50,24 +49,10 @@ func (z *Zone) UnmarshalMap(m map[int]interface{}) error {
 	}
 	// Content is an array of ShardSections and / or Assertionsection.
 	if content, ok := m[23]; ok {
-		z.Content = make([]WithSigForward, 0)
+		z.Content = make([]*Assertion, 0)
 		for _, item := range content.([]interface{}) {
 			m := item.(map[int]interface{})
-			if _, ok := m[23]; ok {
-				// Shard.
-				ss := &Shard{}
-				if err := ss.UnmarshalMap(m); err != nil {
-					return fmt.Errorf("failed to unmarshal Shard map in Zone: %v", err)
-				}
-				z.Content = append(z.Content, ss)
-			} else if _, ok := m[18]; ok {
-				// Pshard.
-				ps := &Pshard{}
-				if err := ps.UnmarshalMap(m); err != nil {
-					return fmt.Errorf("failed to unmarshal Shard map in Zone: %v", err)
-				}
-				z.Content = append(z.Content, ps)
-			} else if _, ok := m[3]; ok {
+			if _, ok := m[3]; ok {
 				// Assertion.
 				as := &Assertion{}
 				if err := as.UnmarshalMap(m); err != nil {
@@ -141,9 +126,6 @@ func (z *Zone) AddCtxAndZoneToContent() {
 	for _, s := range z.Content {
 		s.SetContext(z.Context)
 		s.SetSubjectZone(z.SubjectZone)
-		if shard, ok := s.(*Shard); ok {
-			shard.AddCtxAndZoneToContent()
-		}
 	}
 }
 
@@ -151,9 +133,6 @@ func (z *Zone) RemoveCtxAndZoneFromContent() {
 	for _, s := range z.Content {
 		s.SetContext("")
 		s.SetSubjectZone("")
-		if shard, ok := s.(*Shard); ok {
-			shard.RemoveCtxAndZoneFromContent()
-		}
 	}
 }
 
@@ -210,13 +189,7 @@ func (z *Zone) Hash() string {
 	}
 	contentHashes := []string{}
 	for _, v := range z.Content {
-		switch v := v.(type) {
-		case *Assertion, *Shard, *Pshard:
-			contentHashes = append(contentHashes, v.Hash())
-		default:
-			log.Warn(fmt.Sprintf("not supported zone section content, must be assertion or shard, got %T", v))
-			return ""
-		}
+		contentHashes = append(contentHashes, v.Hash())
 	}
 	return fmt.Sprintf("Z_%s_%s_[%s]_%v", z.SubjectZone, z.Context, strings.Join(contentHashes, " "),
 		z.Signatures)
@@ -228,29 +201,7 @@ func (z *Zone) Sort() {
 		s.Sort()
 	}
 	sort.Slice(z.Content, func(i, j int) bool {
-		switch section := z.Content[i].(type) {
-		case *Assertion:
-			if a, ok := z.Content[j].(*Assertion); ok {
-				return section.CompareTo(a) < 0
-			}
-			return true
-		case *Pshard:
-			if s, ok := z.Content[j].(*Pshard); ok {
-				return section.CompareTo(s) < 0
-			}
-			if _, ok := z.Content[j].(*Assertion); ok {
-				return false
-			}
-			return true //it is a shard
-		case *Shard:
-			if s, ok := z.Content[j].(*Shard); ok {
-				return section.CompareTo(s) < 0
-			}
-			return false
-		default:
-			log.Error(fmt.Sprintf("Unexpected element contained in zone: got Type=%T", z.Content[i]))
-			return false
-		}
+		return z.Content[i].CompareTo(z.Content[j]) < 0
 	})
 }
 
@@ -271,25 +222,8 @@ func (z *Zone) CompareTo(zone *Zone) int {
 		return 1
 	}
 	for i, section := range z.Content {
-		switch section := section.(type) {
-		case *Assertion:
-			if a, ok := zone.Content[i].(*Assertion); ok {
-				if section.CompareTo(a) != 0 {
-					return section.CompareTo(a)
-				}
-			} else {
-				return -1
-			}
-		case *Shard:
-			if s, ok := zone.Content[i].(*Shard); ok {
-				if section.CompareTo(s) != 0 {
-					return section.CompareTo(s)
-				}
-			} else {
-				return 1
-			}
-		default:
-			log.Error(fmt.Sprintf("Unexpected element contained in zone: got Type=%T", z.Content[i]))
+		if section.CompareTo(zone.Content[i]) != 0 {
+			return section.CompareTo(zone.Content[i])
 		}
 	}
 	return 0
@@ -304,75 +238,12 @@ func (z *Zone) String() string {
 		z.SubjectZone, z.Context, z.Content, z.Signatures)
 }
 
-//SectionsByNameAndTypes returns all contained assertions with subjectName and at least one object
-//that has a type contained in connection together with all contained shards having subjectName in their
-//range. It is assumed that the contained sections are sorted as for signing. The returned
-//assertions and shards are pairwise distinct.
-func (z *Zone) SectionsByNameAndTypes(subjectName string, types []object.Type) (
-	[]*Assertion, []*Shard) {
-	assertionMap := make(map[string]*Assertion)
-	shardMap := make(map[string]*Shard)
-
-	//extract assertions matching subjectName
-	i := sort.Search(len(z.Content), func(i int) bool {
-		if a, ok := z.Content[i].(*Assertion); ok {
-			return a.SubjectName >= subjectName
-		}
-		return true
-	})
-	for ; i < len(z.Content); i++ {
-		if a, ok := z.Content[i].(*Assertion); ok && a.SubjectName == subjectName {
-			for _, oType := range types {
-				if _, ok := object.ContainsType(a.Content, oType); ok {
-					assertionMap[a.Hash()] = a
-					break
-				}
-			}
-		} else {
-			break
-		}
-	}
-
-	//extract assertions contained in shards matching subjectName and shards having subjectName in
-	//their range.
-	i = sort.Search(len(z.Content), func(i int) bool {
-		_, ok := z.Content[i].(*Shard)
-		return ok
-	})
-	for ; i < len(z.Content); i++ {
-		if s, ok := z.Content[i].(*Shard); ok && s.RangeFrom < subjectName {
-			if s.RangeTo == "" || s.RangeTo > subjectName {
-				shardMap[s.Hash()] = s
-				answers := s.AssertionsByNameAndTypes(subjectName, types)
-				for _, a := range answers {
-					assertionMap[a.Hash()] = a
-				}
-			}
-		} else {
-			break
-		}
-	}
-
-	var assertions []*Assertion
-	for _, a := range assertionMap {
-		assertions = append(assertions, a)
-	}
-	var shards []*Shard
-	for _, s := range shardMap {
-		shards = append(shards, s)
-	}
-	return assertions, shards
-}
-
 //IsConsistent returns true if all contained assertions and shards are consistent
 func (z *Zone) IsConsistent() bool {
 	for _, section := range z.Content {
 		if sectionHasContextOrSubjectZone(section) {
 			log.Warn("Contained section has a subjectZone or context", "section", section)
 			return false
-		}
-		if shard, ok := section.(*Shard); ok && !shard.IsConsistent() {
-			return false //already logged
 		}
 	}
 	return true
