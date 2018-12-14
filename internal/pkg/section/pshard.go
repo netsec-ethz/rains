@@ -14,15 +14,15 @@ import (
 
 //Pshard contains information about a pshard
 type Pshard struct {
-	Signatures    []signature.Sig
-	SubjectZone   string
-	Context       string
-	RangeFrom     string
-	RangeTo       string
-	Datastructure DataStructure
-	validSince    int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
-	validUntil    int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
-	sign          bool  //set to true before signing and false afterwards
+	Signatures  []signature.Sig
+	SubjectZone string
+	Context     string
+	RangeFrom   string
+	RangeTo     string
+	BloomFilter BloomFilter
+	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	sign        bool  //set to true before signing and false afterwards
 }
 
 // UnmarshalMap decodes the output from the CBOR decoder into this struct.
@@ -46,7 +46,7 @@ func (s *Pshard) UnmarshalMap(m map[int]interface{}) error {
 		s.RangeFrom = srange[0].(string)
 		s.RangeTo = srange[1].(string)
 	}
-	if ds, ok := m[18]; ok {
+	if ds, ok := m[23]; ok {
 		if err := s.Datastructure.UnmarshalArray(ds.([]interface{})); err != nil {
 			return err
 		}
@@ -66,7 +66,7 @@ func (s *Pshard) MarshalCBOR(w *cbor.CBORWriter) error {
 		m[6] = s.Context
 	}
 	m[11] = []string{s.RangeFrom, s.RangeTo}
-	m[18] = s.Datastructure
+	m[23] = s.Datastructure
 	return w.WriteIntMap(m)
 }
 
