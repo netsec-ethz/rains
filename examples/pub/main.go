@@ -3,8 +3,6 @@ package main
 import (
 	"flag"
 	"time"
-
-	log "github.com/inconshreveable/log15"
 )
 
 var (
@@ -19,7 +17,7 @@ var (
 
 func main() {
 	flag.Parse()
-	if *config == "" {
+	/*if *config == "" {
 		if *serverHost == "" || *serverPort == 0 || *zoneFile == "" || *privKey == "" {
 			log.Crit("all other paramters must be specified if -config is not.")
 			return
@@ -38,5 +36,5 @@ func main() {
 	err := publisher.PublishInformation()
 	if err != nil {
 		log.Error("Was not able to publish information", "error", err)
-	}
+	}*/
 }

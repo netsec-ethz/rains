@@ -9,7 +9,6 @@ import (
 	"os"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
 )
 
 var (
@@ -78,10 +77,10 @@ func main() {
 		fmt.Fprintf(os.Stderr, "trace_srv_id must be specified when trace_addr is")
 		return
 	}
-	if err := rainsd.InitServer(*config, *traceAddr, *traceID, *verbosity); err != nil {
+	/*if err := rainsd.InitServer(*config, *traceAddr, *traceID, *verbosity); err != nil {
 		fmt.Fprintf(os.Stderr, fmt.Sprintf("failed to start server: %v", err))
 		return
 	}
 	go statusServer()
-	rainsd.Listen()
+	rainsd.Listen()*/
 }

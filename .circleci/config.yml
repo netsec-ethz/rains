@@ -1,0 +1,32 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/golang:1.10
+    working_directory: /go/src/github.com/netsec-ethz/rains
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-pkg-cache
+      - run: go get -u github.com/golang/dep/cmd/dep
+      - run:
+          name: run build
+          command: |
+            dep ensure
+            go build -v cmd/rainsd/rainsd.go
+            go build -v cmd/rainsdig/rainsdig.go
+            go build -v cmd/zonepub/zonepub.go
+      - run:
+          name: run tests
+          command: |
+            go fmt ./...
+            go vet ./internal/...
+            go vet ./examples/...
+            go vet ./cmd/...
+            go vet ./test/...
+            go test -v ./test/integration/
+      - save_cache:
+          key: v1-pkg-cache
+          paths:
+            - "/go/pkg"

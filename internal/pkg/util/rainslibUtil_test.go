@@ -1,12 +1,6 @@
 package util
 
-import (
-	"net"
-	"reflect"
-	"testing"
-	"time"
-)
-
+/*
 func TestSaveAndLoad(t *testing.T) {
 	var tests = []struct {
 		input       *AssertionSection
@@ -38,8 +32,8 @@ func TestSaveAndLoad(t *testing.T) {
 }
 
 func TestGenerateToken(t *testing.T) {
-	t1 := GenerateToken()
-	t2 := GenerateToken()
+	t1 := token.New()
+	t2 := token.New()
 	if t1 == t2 {
 		t.Errorf("Subsequent generated tokens should not have the same value t1=%s t2=%s", t1, t2)
 	}
@@ -235,4 +229,4 @@ func TestNewNotificationMessage(t *testing.T) {
 			t.Errorf("%d: Message containing Notification do not match. expected=%v actual=%v", i, test.expected, msg)
 		}
 	}
-}
+}*/

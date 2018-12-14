@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
 
 func TestNew(t *testing.T) {
@@ -158,7 +160,7 @@ func TestGetAllAndDelete(t *testing.T) {
 }
 
 //checkAllContained checks that all contained elements are returned by getAll
-func checkAllContained(set *Set, t *testing.T, function func() []algorithmTypes.Hashable) {
+func checkAllContained(set *Set, t *testing.T, function func() []section.Hasher) {
 	runs := 10
 	for i := 0; i < runs; i++ {
 		v := structWithPointer{validity: i}

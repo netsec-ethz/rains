@@ -2,15 +2,8 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"strings"
 
 	log "github.com/inconshreveable/log15"
-
-	"github.com/netsec-ethz/rains/internal/pkg/query"
-	"github.com/netsec-ethz/rains/internal/pkg/resolver"
-	"github.com/netsec-ethz/rains/internal/pkg/section"
-	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
 
 var (
@@ -27,7 +20,7 @@ func main() {
 	if *name == "" {
 		log.Error("-name flag must be specified.")
 	}
-	var server *resolver.Server
+	/*var server *resolver.Server
 	if *rootServer != "" {
 		roots := strings.Split(*rootServer, ",")
 		server = resolver.New(roots, nil, resolver.ResolutionModeRecursive, *insecureTLS)
@@ -51,5 +44,5 @@ func main() {
 		default:
 			log.Warn("Received an unexpected section type in response:", "section", sec)
 		}
-	}
+	}*/
 }

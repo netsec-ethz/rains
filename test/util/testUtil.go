@@ -66,18 +66,6 @@ func CheckMessage(m1, m2 message.Message, t *testing.T) {
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
-		case *section.AddrAssertion:
-			if s2, ok := m2.Content[i].(*section.AddrAssertion); ok {
-				CheckAddressAssertion(s1, s2, t)
-				continue
-			}
-			t.Errorf("Types at position %d of Content slice are different", i)
-		case *query.Address:
-			if s2, ok := m2.Content[i].(*query.Address); ok {
-				CheckAddressQuery(s1, s2, t)
-				continue
-			}
-			t.Errorf("Types at position %d of Content slice are different", i)
 		default:
 			t.Errorf("Unsupported section type: %T", s1)
 		}
@@ -225,41 +213,6 @@ func CheckNotification(n1, n2 *section.Notification, t *testing.T) {
 	}
 }
 
-func CheckAddressAssertion(a1, a2 *section.AddrAssertion, t *testing.T) {
-	if a1.Context != a2.Context {
-		t.Error("AddressAssertion Context mismatch")
-	}
-	CheckSignatures(a1.Signatures, a2.Signatures, t)
-	CheckSubjectAddress(a1.SubjectAddr, a2.SubjectAddr, t)
-	CheckObjects(a1.Content, a2.Content, t)
-}
-
-func CheckAddressQuery(q1, q2 *query.Address, t *testing.T) {
-	if q1.Context != q2.Context {
-		t.Error("AddressQuery context mismatch")
-	}
-	if q1.Expiration != q2.Expiration {
-		t.Error("AddressQuery Expires mismatch")
-	}
-	if len(q1.Types) != len(q2.Types) {
-		t.Error("Query Type length mismatch")
-	}
-	for i, o1 := range q1.Types {
-		if o1 != q2.Types[i] {
-			t.Errorf("Query Type at position %d mismatch", i)
-		}
-	}
-	if len(q1.Options) != len(q2.Options) {
-		t.Error("AddressQuery Option length mismatch")
-	}
-	for i, o1 := range q1.Options {
-		if o1 != q2.Options[i] {
-			t.Errorf("AddressQuery Option at position %d mismatch", i)
-		}
-	}
-	CheckSubjectAddress(q1.SubjectAddr, q2.SubjectAddr, t)
-}
-
 func CheckSubjectAddress(a1, a2 *net.IPNet, t *testing.T) {
 	if a1.String() != a2.String() {
 		t.Error("SubjectAddr mismatch")
@@ -277,8 +230,8 @@ func CheckObjects(objs1, objs2 []object.Object, t *testing.T) {
 		}
 		switch o1.Type {
 		case object.OTName:
-			n1 := o1.Value.(object.NameObject)
-			n2 := o2.Value.(object.NameObject)
+			n1 := o1.Value.(object.Name)
+			n2 := o2.Value.(object.Name)
 			if n1.Name != n2.Name {
 				t.Errorf("Object Value name Name mismatch at position %d", i)
 			}
@@ -303,14 +256,14 @@ func CheckObjects(objs1, objs2 []object.Object, t *testing.T) {
 				t.Errorf("Object Value redirection mismatch at position %d", i)
 			}
 		case object.OTDelegation:
-			CheckPublicKey(o1.Value.(PublicKey), o2.Value.(PublicKey), t)
+			CheckPublicKey(o1.Value.(keys.PublicKey), o2.Value.(keys.PublicKey), t)
 		case object.OTNameset:
-			if o1.Value.(NamesetExpression) != o2.Value.(NamesetExpression) {
+			if o1.Value.(object.NamesetExpr) != o2.Value.(object.NamesetExpr) {
 				t.Errorf("Object Value nameSet mismatch at position %d  of content slice. v1=%s v2=%s", i, o1.Value, o2.Value)
 			}
 		case object.OTCertInfo:
-			c1 := o1.Value.(CertificateObject)
-			c2 := o2.Value.(CertificateObject)
+			c1 := o1.Value.(object.Certificate)
+			c2 := o2.Value.(object.Certificate)
 			if c1.Type != c2.Type {
 				t.Errorf("Object Value CertificateInfo type mismatch at position %d", i)
 			}
@@ -328,9 +281,9 @@ func CheckObjects(objs1, objs2 []object.Object, t *testing.T) {
 					t.Errorf("Object Value CertificateInfo data mismatch at byte %d of object %d", j, i)
 				}
 			}
-		case OTServiceInfo:
-			s1 := o1.Value.(ServiceInfo)
-			s2 := o2.Value.(ServiceInfo)
+		case object.OTServiceInfo:
+			s1 := o1.Value.(object.ServiceInfo)
+			s2 := o2.Value.(object.ServiceInfo)
 			if s1.Name != s2.Name {
 				t.Errorf("Object Value service info name mismatch at position %d", i)
 			}
@@ -340,20 +293,20 @@ func CheckObjects(objs1, objs2 []object.Object, t *testing.T) {
 			if s1.Priority != s2.Priority {
 				t.Errorf("Object Value service info Priority mismatch at position %d", i)
 			}
-		case OTRegistrar:
+		case object.OTRegistrar:
 			if o1.Value.(string) != o2.Value.(string) {
 				t.Errorf("Object Value registrar mismatch at position %d of content slice. v1=%s v2=%s", i, o1.Value, o2.Value)
 			}
-		case OTRegistrant:
+		case object.OTRegistrant:
 			if o1.Value.(string) != o2.Value.(string) {
 				t.Errorf("Object Value registrant mismatch at position %d of content slice. v1=%s v2=%s", i, o1.Value, o2.Value)
 			}
-		case OTInfraKey:
-			CheckPublicKey(o1.Value.(PublicKey), o2.Value.(PublicKey), t)
-		case OTExtraKey:
-			CheckPublicKey(o1.Value.(PublicKey), o2.Value.(PublicKey), t)
-		case OTNextKey:
-			CheckPublicKey(o1.Value.(PublicKey), o2.Value.(PublicKey), t)
+		case object.OTInfraKey:
+			CheckPublicKey(o1.Value.(keys.PublicKey), o2.Value.(keys.PublicKey), t)
+		case object.OTExtraKey:
+			CheckPublicKey(o1.Value.(keys.PublicKey), o2.Value.(keys.PublicKey), t)
+		case object.OTNextKey:
+			CheckPublicKey(o1.Value.(keys.PublicKey), o2.Value.(keys.PublicKey), t)
 		default:
 			t.Errorf("Unsupported object type. got=%T", o1.Type)
 		}
