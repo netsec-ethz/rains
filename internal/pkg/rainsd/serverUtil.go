@@ -15,16 +15,6 @@ func trace(tok token.Token, msg string) {
 	}
 }
 
-//getRootAddr returns an addr to a root server.
-//FIXME CFE load root addr from config?
-func getRootAddr() connection.Info {
-	/*tcpAddr := *Config.ServerAddress.TCPAddr
-	tcpAddr.Port++
-	rootAddr := connection.Info{Type: Config.ServerAddress.Type, TCPAddr: &tcpAddr}
-	log.Warn("Not yet implemented CFE. return hard coded delegation address", "connInfo", rootAddr)*/
-	return connection.Info{}
-}
-
 //sendNotificationMsg sends a message containing freshly generated token and a notification section with
 //notificationType, token, and data to destination.
 func sendNotificationMsg(tok token.Token, destination connection.Info,
@@ -44,7 +34,6 @@ func sendSections(sections []section.Section, tok token.Token, destination conne
 		tok = token.New()
 	}
 	msg := message.Message{Token: tok, Content: sections}
-	//TODO CFE make retires and backoff configurable
 	return s.sendTo(msg, destination, 1, 1)
 }
 

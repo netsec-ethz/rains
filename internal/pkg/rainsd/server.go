@@ -18,7 +18,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
-	"github.com/shirou/gopsutil/cpu"
 )
 
 const (
@@ -249,15 +248,7 @@ func loadRootZonePublicKey(keyPath string, zoneKeyCache zonePublicKeyCache, maxV
 	return err
 }
 
-//measureSystemRessources measures current cpu usage and updates enoughSystemRessources
-//TODO CFE make it configurable, experiment with different sampling rates
+//measureSystemRessources measures current cpu usage
 func measureSystemRessources() {
-	for {
-		cpuStat, _ := cpu.Percent(time.Second/10, false)
-		enoughSystemRessources = cpuStat[0] < 75
-		if !enoughSystemRessources {
-			log.Warn("Not enough system resources to check for consistency")
-		}
-		time.Sleep(time.Second * 10)
-	}
+	//Not yet implemented
 }

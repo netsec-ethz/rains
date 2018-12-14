@@ -98,8 +98,10 @@ func signZone(zone *section.Zone, path string) error {
 			log.Error("No matching private key for signature", "sig", sig.PublicKeyID, "privateKeys", keys)
 		} else if ok := siglib.SignSectionUnsafe(zone, privateKey, sig); !ok {
 			log.Error("Was not able to sign and add the signature", "zone", zone, "signature", sig)
-			return errors.New("Was not able to sign and add the signature")
+		} else {
+			continue
 		}
+		return errors.New("Was not able to sign and add the signature")
 	}
 	for _, sec := range zone.Content {
 		switch sec := sec.(type) {
@@ -138,8 +140,10 @@ func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{}, addCtxAn
 			log.Error("Signature validUntil is in the past")
 		} else if ok := siglib.SignSectionUnsafe(s, keys[sig.PublicKeyID], sig); !ok {
 			log.Error("Was not able to sign and add the signature", "shard", s, "signature", sig)
-			return errors.New("Was not able to sign and add the signature")
+		} else {
+			continue
 		}
+		return errors.New("Was not able to sign and add the signature")
 	}
 	for _, a := range s.Content {
 		if err := signSection(a, keys); err != nil {
@@ -166,8 +170,10 @@ func signSection(s section.WithSigForward, keys map[keys.PublicKeyID]interface{}
 			log.Error("Signature validUntil is in the past")
 		} else if ok := siglib.SignSectionUnsafe(s, keys[sig.PublicKeyID], sig); !ok {
 			log.Error("Was not able to sign and add the signature", "section", s, "signature", sig)
-			return errors.New("Was not able to sign and add the signature")
+		} else {
+			continue
 		}
+		return errors.New("Was not able to sign and add the signature")
 	}
 	return nil
 }
