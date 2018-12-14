@@ -19,11 +19,6 @@ type Caches struct {
 	//zoneKeyCache is used to store public keys of zones and a pointer to assertions containing them.
 	ZoneKeyCache zonePublicKeyCache
 
-	//revZoneKeyCache is used to store public keys of addressZones and a pointer to delegation
-	//assertions containing them.
-	//TODO CFE implement it
-	RevZoneKeyCache revZonePublicKeyCache
-
 	//pendingSignatures contains all sections that are waiting for a delegation query to arrive such that their signatures can be verified.
 	PendingKeys pendingKeyCache
 
@@ -39,12 +34,6 @@ type Caches struct {
 	//for a shard the range is given as declared in the section.
 	//An entry is marked as extrenal if it might be evicted by a LRU caching strategy.
 	NegAssertionCache negativeAssertionCache
-
-	//consistencyCache allows to do fast consistency checks.
-	ConsistCache consistencyCache
-
-	//redirectCache allows fast retrieval of connection information for a given subjectZone
-	RedirectCache redirectionCache
 }
 
 func initCaches(config rainsdConfig) *Caches {
@@ -89,16 +78,6 @@ func initCaches(config rainsdConfig) *Caches {
 		zoneMap: safeHashMap.New(),
 	}
 
-	caches.ConsistCache = &consistencyCacheImpl{
-		ctxZoneMap: make(map[string]*consistencyCacheValue),
-	}
-
-	caches.RedirectCache = &redirectionCacheImpl{
-		nameConnMap: lruCache.New(),
-		counter:     safeCounter.New(config.RedirectionCacheSize),
-		warnSize:    config.RedirectionCacheWarnSize,
-	}
-
 	return caches
 }
 
@@ -117,9 +96,7 @@ func createCapabilityCache(hashToCapCacheSize int) capabilityCache {
 
 func initReapers(config rainsdConfig, caches *Caches, stop chan bool) {
 	go reap(func() { caches.ZoneKeyCache.RemoveExpiredKeys() }, config.ReapVerifyTimeout, stop)
-	//go reap(func() { revZoneKeyCache.RemoveExpiredKeys() }, config.ReapVerifyTimeout)
 	go reap(func() { caches.PendingKeys.RemoveExpiredValues() }, config.ReapVerifyTimeout, stop)
-	go reap(func() { caches.RedirectCache.RemoveExpiredValues() }, config.ReapVerifyTimeout, stop)
 	go reap(func() { caches.AssertionsCache.RemoveExpiredValues() }, config.ReapEngineTimeout, stop)
 	go reap(func() { caches.NegAssertionCache.RemoveExpiredValues() }, config.ReapEngineTimeout, stop)
 	go reap(func() { caches.PendingQueries.RemoveExpiredValues() }, config.ReapEngineTimeout, stop)

@@ -17,8 +17,7 @@ import (
 //rains signature on the message
 func (s *Server) assert(ss sectionWithSigSender, isAuthoritative bool) {
 	log.Debug("Adding section to cache", "section", ss)
-	if sectionIsInconsistent(ss.Section, s.caches.ConsistCache,
-		s.caches.AssertionsCache, s.caches.NegAssertionCache) {
+	if sectionIsInconsistent(ss.Section, s.caches.AssertionsCache, s.caches.NegAssertionCache) {
 		log.Warn("section is inconsistent with cached elements.", "section", ss.Section)
 		sendNotificationMsg(ss.Token, ss.Sender, section.NTRcvInconsistentMsg, "", s)
 		return
@@ -30,23 +29,12 @@ func (s *Server) assert(ss sectionWithSigSender, isAuthoritative bool) {
 	log.Info(fmt.Sprintf("Finished handling %T", ss.Section), "section", ss.Section)
 }
 
-//sectionIsInconsistent returns true if section is not consistent with cached element which are valid
-//at the same time.
-func sectionIsInconsistent(sec section.WithSig, consistCache consistencyCache,
-	assertionsCache assertionCache, negAssertionCache negativeAssertionCache) bool {
-	//TODO implement if necessary for scion lab
+//sectionIsInconsistent returns true if section is not consistent with cached element which are
+//valid at the same time.
+func sectionIsInconsistent(sec section.WithSig, assertionsCache assertionCache,
+	negAssertionCache negativeAssertionCache) bool {
+	//TODO implement if necessary
 	return false
-	/*switch sec := sec.(type) {
-	case *section.Assertion:
-		return !isAssertionConsistent(sec, consistCache, assertionsCache, negAssertionCache)
-	case *section.Shard:
-		return !isShardConsistent(sec, consistCache, assertionsCache, negAssertionCache)
-	case *section.Zone:
-		return !isZoneConsistent(sec, assertionsCache, negAssertionCache)
-	default:
-		log.Error("Not supported message section with sig. This case must be prevented beforehand")
-		return true
-	}*/
 }
 
 //addSectionToCache adds sec to the cache if it comlies with the server's caching policy
