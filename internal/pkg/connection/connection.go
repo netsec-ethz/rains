@@ -1,6 +1,7 @@
 package connection
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -12,6 +13,9 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
+	sd "github.com/scionproto/scion/go/lib/sciond"
+	"github.com/scionproto/scion/go/lib/snet"
+	"github.com/scionproto/scion/go/lib/spath"
 )
 
 //Info contains address information about one actor of a connection of the declared type
@@ -19,8 +23,36 @@ type Info struct {
 	//Type determines the network address type
 	Type Type
 
-	TCPAddr  *net.TCPAddr
-	ChanAddr ChannelAddr
+	TCPAddr   *net.TCPAddr
+	ChanAddr  ChannelAddr
+	SCIONAddr *SCIONAddr
+}
+
+// SCIONAddr wraps a local and remote SCION address.
+type SCIONAddr struct {
+	LocalAddr  *snet.Addr
+	RemoteAddr *snet.Addr
+}
+
+// Network implements the net.Addr interface.
+func (sa *SCIONAddr) Network() string {
+	return fmt.Sprintf("local: %s, remote: %s", sa.LocalAddr.Network(), sa.RemoteAddr.Network())
+}
+
+// String implements the net.Addr interface.
+func (sa *SCIONAddr) String() string {
+	if sa == nil {
+		return "nil"
+	}
+	var localAddr string
+	var remoteAddr string
+	if sa.LocalAddr != nil {
+		localAddr = sa.LocalAddr.String()
+	}
+	if sa.RemoteAddr != nil {
+		remoteAddr = sa.RemoteAddr.String()
+	}
+	return fmt.Sprintf("local: %s, remote: %s", localAddr, remoteAddr)
 }
 
 //String returns the string representation of the connection information according to its type
@@ -30,6 +62,8 @@ func (c Info) String() string {
 		return c.TCPAddr.String()
 	case Chan:
 		return c.ChanAddr.String()
+	case SCION:
+		return c.SCIONAddr.String()
 	default:
 		log.Warn("Unsupported network address", "typeCode", c.Type)
 		return ""
@@ -43,6 +77,8 @@ func (c Info) NetworkAndAddr() string {
 		return fmt.Sprintf("%s %s", c.TCPAddr.Network(), c.String())
 	case Chan:
 		return fmt.Sprintf("%s %s", c.ChanAddr.Network(), c.String())
+	case SCION:
+		return fmt.Sprintf("%s %s", c.SCIONAddr.Network(), c.String())
 	default:
 		log.Warn("Unsupported network address type", "type", c.Type)
 		return ""
@@ -75,6 +111,7 @@ type Type int
 const (
 	Chan Type = iota
 	TCP
+	SCION
 )
 
 type Message struct {
@@ -147,13 +184,45 @@ func (c *Channel) SetWriteDeadline(t time.Time) error {
 }
 
 //CreateConnection returns a newly created connection with connInfo or an error
-func CreateConnection(connInfo Info) (conn net.Conn, err error) {
+func CreateConnection(ctx context.Context, connInfo Info, dialer *net.Dialer, tlsConf *tls.Config) (conn net.Conn, err error) {
 	switch connInfo.Type {
 	case TCP:
-		return tls.Dial(connInfo.TCPAddr.Network(), connInfo.String(), &tls.Config{InsecureSkipVerify: true})
+		return tls.DialWithDialer(dialer, connInfo.TCPAddr.Network(), connInfo.String(), tlsConf)
+	case SCION:
+		// First check if the remote IA is not in the local IA, this means we need to choose the path.
+		la := connInfo.SCIONAddr.LocalAddr
+		ra := connInfo.SCIONAddr.RemoteAddr
+		if !la.IA.Eq(ra.IA) {
+			pathEntry := choosePathSCION(ctx, la, ra)
+			if pathEntry == nil {
+				return nil, fmt.Errorf("failed to find path from %s to %s", la.IA, ra.IA)
+			}
+			ra.Path = spath.New(pathEntry.Path.FwdPath)
+			ra.Path.InitOffsets()
+			ra.NextHop, _ = pathEntry.HostInfo.Overlay()
+		}
+		c, err := snet.DialSCION("", la, ra)
+		if err != nil {
+			return nil, fmt.Errorf("failed to DialSCION: %v", err)
+		}
+		log.Debug("Successfully dialed SCION", "conn", c)
+		return c, nil
 	default:
 		return nil, errors.New("unsupported Network address type")
 	}
+}
+
+// choosePathSCION picks the first available path to the destination IA otherwise
+// returns nil.
+func choosePathSCION(ctx context.Context, la, ra *snet.Addr) *sd.PathReplyEntry {
+	pathMgr := snet.DefNetwork.PathResolver()
+	pathSet := pathMgr.Query(ctx, la.IA, ra.IA)
+
+	// FIXME: Right now we just take the first path
+	for _, p := range pathSet {
+		return p.Entry
+	}
+	return nil
 }
 
 func Listen(conn net.Conn, tok token.Token, done chan<- message.Message, ec chan<- error) {

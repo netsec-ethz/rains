@@ -2,6 +2,7 @@
 package libresolve
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -47,7 +48,7 @@ type Resolver struct {
 }
 
 //New creates a resolver with the given parameters and default settings
-func New(rootNS, forwarders []connection.Info, mode ResolutionMode, addr connection.Info) *Resolver {
+func New(rootNS, forwarders []connection.Info, mode ResolutionMode) *Resolver {
 	return &Resolver{
 		RootNameServers: rootNS,
 		Forwarders:      forwarders,
@@ -99,7 +100,7 @@ func (r *Resolver) ServerLookup(query *query.Name, connInfo connection.Info, tok
 }
 
 func (r *Resolver) createConnAndWrite(connInfo connection.Info, msg *message.Message) {
-	conn, err := connection.CreateConnection(connInfo)
+	conn, err := connection.CreateConnection(context.Background(), connInfo, nil, nil)
 	if err != nil {
 		log.Error("Was not able to open a connection", "dst", connInfo)
 		return

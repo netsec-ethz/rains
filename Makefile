@@ -29,7 +29,7 @@ rainsdig:
 
 zoneman:
 	cd ${BUILD_PATH}; \
-	go build ${LDFLAGS} -o zoneman github.com/netsec-ethz/rains/cmd/zonemanager ;\
+	go build ${LDFLAGS} -o zoneman github.com/netsec-ethz/rains/cmd/zoneManager ;\
 	cd - >/dev/null
 
 resolve:

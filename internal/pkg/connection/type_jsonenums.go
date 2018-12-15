@@ -8,20 +8,26 @@ import (
 )
 
 var (
-	_NetworkAddrTypeNameToValue = map[string]Type{
-		"TCP": TCP,
+	_TypeNameToValue = map[string]Type{
+		"Chan":  Chan,
+		"TCP":   TCP,
+		"SCION": SCION,
 	}
 
-	_NetworkAddrTypeValueToName = map[Type]string{
-		TCP: "TCP",
+	_TypeValueToName = map[Type]string{
+		Chan:  "Chan",
+		TCP:   "TCP",
+		SCION: "SCION",
 	}
 )
 
 func init() {
 	var v Type
 	if _, ok := interface{}(v).(fmt.Stringer); ok {
-		_NetworkAddrTypeNameToValue = map[string]Type{
-			interface{}(TCP).(fmt.Stringer).String(): TCP,
+		_TypeNameToValue = map[string]Type{
+			interface{}(Chan).(fmt.Stringer).String():  Chan,
+			interface{}(TCP).(fmt.Stringer).String():   TCP,
+			interface{}(SCION).(fmt.Stringer).String(): SCION,
 		}
 	}
 }
@@ -31,7 +37,7 @@ func (r Type) MarshalJSON() ([]byte, error) {
 	if s, ok := interface{}(r).(fmt.Stringer); ok {
 		return json.Marshal(s.String())
 	}
-	s, ok := _NetworkAddrTypeValueToName[r]
+	s, ok := _TypeValueToName[r]
 	if !ok {
 		return nil, fmt.Errorf("invalid Type: %d", r)
 	}
@@ -44,7 +50,7 @@ func (r *Type) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &s); err != nil {
 		return fmt.Errorf("Type should be a string, got %s", data)
 	}
-	v, ok := _NetworkAddrTypeNameToValue[s]
+	v, ok := _TypeNameToValue[s]
 	if !ok {
 		return fmt.Errorf("invalid Type %q", s)
 	}

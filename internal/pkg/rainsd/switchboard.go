@@ -6,8 +6,8 @@ package rainsd
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
@@ -19,6 +19,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/scionproto/scion/go/lib/snet"
 )
 
 //sendTo sends message to the specified receiver.
@@ -26,7 +27,14 @@ func (s *Server) sendTo(msg message.Message, receiver connection.Info, retries,
 	backoffMilliSeconds int) (err error) {
 	conns, ok := s.caches.ConnCache.GetConnection(receiver)
 	if !ok {
-		conn, err := createConnection(receiver, s.config.KeepAlivePeriod, s.certPool)
+		d := &net.Dialer{
+			KeepAlive: s.config.KeepAlivePeriod,
+		}
+		t := &tls.Config{
+			RootCAs:            s.certPool,
+			InsecureSkipVerify: true,
+		}
+		conn, err := connection.CreateConnection(context.Background(), receiver, d, t)
 		//add connection to cache
 		conns = append(conns, conn)
 		if err != nil {
@@ -90,19 +98,6 @@ func (s *Server) sendToRecursiveResolver(msg message.Message) {
 	}
 }
 
-//createConnection establishes a connection with receiver
-func createConnection(receiver connection.Info, keepAlive time.Duration, pool *x509.CertPool) (net.Conn, error) {
-	switch receiver.Type {
-	case connection.TCP:
-		dialer := &net.Dialer{
-			KeepAlive: keepAlive,
-		}
-		return tls.DialWithDialer(dialer, receiver.TCPAddr.Network(), receiver.String(), &tls.Config{RootCAs: pool, InsecureSkipVerify: true})
-	default:
-		return nil, errors.New("No matching type found for Connection info")
-	}
-}
-
 //Listen listens for incoming connections and creates a go routine for each connection.
 func (s *Server) listen() {
 	srvLogger := log.New("addr", s.config.ServerAddress.String())
@@ -135,6 +130,46 @@ func (s *Server) listen() {
 			} else {
 				log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 			}
+		}
+	case connection.SCION:
+		srvLogger.Info("Initializing SCION")
+		if err := snet.Init(s.config.ServerAddress.SCIONAddr.LocalAddr.IA, s.config.SciondSock, s.config.DispatcherSock); err != nil {
+			srvLogger.Error("Failed to snet.Init")
+			return
+		}
+		srvLogger.Info("Start SCION listener")
+		listener, err := snet.ListenSCION("udp4", s.config.ServerAddress.SCIONAddr.LocalAddr)
+		if err != nil {
+			srvLogger.Error("Failed to ListenSCION", "err", err)
+			return
+		}
+		s.caches.ConnCache.AddConnection(listener)
+		for {
+			buf := make([]byte, 65536)
+			n, addr, err := listener.ReadFromSCION(buf)
+			if err != nil {
+				log.Warn("failed to ReadFromSCION", "err", err)
+				continue
+			}
+			sa := connection.SCIONAddr{
+				LocalAddr:  listener.LocalAddr().(*snet.Addr),
+				RemoteAddr: addr,
+			}
+			br := bytes.NewReader(buf[:n])
+			var msg message.Message
+			if err := cbor.NewReader(br).Unmarshal(&msg); err != nil {
+				if err.Error() == "failed to read tag: EOF" {
+					log.Info("Connection closed", "conn", sa)
+				} else {
+					log.Info("failed to read from client: %v", err)
+				}
+				continue
+			}
+			ci := connection.Info{
+				Type:      connection.SCION,
+				SCIONAddr: &sa,
+			}
+			deliver(&msg, ci, s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)
 		}
 	default:
 		log.Warn("Unsupported Network address type.")

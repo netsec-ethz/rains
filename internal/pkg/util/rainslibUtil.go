@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -153,7 +154,7 @@ func NewNotificationMessage(tok token.Token, t section.NotificationType, data st
 //or an error.
 func SendQuery(msg message.Message, connInfo connection.Info, timeout time.Duration) (
 	message.Message, error) {
-	conn, err := connection.CreateConnection(connInfo)
+	conn, err := connection.CreateConnection(context.Background(), connInfo, nil, nil)
 	if err != nil {
 		return message.Message{}, err
 	}

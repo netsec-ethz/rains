@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"time"
 
 	log "github.com/inconshreveable/log15"
@@ -9,9 +10,14 @@ import (
 	"github.com/netsec-ethz/rains/tools/keycreator"
 )
 
+var (
+	configPath = flag.String("config", "config/server.conf", "Path to config file.")
+)
+
 func main() {
+	flag.Parse()
 	keycreator.DelegationAssertion(".", ".", "keys/selfSignedRootDelegationAssertion.gob", "keys/rootPrivateKey.txt")
-	server, err := rainsd.New("config/server.conf", "0")
+	server, err := rainsd.New(*configPath, "0")
 	if err != nil {
 		log.Error(err.Error())
 		return
