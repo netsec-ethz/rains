@@ -45,10 +45,10 @@ const (
 	TypeShake256      = ":shake256:"
 	TypeFnv64         = ":fnv64:"
 	TypeFnv128        = ":fnv128:"
-	TypeBloomFilter   = ":bloomFilter:"
-	TypeStandard      = ":standard:"
-	TypeKM1           = ":km1:"
-	TypeKM2           = ":km2:"
+	TypeKM12          = ":bloomKM12:"
+	TypeKM16          = ":bloomKM16:"
+	TypeKM20          = ":bloomKM20:"
+	TypeKM24          = ":bloomKM24:"
 	TypeKSRains       = ":rains:"
 
 	indent4  = "    "
@@ -158,11 +158,11 @@ func GetEncoding(s section.Section, forSigning bool) string {
 	case *section.Assertion:
 		encoding = encodeAssertion(s, s.Context, s.SubjectZone, "", forSigning)
 	case *section.Shard:
-		encoding = encodeShard(s, s.Context, s.SubjectZone, "", forSigning)
+		encoding = encodeShard(s, s.Context, s.SubjectZone, "")
 	case *section.Pshard:
-		log.Error("TODO implement")
+		encoding = encodePshard(s, s.Context, s.SubjectZone, "")
 	case *section.Zone:
-		encoding = encodeZone(s, forSigning)
+		encoding = encodeZone(s)
 	case *query.Name:
 		encoding = encodeQuery(s)
 	case *section.Notification:

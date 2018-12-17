@@ -26,7 +26,7 @@
         :A: ch  [ :ip4: 192.168.1.10 ]
         :A: ch  [ :ip4: 192.168.1.10 ]
 ] ( :sig: :ed25519: :rains: 1 2000 5000 )
-:S: a b [
+:S: ch. . a b [
         :A: ch  [ :name: a [ :ip4: :ip6: ] ]
         :A: ch  [ :ip4: 192.168.1.10 ]
         :A: ethz [ 
@@ -52,5 +52,6 @@
         e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
         100000 20000000 ]
 ]
+:P: ch. . a b :bloomKM12: :shake256: e28b1bd3a73882b198dfe4f0fa95403c5916
 :Z: com. . [ ]
 :A: ethz ch. . [ :ip4: 192.168.1.10 ]

@@ -42,10 +42,9 @@ type PShardingConfig struct {
 
 //BloomFilterConfig specifies the bloom filter's meta data
 type BloomFilterConfig struct {
-	Hashfamily       []algorithmTypes.Hash
-	NofHashFunctions int
-	BFOpMode         section.ModeOfOperationType
-	BloomFilterSize  int
+	BFAlgo          section.BloomFilterAlgo
+	BFHash          algorithmTypes.Hash
+	BloomFilterSize int
 }
 
 //MetaDataConfig determines how the signature meta data is generated and to which section(s) it is

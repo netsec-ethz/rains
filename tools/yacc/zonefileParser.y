@@ -35,24 +35,6 @@ func AddSigs(sec section.WithSigForward, signatures []signature.Sig) {
     }
 }
 
-func DecodeBloomFilter(hashAlgos []algorithmTypes.Hash, modeOfOperation section.ModeOfOperationType,
-    nofHashFunctions, filter string) (section.BloomFilter, error) {
-    funcs, err := strconv.Atoi(nofHashFunctions)
-	if err != nil {
-		return section.BloomFilter{}, errors.New("nofHashFunctions is not a number")
-	}
-    decodedFilter, err := hex.DecodeString(filter)
-	if err != nil {
-		return section.BloomFilter{}, err
-	}
-    return section.BloomFilter{
-            HashFamily: hashAlgos,
-            NofHashFunctions: funcs,
-            ModeOfOperation: modeOfOperation,
-            Filter: bitarray.BitArray(decodedFilter),
-        }, nil
-}
-
 func DecodePublicKeyID(keyphase string) (keys.PublicKeyID, error) {
     phase, err := strconv.Atoi(keyphase)
 	if err != nil {
@@ -63,10 +45,6 @@ func DecodePublicKeyID(keyphase string) (keys.PublicKeyID, error) {
         KeyPhase:  phase,
 		KeySpace:  keys.RainsKeySpace,
 	}, nil
-}
-
-func DecodeEd25519SignatureData(input string) (interface{}, error) {
-    return "notYetImplemented", nil
 }
 
 // DecodeEd25519PublicKeyData returns the publicKey or an error in case
@@ -157,9 +135,7 @@ var output []section.WithSigForward
     protocolType    object.ProtocolType
     certUsage       object.CertificateUsage
     hashType        algorithmTypes.Hash
-    hashTypes       []algorithmTypes.Hash
-    dataStructure   section.DataStructure
-    bfOpMode        section.ModeOfOperationType
+    bfAlgo          section.BloomFilterAlgo
 }
 
 // any non-terminal which returns a value needs a type, which must be a field 
@@ -169,7 +145,6 @@ var output []section.WithSigForward
 %type <shard>           shard shardBody
 %type <shardRange>      shardRange
 %type <pshard>          pshard pshardBody
-%type <dataStructure>   pshardContent bloomFilter
 %type <assertions>      shardContent zoneContent
 %type <assertion>       assertion assertionBody
 %type <objects>         objects name ip4 ip6 redir deleg nameset cert
@@ -183,9 +158,8 @@ var output []section.WithSigForward
 %type <str>             freeText
 %type <protocolType>    protocolType
 %type <certUsage>       certUsage
-%type <hashTypes>       hashTypes
-%type <hashType>        hashType
-%type <bfOpMode>        bfOpMode
+%type <hashType>        hashType bfHash
+%type <bfAlgo>          bfAlgo
 
 // Terminals
 %token <str> ID
@@ -202,10 +176,8 @@ var output []section.WithSigForward
 %token unspecified tls trustAnchor endEntity 
 // Hash algorithm types
 %token noHash sha256 sha384 sha512 shake256 fnv64 fnv128
-// Data structure types
-%token bloomFilterType
-// Bloom filter mode of operations
-%token standard km1 km2
+// Bloom filter algorithm
+%token bloomKM12 bloomKM16 bloomKM20 bloomKM24
 // Key spaces
 %token rains
 // Special shard range markers
@@ -283,14 +255,6 @@ shardBody       : shardType ID ID shardRange lBracket shardContent rBracket
                         Content: $6,
                     }
                 }
-                | shardType shardRange lBracket shardContent rBracket
-                {
-                    $$ = &section.Shard{
-                        RangeFrom: $2[0],
-                        RangeTo: $2[1],
-                        Content: $4,
-                    }
-                }
 
 shardRange      : ID ID
                 {
@@ -325,59 +289,53 @@ pshard          : pshardBody
                     $$ = $1
                 }
 
-pshardBody      : pshardType ID ID shardRange pshardContent
+pshardBody      : pshardType ID ID shardRange bfAlgo bfHash ID
                 {
+                    decodedFilter, err := hex.DecodeString($7)
+                    if  err != nil {
+                        log.Error("semantic error:", "Was not able to decode Bloom filter", err)
+                    }
                     $$ = &section.Pshard{
                         SubjectZone: $2, 
                         Context: $3,
                         RangeFrom: $4[0],
                         RangeTo: $4[1],
-                        Datastructure: $5,
-                    }
-                }
-                | pshardType shardRange pshardContent
-                {
-                    $$ = &section.Pshard{
-                        RangeFrom: $2[0],
-                        RangeTo: $2[1],
-                        Datastructure: $3,
+                        BloomFilter: section.BloomFilter{
+                            Algorithm: $5,
+                            Hash: $6,
+                            Filter: bitarray.BitArray(decodedFilter),
+                        },
                     }
                 }
 
-pshardContent   : bloomFilter
-
-bloomFilter     : bloomFilterType lBracket hashTypes rBracket ID bfOpMode ID
+bfHash          : shake256
                 {
-                    bloomFilter, err := DecodeBloomFilter($3, $6, $5,$7)
-                    if  err != nil {
-                        log.Error("semantic error:", "DecodeBloomFilter", err)
-                    }
-                    $$ = section.DataStructure{
-                        Type: section.BloomFilterType,
-                        Data: bloomFilter,
-                    }
+                    $$ = algorithmTypes.Shake256
+                }
+                | fnv64
+                {
+                    $$ = algorithmTypes.Fnv64
+                }
+                | fnv128
+                {
+                    $$ = algorithmTypes.Fnv128
                 }
 
-hashTypes       : hashType
+bfAlgo          : bloomKM12
                 {
-                    $$ = []algorithmTypes.Hash{$1}
+                    $$ = section.BloomKM12
                 }
-                | hashTypes hashType
+                | bloomKM16
                 {
-                    $$ = append($1,$2)
+                    $$ = section.BloomKM16
                 }
-
-bfOpMode        : standard
+                | bloomKM20
                 {
-                    $$ = section.StandardOpType
+                    $$ = section.BloomKM20
                 }
-                | km1
+                | bloomKM24
                 {
-                    $$ = section.KirschMitzenmacher1
-                }
-                | km2
-                {
-                    $$ = section.KirschMitzenmacher2
+                    $$ = section.BloomKM24
                 }
 
 assertion       : assertionBody
@@ -803,11 +761,11 @@ annotationBody  : signature
 signature       : signatureMeta
                 | signatureMeta ID
                 {   
-                    data, err := DecodeEd25519SignatureData($2)
+                    sigData, err := hex.DecodeString($2)
                     if  err != nil {
                         log.Error("semantic error:", "DecodeEd25519SignatureData", err)
                     }
-                    $1.Data = data
+                    $1.Data = sigData
                     $$ = $1
                 }
 
@@ -922,14 +880,14 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
         return fnv64
     case zonefile.TypeFnv128 :
         return fnv128
-    case zonefile.TypeBloomFilter :
-        return bloomFilterType
-    case zonefile.TypeStandard :
-        return standard
-    case zonefile.TypeKM1 :
-        return km1
-    case zonefile.TypeKM2 :
-        return km2
+    case zonefile.TypeKM12 :
+        return bloomKM12
+    case zonefile.TypeKM16 :
+        return bloomKM16
+    case zonefile.TypeKM20 :
+        return bloomKM20
+    case zonefile.TypeKM24 :
+        return bloomKM24
     case zonefile.TypeKSRains :
         return rains
     case "<" :
