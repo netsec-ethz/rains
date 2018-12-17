@@ -269,11 +269,6 @@ func extractNeededKeys(section WithSig, sigData map[signature.MetaData]bool) {
 	}
 }
 
-//BloomFilterEncoding returns a string encoding of the assertion to add to or query a bloom filter
-func (a *Assertion) BloomFilterEncoding() string {
-	return fmt.Sprintf("%s.%s %s %d", a.SubjectName, a.SubjectZone, a.Context, a.Content[0].Type)
-}
-
 func (a *Assertion) AddSigInMarshaller() {
 	a.sign = false
 }

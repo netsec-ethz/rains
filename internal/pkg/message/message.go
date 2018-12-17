@@ -36,15 +36,12 @@ func (rm *Message) MarshalCBOR(w *cbor.CBORWriter) error {
 	if err := w.WriteTag(cbor.CBORTag(rainsTag)); err != nil {
 		return err
 	}
+
 	m := make(map[int]interface{})
-	// A Message map MAY contain a signatures (0) key, whose value is an array
-	// of Signatures over the entire message as defined in Section 5.13, to be
-	// verified against the infrastructure key for the RAINS Server originating
-	// the message.
 	if len(rm.Signatures) > 0 {
 		m[0] = rm.Signatures
 	}
-	// A Message map MAY contain a capabilities (1) key.
+
 	if len(rm.Capabilities) > 0 {
 		caps := make([]string, len(rm.Capabilities))
 		for i, cap := range rm.Capabilities {
@@ -52,10 +49,8 @@ func (rm *Message) MarshalCBOR(w *cbor.CBORWriter) error {
 		}
 		m[1] = caps
 	}
-	// A Message map MUST contain a token (2) key, whose value is a 16-byte array.
 	m[2] = rm.Token
-	// Message section.
-	// Each message section is a two element array [type, msgsection].
+
 	msgsect := make([][2]interface{}, 0)
 	for _, sect := range rm.Content {
 		switch sect.(type) {
@@ -64,11 +59,11 @@ func (rm *Message) MarshalCBOR(w *cbor.CBORWriter) error {
 		case *section.Shard:
 			msgsect = append(msgsect, [2]interface{}{2, sect})
 		case *section.Pshard:
-			msgsect = append(msgsect, [2]interface{}{7, sect})
-		case *section.Zone:
 			msgsect = append(msgsect, [2]interface{}{3, sect})
-		case *query.Name:
+		case *section.Zone:
 			msgsect = append(msgsect, [2]interface{}{4, sect})
+		case *query.Name:
+			msgsect = append(msgsect, [2]interface{}{5, sect})
 		case *section.Notification:
 			msgsect = append(msgsect, [2]interface{}{23, sect})
 		default:
@@ -80,7 +75,6 @@ func (rm *Message) MarshalCBOR(w *cbor.CBORWriter) error {
 }
 
 func (rm *Message) UnmarshalCBOR(r *cbor.CBORReader) error {
-	// First read a tag to ensure we are parsing a Message
 	tag, err := r.ReadTag()
 	if err != nil {
 		return fmt.Errorf("failed to read tag: %v", err)
@@ -92,7 +86,7 @@ func (rm *Message) UnmarshalCBOR(r *cbor.CBORReader) error {
 	if err != nil {
 		return fmt.Errorf("failed to read map: %v", err)
 	}
-	// Read the signatures
+
 	if sigs, ok := m[0]; ok {
 		rm.Signatures = make([]signature.Sig, len(sigs.([]interface{})))
 		for i, sig := range sigs.([]interface{}) {
@@ -101,22 +95,21 @@ func (rm *Message) UnmarshalCBOR(r *cbor.CBORReader) error {
 			}
 		}
 	}
-	// Read the capabilities, FIXME CFE maybe we can directly assign slice of
-	// Capability as they are an alias for string.
+
 	if caps, ok := m[1]; ok {
 		rm.Capabilities = make([]Capability, len(caps.([]interface{})))
 		for i, cap := range caps.([]interface{}) {
 			rm.Capabilities[i] = Capability(cap.(string))
 		}
 	}
-	// read the token
+
 	if _, ok := m[2]; !ok {
 		return fmt.Errorf("token missing from RAINS message: %v", m)
 	}
 	for i, val := range m[2].([]interface{}) {
 		rm.Token[i] = byte(val.(int))
 	}
-	// read the message sections
+
 	for _, elem := range m[23].([]interface{}) {
 		elem := elem.([]interface{})
 		t := elem[0].(int)
