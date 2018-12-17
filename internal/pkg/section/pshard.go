@@ -7,12 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/query"
-
 	cbor "github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
-
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
 

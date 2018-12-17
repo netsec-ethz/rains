@@ -81,12 +81,14 @@ func calcHash(hashType algorithmTypes.Hash, encoding []byte) (uint64, uint64, er
 		return uint64(int(val)), uint64(int(val >> 32)), nil //int64(int()) truncate upper 32 bits
 	case algorithmTypes.Fnv64:
 		hash := fnv.New64()
-		val := binary.BigEndian.Uint64(hash.Sum(encoding))
+		hash.Write(encoding)
+		val := hash.Sum64()
 		return uint64(int(val)), uint64(int(val >> 32)), nil //int64(int()) truncate upper 32 bits
 	case algorithmTypes.Fnv128:
 		hash := fnv.New128()
-		val := hash.Sum(encoding)
-		return binary.BigEndian.Uint64(val[:64]), binary.BigEndian.Uint64(val[64:128]), nil
+		hash.Write(encoding)
+		val := hash.Sum([]byte{})
+		return binary.BigEndian.Uint64(val[:8]), binary.BigEndian.Uint64(val[8:16]), nil
 	default:
 		return 0, 0, errors.New("Unsupported hash algorithm type for bloom filter")
 	}
