@@ -115,13 +115,6 @@ func (z *Zone) GetSubjectZone() string {
 	return z.SubjectZone
 }
 
-func (z *Zone) SetContext(ctx string) {
-	z.Context = ctx
-}
-func (z *Zone) SetSubjectZone(zone string) {
-	z.SubjectZone = zone
-}
-
 func (z *Zone) AddCtxAndZoneToContent() {
 	for _, s := range z.Content {
 		s.SetContext(z.Context)
