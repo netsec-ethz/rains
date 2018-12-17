@@ -273,8 +273,7 @@ func groupAssertionsToPshards(subjectZone, context string, assertions []*section
 	nameCount := 0
 	prevAssertionSubjectName := ""
 	prevShardAssertionSubjectName := ""
-	pshard := &section.Pshard{}
-	bloomFilter := newBloomFilter(config.BloomFilterConf)
+	pshard := newPshard(subjectZone, context, config.BloomFilterConf)
 	for i, a := range assertions {
 		if prevAssertionSubjectName != a.SubjectName {
 			nameCount++
@@ -283,40 +282,38 @@ func groupAssertionsToPshards(subjectZone, context string, assertions []*section
 		if nameCount > config.NofAssertionsPerPshard {
 			pshard.RangeFrom = prevShardAssertionSubjectName
 			pshard.RangeTo = a.SubjectName
-			pshard.Datastructure.Type = section.BloomFilterType
-			pshard.Datastructure.Data = bloomFilter
 			pshards = append(pshards, pshard)
 			nameCount = 1
-			pshard = &section.Pshard{}
-			bloomFilter = newBloomFilter(config.BloomFilterConf)
+			pshard = newPshard(subjectZone, context, config.BloomFilterConf)
 			prevShardAssertionSubjectName = assertions[i-1].SubjectName
 		}
-		if err := bloomFilter.AddAssertion(a); err != nil {
+		if err := pshard.AddAssertion(a); err != nil {
 			return nil, err
 		}
 	}
 	pshard.RangeFrom = prevShardAssertionSubjectName
 	pshard.RangeTo = ""
-	pshard.Datastructure.Type = section.BloomFilterType
-	pshard.Datastructure.Data = bloomFilter
 	pshards = append(pshards, pshard)
-	log.Info("Sharding by number completed successfully")
+	log.Info("Psharding by number completed successfully")
 	return pshards, nil
 }
 
 //newBloomFilter returns a newly created bloom filter of the given
-func newBloomFilter(config BloomFilterConfig) section.BloomFilter {
+func newPshard(subjectZone, context string, config BloomFilterConfig) *section.Pshard {
 	var size int
 	if config.BloomFilterSize%8 == 0 {
 		size = config.BloomFilterSize / 8
 	} else {
 		size = (config.BloomFilterSize/8 + 1) * 8
 	}
-	return section.BloomFilter{
-		HashFamily:       config.Hashfamily,
-		NofHashFunctions: config.NofHashFunctions,
-		ModeOfOperation:  config.BFOpMode,
-		Filter:           make(bitarray.BitArray, size),
+	return &section.Pshard{
+		SubjectZone: subjectZone,
+		Context:     context,
+		BloomFilter: section.BloomFilter{
+			Algorithm: config.BFAlgo,
+			Hash:      config.BFHash,
+			Filter:    make(bitarray.BitArray, size),
+		},
 	}
 }
 
