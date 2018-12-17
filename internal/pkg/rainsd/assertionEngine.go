@@ -15,7 +15,7 @@ import (
 //it adds a section with valid signatures to the assertion/shard/zone cache. Triggers any pending queries answered by it.
 //The section's signatures MUST have already been verified and there MUST be at least one valid
 //rains signature on the message
-func (s *Server) assert(ss msgSectionSender, isAuthoritative bool) {
+func (s *Server) assert(ss sectionWithSigSender) {
 	log.Debug("Adding section to cache", "section", ss)
 	if sectionsAreInconsistent(ss.Sections, s.caches.AssertionsCache, s.caches.NegAssertionCache) {
 		log.Warn("section is inconsistent with cached elements.", "sections", ss.Sections)
@@ -31,14 +31,14 @@ func (s *Server) assert(ss msgSectionSender, isAuthoritative bool) {
 
 //sectionsAreInconsistent returns true if at least one section is not consistent with cached element
 //which are valid at the same time.
-func sectionsAreInconsistent(sec []section.Section, assertionsCache assertionCache,
+func sectionsAreInconsistent(sec []section.WithSigForward, assertionsCache assertionCache,
 	negAssertionCache negativeAssertionCache) bool {
 	//TODO implement if necessary
 	return false
 }
 
 //addSectionToCache adds sec to the cache if it comlies with the server's caching policy
-func addSectionsToCache(sections []section.Section, isAuthoritative bool, assertionsCache assertionCache,
+func addSectionsToCache(sections []section.WithSigForward, isAuthoritative bool, assertionsCache assertionCache,
 	negAssertionCache negativeAssertionCache, zoneKeyCache zonePublicKeyCache) {
 	for _, sec := range sections {
 		switch sec := sec.(type) {
@@ -149,7 +149,7 @@ func addZoneToCache(zone *section.Zone, isAuthoritative bool, assertionsCache as
 	log.Debug("Added zone to cache", "zone", *zone)
 }
 
-func pendingKeysCallback(mss msgSectionSender, pendingKeys pendingKeyCache, normalChannel chan msgSectionSender) {
+func pendingKeysCallback(mss sectionWithSigSender, pendingKeys pendingKeyCache, normalChannel chan msgSectionSender) {
 	if sectionSenders := pendingKeys.GetAndRemoveByToken(mss.Token); len(sectionSenders) > 0 {
 		for _, ss := range sectionSenders {
 			normalChannel <- ss
@@ -157,13 +157,17 @@ func pendingKeysCallback(mss msgSectionSender, pendingKeys pendingKeyCache, norm
 	}
 }
 
-func pendingQueriesCallback(mss msgSectionSender, s *Server) {
+func pendingQueriesCallback(mss sectionWithSigSender, s *Server) {
 	newDeadline := time.Now().Add(50 * time.Microsecond).Unix()
 	if ok := s.caches.PendingQueries.AddAnswerByToken(mss.Sections[0].(section.WithSig), mss.Token, newDeadline); !ok {
 		return //Already answered by another incoming assertion.
 	}
 	queries, _ := s.caches.PendingQueries.GetAndRemoveByToken(mss.Token, newDeadline)
+	answer := []section.Section{}
+	for _, sec := range mss.Sections {
+		answer = append(answer, sec)
+	}
 	for _, ss := range queries {
-		sendSections(mss.Sections, ss.Token, ss.Sender, s)
+		sendSections(answer, ss.Token, ss.Sender, s)
 	}
 }
