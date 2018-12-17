@@ -71,20 +71,20 @@ type rainsdConfig struct {
 
 //msgSectionSender contains the message section section and connection infos about the sender
 type msgSectionSender struct {
-	Sender  connection.Info
-	Section section.Section
-	Token   token.Token
+	Sender   connection.Info
+	Sections []section.Section
+	Token    token.Token
 }
 
 //sectionWithSigSender contains a section with a signature and connection infos about the sender
 type sectionWithSigSender struct {
-	Sender  connection.Info
-	Section section.WithSigForward
-	Token   token.Token
+	Sender   connection.Info
+	Sections []section.WithSigForward
+	Token    token.Token
 }
 
 func (s *sectionWithSigSender) Hash() string {
-	return fmt.Sprintf("%s_%s_%v", s.Sender.Hash(), s.Section.Hash(), s.Token)
+	return fmt.Sprintf("%s_%v_%v", s.Sender.Hash(), s.Sections, s.Token)
 }
 
 //connectionCache stores persistent stream-oriented network connections.
@@ -144,7 +144,7 @@ type zonePublicKeyCache interface {
 
 type pendingKeyCache interface {
 	//Add adds sectionSender to the cache and returns true if a new delegation should be sent.
-	Add(sectionSender sectionWithSigSender, algoType algorithmTypes.Signature, phase int) bool
+	Add(sectionSender msgSectionSender, algoType algorithmTypes.Signature, phase int) bool
 	//AddToken adds token to the token map where the value of the map corresponds to the cache entry
 	//matching the given zone and cotext. Token is added to the map and the cache entry's token,
 	//expiration and sendTo fields are updated only if a matching cache entry exists. False is
@@ -152,10 +152,10 @@ type pendingKeyCache interface {
 	AddToken(token token.Token, expiration int64, sendTo connection.Info, zone, context string) bool
 	//GetAndRemove returns all sections who contain a signature matching the given parameter and
 	//deletes them from the cache. The token map is updated if necessary.
-	GetAndRemove(zone, context string, algoType algorithmTypes.Signature, phase int) []sectionWithSigSender
+	GetAndRemove(zone, context string, algoType algorithmTypes.Signature, phase int) []msgSectionSender
 	//GetAndRemoveByToken returns all sections who correspond to token and deletes them from the
 	//cache. Token is removed from the token map.
-	GetAndRemoveByToken(token token.Token) []sectionWithSigSender
+	GetAndRemoveByToken(token token.Token) []msgSectionSender
 	//ContainsToken returns true if token is in the token map.
 	ContainsToken(token token.Token) bool
 	//RemoveExpiredValues deletes all sections of an expired entry and updates the token map if

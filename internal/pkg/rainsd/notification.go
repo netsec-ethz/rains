@@ -12,8 +12,8 @@ import (
 
 //notify handles incoming notification messages
 func (s *Server) notify(msgSender msgSectionSender) {
-	notifLog := log.New("notificationMsgSection", msgSender.Section)
-	sec := msgSender.Section.(*section.Notification)
+	notifLog := log.New("notificationMsgSection", msgSender.Sections[0])
+	sec := msgSender.Sections[0].(*section.Notification)
 	switch sec.Type {
 	case section.NTHeartbeat:
 	case section.NTCapHashNotKnown:
@@ -41,12 +41,10 @@ func (s *Server) notify(msgSender msgSectionSender) {
 		}
 	case section.NTBadMessage:
 		notifLog.Error("Sent msg was malformed")
-		dropPendingSectionsAndQueries(msgSender.Token,
-			msgSender.Section.(*section.Notification), true, s)
+		dropPendingSectionsAndQueries(msgSender.Token, sec, true, s)
 	case section.NTRcvInconsistentMsg:
 		notifLog.Error("Sent msg was inconsistent")
-		dropPendingSectionsAndQueries(msgSender.Token,
-			msgSender.Section.(*section.Notification), true, s)
+		dropPendingSectionsAndQueries(msgSender.Token, sec, true, s)
 	case section.NTMsgTooLarge:
 		notifLog.Error("Sent msg was too large")
 		//TODO CFE resend message in smaller chunks
@@ -55,16 +53,13 @@ func (s *Server) notify(msgSender msgSectionSender) {
 		sendNotificationMsg(msgSender.Token, msgSender.Sender, section.NTBadMessage, "", s)
 	case section.NTUnspecServerErr:
 		notifLog.Error("Unspecified error of other server")
-		dropPendingSectionsAndQueries(msgSender.Token,
-			msgSender.Section.(*section.Notification), false, s)
+		dropPendingSectionsAndQueries(msgSender.Token, sec, false, s)
 	case section.NTServerNotCapable:
 		notifLog.Error("Other server was not capable")
-		dropPendingSectionsAndQueries(msgSender.Token,
-			msgSender.Section.(*section.Notification), false, s)
+		dropPendingSectionsAndQueries(msgSender.Token, sec, false, s)
 	case section.NTNoAssertionAvail:
 		notifLog.Info("No assertion was available")
-		dropPendingSectionsAndQueries(msgSender.Token,
-			msgSender.Section.(*section.Notification), false, s)
+		dropPendingSectionsAndQueries(msgSender.Token, sec, false, s)
 	default:
 		notifLog.Warn("No matching notification type")
 		sendNotificationMsg(msgSender.Token, msgSender.Sender, section.NTBadMessage, "No matching notification type", s)

@@ -399,14 +399,14 @@ type pendingKeyCacheImpl struct {
 }
 
 //Add adds sectionSender to the cache and returns true if a new delegation should be sent.
-func (c *pendingKeyCacheImpl) Add(sectionSender sectionWithSigSender,
+func (c *pendingKeyCacheImpl) Add(sectionSender msgSectionSender,
 	algoType algorithmTypes.Signature, phase int) bool {
 	if c.counter.Inc() {
 		log.Warn("pending key cache is full", "size", c.counter.Value())
 		c.counter.Dec()
 		return false
 	}
-	section := sectionSender.Section
+	section := sectionSender.Sections[0]
 	entry := &pendingKeyCacheValue{
 		zoneCtx:    zoneCtxKey(section.GetSubjectZone(), section.GetContext()),
 		sections:   make(map[string]map[string]sectionWithSigSender),
