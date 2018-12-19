@@ -115,7 +115,6 @@ func addCapabilityAndRespond(sender connection.Info, caps []message.Capability) 
 
 //isZoneBlacklisted returns true if zone is blacklisted
 func isZoneBlacklisted(zone string) bool {
-	log.Debug("TODO CFE zone blacklist not yet implemented")
 	return false
 }
 

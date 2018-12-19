@@ -77,7 +77,6 @@ func (s *Shard) MarshalCBOR(w *cbor.CBORWriter) error {
 		m[6] = s.Context
 	}
 	m[11] = []string{s.RangeFrom, s.RangeTo}
-	// TODO: Assertions SHOULD be sorted by name in ascending lexicographic order.
 	m[23] = s.Content
 	return w.WriteIntMap(m)
 }

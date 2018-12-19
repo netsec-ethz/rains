@@ -3,7 +3,6 @@ package cache
 import (
 	"net"
 
-	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
@@ -69,7 +68,8 @@ type ZonePublicKey interface {
 	Len() int
 }
 
-type PendingKeyCacheOld interface {
+//FIXME remove after new implementation is tested
+/*type PendingKeyCacheOld interface {
 	//Add adds sectionSender to the cache and returns true if a new delegation should be sent.
 	Add(sectionSender util.MsgSectionSender, algoType algorithmTypes.Signature, phase int) bool
 	//AddToken adds token to the token map where the value of the map corresponds to the cache entry
@@ -90,7 +90,7 @@ type PendingKeyCacheOld interface {
 	RemoveExpiredValues()
 	//Len returns the number of sections in the cache
 	Len() int
-}
+}*/
 
 type PendingKey interface {
 	//Add adds ss to the cache together with the token and expiration time of the query sent to the
@@ -108,8 +108,8 @@ type PendingKey interface {
 	Len() int
 }
 
-//TODO CFE also add methods which can return queries which are answered by the section's content.
-type PendingQueryCacheOld interface {
+//FIXME remove after new implementation is tested
+/*type PendingQueryCacheOld interface {
 	//Add adds sectionSender to the cache and returns false if the query is already in the cache.
 	Add(sectionSender util.MsgSectionSender) bool
 	//AddToken adds token to the token map where the value of the map corresponds to the cache entry
@@ -140,7 +140,7 @@ type PendingQueryCacheOld interface {
 	RemoveExpiredValues()
 	//Len returns the number of queries in the cache
 	Len() int
-}
+}*/
 
 type PendingQuery interface {
 	//Add checks if this server has already forwarded a msg containing the same queries as ss. If
