@@ -3,12 +3,10 @@ package section
 import (
 	"errors"
 	"fmt"
-	"math"
 	"strings"
 	"time"
 
 	cbor "github.com/britram/borat"
-	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
@@ -120,28 +118,8 @@ func (s *Pshard) End() string {
 //UpdateValidity updates the validity of this pshard if the validity period is extended.
 //It makes sure that the validity is never larger than maxValidity
 func (s *Pshard) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
-	//CFE FIXME take in separate function, where it can be reused by shard, zone and assertion
-	if s.validSince == 0 {
-		s.validSince = math.MaxInt64
-	}
-	if validSince < s.validSince {
-		if validSince > time.Now().Add(maxValidity).Unix() {
-			s.validSince = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", s.validSince,
-				"newValidSince", validSince, "maxValidity", maxValidity)
-		} else {
-			s.validSince = validSince
-		}
-	}
-	if validUntil > s.validUntil {
-		if validUntil > time.Now().Add(maxValidity).Unix() {
-			s.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", s.validSince,
-				"newValidSince", validSince, "maxValidity", maxValidity)
-		} else {
-			s.validUntil = validUntil
-		}
-	}
+	s.validSince, s.validUntil = UpdateValidity(validSince, validUntil, s.validSince, s.validUntil,
+		maxValidity)
 }
 
 //ValidSince returns the earliest validSince date of all contained signatures
@@ -166,30 +144,6 @@ func (s *Pshard) Hash() string {
 //Sort sorts the content of the pshard lexicographically.
 func (s *Pshard) Sort() {
 	//nothing to sort
-}
-
-//CompareTo compares two shards and returns 0 if they are equal, 1 if s is greater than shard and -1
-//if s is smaller than shard
-func (s *Pshard) CompareTo(shard *Pshard) int {
-	if s.SubjectZone < shard.SubjectZone {
-		return -1
-	} else if s.SubjectZone > shard.SubjectZone {
-		return 1
-	} else if s.Context < shard.Context {
-		return -1
-	} else if s.Context > shard.Context {
-		return 1
-	} else if s.RangeFrom < shard.RangeFrom {
-		return -1
-	} else if s.RangeFrom > shard.RangeFrom {
-		return 1
-	} else if s.RangeTo < shard.RangeTo {
-		return -1
-	} else if s.RangeTo > shard.RangeTo {
-		return 1
-	}
-	//FIXME CFE compare datastructure
-	return 0
 }
 
 //String implements Stringer interface

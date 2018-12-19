@@ -2,12 +2,10 @@ package section
 
 import (
 	"fmt"
-	"math"
 	"sort"
 	"time"
 
 	cbor "github.com/britram/borat"
-	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -153,27 +151,8 @@ func (a *Assertion) End() string {
 //UpdateValidity updates the validity of this assertion if the validity period is extended.
 //It makes sure that the validity is never larger than maxValidity
 func (a *Assertion) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
-	if a.validSince == 0 {
-		a.validSince = math.MaxInt64
-	}
-	if validSince < a.validSince {
-		if validSince > time.Now().Add(maxValidity).Unix() {
-			a.validSince = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", a.validSince,
-				"newValidSince", validSince, "maxValidity", maxValidity)
-		} else {
-			a.validSince = validSince
-		}
-	}
-	if validUntil > a.validUntil {
-		if validUntil > time.Now().Add(maxValidity).Unix() {
-			a.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", a.validSince,
-				"newValidSince", validSince, "maxValidity", maxValidity)
-		} else {
-			a.validUntil = validUntil
-		}
-	}
+	a.validSince, a.validUntil = UpdateValidity(validSince, validUntil, a.validSince, a.validUntil,
+		maxValidity)
 }
 
 //ValidSince returns the earliest validSince date of all contained signatures

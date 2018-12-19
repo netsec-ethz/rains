@@ -2,7 +2,6 @@ package section
 
 import (
 	"fmt"
-	"math"
 	"sort"
 	"strings"
 	"time"
@@ -142,27 +141,8 @@ func (z *Zone) End() string {
 //UpdateValidity updates the validity of this zone if the validity period is extended.
 //It makes sure that the validity is never larger than maxValidity
 func (z *Zone) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
-	if z.validSince == 0 {
-		z.validSince = math.MaxInt64
-	}
-	if validSince < z.validSince {
-		if validSince > time.Now().Add(maxValidity).Unix() {
-			z.validSince = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", z.validSince,
-				"newValidSince", validSince, "maxValidity", maxValidity)
-		} else {
-			z.validSince = validSince
-		}
-	}
-	if validUntil > z.validUntil {
-		if validUntil > time.Now().Add(maxValidity).Unix() {
-			z.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", z.validSince,
-				"newValidSince", validSince, "maxValidity", maxValidity)
-		} else {
-			z.validUntil = validUntil
-		}
-	}
+	z.validSince, z.validUntil = UpdateValidity(validSince, validUntil, z.validSince, z.validUntil,
+		maxValidity)
 }
 
 //ValidSince returns the earliest validSince date of all contained signatures
