@@ -142,7 +142,7 @@ type zonePublicKeyCache interface {
 	Len() int
 }
 
-type pendingKeyCache interface {
+type pendingKeyCacheOld interface {
 	//Add adds sectionSender to the cache and returns true if a new delegation should be sent.
 	Add(sectionSender msgSectionSender, algoType algorithmTypes.Signature, phase int) bool
 	//AddToken adds token to the token map where the value of the map corresponds to the cache entry
@@ -165,8 +165,24 @@ type pendingKeyCache interface {
 	Len() int
 }
 
+type pendingKeyCache interface {
+	//Add adds ss to the cache together with the token and expiration time of the query sent to the
+	//host with the addr defined in ss.
+	Add(ss msgSectionSender, t token.Token, expiration int64)
+	//GetAndRemove returns msgSectionSender which corresponds to token and true, and deletes it from
+	//the cache. False is returned if no msgSectionSender matched token.
+	GetAndRemove(t token.Token) (msgSectionSender, bool)
+	//ContainsToken returns true if t is cached
+	ContainsToken(t token.Token) bool
+	//RemoveExpiredValues deletes all expired entries. It logs the host's addr which was not able to
+	//respond in time.
+	RemoveExpiredValues()
+	//Len returns the number of sections in the cache
+	Len() int
+}
+
 //TODO CFE also add methods which can return queries which are answered by the section's content.
-type pendingQueryCache interface {
+type pendingQueryCacheOld interface {
 	//Add adds sectionSender to the cache and returns false if the query is already in the cache.
 	Add(sectionSender msgSectionSender) bool
 	//AddToken adds token to the token map where the value of the map corresponds to the cache entry
@@ -196,6 +212,20 @@ type pendingQueryCache interface {
 	//which it has been sent.
 	RemoveExpiredValues()
 	//Len returns the number of queries in the cache
+	Len() int
+}
+
+type pendingQueryCache interface {
+	//Add checks if this server has already forwarded a msg containing the same queries as ss. If
+	//this is the case, ss is added to the cache and false is returned. If not, ss is added together
+	//with t and expiration to the cache and true is returned.
+	Add(ss msgSectionSender, t token.Token, expiration int64) bool
+	//GetAndRemove returns all msgSectionSenders which correspond to token and delete them from the
+	//cache.
+	GetAndRemove(t token.Token) []msgSectionSender
+	//RemoveExpiredValues deletes all expired entries.
+	RemoveExpiredValues()
+	//Len returns the number of sections in the cache
 	Len() int
 }
 

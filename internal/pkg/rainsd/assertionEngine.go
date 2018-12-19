@@ -2,7 +2,6 @@ package rainsd
 
 import (
 	"fmt"
-	"time"
 
 	log "github.com/inconshreveable/log15"
 
@@ -22,7 +21,8 @@ func (s *Server) assert(ss sectionWithSigSender) {
 		sendNotificationMsg(ss.Token, ss.Sender, section.NTRcvInconsistentMsg, "", s)
 		return
 	}
-	addSectionsToCache(ss.Sections, isAuthoritative, s.caches.AssertionsCache,
+	//FIXME CFE check if it is authoritative
+	addSectionsToCache(ss.Sections, true, s.caches.AssertionsCache,
 		s.caches.NegAssertionCache, s.caches.ZoneKeyCache)
 	pendingKeysCallback(ss, s.caches.PendingKeys, s.queues.Normal)
 	pendingQueriesCallback(ss, s)
@@ -150,24 +150,21 @@ func addZoneToCache(zone *section.Zone, isAuthoritative bool, assertionsCache as
 }
 
 func pendingKeysCallback(mss sectionWithSigSender, pendingKeys pendingKeyCache, normalChannel chan msgSectionSender) {
-	if sectionSenders := pendingKeys.GetAndRemoveByToken(mss.Token); len(sectionSenders) > 0 {
-		for _, ss := range sectionSenders {
-			normalChannel <- ss
-		}
+	if ss, ok := pendingKeys.GetAndRemove(mss.Token); ok {
+		normalChannel <- ss
 	}
 }
 
 func pendingQueriesCallback(mss sectionWithSigSender, s *Server) {
-	newDeadline := time.Now().Add(50 * time.Microsecond).Unix()
-	if ok := s.caches.PendingQueries.AddAnswerByToken(mss.Sections[0].(section.WithSig), mss.Token, newDeadline); !ok {
-		return //Already answered by another incoming assertion.
+	msss := s.caches.PendingQueries.GetAndRemove(mss.Token)
+	if len(msss) == 0 {
+		return
 	}
-	queries, _ := s.caches.PendingQueries.GetAndRemoveByToken(mss.Token, newDeadline)
 	answer := []section.Section{}
 	for _, sec := range mss.Sections {
 		answer = append(answer, sec)
 	}
-	for _, ss := range queries {
+	for _, ss := range msss {
 		sendSections(answer, ss.Token, ss.Sender, s)
 	}
 }

@@ -75,14 +75,14 @@ func capabilityIsHash(capabilities string) bool {
 //forwards the received notification or unspecServerErr depending on serverError flag
 func dropPendingSectionsAndQueries(token token.Token, notification *section.Notification,
 	serverError bool, s *Server) {
-	for _, ss := range s.caches.PendingKeys.GetAndRemoveByToken(token) {
+	if ss, ok := s.caches.PendingKeys.GetAndRemove(token); ok {
 		if serverError {
 			sendNotificationMsg(ss.Token, ss.Sender, section.NTUnspecServerErr, "", s)
 		} else {
 			sendNotificationMsg(ss.Token, ss.Sender, notification.Type, notification.Data, s)
 		}
 	}
-	sectionSenders, _ := s.caches.PendingQueries.GetAndRemoveByToken(token, 0)
+	sectionSenders := s.caches.PendingQueries.GetAndRemove(token)
 	for _, ss := range sectionSenders {
 		if serverError {
 			sendNotificationMsg(ss.Token, ss.Sender, section.NTUnspecServerErr, "", s)

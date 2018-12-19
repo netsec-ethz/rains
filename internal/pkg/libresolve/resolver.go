@@ -105,7 +105,7 @@ func (r *Resolver) createConnAndWrite(connInfo connection.Info, msg *message.Mes
 		return
 	}
 	r.Connections[connInfo] = conn
-	//go r.answerDelegQueries(conn, connInfo)
+	go r.answerDelegQueries(conn, connInfo)
 	writer := cbor.NewWriter(conn)
 	if err := writer.Marshal(msg); err != nil {
 		log.Error("failed to marshal message", err)

@@ -45,7 +45,7 @@ func (s *Server) verify(msgSender msgSectionSender) {
 //to the engine.
 func verifySections(ss msgSectionSender, s *Server) {
 	keys := make(map[keys.PublicKeyID][]keys.PublicKey)
-	missingKeys := make(map[signature.MetaData]bool)
+	missingKeys := make(map[signature.MetaData]zoneContext)
 	for _, sec := range ss.Sections {
 		sec := sec.(section.WithSigForward)
 		if !sec.IsConsistent() {
@@ -116,7 +116,7 @@ func isQueryExpired(expires int64) bool {
 //publicKeysPresent adds all public keys that are cached to keys and for all that are not, the
 //corresponding signature meta data is added to missingKeys
 func publicKeysPresent(s section.WithSigForward, zoneKeyCache zonePublicKeyCache,
-	keys map[keys.PublicKeyID][]keys.PublicKey, missingKeys map[signature.MetaData]bool) {
+	keys map[keys.PublicKeyID][]keys.PublicKey, missingKeys map[signature.MetaData]zoneContext) {
 	keysNeeded := make(map[signature.MetaData]bool)
 	s.NeededKeys(keysNeeded)
 	for sigData := range keysNeeded {
@@ -127,7 +127,7 @@ func publicKeysPresent(s section.WithSigForward, zoneKeyCache zonePublicKeyCache
 		} else {
 			log.Debug("Public key not in zoneKeyCache", "zone", s.GetSubjectZone(),
 				"cacheKey=sigMetaData", sigData)
-			missingKeys[sigData] = true
+			missingKeys[sigData] = zoneContext{Zone: s.GetSubjectZone(), Context: s.GetContext()}
 		}
 	}
 }
@@ -221,31 +221,26 @@ func validContainedAssertions(assertions []*section.Assertion,
 
 //handleMissingKeys adds sectionSender to the pending key cache and sends a delegation query if
 //necessary
-func handleMissingKeys(sectionSender msgSectionSender, missingKeys map[signature.MetaData]bool, s *Server) {
-	sec := sectionSender.Sections
-	log.Info("Some public keys are missing. Add section to pending signature cache",
-		"#missingKeys", len(missingKeys), "section", sec)
-	exp := getQueryValidity(sec[0].(section.WithSigForward).Sigs(keys.RainsKeySpace), s.config.DelegationQueryValidity)
-	for k := range missingKeys {
+func handleMissingKeys(ss msgSectionSender, missingKeys map[signature.MetaData]zoneContext, s *Server) {
+	sec := ss.Sections
+	log.Info("Some public keys are missing. Add section to pending key cache",
+		"#missingKeys", len(missingKeys), "sections", ss.Sections)
+	exp := getQueryValidity(sec[0].(section.WithSigForward).Sigs(keys.RainsKeySpace),
+		s.config.DelegationQueryValidity)
+	t := token.New()
+	s.caches.PendingKeys.Add(ss, t, exp)
+	queries := []section.Section{}
+	for k, v := range missingKeys {
 		log.Info("MissingKeys", "key", k)
-		if sendQuery := s.caches.PendingKeys.Add(sectionSender, k.Algorithm, k.KeyPhase); sendQuery {
-			token := token.New()
-			if ok := s.caches.PendingKeys.AddToken(token, exp, sectionSender.Sender,
-				sec.GetSubjectZone(), sec.GetContext()); ok {
-				query := &query.Name{
-					Name:       sec.GetSubjectZone(),
-					Context:    sec.GetContext(),
-					Expiration: exp,
-					Types:      []object.Type{object.OTDelegation},
-				}
-				msg := message.Message{Token: token, Content: []section.Section{query}}
-				s.sendToRecursiveResolver(msg)
-				continue
-			}
-		}
-		log.Info("Already issued a delegation query for this context and zone.",
-			"zone", sec.GetSubjectZone(), "context", sec.GetContext())
+		queries = append(queries, &query.Name{
+			Name:       v.Zone,
+			Context:    v.Context,
+			Expiration: exp,
+			Types:      []object.Type{object.OTDelegation},
+			KeyPhase:   k.KeyPhase,
+		})
 	}
+	s.sendTo(message.Message{Token: t, Content: queries}, ss.Sender, 0, 0)
 }
 
 //getQueryValidity returns the expiration value for a delegation query. It is either a configured

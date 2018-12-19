@@ -7,6 +7,7 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
@@ -26,7 +27,7 @@ func (s *Server) processQuery(msgSender msgSectionSender) {
 	}
 	if len(s.config.ZoneAuthority) == 0 {
 		//caching resolver
-		answerQueriesCachingResolver(queries, msgSender.Sender, msgSender.Token, s)
+		answerQueriesCachingResolver(msgSender, s)
 	} else {
 		//naming server
 		answerQueriesAuthoritative(queries, msgSender.Sender, msgSender.Token, s)
@@ -34,50 +35,44 @@ func (s *Server) processQuery(msgSender msgSectionSender) {
 }
 
 //answerQueryCachingResolver is how a caching resolver answers queries
-func answerQueriesCachingResolver(qs []*query.Name, sender connection.Info, oldToken token.Token, s *Server) {
-	log.Debug("Start processing query", "queries", qs)
+func answerQueriesCachingResolver(ss msgSectionSender, s *Server) {
+	log.Debug("Start processing query", "queries", ss.Sections)
 	queries := []*query.Name{}
 	sections := []section.Section{}
-	for _, q := range qs {
-		if secs := cacheLookup(q, sender, oldToken, s); sections != nil {
+	for _, q := range ss.Sections {
+		q := q.(*query.Name)
+		if secs := cacheLookup(q, ss.Sender, ss.Token, s); sections != nil {
 			sections = append(sections, secs...)
 		} else {
 			queries = append(queries, q)
 		}
 	}
 	if len(queries) == 0 {
-		sendSections(sections, oldToken, sender, s)
+		sendSections(sections, ss.Token, ss.Sender, s)
 		return
 	}
 
-	log.Debug("No cached entry found directly answering the query. Add query to pending query cache and start recursive lookup",
-		"token", oldToken)
-	tok := oldToken
-	if !qs[0].ContainsOption(query.QOTokenTracing) {
+	log.Debug("Not all queries have a cached answer", "token", ss.Token)
+	tok := ss.Token
+	if !ss.Sections[0].(*query.Name).ContainsOption(query.QOTokenTracing) {
 		tok = token.New()
 	}
-	//FIXME CFE update caches
-	/*isNew := s.caches.PendingQueries.Add(msgSectionSender{Section: q, Sender: sender, Token: oldToken})
-	log.Info("Added query into to pending query cache", "info",
-		msgSectionSender{Section: q, Sender: sender, Token: oldToken}, "newToken", tok)
-	if isNew {
-		validUntil := time.Now().Add(s.config.QueryValidity).Unix() //Upper bound for forwarded query expiration time
+	validUntil := time.Now().Add(s.config.QueryValidity).Unix() //Upper bound for forwarded query expiration time
+	for _, q := range queries {
 		if q.Expiration < validUntil {
 			validUntil = q.Expiration
 		}
-		if s.caches.PendingQueries.AddToken(tok, validUntil, s.Addr(), q.Name, q.Context, q.Types) {
-			newQuery := &query.Name{
-				Name:       q.Name,
-				Context:    q.Context,
-				Expiration: validUntil,
-				Types:      q.Types,
-			}
-			log.Debug("Forward query to recursive resolver")
-			s.sendToRecursiveResolver(message.Message{Token: tok, Content: []section.Section{newQuery}})
-		} //else answer already arrived and callback function has already been invoked
-	} else {
-		log.Info("Query already sent.")
-	}*/
+	}
+	log.Info("Adding sectionSender to pending query cache", "sectionSender", ss)
+	if isNew := s.caches.PendingQueries.Add(ss, tok, validUntil); isNew {
+		log.Info("Forwarding queries to recursive resolver", "queries", queries)
+		qs := []section.Section{}
+		for _, q := range queries {
+			q.Expiration = validUntil
+			qs = append(qs, q)
+		}
+		s.sendToRecursiveResolver(message.Message{Token: tok, Content: qs})
+	}
 }
 
 //answerQueryAuthoritative is how an authoritative server answers queries
@@ -106,12 +101,11 @@ func answerQueriesAuthoritative(qs []*query.Name, sender connection.Info, token 
 		}
 	}
 
-	//glueRecordNames assumes that the names of delegates do not contain a dot '.'.
-	names := glueRecordNames(queries, s.config.ZoneAuthority)
-	for _, name := range names {
-		log.Debug("No cached entries found directly answering query. Fetch glue records", "token", token)
-		for nc := range names {
-			glueRecords := glueRecordLookup(nc.Zone, nc.Context, s)
+	if len(queries) != 0 {
+		//glueRecordNames assumes that the names of delegates do not contain a dot '.'.
+		names := glueRecordNames(queries, s.config.ZoneAuthority)
+		for name := range names {
+			glueRecords := glueRecordLookup(name.Zone, name.Context, s)
 			if len(glueRecords) < 4 {
 				log.Warn("Not enough matching glue records")
 				return

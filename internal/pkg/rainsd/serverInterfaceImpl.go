@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/query"
+
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
@@ -18,7 +20,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/lruCache"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
@@ -364,7 +365,11 @@ func (c *zoneKeyCacheImpl) Len() int {
 	return c.counter.Value()
 }
 
-type pendingKeyCacheValue struct {
+func zoneCtxKey(zone, context string) string {
+	return fmt.Sprintf("%s %s", zone, context)
+}
+
+/*type pendingKeyCacheValue struct {
 	mux sync.Mutex
 	//sections is a hash map from algoType and phase to a hash map keyed by section.Hash and
 	//pointing to sectionWithSigSender in which section is contained
@@ -381,9 +386,7 @@ type pendingKeyCacheValue struct {
 	deleted bool
 }
 
-func zoneCtxKey(zone, context string) string {
-	return fmt.Sprintf("%s %s", zone, context)
-}
+
 
 func algoPhaseKey(algoType algorithmTypes.Signature, phase int) string {
 	return fmt.Sprintf("%s %d", algoType, phase)
@@ -754,6 +757,169 @@ func (c *pendingQueryCacheImpl) RemoveExpiredValues() {
 }
 
 //Len returns the number of queries in the cache
+func (c *pendingQueryCacheImpl) Len() int {
+	return c.counter.Value()
+}*/
+
+type pkcValue struct {
+	//mss contains all the message and the sender for which some keys are missing
+	mss msgSectionSender
+	//expiration contains the expiration value of the forwarded query
+	expiration int64
+}
+
+type pendingKeyCacheImpl struct {
+	//tokenMap is a map from token to *pendingQueryCacheValue safe for concurrent use
+	tokenMap *safeHashMap.Map
+	//counter holds the number of sectionSender objects stored in the cache
+	counter *safeCounter.Counter
+}
+
+//Add adds ss to the cache together with the token and expiration time of the query sent to the
+//host with the addr defined in ss.
+func (c *pendingKeyCacheImpl) Add(ss msgSectionSender, t token.Token, expiration int64) {
+	c.counter.Inc()
+	if c.counter.IsFull() {
+		log.Error("Pending key cache is full")
+	}
+	if ok := c.tokenMap.Add(t.String(), pkcValue{mss: ss, expiration: expiration}); !ok {
+		log.Warn("Token already in key cache. Random source of Token generator no random enough?")
+	}
+}
+
+//GetAndRemove returns msgSectionSender which corresponds to token and true, and deletes it from
+//the cache. False is returned if no msgSectionSender matched token.
+func (c *pendingKeyCacheImpl) GetAndRemove(t token.Token) (msgSectionSender, bool) {
+	if val, present := c.tokenMap.Get(t.String()); present {
+		c.tokenMap.Remove(t.String())
+		c.counter.Dec()
+		return val.(pkcValue).mss, true
+	}
+	return msgSectionSender{}, false
+}
+
+//ContainsToken returns true if t is cached
+func (c *pendingKeyCacheImpl) ContainsToken(t token.Token) bool {
+	_, present := c.tokenMap.Get(t.String())
+	return present
+}
+
+//RemoveExpiredValues deletes all expired entries. It logs the host's addr which was not able to
+//respond in time.
+func (c *pendingKeyCacheImpl) RemoveExpiredValues() {
+	keys := c.tokenMap.GetAllKeys()
+	for _, key := range keys {
+		if val, present := c.tokenMap.Get(key); present {
+			if val := val.(pkcValue); val.expiration < time.Now().Unix() {
+				c.tokenMap.Remove(key)
+				c.counter.Dec()
+				log.Warn("No response to delegation query received before expiration",
+					"sectionSender", val.mss)
+			}
+		}
+	}
+}
+
+//Len returns the number of sections in the cache
+func (c *pendingKeyCacheImpl) Len() int {
+	return c.tokenMap.Len()
+}
+
+//pqcValue contains sectionSender objets waiting for a query answer to arrive until expiration.
+type pqcValue struct {
+	sss        []msgSectionSender
+	expiration int64
+}
+
+//pqcKey returns a unique string representation of sections. Sections MUST only contain queries
+func pqcKey(sections []section.Section) string {
+	result := []string{}
+	for _, q := range sections {
+		q, ok := q.(*query.Name)
+		if !ok {
+			log.Error("sections MUST only contain queries", "sections", sections)
+		}
+		for _, t := range q.Types {
+			if t == object.OTDelegation {
+				result = append(result, fmt.Sprintf("%s:%s:%d:%d", q.Name, q.Context, q.Types, q.KeyPhase))
+			} else {
+				result = append(result, fmt.Sprintf("%s:%s:%d", q.Name, q.Context, q.Types))
+			}
+		}
+	}
+	return strings.Join(result, "::")
+}
+
+type pendingQueryCacheImpl struct {
+	qmux     sync.Mutex
+	queryMap map[string]token.Token
+
+	tmux     sync.Mutex
+	tokenMap map[token.Token]*pqcValue
+
+	//counter holds the number of sectionSender objects stored in the cache
+	counter *safeCounter.Counter
+}
+
+//Add checks if this server has already forwarded a msg containing the same queries as ss. If
+//this is the case, ss is added to the cache and false is returned. If not, ss is added together
+//with t and expiration to the cache and true is returned.
+func (c *pendingQueryCacheImpl) Add(ss msgSectionSender, t token.Token, expiration int64) bool {
+	c.qmux.Lock()
+	c.tmux.Lock()
+	defer c.tmux.Unlock()
+
+	c.counter.Inc()
+	if c.counter.IsFull() {
+		log.Error("Pending query cache is full")
+	}
+	qmKey := pqcKey(ss.Sections)
+	if t, present := c.queryMap[qmKey]; present && c.tokenMap[t].expiration > time.Now().Unix() {
+		c.qmux.Unlock()
+		val := c.tokenMap[t]
+		val.sss = append(val.sss, ss)
+		return false
+	}
+	c.queryMap[qmKey] = t
+	c.qmux.Unlock()
+	c.tokenMap[t] = &pqcValue{sss: []msgSectionSender{ss}, expiration: expiration}
+	return true
+}
+
+//GetAndRemove returns all msgSectionSenders which correspond to token and delete them from the
+//cache.
+func (c *pendingQueryCacheImpl) GetAndRemove(t token.Token) []msgSectionSender {
+	c.qmux.Lock()
+	c.tmux.Lock()
+	defer c.qmux.Lock()
+	defer c.tmux.Lock()
+
+	if val, present := c.tokenMap[t]; present {
+		delete(c.tokenMap, t)
+		delete(c.queryMap, pqcKey(val.sss[0].Sections)) //all sss have the same pqcKey
+		c.counter.Sub(len(val.sss))
+		return val.sss
+	}
+	return nil
+}
+
+//RemoveExpiredValues deletes all expired entries.
+func (c *pendingQueryCacheImpl) RemoveExpiredValues() {
+	c.qmux.Lock()
+	c.tmux.Lock()
+	defer c.qmux.Lock()
+	defer c.tmux.Lock()
+
+	for k, v := range c.tokenMap {
+		if v.expiration < time.Now().Unix() {
+			delete(c.tokenMap, k)
+			delete(c.queryMap, pqcKey(v.sss[0].Sections)) //all sss have the same pqcKey
+			c.counter.Sub(len(v.sss))
+		}
+	}
+}
+
+//Len returns the number of sections in the cache
 func (c *pendingQueryCacheImpl) Len() int {
 	return c.counter.Value()
 }

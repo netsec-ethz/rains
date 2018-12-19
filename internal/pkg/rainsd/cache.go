@@ -7,6 +7,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeHashMap"
 	"github.com/netsec-ethz/rains/internal/pkg/lruCache"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
 type Caches struct {
@@ -54,15 +55,14 @@ func initCaches(config rainsdConfig) *Caches {
 	}
 
 	caches.PendingKeys = &pendingKeyCacheImpl{
-		zoneCtxMap: safeHashMap.New(),
-		tokenMap:   safeHashMap.New(),
-		counter:    safeCounter.New(config.PendingKeyCacheSize),
+		tokenMap: safeHashMap.New(),
+		counter:  safeCounter.New(config.PendingKeyCacheSize),
 	}
 
 	caches.PendingQueries = &pendingQueryCacheImpl{
-		nameCtxTypesMap: safeHashMap.New(),
-		tokenMap:        safeHashMap.New(),
-		counter:         safeCounter.New(config.PendingQueryCacheSize),
+		queryMap: make(map[string]token.Token),
+		tokenMap: make(map[token.Token]*pqcValue),
+		counter:  safeCounter.New(config.PendingQueryCacheSize),
 	}
 
 	caches.AssertionsCache = &assertionCacheImpl{
