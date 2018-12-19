@@ -3,27 +3,29 @@ package rainsd
 import (
 	"fmt"
 
+	"github.com/netsec-ethz/rains/internal/pkg/cache"
+
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
 //assert checks the consistency of the incoming section with sections in the cache.
 //it adds a section with valid signatures to the assertion/shard/zone cache. Triggers any pending queries answered by it.
 //The section's signatures MUST have already been verified and there MUST be at least one valid
 //rains signature on the message
-func (s *Server) assert(ss sectionWithSigSender) {
+func (s *Server) assert(ss util.SectionWithSigSender) {
 	log.Debug("Adding section to cache", "section", ss)
 	if sectionsAreInconsistent(ss.Sections, s.caches.AssertionsCache, s.caches.NegAssertionCache) {
 		log.Warn("section is inconsistent with cached elements.", "sections", ss.Sections)
 		sendNotificationMsg(ss.Token, ss.Sender, section.NTRcvInconsistentMsg, "", s)
 		return
 	}
-	//FIXME CFE check if it is authoritative
-	addSectionsToCache(ss.Sections, true, s.caches.AssertionsCache,
-		s.caches.NegAssertionCache, s.caches.ZoneKeyCache)
+	addSectionsToCache(ss.Sections, s.config.ZoneAuthority, s.config.ContextAuthority,
+		s.caches.AssertionsCache, s.caches.NegAssertionCache, s.caches.ZoneKeyCache)
 	pendingKeysCallback(ss, s.caches.PendingKeys, s.queues.Normal)
 	pendingQueriesCallback(ss, s)
 	log.Info(fmt.Sprintf("Finished handling %T", ss.Sections), "section", ss.Sections)
@@ -31,16 +33,24 @@ func (s *Server) assert(ss sectionWithSigSender) {
 
 //sectionsAreInconsistent returns true if at least one section is not consistent with cached element
 //which are valid at the same time.
-func sectionsAreInconsistent(sec []section.WithSigForward, assertionsCache assertionCache,
-	negAssertionCache negativeAssertionCache) bool {
+func sectionsAreInconsistent(sec []section.WithSigForward, assertionsCache cache.Assertion,
+	negAssertionCache cache.NegativeAssertion) bool {
 	//TODO implement if necessary
 	return false
 }
 
 //addSectionToCache adds sec to the cache if it comlies with the server's caching policy
-func addSectionsToCache(sections []section.WithSigForward, isAuthoritative bool, assertionsCache assertionCache,
-	negAssertionCache negativeAssertionCache, zoneKeyCache zonePublicKeyCache) {
+func addSectionsToCache(sections []section.WithSigForward, authZone, authContext []string,
+	assertionsCache cache.Assertion, negAssertionCache cache.NegativeAssertion,
+	zoneKeyCache cache.ZonePublicKey) {
 	for _, sec := range sections {
+		isAuthoritative := false
+		for i, zone := range authZone {
+			if zone == sec.GetSubjectZone() && authContext[i] == sec.GetContext() {
+				isAuthoritative = true
+				break
+			}
+		}
 		switch sec := sec.(type) {
 		case *section.Assertion:
 			if shouldAssertionBeCached(sec) {
@@ -94,8 +104,8 @@ func shouldZoneBeCached(zone *section.Zone) bool {
 
 //addAssertionToCache adds a to the assertion cache and to the public key cache in case a holds a
 //public key.
-func addAssertionToCache(a *section.Assertion, isAuthoritative bool, assertionsCache assertionCache,
-	zoneKeyCache zonePublicKeyCache) {
+func addAssertionToCache(a *section.Assertion, isAuthoritative bool, assertionsCache cache.Assertion,
+	zoneKeyCache cache.ZonePublicKey) {
 	assertionsCache.Add(a, a.ValidUntil(), isAuthoritative)
 	log.Debug("Added assertion to cache", "assertion", *a)
 	for _, obj := range a.Content {
@@ -114,8 +124,8 @@ func addAssertionToCache(a *section.Assertion, isAuthoritative bool, assertionsC
 
 //addShardToCache adds shard to the negAssertion cache and all contained assertions to the
 //assertionsCache.
-func addShardToCache(shard *section.Shard, isAuthoritative bool, assertionsCache assertionCache,
-	negAssertionCache negativeAssertionCache, zoneKeyCache zonePublicKeyCache) {
+func addShardToCache(shard *section.Shard, isAuthoritative bool, assertionsCache cache.Assertion,
+	negAssertionCache cache.NegativeAssertion, zoneKeyCache cache.ZonePublicKey) {
 	for _, assertion := range shard.Content {
 		if shouldAssertionBeCached(assertion) {
 			a := assertion.Copy(shard.Context, shard.SubjectZone)
@@ -128,16 +138,16 @@ func addShardToCache(shard *section.Shard, isAuthoritative bool, assertionsCache
 }
 
 //addPshardToCache adds pshard to the negAssertion cache
-func addPshardToCache(pshard *section.Pshard, isAuthoritative bool, assertionsCache assertionCache,
-	negAssertionCache negativeAssertionCache, zoneKeyCache zonePublicKeyCache) {
+func addPshardToCache(pshard *section.Pshard, isAuthoritative bool, assertionsCache cache.Assertion,
+	negAssertionCache cache.NegativeAssertion, zoneKeyCache cache.ZonePublicKey) {
 	negAssertionCache.AddPshard(pshard, pshard.ValidUntil(), isAuthoritative)
 	log.Debug("Added pshard to cache", "pshard", *pshard)
 }
 
 //addZoneToCache adds zone and all contained shards to the negAssertion cache and all contained
 //assertions to the assertionCache.
-func addZoneToCache(zone *section.Zone, isAuthoritative bool, assertionsCache assertionCache,
-	negAssertionCache negativeAssertionCache, zoneKeyCache zonePublicKeyCache) {
+func addZoneToCache(zone *section.Zone, isAuthoritative bool, assertionsCache cache.Assertion,
+	negAssertionCache cache.NegativeAssertion, zoneKeyCache cache.ZonePublicKey) {
 	for _, sec := range zone.Content {
 		if shouldAssertionBeCached(sec) {
 			a := sec.Copy(zone.Context, zone.SubjectZone)
@@ -149,13 +159,14 @@ func addZoneToCache(zone *section.Zone, isAuthoritative bool, assertionsCache as
 	log.Debug("Added zone to cache", "zone", *zone)
 }
 
-func pendingKeysCallback(mss sectionWithSigSender, pendingKeys pendingKeyCache, normalChannel chan msgSectionSender) {
+func pendingKeysCallback(mss util.SectionWithSigSender, pendingKeys cache.PendingKey,
+	normalChannel chan util.MsgSectionSender) {
 	if ss, ok := pendingKeys.GetAndRemove(mss.Token); ok {
 		normalChannel <- ss
 	}
 }
 
-func pendingQueriesCallback(mss sectionWithSigSender, s *Server) {
+func pendingQueriesCallback(mss util.SectionWithSigSender, s *Server) {
 	msss := s.caches.PendingQueries.GetAndRemove(mss.Token)
 	if len(msss) == 0 {
 		return

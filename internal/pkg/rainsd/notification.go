@@ -8,10 +8,11 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
 //notify handles incoming notification messages
-func (s *Server) notify(msgSender msgSectionSender) {
+func (s *Server) notify(msgSender util.MsgSectionSender) {
 	notifLog := log.New("notificationMsgSection", msgSender.Sections[0])
 	sec := msgSender.Sections[0].(*section.Notification)
 	switch sec.Type {

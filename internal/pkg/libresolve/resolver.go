@@ -56,7 +56,7 @@ func New(rootNS, forwarders []connection.Info, mode ResolutionMode, addr connect
 		DialTimeout:     defaultTimeout,
 		FailFast:        defaultFailFast,
 		Delegations:     safeHashMap.New(),
-		Connections:     make(map[connection.Info]net.Conn),
+		Connections:     make(map[connection.Info]net.Conn), //TODO fix connection cache to handle this workload
 	}
 }
 
@@ -105,7 +105,8 @@ func (r *Resolver) createConnAndWrite(connInfo connection.Info, msg *message.Mes
 		return
 	}
 	r.Connections[connInfo] = conn
-	go r.answerDelegQueries(conn, connInfo)
+	//FIXME CFE fetch the above function from other repo
+	//go r.answerDelegQueries(conn, connInfo)
 	writer := cbor.NewWriter(conn)
 	if err := writer.Marshal(msg); err != nil {
 		log.Error("failed to marshal message", err)

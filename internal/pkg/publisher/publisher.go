@@ -56,7 +56,6 @@ func (r *Rainspub) Publish() {
 			return
 		}
 	}
-	//FIXME CFE test if zone.Content is sorted
 	if r.Config.PShardingConf.DoPsharding {
 		if pshards, err = DoPsharding(zone.SubjectZone, zone.Context, zone.Content, pshards,
 			r.Config.PShardingConf,

@@ -8,8 +8,6 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
-//FIXME CFE move to util
-
 //Token identifies a message
 type Token [16]byte
 
