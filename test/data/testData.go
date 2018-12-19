@@ -1,7 +1,6 @@
 package data
 
 import (
-	"net"
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -44,10 +43,6 @@ func GetMessage() message.Message {
 		ValidUntil: 2000,
 		Data:       []byte("SignatureData")}
 
-	_, subjectAddress1, _ := net.ParseCIDR(ip4TestAddrCIDR32)
-	_, subjectAddress2, _ := net.ParseCIDR(ip4TestAddrCIDR24)
-	_, subjectAddress3, _ := net.ParseCIDR(ip6TestAddrCIDR)
-
 	assertion := &section.Assertion{
 		Content:     AllObjects(),
 		Context:     globalContext,
@@ -86,35 +81,6 @@ func GetMessage() message.Message {
 		Data:  "Notification information",
 	}
 
-	addressAssertion1 := &section.AddrAssertion{
-		SubjectAddr: subjectAddress1,
-		Context:     globalContext,
-		Content:     []object.Object{NameObject()},
-		Signatures:  []signature.Sig{sig},
-	}
-
-	addressAssertion2 := &section.AddrAssertion{
-		SubjectAddr: subjectAddress2,
-		Context:     globalContext,
-		Content:     AllAllowedNetworkObjects(),
-		Signatures:  []signature.Sig{sig},
-	}
-
-	addressAssertion3 := &section.AddrAssertion{
-		SubjectAddr: subjectAddress3,
-		Context:     globalContext,
-		Content:     AllAllowedNetworkObjects(),
-		Signatures:  []signature.Sig{sig},
-	}
-
-	addressQuery := &query.Address{
-		SubjectAddr: subjectAddress1,
-		Context:     globalContext,
-		Expiration:  7564859,
-		Types:       []object.Type{object.OTName},
-		Options:     []query.Option{query.QOMinE2ELatency, query.QOMinInfoLeakage},
-	}
-
 	message := message.Message{
 		Content: []section.Section{
 			assertion,
@@ -122,10 +88,6 @@ func GetMessage() message.Message {
 			zone,
 			q,
 			notification,
-			addressAssertion1,
-			addressAssertion2,
-			addressAssertion3,
-			addressQuery,
 		},
 		Token:        token.New(),
 		Capabilities: []message.Capability{message.Capability("Test"), message.Capability("Yes!")},
@@ -173,26 +135,6 @@ func Assertion() *section.Assertion {
 		Context:     globalContext,
 		SubjectName: testSubjectName,
 		SubjectZone: testZone,
-	}
-}
-
-//AddrAssertionIP4 returns an address assertion containing all objects types that is valid.
-func AddrAssertionIP4() *section.AddrAssertion {
-	_, addr, _ := net.ParseCIDR(ip4TestAddrCIDR24)
-	return &section.AddrAssertion{
-		Content:     AllAllowedNetworkObjects(),
-		Context:     globalContext,
-		SubjectAddr: addr,
-	}
-}
-
-//AddrAssertionIP6 returns an address assertion containing all objects types that is valid.
-func AddrAssertionIP6() *section.AddrAssertion {
-	_, addr, _ := net.ParseCIDR(ip6TestAddrCIDR)
-	return &section.AddrAssertion{
-		Content:     AllAllowedNetworkObjects(),
-		Context:     globalContext,
-		SubjectAddr: addr,
 	}
 }
 
@@ -316,18 +258,6 @@ func Query() *query.Name {
 		Name:       testDomain,
 		Options:    AllQueryOptions(),
 		Types:      AllObjectTypes(),
-	}
-}
-
-//AddrQuery returns an address query with all query options set and querying all types.
-func AddrQuery() *query.Address {
-	_, addr, _ := net.ParseCIDR(ip4TestAddrCIDR24)
-	return &query.Address{
-		Context:     globalContext,
-		Expiration:  50000,
-		SubjectAddr: addr,
-		Options:     AllQueryOptions(),
-		Types:       AllObjectTypes(),
 	}
 }
 

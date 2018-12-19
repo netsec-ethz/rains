@@ -231,7 +231,7 @@ type addressesFlag struct {
 }
 
 func (i *addressesFlag) String() string {
-	return fmt.Sprintf("%s", *i)
+	return fmt.Sprintf("%v", *i)
 }
 
 func (i *addressesFlag) Set(value string) error {
@@ -254,7 +254,7 @@ type hashFamilyFlag struct {
 }
 
 func (i *hashFamilyFlag) String() string {
-	return fmt.Sprintf("%s", *i)
+	return fmt.Sprintf("%v", *i)
 }
 
 func (i *hashFamilyFlag) Set(value string) error {
@@ -288,7 +288,7 @@ type algorithmFlag struct {
 }
 
 func (i *algorithmFlag) String() string {
-	return fmt.Sprintf("%s", *i)
+	return fmt.Sprintf("%v", *i)
 }
 
 func (i *algorithmFlag) Set(value string) error {
@@ -308,7 +308,7 @@ type bfOpModeFlag struct {
 }
 
 func (i *bfOpModeFlag) String() string {
-	return fmt.Sprintf("%s", *i)
+	return fmt.Sprintf("%v", *i)
 }
 
 func (i *bfOpModeFlag) Set(value string) error {

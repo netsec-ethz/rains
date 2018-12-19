@@ -43,6 +43,7 @@ _testmain.go
 /cmd/resolve/resolve
 /cmd/rainsfic/rainsfic
 /cmd/rainsd/rainsd
+/build/*
 
 #zonepub test file
 /cmd/zonepub/data/newZonefile.txt

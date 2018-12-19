@@ -116,8 +116,22 @@ func CreatePublisherPrivateKeysFile(path string) error {
 	_, privateKey, _ := ed25519.GenerateKey(nil)
 	_, privateKey2, _ := ed25519.GenerateKey(nil)
 	outputs := []keys.PrivateKey{
-		keys.PrivateKey{keys.PublicKeyID{algorithmTypes.Ed25519, keys.RainsKeySpace, 0}, hex.EncodeToString(privateKey)},
-		keys.PrivateKey{keys.PublicKeyID{algorithmTypes.Ed25519, keys.RainsKeySpace, 1}, hex.EncodeToString(privateKey2)},
+		keys.PrivateKey{
+			PublicKeyID: keys.PublicKeyID{
+				Algorithm: algorithmTypes.Ed25519,
+				KeySpace:  keys.RainsKeySpace,
+				KeyPhase:  0,
+			},
+			Key: hex.EncodeToString(privateKey),
+		},
+		keys.PrivateKey{
+			PublicKeyID: keys.PublicKeyID{
+				Algorithm: algorithmTypes.Ed25519,
+				KeySpace:  keys.RainsKeySpace,
+				KeyPhase:  1,
+			},
+			Key: hex.EncodeToString(privateKey2),
+		},
 	}
 	return writePrivateKeys(path, outputs)
 }

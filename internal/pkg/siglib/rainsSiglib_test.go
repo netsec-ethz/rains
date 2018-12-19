@@ -81,46 +81,6 @@ func TestSignPshard(t *testing.T) {
 	}
 }
 
-func TestSignAddrAssertionIP4(t *testing.T) {
-	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := data.AddrAssertionIP4()
-	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
-		t.Error("Was not able to sign addr assertion")
-		return
-	}
-	log.Info("Successful added sig", "sigLen", len(sec.AllSigs()))
-
-	newSig := sec.AllSigs()[0]
-	sec.DeleteSig(0)
-	encoding := new(bytes.Buffer)
-	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
-
-	//Test signature
-	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
-		t.Error("Sig does not match")
-	}
-}
-
-func TestSignAddrAssertionIP6(t *testing.T) {
-	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := data.AddrAssertionIP6()
-	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
-		t.Error("Was not able to sign addr assertion")
-		return
-	}
-	log.Info("Successful added sig", "sigLen", len(sec.AllSigs()))
-
-	newSig := sec.AllSigs()[0]
-	sec.DeleteSig(0)
-	encoding := new(bytes.Buffer)
-	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
-
-	//Test signature
-	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
-		t.Error("Sig does not match")
-	}
-}
-
 func TestSignZone(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
 	sec := data.Zone()
@@ -150,30 +110,6 @@ func TestSignQuery(t *testing.T) {
 	}
 	if !SignMessageUnsafe(msg, genPrivateKey, data.Signature()) {
 		t.Error("Was not able to sign query")
-		return
-	}
-	log.Info("Successful added sig", "sigLen", len(msg.Signatures))
-
-	newSig := msg.Signatures[0]
-	msg.Signatures = []signature.Sig{}
-	encoding := new(bytes.Buffer)
-	msg.MarshalCBOR(cbor.NewCBORWriter(encoding))
-
-	//Test signature
-	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
-		t.Error("Sig does not match")
-	}
-}
-
-func TestSignAddrQuery(t *testing.T) {
-	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	msg := &message.Message{
-		Token:        token.New(),
-		Capabilities: []message.Capability{message.NoCapability, message.TLSOverTCP},
-		Content:      []section.Section{data.AddrQuery()},
-	}
-	if !SignMessageUnsafe(msg, genPrivateKey, data.Signature()) {
-		t.Error("Was not able to sign addr query")
 		return
 	}
 	log.Info("Successful added sig", "sigLen", len(msg.Signatures))

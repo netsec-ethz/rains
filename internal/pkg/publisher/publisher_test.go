@@ -67,7 +67,7 @@ func benchmarkSharding(zonefileName string, shardSize int, b *testing.B) {
 		MaxShardSize:       shardSize,
 	}
 	for n := 0; n < b.N; n++ {
-		doSharding(zone.Context, zone.SubjectZone, assertions, []*section.Shard{}, conf, parser, false)
+		DoSharding(zone.Context, zone.SubjectZone, assertions, []*section.Shard{}, conf, false)
 	}
 }
 
@@ -100,7 +100,7 @@ func benchmarkPsharding(zonefileName string, shardSize, nofHashfunc int, b *test
 		NofAssertionsPerPshard: shardSize,
 	}
 	for n := 0; n < b.N; n++ {
-		doPsharding(zone.Context, zone.SubjectZone, assertions, []*section.Pshard{}, conf, false)
+		DoPsharding(zone.Context, zone.SubjectZone, assertions, []*section.Pshard{}, conf, false)
 	}
 }
 

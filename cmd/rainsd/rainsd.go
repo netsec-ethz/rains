@@ -5,6 +5,7 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
+	"github.com/netsec-ethz/rains/internal/pkg/libresolve"
 	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
 	"github.com/netsec-ethz/rains/tools/keycreator"
 )
@@ -17,6 +18,7 @@ func main() {
 		return
 	}
 	log.Info("Server successfully initialized")
+	server.SetResolver(libresolve.New(nil, nil, libresolve.Recursive, server.Addr()))
 	go server.Start(false)
 	time.Sleep(time.Hour)
 	server.Shutdown()
