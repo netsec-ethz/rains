@@ -53,11 +53,6 @@ func verifySection(sectionSender sectionWithSigSender, s *Server) {
 			"invalid context", s)
 		return //already logged, that context is invalid
 	}
-	if zone, ok := sectionSender.Section.(*section.Zone); ok && !containedShardsAreConsistent(zone) {
-		sendNotificationMsg(sectionSender.Token, sectionSender.Sender, section.NTRcvInconsistentMsg,
-			"contained sections are inconsistent with outer section", s)
-		return //already logged, that the zone is internally invalid
-	}
 	if verifySignatures(sectionSender, s) {
 		sectionSender.Section.AddSigInMarshaller()
 		s.assert(sectionSender, s.authority[zoneContext{
@@ -108,7 +103,7 @@ func verifySignatures(sectionSender sectionWithSigSender, s *Server) bool {
 	section.NeededKeys(keysNeeded)
 	log.Debug("verifySignatures", "KeysNeeded", keysNeeded)
 	publicKeys, missingKeys, ok := publicKeysPresent(section.GetSubjectZone(), section.GetContext(),
-		keysNeeded, s.caches.ZoneKeyCache, s.caches.RevZoneKeyCache)
+		keysNeeded, s.caches.ZoneKeyCache)
 	if ok {
 		log.Info("All public keys are present.", "msgSectionWithSig", section)
 		addZoneAndContextToContainedSections(section)
@@ -122,7 +117,7 @@ func verifySignatures(sectionSender sectionWithSigSender, s *Server) bool {
 //publicKeysPresent returns true if all public keys are already cached for sigs.
 //It also returns the set of cached publicKeys and a set of the missing publicKey identifiers
 func publicKeysPresent(zone, context string, sigMetaData map[signature.MetaData]bool,
-	zoneKeyCache zonePublicKeyCache, revZoneKeyCache revZonePublicKeyCache) (
+	zoneKeyCache zonePublicKeyCache) (
 	map[keys.PublicKeyID][]keys.PublicKey, map[signature.MetaData]bool, bool) {
 	keys := make(map[keys.PublicKeyID][]keys.PublicKey)
 	missingKeys := make(map[signature.MetaData]bool)
