@@ -56,7 +56,7 @@ func New(rootNS, forwarders []connection.Info, mode ResolutionMode, addr connect
 		DialTimeout:     defaultTimeout,
 		FailFast:        defaultFailFast,
 		Delegations:     safeHashMap.New(),
-		Connections:     make(map[connection.Info]net.Conn),
+		Connections:     make(map[connection.Info]net.Conn), //TODO fix connection cache to handle this workload
 	}
 }
 
@@ -105,6 +105,7 @@ func (r *Resolver) createConnAndWrite(connInfo connection.Info, msg *message.Mes
 		return
 	}
 	r.Connections[connInfo] = conn
+	//FIXME CFE fetch the above function from other repo
 	//go r.answerDelegQueries(conn, connInfo)
 	writer := cbor.NewWriter(conn)
 	if err := writer.Marshal(msg); err != nil {
@@ -294,13 +295,7 @@ func (r *Resolver) handleZone(z *section.Zone, redirMap map[string]string,
 	srvMap map[string]object.ServiceInfo, ipMap map[string]string, types map[object.Type]bool,
 	name string, isFinal, isRedir *bool) {
 	for _, sec := range z.Content {
-		switch s := sec.(type) {
-		case *section.Assertion:
-			r.handleAssertion(s, redirMap, srvMap, ipMap, types, name, isFinal, isRedir)
-		case *section.Shard:
-		default:
-			log.Warn("zone contains invalid section type", "sec", sec)
-		}
+		r.handleAssertion(sec, redirMap, srvMap, ipMap, types, name, isFinal, isRedir)
 	}
 	if strings.HasSuffix(name, z.SubjectZone) {
 		*isFinal = true

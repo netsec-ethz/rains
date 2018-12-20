@@ -8,11 +8,33 @@ import (
 
 	cbor "github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
-
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"golang.org/x/crypto/ed25519"
 )
+
+// UnmarshalArray takes in a CBOR decoded aray and populates Sig.
+func (sig *Sig) UnmarshalArray(in []interface{}) error {
+	if len(in) < 6 {
+		return fmt.Errorf("expected at least 5 items in input array but got %d", len(in))
+	}
+	sig.PublicKeyID.Algorithm = algorithmTypes.Signature(in[0].(int))
+	sig.PublicKeyID.KeySpace = keys.KeySpaceID(in[1].(int))
+	sig.PublicKeyID.KeyPhase = int(in[2].(int))
+	sig.ValidSince = int64(in[3].(int))
+	sig.ValidUntil = int64(in[4].(int))
+	sig.Data = in[5]
+	return nil
+}
+
+// MarshalCBOR implements a CBORMarshaler.
+func (sig Sig) MarshalCBOR(w *cbor.CBORWriter) error {
+	res := []interface{}{int(sig.Algorithm), int(sig.KeySpace), sig.KeyPhase, sig.ValidSince, sig.ValidUntil, []byte{}}
+	if data, ok := sig.Data.([]byte); ok && len(data) > 0 && !sig.sign {
+		res[5] = sig.Data
+	}
+	return w.WriteArray(res)
+}
 
 //MetaData contains meta data of the signature
 type MetaData struct {
@@ -38,33 +60,6 @@ type Sig struct {
 	//Data holds the signature data
 	Data interface{}
 	sign bool //set to true before signing and false afterwards
-}
-
-// UnmarshalArray takes in a CBOR decoded aray and populates Sig.
-func (sig *Sig) UnmarshalArray(in []interface{}) error {
-	if len(in) < 6 {
-		return fmt.Errorf("expected at least 5 items in input array but got %d", len(in))
-	}
-	if in[0] != 1 {
-		return fmt.Errorf("only algorithm ED25519 is supported presently, but got: %d", in[0])
-	}
-	sig.PublicKeyID.Algorithm = algorithmTypes.Ed25519
-	sig.PublicKeyID.KeySpace = keys.KeySpaceID(in[1].(int))
-	sig.PublicKeyID.KeyPhase = int(in[2].(int))
-	sig.ValidSince = int64(in[3].(int))
-	sig.ValidUntil = int64(in[4].(int))
-	sig.Data = in[5]
-	return nil
-}
-
-// MarshalCBOR implements a CBORMarshaler.
-func (sig Sig) MarshalCBOR(w *cbor.CBORWriter) error {
-	res := []interface{}{1, // FIXME: Hardcoded ED25519: there is no way to know what this is yet.
-		int(sig.KeySpace), sig.KeyPhase, sig.ValidSince, sig.ValidUntil, []byte{}}
-	if data, ok := sig.Data.([]byte); ok && len(data) > 0 && !sig.sign {
-		res[5] = sig.Data
-	}
-	return w.WriteArray(res)
 }
 
 //MetaData returns the signatures metaData

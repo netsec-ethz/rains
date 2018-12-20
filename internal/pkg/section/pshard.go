@@ -1,28 +1,28 @@
 package section
 
 import (
+	"errors"
 	"fmt"
-	"math"
+	"strings"
 	"time"
 
 	cbor "github.com/britram/borat"
-	log "github.com/inconshreveable/log15"
-
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
 
 //Pshard contains information about a pshard
 type Pshard struct {
-	Signatures    []signature.Sig
-	SubjectZone   string
-	Context       string
-	RangeFrom     string
-	RangeTo       string
-	Datastructure DataStructure
-	validSince    int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
-	validUntil    int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
-	sign          bool  //set to true before signing and false afterwards
+	Signatures  []signature.Sig
+	SubjectZone string
+	Context     string
+	RangeFrom   string
+	RangeTo     string
+	BloomFilter BloomFilter
+	validSince  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	validUntil  int64 //unit: the number of seconds elapsed since January 1, 1970 UTC
+	sign        bool  //set to true before signing and false afterwards
 }
 
 // UnmarshalMap decodes the output from the CBOR decoder into this struct.
@@ -46,8 +46,8 @@ func (s *Pshard) UnmarshalMap(m map[int]interface{}) error {
 		s.RangeFrom = srange[0].(string)
 		s.RangeTo = srange[1].(string)
 	}
-	if ds, ok := m[18]; ok {
-		if err := s.Datastructure.UnmarshalArray(ds.([]interface{})); err != nil {
+	if ds, ok := m[23]; ok {
+		if err := s.BloomFilter.UnmarshalArray(ds.([]interface{})); err != nil {
 			return err
 		}
 	}
@@ -66,7 +66,7 @@ func (s *Pshard) MarshalCBOR(w *cbor.CBORWriter) error {
 		m[6] = s.Context
 	}
 	m[11] = []string{s.RangeFrom, s.RangeTo}
-	m[18] = s.Datastructure
+	m[23] = s.BloomFilter
 	return w.WriteIntMap(m)
 }
 
@@ -105,17 +105,6 @@ func (s *Pshard) GetSubjectZone() string {
 	return s.SubjectZone
 }
 
-func (s *Pshard) SetContext(ctx string) {
-	s.Context = ctx
-}
-func (s *Pshard) SetSubjectZone(zone string) {
-	s.SubjectZone = zone
-}
-func (s *Pshard) RemoveContextAndSubjectZone() {
-	s.SubjectZone = ""
-	s.Context = ""
-}
-
 //Begin returns the begining of the interval of this pshard.
 func (s *Pshard) Begin() string {
 	return s.RangeFrom
@@ -129,27 +118,8 @@ func (s *Pshard) End() string {
 //UpdateValidity updates the validity of this pshard if the validity period is extended.
 //It makes sure that the validity is never larger than maxValidity
 func (s *Pshard) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
-	if s.validSince == 0 {
-		s.validSince = math.MaxInt64
-	}
-	if validSince < s.validSince {
-		if validSince > time.Now().Add(maxValidity).Unix() {
-			s.validSince = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", s.validSince,
-				"newValidSince", validSince, "maxValidity", maxValidity)
-		} else {
-			s.validSince = validSince
-		}
-	}
-	if validUntil > s.validUntil {
-		if validUntil > time.Now().Add(maxValidity).Unix() {
-			s.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", s.validSince,
-				"newValidSince", validSince, "maxValidity", maxValidity)
-		} else {
-			s.validUntil = validUntil
-		}
-	}
+	s.validSince, s.validUntil = UpdateValidity(validSince, validUntil, s.validSince, s.validUntil,
+		maxValidity)
 }
 
 //ValidSince returns the earliest validSince date of all contained signatures
@@ -165,10 +135,10 @@ func (s *Pshard) ValidUntil() int64 {
 //Hash returns a string containing all information uniquely identifying a pshard.
 func (s *Pshard) Hash() string {
 	if s == nil {
-		return "S_nil"
+		return "P_nil"
 	}
-	return fmt.Sprintf("S_%s_%s_%s_%s_%v_%v", s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo,
-		s.Datastructure, s.Signatures)
+	return fmt.Sprintf("P_%s_%s_%s_%s_%v_%v", s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo,
+		s.BloomFilter, s.Signatures)
 }
 
 //Sort sorts the content of the pshard lexicographically.
@@ -176,37 +146,13 @@ func (s *Pshard) Sort() {
 	//nothing to sort
 }
 
-//CompareTo compares two shards and returns 0 if they are equal, 1 if s is greater than shard and -1
-//if s is smaller than shard
-func (s *Pshard) CompareTo(shard *Pshard) int {
-	if s.SubjectZone < shard.SubjectZone {
-		return -1
-	} else if s.SubjectZone > shard.SubjectZone {
-		return 1
-	} else if s.Context < shard.Context {
-		return -1
-	} else if s.Context > shard.Context {
-		return 1
-	} else if s.RangeFrom < shard.RangeFrom {
-		return -1
-	} else if s.RangeFrom > shard.RangeFrom {
-		return 1
-	} else if s.RangeTo < shard.RangeTo {
-		return -1
-	} else if s.RangeTo > shard.RangeTo {
-		return 1
-	}
-	//FIXME CFE compare datastructure
-	return 0
-}
-
 //String implements Stringer interface
 func (s *Pshard) String() string {
 	if s == nil {
 		return "Pshard:nil"
 	}
-	return fmt.Sprintf("Pshard:[SZ=%s CTX=%s RF=%s RT=%s DS=%v SIG=%v]",
-		s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, s.Datastructure, s.Signatures)
+	return fmt.Sprintf("Pshard:[SZ=%s CTX=%s RF=%s RT=%s BF=%v SIG=%v]",
+		s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, s.BloomFilter, s.Signatures)
 }
 
 //InRange returns true if subjectName is inside the shard range
@@ -242,4 +188,45 @@ func (s *Pshard) Copy(context, subjectZone string) *Pshard {
 	stub.Context = context
 	stub.SubjectZone = subjectZone
 	return stub
+}
+
+//IsNonexistent returns true if all types of q do not exist. An error is returned, when q is not
+//within the pshard's range or if its context and zone does not match the pshard.
+func (s *Pshard) IsNonexistent(q *query.Name) (bool, error) {
+	if q.Context != s.Context {
+		return false, errors.New("query has different context")
+	}
+	if strings.HasSuffix(q.Name, s.SubjectZone) {
+		return false, errors.New("query has different suffix")
+	}
+	name := strings.TrimSuffix(q.Name, s.SubjectZone)
+	if !s.InRange(name) {
+		return false, errors.New("query is not in pshard's range")
+	}
+	for _, t := range q.Types {
+		if val, err := s.BloomFilter.Contains(name, s.SubjectZone, s.Context, t); err != nil || val {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+//AddAssertion adds a to the s' Bloom filter. An error is returned, if a is not within s' range or
+//if they have a different context or zone.
+func (s *Pshard) AddAssertion(a *Assertion) error {
+	if a.Context != s.Context {
+		return errors.New("assertion has different context")
+	}
+	if a.SubjectZone != s.SubjectZone {
+		return errors.New("assertion has different subjectZone")
+	}
+	if !s.InRange(a.SubjectName) {
+		return errors.New("assertion is not in pshard's range")
+	}
+	for _, o := range a.Content {
+		if err := s.BloomFilter.Add(a.SubjectName, a.SubjectZone, a.Context, o.Type); err != nil {
+			return err
+		}
+	}
+	return nil
 }

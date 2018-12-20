@@ -1,7 +1,10 @@
 package util
 
 import (
+	"bytes"
+	"crypto/rand"
 	"encoding/gob"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -25,6 +28,30 @@ func init() {
 	gob.RegisterName("ed25519.PublicKey", ed25519.PublicKey{})
 }
 
+//Token identifies a message
+type Token [16]byte
+
+//String implements Stringer interface
+func (t Token) String() string {
+	return hex.EncodeToString(t[:])
+}
+
+//Compare returns an integer comparing two Tokens lexicographically. The result will be 0 if
+//a==b, -1 if a < b, and +1 if a > b. A nil argument is equivalent to an empty slice
+func Compare(a, b Token) int {
+	return bytes.Compare(a[:], b[:])
+}
+
+//New generates a new unique Token
+func New() Token {
+	token := [16]byte{}
+	_, err := rand.Read(token[:])
+	if err != nil {
+		log.Warn("Error during random token generation", "error", err)
+	}
+	return Token(token)
+}
+
 //MaxCacheValidity defines the maximum duration each section containing signatures can be valid, starting from time.Now()
 type MaxCacheValidity struct {
 	AssertionValidity        time.Duration
@@ -32,6 +59,24 @@ type MaxCacheValidity struct {
 	PhardValidity            time.Duration
 	ZoneValidity             time.Duration
 	AddressAssertionValidity time.Duration
+}
+
+//MsgSectionSender contains the message section section and connection infos about the sender
+type MsgSectionSender struct {
+	Sender   connection.Info
+	Sections []section.Section
+	Token    token.Token
+}
+
+//util.SectionWithSigSender contains a section with a signature and connection infos about the sender
+type SectionWithSigSender struct {
+	Sender   connection.Info
+	Sections []section.WithSigForward
+	Token    token.Token
+}
+
+func (s *SectionWithSigSender) Hash() string {
+	return fmt.Sprintf("%s_%v_%v", s.Sender.Hash(), s.Sections, s.Token)
 }
 
 //Save stores the object to the file located at the specified path gob encoded.
@@ -62,7 +107,8 @@ func Load(path string, object interface{}) error {
 }
 
 //UpdateSectionValidity updates the validity of the section according to the signature validity and the publicKey validity used to verify this signature
-func UpdateSectionValidity(sec section.WithSig, pkeyValidSince, pkeyValidUntil, sigValidSince, sigValidUntil int64, maxVal MaxCacheValidity) {
+func UpdateSectionValidity(sec section.WithSig, pkeyValidSince, pkeyValidUntil, sigValidSince,
+	sigValidUntil int64, maxVal MaxCacheValidity) {
 	if sec != nil {
 		var maxValidity time.Duration
 		switch sec.(type) {
@@ -71,7 +117,7 @@ func UpdateSectionValidity(sec section.WithSig, pkeyValidSince, pkeyValidUntil, 
 		case *section.Shard:
 			maxValidity = maxVal.ShardValidity
 		case *section.Pshard:
-			maxValidity = maxVal.ShardValidity //FIXME CFE replace with pshardvalidity
+			maxValidity = maxVal.PhardValidity
 		case *section.Zone:
 			maxValidity = maxVal.ZoneValidity
 		default:

@@ -99,8 +99,7 @@ func GetMessage() message.Message {
 //Zone returns an zone containing a shard, assertion with all object types and a pshard. The zone is valid.
 func Zone() *section.Zone {
 	return &section.Zone{
-		//FIXME CFE add pshard
-		Content:     []section.WithSigForward{Assertion(), Shard(), Pshard()},
+		Content:     []section.WithSigForward{Assertion()},
 		Context:     globalContext,
 		SubjectZone: testDomain,
 	}

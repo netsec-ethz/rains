@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"time"
 
@@ -79,14 +78,11 @@ func StorePrivateKey(path string, privateKeys []keys.PrivateKey) error {
 //removes the subjectZone and context of the contained assertions and shards after the signatures
 //have been added. It returns an error if it was unable to sign the zone or any of the contained
 //shards and assertions.
-func signZone(zone *section.Zone, path string) error {
+func signZone(zone *section.Zone, keys map[keys.PublicKeyID]interface{}) error {
 	if zone == nil {
 		return errors.New("zone is nil")
 	}
-	keys, err := LoadPrivateKeys(path)
-	if err != nil {
-		return errors.New("Was not able to load private keys")
-	}
+
 	sigs := zone.AllSigs()
 	zone.DeleteAllSigs()
 	zone.DontAddSigInMarshaller()
@@ -103,18 +99,9 @@ func signZone(zone *section.Zone, path string) error {
 		}
 		return errors.New("Was not able to sign and add the signature")
 	}
-	for _, sec := range zone.Content {
-		switch sec := sec.(type) {
-		case *section.Assertion, *section.Pshard:
-			if err := signSection(sec, keys); err != nil {
-				return err
-			}
-		case *section.Shard:
-			if err := signShard(sec, keys, false); err != nil {
-				return err
-			}
-		default:
-			return fmt.Errorf("Zone contained unexpected type expected *Shard or *Assertion actual=%T", sec)
+	for _, a := range zone.Content {
+		if err := signSection(a, keys); err != nil {
+			return err
 		}
 	}
 	zone.RemoveCtxAndZoneFromContent()
@@ -125,16 +112,14 @@ func signZone(zone *section.Zone, path string) error {
 //signShard signs the shard and all contained assertions with the zone's private key. It removes the
 //subjectZone and context of the contained assertions after the signatures have been added. It
 //returns an error if it was unable to sign the shard or any of the assertions.
-func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{}, addCtxAndZone bool) error {
+func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{}) error {
 	if s == nil {
 		return errors.New("shard is nil")
 	}
 	sigs := s.AllSigs()
 	s.DeleteAllSigs()
-	if addCtxAndZone {
-		s.AddCtxAndZoneToContent()
-		s.DontAddSigInMarshaller()
-	}
+	s.AddCtxAndZoneToContent()
+	s.DontAddSigInMarshaller()
 	for _, sig := range sigs {
 		if sig.ValidUntil < time.Now().Unix() {
 			log.Error("Signature validUntil is in the past")
@@ -150,10 +135,8 @@ func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{}, addCtxAn
 			return err
 		}
 	}
-	if addCtxAndZone {
-		s.RemoveCtxAndZoneFromContent()
-		s.AddSigInMarshaller()
-	}
+	s.RemoveCtxAndZoneFromContent()
+	s.AddSigInMarshaller()
 	return nil
 }
 

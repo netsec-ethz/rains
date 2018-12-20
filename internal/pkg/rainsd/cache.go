@@ -3,95 +3,54 @@ package rainsd
 import (
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeCounter"
-	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeHashMap"
-	"github.com/netsec-ethz/rains/internal/pkg/lruCache"
-	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/cache"
 )
 
 type Caches struct {
 	//connCache stores connections of this server. It is not guaranteed that a returned connection is still active.
-	ConnCache connectionCache
+	ConnCache cache.Connection
 
 	//capabilities stores known hashes of capabilities and for each connInfo what capability the communication partner has.
-	Capabilities capabilityCache
+	Capabilities cache.Capability
 
 	//zoneKeyCache is used to store public keys of zones and a pointer to assertions containing them.
-	ZoneKeyCache zonePublicKeyCache
+	ZoneKeyCache cache.ZonePublicKey
 
 	//pendingSignatures contains all sections that are waiting for a delegation query to arrive such that their signatures can be verified.
-	PendingKeys pendingKeyCache
+	PendingKeys cache.PendingKey
 
 	//pendingQueries contains a mapping from all self issued pending queries to the set of message bodies waiting for it.
-	PendingQueries pendingQueryCache
+	PendingQueries cache.PendingQuery
 
 	//assertionCache contains a set of valid assertions where some of them might be expired.
 	//An entry is marked as extrenal if it might be evicted by a LRU caching strategy.
-	AssertionsCache assertionCache
+	AssertionsCache cache.Assertion
 
 	//negAssertionCache contains for each zone and context an interval tree to find all shards and zones containing a specific assertion
 	//for a zone the range is infinit: range "",""
 	//for a shard the range is given as declared in the section.
 	//An entry is marked as extrenal if it might be evicted by a LRU caching strategy.
-	NegAssertionCache negativeAssertionCache
+	NegAssertionCache cache.NegativeAssertion
 }
 
 func initCaches(config rainsdConfig) *Caches {
 	caches := new(Caches)
-	caches.ConnCache = &connectionCacheImpl{
-		cache:   lruCache.New(),
-		counter: safeCounter.New(config.MaxConnections),
-	}
+	caches.ConnCache = cache.NewConnection(config.MaxConnections)
 
-	caches.Capabilities = createCapabilityCache(config.CapabilitiesCacheSize)
+	caches.Capabilities = cache.NewCapability(config.CapabilitiesCacheSize)
 
-	caches.ZoneKeyCache = &zoneKeyCacheImpl{
-		cache:                lruCache.New(),
-		counter:              safeCounter.New(config.ZoneKeyCacheSize),
-		warnSize:             config.ZoneKeyCacheWarnSize,
-		maxPublicKeysPerZone: config.MaxPublicKeysPerZone,
-		keysPerContextZone:   make(map[string]int),
-	}
+	caches.ZoneKeyCache = cache.NewZoneKey(config.ZoneKeyCacheSize, config.ZoneKeyCacheWarnSize,
+		config.MaxPublicKeysPerZone)
 
-	caches.PendingKeys = &pendingKeyCacheImpl{
-		zoneCtxMap: safeHashMap.New(),
-		tokenMap:   safeHashMap.New(),
-		counter:    safeCounter.New(config.PendingKeyCacheSize),
-	}
+	caches.PendingKeys = cache.NewPendingKey(config.PendingKeyCacheSize)
 
-	caches.PendingQueries = &pendingQueryCacheImpl{
-		nameCtxTypesMap: safeHashMap.New(),
-		tokenMap:        safeHashMap.New(),
-		counter:         safeCounter.New(config.PendingQueryCacheSize),
-	}
+	caches.PendingQueries = cache.NewPendingQuery(config.PendingQueryCacheSize)
 
-	caches.AssertionsCache = &assertionCacheImpl{
-		cache:                  lruCache.New(),
-		counter:                safeCounter.New(config.AssertionCacheSize),
-		zoneMap:                safeHashMap.New(),
-		entriesPerAssertionMap: make(map[string]int),
-	}
+	caches.AssertionsCache = cache.NewAssertion(config.AssertionCacheSize)
 
-	caches.NegAssertionCache = &negativeAssertionCacheImpl{
-		cache:   lruCache.New(),
-		counter: safeCounter.New(config.NegativeAssertionCacheSize),
-		zoneMap: safeHashMap.New(),
-	}
+	caches.NegAssertionCache = cache.NewNegAssertion(config.NegativeAssertionCacheSize)
 
 	return caches
-}
-
-//createCapabilityCache returns a newly created capability cache
-func createCapabilityCache(hashToCapCacheSize int) capabilityCache {
-	cache := lruCache.New()
-	//TODO CFE after there are more capabilities do not use hardcoded value
-	cache.GetOrAdd("e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745",
-		[]message.Capability{message.TLSOverTCP}, true)
-	cache.GetOrAdd("76be8b528d0075f7aae98d6fa57a6d3c83ae480a8469e668d7b0af968995ac71",
-		[]message.Capability{message.NoCapability}, false)
-	counter := safeCounter.New(hashToCapCacheSize)
-	counter.Add(2)
-	return &capabilityCacheImpl{capabilityMap: cache, counter: counter}
 }
 
 func initReapers(config rainsdConfig, caches *Caches, stop chan bool) {

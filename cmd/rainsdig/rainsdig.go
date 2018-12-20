@@ -35,10 +35,10 @@ var filePath = flag.String("filePath", "", "specifies a file path where the quer
 var insecureTLS = flag.Bool("insecureTLS", false, "when set it does not check the validity of the server's TLS certificate.")
 var queryOptions qoptFlag
 
-var zfParser zonefile.ZoneFileParser
+var zfParser zonefile.ZoneFileIO
 
 func init() {
-	zfParser = zonefile.Parser{}
+	zfParser = zonefile.IO{}
 	//TODO CFE this list should be generated from internal constants
 	flag.Var(&queryOptions, "qopt", `specifies which query options are added to the query. Several query options are allowed. The sequence in which they are given determines the priority in descending order. Supported values are:
 	1: Minimize end-to-end latency
@@ -102,7 +102,7 @@ func main() {
 		}
 		for _, section := range answerMsg.Content {
 			// TODO: validate signatures.
-			fmt.Println(zfParser.Encode(section))
+			fmt.Println(zfParser.EncodeSection(section))
 		}
 	}
 }

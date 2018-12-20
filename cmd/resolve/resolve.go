@@ -39,7 +39,7 @@ func main() {
 		switch sec.(type) {
 		case *section.Assertion, *section.Shard, *section.Zone, *query.Name, *section.Notification,
 			*section.AddrAssertion, *query.Address:
-			parser := zonefile.Parser{}
+			parser := zonefile.IO{}
 			fmt.Printf("%s\n", parser.Encode(sec))
 		default:
 			log.Warn("Received an unexpected section type in response:", "section", sec)

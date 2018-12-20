@@ -15,21 +15,11 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-//encodeZone return z in zonefile format. If addZoneAndContext is true, the context and subject zone
-//are present also for all contained section.
-func encodeZone(z *section.Zone, addZoneAndContext bool) string {
+//encodeZone return z in zonefile format.
+func encodeZone(z *section.Zone) string {
 	zone := fmt.Sprintf("%s %s %s [\n", TypeZone, z.SubjectZone, z.Context)
 	for _, sec := range z.Content {
-		switch s := sec.(type) {
-		case *section.Assertion:
-			zone += encodeAssertion(s, z.Context, z.SubjectZone, indent4, addZoneAndContext) + "\n"
-		case *section.Shard:
-			zone += encodeShard(s, z.Context, z.SubjectZone, indent4, addZoneAndContext) + "\n"
-		case *section.Pshard:
-			zone += encodePshard(s, z.Context, z.SubjectZone, indent4, addZoneAndContext) + "\n"
-		default:
-			log.Warn("Unsupported message section type", "msgSection", s)
-		}
+		zone += encodeAssertion(sec, z.Context, z.SubjectZone, indent4, false) + "\n"
 	}
 	if z.Signatures != nil {
 		var sigs []string
@@ -46,7 +36,7 @@ func encodeZone(z *section.Zone, addZoneAndContext bool) string {
 
 //encodeShard returns s in zonefile format. If addZoneAndContext is true, the context and subject
 //zone are present for the shard and for all contained assertions.
-func encodeShard(s *section.Shard, context, subjectZone, indent string, addZoneAndContext bool) string {
+func encodeShard(s *section.Shard, context, subjectZone, indent string) string {
 	rangeFrom := s.RangeFrom
 	rangeTo := s.RangeTo
 	if rangeFrom == "" {
@@ -56,13 +46,9 @@ func encodeShard(s *section.Shard, context, subjectZone, indent string, addZoneA
 		rangeTo = ">"
 	}
 	var shard string
-	if addZoneAndContext {
-		shard = fmt.Sprintf("%s %s %s %s %s [\n", TypeShard, subjectZone, context, rangeFrom, rangeTo)
-	} else {
-		shard = fmt.Sprintf("%s %s %s [\n", TypeShard, rangeFrom, rangeTo)
-	}
+	shard = fmt.Sprintf("%s %s %s %s %s [\n", TypeShard, subjectZone, context, rangeFrom, rangeTo)
 	for _, assertion := range s.Content {
-		shard += encodeAssertion(assertion, context, subjectZone, indent+indent4, addZoneAndContext) + "\n"
+		shard += encodeAssertion(assertion, context, subjectZone, indent+indent4, false) + "\n"
 	}
 	if s.Signatures != nil {
 		var sigs []string
@@ -79,7 +65,7 @@ func encodeShard(s *section.Shard, context, subjectZone, indent string, addZoneA
 
 //encodePshard returns s in zonefile format. If addZoneAndContext is true, the context and subject
 //zone are present for the pshard.
-func encodePshard(s *section.Pshard, context, subjectZone, indent string, addZoneAndContext bool) string {
+func encodePshard(s *section.Pshard, context, subjectZone, indent string) string {
 	rangeFrom := s.RangeFrom
 	rangeTo := s.RangeTo
 	if rangeFrom == "" {
@@ -89,13 +75,8 @@ func encodePshard(s *section.Pshard, context, subjectZone, indent string, addZon
 		rangeTo = ">"
 	}
 	var pshard string
-	if addZoneAndContext {
-		pshard = fmt.Sprintf("%s %s %s %s %s %s", TypePshard, subjectZone, context, rangeFrom,
-			rangeTo, encodeBloomFilter(s.Datastructure))
-	} else {
-		pshard = fmt.Sprintf("%s %s %s %s", TypePshard, rangeFrom, rangeTo,
-			encodeBloomFilter(s.Datastructure))
-	}
+	pshard = fmt.Sprintf("%s %s %s %s %s %s", TypePshard, subjectZone, context, rangeFrom,
+		rangeTo, encodeBloomFilter(s.BloomFilter))
 	if s.Signatures != nil {
 		var sigs []string
 		for _, sig := range s.Signatures {
@@ -109,29 +90,33 @@ func encodePshard(s *section.Pshard, context, subjectZone, indent string, addZon
 	return fmt.Sprintf("%s%s\n", indent, pshard)
 }
 
-//encodeBloomFilter returns d containing a bloom filter in zonefile format.
-func encodeBloomFilter(d section.DataStructure) string {
-	bloomFilter, ok := d.Data.(section.BloomFilter)
-	if !ok {
-		log.Error("Data Type is not a bloom filter", "type", fmt.Sprintf("%T", d.Data))
-	}
-	var hashFamily []string
-	for _, hash := range bloomFilter.HashFamily {
-		hashFamily = append(hashFamily, encodeHashAlgo(hash))
-	}
-	opMode := ""
-	switch bloomFilter.ModeOfOperation {
-	case section.StandardOpType:
-		opMode = TypeStandard
-	case section.KirschMitzenmacher1:
-		opMode = TypeKM1
-	case section.KirschMitzenmacher2:
-		opMode = TypeKM2
+//encodeBloomFilter returns b in zonefile format.
+func encodeBloomFilter(b section.BloomFilter) string {
+	algo := ""
+	switch b.Algorithm {
+	case section.BloomKM12:
+		algo = TypeKM12
+	case section.BloomKM16:
+		algo = TypeKM16
+	case section.BloomKM20:
+		algo = TypeKM20
+	case section.BloomKM24:
+		algo = TypeKM24
 	default:
-		log.Error("Unsupported mode of operation", "modeOfOperation", bloomFilter.ModeOfOperation)
+		log.Error("Unsupported bloom filter algo", "algo", b.Algorithm)
 	}
-	return fmt.Sprintf("%s [ %s ] %d %s %s", TypeBloomFilter, strings.Join(hashFamily, " "),
-		bloomFilter.NofHashFunctions, opMode, hex.EncodeToString(bloomFilter.Filter))
+	hash := ""
+	switch b.Hash {
+	case algorithmTypes.Shake256:
+		hash = TypeShake256
+	case algorithmTypes.Fnv64:
+		hash = TypeFnv64
+	case algorithmTypes.Fnv128:
+		hash = TypeFnv128
+	default:
+		log.Error("Unsupported bloom filter hash", "hash", b.Algorithm)
+	}
+	return fmt.Sprintf("%s %s %s", algo, hash, hex.EncodeToString(b.Filter))
 }
 
 //encodeAssertion returns a in zonefile format. If addZoneAndContext is true, the context and

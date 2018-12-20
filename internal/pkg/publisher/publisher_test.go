@@ -13,8 +13,8 @@ import (
 
 func benchmarkAddMetaData(zonefileName string, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
-	parser := new(zonefile.Parser)
-	zone, err := parser.LoadZone(zonefileName)
+	parser := new(zonefile.IO)
+	zone, err := parser.LoadZonefile(zonefileName)
 	if err != nil {
 		b.Error(err)
 		return
@@ -48,8 +48,8 @@ func benchmarkAddMetaData(zonefileName string, b *testing.B) {
 //whose contained assertions are sorted.
 func benchmarkSharding(zonefileName string, shardSize int, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
-	parser := new(zonefile.Parser)
-	zone, err := parser.LoadZone(zonefileName)
+	parser := new(zonefile.IO)
+	zone, err := parser.LoadZonefile(zonefileName)
 	if err != nil {
 		b.Error(err)
 		return
@@ -75,14 +75,14 @@ func benchmarkSharding(zonefileName string, shardSize int, b *testing.B) {
 //whose contained assertions are sorted.
 func benchmarkPsharding(zonefileName string, shardSize, nofHashfunc int, b *testing.B) {
 	log.Root().SetHandler(log.DiscardHandler())
-	parser := new(zonefile.Parser)
-	zone, err := parser.LoadZone(zonefileName)
+	parser := new(zonefile.IO)
+	zone, err := parser.LoadZonefile(zonefileName)
 	if err != nil {
 		b.Error(err)
 		return
 	}
 	assertions := []*section.Assertion{}
-	for _, s := range zone.Content {
+	for _, s := range zone[0].(*section.Zone).Content {
 		switch assertion := s.(type) {
 		case *section.Assertion:
 			assertions = append(assertions, assertion)
