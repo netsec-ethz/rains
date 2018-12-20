@@ -5,15 +5,14 @@ import (
 	"net"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/section"
-	"github.com/netsec-ethz/rains/internal/pkg/token"
-
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
@@ -143,27 +142,6 @@ type zonePublicKeyCache interface {
 	Len() int
 }
 
-//revZonePublicKeyCache is used to store public keys of addressZones and a pointer to delegation
-//assertions containing them.
-type revZonePublicKeyCache interface {
-	//Add adds publicKey together with the assertion containing it to the cache. Returns false if
-	//the cache exceeds a configured (during initialization of the cache) amount of entries. If the
-	//cache is full it removes a public key according to some metric. The cache logs a message when
-	//a zone has more than a certain (configurable) amount of public keys. (An external service can
-	//then decide if it wants to blacklist a given zone). If the internal flag is set, the publicKey
-	//will only be removed after it expired.
-	Add(assertion *section.Assertion, publicKey keys.PublicKey, internal bool) bool
-	//Get returns true, the assertion holding the returned public key, and a non expired public key
-	//which can be used to verify a signature with sigMetaData. It returns false if there is no
-	//valid matching public key in the cache.
-	Get(zone, context string, sigMetaData signature.MetaData) (
-		keys.PublicKey, *section.Assertion, bool)
-	//RemoveExpiredKeys deletes all expired public keys from the cache.
-	RemoveExpiredKeys()
-	//Len returns the number of public keys currently in the cache.
-	Len() int
-}
-
 type pendingKeyCache interface {
 	//Add adds sectionSender to the cache and returns true if a new delegation should be sent.
 	Add(sectionSender sectionWithSigSender, algoType algorithmTypes.Signature, phase int) bool
@@ -264,33 +242,6 @@ type negativeAssertionCache interface {
 	//RemoveZone deletes all shards and zones in the assertionCache and consistencyCache of the
 	//given subjectZone.
 	RemoveZone(subjectZone string)
-	//Len returns the number of elements in the cache.
-	Len() int
-}
-
-type consistencyCache interface {
-	//Add adds section to the consistency cache.
-	Add(section section.WithSigForward)
-	//Get returns all sections from the cache with the given zone and context that are overlapping
-	//with interval.
-	Get(subjectZone, context string, interval section.Interval) []section.WithSigForward
-	//Remove deletes section from the consistency cache
-	Remove(section section.WithSigForward)
-}
-
-//redirectionCache can be used to lookup connection information based on a redirect or delegation
-//name.
-type redirectionCache interface {
-	//AddName adds subjectZone to the cache if it has not already been added. Otherwise it updates
-	//the expiration time in case it is larger
-	AddName(subjectZone string, expiration int64, internal bool)
-	//AddConnInfo returns true and adds connInfo to subjectZone in the cache if subjectZone is
-	//already in the cache. Otherwise false is returned and connInfo is not added to the cache.
-	AddConnInfo(subjectZone string, connInfo connection.Info, expiration int64) bool
-	//GetConnInfos returns all non expired cached connection information stored to subjectZone.
-	GetConnsInfo(subjectZone string) []connection.Info
-	//RemoveExpiredValues removes all expired elements from the data structure.
-	RemoveExpiredValues()
 	//Len returns the number of elements in the cache.
 	Len() int
 }
