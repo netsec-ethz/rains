@@ -230,3 +230,26 @@ func (s *Pshard) AddAssertion(a *Assertion) error {
 	}
 	return nil
 }
+
+//CompareTo compares two pshards and returns 0 if they are equal, 1 if s is greater than pshard and
+//-1 if s is smaller than pshard
+func (s *Pshard) CompareTo(pshard *Pshard) int {
+	if s.SubjectZone < pshard.SubjectZone {
+		return -1
+	} else if s.SubjectZone > pshard.SubjectZone {
+		return 1
+	} else if s.Context < pshard.Context {
+		return -1
+	} else if s.Context > pshard.Context {
+		return 1
+	} else if s.RangeFrom < pshard.RangeFrom {
+		return -1
+	} else if s.RangeFrom > pshard.RangeFrom {
+		return 1
+	} else if s.RangeTo < pshard.RangeTo {
+		return -1
+	} else if s.RangeTo > pshard.RangeTo {
+		return 1
+	}
+	return s.BloomFilter.CompareTo(pshard.BloomFilter)
+}

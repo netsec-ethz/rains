@@ -106,7 +106,6 @@ func CheckMessageSignatures(msg *message.Message, publicKey keys.PublicKey) bool
 	if !checkMessageStringFields(msg) {
 		return false
 	}
-	msg.Sort()
 	sigs := msg.Signatures
 	msg.Signatures = []signature.Sig{}
 	encoding := new(bytes.Buffer)
@@ -253,7 +252,6 @@ func SignMessage(msg *message.Message, privateKey interface{}, sig signature.Sig
 	if !checkMessageStringFields(msg) {
 		return false
 	}
-	msg.Sort()
 	return SignMessageUnsafe(msg, privateKey, sig)
 }
 
