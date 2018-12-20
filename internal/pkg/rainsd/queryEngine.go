@@ -2,11 +2,11 @@ package rainsd
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
@@ -77,7 +77,7 @@ func answerQueriesCachingResolver(ss util.MsgSectionSender, s *Server) {
 }
 
 //answerQueryAuthoritative is how an authoritative server answers queries
-func answerQueriesAuthoritative(qs []*query.Name, sender connection.Info, token token.Token, s *Server) {
+func answerQueriesAuthoritative(qs []*query.Name, sender net.Addr, token token.Token, s *Server) {
 	log.Debug("Start processing query", "queries", qs)
 	for _, q := range qs {
 		for i, zone := range s.config.ZoneAuthority {
@@ -119,7 +119,7 @@ func answerQueriesAuthoritative(qs []*query.Name, sender connection.Info, token 
 }
 
 //cacheLookup answers q with a cached entry if there is one. True is returned in case of a cache hit
-func cacheLookup(q *query.Name, sender connection.Info, token token.Token, s *Server) []section.Section {
+func cacheLookup(q *query.Name, sender net.Addr, token token.Token, s *Server) []section.Section {
 	assertions := assertionCacheLookup(q, s)
 	if len(assertions) > 0 {
 		return assertions
@@ -158,7 +158,7 @@ func assertionCacheLookup(q *query.Name, s *Server) (assertions []section.Sectio
 	return
 }
 
-func negativeCacheLookup(q *query.Name, sender connection.Info, token token.Token, s *Server) []section.Section {
+func negativeCacheLookup(q *query.Name, sender net.Addr, token token.Token, s *Server) []section.Section {
 	subject, zone, err := toSubjectZone(q.Name)
 	if err != nil {
 		sendNotificationMsg(token, sender, section.NTRcvInconsistentMsg,

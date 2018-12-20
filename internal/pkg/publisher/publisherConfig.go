@@ -1,10 +1,10 @@
 package publisher
 
 import (
+	"net"
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
 
@@ -12,7 +12,7 @@ import (
 //detail.
 type Config struct {
 	ZonefilePath    string
-	AuthServers     []connection.Info
+	AuthServers     []net.Addr
 	PrivateKeyPath  string
 	ShardingConf    ShardingConfig
 	PShardingConf   PShardingConfig

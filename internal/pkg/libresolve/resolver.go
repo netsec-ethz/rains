@@ -36,18 +36,18 @@ const (
 
 // Resolver provides methods to resolve names in RAINS.
 type Resolver struct {
-	RootNameServers []connection.Info
-	Forwarders      []connection.Info
+	RootNameServers []net.Addr
+	Forwarders      []net.Addr
 	Mode            ResolutionMode
 	InsecureTLS     bool
 	DialTimeout     time.Duration
 	FailFast        bool
 	Delegations     *safeHashMap.Map
-	Connections     map[connection.Info]net.Conn //FIXME make this map concurency safe, use the connection cache from rainsd
+	Connections     map[net.Addr]net.Conn //FIXME make this map concurency safe, use the connection cache from rainsd
 }
 
 //New creates a resolver with the given parameters and default settings
-func New(rootNS, forwarders []connection.Info, mode ResolutionMode, addr connection.Info) *Resolver {
+func New(rootNS, forwarders []net.Addr, mode ResolutionMode, addr net.Addr) *Resolver {
 	return &Resolver{
 		RootNameServers: rootNS,
 		Forwarders:      forwarders,
@@ -56,7 +56,7 @@ func New(rootNS, forwarders []connection.Info, mode ResolutionMode, addr connect
 		DialTimeout:     defaultTimeout,
 		FailFast:        defaultFailFast,
 		Delegations:     safeHashMap.New(),
-		Connections:     make(map[connection.Info]net.Conn), //TODO fix connection cache to handle this workload
+		Connections:     make(map[net.Addr]net.Conn), //TODO fix connection cache to handle this workload
 	}
 }
 
@@ -75,7 +75,7 @@ func (r *Resolver) ClientLookup(query *query.Name) (*message.Message, error) {
 
 //ServerLookup forwards the query to the specified forwarders or performs a recursive lookup
 //starting at the specified root servers. It sends the received information to conInfo.
-func (r *Resolver) ServerLookup(query *query.Name, connInfo connection.Info, token token.Token) {
+func (r *Resolver) ServerLookup(query *query.Name, addr net.Addr, token token.Token) {
 	var msg *message.Message
 	log.Info("recResolver received query", "query", query, "token", token)
 	switch r.Mode {
@@ -87,30 +87,30 @@ func (r *Resolver) ServerLookup(query *query.Name, connInfo connection.Info, tok
 		log.Error("Unsupported resolution mode", "mode", r.Mode)
 	}
 	msg.Token = token
-	if conn, ok := r.Connections[connInfo]; ok {
+	if conn, ok := r.Connections[addr]; ok {
 		log.Info("recResolver answers query", "answer", msg, "token", token, "conn", conn.RemoteAddr(), "resolver", conn.LocalAddr())
 		writer := cbor.NewWriter(conn)
 		if err := writer.Marshal(msg); err != nil {
-			r.createConnAndWrite(connInfo, msg) //Connection has been closed in the mean time
+			r.createConnAndWrite(addr, msg) //Connection has been closed in the mean time
 		}
 	} else {
-		r.createConnAndWrite(connInfo, msg)
+		r.createConnAndWrite(addr, msg)
 	}
 }
 
-func (r *Resolver) createConnAndWrite(connInfo connection.Info, msg *message.Message) {
-	conn, err := connection.CreateConnection(connInfo)
+func (r *Resolver) createConnAndWrite(addr net.Addr, msg *message.Message) {
+	conn, err := connection.CreateConnection(addr)
 	if err != nil {
-		log.Error("Was not able to open a connection", "dst", connInfo)
+		log.Error("Was not able to open a connection", "dst", addr)
 		return
 	}
-	r.Connections[connInfo] = conn
+	r.Connections[addr] = conn
 	//FIXME CFE fetch the above function from other repo
 	//go r.answerDelegQueries(conn, connInfo)
 	writer := cbor.NewWriter(conn)
 	if err := writer.Marshal(msg); err != nil {
 		log.Error("failed to marshal message", err)
-		delete(r.Connections, connInfo)
+		delete(r.Connections, addr)
 	}
 }
 
@@ -143,16 +143,16 @@ func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
 	//Start recursive lookup
 	for _, root := range r.RootNameServers {
 		log.Debug("connecting to root server", "serverAddr", root, "query", q)
-		connInfo := root
+		addr := root
 		for {
 			msg := message.Message{Token: token.New(), Content: []section.Section{q}}
-			answer, err := util.SendQuery(msg, connInfo, r.DialTimeout*time.Millisecond)
+			answer, err := util.SendQuery(msg, addr, r.DialTimeout*time.Millisecond)
 			if err != nil || len(answer.Content) == 0 {
 				continue
 			}
 			log.Info("recursive resolver rcv answer", "answer", answer, "query", q)
 			isFinal, isRedir, redirMap, srvMap, ipMap := r.handleAnswer(answer, q)
-			log.Info("handling answer in recursive lookup", "serverAddr", connInfo, "isFinal",
+			log.Info("handling answer in recursive lookup", "serverAddr", addr, "isFinal",
 				isFinal, "isRedir", isRedir, "redirMap", redirMap, "srvMap", srvMap, "ipMap", ipMap)
 			if isFinal {
 				return &answer, nil
@@ -161,12 +161,12 @@ func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
 				if err != nil {
 					return nil, err
 				}
-				if err := updateConnInfo(answer, redirTarget, srvMap, ipMap, &connInfo); err != nil {
+				if err := updateConnInfo(answer, redirTarget, srvMap, ipMap, addr); err != nil {
 					return nil, err
 				}
 			} else {
 				log.Warn("received unexpected answer to query. Recursive lookup cannot be continued",
-					"authServer", connInfo)
+					"authServer", addr)
 				break
 			}
 		}
@@ -209,10 +209,10 @@ func followRedirect(redirMap map[string]string, msg message.Message, name string
 //updateConnInfo changes connInfo to match the next hop in the recursive lookup. If not sufficient
 //information is available, an error is returned
 func updateConnInfo(msg message.Message, redirTarget string, srvMap map[string]object.ServiceInfo,
-	ipMap map[string]string, connInfo *connection.Info) (err error) {
+	ipMap map[string]string, addr net.Addr) (err error) {
 	if srvInfo, ok := srvMap[redirTarget]; ok {
 		if ipAddr, ok := ipMap[srvInfo.Name]; ok {
-			connInfo.TCPAddr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", ipAddr, srvInfo.Port))
+			addr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", ipAddr, srvInfo.Port))
 			if err != nil {
 				return fmt.Errorf("received IP address or port is malformed: %v", msg)
 			}

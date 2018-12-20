@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"strings"
 	"time"
 
@@ -95,7 +96,7 @@ func New(configPath string, id string) (server *Server, err error) {
 }
 
 //Addr returns the server's address
-func (s *Server) Addr() connection.Info {
+func (s *Server) Addr() net.Addr {
 	return s.config.ServerAddress
 }
 

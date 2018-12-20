@@ -5,7 +5,6 @@ import (
 	"net"
 	"sync"
 
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeCounter"
 	"github.com/netsec-ethz/rains/internal/pkg/lruCache"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
@@ -36,14 +35,14 @@ func NewConnection(maxSize int) *ConnectionImpl {
 	}
 }
 
-func getNetworkAndAddr(conn net.Conn) string {
-	return fmt.Sprintf("%s %s", conn.RemoteAddr().Network(), conn.RemoteAddr())
+func networkAddr(addr net.Addr) string {
+	return fmt.Sprintf("%s %s", addr.Network(), addr.String())
 }
 
 //AddConnection adds conn to the cache. If the cache is full the least recently used connection is removed.
 func (c *ConnectionImpl) AddConnection(conn net.Conn) {
 	v := &connCacheValue{connections: []net.Conn{}}
-	e, _ := c.cache.GetOrAdd(getNetworkAndAddr(conn), v, false)
+	e, _ := c.cache.GetOrAdd(networkAddr(conn.RemoteAddr()), v, false)
 	value := e.(*connCacheValue)
 	value.mux.Lock()
 	value.connections = append(value.connections, conn)
@@ -76,8 +75,8 @@ func (c *ConnectionImpl) AddConnection(conn net.Conn) {
 //AddCapability adds capabilities to the destAddr entry. It returns false if there is no entry in
 //the cache for dstAddr. If there is already a capability list associated with destAddr, it will be
 //overwritten.
-func (c *ConnectionImpl) AddCapabilityList(dstAddr connection.Info, capabilities []message.Capability) bool {
-	if e, ok := c.cache.Get(dstAddr.NetworkAndAddr()); ok {
+func (c *ConnectionImpl) AddCapabilityList(dstAddr net.Addr, capabilities []message.Capability) bool {
+	if e, ok := c.cache.Get(networkAddr(dstAddr)); ok {
 		v := e.(*connCacheValue)
 		v.mux.Lock()
 		defer v.mux.Unlock()
@@ -92,8 +91,8 @@ func (c *ConnectionImpl) AddCapabilityList(dstAddr connection.Info, capabilities
 
 //GetConnection returns true and all cached connection objects to dstAddr.
 //GetConnection returns false if there is no cached connection to dstAddr.
-func (c *ConnectionImpl) GetConnection(dstAddr connection.Info) ([]net.Conn, bool) {
-	if e, ok := c.cache.Get(dstAddr.NetworkAndAddr()); ok {
+func (c *ConnectionImpl) GetConnection(dstAddr net.Addr) ([]net.Conn, bool) {
+	if e, ok := c.cache.Get(networkAddr(dstAddr)); ok {
 		v := e.(*connCacheValue)
 		v.mux.RLock()
 		defer v.mux.RUnlock()
@@ -107,8 +106,8 @@ func (c *ConnectionImpl) GetConnection(dstAddr connection.Info) ([]net.Conn, boo
 
 //Get returns true and the capability list of dstAddr.
 //Get returns false if there is no capability list of dstAddr.
-func (c *ConnectionImpl) GetCapabilityList(dstAddr connection.Info) ([]message.Capability, bool) {
-	if e, ok := c.cache.Get(dstAddr.NetworkAndAddr()); ok {
+func (c *ConnectionImpl) GetCapabilityList(dstAddr net.Addr) ([]message.Capability, bool) {
+	if e, ok := c.cache.Get(networkAddr(dstAddr)); ok {
 		v := e.(*connCacheValue)
 		v.mux.RLock()
 		defer v.mux.RUnlock()
@@ -123,7 +122,7 @@ func (c *ConnectionImpl) GetCapabilityList(dstAddr connection.Info) ([]message.C
 //Delete closes conn and removes it from the cache
 func (c *ConnectionImpl) CloseAndRemoveConnection(conn net.Conn) {
 	conn.Close()
-	if e, ok := c.cache.Get(getNetworkAndAddr(conn)); ok {
+	if e, ok := c.cache.Get(networkAddr(conn.RemoteAddr())); ok {
 		v := e.(*connCacheValue)
 		v.mux.Lock()
 		defer v.mux.Unlock()
@@ -137,7 +136,7 @@ func (c *ConnectionImpl) CloseAndRemoveConnection(conn net.Conn) {
 				}
 			} else {
 				v.deleted = true
-				c.cache.Remove(getNetworkAndAddr(conn))
+				c.cache.Remove(networkAddr(conn.RemoteAddr()))
 				c.counter.Dec()
 			}
 		}

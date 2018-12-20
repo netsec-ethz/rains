@@ -9,7 +9,6 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
@@ -17,16 +16,16 @@ import (
 
 //connectAndSendMsg establishes a connection to server and sends msg. It returns the server info on
 //the result channel if it was not able to send the whole msg to it, else nil.
-func connectAndSendMsg(msg message.Message, server connection.Info, result chan<- *connection.Info) {
+func connectAndSendMsg(msg message.Message, server net.Addr, result chan<- net.Addr) {
 	conf := &tls.Config{
 		InsecureSkipVerify: true,
 	}
-	switch server.Type {
-	case connection.TCP:
-		conn, err := tls.Dial(server.TCPAddr.Network(), server.String(), conf)
+	switch server.(type) {
+	case *net.TCPAddr:
+		conn, err := tls.Dial(server.Network(), server.String(), conf)
 		if err != nil {
 			log.Error("Was not able to establish a connection.", "server", server, "error", err)
-			result <- &server
+			result <- server
 			return
 		}
 		success := make(chan bool)
@@ -35,7 +34,7 @@ func connectAndSendMsg(msg message.Message, server connection.Info, result chan<
 		if err := writer.Marshal(&msg); err != nil {
 			conn.Close()
 			log.Error("Was not able to frame the message.", "msg", msg, "server", server, "error", err)
-			result <- &server
+			result <- server
 			return
 		}
 
@@ -43,11 +42,11 @@ func connectAndSendMsg(msg message.Message, server connection.Info, result chan<
 			log.Debug("Successful published information.", "serverAddresses", server.String())
 			result <- nil
 		} else {
-			result <- &server
+			result <- server
 		}
 	default:
-		log.Error("Unsupported connection information type.", "connType", server.Type)
-		result <- &server
+		log.Error("Unsupported connection information type.", "conn", server)
+		result <- server
 	}
 }
 

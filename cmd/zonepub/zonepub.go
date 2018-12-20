@@ -12,7 +12,6 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
@@ -233,7 +232,7 @@ func main() {
 
 type addressesFlag struct {
 	set   bool
-	value []connection.Info
+	value []net.Addr
 }
 
 func (i *addressesFlag) String() string {
@@ -246,7 +245,7 @@ func (i *addressesFlag) Set(value string) error {
 	i.set = true
 	for _, addr := range addresses {
 		if tcpAddr, err := net.ResolveTCPAddr("tcp", addr); err == nil {
-			i.value = append(i.value, connection.Info{Type: connection.TCP, TCPAddr: tcpAddr})
+			i.value = append(i.value, tcpAddr)
 		} else {
 			return err
 		}
