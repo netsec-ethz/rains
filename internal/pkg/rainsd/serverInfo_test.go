@@ -594,9 +594,6 @@ func TestPendingQueryCache(t *testing.T) {
 }
 
 func TestAssertionCache(t *testing.T) {
-	consistCache := &consistencyCacheImpl{
-		ctxZoneMap: make(map[string]*consistencyCacheValue),
-	}
 	var tests = []struct {
 		input assertionCache
 	}{
@@ -621,24 +618,14 @@ func TestAssertionCache(t *testing.T) {
 		if ok := c.Add(aORG[0], aORG[0].ValidUntil(), true); !ok || c.Len() != 1 {
 			t.Errorf("%d:Assertion was not added to cache. expected=%d actual=%d", i, 1, c.Len())
 		}
-		sections := consistCache.Get(aORG[0].SubjectZone, aORG[0].Context, aORG[0])
-		if len(sections) != 1 || sections[0] != aORG[0] {
-			t.Errorf("%d:Assertion was not added to consistency cache. expected=%v actual=%v", i, aORG[0], sections)
-		}
 		if ok := c.Add(assertions[0], assertions[0].ValidUntil(), false); !ok || c.Len() != 2 {
 			t.Errorf("%d:Assertion was not added to cache. expected=%d actual=%d", i, 2, c.Len())
 		}
-		sections = consistCache.Get(assertions[0].SubjectZone, assertions[0].Context, assertions[0])
-		if len(sections) != 1 || sections[0] != assertions[0] {
-			t.Errorf("%d:Assertion was not added to consistency cache. expected=%v actual=%v", i, aORG[0], sections)
-		}
+
 		if ok := c.Add(assertions[1], assertions[1].ValidUntil(), false); !ok || c.Len() != 3 {
 			t.Errorf("%d:Assertion was not added to cache. expected=%d actual=%d", i, 3, c.Len())
 		}
-		sections = consistCache.Get(assertions[0].SubjectZone, assertions[0].Context, assertions[0])
-		if len(sections) != 2 {
-			t.Errorf("%d:Assertion was not added to consistency cache. actual=%v", i, sections)
-		}
+
 		if ok := c.Add(assertions[2], assertions[2].ValidUntil(), false); ok || c.Len() != 1 {
 			//All external assertions are removed because they have the same name, zone, ctx and type
 			t.Errorf("%d:Assertion was not added to cache. expected=%d actual=%d", i, 1, c.Len())
@@ -676,10 +663,7 @@ func TestAssertionCache(t *testing.T) {
 		if c.Len() != 0 {
 			t.Errorf("%d:Was not able to remove elements of zone '.' from cache.", i)
 		}
-		sections = consistCache.Get(".", ".", section.TotalInterval{})
-		if len(sections) != 0 {
-			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
-		}
+
 		//remove from internal and external
 		c.Add(aORG[0], aORG[0].ValidUntil(), true)
 		c.Add(assertions[1], assertions[1].ValidUntil(), false)
@@ -687,10 +671,7 @@ func TestAssertionCache(t *testing.T) {
 		if c.Len() != 0 {
 			t.Errorf("%d:Was not able to remove elements of zone '.' from cache.", i)
 		}
-		sections = consistCache.Get(".", ".", section.TotalInterval{})
-		if len(sections) != 0 {
-			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
-		}
+
 		//other zones are not affected
 		assertions[2].SubjectZone = "com"
 		c.Add(aORG[0], aORG[0].ValidUntil(), true)
@@ -701,38 +682,23 @@ func TestAssertionCache(t *testing.T) {
 		if c.Len() != 1 || a[0] != aORG[0] {
 			t.Errorf("%d:Was not able to remove correct elements of zone '.' from cache.", i)
 		}
-		sections = consistCache.Get("com", ".", section.TotalInterval{})
-		if len(sections) != 0 {
-			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
-		}
-		sections = consistCache.Get(".", ".", section.TotalInterval{})
-		if len(sections) != 1 || sections[0] != aORG[0] {
-			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
-		}
+
 		//Test RemoveExpired for internal and external elements
 		c.Add(aORG[3], aORG[3].ValidUntil(), true)
 		c.Add(assertions[3], assertions[3].ValidUntil(), false)
-		sections = consistCache.Get(".", ".", section.TotalInterval{})
-		if len(sections) != 3 {
-			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
-		}
+
 		c.RemoveExpiredValues()
 		a, ok = c.Get(fmt.Sprintf("%s%s", aORG[0].SubjectName, aORG[0].SubjectZone), aORG[0].Context,
 			aORG[0].Content[0].Type, false)
 		if c.Len() != 1 || a[0] != aORG[0] {
 			t.Errorf("%d:Was not able to remove correct expired elements from cache.", i)
 		}
-		sections = consistCache.Get(".", ".", section.TotalInterval{})
-		if len(sections) != 1 || sections[0] != aORG[0] {
-			t.Errorf("%d:Assertions were not removed from consistency cache. actual=%v", i, sections)
-		}
+
 	}
 }
 
 func TestNegAssertionCache(t *testing.T) {
-	consistCache := &consistencyCacheImpl{
-		ctxZoneMap: make(map[string]*consistencyCacheValue),
-	}
+
 	var tests = []struct {
 		input negativeAssertionCache
 	}{
@@ -756,33 +722,19 @@ func TestNegAssertionCache(t *testing.T) {
 		if ok := c.AddZone(zones[2], zones[2].ValidUntil(), true); !ok || c.Len() != 1 {
 			t.Errorf("%d:Assertion was not added to cache expected=%d actual=%d", i, 1, c.Len())
 		}
-		sections := consistCache.Get(zones[2].SubjectZone, zones[2].Context, zones[2])
-		if len(sections) != 1 || sections[0] != zones[2] {
-			t.Errorf("%d:Zone was not added to consistency cache. expected=%v actual=%v", i, zones[2], sections)
-		}
+
 		if ok := c.AddShard(shards[3], shards[3].ValidUntil(), false); !ok || c.Len() != 2 {
 			t.Errorf("%d:Assertion was not added to cache expected=%d actual=%d", i, 2, c.Len())
 		}
-		sections = consistCache.Get(shards[3].SubjectZone, shards[3].Context, shards[3])
-		if len(sections) != 1 || sections[0] != shards[3] {
-			t.Errorf("%d:Zone was not added to consistency cache. expected=%v actual=%v", i, zones[2], sections)
-		}
+
 		if ok := c.AddZone(zones[0], zones[0].ValidUntil(), false); !ok || c.Len() != 3 {
 			t.Errorf("%d:Assertion was not added to cache expected=%d actual=%d", i, 3, c.Len())
 		}
-		sections = consistCache.Get(zones[0].SubjectZone, zones[0].Context, zones[0])
-		if len(sections) != 1 || sections[0] != zones[0] {
-			t.Errorf("%d:Zone was not added to consistency cache. expected=%v actual=%v", i, zones[0], sections)
-		}
+
 		if ok := c.AddShard(shards[1], shards[1].ValidUntil(), false); ok || c.Len() != 3 {
 			t.Errorf("%d:Assertion was not added to cache expected=%d actual=%d", i, 3, c.Len())
 		}
-		sections = consistCache.Get(shards[1].SubjectZone, shards[1].Context, shards[1])
-		if len(sections) != 2 || (sections[0] == shards[1] && sections[1] != zones[0]) ||
-			(sections[0] == zones[0] && sections[1] != shards[1]) ||
-			(sections[0] != zones[0] && sections[0] != shards[1]) {
-			t.Errorf("%d:Not the correct sections have been returned or added. actual=%v", i, sections)
-		}
+
 		//Test Get
 		//external elements
 		s, ok := c.Get(zones[0].SubjectZone, zones[0].Context, shards[2])
@@ -809,23 +761,13 @@ func TestNegAssertionCache(t *testing.T) {
 		if !ok || len(s) != 2 {
 			t.Errorf("%d:Was not able to remove correct elements of zone 'org' from cache.", i)
 		}
-		sections = consistCache.Get("org", zones[2].Context, zones[2])
-		if len(sections) != 0 {
-			t.Errorf("%d:Was not able to remove zone from consistency cache. actual=%v", i, sections)
-		}
-		sections = consistCache.Get("org", shards[3].Context, zones[2])
-		if len(sections) != 0 {
-			t.Errorf("%d:Was not able to remove shard from consistency cache. actual=%v", i, sections)
-		}
+
 		//Test RemoveZone external
 		c.RemoveZone("ch")
 		if c.Len() != 0 {
 			t.Errorf("%d:Was not able to remove elements of zone '.' from cache.", i)
 		}
-		sections = consistCache.Get("ch", zones[0].Context, zones[0])
-		if len(sections) != 0 {
-			t.Errorf("%d:Was not able to remove shard from consistency cache. actual=%v", i, sections)
-		}
+
 		//Test RemoveExpired from internal and external elements
 		c.AddZone(zones[2], zones[2].ValidUntil(), true)
 		c.AddShard(shards[4], shards[4].ValidUntil(), false)
@@ -834,194 +776,6 @@ func TestNegAssertionCache(t *testing.T) {
 		s, ok = c.Get(shards[0].SubjectZone, shards[0].Context, section.TotalInterval{})
 		if c.Len() != 1 || s[0] != shards[0] {
 			t.Errorf("%d:Was not able to remove correct expired elements from cache.", i)
-		}
-		sections = consistCache.Get("ch", shards[0].Context, zones[0])
-		if len(sections) != 1 || sections[0] != shards[0] {
-			t.Errorf("%d:Removed wrong shard from consistency cache. actual=%v", i, sections)
-		}
-		sections = consistCache.Get(shards[4].SubjectZone, shards[4].Context, shards[4])
-		if len(sections) != 0 {
-			t.Errorf("%d:Was not able to remove shard from consistency cache. actual=%v", i, sections)
-		}
-		sections = consistCache.Get(zones[2].SubjectZone, zones[2].Context, zones[2])
-		if len(sections) != 0 {
-			t.Errorf("%d:Was not able to remove zone from consistency cache. actual=%v", i, sections)
-		}
-	}
-}
-
-func TestConsistencyCache(t *testing.T) {
-	var tests = []struct {
-		input consistencyCache
-	}{
-		{
-			&consistencyCacheImpl{
-				ctxZoneMap: make(map[string]*consistencyCacheValue),
-			},
-		},
-	}
-	for i, test := range tests {
-		c := test.input
-		assertions := getAssertions()
-		shards := getShards()
-		zones := getZones()
-		//Test Add
-		c.Add(assertions[0])
-		c.Add(shards[0])
-		c.Add(zones[2])
-		//Test Get
-		sections := c.Get(shards[0].SubjectZone, shards[0].Context, assertions[0])
-		if len(sections) != 2 || (sections[0] == shards[0] && sections[1] != assertions[0]) ||
-			(sections[0] == assertions[0] && sections[1] != shards[0]) ||
-			(sections[0] != assertions[0] && sections[0] != shards[0]) {
-			t.Errorf("%d:Not the correct sections have been returned or added. actual=%v", i, sections)
-		}
-		//Get border case: point is on the interval border (interval borders are exclusive)
-		sections = c.Get(shards[0].SubjectZone, shards[0].Context,
-			section.StringInterval{Name: shards[0].End()})
-		if len(sections) != 0 {
-			t.Errorf("%d:Border should be excluding. actual=%v", i, sections)
-		}
-		sections = c.Get(zones[2].SubjectZone, zones[2].Context, section.StringInterval{Name: "m"})
-		if len(sections) != 1 || sections[0] != zones[2] {
-			t.Errorf("%d:Not the correct sections have been returned or added. actual=%v", i, sections)
-		}
-		//Test Remove
-		c.Remove(zones[2])
-		sections = c.Get(zones[2].SubjectZone, zones[2].Context, section.StringInterval{Name: "m"})
-		if len(sections) != 0 {
-			t.Errorf("%d:Not the correct element was removed. actual=%v", i, sections)
-		}
-		c.Remove(assertions[0])
-		sections = c.Get(shards[0].SubjectZone, shards[0].Context, assertions[0])
-		if len(sections) != 1 || sections[0] != shards[0] {
-			t.Errorf("%d:Not the correct element was removed. actual=%v", i, sections)
-		}
-		c.Remove(shards[0])
-		sections = c.Get(shards[0].SubjectZone, shards[0].Context, assertions[0])
-		if len(sections) != 0 {
-			t.Errorf("%d:Not the correct element was removed. actual=%v", i, sections)
-		}
-	}
-}
-
-func TestRedirectionCache(t *testing.T) {
-	tcpAddr0, _ := net.ResolveTCPAddr("tcp", "192.0.2.0:80")
-	tcpAddr1, _ := net.ResolveTCPAddr("tcp", "192.0.2.0:443")
-	connInfo0 := connection.Info{Type: connection.TCP, TCPAddr: tcpAddr0}
-	connInfo1 := connection.Info{Type: connection.TCP, TCPAddr: tcpAddr1}
-	exp := time.Now().Add(time.Hour).Unix()
-	var tests = []struct {
-		input redirectionCache
-	}{
-		{&redirectionCacheImpl{nameConnMap: lruCache.New(), counter: safeCounter.New(5),
-			warnSize: 1},
-		},
-	}
-	for i, test := range tests {
-		c := test.input
-		if c.Len() != 0 {
-			t.Errorf("%d:init size is incorrect actual=%d", i, c.Len())
-		}
-		//Add redirect/delegation name
-		c.AddName("example.com", exp, false)
-		c.AddName("example2.com", exp, false)
-		c.AddName("example.net", exp, true)
-		if c.Len() != 0 {
-			t.Errorf("%d:wrong count expected=0 actual=%d", i, c.Len())
-		}
-		//Add Connection info
-		ok := c.AddConnInfo("example.com", connInfo0, exp)
-		if c.Len() != 1 || !ok {
-			t.Errorf("%d.0:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
-		}
-		ok = c.AddConnInfo("example.com", connInfo0, exp)
-		if c.Len() != 1 || !ok {
-			t.Errorf("%d.1: element two times in set or return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
-		}
-		ok = c.AddConnInfo("example2.com", connInfo0, exp)
-		if c.Len() != 2 || !ok {
-			t.Errorf("%d.2:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
-		}
-		ok = c.AddConnInfo("example.com", connInfo1, exp) //warning must be logged
-		if c.Len() != 3 || !ok {
-			t.Errorf("%d.3:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
-		}
-		ok = c.AddConnInfo("example.net", connInfo0, exp)
-		if c.Len() != 4 || !ok {
-			t.Errorf("%d.4:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
-		}
-		//lru removal only when element added
-		ok = c.AddConnInfo("example.net", connInfo0, exp)
-		if c.Len() != 4 || !ok {
-			t.Errorf("%d.5:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
-		}
-		ok = c.AddConnInfo("example.net", connInfo1, time.Now().Add(-1*time.Second).Unix())
-		if c.Len() != 4 || !ok {
-			t.Errorf("%d.6:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
-		}
-		//example.com must still be in the cache while example2.com must have been removed.
-		//GetConnInfo
-		conns := c.GetConnsInfo("example2.com")
-		if conns != nil {
-			t.Errorf("%d.0:return of connInfo of non existing name. expected=<nil> actual=%v", i, conns)
-		}
-		conns = c.GetConnsInfo("example.com")
-		if len(conns) != 2 || conns[0] == connInfo0 && conns[1] != connInfo1 ||
-			conns[0] == connInfo1 && conns[1] != connInfo0 || conns[0] != connInfo0 && conns[0] != connInfo1 {
-			t.Errorf("%d.1:return of connInfo wrong. actual=%v", i, conns)
-		}
-		conns = c.GetConnsInfo("example.net")
-		if len(conns) != 1 || conns[0] != connInfo0 {
-			t.Errorf("%d.1:return of connInfo wrong. actual=%v", i, conns)
-		}
-		//expired name
-		c.AddName("example3.com", time.Now().Add(-1*time.Second).Unix(), false)
-		conns = c.GetConnsInfo("test.example3.com")
-		if conns != nil {
-			t.Errorf("%d.0:return of connInfo of expired name. expected=<nil> actual=%v", i, conns)
-		}
-		c.RemoveExpiredValues()
-		ok = c.AddConnInfo("example3.com", connInfo0, exp)
-		if c.Len() != 3 || ok {
-			t.Errorf("%d.7:return value of AddConnInfo wrong. expected=false actual=%v length=%d", i, ok, c.Len())
-		}
-		//test that expiration is updated on AddName (otherwise it gets removed by RemoveExpiredValues())
-		c.AddName("example3.com", time.Now().Add(-1*time.Second).Unix(), false)
-		c.AddName("example3.com", exp, false)
-		ok = c.AddConnInfo("example3.com", connInfo0, exp)
-		c.RemoveExpiredValues()
-		ok = c.AddConnInfo("example3.com", connInfo0, exp)
-		if c.Len() != 4 || !ok {
-			t.Errorf("%d.8:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
-		}
-		//Remove expired connInfo and also name from the lru mapping because there is no connInfo left
-		c.AddName("example2.com", exp, false)
-		ok = c.AddConnInfo("example2.com", connInfo0, time.Now().Add(-1*time.Second).Unix())
-		if c.Len() != 3 || !ok { //two example3 connInfo are removed through lru and one example2 is added
-			t.Errorf("%d.9:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
-		}
-		c.RemoveExpiredValues()
-		ok = c.AddConnInfo("example2.com", connInfo0, exp)
-		if c.Len() != 2 || ok { //two example.net connInfo are in the cache. Example2 name was removed
-			//so AddConnInfo is not able to add an entry
-			t.Errorf("%d.10:return value of AddConnInfo wrong. expected=false actual=%v length=%d", i, ok, c.Len())
-		}
-
-		//check that the expiration value of a connInfo is updated
-		c.AddName("example2.com", exp, false)
-		ok = c.AddConnInfo("example2.com", connInfo0, time.Now().Add(-1*time.Second).Unix())
-		if c.Len() != 3 || !ok {
-			t.Errorf("%d.11:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
-		}
-		ok = c.AddConnInfo("example2.com", connInfo0, exp) //update expiration value
-		if c.Len() != 3 || !ok {
-			t.Errorf("%d.12:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
-		}
-		c.RemoveExpiredValues()
-		ok = c.AddConnInfo("example2.com", connInfo1, exp)
-		if c.Len() != 4 || !ok {
-			t.Errorf("%d.13:return value of AddConnInfo wrong. expected=true actual=%v length=%d", i, ok, c.Len())
 		}
 	}
 }
