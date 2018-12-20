@@ -26,6 +26,7 @@ type rainsdConfig struct {
 
 	//switchboard
 	ServerAddress      connection.Info
+	PublisherAddress   connection.Info
 	MaxConnections     int
 	KeepAlivePeriod    time.Duration //in seconds
 	TCPTimeout         time.Duration //in seconds
@@ -85,6 +86,12 @@ type sectionWithSigSender struct {
 
 func (s *sectionWithSigSender) Hash() string {
 	return fmt.Sprintf("%s_%v_%v", s.Sender.Hash(), s.Sections, s.Token)
+}
+
+type missingKeyMetaData struct {
+	Zone     string
+	Context  string
+	KeyPhase int
 }
 
 //connectionCache stores persistent stream-oriented network connections.

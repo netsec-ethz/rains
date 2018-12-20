@@ -300,3 +300,50 @@ func (r *Resolver) handleZone(z *section.Zone, redirMap map[string]string,
 		*isFinal = true
 	}
 }
+
+//answerDelegQueries answers delegation queries on conn from its cache. The cache is populated
+//through delegations received in a recursive lookup.
+func (r *Resolver) answerDelegQueries(conn net.Conn, connInfo connection.Info) {
+	reader := cbor.NewReader(conn)
+	writer := cbor.NewWriter(conn)
+	for {
+		var msg message.Message
+		if err := reader.Unmarshal(&msg); err != nil {
+			if err.Error() == "failed to read tag: EOF" {
+				log.Info("Connection has been closed", "conn", connInfo)
+			} else {
+				log.Warn(fmt.Sprintf("failed to read from client: %v", err))
+			}
+			delete(r.Connections, connInfo)
+			break
+		}
+		answer := r.getDelegations(msg)
+		log.Info("received delegation query. Answer with cached assertions", "query", msg, "assertions", answer)
+		msg = message.Message{Token: msg.Token, Content: answer}
+		if err := writer.Marshal(&msg); err != nil {
+			log.Error("failed to marshal message", err)
+			delete(r.Connections, connInfo)
+			break
+		}
+	}
+}
+
+//getDelegations returns all cached delegations answering a query in msg.
+func (r *Resolver) getDelegations(msg message.Message) []section.Section {
+	answer := []section.Section{}
+	for _, s := range msg.Content {
+		if q, ok := s.(*query.Name); ok {
+			for _, t := range q.Types {
+				if t == object.OTDelegation {
+					if a, ok := r.Delegations.Get(q.Name); ok {
+						answer = append(answer, a.(*section.Assertion))
+					} else {
+						log.Warn("requested delegation is not cached. This should never happen")
+					}
+					break
+				}
+			}
+		}
+	}
+	return answer
+}
