@@ -30,15 +30,16 @@ func (s *Server) verify(msgSender msgSectionSender) {
 	//msgSender.Sections contains either Queries or Assertions. It gets separated in the inbox.
 	switch msgSender.Sections[0].(type) {
 	case *section.Assertion, *section.Shard, *section.Pshard, *section.Zone:
+		isAuthoritative := hasAuthority(msgSender, s)
 		if len(s.config.ZoneAuthority) != 0 {
 			//An authoritative server drops all messages containing sections over which it has no
 			//authority and are not a response to a query issued by this server
-			if !hasAuthority(msgSender, s) && !s.caches.PendingKeys.ContainsToken(msgSender.Token) {
+			if !isAuthoritative && !s.caches.PendingKeys.ContainsToken(msgSender.Token) {
 				log.Info("Drop message not part of authority", "msgSender", msgSender)
 				return
 			}
 		}
-		verifySections(msgSender, s)
+		verifySections(msgSender, s, isAuthoritative)
 	case *query.Name:
 		verifyQueries(msgSender, s)
 	default:
@@ -66,7 +67,7 @@ func hasAuthority(msgSender msgSectionSender, s *Server) bool {
 //keys are sent and ss is put on the pendingKeyCache. Otherwise all Signatures are verified. As soon
 //as one signature is invalid, processing of ss stops. When everything works well, ss is forwarded
 //to the engine.
-func verifySections(ss msgSectionSender, s *Server) {
+func verifySections(ss msgSectionSender, s *Server, isAuthoritative bool) {
 	keys := make(map[keys.PublicKeyID][]keys.PublicKey)
 	missingKeys := make(map[missingKeyMetaData]bool)
 	for _, sec := range ss.Sections {
@@ -84,7 +85,7 @@ func verifySections(ss msgSectionSender, s *Server) {
 		publicKeysPresent(sec, s.caches.ZoneKeyCache, keys, missingKeys)
 	}
 	if len(missingKeys) != 0 {
-		handleMissingKeys(ss, missingKeys, s)
+		handleMissingKeys(ss, missingKeys, s, isAuthoritative)
 		return
 	}
 
@@ -163,25 +164,14 @@ func verifySignatures(ss msgSectionSender, keys map[keys.PublicKeyID][]keys.Publ
 	sections := []section.WithSigForward{}
 	for _, sec := range ss.Sections {
 		sec := sec.(section.WithSigForward)
-		sec.AddSigInMarshaller()
 		sections = append(sections, sec)
-		addZoneAndContextToContainedSections(sec)
 		sec.DontAddSigInMarshaller()
 		if !validSignature(sec, keys, s.config.MaxCacheValidity) {
 			return nil, false
 		}
+		sec.AddSigInMarshaller()
 	}
 	return sections, true
-}
-
-//addZoneAndContextToContainedSections adds subjectZone and context to all contained section.
-func addZoneAndContextToContainedSections(sec section.WithSig) {
-	if shard, ok := sec.(*section.Shard); ok {
-		shard.AddCtxAndZoneToContent()
-	}
-	if zone, ok := sec.(*section.Zone); ok {
-		zone.AddCtxAndZoneToContent()
-	}
 }
 
 //validSignature validates section's signatures and strips all expired signatures away. Returns
@@ -207,9 +197,14 @@ func validSignature(sec section.WithSigForward, keys map[keys.PublicKeyID][]keys
 //contained assertions (which were necessary for signature verification)
 func validShardSignatures(shard *section.Shard, keys map[keys.PublicKeyID][]keys.PublicKey,
 	maxValidity util.MaxCacheValidity) bool {
-	if !validateSignatures(shard, keys, maxValidity) ||
-		!validContainedAssertions(shard.Content, keys, maxValidity) {
+	if !validateSignatures(shard, keys, maxValidity) {
 		return false
+	}
+	shard.AddCtxAndZoneToContent()
+	for _, s := range shard.Content {
+		if !siglib.CheckSectionSignatures(s, keys, maxValidity) {
+			return false
+		}
 	}
 	return true
 }
@@ -222,21 +217,9 @@ func validZoneSignatures(zone *section.Zone, keys map[keys.PublicKeyID][]keys.Pu
 	if !validateSignatures(zone, keys, maxValidity) {
 		return false
 	}
+	zone.AddCtxAndZoneToContent()
 	for _, s := range zone.Content {
-		if !validContainedAssertions([]*section.Assertion{s}, keys, maxValidity) {
-			return false
-		}
-	}
-	return true
-}
-
-//validContainedAssertions validates all signatures on assertions. It returns false if there is a
-//signature that does not verify. It removes the subjectZone and context of all contained assertions
-//(which were necessary for signature verification)
-func validContainedAssertions(assertions []*section.Assertion,
-	keys map[keys.PublicKeyID][]keys.PublicKey, maxValidity util.MaxCacheValidity) bool {
-	for _, assertion := range assertions {
-		if !siglib.CheckSectionSignatures(assertion, keys, maxValidity) {
+		if !siglib.CheckSectionSignatures(s, keys, maxValidity) {
 			return false
 		}
 	}
@@ -245,7 +228,8 @@ func validContainedAssertions(assertions []*section.Assertion,
 
 //handleMissingKeys adds sectionSender to the pending key cache and sends a delegation query if
 //necessary
-func handleMissingKeys(ss msgSectionSender, missingKeys map[missingKeyMetaData]bool, s *Server) {
+func handleMissingKeys(ss msgSectionSender, missingKeys map[missingKeyMetaData]bool, s *Server,
+	isAuthoritative bool) {
 	sec := ss.Sections
 	log.Info("Some public keys are missing. Add section to pending key cache",
 		"#missingKeys", len(missingKeys), "sections", ss.Sections)
@@ -266,7 +250,7 @@ func handleMissingKeys(ss msgSectionSender, missingKeys map[missingKeyMetaData]b
 	}
 	log.Error(ss.Sender.String(), "new", s.config.PublisherAddress.String())
 	msg := message.Message{Token: t, Content: queries}
-	if strings.Split(ss.Sender.String(), ":")[0] == strings.Split(s.config.PublisherAddress.String(), ":")[0] {
+	if isAuthoritative {
 		log.Info("Send missing delegation keys to recursive resolver")
 		s.sendToRecursiveResolver(msg)
 	} else {

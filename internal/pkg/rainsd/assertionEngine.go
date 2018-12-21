@@ -138,12 +138,12 @@ func addPshardToCache(pshard *section.Pshard, isAuthoritative bool, assertionsCa
 //assertions to the assertionCache.
 func addZoneToCache(zone *section.Zone, isAuthoritative bool, assertionsCache assertionCache,
 	negAssertionCache negativeAssertionCache, zoneKeyCache zonePublicKeyCache) {
-	for _, sec := range zone.Content {
-		if shouldAssertionBeCached(sec) {
-			a := sec.Copy(zone.Context, zone.SubjectZone)
+	for _, assertion := range zone.Content {
+		if shouldAssertionBeCached(assertion) {
+			a := assertion.Copy(zone.Context, zone.SubjectZone)
 			addAssertionToCache(a, isAuthoritative, assertionsCache, zoneKeyCache)
 		}
-		sec.RemoveContextAndSubjectZone()
+		assertion.RemoveContextAndSubjectZone()
 	}
 	negAssertionCache.AddZone(zone, zone.ValidUntil(), isAuthoritative)
 	log.Debug("Added zone to cache", "zone", *zone)

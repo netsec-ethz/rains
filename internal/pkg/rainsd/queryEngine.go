@@ -114,7 +114,8 @@ func answerQueriesAuthoritative(qs []*query.Name, sender connection.Info, token 
 		}
 	}
 	sendSections(sections, token, sender, s)
-	log.Info("Finished handling query by sending records from cache", "queries", qs)
+	log.Info("Finished handling query by sending records from cache", "queries", qs,
+		"sections", sections)
 }
 
 //cacheLookup answers q with a cached entry if there is one. True is returned in case of a cache hit
