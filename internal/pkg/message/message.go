@@ -126,19 +126,19 @@ func (rm *Message) UnmarshalCBOR(r *cbor.CBORReader) error {
 				return err
 			}
 			rm.Content = append(rm.Content, s)
-		case 7:
+		case 3:
 			s := &section.Pshard{}
 			if err := s.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
 			rm.Content = append(rm.Content, s)
-		case 3:
+		case 4:
 			z := &section.Zone{}
 			if err := z.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
 			}
 			rm.Content = append(rm.Content, z)
-		case 4:
+		case 5:
 			q := &query.Name{}
 			if err := q.UnmarshalMap(elem[1].(map[int]interface{})); err != nil {
 				return err
