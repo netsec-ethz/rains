@@ -30,12 +30,35 @@ func (s *Server) verify(msgSender msgSectionSender) {
 	//msgSender.Sections contains either Queries or Assertions. It gets separated in the inbox.
 	switch msgSender.Sections[0].(type) {
 	case *section.Assertion, *section.Shard, *section.Pshard, *section.Zone:
+		if len(s.config.ZoneAuthority) != 0 {
+			//An authoritative server drops all messages containing sections over which it has no
+			//authority and are not a response to a query issued by this server
+			if !hasAuthority(msgSender, s) && !s.caches.PendingKeys.ContainsToken(msgSender.Token) {
+				log.Info("Drop message not part of authority", "msgSender", msgSender)
+				return
+			}
+		}
 		verifySections(msgSender, s)
 	case *query.Name:
 		verifyQueries(msgSender, s)
 	default:
 		log.Warn("Not supported Msg section to verify", "msgSection", msgSender)
 	}
+}
+
+func hasAuthority(msgSender msgSectionSender, s *Server) bool {
+	for _, sec := range msgSender.Sections {
+		sec := sec.(section.WithSigForward)
+		for i, zone := range s.config.ZoneAuthority {
+			if sec.GetSubjectZone() == zone && sec.GetContext() == s.config.ContextAuthority[i] {
+				break
+			}
+			if i == len(s.config.ZoneAuthority)-1 {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 //verifySections first checks the internal consistency of all sections. It then determines if all
