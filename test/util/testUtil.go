@@ -154,22 +154,7 @@ func CheckZone(z1, z2 *section.Zone, t *testing.T) {
 		t.Error("Zone Content length mismatch")
 	}
 	for i, s1 := range z1.Content {
-		switch s1 := s1.(type) {
-		case *section.Assertion:
-			if s2, ok := z2.Content[i].(*section.Assertion); ok {
-				CheckAssertion(s1, s2, t)
-				continue
-			}
-			t.Errorf("Types at position %d of Content slice are different", i)
-		case *section.Shard:
-			if s2, ok := z2.Content[i].(*section.Shard); ok {
-				CheckShard(s1, s2, t)
-				continue
-			}
-			t.Errorf("Types at position %d of Content slice are different", i)
-		default:
-			t.Errorf("Unsupported section type: %T", s1)
-		}
+		CheckAssertion(s1, z2.Content[i], t)
 	}
 }
 
