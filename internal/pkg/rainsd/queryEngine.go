@@ -36,12 +36,12 @@ func (s *Server) processQuery(msgSender msgSectionSender) {
 
 //answerQueryCachingResolver is how a caching resolver answers queries
 func answerQueriesCachingResolver(ss msgSectionSender, s *Server) {
-	log.Debug("Start processing query", "queries", ss.Sections)
+	log.Info("Start processing query as cr", "queries", ss.Sections)
 	queries := []*query.Name{}
 	sections := []section.Section{}
 	for _, q := range ss.Sections {
 		q := q.(*query.Name)
-		if secs := cacheLookup(q, ss.Sender, ss.Token, s); sections != nil {
+		if secs := cacheLookup(q, ss.Sender, ss.Token, s); secs != nil {
 			sections = append(sections, secs...)
 		} else {
 			queries = append(queries, q)
@@ -73,11 +73,12 @@ func answerQueriesCachingResolver(ss msgSectionSender, s *Server) {
 		}
 		s.sendToRecursiveResolver(message.Message{Token: tok, Content: qs})
 	}
+	log.Info("Query has already been sent to recursive resolver", "queries", queries)
 }
 
 //answerQueryAuthoritative is how an authoritative server answers queries
 func answerQueriesAuthoritative(qs []*query.Name, sender connection.Info, token token.Token, s *Server) {
-	log.Debug("Start processing query", "queries", qs)
+	log.Info("Start processing query as authority", "queries", qs)
 	for _, q := range qs {
 		for i, zone := range s.config.ZoneAuthority {
 			if strings.HasSuffix(q.Name, zone) && q.Context == s.config.ContextAuthority[i] {
@@ -94,7 +95,7 @@ func answerQueriesAuthoritative(qs []*query.Name, sender connection.Info, token 
 	queries := []*query.Name{}
 	sections := []section.Section{}
 	for _, q := range qs {
-		if secs := cacheLookup(q, sender, token, s); sections != nil {
+		if secs := cacheLookup(q, sender, token, s); secs != nil {
 			sections = append(sections, secs...)
 		} else {
 			queries = append(queries, q)

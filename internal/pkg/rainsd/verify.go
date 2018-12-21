@@ -248,10 +248,9 @@ func handleMissingKeys(ss msgSectionSender, missingKeys map[missingKeyMetaData]b
 			KeyPhase:   k.KeyPhase,
 		})
 	}
-	log.Error(ss.Sender.String(), "new", s.config.PublisherAddress.String())
 	msg := message.Message{Token: t, Content: queries}
 	if isAuthoritative {
-		log.Info("Send missing delegation keys to recursive resolver")
+		log.Info("Send missing delegation keys to recursive resolver", "msg", msg)
 		s.sendToRecursiveResolver(msg)
 	} else {
 		s.sendTo(msg, ss.Sender, 0, 0)
