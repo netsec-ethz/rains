@@ -89,8 +89,8 @@ func (c *PendingQueryImpl) Add(ss util.MsgSectionSender, t token.Token, expirati
 func (c *PendingQueryImpl) GetAndRemove(t token.Token) []util.MsgSectionSender {
 	c.qmux.Lock()
 	c.tmux.Lock()
-	defer c.qmux.Lock()
-	defer c.tmux.Lock()
+	defer c.qmux.Unlock()
+	defer c.tmux.Unlock()
 
 	if val, present := c.tokenMap[t]; present {
 		delete(c.tokenMap, t)
@@ -105,8 +105,8 @@ func (c *PendingQueryImpl) GetAndRemove(t token.Token) []util.MsgSectionSender {
 func (c *PendingQueryImpl) RemoveExpiredValues() {
 	c.qmux.Lock()
 	c.tmux.Lock()
-	defer c.qmux.Lock()
-	defer c.tmux.Lock()
+	defer c.qmux.Unlock()
+	defer c.tmux.Unlock()
 
 	for k, v := range c.tokenMap {
 		if v.expiration < time.Now().Unix() {

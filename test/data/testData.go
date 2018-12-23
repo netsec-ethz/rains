@@ -3,6 +3,8 @@ package data
 import (
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
+
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 
@@ -61,7 +63,7 @@ func GetMessage() message.Message {
 	}
 
 	zone := &section.Zone{
-		Content:     []section.WithSigForward{assertion, shard},
+		Content:     []*section.Assertion{assertion},
 		Context:     globalContext,
 		SubjectZone: testSubjectName,
 		Signatures:  []signature.Sig{sig},
@@ -99,7 +101,8 @@ func GetMessage() message.Message {
 //Zone returns an zone containing a shard, assertion with all object types and a pshard. The zone is valid.
 func Zone() *section.Zone {
 	return &section.Zone{
-		Content:     []section.WithSigForward{Assertion()},
+		//FIXME CFE add pshard
+		Content:     []*section.Assertion{Assertion()},
 		Context:     globalContext,
 		SubjectZone: testDomain,
 	}
@@ -119,11 +122,11 @@ func Shard() *section.Shard {
 //Pshard returns a shard containing an assertion with all object types that is valid.
 func Pshard() *section.Pshard {
 	return &section.Pshard{
-		Datastructure: Datastructure(),
-		Context:       globalContext,
-		SubjectZone:   testDomain,
-		RangeFrom:     "aaa",
-		RangeTo:       "zzz",
+		BloomFilter: BloomFilter(),
+		Context:     globalContext,
+		SubjectZone: testDomain,
+		RangeFrom:   "aaa",
+		RangeTo:     "zzz",
 	}
 }
 
@@ -200,14 +203,11 @@ func PublicKey() keys.PublicKey {
 }
 
 //Datastructure returns a datastructure object with valid content
-func Datastructure() section.DataStructure {
-	return section.DataStructure{
-		Type: section.BloomFilterType,
-		Data: section.BloomFilter{
-			HashFamily:       []algorithmTypes.Hash{algorithmTypes.Fnv128},
-			NofHashFunctions: 10,
-			ModeOfOperation:  section.KirschMitzenmacher1,
-		},
+func BloomFilter() section.BloomFilter {
+	return section.BloomFilter{
+		Algorithm: section.BloomKM12,
+		Hash:      algorithmTypes.Shake256,
+		Filter:    make(bitarray.BitArray, 32),
 	}
 }
 

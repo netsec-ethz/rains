@@ -74,31 +74,19 @@ func StorePrivateKey(path string, privateKeys []keys.PrivateKey) error {
 	}
 }
 
-//signZone signs the zone and all contained shards and assertions with the zone's private key. It
-//removes the subjectZone and context of the contained assertions and shards after the signatures
-//have been added. It returns an error if it was unable to sign the zone or any of the contained
-//shards and assertions.
+//signZone signs the zone and all contained assertions with the zone's private key. It adds the
+//subjectZone and context to the contained assertions before signing them and removes them after the
+//signatures have been added. It returns an error if it was unable to sign the zone or any of the
+//contained assertions.
 func signZone(zone *section.Zone, keys map[keys.PublicKeyID]interface{}) error {
 	if zone == nil {
 		return errors.New("zone is nil")
 	}
-
-	sigs := zone.AllSigs()
-	zone.DeleteAllSigs()
 	zone.DontAddSigInMarshaller()
-	zone.AddCtxAndZoneToContent()
-	for _, sig := range sigs {
-		if sig.ValidUntil < time.Now().Unix() {
-			log.Error("Signature validUntil is in the past")
-		} else if privateKey, ok := keys[sig.PublicKeyID]; !ok {
-			log.Error("No matching private key for signature", "sig", sig.PublicKeyID, "privateKeys", keys)
-		} else if ok := siglib.SignSectionUnsafe(zone, privateKey, sig); !ok {
-			log.Error("Was not able to sign and add the signature", "zone", zone, "signature", sig)
-		} else {
-			continue
-		}
-		return errors.New("Was not able to sign and add the signature")
+	if err := signSection(zone, keys); err != nil {
+		return err
 	}
+	zone.AddCtxAndZoneToContent()
 	for _, a := range zone.Content {
 		if err := signSection(a, keys); err != nil {
 			return err
@@ -116,20 +104,11 @@ func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{}) error {
 	if s == nil {
 		return errors.New("shard is nil")
 	}
-	sigs := s.AllSigs()
-	s.DeleteAllSigs()
-	s.AddCtxAndZoneToContent()
 	s.DontAddSigInMarshaller()
-	for _, sig := range sigs {
-		if sig.ValidUntil < time.Now().Unix() {
-			log.Error("Signature validUntil is in the past")
-		} else if ok := siglib.SignSectionUnsafe(s, keys[sig.PublicKeyID], sig); !ok {
-			log.Error("Was not able to sign and add the signature", "shard", s, "signature", sig)
-		} else {
-			continue
-		}
-		return errors.New("Was not able to sign and add the signature")
+	if err := signSection(s, keys); err != nil {
+		return err
 	}
+	s.AddCtxAndZoneToContent()
 	for _, a := range s.Content {
 		if err := signSection(a, keys); err != nil {
 			return err
@@ -144,7 +123,7 @@ func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{}) error {
 //It returns an error if it was unable to create all signatures on the assertion.
 func signSection(s section.WithSigForward, keys map[keys.PublicKeyID]interface{}) error {
 	if s == nil {
-		return errors.New("assertion is nil")
+		return errors.New("section is nil")
 	}
 	sigs := s.AllSigs()
 	s.DeleteAllSigs()
