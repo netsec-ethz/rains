@@ -36,10 +36,8 @@ var nofAssertionsPerPshard = flag.Int("nofAssertionsPerPshard", -1, `this option
 when doPsharding is true. Defines the number of assertions with different names per pshard if
 sharding is performed. Because the number of assertions per name can vary, shards may have different
 sizes.`)
-var hashfamily hashFamilyFlag
-var nofHashFunctions = flag.Int("nofHashFunctions", -1, `The number of hash functions used to add to
-and query the bloom filter.`)
-var bFOpMode bfOpModeFlag
+var bfHash bfHashFlag
+var bfAlgo bfAlgoFlag
 var bloomFilterSize = flag.Int("bloomFilterSize", -1, `Number of bits in the bloom filter. It will
 be rounded up to the next multiple of eight.`)
 var addSignatureMetaData boolFlag
@@ -86,9 +84,8 @@ func init() {
 	DoPsharding is true. If the zonefile already contains pshards and keepExistingPshards is true,
 	the pshards are kept. Otherwise, all existing pshards are removed before the new ones are
 	created.`)
-	flag.Var(&hashfamily, "hashfamily", `A list of hash algorithm identifiers present in the hash
-	family.`)
-	flag.Var(&bFOpMode, "bfOpModeFlag", `Bloom filter's mode of operation`)
+	flag.Var(&bfHash, "bfhash", `Hash algorithm used to add to or check bloomfilter`)
+	flag.Var(&bfAlgo, "bfAlgo", `Bloom filter's algorithm`)
 	flag.Var(&addSignatureMetaData, "addSignatureMetaData", `If set to true, adds signature meta 
 	data to sections`)
 	flag.Var(&addSigMetaDataToAssertions, "addSigMetaDataToAssertions", `this option only has an
@@ -159,14 +156,11 @@ func main() {
 	if *nofAssertionsPerPshard != -1 {
 		config.PShardingConf.NofAssertionsPerPshard = *nofAssertionsPerPshard
 	}
-	if hashfamily.set {
-		config.PShardingConf.BloomFilterConf.Hashfamily = hashfamily.value
+	if bfAlgo.set {
+		config.PShardingConf.BloomFilterConf.BFAlgo = bfAlgo.value
 	}
-	if *nofHashFunctions != -1 {
-		config.PShardingConf.BloomFilterConf.NofHashFunctions = *nofHashFunctions
-	}
-	if bFOpMode.set {
-		config.PShardingConf.BloomFilterConf.BFOpMode = bFOpMode.value
+	if bfHash.set {
+		config.PShardingConf.BloomFilterConf.BFHash = bfHash.value
 	}
 	if *bloomFilterSize != -1 {
 		config.PShardingConf.BloomFilterConf.BloomFilterSize = *bloomFilterSize
@@ -254,36 +248,28 @@ func (i *addressesFlag) Set(value string) error {
 	return nil
 }
 
-type hashFamilyFlag struct {
+type bfHashFlag struct {
 	set   bool
-	value []algorithmTypes.Hash
+	value algorithmTypes.Hash
 }
 
-func (i *hashFamilyFlag) String() string {
+func (i *bfHashFlag) String() string {
 	return fmt.Sprintf("%v", *i)
 }
 
-func (i *hashFamilyFlag) Set(value string) error {
-	var algos []string
-	algos = strings.Split(value, ",")
-	i.set = true
-	for _, algo := range algos {
-		switch algo {
-		case zonefile.TypeSha256:
-			i.value = append(i.value, algorithmTypes.Sha256)
-		case zonefile.TypeSha384:
-			i.value = append(i.value, algorithmTypes.Sha384)
-		case zonefile.TypeSha512:
-			i.value = append(i.value, algorithmTypes.Sha512)
-		case zonefile.TypeShake256:
-			i.value = append(i.value, algorithmTypes.Shake256)
-		case zonefile.TypeFnv64:
-			i.value = append(i.value, algorithmTypes.Fnv64)
-		case zonefile.TypeFnv128:
-			i.value = append(i.value, algorithmTypes.Fnv128)
-		default:
-			return errors.New("unknown hash algorithm type")
-		}
+func (i *bfHashFlag) Set(value string) error {
+	switch value {
+	case zonefile.TypeShake256, "shake256", "4":
+		i.value = algorithmTypes.Shake256
+		i.set = true
+	case zonefile.TypeFnv64, "fnv64", "5":
+		i.value = algorithmTypes.Fnv64
+		i.set = true
+	case zonefile.TypeFnv128, "fnv128", "6":
+		i.value = algorithmTypes.Fnv128
+		i.set = true
+	default:
+		return errors.New("unknown hash algorithm type")
 	}
 	return nil
 }
@@ -308,26 +294,29 @@ func (i *algorithmFlag) Set(value string) error {
 	return nil
 }
 
-type bfOpModeFlag struct {
+type bfAlgoFlag struct {
 	set   bool
-	value section.ModeOfOperationType
+	value section.BloomFilterAlgo
 }
 
-func (i *bfOpModeFlag) String() string {
+func (i *bfAlgoFlag) String() string {
 	return fmt.Sprintf("%v", *i)
 }
 
-func (i *bfOpModeFlag) Set(value string) error {
+func (i *bfAlgoFlag) Set(value string) error {
 	switch value {
-	case zonefile.TypeStandard, "standard", "0":
+	case zonefile.TypeKM12, "bloomKM12", "0":
 		i.set = true
-		i.value = section.StandardOpType
-	case zonefile.TypeKM1, "km1", "1":
+		i.value = section.BloomKM12
+	case zonefile.TypeKM16, "bloomKM16", "1":
 		i.set = true
-		i.value = section.KirschMitzenmacher1
-	case zonefile.TypeKM2, "km2", "2":
+		i.value = section.BloomKM16
+	case zonefile.TypeKM20, "bloomKM20", "2":
 		i.set = true
-		i.value = section.KirschMitzenmacher2
+		i.value = section.BloomKM20
+	case zonefile.TypeKM24, "bloomKM24", "3":
+		i.set = true
+		i.value = section.BloomKM24
 	default:
 		return fmt.Errorf("invalid bloom filter mode of operation type")
 	}

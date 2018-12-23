@@ -309,7 +309,7 @@ func getZonesAndEncodings() ([]*section.Zone, []string) {
 
 	//encodings
 	encodings := []string{}
-	encodings = append(encodings, fmt.Sprintf(":Z: ch. . [\n%s%s\n%s%s\n]", indent4, assertionEncodings[0])) //when not used for signing, it does not copy context and subjectZone to contained shards and assertions
+	encodings = append(encodings, fmt.Sprintf(":Z: ch. . [\n%s%s\n]", indent4, assertionEncodings[0])) //when not used for signing, it does not copy context and subjectZone to contained shards and assertions
 	encodings = append(encodings, ":Z: ch. . [\n]")
 
 	return zones, encodings
