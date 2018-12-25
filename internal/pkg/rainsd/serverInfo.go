@@ -19,6 +19,7 @@ type rainsdConfig struct {
 
 	//switchboard
 	ServerAddress      net.Addr
+	PublisherAddress   net.Addr
 	MaxConnections     int
 	KeepAlivePeriod    time.Duration //in seconds
 	TCPTimeout         time.Duration //in seconds
@@ -60,6 +61,12 @@ type rainsdConfig struct {
 	ZoneAuthority              []string
 	MaxCacheValidity           util.MaxCacheValidity //in hours
 	ReapEngineTimeout          time.Duration         //in seconds
+}
+
+type missingKeyMetaData struct {
+	Zone     string
+	Context  string
+	KeyPhase int
 }
 
 //zoneContext stores a context and a zone

@@ -226,8 +226,8 @@ func (a *Assertion) String() string {
 	if a == nil {
 		return "Assertion:nil"
 	}
-	return fmt.Sprintf("Assertion:[SN=%s SZ=%s CTX=%s CONTENT=%v SIG=%v]",
-		a.SubjectName, a.SubjectZone, a.Context, a.Content, a.Signatures)
+	return fmt.Sprintf("Assertion:[SN=%s SZ=%s CTX=%s CONTENT=%v SIG=%v isSign=%t]",
+		a.SubjectName, a.SubjectZone, a.Context, a.Content, a.Signatures, a.sign)
 }
 
 //IsConsistent returns true. Assertion is always consistent.

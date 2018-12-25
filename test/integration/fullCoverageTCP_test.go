@@ -65,7 +65,7 @@ func TestFullCoverage(t *testing.T) {
 }
 
 func startAuthServer(t *testing.T, name string, rootServers []net.Addr) *rainsd.Server {
-	server, err := rainsd.New("testdata/conf/namingServer"+name+".conf", "nameServerRoot")
+	server, err := rainsd.New("testdata/conf/namingServer"+name+".conf", "nameServer"+name)
 	if err != nil {
 		t.Fatal(fmt.Sprintf("Was not able to create %s server: ", name), err)
 	}
