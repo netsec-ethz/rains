@@ -2,8 +2,9 @@ package rainsd
 
 import (
 	"fmt"
-	"net"
 	"time"
+
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
 
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
@@ -18,8 +19,8 @@ type rainsdConfig struct {
 	RootZonePublicKeyPath string
 
 	//switchboard
-	ServerAddress      net.Addr
-	PublisherAddress   net.Addr
+	ServerAddress      connection.Info
+	PublisherAddress   connection.Info
 	MaxConnections     int
 	KeepAlivePeriod    time.Duration //in seconds
 	TCPTimeout         time.Duration //in seconds
