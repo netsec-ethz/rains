@@ -10,6 +10,20 @@ case of congestion.
 
 ### Switchboard
 
+The switchboard is responsible for handling all network connections. It is capable to listen on all
+supported transport protocols and send RAINS messages on top of them. Currently, the switchboard
+supports TLS-over-TCP, scion-UDP, and go channels as a transport. 
+
+The switchboard acts on the following event as follows:
+- Connection request from another server/client: If the source of the request is not blacklisted,
+  the connection is accepted and a new go routine is created which listens for incoming messages.
+- Incoming message on a connection: The cbor encoded message is decoded into a message object and
+  passed to the inbox module.
+- Send request to a network addr: If there is not an active connection with the destination, a new
+  connection is opened. Then the message is cbor encoded and sent to the destination. If an error
+  occurs, it retries the send the message for the specified amount of times. 
+- Request for a recursive lookup: The message is forwarded to the configured recursive resolver.
+
 ### Inbox
 
 ### Verify
