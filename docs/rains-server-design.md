@@ -26,6 +26,16 @@ The switchboard acts on the following event as follows:
 
 ### Inbox
 
+The inbox is responsible for handling capabilities, prioritizing messages, and queuing the incoming
+messages or assigning them to workers. The inbox first processes capabilities and takes appropriate
+actions. It then splits the messages content into three groups - Notifications, Queries, and
+Assertions - which are handled separately. Assertions which are an answer to a delegation query
+issued by this server are handled with priority. All three groups are put onto dedicated queues from
+which the worker go routines start processing the different parts of the incoming messages. All
+queries of a message are processed together. Also all Assertions of a message are processed
+together. If a client wants several queries to be processed separately, he must send each query in a
+separate message. 
+
 ### Verify
 
 ### Engine
