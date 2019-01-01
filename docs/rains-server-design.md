@@ -27,16 +27,39 @@ The switchboard acts on the following event as follows:
 ### Inbox
 
 The inbox is responsible for handling capabilities, prioritizing messages, and queuing the incoming
-messages or assigning them to workers. The inbox first processes capabilities and takes appropriate
-actions. It then splits the messages content into three groups - Notifications, Queries, and
-Assertions - which are handled separately. Assertions which are an answer to a delegation query
-issued by this server are handled with priority. All three groups are put onto dedicated queues from
-which the worker go routines start processing the different parts of the incoming messages. All
-queries of a message are processed together. Also all Assertions of a message are processed
+messages or assigning them to workers. 
+
+The inbox first processes capabilities and takes appropriate actions. It then splits the messages
+content into three groups - Notifications, Queries, and Assertions - which are handled separately.
+Assertions which are an answer to a delegation query issued by this server are handled with
+priority. All three groups are put onto dedicated queues from which the worker go routines start
+processing the different parts of the incoming messages. 
+
+All queries of a message are processed together. Also all Assertions of a message are processed
 together. If a client wants several queries to be processed separately, he must send each query in a
-separate message. 
+separate message.
+
+A worker go routine first checks the validity of the queries or assertions (implemented in the
+Verify module) and if all of them are valid handles them in the query or assertion engine
+(implemented in the Engine module). It then retrieves new queries or assertions from the queue and
+restarts this process. 
 
 ### Verify
+
+The Verify module checks Queries and Assertions for their validity. 
+
+If any of the queries that are processed together has an invalid context, all of them are dropped
+and a notification message is sent back to the sender. Expired queries are ignored. 
+
+Assertions are handled differently depending on the type of the server - authoritative or caching
+resolver. Assertions sent not as a response to a query issued by the authoritative server are
+dropped by the authoritative server if the server has not authority over that name. Otherwise, all
+signatures on all assertions are checked. If any of the unexpired signatures is invalid or any
+context is invalid or any contained assertions' zone is invalid, all assertions are dropped and
+processing stops. If a signature is expired it is removed and processing continues if there is at
+least one unexpired signature per Assertion.
+
+In case a public key is missing to verify a signature, TODO
 
 ### Engine
 
