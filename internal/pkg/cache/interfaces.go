@@ -29,6 +29,8 @@ type Connection interface {
 	GetCapabilityList(dstAddr net.Addr) ([]message.Capability, bool)
 	//CloseAndRemoveConnection closes conn and removes it from the cache.
 	CloseAndRemoveConnection(conn net.Conn)
+	//CloseAndRemoveConnections closes and removes all cached connections to addr
+	CloseAndRemoveConnections(addr net.Addr)
 	//Len returns the number of connections currently in the cache.
 	Len() int
 }
