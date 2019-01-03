@@ -65,6 +65,8 @@ type ZonePublicKey interface {
 		keys.PublicKey, *section.Assertion, bool)
 	//RemoveExpiredKeys deletes all expired public keys from the cache.
 	RemoveExpiredKeys()
+	//Checkpoint returns all cached assertions
+	Checkpoint() []*section.Assertion
 	//Len returns the number of public keys currently in the cache.
 	Len() int
 }
