@@ -2,7 +2,9 @@ package cache
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeCounter"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeHashMap"
@@ -112,5 +114,42 @@ func TestAssertionCache(t *testing.T) {
 			t.Errorf("%d:Was not able to remove correct expired elements from cache.", i)
 		}
 
+	}
+}
+
+func TestAssertionCheckpoint(t *testing.T) {
+	var tests = []struct {
+		input Assertion
+	}{
+		{
+			&AssertionImpl{
+				cache:                  lruCache.New(),
+				counter:                safeCounter.New(4),
+				zoneMap:                safeHashMap.New(),
+				entriesPerAssertionMap: make(map[string]int),
+			},
+		},
+	}
+	for i, test := range tests {
+		delegationsCH := getExampleDelgations("ch")
+		delegationsORG := getExampleDelgations("org")
+		c := test.input
+		if c.Len() != 0 {
+			t.Errorf("%d:init size is incorrect actual=%d", i, c.Len())
+		}
+		//Add delegationAssertions
+		c.Add(delegationsCH[0], time.Now().Add(time.Hour).Unix(), false)
+		c.Add(delegationsORG[0], time.Now().Add(time.Hour).Unix(), false)
+		//Test Checkpointing
+		assertions := c.Checkpoint()
+		if len(assertions) != 2 {
+			t.Errorf("Number of assertions is wrong")
+		}
+		if !reflect.DeepEqual(assertions[0], delegationsCH[0]) && !reflect.DeepEqual(assertions[1], delegationsCH[0]) {
+			t.Errorf("ch assertion not checkpointed")
+		}
+		if !reflect.DeepEqual(assertions[0], delegationsORG[0]) && !reflect.DeepEqual(assertions[1], delegationsORG[0]) {
+			t.Errorf("org assertion not checkpointed")
+		}
 	}
 }

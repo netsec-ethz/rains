@@ -1,7 +1,9 @@
 package cache
 
 import (
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeCounter"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeHashMap"
@@ -78,7 +80,6 @@ func TestNegAssertionCache(t *testing.T) {
 		if c.Len() != 0 {
 			t.Errorf("%d:Was not able to remove elements of zone '.' from cache.", i)
 		}
-
 		//Test RemoveExpired from internal and external elements
 		c.AddZone(zones[2], zones[2].ValidUntil(), true)
 		c.AddShard(shards[4], shards[4].ValidUntil(), false)
@@ -86,8 +87,45 @@ func TestNegAssertionCache(t *testing.T) {
 		c.RemoveExpiredValues()
 		s, ok = c.Get(shards[0].SubjectZone, shards[0].Context, section.TotalInterval{})
 		if c.Len() != 1 || s[0] != shards[0] {
-			t.Errorf("%d:Was not able to remove correct expired elements from cache.", i)
+			t.Errorf("%d:Was not able to remove correct expired elements from cache. len=%d", i, c.Len())
 		}
 
+	}
+}
+
+func TestNegAssertionCheckpoint(t *testing.T) {
+	var tests = []struct {
+		input Assertion
+	}{
+		{
+			&AssertionImpl{
+				cache:                  lruCache.New(),
+				counter:                safeCounter.New(4),
+				zoneMap:                safeHashMap.New(),
+				entriesPerAssertionMap: make(map[string]int),
+			},
+		},
+	}
+	for i, test := range tests {
+		delegationsCH := getExampleDelgations("ch")
+		delegationsORG := getExampleDelgations("org")
+		c := test.input
+		if c.Len() != 0 {
+			t.Errorf("%d:init size is incorrect actual=%d", i, c.Len())
+		}
+		//Add delegationAssertions
+		c.Add(delegationsCH[0], time.Now().Add(time.Hour).Unix(), false)
+		c.Add(delegationsORG[0], time.Now().Add(time.Hour).Unix(), false)
+		//Test Checkpointing
+		assertions := c.Checkpoint()
+		if len(assertions) != 2 {
+			t.Errorf("Number of assertions is wrong")
+		}
+		if !reflect.DeepEqual(assertions[0], delegationsCH[0]) && !reflect.DeepEqual(assertions[1], delegationsCH[0]) {
+			t.Errorf("ch assertion not checkpointed")
+		}
+		if !reflect.DeepEqual(assertions[0], delegationsORG[0]) && !reflect.DeepEqual(assertions[1], delegationsORG[0]) {
+			t.Errorf("org assertion not checkpointed")
+		}
 	}
 }
