@@ -59,7 +59,12 @@ context is invalid or any contained assertions' zone is invalid, all assertions 
 processing stops. If a signature is expired it is removed and processing continues if there is at
 least one unexpired signature per Assertion.
 
-In case a public key is missing to verify a signature, TODO
+In case a public key is missing to verify any of the signatures on any of the Assertions contained
+in a message, one new messages is generated containing queries for all missing keys. This message is
+then sent back to the server from which the message with the missing keys originated except when the
+message was received from the zonePublisher. In that case the message is forwarded to the configured
+recursive resolver. In the mean time, the Assertions are added to the pending key cache such that
+this go routine can work on a different message.
 
 ### Engine
 
