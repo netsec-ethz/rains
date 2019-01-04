@@ -49,15 +49,16 @@ restarts this process.
 The Verify module checks Queries and Assertions for their validity. 
 
 If any of the queries that are processed together has an invalid context, all of them are dropped
-and a notification message is sent back to the sender. Expired queries are ignored. 
+and a notification message is sent back to the sender. Expired queries are ignored. All remaining
+queries are forwarded to the query engine.
 
 Assertions are handled differently depending on the type of the server - authoritative or caching
 resolver. Assertions sent not as a response to a query issued by the authoritative server are
 dropped by the authoritative server if the server has not authority over that name. Otherwise, all
 signatures on all assertions are checked. If any of the unexpired signatures is invalid or any
 context is invalid or any contained assertions' zone is invalid, all assertions are dropped and
-processing stops. If a signature is expired it is removed and processing continues if there is at
-least one unexpired signature per Assertion.
+processing stops. If a signature is expired it is removed. If there is at least one unexpired
+signature per Assertion, processing continues by forwarding the assertions to the assertion engine. 
 
 In case a public key is missing to verify any of the signatures on any of the Assertions contained
 in a message, one new messages is generated containing queries for all missing keys. This message is
@@ -67,6 +68,26 @@ recursive resolver. In the mean time, the Assertions are added to the pending ke
 this go routine can work on a different message.
 
 ### Engine
+
+The Engine module is divided into query engine and assertion engine. They are performing the
+final processing of queries and assertions.
+
+The query engine first checks if there is a cached Assertion answering the query. If there is a
+cache hit in the assertion cache, the cached assertions are directly returned and processing stops.
+Otherwise, a lookup in the negative Assertion cache is performed and on a cache hit, the shard or
+zone is returned and processing stops. In case of two cache misses, the queries are duplicated. One
+of them is added to the pending query cache, while the other's Tocken is changed and forwarded to
+the configured recursive resolver.
+
+The assertion engine first checks if all Assertions are consistent. If not, all Assertion of the
+same zone are removed from the cache and processing stops. Otherwise, it decides if an Assertion
+will be cached and if so adds it to the assertion, negative assertion and/or zone key cache. It then
+checks if the message that contained these Assertions was sent in response to a delegation query. If
+so, the Assertions waiting for these public keys are loaded from the pending key cache and put on
+the normal queue in the inbox module. The assertion engine then checks if the message that contained
+these Assertions was sent as the final answer to a recursive lookup. If so, the servers from which
+these queries originated are loaded from the pending query cache and the message is sent back
+to all of these servers.
 
 ## Recursive Resolver
 
