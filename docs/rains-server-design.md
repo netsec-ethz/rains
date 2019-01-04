@@ -189,9 +189,13 @@ itself and is handled separate from the query and assertions processing path.
 
 ## Authoritative Server vs. Caching Resolver
 
-## Processing a Query
+An authoritative server caches all information about one or several zones. It is responsible to
+reliably share its zone's/zones' information with the rest of the world. An authoritative server is
+maintained by the authority over one or several zones. An authoritative server only answers queries
+about a zone it has authority over with an Assertion and queries about a delegated subzone with glue
+records (delegation, redirection, service, and ip4/ip6/scionAddr).
 
-## Processing an Assertion
-
-## Concurrency 
-
+A caching resolver is a RAINS server which handles queries on behalf of several clients. By caching
+answers to queries, it reduces query response time for subsequent queries about the same name/zone
+and type. It may also proactively fetch the top n assertions shortly before they expire to improve
+query response time.
