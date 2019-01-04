@@ -116,17 +116,56 @@ the configured root servers, processing stops and an error is returned.
 
 ## Caches
 
+A RAINS server stores relevant information in the following caches. This subsection describes how
+this caches are currently implemented. A description of the information they must provide is given
+in the interface description (package cache, interfaces.go). All caches must be safe for concurrent
+usage.
+
 ### Assertion Cache
+
+The assertion cache can hold a configurable amount of assertions. When this limit is reached, the
+least recently used assertion will be evicted from the cache. Assertions over which a server has
+authority are exempt from this procedure and are only evicted once they have expired.
 
 ### Zone Key Cache
 
+The zone key cache can hold a configurable amount of delegation assertions. When this limit is
+reached, the least recently used delegation assertion will be evicted from the cache. After the
+number of entries in the cache exceeds a configurable amount a warning is logged for each newly
+added entry. A warning is logged as well when the amount of delegation assertions for a zone exceeds
+a configurable amount.
+
 ### Negative Assertion Cache
 
-### Connection/Capability Cache
+The negative assertion cache can hold a configurable amount of shards and zones (Maybe change this
+to the total size of the shards/zones instead of amount as their size can vary greatly!). When this
+limit is reached, the least recently used shard or zone will be evicted from the cache. Shards and
+zones over which a server has authority are exempt from this procedure and are only evicted once
+they have expired.
+
+### Connection
+
+The connection cache can hold a configurable amount of connections. When this limit is reached, the
+connections of the least recently used network address will be evicted from the cache. The server
+can add to each cached network address which capabilities it supports. Note that capabilities are
+stored per network address and not per connection.
+
+### Capability Cache
+
+The capability cache stores a mapping from a capability list hash to the capability list. This cache
+is not bounded in the current implementation.
 
 ### Pending Query Cache
 
+The pending query cache can hold a configurable amount of messages. When this limit is reached, an
+error is logged and each newly added message will be dropped until an entry is removed from the
+cache.
+
 ### Pending Key Cache
+
+The pending key cache can hold a configurable amount of messages. When this limit is reached, an
+error is logged and each newly added message will be dropped until an entry is removed from the
+cache.
 
 ## Queues
 
