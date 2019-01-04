@@ -167,13 +167,25 @@ The pending key cache can hold a configurable amount of messages. When this limi
 error is logged and each newly added message will be dropped until an entry is removed from the
 cache.
 
-## Queues
+## Queues 
+
+A RAINS server has three different queues to temporarily store data during times of high congestion.
+All received messages are placed into one of the three queues but are processed right away under
+normal load.
 
 ### Normal Queue
 
+The normal queue is the default queue.
+
 ### Priority Queue
 
+The priority queue is intended for answers to delegation queries issued by this server. This allows
+faster processing of delegation assertions and thus, reduces query response time.
+
 ### Notification Queue
+
+The notification queue is intended for messages containing information about the RAINS protocol
+itself and is handled separate from the query and assertions processing path.
 
 ## Authoritative Server vs. Caching Resolver
 
