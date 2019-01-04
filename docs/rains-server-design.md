@@ -89,9 +89,30 @@ these Assertions was sent as the final answer to a recursive lookup. If so, the 
 these queries originated are loaded from the pending query cache and the message is sent back
 to all of these servers.
 
-## Recursive Resolver
+## Libresolve
 
-### Recursive Lookup
+This package implements a stub resolver for a client. It can either be a forwarder or a recursive
+resolver.
+
+### Forwarder
+
+The forwarder simple forwards the received queries to all specified forwarders
+
+### Recursive Resolver
+
+The recursive resolver performs recursive lookups for a client or a server. It supports two modes,
+blocking and non-blocking. In the non-blocking mode a network address must be specified where the
+answer will be sent to. The recursive resolver caches delegation Assertions and keeps connection
+open as an optimization. Delegation queries are answered directly from the delegation cache if
+possible. Otherwise, and for all non-delegation queries a recursive lookup is started.
+
+In a recursive lookup, the queries are forwarded to one of the configured root servers. When an
+answer is received, the resolver checks if the response directly answers the query. In this case,
+the response is returned. Otherwise, it checks if the response is a valid redirect. If so, the
+queries are forwarded to the last server specified in the chain of redirects (in most cases there is
+just one redirect). Otherwise, the answer is unrelated to the query and the resolver restarts the
+recursive lookup at a different root server. If it does not get a valid response starting at any of
+the configured root servers, processing stops and an error is returned.
 
 ## Caches
 
