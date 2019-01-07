@@ -144,7 +144,6 @@ func TestSignNotification(t *testing.T) {
 
 /*
 func TestCheckSectionSignaturesErrors(t *testing.T) {
-	log.Root().SetHandler(log.DiscardHandler())
 	maxVal := util.MaxCacheValidity{AddressAssertionValidity: time.Hour}
 	keys0 := make(map[keys.PublicKeyID][]keys.PublicKey)
 	keys1 := make(map[keys.PublicKeyID][]keys.PublicKey)
@@ -169,6 +168,7 @@ func TestCheckSectionSignaturesErrors(t *testing.T) {
 		}
 	}
 }
+
 
 
 func TestCheckMessageSignaturesErrors(t *testing.T) {
