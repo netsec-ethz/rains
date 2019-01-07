@@ -1,4 +1,4 @@
-package data
+package section
 
 import (
 	"time"
@@ -10,9 +10,7 @@ import (
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
-	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 
 	"golang.org/x/crypto/ed25519"
@@ -34,8 +32,8 @@ const (
 	globalContext     = "."
 )
 
-//GetMessage returns a messages containing all section. The assertion contains an instance of every objectTypes
-func GetMessage() message.Message {
+//GetMessage returns a messages containing all  The assertion contains an instance of every objectTypes
+/*func GetMessage() message.Message {
 	sig := signature.Sig{
 		PublicKeyID: keys.PublicKeyID{
 			KeySpace:  keys.RainsKeySpace,
@@ -45,7 +43,7 @@ func GetMessage() message.Message {
 		ValidUntil: 2000,
 		Data:       []byte("SignatureData")}
 
-	assertion := &section.Assertion{
+	assertion := &Assertion{
 		Content:     AllObjects(),
 		Context:     globalContext,
 		SubjectName: testSubjectName,
@@ -53,8 +51,8 @@ func GetMessage() message.Message {
 		Signatures:  []signature.Sig{sig},
 	}
 
-	shard := &section.Shard{
-		Content:     []*section.Assertion{assertion},
+	shard := &Shard{
+		Content:     []*Assertion{assertion},
 		Context:     globalContext,
 		SubjectZone: testSubjectName,
 		RangeFrom:   "aaa",
@@ -62,8 +60,8 @@ func GetMessage() message.Message {
 		Signatures:  []signature.Sig{sig},
 	}
 
-	zone := &section.Zone{
-		Content:     []*section.Assertion{assertion},
+	zone := &Zone{
+		Content:     []*Assertion{assertion},
 		Context:     globalContext,
 		SubjectZone: testSubjectName,
 		Signatures:  []signature.Sig{sig},
@@ -77,14 +75,14 @@ func GetMessage() message.Message {
 		Types:      []object.Type{object.OTIP4Addr},
 	}
 
-	notification := &section.Notification{
+	notification := &Notification{
 		Token: token.New(),
-		Type:  section.NTNoAssertionsExist,
+		Type:  NTNoAssertionsExist,
 		Data:  "Notification information",
 	}
 
 	message := message.Message{
-		Content: []section.Section{
+		Content: []Section{
 			assertion,
 			shard,
 			zone,
@@ -96,33 +94,22 @@ func GetMessage() message.Message {
 		Signatures:   []signature.Sig{sig},
 	}
 	return message
-}
+}*/
 
-//Zone returns an zone containing a shard, assertion with all object types and a pshard. The zone is valid.
-func Zone() *section.Zone {
-	return &section.Zone{
+//GetZone returns an zone containing a shard, assertion with all object types and a pshard. The zone is valid.
+func GetZone() *Zone {
+	return &Zone{
 		//FIXME CFE add pshard
-		Content:     []*section.Assertion{Assertion()},
+		Content:     []*Assertion{GetAssertion()},
 		Context:     globalContext,
 		SubjectZone: testDomain,
 	}
 }
 
-//Shard returns a shard containing an assertion with all object types that is valid.
-func Shard() *section.Shard {
-	return &section.Shard{
-		Content:     []*section.Assertion{Assertion()},
-		Context:     globalContext,
-		SubjectZone: testDomain,
-		RangeFrom:   "aaa",
-		RangeTo:     "zzz",
-	}
-}
-
-//Pshard returns a shard containing an assertion with all object types that is valid.
-func Pshard() *section.Pshard {
-	return &section.Pshard{
-		BloomFilter: BloomFilter(),
+//GetShard returns a shard containing an assertion with all object types that is valid.
+func GetShard() *Shard {
+	return &Shard{
+		Content:     []*Assertion{GetAssertion()},
 		Context:     globalContext,
 		SubjectZone: testDomain,
 		RangeFrom:   "aaa",
@@ -130,9 +117,20 @@ func Pshard() *section.Pshard {
 	}
 }
 
-//Assertion returns an assertion containing all objects types that is valid.
-func Assertion() *section.Assertion {
-	return &section.Assertion{
+//GetPshard returns a shard containing an assertion with all object types that is valid.
+func GetPshard() *Pshard {
+	return &Pshard{
+		BloomFilter: GetBloomFilter(),
+		Context:     globalContext,
+		SubjectZone: testDomain,
+		RangeFrom:   "aaa",
+		RangeTo:     "zzz",
+	}
+}
+
+//GetAssertion returns an assertion containing all objects types that is valid.
+func GetAssertion() *Assertion {
+	return &Assertion{
 		Content:     AllObjects(),
 		Context:     globalContext,
 		SubjectName: testSubjectName,
@@ -203,9 +201,9 @@ func PublicKey() keys.PublicKey {
 }
 
 //Datastructure returns a datastructure object with valid content
-func BloomFilter() section.BloomFilter {
-	return section.BloomFilter{
-		Algorithm: section.BloomKM12,
+func GetBloomFilter() BloomFilter {
+	return BloomFilter{
+		Algorithm: BloomKM12,
 		Hash:      algorithmTypes.Shake256,
 		Filter:    make(bitarray.BitArray, 32),
 	}
@@ -233,24 +231,24 @@ func AllAllowedNetworkObjects() []object.Object {
 }
 
 //Notification returns a notification with all fields set
-func Notification() *section.Notification {
-	return &section.Notification{
+func GetNotification() *Notification {
+	return &Notification{
 		Token: token.New(),
-		Type:  section.NTNoAssertionsExist,
+		Type:  NTNoAssertionsExist,
 		Data:  "Notification information",
 	}
 }
 
 //NotificationNoData returns a notification with all fields set except data.
-func NotificationNoData() *section.Notification {
-	return &section.Notification{
+func NotificationNoData() *Notification {
+	return &Notification{
 		Token: token.New(),
-		Type:  section.NTNoAssertionsExist,
+		Type:  NTNoAssertionsExist,
 	}
 }
 
-//Query returns a query with all query options set and querying all types.
-func Query() *query.Name {
+//GetQuery returns a query with all query options set and querying all types.
+func GetQuery() *query.Name {
 	return &query.Name{
 		Context:    globalContext,
 		Expiration: 50000,
