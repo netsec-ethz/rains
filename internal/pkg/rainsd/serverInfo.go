@@ -27,6 +27,10 @@ type rainsdConfig struct {
 	TLSCertificateFile string
 	TLSPrivateKeyFile  string
 
+	// SCION specific settings
+	DispatcherSock string
+	SciondSock     string
+
 	//inbox
 	MaxMsgByteLength        uint
 	PrioBufferSize          uint
