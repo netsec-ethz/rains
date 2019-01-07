@@ -19,15 +19,3 @@ func TestNotificationCompareTo(t *testing.T) {
 		CheckNotification(n, shuffled[i].(*Notification), t)
 	}
 }
-
-func CheckNotification(n1, n2 *Notification, t *testing.T) {
-	if n1.Type != n2.Type {
-		t.Error("Notification Type mismatch")
-	}
-	if n1.Token != n2.Token {
-		t.Error("Notification Token mismatch")
-	}
-	if n1.Data != n2.Data {
-		t.Error("Notification Data mismatch")
-	}
-}

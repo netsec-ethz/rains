@@ -1,19 +1,13 @@
-package util
+package message
 
 import (
-	"net"
 	"testing"
 
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
-
-	"github.com/netsec-ethz/rains/internal/pkg/message"
 )
 
-//CFE To compare recursively if two structs contain the same elements one can use reflect.DeepEqual(x,y interface{}) bool.
-//Unfortunately the function does not return which element(s) are not equal. We want this in a test scenario.
-
-func CheckMessage(m1, m2 message.Message, t *testing.T) {
+func CheckMessage(m1, m2 Message, t *testing.T) {
 	if m1.Token != m2.Token {
 		t.Error("Token mismatch")
 	}
@@ -51,36 +45,18 @@ func CheckMessage(m1, m2 message.Message, t *testing.T) {
 			t.Errorf("Types at position %d of Content slice are different", i)
 		case *query.Name:
 			if s2, ok := m2.Content[i].(*query.Name); ok {
-				CheckQuery(s1, s2, t)
+				query.CheckQuery(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
 		case *section.Notification:
 			if s2, ok := m2.Content[i].(*section.Notification); ok {
-				CheckNotification(s1, s2, t)
+				section.CheckNotification(s1, s2, t)
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
 		default:
 			t.Errorf("Unsupported section type: %T", s1)
 		}
-	}
-}
-
-func CheckNotification(n1, n2 *section.Notification, t *testing.T) {
-	if n1.Type != n2.Type {
-		t.Error("Notification Type mismatch")
-	}
-	if n1.Token != n2.Token {
-		t.Error("Notification Token mismatch")
-	}
-	if n1.Data != n2.Data {
-		t.Error("Notification Data mismatch")
-	}
-}
-
-func CheckSubjectAddress(a1, a2 *net.IPNet, t *testing.T) {
-	if a1.String() != a2.String() {
-		t.Error("SubjectAddr mismatch")
 	}
 }

@@ -70,34 +70,6 @@ func shuffleQueries(queries []*Name) {
 	}
 }
 
-func CheckQuery(q1, q2 *Name, t *testing.T) {
-	if q1.Context != q2.Context {
-		t.Error("Query context mismatch")
-	}
-	if q1.Expiration != q2.Expiration {
-		t.Error("Query Expires mismatch")
-	}
-	if q1.Name != q2.Name {
-		t.Error("Query Name mismatch")
-	}
-	if len(q1.Types) != len(q2.Types) {
-		t.Error("Query Type length mismatch")
-	}
-	for i, o1 := range q1.Types {
-		if o1 != q2.Types[i] {
-			t.Errorf("Query Type at position %d mismatch", i)
-		}
-	}
-	if len(q1.Options) != len(q2.Options) {
-		t.Error("Query Option length mismatch")
-	}
-	for i, o1 := range q1.Options {
-		if o1 != q2.Options[i] {
-			t.Errorf("Query Option at position %d mismatch", i)
-		}
-	}
-}
-
 func sortedQueries(nof int) []*Name {
 	queries := []*Name{}
 	for i := 0; i < nof; i++ {
