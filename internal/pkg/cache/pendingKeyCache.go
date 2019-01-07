@@ -34,10 +34,11 @@ func NewPendingKey(maxSize int) *PendingKeyImpl {
 //Add adds ss to the cache together with the token and expiration time of the query sent to the
 //host with the addr defined in ss.
 func (c *PendingKeyImpl) Add(ss util.MsgSectionSender, t token.Token, expiration int64) {
-	c.counter.Inc()
 	if c.counter.IsFull() {
 		log.Error("Pending key cache is full")
+		return
 	}
+	c.counter.Inc()
 	if ok := c.tokenMap.Add(t.String(), pkcValue{mss: ss, expiration: expiration}); !ok {
 		log.Warn("Token already in key cache. Random source of Token generator no random enough?")
 	}

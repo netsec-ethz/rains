@@ -67,10 +67,11 @@ func (c *PendingQueryImpl) Add(ss util.MsgSectionSender, t token.Token, expirati
 	c.tmux.Lock()
 	defer c.tmux.Unlock()
 
-	c.counter.Inc()
 	if c.counter.IsFull() {
 		log.Error("Pending query cache is full")
+		return false
 	}
+	c.counter.Inc()
 	qmKey := pqcKey(ss.Sections)
 	if t, present := c.queryMap[qmKey]; present && c.tokenMap[t].expiration > time.Now().Unix() {
 		c.qmux.Unlock()
