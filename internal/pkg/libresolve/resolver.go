@@ -161,7 +161,7 @@ func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
 				if err != nil {
 					return nil, err
 				}
-				if err := updateConnInfo(answer, redirTarget, srvMap, ipMap, addr); err != nil {
+				if addr, err = updateConnInfo(answer, redirTarget, srvMap, ipMap); err != nil {
 					return nil, err
 				}
 			} else {
@@ -206,23 +206,23 @@ func followRedirect(redirMap map[string]string, msg message.Message, name string
 	return redirTarget, nil
 }
 
-//updateConnInfo changes connInfo to match the next hop in the recursive lookup. If not sufficient
-//information is available, an error is returned
+//updateConnInfo returns the network address of the next hop in the recursive lookup. If not
+//sufficient information is available, an error is returned
 func updateConnInfo(msg message.Message, redirTarget string, srvMap map[string]object.ServiceInfo,
-	ipMap map[string]string, addr net.Addr) (err error) {
+	ipMap map[string]string) (addr net.Addr, err error) {
 	if srvInfo, ok := srvMap[redirTarget]; ok {
 		if ipAddr, ok := ipMap[srvInfo.Name]; ok {
 			addr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", ipAddr, srvInfo.Port))
 			if err != nil {
-				return fmt.Errorf("received IP address or port is malformed: %v", msg)
+				return nil, fmt.Errorf("received IP address or port is malformed: %v", msg)
 			}
 		} else {
-			return fmt.Errorf(
+			return nil, fmt.Errorf(
 				"serviceInfo target could not be found in response, target: %q, response: %v",
 				srvInfo.Name, msg)
 		}
 	} else {
-		return fmt.Errorf(
+		return nil, fmt.Errorf(
 			"received incomplete response, missing serviceInfo for target FQDN %q, response: %v",
 			redirTarget, msg)
 	}

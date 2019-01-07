@@ -97,7 +97,7 @@ func New(configPath string, id string) (server *Server, err error) {
 
 //Addr returns the server's address
 func (s *Server) Addr() net.Addr {
-	return s.config.ServerAddress
+	return s.config.ServerAddress.Addr
 }
 
 //SetRecursiveResolver adds a channel which handles recursive lookups for this server

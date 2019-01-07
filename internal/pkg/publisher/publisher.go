@@ -7,6 +7,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
+
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
@@ -455,11 +457,11 @@ func (r *Rainspub) publishZone(zoneContent []section.Section, config Config) {
 //publishSections establishes connections to all authoritative servers according to the r.Config. It
 //then sends sections to all of them. It returns the connection information of those servers it was
 //not able to push sections, otherwise nil is returned.
-func publishSections(msg message.Message, authServers []net.Addr) []net.Addr {
+func publishSections(msg message.Message, authServers []connection.Info) []net.Addr {
 	var errorConns []net.Addr
 	results := make(chan net.Addr, len(authServers))
-	for _, addr := range authServers {
-		go connectAndSendMsg(msg, addr, results)
+	for _, info := range authServers {
+		go connectAndSendMsg(msg, info.Addr, results)
 	}
 	for i := 0; i < len(authServers); i++ {
 		if errorConn := <-results; errorConn != nil {

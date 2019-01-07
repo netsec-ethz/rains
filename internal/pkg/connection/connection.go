@@ -2,15 +2,72 @@ package connection
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
+	"reflect"
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
+)
+
+//Info contains address information about one actor of a connection of the declared type
+type Info struct {
+	Type Type
+	Addr net.Addr
+}
+
+func (c *Info) UnmarshalJSON(data []byte) error {
+	var err error
+	c.Type, c.Addr, err = UnmarshalNetAddr(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func UnmarshalNetAddr(data []byte) (Type, net.Addr, error) {
+	m := map[string]interface{}{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return -1, nil, err
+	}
+	var t Type
+	var value interface{}
+	switch m["Type"].(string) {
+	case "TCP":
+		value = reflect.New(reflect.TypeOf(net.TCPAddr{})).Interface()
+		t = TCP
+	case "Chan":
+		value = reflect.New(reflect.TypeOf(ChannelAddr{})).Interface()
+		t = TCP
+	default:
+		return -1, nil, errors.New("Unknown Addr type")
+	}
+
+	addrData, err := json.Marshal(m["Addr"])
+	if err != nil {
+		return -1, nil, err
+	}
+	if err = json.Unmarshal(addrData, &value); err != nil {
+		return -1, nil, err
+	}
+
+	return t, value.(net.Addr), nil
+}
+
+//Type enumerates connection types
+type Type int
+
+//run 'go generate' in this directory if a new networkAddrType is added [source https://github.com/campoy/jsonenums]
+//go:generate jsonenums -type=Type
+//go:generate stringer -type=Type
+const (
+	Chan Type = iota
+	TCP
 )
 
 type Message struct {

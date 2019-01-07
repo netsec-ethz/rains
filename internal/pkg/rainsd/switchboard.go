@@ -73,7 +73,7 @@ func (s *Server) sendToRecursiveResolver(msg message.Message) {
 	if s.resolver != nil {
 		for _, sec := range msg.Content {
 			if q, ok := sec.(*query.Name); ok {
-				go s.resolver.ServerLookup(q, s.config.ServerAddress, msg.Token)
+				go s.resolver.ServerLookup(q, s.config.ServerAddress.Addr, msg.Token)
 			}
 		}
 	} else {
@@ -105,15 +105,15 @@ func createConnection(receiver net.Addr, keepAlive time.Duration, pool *x509.Cer
 
 //Listen listens for incoming connections and creates a go routine for each connection.
 func (s *Server) listen() {
-	srvLogger := log.New("addr", s.config.ServerAddress.String())
+	srvLogger := log.New("addr", s.config.ServerAddress.Addr.String())
 	//always listen on channel
 	go s.handleChannel()
-	switch s.config.ServerAddress.(type) {
-	case *net.TCPAddr:
+	switch s.config.ServerAddress.Type {
+	case connection.TCP:
 		srvLogger.Info("Start TCP listener")
 		tlsConfig := &tls.Config{Certificates: []tls.Certificate{s.tlsCert}, InsecureSkipVerify: true}
-		listener, err := tls.Listen(s.config.ServerAddress.Network(),
-			s.config.ServerAddress.String(), tlsConfig)
+		listener, err := tls.Listen(s.config.ServerAddress.Addr.Network(),
+			s.config.ServerAddress.Addr.String(), tlsConfig)
 		if err != nil {
 			srvLogger.Error("Listener error on startup", "error", err)
 			return
