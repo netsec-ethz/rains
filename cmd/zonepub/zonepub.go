@@ -9,10 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
+
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
@@ -240,7 +241,7 @@ func (i *addressesFlag) Set(value string) error {
 	i.set = true
 	for _, addr := range addresses {
 		if tcpAddr, err := net.ResolveTCPAddr("tcp", addr); err == nil {
-			i.value = append(i.value, connection.Info{Type: connection.TCP, TCPAddr: tcpAddr})
+			i.value = append(i.value, connection.Info{Type: connection.TCP, Addr: tcpAddr})
 		} else {
 			return err
 		}

@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"time"
 
@@ -36,20 +37,20 @@ type MaxCacheValidity struct {
 
 //MsgSectionSender contains the message section section and connection infos about the sender
 type MsgSectionSender struct {
-	Sender   connection.Info
+	Sender   net.Addr
 	Sections []section.Section
 	Token    token.Token
 }
 
 //util.SectionWithSigSender contains a section with a signature and connection infos about the sender
 type SectionWithSigSender struct {
-	Sender   connection.Info
+	Sender   net.Addr
 	Sections []section.WithSigForward
 	Token    token.Token
 }
 
 func (s *SectionWithSigSender) Hash() string {
-	return fmt.Sprintf("%s_%v_%v", s.Sender.Hash(), s.Sections, s.Token)
+	return fmt.Sprintf("%s_%s_%v_%v", s.Sender.Network(), s.Sender.String(), s.Sections, s.Token)
 }
 
 //Save stores the object to the file located at the specified path gob encoded.
@@ -154,9 +155,9 @@ func NewNotificationMessage(tok token.Token, t section.NotificationType, data st
 //SendQuery creates a connection with connInfo, frames msg and writes it to the connection.
 //It then waits for the response. When it receives the response or times out, it returns the answer
 //or an error.
-func SendQuery(msg message.Message, connInfo connection.Info, timeout time.Duration) (
+func SendQuery(msg message.Message, addr net.Addr, timeout time.Duration) (
 	message.Message, error) {
-	conn, err := connection.CreateConnection(connInfo)
+	conn, err := connection.CreateConnection(addr)
 	if err != nil {
 		return message.Message{}, err
 	}

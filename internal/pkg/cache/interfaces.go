@@ -3,7 +3,6 @@ package cache
 import (
 	"net"
 
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -21,13 +20,13 @@ type Connection interface {
 	//AddCapability adds capabilities to the destAddr entry. It returns false if there is no entry
 	//in the cache for dstAddr. If there is already a capability list associated with destAddr, it
 	//will be overwritten.
-	AddCapabilityList(dstAddr connection.Info, capabilities []message.Capability) bool
+	AddCapabilityList(dstAddr net.Addr, capabilities []message.Capability) bool
 	//GetConnection returns true and all cached connections to dstAddr.
 	//GetConnection returns false if there is no cached connection to dstAddr.
-	GetConnection(dstAddr connection.Info) ([]net.Conn, bool)
+	GetConnection(dstAddr net.Addr) ([]net.Conn, bool)
 	//Get returns true and the capability list of dstAddr.
 	//Get returns false if there is no capability list of dstAddr.
-	GetCapabilityList(dstAddr connection.Info) ([]message.Capability, bool)
+	GetCapabilityList(dstAddr net.Addr) ([]message.Capability, bool)
 	//CloseAndRemoveConnection closes conn and removes it from the cache.
 	CloseAndRemoveConnection(conn net.Conn)
 	//Len returns the number of connections currently in the cache.
@@ -76,7 +75,7 @@ type ZonePublicKey interface {
 	//matching the given zone and cotext. Token is added to the map and the cache entry's token,
 	//expiration and sendTo fields are updated only if a matching cache entry exists. False is
 	//returned if no matching cache entry exists.
-	AddToken(token token.Token, expiration int64, sendTo connection.Info, zone, context string) bool
+	AddToken(token token.Token, expiration int64, sendTo net.Addr, zone, context string) bool
 	//GetAndRemove returns all sections who contain a signature matching the given parameter and
 	//deletes them from the cache. The token map is updated if necessary.
 	GetAndRemove(zone, context string, algoType algorithmTypes.Signature, phase int) []util.MsgSectionSender
@@ -116,7 +115,7 @@ type PendingKey interface {
 	//matching the given (fully qualified) name, context and connection (sorted). Token is added to the
 	//map and the cache entry's token, expiration and sendTo fields are updated only if a matching
 	//cache entry exists. False is returned if no matching cache entry exists.
-	AddToken(token token.Token, expiration int64, sendTo connection.Info, name, context string,
+	AddToken(token token.Token, expiration int64, sendTo net.Addr, name, context string,
 		types []object.Type) bool
 	//GetQuery returns true and the query or addressQuery stored with token in the cache if there is
 	//such an entry.

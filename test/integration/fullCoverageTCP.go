@@ -1,7 +1,8 @@
 package integration
 
 import (
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"net"
+
 	"github.com/netsec-ethz/rains/internal/pkg/libresolve"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
@@ -15,5 +16,5 @@ import (
 func AddCoverageInstrumentation() {
 	rainsd.New("", "")
 	publisher.New(publisher.Config{})
-	libresolve.New(nil, nil, libresolve.Recursive, connection.Info{})
+	libresolve.New(nil, nil, libresolve.Recursive, &net.TCPAddr{})
 }

@@ -3,12 +3,14 @@ package publisher
 import (
 	"errors"
 	"fmt"
+	"net"
 	"sort"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
+
 	log "github.com/inconshreveable/log15"
 
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
@@ -455,15 +457,15 @@ func (r *Rainspub) publishZone(zoneContent []section.Section, config Config) {
 //publishSections establishes connections to all authoritative servers according to the r.Config. It
 //then sends sections to all of them. It returns the connection information of those servers it was
 //not able to push sections, otherwise nil is returned.
-func publishSections(msg message.Message, authServers []connection.Info) []connection.Info {
-	var errorConns []connection.Info
-	results := make(chan *connection.Info, len(authServers))
-	for _, conn := range authServers {
-		go connectAndSendMsg(msg, conn, results)
+func publishSections(msg message.Message, authServers []connection.Info) []net.Addr {
+	var errorConns []net.Addr
+	results := make(chan net.Addr, len(authServers))
+	for _, info := range authServers {
+		go connectAndSendMsg(msg, info.Addr, results)
 	}
 	for i := 0; i < len(authServers); i++ {
 		if errorConn := <-results; errorConn != nil {
-			errorConns = append(errorConns, *errorConn)
+			errorConns = append(errorConns, errorConn)
 		}
 	}
 	return errorConns

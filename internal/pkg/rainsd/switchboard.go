@@ -22,7 +22,7 @@ import (
 )
 
 //sendTo sends message to the specified receiver.
-func (s *Server) sendTo(msg message.Message, receiver connection.Info, retries,
+func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 	backoffMilliSeconds int) (err error) {
 	conns, ok := s.caches.ConnCache.GetConnection(receiver)
 	if !ok {
@@ -36,7 +36,7 @@ func (s *Server) sendTo(msg message.Message, receiver connection.Info, retries,
 		s.caches.ConnCache.AddConnection(conn)
 		//handle connection
 		if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-			go s.handleConnection(conn, connection.Info{Type: connection.TCP, TCPAddr: tcpAddr})
+			go s.handleConnection(conn, tcpAddr)
 		} else {
 			log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 		}
@@ -73,7 +73,7 @@ func (s *Server) sendToRecursiveResolver(msg message.Message) {
 	if s.resolver != nil {
 		for _, sec := range msg.Content {
 			if q, ok := sec.(*query.Name); ok {
-				go s.resolver.ServerLookup(q, s.config.ServerAddress, msg.Token)
+				go s.resolver.ServerLookup(q, s.config.ServerAddress.Addr, msg.Token)
 			}
 		}
 	} else {
@@ -91,13 +91,13 @@ func (s *Server) sendToRecursiveResolver(msg message.Message) {
 }
 
 //createConnection establishes a connection with receiver
-func createConnection(receiver connection.Info, keepAlive time.Duration, pool *x509.CertPool) (net.Conn, error) {
-	switch receiver.Type {
-	case connection.TCP:
+func createConnection(receiver net.Addr, keepAlive time.Duration, pool *x509.CertPool) (net.Conn, error) {
+	switch receiver.(type) {
+	case *net.TCPAddr:
 		dialer := &net.Dialer{
 			KeepAlive: keepAlive,
 		}
-		return tls.DialWithDialer(dialer, receiver.TCPAddr.Network(), receiver.String(), &tls.Config{RootCAs: pool, InsecureSkipVerify: true})
+		return tls.DialWithDialer(dialer, receiver.Network(), receiver.String(), &tls.Config{RootCAs: pool, InsecureSkipVerify: true})
 	default:
 		return nil, errors.New("No matching type found for Connection info")
 	}
@@ -105,15 +105,15 @@ func createConnection(receiver connection.Info, keepAlive time.Duration, pool *x
 
 //Listen listens for incoming connections and creates a go routine for each connection.
 func (s *Server) listen() {
-	srvLogger := log.New("addr", s.config.ServerAddress.String())
+	srvLogger := log.New("addr", s.config.ServerAddress.Addr.String())
 	//always listen on channel
 	go s.handleChannel()
 	switch s.config.ServerAddress.Type {
 	case connection.TCP:
 		srvLogger.Info("Start TCP listener")
 		tlsConfig := &tls.Config{Certificates: []tls.Certificate{s.tlsCert}, InsecureSkipVerify: true}
-		listener, err := tls.Listen(s.config.ServerAddress.TCPAddr.Network(),
-			s.config.ServerAddress.String(), tlsConfig)
+		listener, err := tls.Listen(s.config.ServerAddress.Addr.Network(),
+			s.config.ServerAddress.Addr.String(), tlsConfig)
 		if err != nil {
 			srvLogger.Error("Listener error on startup", "error", err)
 			return
@@ -131,7 +131,7 @@ func (s *Server) listen() {
 			}
 			s.caches.ConnCache.AddConnection(conn)
 			if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-				go s.handleConnection(conn, connection.Info{Type: connection.TCP, TCPAddr: tcpAddr})
+				go s.handleConnection(conn, tcpAddr)
 			} else {
 				log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 			}
@@ -157,14 +157,14 @@ func (s *Server) handleChannel() {
 				log.Warn(fmt.Sprintf("failed to unmarshal msg recv over channel: %v", err))
 				continue
 			}
-			deliver(m, connection.Info{Type: connection.Chan, ChanAddr: msg.Sender.RemoteAddr().(connection.ChannelAddr)},
+			deliver(m, msg.Sender.RemoteAddr(),
 				s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)
 		}
 	}
 }
 
 //handleConnection deframes all incoming messages on conn and passes them to the inbox along with the dstAddr
-func (s *Server) handleConnection(conn net.Conn, dstAddr connection.Info) {
+func (s *Server) handleConnection(conn net.Conn, dstAddr net.Addr) {
 	log.Info("New connection", "serverAddr", s.Addr(), "conn", dstAddr)
 	reader := cbor.NewReader(conn)
 	for {
@@ -183,7 +183,7 @@ func (s *Server) handleConnection(conn net.Conn, dstAddr connection.Info) {
 			}
 			break
 		}
-		deliver(&msg, connection.Info{Type: connection.TCP, TCPAddr: conn.RemoteAddr().(*net.TCPAddr)},
+		deliver(&msg, conn.RemoteAddr(),
 			s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)
 	}
 	s.caches.ConnCache.CloseAndRemoveConnection(conn)

@@ -5,12 +5,12 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"strings"
 	"testing"
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/libresolve"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
@@ -27,15 +27,15 @@ func TestFullCoverage(t *testing.T) {
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
 	//Start authoritative Servers and publish zonefiles to them
 	rootServer := startAuthServer(t, "Root", nil)
-	chServer := startAuthServer(t, "ch", []connection.Info{rootServer.Addr()})
-	ethzChServer := startAuthServer(t, "ethz.ch", []connection.Info{rootServer.Addr()})
+	chServer := startAuthServer(t, "ch", []net.Addr{rootServer.Addr()})
+	ethzChServer := startAuthServer(t, "ethz.ch", []net.Addr{rootServer.Addr()})
 	log.Info("all authoritative servers successfully started")
 	//Start client resolver
 	cachingResolver, err := rainsd.New("testdata/conf/resolver.conf", "resolver")
 	if err != nil {
 		t.Fatalf("Was not able to create client resolver: %v", err)
 	}
-	cachingResolver.SetResolver(libresolve.New([]connection.Info{rootServer.Addr()}, nil,
+	cachingResolver.SetResolver(libresolve.New([]net.Addr{rootServer.Addr()}, nil,
 		libresolve.Recursive, cachingResolver.Addr()))
 	go cachingResolver.Start(false)
 	time.Sleep(1000 * time.Millisecond)
@@ -64,7 +64,7 @@ func TestFullCoverage(t *testing.T) {
 	}
 }
 
-func startAuthServer(t *testing.T, name string, rootServers []connection.Info) *rainsd.Server {
+func startAuthServer(t *testing.T, name string, rootServers []net.Addr) *rainsd.Server {
 	server, err := rainsd.New("testdata/conf/namingServer"+name+".conf", "nameServer"+name)
 	if err != nil {
 		t.Fatal(fmt.Sprintf("Was not able to create %s server: ", name), err)
@@ -118,7 +118,7 @@ func decodeAnswers(input []byte, t *testing.T) []section.WithSigForward {
 	return sections
 }
 
-func sendQueryVerifyResponse(t *testing.T, query query.Name, connInfo connection.Info,
+func sendQueryVerifyResponse(t *testing.T, query query.Name, connInfo net.Addr,
 	answer section.Section) {
 	msg := message.Message{Token: token.New(), Content: []section.Section{&query}}
 	log.Error("Integration test sends query", "msg", msg)

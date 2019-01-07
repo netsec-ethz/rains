@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeCounter"
 	"github.com/netsec-ethz/rains/internal/pkg/lruCache"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
@@ -34,9 +33,9 @@ func TestConnectionCache(t *testing.T) {
 		conn1, _ := net.Dial("tcp", tcpAddr)
 		conn2, _ := net.Dial("tcp", tcpAddr2)
 		conn3, _ := net.Dial("tcp", tcpAddr3)
-		connInfo1 := connection.Info{Type: connection.TCP, TCPAddr: conn1.RemoteAddr().(*net.TCPAddr)}
-		connInfo2 := connection.Info{Type: connection.TCP, TCPAddr: conn2.RemoteAddr().(*net.TCPAddr)}
-		connInfo3 := connection.Info{Type: connection.TCP, TCPAddr: conn3.RemoteAddr().(*net.TCPAddr)}
+		connInfo1 := conn1.RemoteAddr().(*net.TCPAddr)
+		connInfo2 := conn2.RemoteAddr().(*net.TCPAddr)
+		connInfo3 := conn3.RemoteAddr().(*net.TCPAddr)
 		c.AddConnection(conn1)
 		c.AddConnection(conn2)
 		if c.Len() != 2 {

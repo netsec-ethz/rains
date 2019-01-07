@@ -2,12 +2,12 @@ package rainsd
 
 import (
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/cache"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
@@ -34,7 +34,7 @@ type InputQueues struct {
 
 //deliver pushes all incoming messages to the prio or normal channel.
 //A message is added to the priority channel if it is the response to a non-expired delegation query
-func deliver(msg *message.Message, sender connection.Info, prioChannel chan util.MsgSectionSender,
+func deliver(msg *message.Message, sender net.Addr, prioChannel chan util.MsgSectionSender,
 	normalChannel chan util.MsgSectionSender, notificationChannel chan util.MsgSectionSender,
 	pendingKeys cache.PendingKey) {
 	if !siglib.CheckMessageSignatures(msg, keys.PublicKey{}) {
@@ -88,7 +88,7 @@ func deliver(msg *message.Message, sender connection.Info, prioChannel chan util
 
 //processCapability processes capabilities and sends a notification back to the sender if the hash
 //is not understood.
-func processCapability(caps []message.Capability, sender connection.Info, token token.Token) {
+func processCapability(caps []message.Capability, sender net.Addr, token token.Token) {
 	log.Debug("Processing Capabilities not yet supported")
 	/*log.Debug("Process capabilities", "capabilities", caps)
 	if len(caps) > 0 {
@@ -107,7 +107,7 @@ func processCapability(caps []message.Capability, sender connection.Info, token 
 
 //addCapabilityAndRespond adds caps to the connection cache entry of sender and sends its own
 //capabilities back if it has not already received capability information on this connection.
-func addCapabilityAndRespond(sender connection.Info, caps []message.Capability) {
+func addCapabilityAndRespond(sender net.Addr, caps []message.Capability) {
 	/*if !connCache.AddCapabilityList(sender, caps) {
 		sendCapability(sender, []message.Capability{message.Capability(capabilityHash)})
 	}*/

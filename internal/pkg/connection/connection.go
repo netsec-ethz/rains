@@ -2,12 +2,13 @@ package connection
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
+	"reflect"
 	"time"
 
-	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
@@ -16,60 +17,46 @@ import (
 
 //Info contains address information about one actor of a connection of the declared type
 type Info struct {
-	//Type determines the network address type
 	Type Type
-
-	TCPAddr  *net.TCPAddr
-	ChanAddr ChannelAddr
+	Addr net.Addr
 }
 
-//String returns the string representation of the connection information according to its type
-func (c Info) String() string {
-	switch c.Type {
-	case TCP:
-		return c.TCPAddr.String()
-	case Chan:
-		return c.ChanAddr.String()
+func (c *Info) UnmarshalJSON(data []byte) error {
+	var err error
+	c.Type, c.Addr, err = UnmarshalNetAddr(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func UnmarshalNetAddr(data []byte) (Type, net.Addr, error) {
+	m := map[string]interface{}{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return -1, nil, err
+	}
+	var t Type
+	var value interface{}
+	switch m["Type"].(string) {
+	case "TCP":
+		value = reflect.New(reflect.TypeOf(net.TCPAddr{})).Interface()
+		t = TCP
+	case "Chan":
+		value = reflect.New(reflect.TypeOf(ChannelAddr{})).Interface()
+		t = TCP
 	default:
-		log.Warn("Unsupported network address", "typeCode", c.Type)
-		return ""
+		return -1, nil, errors.New("Unknown Addr type")
 	}
-}
 
-//Network returns the address's network name
-func (c Info) Network() string {
-	switch c.Type {
-	case TCP:
-		return c.TCPAddr.Network()
-	case Chan:
-		return c.ChanAddr.Network()
-	default:
-		log.Warn("Unsupported network address", "typeCode", c.Type)
-		return ""
+	addrData, err := json.Marshal(m["Addr"])
+	if err != nil {
+		return -1, nil, err
 	}
-}
-
-//NetworkAndAddr returns the network name and addr of the connection separated by space
-func (c Info) NetworkAndAddr() string {
-	return fmt.Sprintf("%s %s", c.Network(), c.String())
-}
-
-//Hash returns a string containing all information uniquely identifying a Info.
-func (c Info) Hash() string {
-	return fmt.Sprintf("%v_%s", c.Type, c.String())
-}
-
-//Equal returns true if both Connection Information have the same existing type and the values corresponding to this type are identical.
-func (c Info) Equal(conn Info) bool {
-	if c.Type == conn.Type {
-		switch c.Type {
-		case TCP:
-			return c.TCPAddr.IP.Equal(conn.TCPAddr.IP) && c.TCPAddr.Port == conn.TCPAddr.Port && c.TCPAddr.Zone == conn.TCPAddr.Zone
-		default:
-			log.Warn("Not supported network address type")
-		}
+	if err = json.Unmarshal(addrData, &value); err != nil {
+		return -1, nil, err
 	}
-	return false
+
+	return t, value.(net.Addr), nil
 }
 
 //Type enumerates connection types
@@ -153,10 +140,10 @@ func (c *Channel) SetWriteDeadline(t time.Time) error {
 }
 
 //CreateConnection returns a newly created connection with connInfo or an error
-func CreateConnection(connInfo Info) (conn net.Conn, err error) {
-	switch connInfo.Type {
-	case TCP:
-		return tls.Dial(connInfo.TCPAddr.Network(), connInfo.String(), &tls.Config{InsecureSkipVerify: true})
+func CreateConnection(addr net.Addr) (conn net.Conn, err error) {
+	switch addr.(type) {
+	case *net.TCPAddr:
+		return tls.Dial(addr.Network(), addr.String(), &tls.Config{InsecureSkipVerify: true})
 	default:
 		return nil, errors.New("unsupported Network address type")
 	}

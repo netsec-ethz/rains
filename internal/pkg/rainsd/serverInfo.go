@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
+
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )

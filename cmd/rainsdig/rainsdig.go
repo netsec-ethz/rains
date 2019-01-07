@@ -11,7 +11,6 @@ import (
 
 	log "github.com/inconshreveable/log15"
 
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
@@ -84,7 +83,6 @@ func main() {
 			fmt.Printf("serverAddr malformed, error=%v\n", err)
 			os.Exit(1)
 		}
-		connInfo := connection.Info{Type: connection.TCP, TCPAddr: tcpAddr}
 
 		var qt []object.Type
 		if *queryType == -1 {
@@ -95,7 +93,7 @@ func main() {
 
 		msg := util.NewQueryMessage(*name, *context, *expires, qt, queryOptions, token.New())
 
-		answerMsg, err := util.SendQuery(msg, connInfo, time.Second)
+		answerMsg, err := util.SendQuery(msg, tcpAddr, time.Second)
 		if err != nil {
 			log.Info(fmt.Sprintf("could not send query: %v", err))
 			os.Exit(1)

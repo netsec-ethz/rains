@@ -1,7 +1,8 @@
 package rainsd
 
 import (
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"net"
+
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
@@ -17,7 +18,7 @@ func trace(tok token.Token, msg string) {
 
 //sendNotificationMsg sends a message containing freshly generated token and a notification section with
 //notificationType, token, and data to destination.
-func sendNotificationMsg(tok token.Token, destination connection.Info,
+func sendNotificationMsg(tok token.Token, destination net.Addr,
 	notificationType section.NotificationType, data string, s *Server) {
 	notification := &section.Notification{
 		Type:  notificationType,
@@ -29,7 +30,7 @@ func sendNotificationMsg(tok token.Token, destination connection.Info,
 
 //sendSections creates a messages containing token and sections and sends it to destination. If
 //token is empty, a new token is generated
-func sendSections(sections []section.Section, tok token.Token, destination connection.Info, s *Server) error {
+func sendSections(sections []section.Section, tok token.Token, destination net.Addr, s *Server) error {
 	if tok == [16]byte{} {
 		tok = token.New()
 	}
@@ -39,12 +40,12 @@ func sendSections(sections []section.Section, tok token.Token, destination conne
 
 //sendSection creates a messages containing token and section and sends it to destination. If
 //token is empty, a new token is generated
-func sendSection(sec section.Section, token token.Token, destination connection.Info, s *Server) error {
+func sendSection(sec section.Section, token token.Token, destination net.Addr, s *Server) error {
 	return sendSections([]section.Section{sec}, token, destination, s)
 }
 
 //sendCapability sends a message with capabilities to sender
-func sendCapability(destination connection.Info, capabilities []message.Capability, s *Server) {
+func sendCapability(destination net.Addr, capabilities []message.Capability, s *Server) {
 	msg := message.Message{Token: token.New(), Capabilities: capabilities}
 	s.sendTo(msg, destination, 1, 1)
 }

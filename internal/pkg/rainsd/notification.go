@@ -19,13 +19,13 @@ func (s *Server) notify(msgSender util.MsgSectionSender) {
 	case section.NTHeartbeat:
 	case section.NTCapHashNotKnown:
 		if len(sec.Data) == 0 {
-			caps, _ := s.caches.ConnCache.GetCapabilityList(s.config.ServerAddress)
+			caps, _ := s.caches.ConnCache.GetCapabilityList(s.config.ServerAddress.Addr)
 			sendCapability(msgSender.Sender, caps, s)
 		} else {
 			if capabilityIsHash(sec.Data) {
 				if caps, ok := s.caches.Capabilities.Get([]byte(sec.Data)); ok {
 					s.caches.ConnCache.AddCapabilityList(msgSender.Sender, caps)
-					ownCaps, _ := s.caches.ConnCache.GetCapabilityList(s.config.ServerAddress)
+					ownCaps, _ := s.caches.ConnCache.GetCapabilityList(s.config.ServerAddress.Addr)
 					sendCapability(msgSender.Sender, ownCaps, s)
 				} else {
 					sendNotificationMsg(msgSender.Token, msgSender.Sender, section.NTCapHashNotKnown, "", s)
@@ -36,7 +36,7 @@ func (s *Server) notify(msgSender util.MsgSectionSender) {
 					cList = append(cList, message.Capability(c))
 				}
 				s.caches.ConnCache.AddCapabilityList(msgSender.Sender, cList)
-				ownCaps, _ := s.caches.ConnCache.GetCapabilityList(s.config.ServerAddress)
+				ownCaps, _ := s.caches.ConnCache.GetCapabilityList(s.config.ServerAddress.Addr)
 				sendCapability(msgSender.Sender, ownCaps, s)
 			}
 		}
