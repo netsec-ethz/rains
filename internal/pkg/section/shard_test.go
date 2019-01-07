@@ -64,8 +64,7 @@ func TestShardHash(t *testing.T) {
 }
 
 func TestShardCompareTo(t *testing.T) {
-	//FIXME return a sorted slice of assertions
-	shards := []*Shard{}
+	shards := sortedShards(5)
 	var shuffled []Section
 	for _, s := range shards {
 		shuffled = append(shuffled, s)
@@ -186,6 +185,57 @@ func TestInRange(t *testing.T) {
 		if out := ss.InRange(testCase.Input); out != testCase.Output {
 			t.Errorf("case %d: expected response of %t from InRange, but got %t with input %s",
 				i, out, testCase.Output, testCase.Input)
+		}
+	}
+}
+
+func TestIsConsistent(t *testing.T) {
+	testMatrix := []struct {
+		section    *Shard
+		wellformed bool
+	}{
+		{
+			section:    &Shard{SubjectZone: "legitimate.zone"},
+			wellformed: true,
+		},
+		{
+			section: &Shard{
+				SubjectZone: "legitimate.zone",
+				RangeFrom:   "abc",
+				RangeTo:     "xyz",
+				Content: []*Assertion{
+					&Assertion{
+						SubjectName: "aaa",
+					},
+				},
+			},
+			wellformed: false,
+		},
+		{
+			section: &Shard{
+				SubjectZone: "legitimate.zone",
+				RangeFrom:   "abc",
+				RangeTo:     "xyz",
+				Content: []*Assertion{
+					&Assertion{
+						SubjectName: "def",
+					},
+				},
+			},
+			wellformed: true,
+		},
+		{
+			section: &Shard{
+				SubjectZone: "legitimate.zone",
+				RangeFrom:   "abc",
+				RangeTo:     "xyz",
+			},
+			wellformed: true,
+		},
+	}
+	for i, testCase := range testMatrix {
+		if res := testCase.section.IsConsistent(); res != testCase.wellformed {
+			t.Errorf("case %d: wrong consistency: got %t, want %t", i, res, testCase.wellformed)
 		}
 	}
 }

@@ -81,8 +81,7 @@ func TestEqualContextZoneName(t *testing.T) {
 }
 
 func TestAssertionCompareTo(t *testing.T) {
-	//FIXME return a sorted slice of assertions
-	assertions := []*Assertion{}
+	assertions := sortedAssertions(10)
 	var shuffled []Section
 	for _, a := range assertions {
 		shuffled = append(shuffled, a)

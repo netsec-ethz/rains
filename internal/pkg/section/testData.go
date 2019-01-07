@@ -1,8 +1,10 @@
 package section
 
 import (
+	"strconv"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
 
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -32,7 +34,7 @@ const (
 	globalContext     = "."
 )
 
-//GetMessage returns a messages containing all  The assertion contains an instance of every objectTypes
+//GetMessage returns a messages containing all  The assertion contains an instance of every object.Types
 /*func GetMessage() message.Message {
 	sig := signature.Sig{
 		PublicKeyID: keys.PublicKeyID{
@@ -164,7 +166,7 @@ func NameObject() object.Object {
 	return object.Object{Type: object.OTName, Value: nameObjectContent}
 }
 
-//CertificateObject returns a certificate object with valid content
+//object.Certificate returns a certificate object with valid content
 func CertificateObject() object.Object {
 	certificate := object.Certificate{
 		Type:     object.PTTLS,
@@ -254,7 +256,7 @@ func GetQuery() *query.Name {
 		Expiration: 50000,
 		Name:       testDomain,
 		Options:    AllQueryOptions(),
-		Types:      AllObjectTypes(),
+		Types:      AllObjectType(),
 	}
 }
 
@@ -272,8 +274,8 @@ func AllQueryOptions() []query.Option {
 	}
 }
 
-//AllObjectTypes returns all object types
-func AllObjectTypes() []object.Type {
+//Allobject.Types returns all object types
+func AllObjectType() []object.Type {
 	return []object.Type{
 		object.OTCertInfo,
 		object.OTDelegation,
@@ -289,4 +291,246 @@ func AllObjectTypes() []object.Type {
 		object.OTRegistrar,
 		object.OTServiceInfo,
 	}
+}
+
+func sortedNameObjects(nof int) []object.Name {
+	objects := []object.Name{}
+	for i := 0; i < nof; i++ {
+		objTypes := nof
+		if objTypes > 13 {
+			objTypes = 13
+		}
+		for j := 0; j < objTypes; j++ {
+			objects = append(objects, object.Name{Name: strconv.Itoa(i), Types: []object.Type{object.Type(j)}})
+		}
+		for j := 0; j < objTypes-1; j++ { //-1 to make sure that there are always 2 elements in the slice
+			for k := j + 1; k < objTypes; k++ {
+				objects = append(objects, object.Name{Name: strconv.Itoa(i), Types: []object.Type{object.Type(j), object.Type(k)}})
+			}
+		}
+	}
+	objects = append(objects, objects[len(objects)-1])
+	return objects
+}
+
+func sortedPublicKeys(nof int) []keys.PublicKey {
+	if nof > 255 {
+		log.Error("nof must be smaller than 256", "nof", nof)
+		nof = 255
+	}
+	pkeys := []keys.PublicKey{}
+	for i := 1; i < 5; i++ {
+		for j := 0; j < 1; j++ {
+			for k := 0; k < nof; k++ {
+				for l := 0; l < nof; l++ {
+					for m := 0; m < nof; m++ {
+						pkeys = append(pkeys, keys.PublicKey{
+							PublicKeyID: keys.PublicKeyID{
+								Algorithm: algorithmTypes.Signature(i),
+								KeySpace:  keys.KeySpaceID(j),
+							},
+							ValidSince: int64(k),
+							ValidUntil: int64(l),
+							Key:        ed25519.PublicKey([]byte{byte(m)}),
+						})
+					}
+				}
+			}
+		}
+	}
+	pkeys = append(pkeys, pkeys[len(pkeys)-1])
+	return pkeys
+}
+
+func sortedCertificates(nof int) []object.Certificate {
+	if nof > 255 {
+		log.Error("nof must be smaller than 256", "nof", nof)
+		nof = 255
+	}
+	certs := []object.Certificate{}
+	for i := 0; i < 2; i++ {
+		for j := 2; j < 4; j++ {
+			for k := 0; k < 4; k++ {
+				for l := 0; l < nof; l++ {
+					certs = append(certs, object.Certificate{
+						Type:     object.ProtocolType(i),
+						Usage:    object.CertificateUsage(j),
+						HashAlgo: algorithmTypes.Hash(k),
+						Data:     []byte{byte(l)},
+					})
+				}
+			}
+		}
+	}
+	certs = append(certs, certs[len(certs)-1])
+	return certs
+}
+
+func sortedServiceInfo(nof int) []object.ServiceInfo {
+	sis := []object.ServiceInfo{}
+	for i := 0; i < nof; i++ {
+		for j := 0; j < nof; j++ {
+			for k := 0; k < nof; k++ {
+				sis = append(sis, object.ServiceInfo{
+					Name:     strconv.Itoa(i),
+					Port:     uint16(j),
+					Priority: uint(k),
+				})
+			}
+		}
+	}
+	sis = append(sis, sis[len(sis)-1])
+	return sis
+}
+
+func sortedObjects(nofObj int) []object.Object {
+	objects := []object.Object{}
+	if nofObj > 13 {
+		nofObj = 13
+	}
+	nos := sortedNameObjects(nofObj)
+	pkeys := sortedPublicKeys(nofObj)
+	certs := sortedCertificates(nofObj)
+	sis := sortedServiceInfo(nofObj)
+	for i := 0; i < nofObj; i++ {
+		for j := 0; j < nofObj/2; j++ {
+			var value interface{}
+			switch i {
+			case 0:
+				value = nos[j]
+			case 1:
+				value = strconv.Itoa(j) //ip6
+			case 2:
+				value = strconv.Itoa(j) //ip4
+			case 3:
+				value = strconv.Itoa(j) //redir
+			case 4:
+				value = pkeys[j]
+			case 5:
+				value = object.NamesetExpr(strconv.Itoa(j))
+			case 6:
+				value = certs[j]
+			case 7:
+				value = sis[j]
+			case 8:
+				value = strconv.Itoa(j) //registrar
+			case 9:
+				value = strconv.Itoa(j) //registrant
+			case 10:
+				value = pkeys[j]
+			case 11:
+				value = pkeys[j]
+			case 12:
+				value = pkeys[j]
+
+			}
+			objects = append(objects, object.Object{
+				Type:  object.Type(i + 1),
+				Value: value,
+			})
+		}
+	}
+	return objects
+}
+
+func sortedAssertions(nof int) []*Assertion {
+	assertions := []*Assertion{}
+	objs := sortedObjects(13)
+	for i := 0; i < nof; i++ {
+		for j := 0; j < nof; j++ {
+			for k := 0; k < nof; k++ {
+				//TODO CFE extend this test when we support multiple connection per assertion
+				for l := 0; l < 78; l++ {
+					assertions = append(assertions, &Assertion{
+						SubjectName: strconv.Itoa(i),
+						SubjectZone: strconv.Itoa(j),
+						Context:     strconv.Itoa(k),
+						Content:     []object.Object{objs[l]},
+					})
+				}
+			}
+		}
+	}
+	assertions = append(assertions, assertions[len(assertions)-1]) //equals
+	return assertions
+}
+
+func sortedShards(nof int) []*Shard {
+	shards := []*Shard{}
+	assertions := sortedAssertions(2)
+	for i := 0; i < nof; i++ {
+		for j := 0; j < nof; j++ {
+			for k := 0; k < nof; k++ {
+				for l := 0; l < nof; l++ {
+					for m := 0; m < 312; m++ {
+						shards = append(shards, &Shard{
+							SubjectZone: strconv.Itoa(i),
+							Context:     strconv.Itoa(j),
+							RangeFrom:   strconv.Itoa(k),
+							RangeTo:     strconv.Itoa(l),
+							Content:     []*Assertion{assertions[m]},
+						})
+					}
+				}
+			}
+		}
+	}
+	shards = append(shards, shards[len(shards)-1]) //equals
+	return shards
+}
+
+func sortedZones(nof int) []*Zone {
+	zones := []*Zone{}
+	assertions := sortedAssertions(2)
+	for i := 0; i < nof; i++ {
+		for j := 0; j < nof; j++ {
+			for m := 0; m < 128; m++ {
+				zones = append(zones, &Zone{
+					SubjectZone: strconv.Itoa(i),
+					Context:     strconv.Itoa(j),
+					Content:     []*Assertion{assertions[m]},
+				})
+			}
+		}
+	}
+	zones = append(zones, zones[len(zones)-1]) //equals
+	return zones
+}
+
+func sortedNotifications(nofNotifications int) []*Notification {
+	notifications := []*Notification{}
+	tokens := sortedTokens(nofNotifications)
+	typeNumbers := []int{100, 399, 400, 403, 404, 413, 500, 501, 504}
+	for i := 0; i < nofNotifications; i++ {
+		nofTypes := nofNotifications
+		if nofTypes > 9 {
+			nofTypes = 9
+		}
+		for j := 0; j < nofTypes; j++ {
+			for k := 0; k < nofNotifications; k++ {
+				notifications = append(notifications, &Notification{
+					Token: tokens[i],
+					Type:  NotificationType(typeNumbers[j]),
+					Data:  strconv.Itoa(k),
+				})
+			}
+		}
+	}
+	notifications = append(notifications, notifications[len(notifications)-1])
+	return notifications
+}
+
+//nofTokens must be smaller than 256
+func sortedTokens(nofTokens int) []token.Token {
+	if nofTokens > 255 {
+		log.Error("nofTokens must be smaller than 256", "nofTokens", nofTokens)
+		return nil
+	}
+	tokens := []token.Token{}
+	for i := 0; i < nofTokens; i++ {
+		token := token.Token{}
+		copy(token[:], []byte{byte(i)})
+		tokens = append(tokens, token)
+	}
+	return tokens
 }
