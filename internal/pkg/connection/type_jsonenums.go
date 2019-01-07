@@ -9,13 +9,15 @@ import (
 
 var (
 	_TypeNameToValue = map[string]Type{
-		"Chan": Chan,
-		"TCP":  TCP,
+		"Chan":  Chan,
+		"TCP":   TCP,
+		"SCION": SCION,
 	}
 
 	_TypeValueToName = map[Type]string{
-		Chan: "Chan",
-		TCP:  "TCP",
+		Chan:  "Chan",
+		TCP:   "TCP",
+		SCION: "SCION",
 	}
 )
 
@@ -23,8 +25,9 @@ func init() {
 	var v Type
 	if _, ok := interface{}(v).(fmt.Stringer); ok {
 		_TypeNameToValue = map[string]Type{
-			interface{}(Chan).(fmt.Stringer).String(): Chan,
-			interface{}(TCP).(fmt.Stringer).String():  TCP,
+			interface{}(Chan).(fmt.Stringer).String():  Chan,
+			interface{}(TCP).(fmt.Stringer).String():   TCP,
+			interface{}(SCION).(fmt.Stringer).String(): SCION,
 		}
 	}
 }

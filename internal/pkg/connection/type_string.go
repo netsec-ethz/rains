@@ -4,9 +4,9 @@ package connection
 
 import "strconv"
 
-const _Type_name = "ChanTCP"
+const _Type_name = "ChanTCPSCION"
 
-var _Type_index = [...]uint8{0, 4, 7}
+var _Type_index = [...]uint8{0, 4, 7, 12}
 
 func (i Type) String() string {
 	if i < 0 || i >= Type(len(_Type_index)-1) {
