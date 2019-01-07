@@ -26,6 +26,7 @@ type rainsdConfig struct {
 
 	//switchboard
 	ServerAddress      connection.Info
+	PublisherAddress   connection.Info
 	MaxConnections     int
 	KeepAlivePeriod    time.Duration //in seconds
 	TCPTimeout         time.Duration //in seconds
@@ -71,20 +72,26 @@ type rainsdConfig struct {
 
 //msgSectionSender contains the message section section and connection infos about the sender
 type msgSectionSender struct {
-	Sender  connection.Info
-	Section section.Section
-	Token   token.Token
+	Sender   connection.Info
+	Sections []section.Section
+	Token    token.Token
 }
 
 //sectionWithSigSender contains a section with a signature and connection infos about the sender
 type sectionWithSigSender struct {
-	Sender  connection.Info
-	Section section.WithSigForward
-	Token   token.Token
+	Sender   connection.Info
+	Sections []section.WithSigForward
+	Token    token.Token
 }
 
 func (s *sectionWithSigSender) Hash() string {
-	return fmt.Sprintf("%s_%s_%v", s.Sender.Hash(), s.Section.Hash(), s.Token)
+	return fmt.Sprintf("%s_%v_%v", s.Sender.Hash(), s.Sections, s.Token)
+}
+
+type missingKeyMetaData struct {
+	Zone     string
+	Context  string
+	KeyPhase int
 }
 
 //connectionCache stores persistent stream-oriented network connections.
@@ -142,9 +149,9 @@ type zonePublicKeyCache interface {
 	Len() int
 }
 
-type pendingKeyCache interface {
+type pendingKeyCacheOld interface {
 	//Add adds sectionSender to the cache and returns true if a new delegation should be sent.
-	Add(sectionSender sectionWithSigSender, algoType algorithmTypes.Signature, phase int) bool
+	Add(sectionSender msgSectionSender, algoType algorithmTypes.Signature, phase int) bool
 	//AddToken adds token to the token map where the value of the map corresponds to the cache entry
 	//matching the given zone and cotext. Token is added to the map and the cache entry's token,
 	//expiration and sendTo fields are updated only if a matching cache entry exists. False is
@@ -152,10 +159,10 @@ type pendingKeyCache interface {
 	AddToken(token token.Token, expiration int64, sendTo connection.Info, zone, context string) bool
 	//GetAndRemove returns all sections who contain a signature matching the given parameter and
 	//deletes them from the cache. The token map is updated if necessary.
-	GetAndRemove(zone, context string, algoType algorithmTypes.Signature, phase int) []sectionWithSigSender
+	GetAndRemove(zone, context string, algoType algorithmTypes.Signature, phase int) []msgSectionSender
 	//GetAndRemoveByToken returns all sections who correspond to token and deletes them from the
 	//cache. Token is removed from the token map.
-	GetAndRemoveByToken(token token.Token) []sectionWithSigSender
+	GetAndRemoveByToken(token token.Token) []msgSectionSender
 	//ContainsToken returns true if token is in the token map.
 	ContainsToken(token token.Token) bool
 	//RemoveExpiredValues deletes all sections of an expired entry and updates the token map if
@@ -165,8 +172,24 @@ type pendingKeyCache interface {
 	Len() int
 }
 
+type pendingKeyCache interface {
+	//Add adds ss to the cache together with the token and expiration time of the query sent to the
+	//host with the addr defined in ss.
+	Add(ss msgSectionSender, t token.Token, expiration int64)
+	//GetAndRemove returns msgSectionSender which corresponds to token and true, and deletes it from
+	//the cache. False is returned if no msgSectionSender matched token.
+	GetAndRemove(t token.Token) (msgSectionSender, bool)
+	//ContainsToken returns true if t is cached
+	ContainsToken(t token.Token) bool
+	//RemoveExpiredValues deletes all expired entries. It logs the host's addr which was not able to
+	//respond in time.
+	RemoveExpiredValues()
+	//Len returns the number of sections in the cache
+	Len() int
+}
+
 //TODO CFE also add methods which can return queries which are answered by the section's content.
-type pendingQueryCache interface {
+type pendingQueryCacheOld interface {
 	//Add adds sectionSender to the cache and returns false if the query is already in the cache.
 	Add(sectionSender msgSectionSender) bool
 	//AddToken adds token to the token map where the value of the map corresponds to the cache entry
@@ -196,6 +219,20 @@ type pendingQueryCache interface {
 	//which it has been sent.
 	RemoveExpiredValues()
 	//Len returns the number of queries in the cache
+	Len() int
+}
+
+type pendingQueryCache interface {
+	//Add checks if this server has already forwarded a msg containing the same queries as ss. If
+	//this is the case, ss is added to the cache and false is returned. If not, ss is added together
+	//with t and expiration to the cache and true is returned.
+	Add(ss msgSectionSender, t token.Token, expiration int64) bool
+	//GetAndRemove returns all msgSectionSenders which correspond to token and delete them from the
+	//cache.
+	GetAndRemove(t token.Token) []msgSectionSender
+	//RemoveExpiredValues deletes all expired entries.
+	RemoveExpiredValues()
+	//Len returns the number of sections in the cache
 	Len() int
 }
 

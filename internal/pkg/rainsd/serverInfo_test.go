@@ -2,7 +2,6 @@ package rainsd
 
 import (
 	"bufio"
-	"encoding/hex"
 	"fmt"
 	"net"
 	"reflect"
@@ -17,10 +16,8 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/lruCache"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
-	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -250,16 +247,16 @@ func TestZoneKeyCache(t *testing.T) {
 
 //FIXME CFE we cannot test if the cache logs correctly when the maximum number of delegations per
 //zone is reached. Should we return a value if so in which form (object, error)?
-func TestPendingKeyCache(t *testing.T) {
+/*func TestPendingKeyCache(t *testing.T) {
 	a0 := &section.Assertion{SubjectZone: "com", Context: "."}
 	s1 := &section.Shard{SubjectZone: "com", Context: "."}
 	z2 := &section.Zone{SubjectZone: "ch", Context: "."}
 	a3 := &section.Assertion{SubjectZone: "ch", Context: "."}
 	m := []sectionWithSigSender{
-		sectionWithSigSender{Section: a0, Sender: connection.Info{}, Token: token.New()},
-		sectionWithSigSender{Section: s1, Sender: connection.Info{}, Token: token.New()},
-		sectionWithSigSender{Section: z2, Sender: connection.Info{}, Token: token.New()},
-		sectionWithSigSender{Section: a3, Sender: connection.Info{}, Token: token.New()},
+		sectionWithSigSender{Sections: []section.WithSigForward{a0}, Sender: connection.Info{}, Token: token.New()},
+		sectionWithSigSender{Sections: []section.WithSigForward{s1}, Sender: connection.Info{}, Token: token.New()},
+		sectionWithSigSender{Sections: []section.WithSigForward{z2}, Sender: connection.Info{}, Token: token.New()},
+		sectionWithSigSender{Sections: []section.WithSigForward{a3}, Sender: connection.Info{}, Token: token.New()},
 	}
 	tokens := []token.Token{token.New(), token.New()}
 	var tests = []struct {
@@ -410,9 +407,9 @@ func TestPendingKeyCache(t *testing.T) {
 			t.Errorf("%d:Expired value was not removed. len=%d", i, c.Len())
 		}
 	}
-}
+}*/
 
-func TestPendingQueryCache(t *testing.T) {
+/*func TestPendingQueryCache(t *testing.T) {
 	a0 := &section.Assertion{
 		SubjectName: "example",
 		SubjectZone: "com",
@@ -591,7 +588,7 @@ func TestPendingQueryCache(t *testing.T) {
 		}
 
 	}
-}
+}*/
 
 func TestAssertionCache(t *testing.T) {
 	var tests = []struct {
@@ -780,24 +777,6 @@ func TestNegAssertionCache(t *testing.T) {
 	}
 }
 
-func TestNameCtxTypesKey(t *testing.T) {
-	var tests = []struct {
-		name    string
-		context string
-		types   []object.Type
-		output  string
-	}{
-		{"example.com", ".", nil, "example.com . nil"},
-		{"example.com", ".", []object.Type{5, 8, 1, 6}, "example.com . [1 5 6 8]"},
-	}
-	for i, test := range tests {
-		if nameCtxTypesKey(test.name, test.context, test.types) != test.output {
-			t.Errorf("%d:Wrong return value expected=%s actual=%s", i, test.output,
-				nameCtxTypesKey(test.name, test.context, test.types))
-		}
-	}
-}
-
 func TestZoneCtxKey(t *testing.T) {
 	var tests = []struct {
 		zone    string
@@ -811,46 +790,6 @@ func TestZoneCtxKey(t *testing.T) {
 		if zoneCtxKey(test.zone, test.context) != test.output {
 			t.Errorf("%d:Wrong return value expected=%s actual=%s", i, test.output,
 				zoneCtxKey(test.zone, test.context))
-		}
-	}
-}
-
-func TestAlgoPhaseKey(t *testing.T) {
-	var tests = []struct {
-		algoType algorithmTypes.Signature
-		phase    int
-		output   string
-	}{
-		{algorithmTypes.Ed25519, 2, "1 2"},
-	}
-	for i, test := range tests {
-		if algoPhaseKey(test.algoType, test.phase) != test.output {
-			t.Errorf("%d:Wrong return value expected=%s actual=%s", i, test.output,
-				algoPhaseKey(test.algoType, test.phase))
-		}
-	}
-}
-
-func TestSectionWithSigSenderHash(t *testing.T) {
-	tcpAddr, _ := net.ResolveTCPAddr("tcp", "192.0.2.0:80")
-	token := token.New()
-	var tests = []struct {
-		input  sectionWithSigSender
-		output string
-	}{
-		{
-			sectionWithSigSender{
-				Section: &section.Assertion{SubjectName: "name", SubjectZone: "zone", Context: "context"},
-				Sender:  connection.Info{Type: connection.TCP, TCPAddr: tcpAddr},
-				Token:   token,
-			},
-			fmt.Sprintf("1_192.0.2.0:80_A_name_zone_context_[]_[]_%s", hex.EncodeToString(token[:])),
-		},
-	}
-	for i, test := range tests {
-		if test.input.Hash() != test.output {
-			t.Errorf("%d:Wrong return value expected=%s actual=%s", i, test.output,
-				test.input.Hash())
 		}
 	}
 }

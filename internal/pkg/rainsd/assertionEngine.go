@@ -2,7 +2,6 @@ package rainsd
 
 import (
 	"fmt"
-	"time"
 
 	log "github.com/inconshreveable/log15"
 
@@ -15,50 +14,53 @@ import (
 //it adds a section with valid signatures to the assertion/shard/zone cache. Triggers any pending queries answered by it.
 //The section's signatures MUST have already been verified and there MUST be at least one valid
 //rains signature on the message
-func (s *Server) assert(ss sectionWithSigSender, isAuthoritative bool) {
+func (s *Server) assert(ss sectionWithSigSender) {
 	log.Debug("Adding section to cache", "section", ss)
-	if sectionIsInconsistent(ss.Section, s.caches.AssertionsCache, s.caches.NegAssertionCache) {
-		log.Warn("section is inconsistent with cached elements.", "section", ss.Section)
+	if sectionsAreInconsistent(ss.Sections, s.caches.AssertionsCache, s.caches.NegAssertionCache) {
+		log.Warn("section is inconsistent with cached elements.", "sections", ss.Sections)
 		sendNotificationMsg(ss.Token, ss.Sender, section.NTRcvInconsistentMsg, "", s)
 		return
 	}
-	addSectionToCache(ss.Section, isAuthoritative, s.caches.AssertionsCache,
+	//FIXME CFE check if it is authoritative
+	addSectionsToCache(ss.Sections, true, s.caches.AssertionsCache,
 		s.caches.NegAssertionCache, s.caches.ZoneKeyCache)
 	pendingKeysCallback(ss, s.caches.PendingKeys, s.queues.Normal)
 	pendingQueriesCallback(ss, s)
-	log.Info(fmt.Sprintf("Finished handling %T", ss.Section), "section", ss.Section)
+	log.Info(fmt.Sprintf("Finished handling %T", ss.Sections), "section", ss.Sections)
 }
 
-//sectionIsInconsistent returns true if section is not consistent with cached element which are
-//valid at the same time.
-func sectionIsInconsistent(sec section.WithSig, assertionsCache assertionCache,
+//sectionsAreInconsistent returns true if at least one section is not consistent with cached element
+//which are valid at the same time.
+func sectionsAreInconsistent(sec []section.WithSigForward, assertionsCache assertionCache,
 	negAssertionCache negativeAssertionCache) bool {
 	//TODO implement if necessary
 	return false
 }
 
 //addSectionToCache adds sec to the cache if it comlies with the server's caching policy
-func addSectionToCache(sec section.WithSig, isAuthoritative bool, assertionsCache assertionCache,
+func addSectionsToCache(sections []section.WithSigForward, isAuthoritative bool, assertionsCache assertionCache,
 	negAssertionCache negativeAssertionCache, zoneKeyCache zonePublicKeyCache) {
-	switch sec := sec.(type) {
-	case *section.Assertion:
-		if shouldAssertionBeCached(sec) {
-			addAssertionToCache(sec, isAuthoritative, assertionsCache, zoneKeyCache)
+	for _, sec := range sections {
+		switch sec := sec.(type) {
+		case *section.Assertion:
+			if shouldAssertionBeCached(sec) {
+				addAssertionToCache(sec, isAuthoritative, assertionsCache, zoneKeyCache)
+			}
+		case *section.Shard:
+			if shouldShardBeCached(sec) {
+				addShardToCache(sec, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
+			}
+		case *section.Pshard:
+			if shouldPshardBeCached(sec) {
+				addPshardToCache(sec, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
+			}
+		case *section.Zone:
+			if shouldZoneBeCached(sec) {
+				addZoneToCache(sec, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
+			}
+		default:
+			log.Error("Not supported message section with sig. This case must be prevented beforehand")
 		}
-	case *section.Shard:
-		if shouldShardBeCached(sec) {
-			addShardToCache(sec, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
-		}
-	case *section.Pshard:
-		if shouldPshardBeCached(sec) {
-			addPshardToCache(sec, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
-		}
-	case *section.Zone:
-		if shouldZoneBeCached(sec) {
-			addZoneToCache(sec, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
-		}
-	default:
-		log.Error("Not supported message section with sig. This case must be prevented beforehand")
 	}
 }
 
@@ -136,32 +138,33 @@ func addPshardToCache(pshard *section.Pshard, isAuthoritative bool, assertionsCa
 //assertions to the assertionCache.
 func addZoneToCache(zone *section.Zone, isAuthoritative bool, assertionsCache assertionCache,
 	negAssertionCache negativeAssertionCache, zoneKeyCache zonePublicKeyCache) {
-	for _, sec := range zone.Content {
-		if shouldAssertionBeCached(sec) {
-			a := sec.Copy(zone.Context, zone.SubjectZone)
+	for _, assertion := range zone.Content {
+		if shouldAssertionBeCached(assertion) {
+			a := assertion.Copy(zone.Context, zone.SubjectZone)
 			addAssertionToCache(a, isAuthoritative, assertionsCache, zoneKeyCache)
 		}
-		sec.RemoveContextAndSubjectZone()
+		assertion.RemoveContextAndSubjectZone()
 	}
 	negAssertionCache.AddZone(zone, zone.ValidUntil(), isAuthoritative)
 	log.Debug("Added zone to cache", "zone", *zone)
 }
 
-func pendingKeysCallback(swss sectionWithSigSender, pendingKeys pendingKeyCache, normalChannel chan msgSectionSender) {
-	if sectionSenders := pendingKeys.GetAndRemoveByToken(swss.Token); len(sectionSenders) > 0 {
-		for _, ss := range sectionSenders {
-			normalChannel <- msgSectionSender{Sender: ss.Sender, Section: ss.Section, Token: ss.Token}
-		}
+func pendingKeysCallback(mss sectionWithSigSender, pendingKeys pendingKeyCache, normalChannel chan msgSectionSender) {
+	if ss, ok := pendingKeys.GetAndRemove(mss.Token); ok {
+		normalChannel <- ss
 	}
 }
 
-func pendingQueriesCallback(swss sectionWithSigSender, s *Server) {
-	newDeadline := time.Now().Add(50 * time.Microsecond).Unix()
-	if ok := s.caches.PendingQueries.AddAnswerByToken(swss.Section, swss.Token, newDeadline); !ok {
-		return //Already answered by another incoming assertion.
+func pendingQueriesCallback(mss sectionWithSigSender, s *Server) {
+	msss := s.caches.PendingQueries.GetAndRemove(mss.Token)
+	if len(msss) == 0 {
+		return
 	}
-	queries, _ := s.caches.PendingQueries.GetAndRemoveByToken(swss.Token, newDeadline)
-	for _, ss := range queries {
-		sendSection(swss.Section, ss.Token, ss.Sender, s)
+	answer := []section.Section{}
+	for _, sec := range mss.Sections {
+		answer = append(answer, sec)
+	}
+	for _, ss := range msss {
+		sendSections(answer, ss.Token, ss.Sender, s)
 	}
 }

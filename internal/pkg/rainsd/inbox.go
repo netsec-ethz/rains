@@ -33,32 +33,51 @@ type InputQueues struct {
 //A message is added to the priority channel if it is the response to a non-expired delegation query
 func deliver(msg *message.Message, sender connection.Info, prioChannel chan msgSectionSender,
 	normalChannel chan msgSectionSender, notificationChannel chan msgSectionSender, pendingKeys pendingKeyCache) {
-	//TODO CFE get infrastructure key from cache and if not present send a infra query, add a new cache for whole messages to wait for missing public keys
 	if !siglib.CheckMessageSignatures(msg, keys.PublicKey{}) {
+		//Infra keys are not yet supported
 	}
 
 	processCapability(msg.Capabilities, sender, msg.Token)
 
-	//handle message content
+	//handle notification separately. Assertions and Queries are processed together respectively.
+	queries := []section.Section{}
+	sections := []section.Section{}
 	for _, m := range msg.Content {
 		switch m := m.(type) {
 		case *section.Assertion, *section.Shard, *section.Pshard, *section.Zone:
 			if !isZoneBlacklisted(m.(section.WithSig).GetSubjectZone()) {
-				addMsgSectionToQueue(m, msg.Token, sender, prioChannel, normalChannel, pendingKeys)
+				sections = append(sections, m)
 				trace(msg.Token, fmt.Sprintf("added message section to queue: %v", m))
 			}
 		case *query.Name:
 			log.Debug(fmt.Sprintf("add %T to normal queue", m))
-			normalChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
+			queries = append(queries, m)
 			trace(msg.Token, fmt.Sprintf("sent query section %v to normal channel", m))
 		case *section.Notification:
 			log.Debug("Add notification to notification queue", "token", msg.Token)
-			notificationChannel <- msgSectionSender{Sender: sender, Section: m, Token: msg.Token}
+			notificationChannel <- msgSectionSender{
+				Sender:   sender,
+				Sections: []section.Section{m},
+				Token:    msg.Token,
+			}
 			trace(msg.Token, fmt.Sprintf("sent notification section %v to notification channel", m))
 		default:
 			log.Warn(fmt.Sprintf("unsupported message section type %T", m))
 			trace(msg.Token, fmt.Sprintf("unsupported message section type: %T", m))
 			return
+		}
+	}
+	if len(queries) > 0 {
+		normalChannel <- msgSectionSender{Sender: sender, Sections: queries, Token: msg.Token}
+	}
+	if len(sections) > 0 {
+		mss := msgSectionSender{Sender: sender, Sections: sections, Token: msg.Token}
+		if pendingKeys.ContainsToken(msg.Token) {
+			log.Debug("add section with signature to priority queue", "token", msg.Token)
+			prioChannel <- mss
+		} else {
+			log.Debug("add section with signature to normal queue", "token", msg.Token)
+			normalChannel <- mss
 		}
 	}
 }
@@ -88,18 +107,6 @@ func addCapabilityAndRespond(sender connection.Info, caps []message.Capability) 
 	/*if !connCache.AddCapabilityList(sender, caps) {
 		sendCapability(sender, []message.Capability{message.Capability(capabilityHash)})
 	}*/
-}
-
-//addMsgSectionToQueue looks up the token of the msg in the activeTokens cache and if present adds the msg section to the prio cache, otherwise to the normal cache.
-func addMsgSectionToQueue(msgSection section.Section, tok token.Token, sender connection.Info,
-	prioChannel chan msgSectionSender, normalChannel chan msgSectionSender, pendingKeys pendingKeyCache) {
-	if pendingKeys.ContainsToken(tok) {
-		log.Debug("add section with signature to priority queue", "token", tok)
-		prioChannel <- msgSectionSender{Sender: sender, Section: msgSection, Token: tok}
-	} else {
-		log.Debug("add section with signature to normal queue", "token", tok)
-		normalChannel <- msgSectionSender{Sender: sender, Section: msgSection, Token: tok}
-	}
 }
 
 //isZoneBlacklisted returns true if zone is blacklisted
@@ -142,7 +149,7 @@ func (s *Server) workBoth() {
 
 //normalWorkerHandler handles sections on the normalChannel
 func normalWorkerHandler(s *Server, msg msgSectionSender) {
-	if msg.Section != nil {
+	if msg.Sections != nil {
 		s.verify(msg)
 	}
 	<-s.queues.NormalW
@@ -176,7 +183,7 @@ func (s *Server) workPrio() {
 
 //prioWorkerHandler handles sections on the prioChannel
 func prioWorkerHandler(s *Server, msg msgSectionSender, prioWorker bool) {
-	if msg.Section != nil {
+	if msg.Sections != nil {
 		s.verify(msg)
 	}
 	if prioWorker {
@@ -207,7 +214,7 @@ func (s *Server) workNotification() {
 
 //handleNotification works on notificationChannel.
 func handleNotification(s *Server, msg msgSectionSender) {
-	if msg.Section != nil {
+	if msg.Sections != nil {
 		s.notify(msg)
 	}
 	<-s.queues.NormalW
