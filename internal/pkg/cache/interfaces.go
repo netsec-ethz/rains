@@ -29,6 +29,8 @@ type Connection interface {
 	GetCapabilityList(dstAddr net.Addr) ([]message.Capability, bool)
 	//CloseAndRemoveConnection closes conn and removes it from the cache.
 	CloseAndRemoveConnection(conn net.Conn)
+	//CloseAndRemoveConnections closes and removes all cached connections to addr
+	CloseAndRemoveConnections(addr net.Addr)
 	//Len returns the number of connections currently in the cache.
 	Len() int
 }
@@ -67,30 +69,6 @@ type ZonePublicKey interface {
 	Len() int
 }
 
-//FIXME remove after new implementation is tested
-/*type PendingKeyCacheOld interface {
-	//Add adds sectionSender to the cache and returns true if a new delegation should be sent.
-	Add(sectionSender util.MsgSectionSender, algoType algorithmTypes.Signature, phase int) bool
-	//AddToken adds token to the token map where the value of the map corresponds to the cache entry
-	//matching the given zone and cotext. Token is added to the map and the cache entry's token,
-	//expiration and sendTo fields are updated only if a matching cache entry exists. False is
-	//returned if no matching cache entry exists.
-	AddToken(token token.Token, expiration int64, sendTo net.Addr, zone, context string) bool
-	//GetAndRemove returns all sections who contain a signature matching the given parameter and
-	//deletes them from the cache. The token map is updated if necessary.
-	GetAndRemove(zone, context string, algoType algorithmTypes.Signature, phase int) []util.MsgSectionSender
-	//GetAndRemoveByToken returns all sections who correspond to token and deletes them from the
-	//cache. Token is removed from the token map.
-	GetAndRemoveByToken(token token.Token) []util.MsgSectionSender
-	//ContainsToken returns true if token is in the token map.
-	ContainsToken(token token.Token) bool
-	//RemoveExpiredValues deletes all sections of an expired entry and updates the token map if
-	//necessary. It logs which sections are removed and to which server the query has been sent.
-	RemoveExpiredValues()
-	//Len returns the number of sections in the cache
-	Len() int
-}*/
-
 type PendingKey interface {
 	//Add adds ss to the cache together with the token and expiration time of the query sent to the
 	//host with the addr defined in ss.
@@ -106,40 +84,6 @@ type PendingKey interface {
 	//Len returns the number of sections in the cache
 	Len() int
 }
-
-//FIXME remove after new implementation is tested
-/*type PendingQueryCacheOld interface {
-	//Add adds sectionSender to the cache and returns false if the query is already in the cache.
-	Add(sectionSender util.MsgSectionSender) bool
-	//AddToken adds token to the token map where the value of the map corresponds to the cache entry
-	//matching the given (fully qualified) name, context and connection (sorted). Token is added to the
-	//map and the cache entry's token, expiration and sendTo fields are updated only if a matching
-	//cache entry exists. False is returned if no matching cache entry exists.
-	AddToken(token token.Token, expiration int64, sendTo net.Addr, name, context string,
-		types []object.Type) bool
-	//GetQuery returns true and the query or addressQuery stored with token in the cache if there is
-	//such an entry.
-	GetQuery(token token.Token) (section.Section, bool)
-	//AddAnswerByToken adds section to the cache entry matching token with the given deadline. It
-	//returns true if there is a matching token in the cache and section is not already stored for
-	//these pending queries. The pending queries are are not removed from the cache.
-	AddAnswerByToken(section section.WithSig, token token.Token, deadline int64) bool
-	//GetAndRemoveByToken returns all queries waiting for a response to a query message containing
-	//token and deletes them from the cache if no other section has been added to this cache entry
-	//since section has been added by AddAnswerByToken(). Token is removed from the token map.
-	GetAndRemoveByToken(token token.Token, deadline int64) (
-		[]util.MsgSectionSender, []section.Section)
-	//UpdateToken adds newToken to the token map, lets it point to the cache value pointed by
-	//oldToken and removes oldToken from the token map if newToken is not already in the token map.
-	//It returns false if there is already an entry for newToken in the token map.
-	UpdateToken(oldToken, newToken token.Token) bool
-	//RemoveExpiredValues deletes all queries of an expired entry and updates the token map if
-	//necessary. It logs which queries are removed and from which server the query has come and to
-	//which it has been sent.
-	RemoveExpiredValues()
-	//Len returns the number of queries in the cache
-	Len() int
-}*/
 
 type PendingQuery interface {
 	//Add checks if this server has already forwarded a msg containing the same queries as ss. If

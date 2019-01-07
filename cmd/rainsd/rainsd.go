@@ -18,7 +18,7 @@ func main() {
 		return
 	}
 	log.Info("Server successfully initialized")
-	server.SetResolver(libresolve.New(nil, nil, libresolve.Recursive, server.Addr()))
+	server.SetResolver(libresolve.New(nil, nil, libresolve.Recursive, server.Addr(), 10000))
 	go server.Start(false)
 	time.Sleep(time.Hour)
 	server.Shutdown()
