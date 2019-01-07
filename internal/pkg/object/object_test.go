@@ -157,7 +157,7 @@ func TestPublicKeyCompareTo(t *testing.T) {
 	if pks[0].CompareTo(pk1) != 0 {
 		t.Error("Error case was not hit")
 	}
-	//TODO CFE remove teh next 2 test cases when we have more than one keyspace.
+
 	pk1.KeySpace = KeySpaceID(1)
 	if pk1.CompareTo(pks[0]) != 1 {
 		t.Error("key space comparison")

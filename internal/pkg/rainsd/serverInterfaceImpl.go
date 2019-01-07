@@ -218,9 +218,7 @@ func nameCtxTypesKey(zone, context string, types []object.Type) string {
 	return fmt.Sprintf("%s %s %v", zone, context, types)
 }
 
-//TODO CFE this cache is currently not able to return all queries based on an assertion's name,
-//context and type. This can be achieved by adding a safeHashMap keyed by name, context and type
-//pointing to a set of *pendingQueryCacheValue
+
 type pendingQueryCacheImpl struct {
 	//zoneCtxMap is a map from zoneContext to *pendingQueryCacheValue safe for concurrent use
 	nameCtxTypesMap *safeHashMap.Map

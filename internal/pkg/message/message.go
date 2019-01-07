@@ -2,10 +2,8 @@ package message
 
 import (
 	"fmt"
-	"sort"
 
 	cbor "github.com/britram/borat"
-	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
@@ -153,61 +151,6 @@ func (rm *Message) UnmarshalCBOR(r *cbor.CBORReader) error {
 		}
 	}
 	return nil
-}
-
-//Sort sorts the sections in m.Content first by Message Section Type Codes (see RAINS Protocol Specification) and
-//second the sections of equal type according to their sort function.
-func (m *Message) Sort() {
-	var assertions []*section.Assertion
-	var shards []*section.Shard
-	var pshards []*section.Pshard
-	var zones []*section.Zone
-	var queries []*query.Name
-	var notifications []*section.Notification
-	for _, sec := range m.Content {
-		sec.Sort()
-		switch sec := sec.(type) {
-		case *section.Assertion:
-			assertions = append(assertions, sec)
-		case *section.Shard:
-			shards = append(shards, sec)
-		case *section.Pshard:
-			pshards = append(pshards, sec)
-		case *section.Zone:
-			zones = append(zones, sec)
-		case *query.Name:
-			queries = append(queries, sec)
-		case *section.Notification:
-			notifications = append(notifications, sec)
-		default:
-			log.Warn("Unsupported section type", "type", fmt.Sprintf("%T", sec))
-		}
-	}
-	sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
-	sort.Slice(shards, func(i, j int) bool { return shards[i].CompareTo(shards[j]) < 0 })
-	sort.Slice(pshards, func(i, j int) bool { return pshards[i].CompareTo(pshards[j]) < 0 })
-	sort.Slice(zones, func(i, j int) bool { return zones[i].CompareTo(zones[j]) < 0 })
-	sort.Slice(queries, func(i, j int) bool { return queries[i].CompareTo(queries[j]) < 0 })
-	sort.Slice(notifications, func(i, j int) bool { return notifications[i].CompareTo(notifications[j]) < 0 })
-	m.Content = []section.Section{}
-	for _, section := range assertions {
-		m.Content = append(m.Content, section)
-	}
-	for _, section := range shards {
-		m.Content = append(m.Content, section)
-	}
-	for _, section := range pshards {
-		m.Content = append(m.Content, section)
-	}
-	for _, section := range zones {
-		m.Content = append(m.Content, section)
-	}
-	for _, section := range queries {
-		m.Content = append(m.Content, section)
-	}
-	for _, section := range notifications {
-		m.Content = append(m.Content, section)
-	}
 }
 
 //Query returns the first section in the messages content if it is a query. It panics if the message

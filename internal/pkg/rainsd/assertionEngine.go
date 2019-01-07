@@ -35,7 +35,6 @@ func (s *Server) assert(ss util.SectionWithSigSender) {
 //which are valid at the same time.
 func sectionsAreInconsistent(sec []section.WithSigForward, assertionsCache cache.Assertion,
 	negAssertionCache cache.NegativeAssertion) bool {
-	//TODO implement if necessary
 	return false
 }
 
@@ -77,28 +76,24 @@ func addSectionsToCache(sections []section.WithSigForward, authZone, authContext
 //shouldAssertionBeCached returns true if assertion should be cached
 func shouldAssertionBeCached(assertion *section.Assertion) bool {
 	log.Info("Assertion will be cached", "assertion", assertion)
-	//TODO CFE implement when necessary
 	return true
 }
 
 //shouldShardBeCached returns true if shard should be cached
 func shouldShardBeCached(shard *section.Shard) bool {
 	log.Info("Shard will be cached", "shard", shard)
-	//TODO CFE implement when necessary
 	return true
 }
 
 //shouldShardBeCached returns true if shard should be cached
 func shouldPshardBeCached(pshard *section.Pshard) bool {
 	log.Info("Shard will be cached", "shard", pshard)
-	//TODO CFE implement when necessary
 	return true
 }
 
 //shouldZoneBeCached returns true if zone should be cached
 func shouldZoneBeCached(zone *section.Zone) bool {
 	log.Info("Zone will be cached", "zone", zone)
-	//TODO CFE implement when necessary
 	return true
 }
 

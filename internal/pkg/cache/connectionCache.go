@@ -15,9 +15,7 @@ import (
 type connCacheValue struct {
 	connections  []net.Conn
 	capabilities []message.Capability
-	//mux is used to protect connections from simultaneous access
-	//TODO most access are reads, but do we have a lot of parallel access to the same
-	//connCacheValue? If not replace with sync.Mutex.
+
 	mux sync.RWMutex
 	//set to true if the pointer to this element is removed from the hash map
 	deleted bool

@@ -2,7 +2,6 @@ package section
 
 import (
 	"fmt"
-	"math"
 	"sort"
 	"strings"
 	"time"
@@ -78,7 +77,6 @@ func (s *Shard) MarshalCBOR(w *cbor.CBORWriter) error {
 		m[6] = s.Context
 	}
 	m[11] = []string{s.RangeFrom, s.RangeTo}
-	// TODO: Assertions SHOULD be sorted by name in ascending lexicographic order.
 	m[23] = s.Content
 	return w.WriteIntMap(m)
 }
@@ -155,27 +153,8 @@ func (s *Shard) End() string {
 //UpdateValidity updates the validity of this shard if the validity period is extended.
 //It makes sure that the validity is never larger than maxValidity
 func (s *Shard) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
-	if s.validSince == 0 {
-		s.validSince = math.MaxInt64
-	}
-	if validSince < s.validSince {
-		if validSince > time.Now().Add(maxValidity).Unix() {
-			s.validSince = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidSince exceeded maxValidity", "oldValidSince", s.validSince,
-				"newValidSince", validSince, "maxValidity", maxValidity)
-		} else {
-			s.validSince = validSince
-		}
-	}
-	if validUntil > s.validUntil {
-		if validUntil > time.Now().Add(maxValidity).Unix() {
-			s.validUntil = time.Now().Add(maxValidity).Unix()
-			log.Warn("newValidUntil exceeded maxValidity", "oldValidSince", s.validSince,
-				"newValidSince", validSince, "maxValidity", maxValidity)
-		} else {
-			s.validUntil = validUntil
-		}
-	}
+	s.validSince, s.validUntil = UpdateValidity(validSince, validUntil, s.validSince, s.validUntil,
+		maxValidity)
 }
 
 //ValidSince returns the earliest validSince date of all contained signatures
