@@ -42,7 +42,7 @@ func TestAssertionHash(t *testing.T) {
 	}{
 		{nil, "A_nil"},
 		{new(Assertion), "A____[]_[]"},
-		{&Assertion{SubjectName: "name", SubjectZone: "zone", Context: "ctx", Content: AllObjects()[:3],
+		{&Assertion{SubjectName: "name", SubjectZone: "zone", Context: "ctx", Content: object.AllObjects()[:3],
 			Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{KeySpace: keys.RainsKeySpace, Algorithm: algorithmTypes.Ed25519}, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
 			"A_name_zone_ctx_[OT:1 OV:{example.com [3 2]} OT:2 OV:2001:db8:: OT:3 OV:192.0.2.0]_[{KS=0 AT=1 VS=1000 VU=2000 KP=0 data=53696744617461}]"},
 	}
