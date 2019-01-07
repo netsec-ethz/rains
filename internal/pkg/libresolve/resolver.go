@@ -294,13 +294,7 @@ func (r *Resolver) handleZone(z *section.Zone, redirMap map[string]string,
 	srvMap map[string]object.ServiceInfo, ipMap map[string]string, types map[object.Type]bool,
 	name string, isFinal, isRedir *bool) {
 	for _, sec := range z.Content {
-		switch s := sec.(type) {
-		case *section.Assertion:
-			r.handleAssertion(s, redirMap, srvMap, ipMap, types, name, isFinal, isRedir)
-		case *section.Shard:
-		default:
-			log.Warn("zone contains invalid section type", "sec", sec)
-		}
+		r.handleAssertion(sec, redirMap, srvMap, ipMap, types, name, isFinal, isRedir)
 	}
 	if strings.HasSuffix(name, z.SubjectZone) {
 		*isFinal = true

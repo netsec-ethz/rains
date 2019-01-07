@@ -118,17 +118,6 @@ func (s *Shard) GetSubjectZone() string {
 	return s.SubjectZone
 }
 
-func (s *Shard) SetContext(ctx string) {
-	s.Context = ctx
-}
-func (s *Shard) SetSubjectZone(zone string) {
-	s.SubjectZone = zone
-}
-func (s *Shard) RemoveContextAndSubjectZone() {
-	s.SubjectZone = ""
-	s.Context = ""
-}
-
 func (s *Shard) AddCtxAndZoneToContent() {
 	for _, a := range s.Content {
 		a.Context = s.Context

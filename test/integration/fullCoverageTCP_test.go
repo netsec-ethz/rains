@@ -101,7 +101,7 @@ func loadQueriesAndAnswers(t *testing.T) (string, string) {
 }
 
 func decodeQueries(input []byte) []*query.Name {
-	zfParser := zonefile.Parser{}
+	zfParser := zonefile.IO{}
 	queries := zfParser.DecodeNameQueriesUnsafe(input)
 	for _, q := range queries {
 		q.Expiration = time.Now().Add(time.Hour).Unix()
@@ -110,7 +110,7 @@ func decodeQueries(input []byte) []*query.Name {
 }
 
 func decodeAnswers(input []byte, t *testing.T) []section.WithSigForward {
-	zfParser := zonefile.Parser{}
+	zfParser := zonefile.IO{}
 	sections, err := zfParser.Decode(input)
 	if err != nil {
 		t.Fatal("Was not able to parse answers.txt file: ", err)

@@ -13,12 +13,12 @@ func TestEncodeDecodeZone(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	parser := Parser{}
-	zone, err := parser.DecodeZone(data)
+	parser := IO{}
+	zone, err := parser.Decode(data)
 	if err != nil {
 		t.Error(err)
 	}
-	encoding := parser.Encode(zone)
+	encoding := parser.EncodeSection(zone[0])
 	err = ioutil.WriteFile("test/newzonefile.txt", []byte(encoding), 0600)
 	if err != nil {
 		t.Error(err)

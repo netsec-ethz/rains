@@ -291,10 +291,9 @@ func getZonesAndEncodings() ([]*section.Zone, []string) {
 	//zones
 	zones := []*section.Zone{}
 	assertions, assertionEncodings := getAssertionAndEncodings(indent4)
-	shards, shardEncodings := getShardAndEncodings()
 
 	zone0 := &section.Zone{
-		Content:     []section.WithSigForward{assertions[0], shards[1]},
+		Content:     []*section.Assertion{assertions[0]},
 		Context:     ".",
 		SubjectZone: "ch.",
 		Signatures:  []signature.Sig{getSignature()},
@@ -310,7 +309,7 @@ func getZonesAndEncodings() ([]*section.Zone, []string) {
 
 	//encodings
 	encodings := []string{}
-	encodings = append(encodings, fmt.Sprintf(":Z: ch. . [\n%s%s\n%s%s\n]", indent4, assertionEncodings[0], indent4, shardEncodings[1])) //when not used for signing, it does not copy context and subjectZone to contained shards and assertions
+	encodings = append(encodings, fmt.Sprintf(":Z: ch. . [\n%s%s\n]", indent4, assertionEncodings[0])) //when not used for signing, it does not copy context and subjectZone to contained shards and assertions
 	encodings = append(encodings, ":Z: ch. . [\n]")
 
 	return zones, encodings

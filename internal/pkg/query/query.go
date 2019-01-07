@@ -11,11 +11,13 @@ import (
 
 //Name contains information about the query
 type Name struct {
-	Context    string
-	Name       string
-	Types      []object.Type
-	Expiration int64 //unix seconds
-	Options    []Option
+	Context     string
+	Name        string
+	Types       []object.Type
+	Expiration  int64 //unix seconds
+	Options     []Option
+	KeyPhase    int
+	CurrentTime int64
 }
 
 // UnmarshalMap unpacks a CBOR marshaled map to this struct.
@@ -35,6 +37,8 @@ func (q *Name) UnmarshalMap(m map[int]interface{}) error {
 			q.Options = append(q.Options, Option(opt.(int)))
 		}
 	}
+	q.KeyPhase = m[17].(int)
+	q.CurrentTime = int64(m[14].(int))
 	return nil
 }
 
@@ -54,6 +58,8 @@ func (q *Name) MarshalCBOR(w *cbor.CBORWriter) error {
 		qopts[i] = int(qopt)
 	}
 	m[13] = qopts
+	m[14] = q.CurrentTime
+	m[17] = q.KeyPhase
 	return w.WriteIntMap(m)
 }
 
@@ -126,6 +132,15 @@ func (q *Name) CompareTo(query *Name) int {
 			return 1
 		}
 	}
+	if q.CurrentTime < query.CurrentTime {
+		return -1
+	} else if q.CurrentTime > query.CurrentTime {
+		return 1
+	} else if q.KeyPhase < query.KeyPhase {
+		return -1
+	} else if q.KeyPhase > query.KeyPhase {
+		return 1
+	}
 	return 0
 }
 
@@ -134,8 +149,8 @@ func (q *Name) String() string {
 	if q == nil {
 		return "Query:nil"
 	}
-	return fmt.Sprintf("Query:[CTX=%s NA=%s TYPE=%v EXP=%d OPT=%v]",
-		q.Context, q.Name, q.Types, q.Expiration, q.Options)
+	return fmt.Sprintf("Query:[CTX=%s NA=%s TYPE=%v EXP=%d OPT=%v CT=%d KP=%d]",
+		q.Context, q.Name, q.Types, q.Expiration, q.Options, q.CurrentTime, q.KeyPhase)
 }
 
 //Option enables a client or server to specify performance/privacy tradeoffs

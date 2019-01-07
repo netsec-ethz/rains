@@ -26,26 +26,25 @@ type Config struct {
 
 //ShardingConfig contains configuration options on how to split a zone into shards.
 type ShardingConfig struct {
+	IncludeShards         bool
 	DoSharding            bool
-	KeepExistingShards    bool
 	NofAssertionsPerShard int
 	MaxShardSize          int
 }
 
 //PShardingConfig contains configuration options on how to split a zone into probabilistic shards.
 type PShardingConfig struct {
+	IncludePshards         bool
 	DoPsharding            bool
-	KeepExistingPshards    bool
 	NofAssertionsPerPshard int
 	BloomFilterConf        BloomFilterConfig
 }
 
 //BloomFilterConfig specifies the bloom filter's meta data
 type BloomFilterConfig struct {
-	Hashfamily       []algorithmTypes.Hash
-	NofHashFunctions int
-	BFOpMode         section.ModeOfOperationType
-	BloomFilterSize  int
+	BFAlgo          section.BloomFilterAlgo
+	BFHash          algorithmTypes.Hash
+	BloomFilterSize int
 }
 
 //MetaDataConfig determines how the signature meta data is generated and to which section(s) it is
@@ -66,6 +65,7 @@ type MetaDataConfig struct {
 type ConsistencyConfig struct {
 	DoConsistencyCheck bool
 	SortShards         bool
+	SortZone           bool
 	SigNotExpired      bool
 	CheckStringFields  bool
 }

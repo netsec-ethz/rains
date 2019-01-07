@@ -35,7 +35,7 @@ func TestEncodeAssertions(t *testing.T) {
 func TestEncodeShards(t *testing.T) {
 	shards, encodings := getShardAndEncodings()
 	for i, shard := range shards {
-		encodedS := encodeShard(shard, shard.Context, shard.SubjectZone, "", false)
+		encodedS := encodeShard(shard, shard.Context, shard.SubjectZone, "")
 		if encodedS != encodings[i] {
 			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedS)
 		}
@@ -45,7 +45,7 @@ func TestEncodeShards(t *testing.T) {
 func TestEncodeZones(t *testing.T) {
 	zones, encodings := getZonesAndEncodings()
 	for i, zone := range zones {
-		encodedZ := encodeZone(zone, false)
+		encodedZ := encodeZone(zone)
 		if encodedZ != encodings[i] {
 			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedZ)
 		}

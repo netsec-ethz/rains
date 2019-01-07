@@ -184,22 +184,7 @@ func validZoneSignatures(zone *section.Zone, keys map[keys.PublicKeyID][]keys.Pu
 		return false
 	}
 	for _, s := range zone.Content {
-		switch sec := s.(type) {
-		case *section.Assertion:
-			if !validContainedAssertions([]*section.Assertion{sec}, keys, maxValidity) {
-				return false
-			}
-		case *section.Pshard:
-			if !siglib.CheckSectionSignatures(sec, keys, maxValidity) {
-				return false
-			}
-		case *section.Shard:
-			if !siglib.CheckSectionSignatures(sec, keys, maxValidity) ||
-				!validContainedAssertions(sec.Content, keys, maxValidity) {
-				return false
-			}
-		default:
-			log.Warn("Unknown message section", "messageSection", zone)
+		if !validContainedAssertions([]*section.Assertion{s}, keys, maxValidity) {
 			return false
 		}
 	}
