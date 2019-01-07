@@ -12,10 +12,11 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
 //processQuery processes msgSender containing a query section
-func (s *Server) processQuery(msgSender msgSectionSender) {
+func (s *Server) processQuery(msgSender util.MsgSectionSender) {
 	queries := []*query.Name{}
 	for _, sec := range msgSender.Sections {
 		if q, ok := sec.(*query.Name); ok {
@@ -35,7 +36,7 @@ func (s *Server) processQuery(msgSender msgSectionSender) {
 }
 
 //answerQueryCachingResolver is how a caching resolver answers queries
-func answerQueriesCachingResolver(ss msgSectionSender, s *Server) {
+func answerQueriesCachingResolver(ss util.MsgSectionSender, s *Server) {
 	log.Info("Start processing query as cr", "queries", ss.Sections)
 	queries := []*query.Name{}
 	sections := []section.Section{}

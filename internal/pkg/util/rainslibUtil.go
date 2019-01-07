@@ -34,6 +34,24 @@ type MaxCacheValidity struct {
 	AddressAssertionValidity time.Duration
 }
 
+//MsgSectionSender contains the message section section and connection infos about the sender
+type MsgSectionSender struct {
+	Sender   connection.Info
+	Sections []section.Section
+	Token    token.Token
+}
+
+//util.SectionWithSigSender contains a section with a signature and connection infos about the sender
+type SectionWithSigSender struct {
+	Sender   connection.Info
+	Sections []section.WithSigForward
+	Token    token.Token
+}
+
+func (s *SectionWithSigSender) Hash() string {
+	return fmt.Sprintf("%s_%v_%v", s.Sender.Hash(), s.Sections, s.Token)
+}
+
 //Save stores the object to the file located at the specified path gob encoded.
 func Save(path string, object interface{}) error {
 	file, err := os.Create(path)
@@ -62,7 +80,8 @@ func Load(path string, object interface{}) error {
 }
 
 //UpdateSectionValidity updates the validity of the section according to the signature validity and the publicKey validity used to verify this signature
-func UpdateSectionValidity(sec section.WithSig, pkeyValidSince, pkeyValidUntil, sigValidSince, sigValidUntil int64, maxVal MaxCacheValidity) {
+func UpdateSectionValidity(sec section.WithSig, pkeyValidSince, pkeyValidUntil, sigValidSince,
+	sigValidUntil int64, maxVal MaxCacheValidity) {
 	if sec != nil {
 		var maxValidity time.Duration
 		switch sec.(type) {
@@ -71,7 +90,7 @@ func UpdateSectionValidity(sec section.WithSig, pkeyValidSince, pkeyValidUntil, 
 		case *section.Shard:
 			maxValidity = maxVal.ShardValidity
 		case *section.Pshard:
-			maxValidity = maxVal.ShardValidity //FIXME CFE replace with pshardvalidity
+			maxValidity = maxVal.PhardValidity
 		case *section.Zone:
 			maxValidity = maxVal.ZoneValidity
 		default:

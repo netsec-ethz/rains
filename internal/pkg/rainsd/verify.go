@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/cache"
+
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
@@ -25,8 +27,8 @@ import (
 //(signatures of contained sections are not taken into account). If there happens an error in the
 //signature verification process of any signature, the whole msgSender gets dropped (signatures of
 //contained sections are also considered)
-func (s *Server) verify(msgSender msgSectionSender) {
-	log.Info(fmt.Sprintf("Verify %T", msgSender.Sections), "server", s.Addr(), "msgSectionSender", msgSender)
+func (s *Server) verify(msgSender util.MsgSectionSender) {
+	log.Info(fmt.Sprintf("Verify %T", msgSender.Sections), "server", s.Addr(), "util.MsgSectionSender", msgSender)
 	//msgSender.Sections contains either Queries or Assertions. It gets separated in the inbox.
 	switch msgSender.Sections[0].(type) {
 	case *section.Assertion, *section.Shard, *section.Pshard, *section.Zone:
@@ -47,7 +49,7 @@ func (s *Server) verify(msgSender msgSectionSender) {
 	}
 }
 
-func hasAuthority(msgSender msgSectionSender, s *Server) bool {
+func hasAuthority(msgSender util.MsgSectionSender, s *Server) bool {
 	for _, sec := range msgSender.Sections {
 		sec := sec.(section.WithSigForward)
 		for i, zone := range s.config.ZoneAuthority {
@@ -67,7 +69,7 @@ func hasAuthority(msgSender msgSectionSender, s *Server) bool {
 //keys are sent and ss is put on the pendingKeyCache. Otherwise all Signatures are verified. As soon
 //as one signature is invalid, processing of ss stops. When everything works well, ss is forwarded
 //to the engine.
-func verifySections(ss msgSectionSender, s *Server, isAuthoritative bool) {
+func verifySections(ss util.MsgSectionSender, s *Server, isAuthoritative bool) {
 	keys := make(map[keys.PublicKeyID][]keys.PublicKey)
 	missingKeys := make(map[missingKeyMetaData]bool)
 	for _, sec := range ss.Sections {
@@ -91,7 +93,7 @@ func verifySections(ss msgSectionSender, s *Server, isAuthoritative bool) {
 
 	log.Info("All public keys are present.", "msgSectionWithSig", ss.Sections)
 	if sections, ok := verifySignatures(ss, keys, s); ok {
-		s.assert(sectionWithSigSender{
+		s.assert(util.SectionWithSigSender{
 			Sender:   ss.Sender,
 			Token:    ss.Token,
 			Sections: sections,
@@ -102,7 +104,7 @@ func verifySections(ss msgSectionSender, s *Server, isAuthoritative bool) {
 }
 
 //verifyQueries forwards the received query to be processed if it is consistent and not expired.
-func verifyQueries(msgSender msgSectionSender, s *Server) {
+func verifyQueries(msgSender util.MsgSectionSender, s *Server) {
 	for i, q := range msgSender.Sections {
 		q := q.(*query.Name)
 		if contextInvalid(q.GetContext()) {
@@ -139,7 +141,7 @@ func isQueryExpired(expires int64) bool {
 
 //publicKeysPresent adds all public keys that are cached to keys and for all that are not, the
 //corresponding signature meta data is added to missingKeys
-func publicKeysPresent(s section.WithSigForward, zoneKeyCache zonePublicKeyCache,
+func publicKeysPresent(s section.WithSigForward, zoneKeyCache cache.ZonePublicKey,
 	keys map[keys.PublicKeyID][]keys.PublicKey, missingKeys map[missingKeyMetaData]bool) {
 	keysNeeded := make(map[signature.MetaData]bool)
 	s.NeededKeys(keysNeeded)
@@ -159,7 +161,7 @@ func publicKeysPresent(s section.WithSigForward, zoneKeyCache zonePublicKeyCache
 
 //verifySignatures verifies all signatures of ss.Section and strips off expired signatures. It
 //returns false if there is no signature left any of the messages
-func verifySignatures(ss msgSectionSender, keys map[keys.PublicKeyID][]keys.PublicKey, s *Server) (
+func verifySignatures(ss util.MsgSectionSender, keys map[keys.PublicKeyID][]keys.PublicKey, s *Server) (
 	[]section.WithSigForward, bool) {
 	sections := []section.WithSigForward{}
 	for _, sec := range ss.Sections {
@@ -228,7 +230,7 @@ func validZoneSignatures(zone *section.Zone, keys map[keys.PublicKeyID][]keys.Pu
 
 //handleMissingKeys adds sectionSender to the pending key cache and sends a delegation query if
 //necessary
-func handleMissingKeys(ss msgSectionSender, missingKeys map[missingKeyMetaData]bool, s *Server,
+func handleMissingKeys(ss util.MsgSectionSender, missingKeys map[missingKeyMetaData]bool, s *Server,
 	isAuthoritative bool) {
 	sec := ss.Sections
 	log.Info("Some public keys are missing. Add section to pending key cache",

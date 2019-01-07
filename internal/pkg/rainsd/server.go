@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/cache"
+
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
@@ -75,9 +77,9 @@ func New(configPath string, id string) (server *Server, err error) {
 
 	server.shutdown = make(chan bool, shutdownChannels)
 	server.queues = InputQueues{
-		Prio:    make(chan msgSectionSender, server.config.PrioBufferSize),
-		Normal:  make(chan msgSectionSender, server.config.NormalBufferSize),
-		Notify:  make(chan msgSectionSender, server.config.NotificationBufferSize),
+		Prio:    make(chan util.MsgSectionSender, server.config.PrioBufferSize),
+		Normal:  make(chan util.MsgSectionSender, server.config.NormalBufferSize),
+		Notify:  make(chan util.MsgSectionSender, server.config.NotificationBufferSize),
 		PrioW:   make(chan struct{}, server.config.PrioWorkerCount),
 		NormalW: make(chan struct{}, server.config.NormalWorkerCount),
 		NotifyW: make(chan struct{}, server.config.NotificationWorkerCount),
@@ -139,9 +141,9 @@ func (s *Server) Shutdown() {
 	for i := 0; i < shutdownChannels; i++ {
 		s.shutdown <- true
 	}
-	s.queues.Normal <- msgSectionSender{}
-	s.queues.Prio <- msgSectionSender{}
-	s.queues.Notify <- msgSectionSender{}
+	s.queues.Normal <- util.MsgSectionSender{}
+	s.queues.Prio <- util.MsgSectionSender{}
+	s.queues.Notify <- util.MsgSectionSender{}
 }
 
 //Write delivers an encoded rains message and a response inputChannel to the server.
@@ -212,7 +214,8 @@ func initOwnCapabilities(capabilities []message.Capability) (string, string) {
 }
 
 //loadRootZonePublicKey stores the root zone public key from disk into the zoneKeyCache.
-func loadRootZonePublicKey(keyPath string, zoneKeyCache zonePublicKeyCache, maxValidity util.MaxCacheValidity) error {
+func loadRootZonePublicKey(keyPath string, zoneKeyCache cache.ZonePublicKey,
+	maxValidity util.MaxCacheValidity) error {
 	a := new(section.Assertion)
 	err := util.Load(keyPath, a)
 	if err != nil {

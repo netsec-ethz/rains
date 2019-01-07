@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/cache"
+
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
@@ -12,15 +14,16 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
 type InputQueues struct {
 	//incoming messages are buffered in one of these channels until they get processed by a worker
 	//go routine the prioChannel only contains incoming sections in response to a delegation query
 	//issued by this server.
-	Prio   chan msgSectionSender
-	Normal chan msgSectionSender
-	Notify chan msgSectionSender
+	Prio   chan util.MsgSectionSender
+	Normal chan util.MsgSectionSender
+	Notify chan util.MsgSectionSender
 
 	//These channels limit the number of go routines working on the different queues to avoid memory
 	//exhaustion.
@@ -31,8 +34,9 @@ type InputQueues struct {
 
 //deliver pushes all incoming messages to the prio or normal channel.
 //A message is added to the priority channel if it is the response to a non-expired delegation query
-func deliver(msg *message.Message, sender connection.Info, prioChannel chan msgSectionSender,
-	normalChannel chan msgSectionSender, notificationChannel chan msgSectionSender, pendingKeys pendingKeyCache) {
+func deliver(msg *message.Message, sender connection.Info, prioChannel chan util.MsgSectionSender,
+	normalChannel chan util.MsgSectionSender, notificationChannel chan util.MsgSectionSender,
+	pendingKeys cache.PendingKey) {
 	if !siglib.CheckMessageSignatures(msg, keys.PublicKey{}) {
 		//Infra keys are not yet supported
 	}
@@ -55,7 +59,7 @@ func deliver(msg *message.Message, sender connection.Info, prioChannel chan msgS
 			trace(msg.Token, fmt.Sprintf("sent query section %v to normal channel", m))
 		case *section.Notification:
 			log.Debug("Add notification to notification queue", "token", msg.Token)
-			notificationChannel <- msgSectionSender{
+			notificationChannel <- util.MsgSectionSender{
 				Sender:   sender,
 				Sections: []section.Section{m},
 				Token:    msg.Token,
@@ -68,10 +72,10 @@ func deliver(msg *message.Message, sender connection.Info, prioChannel chan msgS
 		}
 	}
 	if len(queries) > 0 {
-		normalChannel <- msgSectionSender{Sender: sender, Sections: queries, Token: msg.Token}
+		normalChannel <- util.MsgSectionSender{Sender: sender, Sections: queries, Token: msg.Token}
 	}
 	if len(sections) > 0 {
-		mss := msgSectionSender{Sender: sender, Sections: sections, Token: msg.Token}
+		mss := util.MsgSectionSender{Sender: sender, Sections: sections, Token: msg.Token}
 		if pendingKeys.ContainsToken(msg.Token) {
 			log.Debug("add section with signature to priority queue", "token", msg.Token)
 			prioChannel <- mss
@@ -148,7 +152,7 @@ func (s *Server) workBoth() {
 }
 
 //normalWorkerHandler handles sections on the normalChannel
-func normalWorkerHandler(s *Server, msg msgSectionSender) {
+func normalWorkerHandler(s *Server, msg util.MsgSectionSender) {
 	if msg.Sections != nil {
 		s.verify(msg)
 	}
@@ -182,7 +186,7 @@ func (s *Server) workPrio() {
 }
 
 //prioWorkerHandler handles sections on the prioChannel
-func prioWorkerHandler(s *Server, msg msgSectionSender, prioWorker bool) {
+func prioWorkerHandler(s *Server, msg util.MsgSectionSender, prioWorker bool) {
 	if msg.Sections != nil {
 		s.verify(msg)
 	}
@@ -213,7 +217,7 @@ func (s *Server) workNotification() {
 }
 
 //handleNotification works on notificationChannel.
-func handleNotification(s *Server, msg msgSectionSender) {
+func handleNotification(s *Server, msg util.MsgSectionSender) {
 	if msg.Sections != nil {
 		s.notify(msg)
 	}
