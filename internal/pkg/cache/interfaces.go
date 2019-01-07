@@ -65,6 +65,8 @@ type ZonePublicKey interface {
 		keys.PublicKey, *section.Assertion, bool)
 	//RemoveExpiredKeys deletes all expired public keys from the cache.
 	RemoveExpiredKeys()
+	//Checkpoint returns all cached assertions
+	Checkpoint() []*section.Assertion
 	//Len returns the number of public keys currently in the cache.
 	Len() int
 }
@@ -115,6 +117,8 @@ type Assertion interface {
 	//RemoveZone deletes all assertions in the assertionCache and consistencyCache of the given
 	//zone.
 	RemoveZone(zone string)
+	//Checkpoint returns all cached assertions
+	Checkpoint() []*section.Assertion
 	//Len returns the number of elements in the cache.
 	Len() int
 }
@@ -142,6 +146,8 @@ type NegativeAssertion interface {
 	//RemoveZone deletes all shards and zones in the assertionCache and consistencyCache of the
 	//given subjectZone.
 	RemoveZone(subjectZone string)
+	//Checkpoint returns all cached negative assertions
+	Checkpoint() []section.WithSigForward
 	//Len returns the number of elements in the cache.
 	Len() int
 }

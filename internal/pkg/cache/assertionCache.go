@@ -243,6 +243,22 @@ func (c *AssertionImpl) RemoveZone(zone string) {
 	}
 }
 
+//Checkpoint returns all cached assertions
+func (c *AssertionImpl) Checkpoint() (assertions []*section.Assertion) {
+	entries := c.cache.GetAll()
+	for _, e := range entries {
+		values := e.(*assertionCacheValue)
+		values.mux.RLock()
+		if !values.deleted {
+			for _, v := range values.assertions {
+				assertions = append(assertions, v.assertion)
+			}
+		}
+		values.mux.RUnlock()
+	}
+	return
+}
+
 //Len returns the number of elements in the cache.
 func (c *AssertionImpl) Len() int {
 	return c.counter.Value()

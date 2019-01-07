@@ -2,6 +2,7 @@ package cache
 
 import (
 	"sync"
+	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeCounter"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeHashMap"
@@ -138,8 +139,7 @@ func (c *NegAssertionImpl) Get(zone, context string, interval section.Interval) 
 	return secs, len(secs) > 0
 }
 
-//RemoveExpiredValues goes through the cache and removes all expired shards and zones from the
-//assertionCache and the consistency cache.
+//RemoveExpiredValues goes through the cache and removes all expired shards and zones.
 func (c *NegAssertionImpl) RemoveExpiredValues() {
 	for _, v := range c.cache.GetAll() {
 		value := v.(*negAssertionCacheValue)
@@ -148,6 +148,12 @@ func (c *NegAssertionImpl) RemoveExpiredValues() {
 		if value.deleted {
 			value.mux.Unlock()
 			continue
+		}
+		for key, va := range value.sections {
+			if va.expiration < time.Now().Unix() {
+				delete(value.sections, key)
+				deleteCount++
+			}
 		}
 		if len(value.sections) == 0 {
 			value.deleted = true
@@ -180,6 +186,22 @@ func (c *NegAssertionImpl) RemoveZone(zone string) {
 			}
 		}
 	}
+}
+
+//Checkpoint returns all cached assertions
+func (c *NegAssertionImpl) Checkpoint() (sections []section.WithSigForward) {
+	entries := c.cache.GetAll()
+	for _, e := range entries {
+		values := e.(*negAssertionCacheValue)
+		values.mux.RLock()
+		if !values.deleted {
+			for _, v := range values.sections {
+				sections = append(sections, v.section)
+			}
+		}
+		values.mux.RUnlock()
+	}
+	return
 }
 
 //Len returns the number of elements in the cache.
