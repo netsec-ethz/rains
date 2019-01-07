@@ -109,8 +109,7 @@ func (p IO) Decode(zoneFile []byte) ([]section.WithSigForward, error) {
 //incorrect.
 func (p IO) DecodeNameQueriesUnsafe(encoding []byte) []*query.Name {
 	queries := []*query.Name{}
-	scanner := bufio.NewScanner(bytes.NewReader(encoding))
-	scanner.Split(bufio.ScanWords)
+	scanner := NewWordScanner(encoding)
 	for scanner.Scan() {
 		queries = append(queries, decodeNameQueryUnsafe(scanner))
 	}
