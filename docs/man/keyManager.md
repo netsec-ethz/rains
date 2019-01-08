@@ -7,36 +7,45 @@ keyManager(1) -- A RAINS key manager
 
 ## DESCRIPTION
 
-TODO
+keyManager is a tool for managing public private key pairs for the RAINS infrastructure from the
+command line. It offers key generation for all algorithms supported by RAINS and stores the keys pem
+encoded. The private key is encrypted using aes before being pem encoded. The aes key is generated
+from a user provided password. Given the name of the key and the correct password, the keyManager
+decrypts the private key and prints it pem encoded.
 
 ## OPTIONS
 
 * `-n`, `--name`:
-    The context within which to query for assertions. For example to query within the global context
-    `.` would be used as the context, or to query within a specific context such as `inf.ethz.ch`,
-    that context can be specified with this options.
+    The prefix of the file name where the key is loaded from or will be stored to.
 
 * `-a`, `--algo`:
-    TODO
+    Defines the algorithm which is used in key generation. The default is ed25519.
+
 * `--phase`:
-    TODO
+    Defines the key phase for which a key is generated. The default is 0
 * `-d`, `--description`:
-    TODO
+    Description allows to store an arbitrary string value with the key. It can e.g. be used to store
+    the information in which zone and context the key pair is used. The default is the empty string.
 * `-pwd`:
-    TODO
-var keyPath = flag.StringP("path", "p", "", "Path where the keys are or will be stored.")
-var keyName = flag.StringP("name", "n", "", "Name determines the prefix of the key pair's file name")
-var algo = flag.StringP("algo", "a", "ed25519", "Algorithm used to generate key")
-var phase = flag.Int("phase", 0, "Key phase of the generated key")
-var description = flag.StringP("description", "d", "", "description added when a new key pair is generated")
-var pwd = flag.String("pwd", "", "password to used to encrypt a newly generated key pair")
+    Pwd states the password to encrypt or decrypt a private key. The default is the empty string.
 
 ## COMMANDS
 * `load`, `l`:
-    TODO
+    Prints all public keys stored at the provided path.
 * `generate`, `gen`, `g`:
-    TODO
+    Generate first creates a new public-private key pair according to the provided algorithm. It
+    then encrypts the private key with the provided password. Lastly, it pem encodes the private and
+    public key separately and stores them at the provided path. The file prefix corresponds to the
+    provided name followed by _sec.pem or _pub.pem (for private or public key).
 * `decrypt`, `d`:
+    Decrypt loads the pem encoded private key at path corresponding to the provided name. It then
+    encrypts the private key with the user provided password and print to decrypted key pem encoded
+    to the stdout.
+
+/* Copy to man page
+var action = flag.String("action", "load", `load or l 
+generate, gen or g 
+decrypt or d decrypts the private key specified by keyName using pwd and printing it.`)*/
     TODO
 
 ## EXAMPLES

@@ -19,11 +19,6 @@ var phase = flag.Int("phase", 0, "Key phase of the generated key")
 var description = flag.StringP("description", "d", "", "description added when a new key pair is generated")
 var pwd = flag.String("pwd", "", "password to used to encrypt a newly generated key pair")
 
-/* Copy to man page
-var action = flag.String("action", "load", `load or l prints all public keys stored at path.
-generate, gen or g generates a new public-private, stores them at path and prints the public key.
-decrypt or d decrypts the private key specified by keyName using pwd and printing it.`)*/
-
 func main() {
 	flag.Parse()
 	if len(flag.Args()) == 0 {
