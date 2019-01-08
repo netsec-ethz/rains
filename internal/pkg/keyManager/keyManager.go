@@ -136,18 +136,6 @@ func encryptPrivateKey(pwd string, privateKey []byte) (salt, iv, ciphertext []by
 	return
 }
 
-//RemoveKey deletes the public and private key file stored at keyPath/name.
-func RemoveKey(keyPath, name string) {
-	err := os.Remove(path.Join(keyPath, name+public))
-	if err != nil {
-		log.Error("Was not able to delete public key", "error", err)
-	}
-	err = os.Remove(path.Join(keyPath, name+private))
-	if err != nil {
-		log.Error("Was not able to delete private key", "error", err)
-	}
-}
-
 //DecryptKey decryptes the private key stored at keyPath/name with pwd and prints it in pem format.
 func DecryptKey(keyPath, name, pwd string) {
 	data, err := ioutil.ReadFile(path.Join(keyPath, name+private))
