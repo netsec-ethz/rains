@@ -97,23 +97,6 @@ func TestGet(t *testing.T) {
 	}
 }
 
-/*func TestConcurrent(t *testing.T) {
-	cache := New()
-	var wg sync.WaitGroup
-	runs := 1000000
-	timer2 := time.NewTimer(time.Second / 2)
-	go func() {
-		<-timer2.C
-		t.Errorf("It took to long to execute. Get is not executed in parallel. It might be a false positive if your machine is slower.")
-	}()
-	for i := 0; i < runs; i++ {
-		wg.Add(1)
-		go getValue(i, cache, &wg)
-	}
-	wg.Wait()
-	timer2.Stop()
-}*/
-
 func getValue(i int, cache *Cache, wg *sync.WaitGroup) {
 	cache.Get(strconv.Itoa(i))
 	wg.Done()
