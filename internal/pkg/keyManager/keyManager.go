@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	public  = "PublicKey"
-	private = "PrivateKey"
+	pubSuffix = "_pub.pem"
+	secSuffix = "_sec.pem"
 )
 
 //LoadPublicKeys prints all public keys stored in the directory at keypath in pem format.
@@ -31,7 +31,7 @@ func LoadPublicKeys(keyPath string) {
 		log.Error("Was not able to read directory", "error", err)
 	}
 	for _, f := range files {
-		if strings.HasSuffix(f.Name(), public) {
+		if strings.HasSuffix(f.Name(), pubSuffix) {
 			data, err := ioutil.ReadFile(path.Join(keyPath, f.Name()))
 			if err != nil {
 				log.Error("Was not able to read public key file", "error", err)
@@ -63,12 +63,12 @@ func GenerateKey(keyPath, name, description, algo, pwd string, phase int) {
 		return
 	}
 	publicBlock, privateBlock := createPEMBlocks(description, algo, pwd, phase, publicKey, privateKey)
-	publicFile, err := os.Create(path.Join(keyPath, name+public))
+	publicFile, err := os.Create(path.Join(keyPath, name+pubSuffix))
 	if err != nil {
 		log.Error("Was not able to create file for public key", "error", err)
 		return
 	}
-	privateFile, err := os.Create(path.Join(keyPath, name+private))
+	privateFile, err := os.Create(path.Join(keyPath, name+secSuffix))
 	if err != nil {
 		log.Error("Was not able to create file for private key", "error", err)
 		return
@@ -86,8 +86,9 @@ func GenerateKey(keyPath, name, description, algo, pwd string, phase int) {
 func createPEMBlocks(description, algo, pwd string, phase int, publicKey, privateKey []byte) (
 	blockPublic *pem.Block, blockPrivate *pem.Block) {
 	blockPublic = &pem.Block{
-		Type: algo + " " + public,
+		Type: "RAINS PUBLIC KEY",
 		Headers: map[string]string{
+			"keyAlgo":     algo,
 			"keyPhase":    strconv.Itoa(phase),
 			"description": description,
 		},
@@ -98,8 +99,9 @@ func createPEMBlocks(description, algo, pwd string, phase int, publicKey, privat
 		log.Error("Was not able to encrypt private key")
 	}
 	blockPrivate = &pem.Block{
-		Type: algo + " Encrypted " + private,
+		Type: "RAINS ENCRYPTED PRIVATE KEY",
 		Headers: map[string]string{
+			"keyAlgo":     algo,
 			"keyPhase":    strconv.Itoa(phase),
 			"description": description,
 			"salt":        hex.EncodeToString(salt),
@@ -138,7 +140,7 @@ func encryptPrivateKey(pwd string, privateKey []byte) (salt, iv, ciphertext []by
 
 //DecryptKey decryptes the private key stored at keyPath/name with pwd and prints it in pem format.
 func DecryptKey(keyPath, name, pwd string) {
-	data, err := ioutil.ReadFile(path.Join(keyPath, name+private))
+	data, err := ioutil.ReadFile(path.Join(keyPath, name+secSuffix))
 	if err != nil {
 		log.Error("Was not able to read private key file", "error", err)
 		return

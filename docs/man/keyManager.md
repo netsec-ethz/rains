@@ -19,13 +19,16 @@ decrypts the private key and prints it pem encoded.
     The prefix of the file name where the key is loaded from or will be stored to.
 
 * `-a`, `--algo`:
-    Defines the algorithm which is used in key generation. The default is ed25519.
+    Defines the algorithm which is used in key generation. The default is ed25519. Supported
+    algorithms are: ed25519
 
 * `--phase`:
     Defines the key phase for which a key is generated. The default is 0
+
 * `-d`, `--description`:
     Description allows to store an arbitrary string value with the key. It can e.g. be used to store
     the information in which zone and context the key pair is used. The default is the empty string.
+
 * `-pwd`:
     Pwd states the password to encrypt or decrypt a private key. The default is the empty string.
 
@@ -39,7 +42,7 @@ decrypts the private key and prints it pem encoded.
     provided name followed by _sec.pem or _pub.pem (for private or public key).
 * `decrypt`, `d`:
     Decrypt loads the pem encoded private key at path corresponding to the provided name. It then
-    encrypts the private key with the user provided password and print to decrypted key pem encoded
+    encrypts the private key with the user provided password and prints to decrypted key pem encoded
     to the stdout.
 
 /* Copy to man page

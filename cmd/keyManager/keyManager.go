@@ -7,11 +7,6 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
-const (
-	public  = "PublicKey"
-	private = "PrivateKey"
-)
-
 var keyPath = flag.StringP("path", "p", "", "Path where the keys are or will be stored.")
 var keyName = flag.StringP("name", "n", "", "Name determines the prefix of the key pair's file name")
 var algo = flag.StringP("algo", "a", "ed25519", "Algorithm used to generate key")
