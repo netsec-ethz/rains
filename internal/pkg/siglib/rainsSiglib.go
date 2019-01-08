@@ -118,9 +118,11 @@ func CheckMessageSignatures(msg *message.Message, publicKey keys.PublicKey) bool
 			log.Debug("signature is expired", "signature", sig)
 		} else if !sig.VerifySignature(publicKey.Key, encoding.Bytes()) {
 			return false
+		} else {
+			msg.Signatures = append(msg.Signatures, sig)
 		}
 	}
-	return true
+	return len(msg.Signatures) > 0
 }
 
 //ValidSectionAndSignature returns true if the section is not nil, all the signatures ValidUntil are

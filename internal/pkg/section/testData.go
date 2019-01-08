@@ -14,8 +14,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
-
-	"golang.org/x/crypto/ed25519"
 )
 
 const (
@@ -33,70 +31,6 @@ const (
 	testSubjectName   = "example"
 	globalContext     = "."
 )
-
-//GetMessage returns a messages containing all  The assertion contains an instance of every object.Types
-/*func GetMessage() message.Message {
-	sig := signature.Sig{
-		PublicKeyID: keys.PublicKeyID{
-			KeySpace:  keys.RainsKeySpace,
-			Algorithm: algorithmTypes.Ed25519,
-		},
-		ValidSince: 1000,
-		ValidUntil: 2000,
-		Data:       []byte("SignatureData")}
-
-	assertion := &Assertion{
-		Content:     AllObjects(),
-		Context:     globalContext,
-		SubjectName: testSubjectName,
-		SubjectZone: testSubjectName,
-		Signatures:  []signature.Sig{sig},
-	}
-
-	shard := &Shard{
-		Content:     []*Assertion{assertion},
-		Context:     globalContext,
-		SubjectZone: testSubjectName,
-		RangeFrom:   "aaa",
-		RangeTo:     "zzz",
-		Signatures:  []signature.Sig{sig},
-	}
-
-	zone := &Zone{
-		Content:     []*Assertion{assertion},
-		Context:     globalContext,
-		SubjectZone: testSubjectName,
-		Signatures:  []signature.Sig{sig},
-	}
-
-	q := &query.Name{
-		Context:    globalContext,
-		Expiration: 159159,
-		Name:       testDomain,
-		Options:    []query.Option{query.QOMinE2ELatency, query.QOMinInfoLeakage},
-		Types:      []object.Type{object.OTIP4Addr},
-	}
-
-	notification := &Notification{
-		Token: token.New(),
-		Type:  NTNoAssertionsExist,
-		Data:  "Notification information",
-	}
-
-	message := message.Message{
-		Content: []Section{
-			assertion,
-			shard,
-			zone,
-			q,
-			notification,
-		},
-		Token:        token.New(),
-		Capabilities: []message.Capability{message.Capability("Test"), message.Capability("Yes!")},
-		Signatures:   []signature.Sig{sig},
-	}
-	return message
-}*/
 
 //GetZone returns an zone containing a shard, assertion with all object types and a pshard. The zone is valid.
 func GetZone() *Zone {
@@ -133,72 +67,10 @@ func GetPshard() *Pshard {
 //GetAssertion returns an assertion containing all objects types that is valid.
 func GetAssertion() *Assertion {
 	return &Assertion{
-		Content:     AllObjects(),
+		Content:     object.AllObjects(),
 		Context:     globalContext,
 		SubjectName: testSubjectName,
 		SubjectZone: testZone,
-	}
-}
-
-//AllObjects returns all objects with valid content
-func AllObjects() []object.Object {
-	ip6Object := object.Object{Type: object.OTIP6Addr, Value: ip6TestAddr}
-	ip4Object := object.Object{Type: object.OTIP4Addr, Value: ip4TestAddr}
-	redirObject := object.Object{Type: object.OTRedirection, Value: testDomain}
-	delegObject := object.Object{Type: object.OTDelegation, Value: PublicKey()}
-	nameSetObject := object.Object{Type: object.OTNameset, Value: object.NamesetExpr("Would be an expression")}
-	registrarObject := object.Object{Type: object.OTRegistrar, Value: "Registrar information"}
-	registrantObject := object.Object{Type: object.OTRegistrant, Value: "Registrant information"}
-	infraObject := object.Object{Type: object.OTInfraKey, Value: PublicKey()}
-	extraObject := object.Object{Type: object.OTExtraKey, Value: PublicKey()}
-	nextKey := object.Object{Type: object.OTNextKey, Value: PublicKey()}
-	return []object.Object{NameObject(), ip6Object, ip4Object, redirObject, delegObject,
-		nameSetObject, CertificateObject(), ServiceObject(), registrarObject,
-		registrantObject, infraObject, extraObject, nextKey}
-}
-
-//NameObject returns a name object with valid content
-func NameObject() object.Object {
-	nameObjectContent := object.Name{
-		Name:  testDomain,
-		Types: []object.Type{object.OTIP4Addr, object.OTIP6Addr},
-	}
-	return object.Object{Type: object.OTName, Value: nameObjectContent}
-}
-
-//object.Certificate returns a certificate object with valid content
-func CertificateObject() object.Object {
-	certificate := object.Certificate{
-		Type:     object.PTTLS,
-		HashAlgo: algorithmTypes.Sha256,
-		Usage:    object.CUEndEntity,
-		Data:     []byte("certData"),
-	}
-	return object.Object{Type: object.OTCertInfo, Value: certificate}
-}
-
-//ServiceObject returns a service information object with valid content
-func ServiceObject() object.Object {
-	serviceInfo := object.ServiceInfo{
-		Name:     "srvName",
-		Port:     49830,
-		Priority: 1,
-	}
-	return object.Object{Type: object.OTServiceInfo, Value: serviceInfo}
-}
-
-//PublicKey returns a public key with a freshly generated public key and valid content
-func PublicKey() keys.PublicKey {
-	pubKey, _, _ := ed25519.GenerateKey(nil)
-	return keys.PublicKey{
-		PublicKeyID: keys.PublicKeyID{
-			KeySpace:  keys.RainsKeySpace,
-			KeyPhase:  0,
-			Algorithm: algorithmTypes.Ed25519,
-		},
-		ValidSince: 10000,
-		ValidUntil: 50000,
-		Key:        pubKey,
 	}
 }
 
@@ -227,7 +99,7 @@ func Signature() signature.Sig {
 //AllAllowedNetworkObjects returns a list of objects that are allowed for network subjectAddresses; with valid content
 func AllAllowedNetworkObjects() []object.Object {
 	redirObject := object.Object{Type: object.OTRedirection, Value: testDomain}
-	delegObject := object.Object{Type: object.OTDelegation, Value: PublicKey()}
+	delegObject := object.Object{Type: object.OTDelegation, Value: object.PublicKey()}
 	registrantObject := object.Object{Type: object.OTRegistrant, Value: "Registrant information"}
 	return []object.Object{redirObject, delegObject, registrantObject}
 }
@@ -293,149 +165,9 @@ func AllObjectType() []object.Type {
 	}
 }
 
-func sortedNameObjects(nof int) []object.Name {
-	objects := []object.Name{}
-	for i := 0; i < nof; i++ {
-		objTypes := nof
-		if objTypes > 13 {
-			objTypes = 13
-		}
-		for j := 0; j < objTypes; j++ {
-			objects = append(objects, object.Name{Name: strconv.Itoa(i), Types: []object.Type{object.Type(j)}})
-		}
-		for j := 0; j < objTypes-1; j++ { //-1 to make sure that there are always 2 elements in the slice
-			for k := j + 1; k < objTypes; k++ {
-				objects = append(objects, object.Name{Name: strconv.Itoa(i), Types: []object.Type{object.Type(j), object.Type(k)}})
-			}
-		}
-	}
-	objects = append(objects, objects[len(objects)-1])
-	return objects
-}
-
-func sortedPublicKeys(nof int) []keys.PublicKey {
-	if nof > 255 {
-		log.Error("nof must be smaller than 256", "nof", nof)
-		nof = 255
-	}
-	pkeys := []keys.PublicKey{}
-	for i := 1; i < 5; i++ {
-		for j := 0; j < 1; j++ {
-			for k := 0; k < nof; k++ {
-				for l := 0; l < nof; l++ {
-					for m := 0; m < nof; m++ {
-						pkeys = append(pkeys, keys.PublicKey{
-							PublicKeyID: keys.PublicKeyID{
-								Algorithm: algorithmTypes.Signature(i),
-								KeySpace:  keys.KeySpaceID(j),
-							},
-							ValidSince: int64(k),
-							ValidUntil: int64(l),
-							Key:        ed25519.PublicKey([]byte{byte(m)}),
-						})
-					}
-				}
-			}
-		}
-	}
-	pkeys = append(pkeys, pkeys[len(pkeys)-1])
-	return pkeys
-}
-
-func sortedCertificates(nof int) []object.Certificate {
-	if nof > 255 {
-		log.Error("nof must be smaller than 256", "nof", nof)
-		nof = 255
-	}
-	certs := []object.Certificate{}
-	for i := 0; i < 2; i++ {
-		for j := 2; j < 4; j++ {
-			for k := 0; k < 4; k++ {
-				for l := 0; l < nof; l++ {
-					certs = append(certs, object.Certificate{
-						Type:     object.ProtocolType(i),
-						Usage:    object.CertificateUsage(j),
-						HashAlgo: algorithmTypes.Hash(k),
-						Data:     []byte{byte(l)},
-					})
-				}
-			}
-		}
-	}
-	certs = append(certs, certs[len(certs)-1])
-	return certs
-}
-
-func sortedServiceInfo(nof int) []object.ServiceInfo {
-	sis := []object.ServiceInfo{}
-	for i := 0; i < nof; i++ {
-		for j := 0; j < nof; j++ {
-			for k := 0; k < nof; k++ {
-				sis = append(sis, object.ServiceInfo{
-					Name:     strconv.Itoa(i),
-					Port:     uint16(j),
-					Priority: uint(k),
-				})
-			}
-		}
-	}
-	sis = append(sis, sis[len(sis)-1])
-	return sis
-}
-
-func sortedObjects(nofObj int) []object.Object {
-	objects := []object.Object{}
-	if nofObj > 13 {
-		nofObj = 13
-	}
-	nos := sortedNameObjects(nofObj)
-	pkeys := sortedPublicKeys(nofObj)
-	certs := sortedCertificates(nofObj)
-	sis := sortedServiceInfo(nofObj)
-	for i := 0; i < nofObj; i++ {
-		for j := 0; j < nofObj/2; j++ {
-			var value interface{}
-			switch i {
-			case 0:
-				value = nos[j]
-			case 1:
-				value = strconv.Itoa(j) //ip6
-			case 2:
-				value = strconv.Itoa(j) //ip4
-			case 3:
-				value = strconv.Itoa(j) //redir
-			case 4:
-				value = pkeys[j]
-			case 5:
-				value = object.NamesetExpr(strconv.Itoa(j))
-			case 6:
-				value = certs[j]
-			case 7:
-				value = sis[j]
-			case 8:
-				value = strconv.Itoa(j) //registrar
-			case 9:
-				value = strconv.Itoa(j) //registrant
-			case 10:
-				value = pkeys[j]
-			case 11:
-				value = pkeys[j]
-			case 12:
-				value = pkeys[j]
-
-			}
-			objects = append(objects, object.Object{
-				Type:  object.Type(i + 1),
-				Value: value,
-			})
-		}
-	}
-	return objects
-}
-
 func sortedAssertions(nof int) []*Assertion {
 	assertions := []*Assertion{}
-	objs := sortedObjects(13)
+	objs := object.SortedObjects(13)
 	for i := 0; i < nof; i++ {
 		for j := 0; j < nof; j++ {
 			for k := 0; k < nof; k++ {
