@@ -11,14 +11,13 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
-	"github.com/netsec-ethz/rains/test/data"
 	"golang.org/x/crypto/ed25519"
 )
 
 func TestSignAssertion(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := data.Assertion()
-	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
+	sec := section.GetAssertion()
+	if !SignSectionUnsafe(sec, genPrivateKey, section.Signature()) {
 		t.Error("Was not able to sign assertion")
 		return
 	}
@@ -37,8 +36,8 @@ func TestSignAssertion(t *testing.T) {
 
 func TestSignShard(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := data.Shard()
-	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
+	sec := section.GetShard()
+	if !SignSectionUnsafe(sec, genPrivateKey, section.Signature()) {
 		t.Error("Was not able to sign shard")
 		return
 	}
@@ -57,8 +56,8 @@ func TestSignShard(t *testing.T) {
 
 func TestSignPshard(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := data.Pshard()
-	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
+	sec := section.GetPshard()
+	if !SignSectionUnsafe(sec, genPrivateKey, section.Signature()) {
 		t.Error("Was not able to sign shard")
 		return
 	}
@@ -77,8 +76,8 @@ func TestSignPshard(t *testing.T) {
 
 func TestSignZone(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := data.Zone()
-	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
+	sec := section.GetZone()
+	if !SignSectionUnsafe(sec, genPrivateKey, section.Signature()) {
 		t.Error("Was not able to sign zone")
 		return
 	}
@@ -100,9 +99,9 @@ func TestSignQuery(t *testing.T) {
 	msg := &message.Message{
 		Token:        token.New(),
 		Capabilities: []message.Capability{message.NoCapability, message.TLSOverTCP},
-		Content:      []section.Section{data.Query()},
+		Content:      []section.Section{section.GetQuery()},
 	}
-	if !SignMessageUnsafe(msg, genPrivateKey, data.Signature()) {
+	if !SignMessageUnsafe(msg, genPrivateKey, section.Signature()) {
 		t.Error("Was not able to sign query")
 		return
 	}
@@ -124,9 +123,9 @@ func TestSignNotification(t *testing.T) {
 	msg := &message.Message{
 		Token:        token.New(),
 		Capabilities: []message.Capability{message.NoCapability, message.TLSOverTCP},
-		Content:      []section.Section{data.Notification(), data.NotificationNoData()},
+		Content:      []section.Section{section.GetNotification(), section.NotificationNoData()},
 	}
-	if !SignMessageUnsafe(msg, genPrivateKey, data.Signature()) {
+	if !SignMessageUnsafe(msg, genPrivateKey, section.Signature()) {
 		t.Error("Was not able to sign query")
 		return
 	}
@@ -175,10 +174,10 @@ func TestCheckSectionSignaturesErrors(t *testing.T) {
 func TestCheckMessageSignaturesErrors(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
 	encoder := new(parser.Parser)
-	message := data.GetMessage()
-	message2 := data.GetMessage()
+	message := section.GetGetMessage()
+	message2 := section.GetGetMessage()
 	message2.Capabilities = []message.Capability{message.Capability(":ip:")}
-	message3 := data.GetMessage()
+	message3 := section.GetGetMessage()
 	message3.Signatures = []signature.Sig{signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}}
 	var tests = []struct {
 		input          *message.RainsMessage
@@ -201,7 +200,7 @@ func TestCheckMessageSignaturesErrors(t *testing.T) {
 func TestSignSection(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
 	encoder := new(parser.Parser)
-	sections := data.GetMessage().Content
+	sections := section.GetGetMessage().Content
 	_, pkey, _ := ed25519.GenerateKey(nil)
 	var tests = []struct {
 		input           section.MessageSectionWithSig
@@ -236,7 +235,7 @@ func TestSignSection(t *testing.T) {
 func TestSignMessage(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
 	encoder := new(parser.Parser)
-	message := data.GetMessage()
+	message := section.GetGetMessage()
 	_, pkey, _ := ed25519.GenerateKey(nil)
 	var tests = []struct {
 		input           *message.RainsMessage
@@ -271,7 +270,7 @@ func TestSignMessage(t *testing.T) {
 
 func TestCheckMessageStringFields(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
-	message := data.GetMessage()
+	message := section.GetGetMessage()
 	var tests = []struct {
 		input *message.RainsMessage
 		want  bool
@@ -290,7 +289,7 @@ func TestCheckMessageStringFields(t *testing.T) {
 
 func TestCheckStringFields(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
-	sections := data.GetMessage().Content
+	sections := section.GetGetMessage().Content
 	var tests = []struct {
 		input section.MessageSection
 		want  bool

@@ -1,74 +1,77 @@
-package util
+package section
 
 import (
-	"net"
+	"math/rand"
 	"testing"
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/query"
-	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
-
-	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"golang.org/x/crypto/ed25519"
 )
 
-//CFE To compare recursively if two structs contain the same elements one can use reflect.DeepEqual(x,y interface{}) bool.
-//Unfortunately the function does not return which element(s) are not equal. We want this in a test scenario.
+func CheckAssertion(a1, a2 *Assertion, t *testing.T) {
+	if a1.Context != a2.Context {
+		t.Errorf("Assertion Context mismatch a1.Context=%s a2.Context=%s", a1.Context, a2.Context)
+	}
+	if a1.SubjectZone != a2.SubjectZone {
+		t.Errorf("Assertion SubjectZone mismatch a1.SubjectZone=%s a2.SubjectZone=%s", a1.SubjectZone, a2.SubjectZone)
+	}
+	if a1.SubjectName != a2.SubjectName {
+		t.Errorf("Assertion SubjectName mismatch a1.SubjectName=%s a2.SubjectName=%s", a1.SubjectName, a2.SubjectName)
+	}
+	CheckSignatures(a1.Signatures, a2.Signatures, t)
+	CheckObjects(a1.Content, a2.Content, t)
+}
 
-func CheckMessage(m1, m2 message.Message, t *testing.T) {
-	if m1.Token != m2.Token {
-		t.Error("Token mismatch")
+func CheckShard(s1, s2 *Shard, t *testing.T) {
+	if s1.Context != s2.Context {
+		t.Error("Shard context mismatch")
 	}
-	if len(m1.Capabilities) != len(m2.Capabilities) {
-		t.Error("Capabilities mismatch")
+	if s1.SubjectZone != s2.SubjectZone {
+		t.Error("Shard subjectZone mismatch")
 	}
-	for i := 0; i < len(m1.Capabilities); i++ {
-		if m1.Capabilities[i] != m2.Capabilities[i] {
-			t.Error("Capabilities mismatch")
-		}
+	if s1.RangeFrom != s2.RangeFrom {
+		t.Error("Shard RangeFrom mismatch")
 	}
-	CheckSignatures(m1.Signatures, m2.Signatures, t)
-	if len(m1.Content) != len(m2.Content) {
-		t.Error("Message Content length mismatch")
+	if s1.RangeTo != s2.RangeTo {
+		t.Error("Shard RangeTo mismatch")
 	}
-	for i, s1 := range m1.Content {
-		switch s1 := s1.(type) {
-		case *section.Assertion:
-			if s2, ok := m2.Content[i].(*section.Assertion); ok {
-				CheckAssertion(s1, s2, t)
-				continue
-			}
-			t.Errorf("Types at position %d of Content slice are different", i)
-		case *section.Shard:
-			if s2, ok := m2.Content[i].(*section.Shard); ok {
-				CheckShard(s1, s2, t)
-				continue
-			}
-			t.Errorf("Types at position %d of Content slice are different", i)
-		case *section.Zone:
-			if s2, ok := m2.Content[i].(*section.Zone); ok {
-				CheckZone(s1, s2, t)
-				continue
-			}
-			t.Errorf("Types at position %d of Content slice are different", i)
-		case *query.Name:
-			if s2, ok := m2.Content[i].(*query.Name); ok {
-				CheckQuery(s1, s2, t)
-				continue
-			}
-			t.Errorf("Types at position %d of Content slice are different", i)
-		case *section.Notification:
-			if s2, ok := m2.Content[i].(*section.Notification); ok {
-				CheckNotification(s1, s2, t)
-				continue
-			}
-			t.Errorf("Types at position %d of Content slice are different", i)
-		default:
-			t.Errorf("Unsupported section type: %T", s1)
-		}
+	CheckSignatures(s1.Signatures, s2.Signatures, t)
+	if len(s1.Content) != len(s2.Content) {
+		t.Error("Shard Content length mismatch")
+	}
+	for i, a1 := range s1.Content {
+		CheckAssertion(a1, s2.Content[i], t)
+	}
+}
+
+func CheckZone(z1, z2 *Zone, t *testing.T) {
+	if z1.Context != z2.Context {
+		t.Error("Zone context mismatch")
+	}
+	if z1.SubjectZone != z2.SubjectZone {
+		t.Error("Zone subjectZone mismatch")
+	}
+	CheckSignatures(z1.Signatures, z2.Signatures, t)
+	if len(z1.Content) != len(z2.Content) {
+		t.Error("Zone Content length mismatch")
+	}
+	for i, s1 := range z1.Content {
+		CheckAssertion(s1, z2.Content[i], t)
+	}
+}
+
+func CheckNotification(n1, n2 *Notification, t *testing.T) {
+	if n1.Type != n2.Type {
+		t.Error("Notification Type mismatch")
+	}
+	if n1.Token != n2.Token {
+		t.Error("Notification Token mismatch")
+	}
+	if n1.Data != n2.Data {
+		t.Error("Notification Data mismatch")
 	}
 }
 
@@ -103,104 +106,6 @@ func CheckSignatures(s1, s2 []signature.Sig, t *testing.T) {
 				}
 			}
 		}
-	}
-}
-
-func CheckAssertion(a1, a2 *section.Assertion, t *testing.T) {
-	if a1.Context != a2.Context {
-		t.Errorf("Assertion Context mismatch a1.Context=%s a2.Context=%s", a1.Context, a2.Context)
-	}
-	if a1.SubjectZone != a2.SubjectZone {
-		t.Errorf("Assertion SubjectZone mismatch a1.SubjectZone=%s a2.SubjectZone=%s", a1.SubjectZone, a2.SubjectZone)
-	}
-	if a1.SubjectName != a2.SubjectName {
-		t.Errorf("Assertion SubjectName mismatch a1.SubjectName=%s a2.SubjectName=%s", a1.SubjectName, a2.SubjectName)
-	}
-	CheckSignatures(a1.Signatures, a2.Signatures, t)
-	CheckObjects(a1.Content, a2.Content, t)
-}
-
-func CheckShard(s1, s2 *section.Shard, t *testing.T) {
-	if s1.Context != s2.Context {
-		t.Error("Shard context mismatch")
-	}
-	if s1.SubjectZone != s2.SubjectZone {
-		t.Error("Shard subjectZone mismatch")
-	}
-	if s1.RangeFrom != s2.RangeFrom {
-		t.Error("Shard RangeFrom mismatch")
-	}
-	if s1.RangeTo != s2.RangeTo {
-		t.Error("Shard RangeTo mismatch")
-	}
-	CheckSignatures(s1.Signatures, s2.Signatures, t)
-	if len(s1.Content) != len(s2.Content) {
-		t.Error("Shard Content length mismatch")
-	}
-	for i, a1 := range s1.Content {
-		CheckAssertion(a1, s2.Content[i], t)
-	}
-}
-
-func CheckZone(z1, z2 *section.Zone, t *testing.T) {
-	if z1.Context != z2.Context {
-		t.Error("Zone context mismatch")
-	}
-	if z1.SubjectZone != z2.SubjectZone {
-		t.Error("Zone subjectZone mismatch")
-	}
-	CheckSignatures(z1.Signatures, z2.Signatures, t)
-	if len(z1.Content) != len(z2.Content) {
-		t.Error("Zone Content length mismatch")
-	}
-	for i, s1 := range z1.Content {
-		CheckAssertion(s1, z2.Content[i], t)
-	}
-}
-
-func CheckQuery(q1, q2 *query.Name, t *testing.T) {
-	if q1.Context != q2.Context {
-		t.Error("Query context mismatch")
-	}
-	if q1.Expiration != q2.Expiration {
-		t.Error("Query Expires mismatch")
-	}
-	if q1.Name != q2.Name {
-		t.Error("Query Name mismatch")
-	}
-	if len(q1.Types) != len(q2.Types) {
-		t.Error("Query Type length mismatch")
-	}
-	for i, o1 := range q1.Types {
-		if o1 != q2.Types[i] {
-			t.Errorf("Query Type at position %d mismatch", i)
-		}
-	}
-	if len(q1.Options) != len(q2.Options) {
-		t.Error("Query Option length mismatch")
-	}
-	for i, o1 := range q1.Options {
-		if o1 != q2.Options[i] {
-			t.Errorf("Query Option at position %d mismatch", i)
-		}
-	}
-}
-
-func CheckNotification(n1, n2 *section.Notification, t *testing.T) {
-	if n1.Type != n2.Type {
-		t.Error("Notification Type mismatch")
-	}
-	if n1.Token != n2.Token {
-		t.Error("Notification Token mismatch")
-	}
-	if n1.Data != n2.Data {
-		t.Error("Notification Data mismatch")
-	}
-}
-
-func CheckSubjectAddress(a1, a2 *net.IPNet, t *testing.T) {
-	if a1.String() != a2.String() {
-		t.Error("SubjectAddr mismatch")
 	}
 }
 
@@ -327,5 +232,12 @@ func CheckPublicKey(p1, p2 keys.PublicKey, t *testing.T) {
 		}
 	default:
 		t.Errorf("Not yet supported. Got Type:%T", p1)
+	}
+}
+
+func shuffleSections(sections []Section) {
+	for i := len(sections) - 1; i > 0; i-- {
+		j := rand.Intn(i)
+		sections[i], sections[j] = sections[j], sections[i]
 	}
 }
