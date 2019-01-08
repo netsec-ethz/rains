@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"sync"
 	"testing"
-	"time"
 )
 
 func TestNew(t *testing.T) {
@@ -87,8 +86,10 @@ func TestGet(t *testing.T) {
 	if !ok || v != 5 {
 		t.Errorf("returned existing value is false. value=%v newValue=%v", v, ok)
 	}
-	//"concurrency test"
-	hashMap = New()
+}
+
+/*func TestConcurrent(t *testing.T) {
+	hashMap := New()
 	var wg sync.WaitGroup
 	runs := 1000000
 	timer2 := time.NewTimer(time.Second / 2)
@@ -102,7 +103,7 @@ func TestGet(t *testing.T) {
 	}
 	wg.Wait()
 	timer2.Stop()
-}
+}*/
 
 func getValue(i int, hashMap *Map, wg *sync.WaitGroup) {
 	hashMap.Get(strconv.Itoa(i))

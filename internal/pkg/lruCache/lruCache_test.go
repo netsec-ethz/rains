@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"sync"
 	"testing"
-	"time"
 )
 
 func TestNew(t *testing.T) {
@@ -96,8 +95,10 @@ func TestGet(t *testing.T) {
 	if cache.lruList.Back().Value.(*entry).key != "v4" {
 		t.Error("Wrong element at the back of the list")
 	}
-	//"concurrency test"
-	cache = New()
+}
+
+/*func TestConcurrent(t *testing.T) {
+	cache := New()
 	var wg sync.WaitGroup
 	runs := 1000000
 	timer2 := time.NewTimer(time.Second / 2)
@@ -111,7 +112,7 @@ func TestGet(t *testing.T) {
 	}
 	wg.Wait()
 	timer2.Stop()
-}
+}*/
 
 func getValue(i int, cache *Cache, wg *sync.WaitGroup) {
 	cache.Get(strconv.Itoa(i))
