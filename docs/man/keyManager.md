@@ -45,12 +45,6 @@ decrypts the private key and prints it pem encoded.
     encrypts the private key with the user provided password and prints to decrypted key pem encoded
     to the stdout.
 
-/* Copy to man page
-var action = flag.String("action", "load", `load or l 
-generate, gen or g 
-decrypt or d decrypts the private key specified by keyName using pwd and printing it.`)*/
-    TODO
-
 ## EXAMPLES
 
 TODO
