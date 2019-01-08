@@ -1,10 +1,10 @@
 package main
 
 import (
-	"flag"
 	"log"
 
 	"github.com/netsec-ethz/rains/internal/pkg/keyManager"
+	flag "github.com/spf13/pflag"
 )
 
 const (
@@ -12,19 +12,27 @@ const (
 	private = "PrivateKey"
 )
 
-var keyPath = flag.String("path", "", "Path where the keys are or will be stored.")
-var keyName = flag.String("name", "", "Name determines the prefix of the key pair's file name")
-var action = flag.String("action", "load", `load or l prints all public keys stored at path. 
-generate, gen or g generates a new public-private, stores them at path and prints the public key. 
-decrypt or d decrypts the private key specified by keyName using pwd and printing it.`)
-var algo = flag.String("algo", "ed25519", "Algorithm used to generate key")
+var keyPath = flag.StringP("path", "p", "", "Path where the keys are or will be stored.")
+var keyName = flag.StringP("name", "n", "", "Name determines the prefix of the key pair's file name")
+var algo = flag.StringP("algo", "a", "ed25519", "Algorithm used to generate key")
 var phase = flag.Int("phase", 0, "Key phase of the generated key")
-var description = flag.String("d", "", "description added when a new key pair is generated")
+var description = flag.StringP("description", "d", "", "description added when a new key pair is generated")
 var pwd = flag.String("pwd", "", "password to used to encrypt a newly generated key pair")
+
+/* Copy to man page
+var action = flag.String("action", "load", `load or l prints all public keys stored at path.
+generate, gen or g generates a new public-private, stores them at path and prints the public key.
+decrypt or d decrypts the private key specified by keyName using pwd and printing it.`)*/
 
 func main() {
 	flag.Parse()
-	switch *action {
+	if len(flag.Args()) == 0 {
+		log.Fatal("Please provide a command")
+	}
+	if len(flag.Args()) > 1 {
+		log.Fatal("Too many arguments")
+	}
+	switch flag.Arg(0) {
 	case "load", "l":
 		keyManager.LoadPublicKeys(*keyPath)
 	case "generate", "gen", "g":
@@ -32,6 +40,6 @@ func main() {
 	case "decrypt", "d":
 		keyManager.DecryptKey(*keyPath, *keyName, *pwd)
 	default:
-		log.Fatal("Unknown action")
+		log.Fatal("Unknown command")
 	}
 }
