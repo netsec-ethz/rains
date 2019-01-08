@@ -37,13 +37,13 @@ _testmain.go
 /examples/rainsdServer/rainsdServer
 
 #binary of executables
-/cmd/rainsdig/rainsdig
-/cmd/zonepub/zonepub
-/cmd/zoneManager/zoneManager
-/cmd/resolve/resolve
-/cmd/rainsfic/rainsfic
+/cmd/keyManager/keyManager
 /cmd/rainsd/rainsd
+/cmd/rainsdig/rainsdig
+/cmd/resolve/resolve
 /cmd/test/*
+/cmd/zoneManager/zoneManager
+/cmd/zonepub/zonepub
 /build/*
 
 #zonepub test file
