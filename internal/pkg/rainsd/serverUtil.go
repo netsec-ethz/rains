@@ -2,6 +2,7 @@ package rainsd
 
 import (
 	"net"
+	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
@@ -48,4 +49,21 @@ func sendSection(sec section.Section, token token.Token, destination net.Addr, s
 func sendCapability(destination net.Addr, capabilities []message.Capability, s *Server) {
 	msg := message.Message{Token: token.New(), Capabilities: capabilities}
 	s.sendTo(msg, destination, 1, 1)
+}
+
+func initCacheCheckpointing(config rainsdConfig, stop chan bool) {
+
+}
+
+//repeatFuncCaller executes function in intervals of waitTime until a msg is received from stop.
+func repeatFuncCaller(function func(), waitTime time.Duration, stop chan bool) {
+	for {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+		function()
+		time.Sleep(waitTime)
+	}
 }

@@ -1,8 +1,6 @@
 package rainsd
 
 import (
-	"time"
-
 	"github.com/netsec-ethz/rains/internal/pkg/cache"
 )
 
@@ -54,22 +52,9 @@ func initCaches(config rainsdConfig) *Caches {
 }
 
 func initReapers(config rainsdConfig, caches *Caches, stop chan bool) {
-	go reap(func() { caches.ZoneKeyCache.RemoveExpiredKeys() }, config.ReapVerifyTimeout, stop)
-	go reap(func() { caches.PendingKeys.RemoveExpiredValues() }, config.ReapVerifyTimeout, stop)
-	go reap(func() { caches.AssertionsCache.RemoveExpiredValues() }, config.ReapEngineTimeout, stop)
-	go reap(func() { caches.NegAssertionCache.RemoveExpiredValues() }, config.ReapEngineTimeout, stop)
-	go reap(func() { caches.PendingQueries.RemoveExpiredValues() }, config.ReapEngineTimeout, stop)
-}
-
-//reap executes reapFunction in intervals of waitTime
-func reap(reapFunction func(), waitTime time.Duration, stop chan bool) {
-	for {
-		select {
-		case <-stop:
-			return
-		default:
-		}
-		reapFunction()
-		time.Sleep(waitTime)
-	}
+	go repeatFuncCaller(func() { caches.ZoneKeyCache.RemoveExpiredKeys() }, config.ReapVerifyTimeout, stop)
+	go repeatFuncCaller(func() { caches.PendingKeys.RemoveExpiredValues() }, config.ReapVerifyTimeout, stop)
+	go repeatFuncCaller(func() { caches.AssertionsCache.RemoveExpiredValues() }, config.ReapEngineTimeout, stop)
+	go repeatFuncCaller(func() { caches.NegAssertionCache.RemoveExpiredValues() }, config.ReapEngineTimeout, stop)
+	go repeatFuncCaller(func() { caches.PendingQueries.RemoveExpiredValues() }, config.ReapEngineTimeout, stop)
 }
