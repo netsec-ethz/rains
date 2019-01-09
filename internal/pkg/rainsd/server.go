@@ -3,28 +3,18 @@ package rainsd
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"io/ioutil"
 	"net"
-	"strings"
-	"time"
-
-	"github.com/netsec-ethz/rains/internal/pkg/cache"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
-	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/libresolve"
-	"github.com/netsec-ethz/rains/internal/pkg/message"
-	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
 const (
-	shutdownChannels = 3
+	nofReapers       = 3
+	nofCheckPointers = 3
+	shutdownChannels = nofReapers + nofCheckPointers
 )
 
 //Server represents a rainsd server instance.
@@ -116,12 +106,15 @@ func (s *Server) Start(monitorResources bool) error {
 	go s.workPrio()
 	go s.workBoth()
 	go s.workNotification()
-	initReapers(s.config, s.caches, s.shutdown)
 	log.Debug("Goroutines working on input queue started")
+	initReapers(s.config, s.caches, s.shutdown)
+	initStoreCachesContent(s.config, s.caches, s.shutdown)
+	log.Debug("Reapers and Checkpointing started")
+	loadCaches(s.config.CheckPointPath, s.caches, s.config.ZoneAuthority, s.config.ContextAuthority)
+	log.Debug("Caches loaded from checkpoint")
 	if monitorResources {
 		go measureSystemRessources()
 	}
-	log.Debug("Successfully initiated engine")
 	// Initialize Rayhaan's tracer?
 	/*if traceAddr != "" {
 		t, err := NewTracer(traceSrvID, traceAddr)
@@ -150,109 +143,4 @@ func (s *Server) Shutdown() {
 //Write delivers an encoded rains message and a response inputChannel to the server.
 func (s *Server) Write(msg connection.Message) {
 	s.inputChannel.RemoteChan <- msg
-}
-
-//LoadConfig loads and stores server configuration
-func loadConfig(configPath string) (rainsdConfig, error) {
-	config := rainsdConfig{}
-	file, err := ioutil.ReadFile(configPath)
-	if err != nil {
-		log.Warn("Could not open config file...", "path", configPath, "error", err)
-		return rainsdConfig{}, err
-	}
-	if err = json.Unmarshal(file, &config); err != nil {
-		log.Warn("Could not unmarshal json format of config", "error", err)
-		return rainsdConfig{}, err
-	}
-	config.KeepAlivePeriod *= time.Second
-	config.TCPTimeout *= time.Second
-	config.DelegationQueryValidity *= time.Second
-	config.ReapVerifyTimeout *= time.Second
-	config.QueryValidity *= time.Second
-	config.AddressQueryValidity *= time.Second
-	config.ReapEngineTimeout *= time.Second
-	config.MaxCacheValidity.AddressAssertionValidity *= time.Hour
-	config.MaxCacheValidity.AssertionValidity *= time.Hour
-	config.MaxCacheValidity.ShardValidity *= time.Hour
-	config.MaxCacheValidity.ZoneValidity *= time.Hour
-	return config, nil
-}
-
-//loadTLSCertificate load a tls certificate from certPath
-func loadTLSCertificate(certPath string, TLSPrivateKeyPath string) (*x509.CertPool, tls.Certificate, error) {
-	pool := x509.NewCertPool()
-	file, err := ioutil.ReadFile(certPath)
-	if err != nil {
-		log.Error("error", err)
-		return nil, tls.Certificate{}, err
-	}
-
-	if ok := pool.AppendCertsFromPEM(file); !ok {
-		log.Error("failed to parse root certificate")
-		return nil, tls.Certificate{}, errors.New("failed to parse root certificate")
-	}
-	cert, err := tls.LoadX509KeyPair(certPath, TLSPrivateKeyPath)
-	if err != nil {
-		log.Error("Cannot load certificate. Path to CertificateFile or privateKeyFile might be invalid.",
-			"CertPath", certPath, "KeyPath", TLSPrivateKeyPath, "error", err)
-		return nil, tls.Certificate{}, err
-	}
-	return pool, cert, nil
-}
-
-//initOwnCapabilities sorts capabilities in lexicographically increasing order.
-//It stores the hex encoded sha256 hash of the sorted capabilities to capabilityHash
-//and a string representation of the capability list to capabilityList
-func initOwnCapabilities(capabilities []message.Capability) (string, string) {
-	//TODO CFE when we have CBOR use it to normalize&serialize the array before hashing it.
-	//Currently we use the hard coded version from the draft.
-	capabilityHash := "e5365a09be554ae55b855f15264dbc837b04f5831daeb321359e18cdabab5745"
-	cs := make([]string, len(capabilities))
-	for i, c := range capabilities {
-		cs[i] = string(c)
-	}
-	return capabilityHash, strings.Join(cs, " ")
-}
-
-//loadRootZonePublicKey stores the root zone public key from disk into the zoneKeyCache.
-func loadRootZonePublicKey(keyPath string, zoneKeyCache cache.ZonePublicKey,
-	maxValidity util.MaxCacheValidity) error {
-	a := new(section.Assertion)
-	err := util.Load(keyPath, a)
-	if err != nil {
-		log.Warn("Failed to load root zone public key", "err", err)
-		return err
-	}
-	log.Info("Content loaded from root zone public key", "a", a)
-	var keysAdded int
-	for _, c := range a.Content {
-		if c.Type == object.OTDelegation {
-			if publicKey, ok := c.Value.(keys.PublicKey); ok {
-				keyMap := make(map[keys.PublicKeyID][]keys.PublicKey)
-				keyMap[publicKey.PublicKeyID] = []keys.PublicKey{publicKey}
-				if validateSignatures(a, keyMap, maxValidity) {
-					if ok := zoneKeyCache.Add(a, publicKey, true); !ok {
-						return errors.New("Cache is smaller than the amount of root public keys")
-					}
-					log.Info("Added root public key to zone key cache.",
-						"context", a.Context,
-						"zone", a.SubjectZone,
-						"RootPublicKey", c.Value,
-					)
-					keysAdded++
-				} else {
-					return fmt.Errorf("Failed to validate signature for assertion: %v", a)
-				}
-			} else {
-				log.Warn(fmt.Sprintf("Was not able to cast to keys.PublicKey Got Type:%T", c.Value))
-			}
-		}
-	}
-	log.Info("Keys added to zoneKeyCache", "count", keysAdded)
-	return err
-}
-
-//measureSystemRessources measures current cpu usage
-func measureSystemRessources() {
-	//Not yet implemented
 }

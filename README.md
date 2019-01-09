@@ -32,3 +32,9 @@ design document:
 A general project plan for RAINS development is given [here](PROJECT-PLAN.md);
 small matters of programming appear in the 
 [issue tracker](https://github.com/netsec-ethz/rains/issues/).
+
+## Test coverage
+To create coverage measurements execute the following commands:
+- go test -coverprofile=coverage.out -coverpkg=./internal/pkg/...
+- go tool cover -html=coverage.out -o coverage.html
+- firefox coverage.html
