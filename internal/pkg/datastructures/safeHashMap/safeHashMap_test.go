@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"sync"
 	"testing"
-	"time"
 )
 
 func TestNew(t *testing.T) {
@@ -87,21 +86,6 @@ func TestGet(t *testing.T) {
 	if !ok || v != 5 {
 		t.Errorf("returned existing value is false. value=%v newValue=%v", v, ok)
 	}
-	//"concurrency test"
-	hashMap = New()
-	var wg sync.WaitGroup
-	runs := 1000000
-	timer2 := time.NewTimer(time.Second / 2)
-	go func() {
-		<-timer2.C
-		t.Errorf("It took to long to execute. Get is not executed in parallel. It might be a false positive if your machine is slower.")
-	}()
-	for i := 0; i < runs; i++ {
-		wg.Add(1)
-		go getValue(i, hashMap, &wg)
-	}
-	wg.Wait()
-	timer2.Stop()
 }
 
 func getValue(i int, hashMap *Map, wg *sync.WaitGroup) {
