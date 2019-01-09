@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.10
+      - image: circleci/golang:1.9
     working_directory: /go/src/github.com/netsec-ethz/rains
     steps:
       - checkout
@@ -25,7 +25,7 @@ jobs:
             go vet ./examples/...
             go vet ./cmd/...
             go vet ./test/...
-            go test  ./internal/pkg/...
+            go test ./internal/pkg/...
             go test -v ./test/integration/
       - save_cache:
           key: v1-pkg-cache
