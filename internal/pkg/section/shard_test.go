@@ -7,7 +7,6 @@ import (
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
 
@@ -100,58 +99,6 @@ func TestShardSort(t *testing.T) {
 		if !reflect.DeepEqual(s.Content, test.sorted) {
 			t.Errorf("%d: Shard.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, s.Content)
 		}
-	}
-}
-
-func TestAssertionsByNameAndTypes(t *testing.T) {
-	ss := Shard{
-		Content: make([]*Assertion, 0),
-	}
-	as1 := &Assertion{
-		SubjectName: "example",
-		SubjectZone: "com.",
-		Content: []object.Object{object.Object{
-			Type:  object.OTIP4Addr,
-			Value: "127.0.0.1",
-		},
-			object.Object{
-				Type:  object.OTIP6Addr,
-				Value: "::1",
-			}},
-	}
-	as2 := &Assertion{
-		SubjectName: "example",
-		SubjectZone: "com.",
-		Content: []object.Object{
-			object.Object{
-				Type:  object.OTRegistrant,
-				Value: "John Doe",
-			},
-			object.Object{
-				Type:  object.OTRegistrar,
-				Value: "Jane Doe",
-			},
-		}}
-	ss.Content = append(ss.Content, as1, as2)
-	res1 := ss.AssertionsByNameAndTypes("example", []object.Type{object.OTRegistrar, object.OTIP6Addr})
-	expect1 := []*Assertion{as1, as2}
-	if len(res1) != 2 {
-		t.Errorf("expected 2 assertionsections, but got %v", len(res1))
-	}
-	if !reflect.DeepEqual(res1, expect1) {
-		t.Errorf("mismatched returned assertionsections: got %v, want %v", res1, expect1)
-	}
-	res2 := ss.AssertionsByNameAndTypes("non.existant", []object.Type{object.OTRegistrar, object.OTIP6Addr})
-	if len(res2) != 0 {
-		t.Errorf("expected 0 assertionsections but got %d: %v", len(res2), res2)
-	}
-	res3 := ss.AssertionsByNameAndTypes("example", []object.Type{object.OTIP6Addr})
-	expect3 := []*Assertion{as1}
-	if len(res3) != 1 {
-		t.Errorf("expected 1 assertinsections but got %d: %v", len(res3), res3)
-	}
-	if !reflect.DeepEqual(res3, expect3) {
-		t.Errorf("mismatched returned assertionsections: got %v, want %v", res3, expect3)
 	}
 }
 
