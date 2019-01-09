@@ -52,9 +52,9 @@ func initCaches(config rainsdConfig) *Caches {
 }
 
 func initReapers(config rainsdConfig, caches *Caches, stop chan bool) {
-	go repeatFuncCaller(func() { caches.ZoneKeyCache.RemoveExpiredKeys() }, config.ReapVerifyTimeout, stop)
-	go repeatFuncCaller(func() { caches.PendingKeys.RemoveExpiredValues() }, config.ReapVerifyTimeout, stop)
-	go repeatFuncCaller(func() { caches.AssertionsCache.RemoveExpiredValues() }, config.ReapEngineTimeout, stop)
-	go repeatFuncCaller(func() { caches.NegAssertionCache.RemoveExpiredValues() }, config.ReapEngineTimeout, stop)
-	go repeatFuncCaller(func() { caches.PendingQueries.RemoveExpiredValues() }, config.ReapEngineTimeout, stop)
+	go repeatFuncCaller(caches.ZoneKeyCache.RemoveExpiredKeys, config.ReapVerifyTimeout, stop)
+	go repeatFuncCaller(caches.PendingKeys.RemoveExpiredValues, config.ReapVerifyTimeout, stop)
+	go repeatFuncCaller(caches.AssertionsCache.RemoveExpiredValues, config.ReapEngineTimeout, stop)
+	go repeatFuncCaller(caches.NegAssertionCache.RemoveExpiredValues, config.ReapEngineTimeout, stop)
+	go repeatFuncCaller(caches.PendingQueries.RemoveExpiredValues, config.ReapEngineTimeout, stop)
 }

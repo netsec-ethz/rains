@@ -4,9 +4,11 @@ import (
 	"net"
 	"time"
 
+	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
+	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
 
 // trace is a wrapper function which all callees wishing to submit a trace should use,
@@ -51,11 +53,23 @@ func sendCapability(destination net.Addr, capabilities []message.Capability, s *
 	s.sendTo(msg, destination, 1, 1)
 }
 
-func initCacheCheckpointing(config rainsdConfig, stop chan bool) {
-
+func initStoreCachesContent(config rainsdConfig, caches *Caches, stop chan bool) {
+	repeatFuncCaller(func() { checkpoint(config.CheckPointPath, caches.AssertionsCache.Checkpoint) },
+		config.AssertionCheckPointInterval, stop)
+	repeatFuncCaller(func() { checkpoint(config.CheckPointPath, caches.NegAssertionCache.Checkpoint) },
+		config.NegAssertionCheckPointInterval, stop)
+	repeatFuncCaller(func() { checkpoint(config.CheckPointPath, caches.ZoneKeyCache.Checkpoint) },
+		config.ZoneKeyCheckPointInterval, stop)
 }
 
-//repeatFuncCaller executes function in intervals of waitTime until a msg is received from stop.
+func checkpoint(path string, values func() []section.Section) {
+	io := zonefile.IO{}
+	if err := io.EncodeAndStore(path, values()); err != nil {
+		log.Error("Was not able to checkpoint assertion cache", "error", err)
+	}
+}
+
+//repeatFuncCaller executes function in intervals of waitTime
 func repeatFuncCaller(function func(), waitTime time.Duration, stop chan bool) {
 	for {
 		select {

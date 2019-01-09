@@ -184,7 +184,7 @@ func (c *ZoneKeyImpl) RemoveExpiredKeys() {
 }
 
 //Checkpoint returns all cached assertions
-func (c *ZoneKeyImpl) Checkpoint() (assertions []*section.Assertion) {
+func (c *ZoneKeyImpl) Checkpoint() (assertions []section.Section) {
 	entries := c.cache.GetAll()
 	for _, e := range entries {
 		values := e.(*zoneKeyCacheValue).publicKeys.GetAll()
