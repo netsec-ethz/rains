@@ -112,8 +112,7 @@ TODO: make it compatible with https://tools.ietf.org/html/rfc5234
 ] ( :sig: :ed25519: :rains: 1 2000 5000 )
 :S: com. . a d [
     :A: example  [ :ip4: 192.168.1.10 ]
-    :A: example  [ :ip6: 2001:0db8:85a3:0000:0000:8a2e:0370:7334 ]
-        
+    :A: example  [ :ip6: 2001:0db8:85a3:0000:0000:8a2e:0370:7334 ]   
 ]
 :P: com. . a d :bloomKM12: :shake256: e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de6
 ```
