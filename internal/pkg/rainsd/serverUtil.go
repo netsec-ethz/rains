@@ -1,6 +1,7 @@
 package rainsd
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -14,13 +15,13 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/cache"
+	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
-	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
 
 const (
@@ -177,31 +178,36 @@ func measureSystemRessources() {
 }
 
 func initStoreCachesContent(config rainsdConfig, caches *Caches, stop chan bool) {
-	repeatFuncCaller(func() {
+	go repeatFuncCaller(func() {
 		checkpoint(path.Join(config.CheckPointPath, aCheckPointFileName),
 			caches.AssertionsCache.Checkpoint)
 	}, config.AssertionCheckPointInterval, stop)
-	repeatFuncCaller(func() {
+	go repeatFuncCaller(func() {
 		checkpoint(path.Join(config.CheckPointPath, nCheckPointFileName),
 			caches.NegAssertionCache.Checkpoint)
 	}, config.NegAssertionCheckPointInterval, stop)
-	repeatFuncCaller(func() {
+	go repeatFuncCaller(func() {
 		checkpoint(path.Join(config.CheckPointPath, zCheckPointFileName),
 			caches.ZoneKeyCache.Checkpoint)
 	}, config.ZoneKeyCheckPointInterval, stop)
 }
 
 func checkpoint(path string, values func() []section.Section) {
-	io := zonefile.IO{}
-	if err := io.EncodeAndStore(path, values()); err != nil {
+	msg := message.Message{Content: values()}
+	encoding := new(bytes.Buffer)
+	if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
+		log.Error("Was not able to checkpoint assertion cache", "error", err)
+		return
+	}
+	if err := ioutil.WriteFile(path, encoding.Bytes(), 0600); err != nil {
 		log.Error("Was not able to checkpoint assertion cache", "error", err)
 	}
 }
 
 func loadCaches(cpPath string, caches *Caches, authZone, authContext []string) {
-	io := zonefile.IO{}
 	//load assertion check point
-	sections, err := io.LoadZonefile(path.Join(cpPath, aCheckPointFileName))
+
+	sections, err := readMsgFromFile(path.Join(cpPath, aCheckPointFileName))
 	if err != nil {
 		log.Warn("Was not able to load assertion check point from file", "error", err)
 	}
@@ -216,7 +222,7 @@ func loadCaches(cpPath string, caches *Caches, authZone, authContext []string) {
 	}
 
 	//load negAssertion check point
-	sections, err = io.LoadZonefile(path.Join(cpPath, nCheckPointFileName))
+	sections, err = readMsgFromFile(path.Join(cpPath, nCheckPointFileName))
 	if err != nil {
 		log.Warn("Was not able to load negAssertion check point from file", "error", err)
 	}
@@ -237,7 +243,7 @@ func loadCaches(cpPath string, caches *Caches, authZone, authContext []string) {
 	}
 
 	//load zone key check point
-	sections, err = io.LoadZonefile(path.Join(cpPath, zCheckPointFileName))
+	sections, err = readMsgFromFile(path.Join(cpPath, zCheckPointFileName))
 	if err != nil {
 		log.Warn("Was not able to load zone key check point from file", "error", err)
 	}
@@ -254,6 +260,18 @@ func loadCaches(cpPath string, caches *Caches, authZone, authContext []string) {
 			log.Warn("Invalid type for zone key cache", "type", fmt.Sprintf("%T", s))
 		}
 	}
+}
+
+func readMsgFromFile(path string) ([]section.Section, error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var msg message.Message
+	if err := cbor.NewReader(bytes.NewReader(data)).Unmarshal(&msg); err != nil {
+		return nil, err
+	}
+	return msg.Content, nil
 }
 
 func isAuthoritative(s section.WithSigForward, authZone, authContext []string) bool {

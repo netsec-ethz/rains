@@ -110,7 +110,7 @@ func (s *Server) Start(monitorResources bool) error {
 	initReapers(s.config, s.caches, s.shutdown)
 	initStoreCachesContent(s.config, s.caches, s.shutdown)
 	log.Debug("Reapers and Checkpointing started")
-	loadCaches(s.config.CheckPointPath, s.caches, s.config.ZoneAuthority, s.config.ContextAuthority)
+	//loadCaches(s.config.CheckPointPath, s.caches, s.config.ZoneAuthority, s.config.ContextAuthority)
 	log.Debug("Caches loaded from checkpoint")
 	if monitorResources {
 		go measureSystemRessources()

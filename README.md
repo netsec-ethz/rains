@@ -35,6 +35,6 @@ small matters of programming appear in the
 
 ## Test coverage
 To create coverage measurements execute the following commands:
-- go test -coverprofile=coverage.out -coverpkg=./internal/pkg/...
+- go test -coverprofile=coverage.out -coverpkg=./internal/pkg/... ./...
 - go tool cover -html=coverage.out -o coverage.html
 - firefox coverage.html
