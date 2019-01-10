@@ -51,20 +51,35 @@ func TestFullCoverage(t *testing.T) {
 	for i, query := range queries {
 		sendQueryVerifyResponse(t, *query, cachingResolver.Addr(), answers[i])
 	}
+	log.Info("Done sending queries for recursive lookups")
 
 	//Shut down authoritative servers
 	rootServer.Shutdown()
 	chServer.Shutdown()
 	ethzChServer.Shutdown()
 	time.Sleep(500 * time.Millisecond)
-	log.Info("begin sending queries which should be cached")
-	//Send queries to client resolver and observe the cached results.
+	log.Info("begin sending queries which should be cached by recursive lookup")
 	for i, query := range queries {
 		sendQueryVerifyResponse(t, *query, cachingResolver.Addr(), answers[i])
 	}
+	log.Info("Done sending queries for cached entries from a recursive lookup")
 
 	//Restart caching resolver from checkpoint
 	time.Sleep(1000 * time.Millisecond) //make sure that caches are checkpointed
+	cachingResolver.Shutdown()
+	cachingResolver2, err := rainsd.New("testdata/conf/resolver2.conf", "resolver2")
+	if err != nil {
+		t.Fatalf("Was not able to create client resolver: %v", err)
+	}
+	go cachingResolver2.Start(false)
+	time.Sleep(500 * time.Millisecond)
+	log.Info("caching server successfully started")
+	log.Info("begin sending queries which should be cached by pre load")
+	for i, query := range queries {
+		sendQueryVerifyResponse(t, *query, cachingResolver2.Addr(), answers[i])
+	}
+	log.Info("Done sending queries for cached entries that are preloaded")
+	cachingResolver2.Shutdown()
 }
 
 func startAuthServer(t *testing.T, name string, rootServers []net.Addr) *rainsd.Server {

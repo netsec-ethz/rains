@@ -108,8 +108,6 @@ func (s *Server) Start(monitorResources bool) error {
 	go s.workNotification()
 	log.Debug("Goroutines working on input queue started")
 	initReapers(s.config, s.caches, s.shutdown)
-	initStoreCachesContent(s.config, s.caches, s.shutdown)
-	log.Info("Reapers and Checkpointing started")
 	if s.config.PreLoadCaches {
 		loadCaches(s.config.CheckPointPath, s.caches, s.config.ZoneAuthority, s.config.ContextAuthority)
 		log.Info("Caches loaded from checkpoint",
@@ -117,6 +115,8 @@ func (s *Server) Start(monitorResources bool) error {
 			"negAssertions", s.caches.NegAssertionCache.Len(),
 			"zoneKey", s.caches.ZoneKeyCache.Len())
 	}
+	initStoreCachesContent(s.config, s.caches, s.shutdown)
+	log.Info("Reapers and Checkpointing started")
 	if monitorResources {
 		go measureSystemRessources()
 	}

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
 	"path"
 	"strings"
 	"time"
@@ -84,6 +85,9 @@ func loadConfig(configPath string) (rainsdConfig, error) {
 		log.Warn("Could not unmarshal json format of config", "error", err)
 		return rainsdConfig{}, err
 	}
+	config.AssertionCheckPointInterval *= time.Second
+	config.NegAssertionCheckPointInterval *= time.Second
+	config.ZoneKeyCheckPointInterval *= time.Second
 	config.KeepAlivePeriod *= time.Second
 	config.TCPTimeout *= time.Second
 	config.DelegationQueryValidity *= time.Second
@@ -178,6 +182,10 @@ func measureSystemRessources() {
 }
 
 func initStoreCachesContent(config rainsdConfig, caches *Caches, stop chan bool) {
+	if err := os.MkdirAll(config.CheckPointPath, os.ModePerm); err != nil {
+		log.Error("Was not able to create folders", "error", err)
+	}
+	time.Sleep(100 * time.Millisecond)
 	go repeatFuncCaller(func() {
 		checkpoint(path.Join(config.CheckPointPath, aCheckPointFileName),
 			caches.AssertionsCache.Checkpoint)
@@ -212,7 +220,6 @@ func loadCaches(cpPath string, caches *Caches, authZone, authContext []string) {
 		log.Warn("Was not able to load assertion check point from file", "error", err)
 	}
 	for _, s := range sections {
-		//TODO check if it is authority
 		if s, ok := s.(*section.Assertion); ok {
 			caches.AssertionsCache.Add(s, time.Now().Add(24*time.Hour).Unix(),
 				isAuthoritative(s, authZone, authContext))
@@ -251,7 +258,6 @@ func loadCaches(cpPath string, caches *Caches, authZone, authContext []string) {
 		if s, ok := s.(*section.Assertion); ok {
 			for _, o := range s.Content {
 				if o.Type == object.OTDelegation {
-					//TODO check if it is authority
 					caches.ZoneKeyCache.Add(s, o.Value.(keys.PublicKey),
 						isAuthoritative(s, authZone, authContext))
 				}
