@@ -52,9 +52,9 @@ _testmain.go
 *coverage.html
 
 #integration test files
-*assertionCheckPoint.txt
-*negAssertionCheckPoint.txt
-*zoneKeyCheckPoint.txt
+*assertionCheckPoint.gob
+*negAssertionCheckPoint.gob
+*zoneKeyCheckPoint.gob
 
 #Yacc
 /tools/yacc/y.go

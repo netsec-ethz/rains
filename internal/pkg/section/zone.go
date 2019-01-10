@@ -155,6 +155,16 @@ func (z *Zone) ValidUntil() int64 {
 	return z.validUntil
 }
 
+//SetValidSince sets the validSince time
+func (z *Zone) SetValidSince(validSince int64) {
+	z.validSince = validSince
+}
+
+//SetValidUntil sets the validUntil time
+func (z *Zone) SetValidUntil(validUntil int64) {
+	z.validUntil = validUntil
+}
+
 //Hash returns a string containing all information uniquely identifying a shard.
 func (z *Zone) Hash() string {
 	if z == nil {

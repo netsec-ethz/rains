@@ -1,7 +1,6 @@
 package rainsd
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -16,7 +15,6 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/cache"
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -26,10 +24,16 @@ import (
 )
 
 const (
-	aCheckPointFileName = "assertionCheckPoint.txt"
-	nCheckPointFileName = "negAssertionCheckPoint.txt"
-	zCheckPointFileName = "zoneKeyCheckPoint.txt"
+	aCheckPointFileName = "assertionCheckPoint.gob"
+	nCheckPointFileName = "negAssertionCheckPoint.gob"
+	zCheckPointFileName = "zoneKeyCheckPoint.gob"
 )
+
+type checkPointValue struct {
+	Sections   []section.Section
+	ValidSince []int64
+	ValidUntil []int64
+}
 
 // trace is a wrapper function which all callees wishing to submit a trace should use,
 // as it will only send the trace if a tracer server is connected.
@@ -201,20 +205,19 @@ func initStoreCachesContent(config rainsdConfig, caches *Caches, stop chan bool)
 }
 
 func checkpoint(path string, values func() []section.Section) {
-	msg := message.Message{Content: values()}
-	encoding := new(bytes.Buffer)
-	if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
-		log.Error("Was not able to checkpoint assertion cache", "error", err)
-		return
+	value := checkPointValue{Sections: values()}
+	for _, s := range value.Sections {
+		value.ValidSince = append(value.ValidSince, s.(section.WithSigForward).ValidSince())
+		value.ValidUntil = append(value.ValidUntil, s.(section.WithSigForward).ValidUntil())
 	}
-	if err := ioutil.WriteFile(path, encoding.Bytes(), 0600); err != nil {
-		log.Error("Was not able to checkpoint assertion cache", "error", err)
+	if err := util.Save(path, value); err != nil {
+		log.Error("Was not able to checkpoint cache", "path", path, "error", err)
 	}
 }
 
 func loadCaches(cpPath string, caches *Caches, authZone, authContext []string) {
-	//load assertion check point
 
+	//load assertion check point
 	sections, err := readMsgFromFile(path.Join(cpPath, aCheckPointFileName))
 	if err != nil {
 		log.Warn("Was not able to load assertion check point from file", "error", err)
@@ -269,15 +272,15 @@ func loadCaches(cpPath string, caches *Caches, authZone, authContext []string) {
 }
 
 func readMsgFromFile(path string) ([]section.Section, error) {
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
+	values := &checkPointValue{}
+	if err := util.Load(path, values); err != nil {
 		return nil, err
 	}
-	var msg message.Message
-	if err := cbor.NewReader(bytes.NewReader(data)).Unmarshal(&msg); err != nil {
-		return nil, err
+	for i, s := range values.Sections {
+		s.(section.WithSigForward).SetValidSince(values.ValidSince[i])
+		s.(section.WithSigForward).SetValidUntil(values.ValidUntil[i])
 	}
-	return msg.Content, nil
+	return values.Sections, nil
 }
 
 func isAuthoritative(s section.WithSigForward, authZone, authContext []string) bool {
