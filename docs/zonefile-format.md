@@ -21,22 +21,22 @@ comments. There are three special encodings:
 ### Format specification in backus normal form (BNF)
 
 ```
-<sections> ::= "" | <sections> <assertion> | <sections> <shard> | <sections> <pshard> | <sections> <zone>
-<zone> ::= <zoneBody> | <zoneBody> <annotation>
+<sections> ::=  "" | <sections> <assertion> | <sections> <shard> | <sections> <pshard> | <sections> <zone>
+<zone> ::=  <zoneBody> | <zoneBody> <annotation>
 <zoneBody> ::= ":Z:" <subjectZone> <context> "[" <zoneContent> "]"
-<zoneContent> ::= "" | <zoneContent> <assertion> | <zoneContent> <shard>
+<zoneContent> ::= "" | <zoneContent> <assertion>
 <shard> ::= <shardBody> | <shardBody> <annotation>
-<shardBody> ::= ":S:" <shardRange> "[" <shardContent> "]" | ":S:" <subjectZone> <context> <shardRange> "[" <shardContent> "]"
+<shardBody> ::=  ":S:" <subjectZone> <context> <shardRange> "[" <shardContent> "]"
 <shardRange> ::= <rangeBegin> <rangeEnd> | <rangeBegin> ">" | "<" <rangeEnd> | "<" ">"
 <shardContent> ::= "" | <shardContent> <assertion>
 <pshard> ::= <pshardBody> | <pshardBody> <annotation>
-<pshardBody> ::= ":P:" <shardRange> <pshardContent> | ":P:" <subjectZone> <context> <shardRange> <pshardContent>
-<pshardContent> ::= <bloomFilter>
-<bloomFilter> ::= :bloomFilter: "[" <hashTypes> "]" <nofHashFunctions> <bfOpMode> <bloomFilterData>
-<hashTypes> ::= <hashType> | <hashTypes> <hashType>
+<pshardBody> ::= ":P:" <subjectZone> <context> <shardRange> <bfAlgo> <bfHash> <bloomFilterData>
+<bfAlgo> ::= ":bloomKM12:" | ":bloomKM16:" | ":bloomKM20:" | ":bloomKM24:"
+<bfHash> ::= ":shake256:" | ":fnv64:" | ":fnv128:"
 <assertion> ::= <assertionBody> | <assertionBody> <annotation>
 <assertionBody> ::= ":A:" <name> "[" <objects> "]" | ":A:" <name> <subjectZone> <context> "[" <objects> "]"
-<objects> ::= <name> | <ip6> | <ip4> | <redir> | <deleg> | <nameset> | <cert> | <srv> | <regr> | <regt> | <infra> | <extra> | <next>
+<objects> ::= <name> | <ip6> | <ip4> | <redir> | <deleg> | <nameset> | <cert> | <srv> | <regr> 
+              | <regt> | <infra> | <extra> | <next>
 <name> ::= <namebody> | <name> <namebody>
 <ip6> ::= <ip6body> | <ip6> <ip6body>
 <ip4> ::= <ip4body> | <ip4> <ip4body>
@@ -78,8 +78,10 @@ comments. There are three special encodings:
 <sigMetaData> ::= ":sig:" ":ed25519:" ":rains:" <keyphase> <validFrom> <validSince>
 ```
 
-## Example
+TODO: make it compatible with https://tools.ietf.org/html/rfc5234
 
+## Example
+```
 :Z: com. . [
     :A: ch  [ :name: a [ :ip4: :ip6: ] ]
     :A: example  [ :ip4: 192.168.1.10 ]
@@ -114,3 +116,4 @@ comments. There are three special encodings:
         
 ]
 :P: com. . a d :bloomKM12: :shake256: e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de6
+```
