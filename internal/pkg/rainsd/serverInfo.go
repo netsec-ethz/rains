@@ -22,6 +22,7 @@ type rainsdConfig struct {
 	NegAssertionCheckPointInterval time.Duration //in seconds
 	ZoneKeyCheckPointInterval      time.Duration //in seconds
 	CheckPointPath                 string
+	PreLoadCaches                  bool
 
 	//switchboard
 	ServerAddress      connection.Info

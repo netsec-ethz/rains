@@ -62,6 +62,9 @@ func TestFullCoverage(t *testing.T) {
 	for i, query := range queries {
 		sendQueryVerifyResponse(t, *query, cachingResolver.Addr(), answers[i])
 	}
+
+	//Restart caching resolver from checkpoint
+	time.Sleep(1000 * time.Millisecond) //make sure that caches are checkpointed
 }
 
 func startAuthServer(t *testing.T, name string, rootServers []net.Addr) *rainsd.Server {
@@ -71,6 +74,7 @@ func startAuthServer(t *testing.T, name string, rootServers []net.Addr) *rainsd.
 	}
 	server.SetResolver(libresolve.New(rootServers, nil, libresolve.Recursive, server.Addr(), 1000))
 	go server.Start(false)
+	time.Sleep(250 * time.Millisecond)
 	config, err := publisher.LoadConfig("testdata/conf/publisher" + name + ".conf")
 	if err != nil {
 		t.Fatal(fmt.Sprintf("Was not able to load %s publisher config: ", name), err)
