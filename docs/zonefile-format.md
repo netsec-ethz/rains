@@ -83,36 +83,36 @@ TODO: make it compatible with https://tools.ietf.org/html/rfc5234
 ## Example
 ```
 :Z: com. . [
-    :A: ch  [ :name: a [ :ip4: :ip6: ] ]
-    :A: example  [ :ip4: 192.168.1.10 ]
-    :A: ethz [ 
+    :A: ns1.example [ 
             :ip6:      2001:0db8:85a3:0000:0000:8a2e:0370:7334
             :ip6:      2001:db8::68
     ]
-    :A: example [ :redir: ns.example. ]
+    :A: ns1.example  [ :ip4: 192.168.1.11 ]
+    :A: example [ :redir: ns.example.com. ]
     :A: example  [ :deleg: :ed25519: 5
     e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
     ]
-    :A: example  [ :nameset: Hello How are you ]
-    :A: example  [ :cert: :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
-    :A: example  [ :srv: dns 53 0 ]
-    :A: example  [ :regr: registrar text ]
-    :A: example  [ :regt: registrant info ]
-    :A: example  [ :infra: :ed25519: 5
+    :A: @  [ :cert: :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
+    :A: ns.example  [ :srv: ns1.example.com. 5022 0 ]
+    :A: @  [ :regr: <registrar text> ]
+    :A: @  [ :regt: <registrant info> ]
+    
+] ( :sig: :ed25519: :rains: 1 1547140919 1547155357 )
+:S: com. . a f [
+    :A: example [ :redir: ns.example.com. ]
+    :A: example  [ :deleg: :ed25519: 5
     e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
     ]
-    :A: example  [ :extra: :ed25519: 5
-    e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
-    ]
-    :A: example  [ :next: :ed25519: 5
-    e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
-    100000 20000000 ]
-    :A: example  [ :ip4: 192.168.1.10 ]
-    :A: example  [ :ip4: 192.168.1.10 ]
-] ( :sig: :ed25519: :rains: 1 2000 5000 )
-:S: com. . a d [
-    :A: example  [ :ip4: 192.168.1.10 ]
-    :A: example  [ :ip6: 2001:0db8:85a3:0000:0000:8a2e:0370:7334 ]   
-]
+] ( :sig: :ed25519: :rains: 1 1547140919 1547155357 )
 :P: com. . a d :bloomKM12: :shake256: e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de6
+( :sig: :ed25519: :rains: 1 1547140919 1547155357 )
+
+:Z: example.com. . [
+    :A: www  [ :name: w [ :ip4: :ip6: ] ]
+    :A: www  [ :ip4: 192.168.1.10 ]
+    :A: www [ 
+            :ip6:      2001:0db8:85a3:0000:0000:8a2e:0370:7334
+            :ip6:      2001:db8::68
+    ]
+] ( :sig: :ed25519: :rains: 1 1547140919 1547155357 )
 ```
