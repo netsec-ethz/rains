@@ -10,7 +10,6 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
 
@@ -227,27 +226,6 @@ func (s *Shard) String() string {
 	}
 	return fmt.Sprintf("Shard:[SZ=%s CTX=%s RF=%s RT=%s CONTENT=%v SIG=%v]",
 		s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, s.Content, s.Signatures)
-}
-
-//AssertionsByNameAndTypes returns all contained assertions with subjectName and at least one object
-//that has a type contained in connection. It is assumed that the contained assertions are sorted by
-//subjectName in ascending order. The returned assertions are pairwise distinct.
-func (s *Shard) AssertionsByNameAndTypes(subjectName string, types []object.Type) []*Assertion {
-	assertionMap := make(map[string]*Assertion)
-	i := sort.Search(len(s.Content), func(i int) bool { return s.Content[i].SubjectName >= subjectName })
-	for ; i < len(s.Content) && s.Content[i].SubjectName == subjectName; i++ {
-		for _, oType := range types {
-			if _, ok := object.ContainsType(s.Content[i].Content, oType); ok {
-				assertionMap[s.Content[i].Hash()] = s.Content[i]
-				break
-			}
-		}
-	}
-	var assertions []*Assertion
-	for _, a := range assertionMap {
-		assertions = append(assertions, a)
-	}
-	return assertions
 }
 
 //InRange returns true if subjectName is inside the shard range
