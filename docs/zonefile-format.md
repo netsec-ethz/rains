@@ -93,7 +93,7 @@ TODO: make it compatible with https://tools.ietf.org/html/rfc5234
     e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
     ]
     :A: @  [ :cert: :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
-    :A: ns.example  [ :srv: ns1.example.com. 5022 0 ]
+    :A: _rains._tcp.ns.example  [ :srv: ns1.example.com. 5022 0 ]
     :A: @  [ :regr: <registrar text> ]
     :A: @  [ :regt: <registrant info> ]
     
