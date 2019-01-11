@@ -1,4 +1,4 @@
-# RAINS components
+# RAINS Components
 
 This document is about the implementation design of the different components required to run RAINS.
 It describes a command line querying tool called RainsDig, a command line key managing tool, a
@@ -14,7 +14,7 @@ query DNS, to make everyone's life easy when transitioning from DNS to RAINS or 
 does not support dig's rarely used command line options to keep the tool simple and comprehensive.
 There is a page describing RainsDig's functionality.
 
-##ZonePub
+## ZonePub
 
 ZonePub is a command line tool for zone authorities to publish a zone file to authoritative
 server(s). It requires as input a path to a configuration file which specifies how the zone file
