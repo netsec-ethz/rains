@@ -26,7 +26,13 @@ describing ZonePub's functionality.
 
 ## KeyManager
 
-TODO
+The key manager is intended for zone operators to generate, store, and load keys related to RAINS in
+a simple way. When generating a new key pair, it allows an operator to choose the algorithm and key
+phase and stores the public and the encrypted private key to disk at the provided path in pem
+format. The private key is encrypted based on a password chosen by the zone operator. The key
+manager can display all public keys stored in a directory and decrypt and print a private key
+(provided the correct password was entered). There is a man page describing KeyManager's
+functionality.
 
 ## RAINS Server
 
