@@ -24,6 +24,13 @@ import (
 func init() {
 	gob.Register(keys.PublicKey{})
 	gob.RegisterName("ed25519.PublicKey", ed25519.PublicKey{})
+	gob.Register(&section.Assertion{})
+	gob.Register(&section.Shard{})
+	gob.Register(&section.Pshard{})
+	gob.Register(&section.Zone{})
+	gob.Register(object.ServiceInfo{})
+	gob.Register(object.Certificate{})
+	gob.Register(object.Name{})
 }
 
 //MaxCacheValidity defines the maximum duration each section containing signatures can be valid, starting from time.Now()
@@ -42,7 +49,7 @@ type MsgSectionSender struct {
 	Token    token.Token
 }
 
-//util.SectionWithSigSender contains a section with a signature and connection infos about the sender
+//SectionWithSigSender contains a section with a signature and connection infos about the sender
 type SectionWithSigSender struct {
 	Sender   net.Addr
 	Sections []section.WithSigForward
@@ -64,7 +71,8 @@ func Save(path string, object interface{}) error {
 	return err
 }
 
-//Load fetches the gob encoded object from the file located at path
+//Load fetches the gob encoded object from the file located at path. Make sure that all types that
+//are behind an interface are registered in the init method.
 func Load(path string, object interface{}) error {
 	file, err := os.Open(path)
 	defer file.Close()

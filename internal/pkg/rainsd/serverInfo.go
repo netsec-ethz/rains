@@ -17,6 +17,12 @@ var globalTracer *Tracer
 type rainsdConfig struct {
 	//general
 	RootZonePublicKeyPath string
+	//TODO add these two options to man page
+	AssertionCheckPointInterval    time.Duration //in seconds
+	NegAssertionCheckPointInterval time.Duration //in seconds
+	ZoneKeyCheckPointInterval      time.Duration //in seconds
+	CheckPointPath                 string
+	PreLoadCaches                  bool
 
 	//switchboard
 	ServerAddress      connection.Info

@@ -244,7 +244,7 @@ func (c *AssertionImpl) RemoveZone(zone string) {
 }
 
 //Checkpoint returns all cached assertions
-func (c *AssertionImpl) Checkpoint() (assertions []*section.Assertion) {
+func (c *AssertionImpl) Checkpoint() (assertions []section.Section) {
 	entries := c.cache.GetAll()
 	for _, e := range entries {
 		values := e.(*assertionCacheValue)

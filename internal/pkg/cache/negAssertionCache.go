@@ -189,7 +189,7 @@ func (c *NegAssertionImpl) RemoveZone(zone string) {
 }
 
 //Checkpoint returns all cached assertions
-func (c *NegAssertionImpl) Checkpoint() (sections []section.WithSigForward) {
+func (c *NegAssertionImpl) Checkpoint() (sections []section.Section) {
 	entries := c.cache.GetAll()
 	for _, e := range entries {
 		values := e.(*negAssertionCacheValue)
