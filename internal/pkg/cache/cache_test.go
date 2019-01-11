@@ -7,8 +7,11 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -236,4 +239,28 @@ func getZones() []*section.Zone {
 	s1.UpdateValidity(time.Now().Unix(), time.Now().Add(48*time.Hour).Unix(), 48*time.Hour)
 	s2.UpdateValidity(time.Now().Add(-2*time.Hour).Unix(), time.Now().Add(-1*time.Hour).Unix(), time.Hour)
 	return []*section.Zone{s0, s1, s2}
+}
+
+func getQueries() ([]util.MsgSectionSender, []section.WithSigForward) {
+	a0 := &section.Assertion{
+		SubjectName: "example",
+		SubjectZone: "com",
+		Context:     ".",
+		Content:     []object.Object{object.Object{Type: object.OTIP4Addr, Value: "192.0.2.0"}},
+	}
+	a1 := &section.Assertion{
+		SubjectName: "example",
+		SubjectZone: "com",
+		Context:     ".",
+		Content:     []object.Object{object.Object{Type: object.OTIP4Addr, Value: "203.0.113.0"}},
+	}
+	s0 := &section.Shard{SubjectZone: "net", RangeFrom: "e", RangeTo: "f"}
+	q0 := &query.Name{Name: "example.net", Context: ".", Types: []object.Type{2}}
+	q1 := &query.Name{Name: "example.com", Context: ".", Types: []object.Type{2}}
+	m := []util.MsgSectionSender{
+		util.MsgSectionSender{Sections: []section.Section{q0}, Sender: nil, Token: token.New()},
+		util.MsgSectionSender{Sections: []section.Section{q0}, Sender: nil, Token: token.New()},
+		util.MsgSectionSender{Sections: []section.Section{q1}, Sender: nil, Token: token.New()},
+	}
+	return m, []section.WithSigForward{a0, a1, s0}
 }

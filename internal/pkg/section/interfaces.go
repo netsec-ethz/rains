@@ -30,7 +30,9 @@ type WithSig interface {
 	GetSubjectZone() string
 	UpdateValidity(validSince, validUntil int64, maxValidity time.Duration)
 	ValidSince() int64
+	SetValidSince(int64)
 	ValidUntil() int64
+	SetValidUntil(int64)
 	Hash() string
 	IsConsistent() bool
 	NeededKeys(map[signature.MetaData]bool)

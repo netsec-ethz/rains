@@ -1,7 +1,6 @@
 package zonefile
 
 import (
-	"bufio"
 	"strconv"
 
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -10,7 +9,7 @@ import (
 
 //decodeNameQueryUnsafe returns a name query. It assumes the encoding is in the correct format and
 //does not perform input validation
-func decodeNameQueryUnsafe(scanner *bufio.Scanner) *query.Name {
+func decodeNameQueryUnsafe(scanner *WordScanner) *query.Name {
 	scanner.Scan()
 	q := &query.Name{}
 	q.Context = scanner.Text()
@@ -27,7 +26,7 @@ func decodeNameQueryUnsafe(scanner *bufio.Scanner) *query.Name {
 
 //decodeObjectTypesUnsafe returns query connection. It assumes the encoding is in the correct format
 //and does not perform input validation
-func decodeObjectTypesUnsafe(scanner *bufio.Scanner) []object.Type {
+func decodeObjectTypesUnsafe(scanner *WordScanner) []object.Type {
 	types := []object.Type{}
 	scanner.Scan()
 	for scanner.Text() != "]" {
@@ -40,7 +39,7 @@ func decodeObjectTypesUnsafe(scanner *bufio.Scanner) []object.Type {
 
 //decodeQueryOptionsUnsafe returns query options. It assumes the encoding is in the correct format
 //and does not perform input validation
-func decodeQueryOptionsUnsafe(scanner *bufio.Scanner) []query.Option {
+func decodeQueryOptionsUnsafe(scanner *WordScanner) []query.Option {
 	options := []query.Option{}
 	scanner.Scan()
 	for scanner.Text() != "]" {

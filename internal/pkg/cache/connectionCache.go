@@ -119,7 +119,7 @@ func (c *ConnectionImpl) GetCapabilityList(dstAddr net.Addr) ([]message.Capabili
 	return nil, false
 }
 
-//Delete closes conn and removes it from the cache
+//CloseAndRemoveConnection closes conn and removes it from the cache
 func (c *ConnectionImpl) CloseAndRemoveConnection(conn net.Conn) {
 	conn.Close()
 	if e, ok := c.cache.Get(networkAddr(conn.RemoteAddr())); ok {
@@ -139,6 +139,23 @@ func (c *ConnectionImpl) CloseAndRemoveConnection(conn net.Conn) {
 				c.cache.Remove(networkAddr(conn.RemoteAddr()))
 				c.counter.Dec()
 			}
+		}
+	}
+}
+
+//CloseAndRemoveConnections closes all cached connections to addr and removes them from the cache
+func (c *ConnectionImpl) CloseAndRemoveConnections(addr net.Addr) {
+	if e, ok := c.cache.Get(networkAddr(addr)); ok {
+		v := e.(*connCacheValue)
+		v.mux.Lock()
+		defer v.mux.Unlock()
+		if !v.deleted {
+			for _, connection := range v.connections {
+				connection.Close()
+				c.counter.Dec()
+			}
+			v.deleted = true
+			c.cache.Remove(networkAddr(addr))
 		}
 	}
 }

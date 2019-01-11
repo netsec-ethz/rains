@@ -33,17 +33,15 @@ _testmain.go
 *.prof
 *.out
 
-#server main() function binary
-/examples/rainsdServer/rainsdServer
 
 #binary of executables
-/cmd/rainsdig/rainsdig
-/cmd/zonepub/zonepub
-/cmd/zoneManager/zoneManager
-/cmd/resolve/resolve
-/cmd/rainsfic/rainsfic
+/cmd/keyManager/keyManager
 /cmd/rainsd/rainsd
+/cmd/rainsdig/rainsdig
+/cmd/resolve/resolve
 /cmd/test/*
+/cmd/zoneManager/zoneManager
+/cmd/zonepub/zonepub
 /build/*
 
 #zonepub test file
@@ -53,6 +51,11 @@ _testmain.go
 *coverage.out
 *coverage.html
 
+#integration test files
+*assertionCheckPoint.gob
+*negAssertionCheckPoint.gob
+*zoneKeyCheckPoint.gob
+
 #Yacc
 /tools/yacc/y.go
 /tools/yacc/zoneFileDecoderGenerated.go
@@ -60,10 +63,12 @@ _testmain.go
 /tools/yacc/zonefileParser
 
 #example
+examples/rainsdServer/rainsdServer
 examples/test
 examples/rainsdServer/data/newZonefile.txt
 examples/rainsdServer/keys/rootPrivateKey.txt
 examples/rainsdServer/keys/selfSignedRootDelegationAssertion.gob
+
 
 #simulation generated files
 cmd/simulation/conf/*

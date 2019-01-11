@@ -183,6 +183,18 @@ func (c *ZoneKeyImpl) RemoveExpiredKeys() {
 	}
 }
 
+//Checkpoint returns all cached assertions
+func (c *ZoneKeyImpl) Checkpoint() (assertions []section.Section) {
+	entries := c.cache.GetAll()
+	for _, e := range entries {
+		values := e.(*zoneKeyCacheValue).publicKeys.GetAll()
+		for _, v := range values {
+			assertions = append(assertions, v.(publicKeyAssertion).assertion)
+		}
+	}
+	return
+}
+
 //Len returns the number of public keys currently in the cache.
 func (c *ZoneKeyImpl) Len() int {
 	return c.counter.Value()

@@ -1,18 +1,6 @@
 package zonefile
 
-import (
-	"encoding/hex"
-	"fmt"
-	"testing"
-
-	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
-	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"github.com/netsec-ethz/rains/internal/pkg/object"
-
-	"golang.org/x/crypto/ed25519"
-)
-
-func TestEncodeObjects(t *testing.T) {
+/*func TestEncodeObjects(t *testing.T) {
 	objectsIndents, encodings := getObjectsAndEncodings()
 	for i, objects := range objectsIndents.Objects {
 		encodedO := encodeObjects(objects, objectsIndents.Indents[i])
@@ -153,4 +141,4 @@ func TestEncodeObjectErrors(t *testing.T) {
 			t.Errorf("Encoding incorrect. expected=%v, actual=%s", test.want, encodeObjects(test.input, ""))
 		}
 	}
-}
+}*/

@@ -45,13 +45,13 @@ func TestZoneKeyCache(t *testing.T) {
 		//Obtain previously added public keys
 		signatures := getSignatureMetaData()
 		for j := 0; j < 3; j++ {
-			pkey, a, ok := c.Get("ch", ".", signatures[j])
+			pkey, a, ok := c.Get("ch.", ".", signatures[j])
 			if !ok || pkey.CompareTo(delegationsCH[j].Content[0].Value.(keys.PublicKey)) != 0 ||
 				!reflect.DeepEqual(a, delegationsCH[j]) {
 				t.Errorf("%d:Get returned unexpected value actual=(%v,%v)", i, pkey, ok)
 			}
 		}
-		pkey, a, ok := c.Get("org", ".", signatures[0])
+		pkey, a, ok := c.Get("org.", ".", signatures[0])
 		if !ok || pkey.CompareTo(delegationsORG[0].Content[0].Value.(keys.PublicKey)) != 0 ||
 			!reflect.DeepEqual(a, delegationsORG[0]) {
 			t.Errorf("%d:Get returned unexpected value actual=(%v,%v)", i, pkey, ok)
@@ -92,6 +92,38 @@ func TestZoneKeyCache(t *testing.T) {
 		if !ok || pkey.CompareTo(delegationsORG[4].Content[0].Value.(keys.PublicKey)) != 0 ||
 			!reflect.DeepEqual(a, delegationsORG[4]) {
 			t.Errorf("%d:Get returned unexpected value actual=(%v,%v)", i, pkey, ok)
+		}
+	}
+}
+
+func TestCheckpoint(t *testing.T) {
+	var tests = []struct {
+		input ZonePublicKey
+	}{
+		{&ZoneKeyImpl{cache: lruCache.New(), counter: safeCounter.New(5), warnSize: 4,
+			maxPublicKeysPerZone: 2, keysPerContextZone: make(map[string]int)},
+		},
+	}
+	for i, test := range tests {
+		delegationsCH := getExampleDelgations("ch")
+		delegationsORG := getExampleDelgations("org")
+		c := test.input
+		if c.Len() != 0 {
+			t.Errorf("%d:init size is incorrect actual=%d", i, c.Len())
+		}
+		//Add delegationAssertions
+		c.Add(delegationsCH[0], delegationsCH[0].Content[0].Value.(keys.PublicKey), false)
+		c.Add(delegationsORG[0], delegationsORG[0].Content[0].Value.(keys.PublicKey), false)
+		//Test Checkpointing
+		assertions := c.Checkpoint()
+		if len(assertions) != 2 {
+			t.Errorf("Number of assertions is wrong")
+		}
+		if !reflect.DeepEqual(assertions[0], delegationsCH[0]) && !reflect.DeepEqual(assertions[1], delegationsCH[0]) {
+			t.Errorf("ch assertion not checkpointed")
+		}
+		if !reflect.DeepEqual(assertions[0], delegationsORG[0]) && !reflect.DeepEqual(assertions[1], delegationsORG[0]) {
+			t.Errorf("org assertion not checkpointed")
 		}
 	}
 }

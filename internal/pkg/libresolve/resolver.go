@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/cache"
+
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
@@ -43,11 +45,11 @@ type Resolver struct {
 	DialTimeout     time.Duration
 	FailFast        bool
 	Delegations     *safeHashMap.Map
-	Connections     map[net.Addr]net.Conn //FIXME make this map concurency safe, use the connection cache from rainsd
+	Connections     cache.Connection
 }
 
 //New creates a resolver with the given parameters and default settings
-func New(rootNS, forwarders []net.Addr, mode ResolutionMode, addr net.Addr) *Resolver {
+func New(rootNS, forwarders []net.Addr, mode ResolutionMode, addr net.Addr, maxConn int) *Resolver {
 	return &Resolver{
 		RootNameServers: rootNS,
 		Forwarders:      forwarders,
@@ -56,7 +58,7 @@ func New(rootNS, forwarders []net.Addr, mode ResolutionMode, addr net.Addr) *Res
 		DialTimeout:     defaultTimeout,
 		FailFast:        defaultFailFast,
 		Delegations:     safeHashMap.New(),
-		Connections:     make(map[net.Addr]net.Conn), //TODO fix connection cache to handle this workload
+		Connections:     cache.NewConnection(maxConn),
 	}
 }
 
@@ -87,9 +89,10 @@ func (r *Resolver) ServerLookup(query *query.Name, addr net.Addr, token token.To
 		log.Error("Unsupported resolution mode", "mode", r.Mode)
 	}
 	msg.Token = token
-	if conn, ok := r.Connections[addr]; ok {
-		log.Info("recResolver answers query", "answer", msg, "token", token, "conn", conn.RemoteAddr(), "resolver", conn.LocalAddr())
-		writer := cbor.NewWriter(conn)
+	if conn, ok := r.Connections.GetConnection(addr); ok {
+		log.Info("recResolver answers query", "answer", msg, "token", token, "conn",
+			conn[0].RemoteAddr(), "resolver", conn[0].LocalAddr())
+		writer := cbor.NewWriter(conn[0])
 		if err := writer.Marshal(msg); err != nil {
 			r.createConnAndWrite(addr, msg) //Connection has been closed in the mean time
 		}
@@ -104,13 +107,12 @@ func (r *Resolver) createConnAndWrite(addr net.Addr, msg *message.Message) {
 		log.Error("Was not able to open a connection", "dst", addr)
 		return
 	}
-	r.Connections[addr] = conn
-	//FIXME CFE fetch the above function from other repo
+	r.Connections.AddConnection(conn)
 	go r.answerDelegQueries(conn)
 	writer := cbor.NewWriter(conn)
 	if err := writer.Marshal(msg); err != nil {
 		log.Error("failed to marshal message", err)
-		delete(r.Connections, addr)
+		r.Connections.CloseAndRemoveConnections(addr)
 	}
 }
 
@@ -315,7 +317,7 @@ func (r *Resolver) answerDelegQueries(conn net.Conn) {
 			} else {
 				log.Warn(fmt.Sprintf("failed to read from client: %v", err))
 			}
-			delete(r.Connections, conn.RemoteAddr())
+			r.Connections.CloseAndRemoveConnection(conn)
 			break
 		}
 		answer := r.getDelegations(msg)
@@ -323,7 +325,7 @@ func (r *Resolver) answerDelegQueries(conn net.Conn) {
 		msg = message.Message{Token: msg.Token, Content: answer}
 		if err := writer.Marshal(&msg); err != nil {
 			log.Error("failed to marshal message", err)
-			delete(r.Connections, conn.RemoteAddr())
+			r.Connections.CloseAndRemoveConnection(conn)
 			break
 		}
 	}
