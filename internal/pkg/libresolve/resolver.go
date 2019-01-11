@@ -22,17 +22,18 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
-var (
-	defaultTimeout      = 10 * time.Second
-	defaultFailFast     = true
-	defaultInsecureTLS  = false
-	defaultQueryTimeout = time.Duration(1000) //in milliseconds
-)
-
 type ResolutionMode int
 
 const (
-	Recursive ResolutionMode = iota
+	defaultTimeout                     = 10 * time.Second
+	defaultFailFast                    = true
+	defaultInsecureTLS                 = false
+	defaultQueryTimeout                = time.Duration(1000) //in milliseconds
+	rainsPrefix                        = "_rains"
+	rainsPort                          = uint16(55553)
+	tcpPrefix                          = "_tcp"
+	udpScionPrefix                     = "_udpscion"
+	Recursive           ResolutionMode = iota
 	Forward
 )
 
@@ -212,21 +213,34 @@ func followRedirect(redirMap map[string]string, msg message.Message, name string
 //sufficient information is available, an error is returned
 func updateConnInfo(msg message.Message, redirTarget string, srvMap map[string]object.ServiceInfo,
 	ipMap map[string]string) (addr net.Addr, err error) {
-	if srvInfo, ok := srvMap[redirTarget]; ok {
-		if ipAddr, ok := ipMap[srvInfo.Name]; ok {
-			addr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", ipAddr, srvInfo.Port))
-			if err != nil {
-				return nil, fmt.Errorf("received IP address or port is malformed: %v", msg)
-			}
+	protocol := tcpPrefix
+	hostName := redirTarget
+	port := rainsPort
+	if strings.HasPrefix(redirTarget, rainsPrefix) {
+		if srv, ok := srvMap[redirTarget]; ok {
+			protocol = strings.Split(redirTarget, ".")[1]
+			hostName = srv.Name
+			port = srv.Port
 		} else {
 			return nil, fmt.Errorf(
-				"serviceInfo target could not be found in response, target: %q, response: %v",
-				srvInfo.Name, msg)
+				"received incomplete response, missing serviceInfo for target FQDN %q, response: %v",
+				redirTarget, msg)
+		}
+	}
+
+	if ipAddr, ok := ipMap[hostName]; ok {
+		switch protocol {
+		case tcpPrefix:
+			addr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", ipAddr, port))
+		case udpScionPrefix:
+			//TODO resolve udp over scion addr
+		default:
+			return nil, fmt.Errorf("not supported protocol specified in srv object: %v", protocol)
 		}
 	} else {
 		return nil, fmt.Errorf(
-			"received incomplete response, missing serviceInfo for target FQDN %q, response: %v",
-			redirTarget, msg)
+			"ip addr of redir target could not be found in response, target: %q, response: %v",
+			hostName, msg)
 	}
 	return
 }

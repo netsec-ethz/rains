@@ -1,13 +1,13 @@
 :Z: ch. . [
-    :A: ethz [ :redir:   ns.ethz.ch. ]
+    :A: ethz [ :redir:   _rains._tcp.ns.ethz.ch. ]
     :A: ethz [ :deleg:   :ed25519: 1 92c52fecc581eefacd2114c4acb2d42ee293d7f44ddf6bc25ece70478fd8e97a ]
-    :A: ns.ethz [ :srv:     ns1.ethz.ch. 5024 0 ]
+    :A: _rains._tcp.ns.ethz [ :srv:     ns1.ethz.ch. 5024 0 ]
     :A: ns1.ethz [ :ip4:     127.0.0.1 ]
 ]
 
 :S: ch. . < > [
-    :A: ethz [ :redir:   ns.ethz.ch. ]
+    :A: ethz [ :redir:   _rains._tcp.ns.ethz.ch. ]
     :A: ethz [ :deleg:   :ed25519: 1 92c52fecc581eefacd2114c4acb2d42ee293d7f44ddf6bc25ece70478fd8e97a ]
-    :A: ns.ethz [ :srv:     ns1.ethz.ch. 5024 0 ]
+    :A: _rains._tcp.ns.ethz [ :srv:     ns1.ethz.ch. 5024 0 ]
     :A: ns1.ethz [ :ip4:     127.0.0.1 ]
 ]

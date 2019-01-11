@@ -211,13 +211,19 @@ func glueRecordNames(qs []*query.Name, zoneAuths []string) map[zoneContext]bool 
 
 func glueRecordLookup(name, context string, s *Server) (assertions []section.Section) {
 	types := []object.Type{object.OTDelegation, object.OTRedirection, object.OTServiceInfo, object.OTIP4Addr}
-	names := []string{name, name, "ns." + name, "ns1." + name}
+	names := []string{name, name, "_rains._tcp.ns." + name, "_rains._udpscion.ns." + name, "ns1." + name}
 	for i, t := range types {
 		if asserts, ok := s.caches.AssertionsCache.Get(names[i], context, t, false); !ok {
-			log.Error("No glue record in cache!", "Name", names[i], "Type", t)
+			if !strings.HasPrefix(names[i], "_rains._tcp.ns.") &&
+				!strings.HasPrefix(names[i], "_rains._udpscion.ns.") {
+				log.Error("No glue record in cache!", "Name", names[i], "Type", t)
+			}
 		} else {
 			assertions = append(assertions, asserts[0]) //FIXME CFE, handle if there are more assertions in response
 		}
+	}
+	if len(assertions) != 4 {
+		log.Error("No glue record in cache!", "Name", names[2], "Type", object.OTServiceInfo, "len", len(assertions))
 	}
 	return
 }

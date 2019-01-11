@@ -11,4 +11,4 @@
 :A: www ethz.ch. . [ :cert: :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
 
 :Q: . www.ethz.ch. [ 8 ] -1 [ ]
-:A: www ethz.ch. . [ :srv: ftp 20 0 ]
+:A: _ftp._tcp.@ ethz.ch. . [ :srv: ftp.ethz.ch. 20 0 ]

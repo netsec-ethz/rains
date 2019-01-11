@@ -3,5 +3,5 @@
     :A: www  [ :ip6:     2001:db8:: ]
     :A: www  [ :name: a [ :ip4: :ip6: ] ]
     :A: www  [ :cert: :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
-    :A: www  [ :srv: ftp 20 0 ]
+    :A: _ftp._tcp.@  [ :srv: ftp.ethz.ch. 20 0 ]
 ]
