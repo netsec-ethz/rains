@@ -55,7 +55,7 @@ func UnmarshalNetAddr(data []byte) (Type, net.Addr, error) {
 		}
 	case "Chan":
 		value = reflect.New(reflect.TypeOf(ChannelAddr{})).Interface()
-		t = TCP
+		t = Chan
 		addrData, err := json.Marshal(m["Addr"])
 		if err != nil {
 			return -1, nil, err
