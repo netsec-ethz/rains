@@ -165,6 +165,16 @@ func (a *Assertion) ValidUntil() int64 {
 	return a.validUntil
 }
 
+//SetValidSince sets the validSince time
+func (a *Assertion) SetValidSince(validSince int64) {
+	a.validSince = validSince
+}
+
+//SetValidUntil sets the validUntil time
+func (a *Assertion) SetValidUntil(validUntil int64) {
+	a.validUntil = validUntil
+}
+
 //Hash returns a string containing all information uniquely identifying an assertion.
 func (a *Assertion) Hash() string {
 	if a == nil {

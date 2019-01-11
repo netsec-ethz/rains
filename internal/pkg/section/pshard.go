@@ -132,6 +132,16 @@ func (s *Pshard) ValidUntil() int64 {
 	return s.validUntil
 }
 
+//SetValidSince sets the validSince time
+func (s *Pshard) SetValidSince(validSince int64) {
+	s.validSince = validSince
+}
+
+//SetValidUntil sets the validUntil time
+func (s *Pshard) SetValidUntil(validUntil int64) {
+	s.validUntil = validUntil
+}
+
 //Hash returns a string containing all information uniquely identifying a pshard.
 func (s *Pshard) Hash() string {
 	if s == nil {
