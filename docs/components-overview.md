@@ -61,4 +61,29 @@ by just updating the grammar rule and its action. Additionally, it reduces the p
 in the parser as Yacc is widely used. In case the input zone file is malformed, the generated parser
 returns the line number and position in the zone file where it does not adhere to the format.
 
-## Interaction between the components
+## Actors in the RAINS ecosystem
+
+Different entities need different tools of the RAINS ecosystem. In this section, we list for each
+entity which of the above described tools can be leveraged to successfully operate RAINS.
+
+## Zone Authority
+
+A zone authority wants to make information about its zone and all subzones available to the rest of
+the network on its authoritative RAINS servers. To populate the authoritative servers with records
+about its zone, the authority can use the zone publisher. The zone manager needs access to the
+private keys of the zone which it can access through the keyManager. Each authoritative server is
+also connected to a recursive resolver to obtain public keys of this zone's superordinate zones. The
+zonefile parser is used by the zone publisher to read the information it is supposed to publish.
+RainsDig could be used to check if all information about the zone has been successfully stored on
+the authoritative servers.
+
+## RAINS Query Service Provider (e.g. an ISP)
+
+An intermediate who wants to provide a RAINS query service to its customers just needs to deploy at
+least one RAINS server in caching mode and connect it to a recursive resolver.
+
+## Client
+
+A client only needs rainsDig which either forwards a query issued by the user to a configured RAINS
+query service or performs the recursive lookup by itself using the recursive resolver which is
+hooked into rainsDig.
