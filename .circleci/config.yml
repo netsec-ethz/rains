@@ -2,8 +2,10 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.10
-    working_directory: /go/src/github.com/netsec-ethz/rains
+      - image: scionproto/scion_base
+        environment:
+            GOPATH=/tmp/go
+    working_directory: /tmp/go/src/github.com/netsec-ethz/rains
     steps:
       - checkout
       - restore_cache:
@@ -14,7 +16,7 @@ jobs:
           name: scion,
           command: |
             mkdir -p $GOPATH/src/github.com/scionproto/scion
-            git clone github.com/scionproto/scion $GOPATH/src/github.com/scionproto/scion
+            git clone https://github.com/scionproto/scion $GOPATH/src/github.com/scionproto/scion
             cd $GOPATH/src/github.com/scionproto/scion
             ./env/deps
       - run:
