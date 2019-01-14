@@ -8,11 +8,9 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/cache"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
-	"github.com/netsec-ethz/rains/internal/pkg/siglib"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
@@ -37,9 +35,8 @@ type InputQueues struct {
 func deliver(msg *message.Message, sender net.Addr, prioChannel chan util.MsgSectionSender,
 	normalChannel chan util.MsgSectionSender, notificationChannel chan util.MsgSectionSender,
 	pendingKeys cache.PendingKey) {
-	if !siglib.CheckMessageSignatures(msg, keys.PublicKey{}) {
-		//Infra keys are not yet supported
-	}
+
+	//TODO Check message signatures here once they are implemented
 
 	processCapability(msg.Capabilities, sender, msg.Token)
 

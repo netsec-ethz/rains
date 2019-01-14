@@ -434,13 +434,3 @@ func (s ServiceInfo) CompareTo(serviceInfo ServiceInfo) int {
 	}
 	return 0
 }
-
-//ContainsType returns the first object with oType and true if objects contains at least one
-func ContainsType(objects []Object, oType Type) (Object, bool) {
-	for _, o := range objects {
-		if o.Type == oType {
-			return o, true
-		}
-	}
-	return Object{}, false
-}
