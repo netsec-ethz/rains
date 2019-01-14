@@ -13,7 +13,7 @@ import (
 func TestShardCopy(t *testing.T) {
 	shard := GetShard()
 	sCopy := shard.Copy(shard.Context, shard.SubjectZone)
-	CheckShard(shard, sCopy, t)
+	checkShard(shard, sCopy, t)
 	if shard == sCopy {
 		t.Error("Assertion was not copied. Pointer is still the same.")
 	}
@@ -73,7 +73,7 @@ func TestShardCompareTo(t *testing.T) {
 		return shuffled[i].(*Shard).CompareTo(shuffled[j].(*Shard)) < 0
 	})
 	for i, s := range shards {
-		CheckShard(s, shuffled[i].(*Shard), t)
+		checkShard(s, shuffled[i].(*Shard), t)
 	}
 	s1 := &Shard{}
 	s2 := &Shard{Content: []*Assertion{&Assertion{}}}
@@ -184,5 +184,27 @@ func TestIsConsistent(t *testing.T) {
 		if res := testCase.section.IsConsistent(); res != testCase.wellformed {
 			t.Errorf("case %d: wrong consistency: got %t, want %t", i, res, testCase.wellformed)
 		}
+	}
+}
+
+func checkShard(s1, s2 *Shard, t *testing.T) {
+	if s1.Context != s2.Context {
+		t.Error("Shard context mismatch")
+	}
+	if s1.SubjectZone != s2.SubjectZone {
+		t.Error("Shard subjectZone mismatch")
+	}
+	if s1.RangeFrom != s2.RangeFrom {
+		t.Error("Shard RangeFrom mismatch")
+	}
+	if s1.RangeTo != s2.RangeTo {
+		t.Error("Shard RangeTo mismatch")
+	}
+	checkSignatures(s1.Signatures, s2.Signatures, t)
+	if len(s1.Content) != len(s2.Content) {
+		t.Error("Shard Content length mismatch")
+	}
+	for i, a1 := range s1.Content {
+		checkAssertion(a1, s2.Content[i], t)
 	}
 }
