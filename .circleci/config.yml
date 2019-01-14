@@ -23,7 +23,7 @@ jobs:
             git clone https://github.com/scionproto/scion $GOPATH/src/github.com/scionproto/scion
             cd $GOPATH/src/github.com/scionproto/scion
             ./env/deps
-            ./scion.sh topology
+            make
       - run:
           name: run build
           command: |
