@@ -10,7 +10,13 @@ jobs:
           keys:
             - v1-pkg-cache
       - run: go get -u github.com/golang/dep/cmd/dep
-      - run: go get -u github.com/scionproto/scion
+      - run:
+          name: scion,
+          command: |
+            mkdir -p $GOPATH/src/github.com/scionproto/scion
+            git clone github.com/scionproto/scion $GOPATH/src/github.com/scionproto/scion
+            cd $GOPATH/src/github.com/scionproto/scion
+            ./env/deps
       - run:
           name: run build
           command: |
