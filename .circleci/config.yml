@@ -10,7 +10,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v1-pkg-cache
+            - v3-pkg-cache
       - run: go get -u github.com/golang/dep/cmd/dep
       - run:
           name: scion,
@@ -36,6 +36,6 @@ jobs:
             go vet ./test/...
             go test -v ./test/integration/
       - save_cache:
-          key: v1-pkg-cache
+          key: v3-pkg-cache
           paths:
             - "/tmp/go/pkg"
