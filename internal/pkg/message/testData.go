@@ -45,6 +45,14 @@ func GetMessage() Message {
 		Signatures:  []signature.Sig{sig},
 	}
 
+	pshard := &section.Pshard{
+		Context:     globalContext,
+		SubjectZone: testSubjectName,
+		RangeFrom:   "aaa",
+		RangeTo:     "zzz",
+		Signatures:  []signature.Sig{sig},
+	}
+
 	zone := &section.Zone{
 		Content:     []*section.Assertion{assertion},
 		Context:     globalContext,
@@ -73,6 +81,7 @@ func GetMessage() Message {
 			zone,
 			q,
 			notification,
+			pshard,
 		},
 		Token:        token.New(),
 		Capabilities: []Capability{Capability("Test"), Capability("Yes!")},
