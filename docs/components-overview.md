@@ -9,10 +9,10 @@ recursive resolver, and how zone files are parsed.
 
 RainsDig is a command line tool that can be used to query RAINS servers. It outputs the response in
 zone file format. In case an entry such as a query is not defined in the zone file format, it is
-displayed in a similar fashion. It is designed to be similar to dig \cite{dig} which is used to
-query DNS, to make everyone's life easy when transitioning from DNS to RAINS or using both. RainsDig
-does not support dig's rarely used command line options to keep the tool simple and comprehensive.
-There is a page describing RainsDig's functionality.
+displayed in a similar fashion. It is designed to be similar to dig which is used to query DNS, to
+make everyone's life easy when transitioning from DNS to RAINS or using both. RainsDig does not
+support dig's rarely used command line options to keep the tool simple and comprehensive. There is a
+page describing RainsDig's functionality.
 
 ## ZonePub
 
@@ -61,7 +61,7 @@ by just updating the grammar rule and its action. Additionally, it reduces the p
 in the parser as Yacc is widely used. In case the input zone file is malformed, the generated parser
 returns the line number and position in the zone file where it does not adhere to the format.
 
-## Actors in the RAINS ecosystem
+# Actors in the RAINS ecosystem
 
 Different entities need different tools of the RAINS ecosystem. In this section, we list for each
 entity which of the above described tools can be leveraged to successfully operate RAINS.
