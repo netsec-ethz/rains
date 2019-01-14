@@ -21,6 +21,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
+	"github.com/scionproto/scion/go/lib/snet"
 )
 
 const (
@@ -54,6 +55,8 @@ type Server struct {
 	queues InputQueues
 	//caches contains all caches of this server
 	caches *Caches
+	//scionConn is the server UDP socket if we are in that mode, or nil otherwise.
+	scionConn snet.Conn
 }
 
 //New returns a pointer to a newly created rainsd server instance with the given config. The server

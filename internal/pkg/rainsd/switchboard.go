@@ -26,9 +26,9 @@ import (
 func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 	backoffMilliSeconds int) (err error) {
 	// SCION is a special case because it is operating on a connectionless protocol so we
-	// just send out the data on the contained connection.
-	if sc, ok := receiver.(*connection.SCIONAddr); ok {
-		conn := sc.Underlying
+	// keep the server socket in the Server struct and use that to send.
+	if saddr, ok := receiver.(*snet.Addr); ok {
+		conn := s.scionConn
 		if conn == nil {
 			return errors.New("underlying scion connection was nil")
 		}
@@ -36,7 +36,7 @@ func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 		if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
 			return fmt.Errorf("failed to marshal message to conn: %v", err)
 		}
-		if _, err := conn.Write(encoding.Bytes()); err != nil {
+		if _, err := conn.WriteToSCION(encoding.Bytes(), saddr); err != nil {
 			log.Warn("Was not able to send encoded message")
 			return fmt.Errorf("unable to send encoded message: %v", err)
 		}
@@ -63,8 +63,6 @@ func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 			//add capabilities to message
 			msg.Capabilities = []message.Capability{message.Capability(s.capabilityHash)}
 			conns = []net.Conn{conn}
-		case *connection.SCIONAddr:
-			return errors.New("unsupported protocol")
 		}
 	}
 	for _, conn := range conns {
@@ -161,20 +159,21 @@ func (s *Server) listen() {
 			}
 		}
 	case connection.SCION:
-		addr, ok := s.config.ServerAddress.Addr.(*connection.SCIONAddr)
+		addr, ok := s.config.ServerAddress.Addr.(*snet.Addr)
 		if !ok {
 			log.Warn(fmt.Sprintf("Type assertion failed. Expected *connection.SCIONAddr, got %T", addr))
 			return
 		}
-		if err := snet.Init(addr.Local.IA, s.config.SciondSock, s.config.DispatcherSock); err != nil {
+		if err := snet.Init(addr.IA, s.config.SciondSock, s.config.DispatcherSock); err != nil {
 			log.Warn("failed to snet.Init: %v", err)
 			return
 		}
-		listener, err := snet.ListenSCION("udp4", addr.Local)
+		listener, err := snet.ListenSCION("udp4", addr)
 		if err != nil {
 			log.Warn("failed to ListenSCION: %v", err)
 			return
 		}
+		s.scionConn = listener
 		for {
 			buf := make([]byte, 9000)
 			n, addr, err := listener.ReadFromSCION(buf)
@@ -189,11 +188,7 @@ func (s *Server) listen() {
 			if err := cbor.NewReader(bytes.NewReader(data)).Unmarshal(&msg); err != nil {
 				log.Warn("failed to unmarshal CBOR: %v", err)
 			}
-			remoteAddr := &connection.SCIONAddr{
-				Remote:     addr,
-				Underlying: listener,
-			}
-			deliver(&msg, remoteAddr,
+			deliver(&msg, addr,
 				s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)
 		}
 	default:
