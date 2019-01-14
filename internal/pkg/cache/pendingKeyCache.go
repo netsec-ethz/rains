@@ -38,10 +38,11 @@ func (c *PendingKeyImpl) Add(ss util.MsgSectionSender, t token.Token, expiration
 		log.Error("Pending key cache is full")
 		return
 	}
-	c.counter.Inc()
 	if ok := c.tokenMap.Add(t.String(), pkcValue{mss: ss, expiration: expiration}); !ok {
 		log.Warn("Token already in key cache. Random source of Token generator no random enough?")
+		return
 	}
+	c.counter.Inc()
 }
 
 //GetAndRemove returns util.MsgSectionSender which corresponds to token and true, and deletes it from

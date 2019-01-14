@@ -10,7 +10,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
-//TODO make compatible with new pendingKeyCache
 func TestPendingKeyCache(t *testing.T) {
 	mss, _ := getQueries()
 	var tests = []struct {
@@ -61,6 +60,30 @@ func TestPendingKeyCache(t *testing.T) {
 		if v, ok := c.GetAndRemove(mss[0].Token); !ok || c.Len() != 0 ||
 			!reflect.DeepEqual(v, mss[0]) {
 			t.Error("expired value was not removed")
+		}
+	}
+}
+
+func TestPendingKeyCacheCounter(t *testing.T) {
+	mss, _ := getQueries()
+	var tests = []struct {
+		maxSize int
+	}{
+		{2},
+	}
+	for _, test := range tests {
+		c := &PendingKeyImpl{counter: safeCounter.New(test.maxSize), tokenMap: safeHashMap.New()}
+		c.Add(mss[0], mss[0].Token, time.Now().Add(time.Hour).Unix())
+		//Test same token
+		c.Add(mss[1], mss[0].Token, time.Now().Add(time.Hour).Unix())
+		if c.Len() != 1 {
+			t.Error("entry added with same token did not overwrite old value")
+		}
+		c.Add(mss[1], mss[1].Token, time.Now().Add(time.Hour).Unix())
+		//Test MaxSize
+		c.Add(mss[2], mss[2].Token, time.Now().Add(time.Hour).Unix())
+		if c.Len() != 2 {
+			t.Error("was able to add more entries than maxSize")
 		}
 	}
 }
