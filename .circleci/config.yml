@@ -10,12 +10,7 @@ jobs:
           keys:
             - v1-pkg-cache
       - run: go get -u github.com/golang/dep/cmd/dep
-      - run: go get -u github.com/kardianos/govendor
-      - run:
-          name: get dependencies
-          command: |
-              govendor add +e
-              govendor fetch +m
+      - run: go get -u github.com/scionproto/scion
       - run:
           name: run build
           command: |
