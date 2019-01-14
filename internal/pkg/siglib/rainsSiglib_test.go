@@ -175,31 +175,6 @@ func TestCheckSectionSignaturesErrors(t *testing.T) {
 	}
 }
 
-func TestCheckMessageSignaturesErrors(t *testing.T) {
-	msg := message.GetMessage()
-	message2 := message.GetMessage()
-	message2.Capabilities = []message.Capability{message.Capability(":ip:")}
-	message3 := message.GetMessage()
-	message3.Signatures = []signature.Sig{signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}}
-	var tests = []struct {
-		input          *message.Message
-		inputPublicKey keys.PublicKey
-		want           bool
-	}{
-		{nil, keys.PublicKey{}, false},                //msg nil
-		{&msg, keys.PublicKey{}, false},               //sig expired
-		{&message.Message{}, keys.PublicKey{}, false}, //no sig
-		{&message2, keys.PublicKey{}, false},          //TextField of Content invalid
-		{&message3, keys.PublicKey{}, false},          //signature invalid
-	}
-	for _, test := range tests {
-		res := CheckMessageSignatures(test.input, test.inputPublicKey)
-		if res != test.want {
-			t.Fatalf("expected=%v, actual=%v, value=%v", test.want, res, test.input)
-		}
-	}
-}
-
 func TestCheckMessageStringFields(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
 	msg := message.GetMessage()

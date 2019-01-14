@@ -45,7 +45,9 @@ func CheckMessage(m1, m2 Message, t *testing.T) {
 			t.Errorf("Types at position %d of Content slice are different", i)
 		case *query.Name:
 			if s2, ok := m2.Content[i].(*query.Name); ok {
-				query.CheckQuery(s1, s2, t)
+				if s1.CompareTo(s2) != 0 {
+					t.Errorf("Queries are not equal q1=%s q2=%s", s1, s2)
+				}
 				continue
 			}
 			t.Errorf("Types at position %d of Content slice are different", i)
