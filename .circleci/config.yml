@@ -1,4 +1,4 @@
-version: 3
+version: 4
 jobs:
   build:
     docker:
@@ -13,7 +13,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v3-pkg-cache
+            - v4-pkg-cache
       - run: go get -u github.com/golang/dep/cmd/dep
       - run:
           name: scion,
@@ -23,6 +23,7 @@ jobs:
             git clone https://github.com/scionproto/scion $GOPATH/src/github.com/scionproto/scion
             cd $GOPATH/src/github.com/scionproto/scion
             ./env/deps
+            ./scion.sh topology
       - run:
           name: run build
           command: |
@@ -40,6 +41,6 @@ jobs:
             go vet ./test/...
             go test -v ./test/integration/
       - save_cache:
-          key: v3-pkg-cache
+          key: v4-pkg-cache
           paths:
             - "/tmp/go/pkg"
