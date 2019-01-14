@@ -254,13 +254,21 @@ func getQueries() ([]util.MsgSectionSender, []section.WithSigForward) {
 		Context:     ".",
 		Content:     []object.Object{object.Object{Type: object.OTIP4Addr, Value: "203.0.113.0"}},
 	}
+	a2 := &section.Assertion{
+		SubjectName: "example",
+		SubjectZone: "com",
+		Context:     ".",
+		Content:     []object.Object{object.Object{Type: object.OTDelegation, Value: object.PublicKey()}},
+	}
 	s0 := &section.Shard{SubjectZone: "net", RangeFrom: "e", RangeTo: "f"}
 	q0 := &query.Name{Name: "example.net", Context: ".", Types: []object.Type{2}}
 	q1 := &query.Name{Name: "example.com", Context: ".", Types: []object.Type{2}}
+	q2 := &query.Name{Name: "example.com", Context: ".", Types: []object.Type{5}}
 	m := []util.MsgSectionSender{
 		util.MsgSectionSender{Sections: []section.Section{q0}, Sender: nil, Token: token.New()},
 		util.MsgSectionSender{Sections: []section.Section{q0}, Sender: nil, Token: token.New()},
 		util.MsgSectionSender{Sections: []section.Section{q1}, Sender: nil, Token: token.New()},
+		util.MsgSectionSender{Sections: []section.Section{q2}, Sender: nil, Token: token.New()},
 	}
-	return m, []section.WithSigForward{a0, a1, s0}
+	return m, []section.WithSigForward{a0, a1, s0, a2}
 }
