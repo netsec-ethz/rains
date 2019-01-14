@@ -3,11 +3,13 @@ jobs:
   build:
     docker:
       - image: scionproto/scion_base
-        environment:
-            GOPATH="/tmp/go"
-            PATH=$PATH:/tmp/go/bin
     working_directory: /tmp/go/src/github.com/netsec-ethz/rains
     steps:
+      - run:
+          name: setup envvar
+          command: |
+              echo 'export GOPATH=/tmp/go' >> $BASH_ENV
+              echo 'export PATH=$PATH:/tmp/go/bin' >> $BASH_ENV
       - checkout
       - restore_cache:
           keys:
