@@ -5,6 +5,7 @@ jobs:
       - image: scionproto/scion_base
         environment:
             GOPATH=/tmp/go
+            PATH=$PATH:/tmp/go/bin
     working_directory: /tmp/go/src/github.com/netsec-ethz/rains
     steps:
       - checkout
