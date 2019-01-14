@@ -27,7 +27,6 @@ func TestEncodeNotification(t *testing.T) {
 }
 
 func TestMessageEncoding(t *testing.T) {
-	//FIXME
 	/*messages, encodings := getMessagesAndEncodings()
 	for i, message := range messages {
 		encodedM := encodeMessage(message)
