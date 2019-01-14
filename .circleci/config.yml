@@ -38,4 +38,4 @@ jobs:
       - save_cache:
           key: v1-pkg-cache
           paths:
-            - "/go/pkg"
+            - "/tmp/go/pkg"
