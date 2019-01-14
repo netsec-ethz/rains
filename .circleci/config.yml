@@ -1,4 +1,4 @@
-version: 5
+version: 2
 jobs:
   build:
     docker:
@@ -13,7 +13,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v5-pkg-cache
+            - v2-pkg-cache
       - run: go get -u github.com/golang/dep/cmd/dep
       - run:
           name: scion
@@ -42,6 +42,6 @@ jobs:
             go test ./internal/pkg/...
             go test -v ./test/integration/
       - save_cache:
-          key: v5-pkg-cache
+          key: v2-pkg-cache
           paths:
             - "/tmp/go/pkg"
