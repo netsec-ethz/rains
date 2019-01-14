@@ -22,12 +22,12 @@ type pqcValue struct {
 }
 
 //pqcKey returns a unique string representation of sections. Sections MUST only contain queries
-func pqcKey(sections []section.Section) string {
+func pqcKey(sections []section.Section) (string, error) {
 	result := []string{}
 	for _, q := range sections {
 		q, ok := q.(*query.Name)
 		if !ok {
-			log.Error("sections MUST only contain queries", "sections", sections)
+			return "", fmt.Errorf("sections MUST only contain queries. sections=%v", sections)
 		}
 		for _, t := range q.Types {
 			if t == object.OTDelegation {
@@ -37,7 +37,7 @@ func pqcKey(sections []section.Section) string {
 			}
 		}
 	}
-	return strings.Join(result, "::")
+	return strings.Join(result, "::"), nil
 }
 
 type PendingQueryImpl struct {
@@ -68,11 +68,16 @@ func (c *PendingQueryImpl) Add(ss util.MsgSectionSender, t token.Token, expirati
 	defer c.tmux.Unlock()
 
 	if c.counter.IsFull() {
+		c.qmux.Unlock()
 		log.Error("Pending query cache is full")
 		return false
 	}
+	qmKey, err := pqcKey(ss.Sections)
+	if err != nil {
+		c.qmux.Unlock()
+		return false
+	}
 	c.counter.Inc()
-	qmKey := pqcKey(ss.Sections)
 	if t, present := c.queryMap[qmKey]; present && c.tokenMap[t].expiration > time.Now().Unix() {
 		c.qmux.Unlock()
 		val := c.tokenMap[t]
@@ -95,7 +100,8 @@ func (c *PendingQueryImpl) GetAndRemove(t token.Token) []util.MsgSectionSender {
 
 	if val, present := c.tokenMap[t]; present {
 		delete(c.tokenMap, t)
-		delete(c.queryMap, pqcKey(val.sss[0].Sections)) //all sss have the same pqcKey
+		key, _ := pqcKey(val.sss[0].Sections) //error case is catched in Add method.
+		delete(c.queryMap, key)               //all sss have the same pqcKey
 		c.counter.Sub(len(val.sss))
 		return val.sss
 	}
@@ -112,7 +118,8 @@ func (c *PendingQueryImpl) RemoveExpiredValues() {
 	for k, v := range c.tokenMap {
 		if v.expiration < time.Now().Unix() {
 			delete(c.tokenMap, k)
-			delete(c.queryMap, pqcKey(v.sss[0].Sections)) //all sss have the same pqcKey
+			key, _ := pqcKey(v.sss[0].Sections) //error case is catched in Add method.
+			delete(c.queryMap, key)             //all sss have the same pqcKey
 			c.counter.Sub(len(v.sss))
 		}
 	}
