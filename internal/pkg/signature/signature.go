@@ -45,11 +45,6 @@ type MetaData struct {
 	ValidUntil int64
 }
 
-func (sig MetaData) String() string {
-	return fmt.Sprintf("%s %d %d",
-		sig.PublicKeyID, sig.ValidSince, sig.ValidUntil)
-}
-
 //Sig contains meta data of the signature and the signature data itself.
 type Sig struct {
 	keys.PublicKeyID
@@ -89,7 +84,6 @@ func (sig Sig) String() string {
 //In case of an error an error is returned indicating the cause, otherwise nil is returned
 func (sig *Sig) SignData(privateKey interface{}, encoding []byte) error {
 	if privateKey == nil {
-		log.Warn("PrivateKey is nil")
 		return errors.New("privateKey is nil")
 	}
 	sigEncoding := new(bytes.Buffer)
@@ -104,11 +98,9 @@ func (sig *Sig) SignData(privateKey interface{}, encoding []byte) error {
 			sig.Data = ed25519.Sign(pkey, encoding)
 			return nil
 		}
-		log.Warn("Could not assert type ed25519.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
 		return errors.New("could not assert type ed25519.PrivateKey")
 	default:
-		log.Warn("Sig algorithm type not supported", "type", sig.Algorithm)
-		return errors.New("signature algorithm type not supported")
+		return fmt.Errorf("signature algorithm type not supported: %s", sig.Algorithm)
 	}
 }
 
