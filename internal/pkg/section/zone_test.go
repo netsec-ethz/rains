@@ -61,7 +61,7 @@ func TestZoneCompareTo(t *testing.T) {
 		return shuffled[i].(*Zone).CompareTo(shuffled[j].(*Zone)) < 0
 	})
 	for i, z := range zones {
-		CheckZone(z, shuffled[i].(*Zone), t)
+		checkZone(z, shuffled[i].(*Zone), t)
 	}
 	z1 := &Zone{}
 	z2 := &Zone{Content: []*Assertion{&Assertion{}}}
@@ -87,5 +87,21 @@ func TestZoneSort(t *testing.T) {
 		if !reflect.DeepEqual(z.Content, test.sorted) {
 			t.Errorf("%d: Zone.Sort() does not sort correctly expected=%v actual=%v", i, test.sorted, z.Content)
 		}
+	}
+}
+
+func checkZone(z1, z2 *Zone, t *testing.T) {
+	if z1.Context != z2.Context {
+		t.Error("Zone context mismatch")
+	}
+	if z1.SubjectZone != z2.SubjectZone {
+		t.Error("Zone subjectZone mismatch")
+	}
+	checkSignatures(z1.Signatures, z2.Signatures, t)
+	if len(z1.Content) != len(z2.Content) {
+		t.Error("Zone Content length mismatch")
+	}
+	for i, s1 := range z1.Content {
+		checkAssertion(s1, z2.Content[i], t)
 	}
 }
