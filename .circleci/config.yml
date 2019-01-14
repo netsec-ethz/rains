@@ -1,4 +1,4 @@
-version: 4
+version: 5
 jobs:
   build:
     docker:
@@ -13,10 +13,10 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - v4-pkg-cache
+            - v5-pkg-cache
       - run: go get -u github.com/golang/dep/cmd/dep
       - run:
-          name: scion,
+          name: scion
           command: |
             sudo apt-get install --assume-yes libpcap0.8 libpcap0.8-dev 
             mkdir -p $GOPATH/src/github.com/scionproto/scion
@@ -41,6 +41,6 @@ jobs:
             go vet ./test/...
             go test -v ./test/integration/
       - save_cache:
-          key: v4-pkg-cache
+          key: v5-pkg-cache
           paths:
             - "/tmp/go/pkg"
