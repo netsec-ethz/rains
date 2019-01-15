@@ -48,14 +48,12 @@ func (a *Assertion) UnmarshalMap(m map[int]interface{}) error {
 	}
 	if sz, ok := m[4].(string); ok {
 		a.SubjectZone = sz
-	} else {
-		return errors.New("cbor assertion map does not contain a subject zone")
-	}
+	} //subject zone is omitted in a contained assertion
+
 	if ctx, ok := m[6].(string); ok {
 		a.Context = ctx
-	} else {
-		return errors.New("cbor assertion map does not contain a context")
-	}
+	} //context is omitted in a contained assertion
+
 	if objs, ok := m[7]; ok {
 		a.Content = make([]object.Object, len(objs.([]interface{})))
 		for i, obj := range objs.([]interface{}) {

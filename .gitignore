@@ -55,6 +55,8 @@ _testmain.go
 *assertionCheckPoint.gob
 *negAssertionCheckPoint.gob
 *zoneKeyCheckPoint.gob
+test/integration/testdata/keys/privateKeyRoot.txt
+test/integration/testdata/keys/selfSignedRootDelegationAssertion.gob
 
 #Yacc
 /tools/yacc/y.go
