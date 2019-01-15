@@ -18,7 +18,13 @@ func main() {
 		return
 	}
 	log.Info("Server successfully initialized")
-	server.SetResolver(libresolve.New(nil, nil, libresolve.Recursive, server.Addr(), 10000))
+	resolver, err := libresolve.New(nil, nil, server.Config().RootZonePublicKeyPath,
+		libresolve.Recursive, server.Addr(), 10000, server.Config().MaxCacheValidity)
+	if err != nil {
+		log.Error(err.Error())
+		return
+	}
+	server.SetResolver(resolver)
 	go server.Start(false)
 	time.Sleep(time.Hour)
 	server.Shutdown()

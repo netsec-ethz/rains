@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/cache"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
@@ -38,28 +39,38 @@ const (
 
 // Resolver provides methods to resolve names in RAINS.
 type Resolver struct {
-	RootNameServers []net.Addr
-	Forwarders      []net.Addr
-	Mode            ResolutionMode
-	InsecureTLS     bool
-	DialTimeout     time.Duration
-	FailFast        bool
-	Delegations     *safeHashMap.Map
-	Connections     cache.Connection
+	RootNameServers  []net.Addr
+	Forwarders       []net.Addr
+	Mode             ResolutionMode
+	InsecureTLS      bool
+	DialTimeout      time.Duration
+	FailFast         bool
+	Delegations      *safeHashMap.Map
+	Connections      cache.Connection
+	MaxCacheValidity util.MaxCacheValidity
 }
 
 //New creates a resolver with the given parameters and default settings
-func New(rootNS, forwarders []net.Addr, mode ResolutionMode, addr net.Addr, maxConn int) *Resolver {
-	return &Resolver{
-		RootNameServers: rootNS,
-		Forwarders:      forwarders,
-		Mode:            mode,
-		InsecureTLS:     defaultInsecureTLS,
-		DialTimeout:     defaultTimeout,
-		FailFast:        defaultFailFast,
-		Delegations:     safeHashMap.New(),
-		Connections:     cache.NewConnection(maxConn),
+func New(rootNS, forwarders []net.Addr, rootKeyPath string, mode ResolutionMode, addr net.Addr, maxConn int, maxCacheValidity util.MaxCacheValidity) (*Resolver, error) {
+	r := &Resolver{
+		RootNameServers:  rootNS,
+		Forwarders:       forwarders,
+		Mode:             mode,
+		InsecureTLS:      defaultInsecureTLS,
+		DialTimeout:      defaultTimeout,
+		FailFast:         defaultFailFast,
+		Delegations:      safeHashMap.New(),
+		Connections:      cache.NewConnection(maxConn),
+		MaxCacheValidity: maxCacheValidity,
 	}
+	a := new(section.Assertion)
+	err := util.Load(rootKeyPath, a)
+	if err != nil {
+		log.Warn("Failed to load root zone public key", "err", err)
+		return nil, err
+	}
+	r.Delegations.Add(a.GetSubjectZone(), a)
+	return r, nil
 }
 
 //ClientLookup forwards the query to the specified forwarders or performs a recursive lookup starting at
@@ -79,14 +90,19 @@ func (r *Resolver) ClientLookup(query *query.Name) (*message.Message, error) {
 //starting at the specified root servers. It sends the received information to conInfo.
 func (r *Resolver) ServerLookup(query *query.Name, addr net.Addr, token token.Token) {
 	var msg *message.Message
+	var err error
 	log.Info("recResolver received query", "query", query, "token", token)
 	switch r.Mode {
 	case Recursive:
-		msg, _ = r.recursiveResolve(query)
+		msg, err = r.recursiveResolve(query)
 	case Forward:
-		msg, _ = r.forwardQuery(query)
+		msg, err = r.forwardQuery(query)
 	default:
 		log.Error("Unsupported resolution mode", "mode", r.Mode)
+	}
+	if err != nil {
+		log.Error(err.Error())
+		return
 	}
 	msg.Token = token
 	if conn, ok := r.Connections.GetConnection(addr); ok {
