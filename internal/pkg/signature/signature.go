@@ -80,6 +80,39 @@ func (sig Sig) String() string {
 		sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, sig.KeyPhase, data)
 }
 
+//CompareTo compares two signature objects and returns 0 if they are equal, 1 if sig is greater than
+//s and -1 if sig is smaller than s
+func (sig Sig) CompareTo(s Sig) int {
+	if sig.Algorithm < s.Algorithm {
+		return -1
+	} else if sig.Algorithm > s.Algorithm {
+		return 1
+	} else if sig.KeySpace < s.KeySpace {
+		return -1
+	} else if sig.KeySpace > s.KeySpace {
+		return 1
+	} else if sig.ValidSince < s.ValidSince {
+		return -1
+	} else if sig.ValidSince > s.ValidSince {
+		return 1
+	} else if sig.ValidUntil < s.ValidUntil {
+		return -1
+	} else if sig.ValidUntil > s.ValidUntil {
+		return 1
+	} else if sig.KeyPhase < s.KeyPhase {
+		return -1
+	} else if sig.KeyPhase > s.KeyPhase {
+		return 1
+	}
+	switch sig.Algorithm {
+	case algorithmTypes.Ed25519:
+		return bytes.Compare(sig.Data.([]byte), s.Data.([]byte))
+	default:
+		log.Warn("Unsupported algo type", "type", fmt.Sprintf("%T", sig.Algorithm))
+	}
+	return 0
+}
+
 //SignData adds signature meta data to encoding. It then signs the encoding with privateKey and updates sig.Data field with the generated signature
 //In case of an error an error is returned indicating the cause, otherwise nil is returned
 func (sig *Sig) SignData(privateKey interface{}, encoding []byte) error {

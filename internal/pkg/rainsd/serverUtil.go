@@ -156,6 +156,8 @@ func loadRootZonePublicKey(keyPath string, zoneKeyCache cache.ZonePublicKey,
 	for _, c := range a.Content {
 		if c.Type == object.OTDelegation {
 			if publicKey, ok := c.Value.(keys.PublicKey); ok {
+				publicKey.ValidSince = a.Signatures[0].ValidSince
+				publicKey.ValidUntil = a.Signatures[0].ValidUntil
 				keyMap := make(map[keys.PublicKeyID][]keys.PublicKey)
 				keyMap[publicKey.PublicKeyID] = []keys.PublicKey{publicKey}
 				if validateSignatures(a, keyMap, maxValidity) {

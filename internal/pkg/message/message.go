@@ -28,50 +28,6 @@ type Message struct {
 	Signatures []signature.Sig
 }
 
-// MarshalCBOR writes the RAINS message to the provided writer.
-// Implements the CBORMarshaler interface.
-func (rm *Message) MarshalCBOR(w *cbor.CBORWriter) error {
-	if err := w.WriteTag(cbor.CBORTag(rainsTag)); err != nil {
-		return err
-	}
-
-	m := make(map[int]interface{})
-	if len(rm.Signatures) > 0 {
-		m[0] = rm.Signatures
-	}
-
-	if len(rm.Capabilities) > 0 {
-		caps := make([]string, len(rm.Capabilities))
-		for i, cap := range rm.Capabilities {
-			caps[i] = string(cap)
-		}
-		m[1] = caps
-	}
-	m[2] = rm.Token
-
-	msgsect := make([][2]interface{}, 0)
-	for _, sect := range rm.Content {
-		switch sect.(type) {
-		case *section.Assertion:
-			msgsect = append(msgsect, [2]interface{}{1, sect})
-		case *section.Shard:
-			msgsect = append(msgsect, [2]interface{}{2, sect})
-		case *section.Pshard:
-			msgsect = append(msgsect, [2]interface{}{3, sect})
-		case *section.Zone:
-			msgsect = append(msgsect, [2]interface{}{4, sect})
-		case *query.Name:
-			msgsect = append(msgsect, [2]interface{}{5, sect})
-		case *section.Notification:
-			msgsect = append(msgsect, [2]interface{}{23, sect})
-		default:
-			return fmt.Errorf("unknown section type: %T", sect)
-		}
-	}
-	m[23] = msgsect
-	return w.WriteIntMap(m)
-}
-
 func (rm *Message) UnmarshalCBOR(r *cbor.CBORReader) error {
 	tag, err := r.ReadTag()
 	if err != nil {
@@ -153,13 +109,48 @@ func (rm *Message) UnmarshalCBOR(r *cbor.CBORReader) error {
 	return nil
 }
 
-//Query returns the first section in the messages content if it is a query. It panics if the message
-//has no content.
-func (m *Message) Query() *query.Name {
-	if q, ok := m.Content[0].(*query.Name); ok {
-		return q
+// MarshalCBOR writes the RAINS message to the provided writer.
+// Implements the CBORMarshaler interface.
+func (rm *Message) MarshalCBOR(w *cbor.CBORWriter) error {
+	if err := w.WriteTag(cbor.CBORTag(rainsTag)); err != nil {
+		return err
 	}
-	return nil
+
+	m := make(map[int]interface{})
+	if len(rm.Signatures) > 0 {
+		m[0] = rm.Signatures
+	}
+
+	if len(rm.Capabilities) > 0 {
+		caps := make([]string, len(rm.Capabilities))
+		for i, cap := range rm.Capabilities {
+			caps[i] = string(cap)
+		}
+		m[1] = caps
+	}
+	m[2] = rm.Token
+
+	msgsect := make([][2]interface{}, 0)
+	for _, sect := range rm.Content {
+		switch sect.(type) {
+		case *section.Assertion:
+			msgsect = append(msgsect, [2]interface{}{1, sect})
+		case *section.Shard:
+			msgsect = append(msgsect, [2]interface{}{2, sect})
+		case *section.Pshard:
+			msgsect = append(msgsect, [2]interface{}{3, sect})
+		case *section.Zone:
+			msgsect = append(msgsect, [2]interface{}{4, sect})
+		case *query.Name:
+			msgsect = append(msgsect, [2]interface{}{5, sect})
+		case *section.Notification:
+			msgsect = append(msgsect, [2]interface{}{23, sect})
+		default:
+			return fmt.Errorf("unknown section type: %T", sect)
+		}
+	}
+	m[23] = msgsect
+	return w.WriteIntMap(m)
 }
 
 //Capability is a urn of a capability

@@ -26,7 +26,10 @@ func AllObjects() []Object {
 	registrantObject := Object{Type: OTRegistrant, Value: "Registrant information"}
 	infraObject := Object{Type: OTInfraKey, Value: PublicKey()}
 	extraObject := Object{Type: OTExtraKey, Value: PublicKey()}
-	nextKey := Object{Type: OTNextKey, Value: PublicKey()}
+	nextPublicKey := PublicKey()
+	nextPublicKey.ValidSince = 10000
+	nextPublicKey.ValidUntil = 50000
+	nextKey := Object{Type: OTNextKey, Value: nextPublicKey}
 	return []Object{NameObject(), ip6Object, ip4Object, redirObject, delegObject,
 		nameSetObject, CertificateObject(), ServiceObject(), registrarObject,
 		registrantObject, infraObject, extraObject, nextKey}
@@ -71,9 +74,7 @@ func PublicKey() keys.PublicKey {
 			KeyPhase:  0,
 			Algorithm: algorithmTypes.Ed25519,
 		},
-		ValidSince: 10000,
-		ValidUntil: 50000,
-		Key:        pubKey,
+		Key: pubKey,
 	}
 }
 
