@@ -25,7 +25,7 @@ func TestCBOR(t *testing.T) {
 		msg := Message{}
 		err = cbor.NewReader(encoding).Unmarshal(&msg)
 		if err != nil {
-			t.Fatalf("%d: Was not able to unmarshal msg", i)
+			t.Fatalf("%d: Was not able to unmarshal msg, err=%s", i, err.Error())
 		}
 		CheckMessage(test.input, msg, t)
 	}

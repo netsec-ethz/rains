@@ -27,26 +27,32 @@ type Assertion struct {
 
 // UnmarshalMap provides functionality to unmarshal a map read in by CBOR.
 func (a *Assertion) UnmarshalMap(m map[int]interface{}) error {
-	if sigs, ok := m[0]; ok {
-		a.Signatures = make([]signature.Sig, len(sigs.([]interface{})))
-		for i, sig := range sigs.([]interface{}) {
-			if err := a.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
+	if sigs, ok := m[0].([]interface{}); ok {
+		a.Signatures = make([]signature.Sig, len(sigs))
+		for i, sig := range sigs {
+			sigVal, ok := sig.([]interface{})
+			if !ok {
+				return errors.New("cbor zone signatures entry is not an array")
+			}
+			if err := a.Signatures[i].UnmarshalArray(sigVal); err != nil {
 				return err
 			}
 		}
+	} else {
+		return errors.New("cbor zone map does not contain a signature")
 	}
-	if sn, ok := m[3]; ok {
-		a.SubjectName = sn.(string)
+	if sn, ok := m[3].(string); ok {
+		a.SubjectName = sn
 	} else {
 		return errors.New("cbor assertion map does not contain a subject name")
 	}
-	if sz, ok := m[4]; ok {
-		a.SubjectZone = sz.(string)
+	if sz, ok := m[4].(string); ok {
+		a.SubjectZone = sz
 	} else {
 		return errors.New("cbor assertion map does not contain a subject zone")
 	}
-	if ctx, ok := m[6]; ok {
-		a.Context = ctx.(string)
+	if ctx, ok := m[6].(string); ok {
+		a.Context = ctx
 	} else {
 		return errors.New("cbor assertion map does not contain a context")
 	}

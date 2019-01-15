@@ -2,6 +2,7 @@ package section
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 
 	cbor "github.com/britram/borat"
@@ -20,19 +21,22 @@ type Notification struct {
 
 // UnmarshalMap unpacks a CBOR unmarshaled map to this object.
 func (n *Notification) UnmarshalMap(m map[int]interface{}) error {
-	if _, ok := m[2]; !ok {
-		return fmt.Errorf("token missing in notification message: %v", m)
+	tok, ok := m[2].([]byte)
+	if !ok || len(tok) != 16 {
+		return errors.New("cbor notification encoding of the token should be a byte array of length 16")
 	}
-	for i, val := range m[2].([]interface{}) {
-		n.Token[i] = byte(val.(int))
+	for i, val := range tok {
+		n.Token[i] = val
 	}
-	if not, ok := m[21]; ok {
-		n.Type = NotificationType(not.(int))
+	if not, ok := m[21].(int); ok {
+		n.Type = NotificationType(not)
 	} else {
-		return fmt.Errorf("key [21] for NotificationType not found in map: %v", m)
+		return errors.New("cbor notification map does not contain type")
 	}
-	if data, ok := m[22]; ok {
-		n.Data = string(data.(string))
+	if data, ok := m[22].(string); ok {
+		n.Data = string(data)
+	} else {
+		return errors.New("cbor notification map does not contain data")
 	}
 	return nil
 }
@@ -40,7 +44,7 @@ func (n *Notification) UnmarshalMap(m map[int]interface{}) error {
 // MarshalCBOR implements the CBORMarshaler interface.
 func (n *Notification) MarshalCBOR(w *cbor.CBORWriter) error {
 	m := make(map[int]interface{})
-	m[2] = n.Token
+	m[2] = n.Token[:]
 	m[21] = int(n.Type)
 	m[22] = n.Data
 	return w.WriteIntMap(m)
