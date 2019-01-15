@@ -128,9 +128,15 @@ func main() {
 		log.Fatalf("Error: Was not able to initialize server: %v", err)
 		return
 	}
+	log.Println("Server successfully initialized")
 	rootNameServers := []net.Addr{rootServerAddress.value.Addr}
-	server.SetResolver(libresolve.New(rootNameServers, nil, libresolve.Recursive, server.Addr(),
-		*maxConnections))
+	resolver, err := libresolve.New(rootNameServers, nil, server.Config().RootZonePublicKeyPath,
+		libresolve.Recursive, server.Addr(), *maxConnections, server.Config().MaxCacheValidity)
+	if err != nil {
+		log.Fatalf("Error: Unable to initialize recursive resolver: %v", err.Error())
+		return
+	}
+	server.SetResolver(resolver)
 	go server.Start(false)
 	handleUserInput()
 	server.Shutdown()

@@ -6,6 +6,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/libresolve"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
 /*
@@ -16,5 +17,5 @@ import (
 func AddCoverageInstrumentation() {
 	rainsd.New(rainsd.Config{}, "")
 	publisher.New(publisher.Config{})
-	libresolve.New(nil, nil, libresolve.Recursive, &net.TCPAddr{}, 1000)
+	libresolve.New(nil, nil, "", libresolve.Recursive, &net.TCPAddr{}, 1000, util.MaxCacheValidity{})
 }

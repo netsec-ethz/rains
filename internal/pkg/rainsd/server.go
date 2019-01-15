@@ -91,6 +91,10 @@ func (s *Server) Addr() net.Addr {
 	return s.config.ServerAddress.Addr
 }
 
+func (s *Server) Config() Config {
+	return s.config
+}
+
 //SetRecursiveResolver adds a channel which handles recursive lookups for this server
 func (s *Server) SetRecursiveResolver(write func(connection.Message)) {
 	s.sendToRecResolver = write

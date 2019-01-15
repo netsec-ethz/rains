@@ -39,28 +39,38 @@ const (
 
 // Resolver provides methods to resolve names in RAINS.
 type Resolver struct {
-	RootNameServers []net.Addr
-	Forwarders      []net.Addr
-	Mode            ResolutionMode
-	InsecureTLS     bool
-	DialTimeout     time.Duration
-	FailFast        bool
-	Delegations     *safeHashMap.Map
-	Connections     cache.Connection
+	RootNameServers  []net.Addr
+	Forwarders       []net.Addr
+	Mode             ResolutionMode
+	InsecureTLS      bool
+	DialTimeout      time.Duration
+	FailFast         bool
+	Delegations      *safeHashMap.Map
+	Connections      cache.Connection
+	MaxCacheValidity util.MaxCacheValidity
 }
 
 //New creates a resolver with the given parameters and default settings
-func New(rootNS, forwarders []net.Addr, mode ResolutionMode, addr net.Addr, maxConn int) *Resolver {
-	return &Resolver{
-		RootNameServers: rootNS,
-		Forwarders:      forwarders,
-		Mode:            mode,
-		InsecureTLS:     defaultInsecureTLS,
-		DialTimeout:     defaultTimeout,
-		FailFast:        defaultFailFast,
-		Delegations:     safeHashMap.New(),
-		Connections:     cache.NewConnection(maxConn),
+func New(rootNS, forwarders []net.Addr, rootKeyPath string, mode ResolutionMode, addr net.Addr, maxConn int, maxCacheValidity util.MaxCacheValidity) (*Resolver, error) {
+	r := &Resolver{
+		RootNameServers:  rootNS,
+		Forwarders:       forwarders,
+		Mode:             mode,
+		InsecureTLS:      defaultInsecureTLS,
+		DialTimeout:      defaultTimeout,
+		FailFast:         defaultFailFast,
+		Delegations:      safeHashMap.New(),
+		Connections:      cache.NewConnection(maxConn),
+		MaxCacheValidity: maxCacheValidity,
 	}
+	a := new(section.Assertion)
+	err := util.Load(rootKeyPath, a)
+	if err != nil {
+		log.Warn("Failed to load root zone public key", "err", err)
+		return nil, err
+	}
+	r.Delegations.Add(a.GetSubjectZone(), a)
+	return r, nil
 }
 
 //ClientLookup forwards the query to the specified forwarders or performs a recursive lookup starting at
