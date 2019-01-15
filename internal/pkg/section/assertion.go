@@ -1,6 +1,7 @@
 package section
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -36,22 +37,28 @@ func (a *Assertion) UnmarshalMap(m map[int]interface{}) error {
 	}
 	if sn, ok := m[3]; ok {
 		a.SubjectName = sn.(string)
+	} else {
+		return errors.New("cbor assertion map does not contain a subject name")
 	}
 	if sz, ok := m[4]; ok {
 		a.SubjectZone = sz.(string)
+	} else {
+		return errors.New("cbor assertion map does not contain a subject zone")
 	}
 	if ctx, ok := m[6]; ok {
 		a.Context = ctx.(string)
-	}
-	if objs, ok := m[7]; !ok {
-		return fmt.Errorf("assertion does not contain any objects")
 	} else {
-		a.Content = make([]object.Object, len(m[7].([]interface{})))
+		return errors.New("cbor assertion map does not contain a context")
+	}
+	if objs, ok := m[7]; ok {
+		a.Content = make([]object.Object, len(objs.([]interface{})))
 		for i, obj := range objs.([]interface{}) {
 			if err := a.Content[i].UnmarshalArray(obj.([]interface{})); err != nil {
 				return err
 			}
 		}
+	} else {
+		return errors.New("cbor assertion map does not contain an object array")
 	}
 	return nil
 }

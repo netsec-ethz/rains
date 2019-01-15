@@ -15,7 +15,7 @@ func TestShardCopy(t *testing.T) {
 	sCopy := shard.Copy(shard.Context, shard.SubjectZone)
 	checkShard(shard, sCopy, t)
 	if shard == sCopy {
-		t.Error("Assertion was not copied. Pointer is still the same.")
+		t.Error("Shard was not copied. Pointer is still the same.")
 	}
 }
 
@@ -30,7 +30,7 @@ func TestShardInterval(t *testing.T) {
 	}
 	for i, test := range tests {
 		if test.input.Begin() != test.wantBegin || test.input.End() != test.wantEnd {
-			t.Errorf("%d: Assertion Begin and End are not as expectedBegin=%s expectedEnd=%s actualBegin=%s actualEnd=%s", i,
+			t.Errorf("%d: Shard Begin and End are not as expectedBegin=%s expectedEnd=%s actualBegin=%s actualEnd=%s", i,
 				test.wantBegin, test.wantEnd, test.input.Begin(), test.input.End())
 		}
 	}
@@ -102,7 +102,7 @@ func TestShardSort(t *testing.T) {
 	}
 }
 
-func TestInRange(t *testing.T) {
+func TestShardInRange(t *testing.T) {
 	ss := Shard{
 		RangeFrom: "abc",
 		RangeTo:   "xyz",
@@ -136,7 +136,7 @@ func TestInRange(t *testing.T) {
 	}
 }
 
-func TestIsConsistent(t *testing.T) {
+func TestShardIsConsistent(t *testing.T) {
 	testMatrix := []struct {
 		section    *Shard
 		wellformed bool

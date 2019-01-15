@@ -43,26 +43,21 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		obj.Value = in[1]
 	case OTDelegation:
 		alg := in[1].(int)
-		ks := keys.KeySpaceID(in[2].(int))
-		kp := int(in[3].(int))
-		vs := int64(in[4].(int))
-		vu := int64(in[5].(int))
+		kp := int(in[2].(int))
 		var key interface{}
 		switch algorithmTypes.Signature(alg) {
 		case algorithmTypes.Ed25519:
-			key = ed25519.PublicKey(in[6].([]byte))
+			key = ed25519.PublicKey(in[3].([]byte))
 		default:
 			return fmt.Errorf("unsupported algorithm: %v", alg)
 		}
 		pkey := keys.PublicKey{
 			PublicKeyID: keys.PublicKeyID{
 				Algorithm: algorithmTypes.Signature(alg),
-				KeySpace:  ks,
+				KeySpace:  keys.RainsKeySpace,
 				KeyPhase:  kp,
 			},
-			ValidSince: vs,
-			ValidUntil: vu,
-			Key:        key,
+			Key: key,
 		}
 		obj.Value = pkey
 	case OTNameset:
@@ -83,38 +78,33 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		}
 		obj.Value = si
 	case OTRegistrar:
-		obj.Value = in[2].(string)
+		obj.Value = in[1].(string)
 	case OTRegistrant:
-		obj.Value = in[2].(string)
+		obj.Value = in[1].(string)
 	case OTInfraKey:
-		alg := in[1]
-		ks := in[2].(keys.KeySpaceID)
-		kp := in[3].(int)
-		vs := in[4].(int64)
-		vu := in[5].(int64)
+		alg := in[1].(int)
+		kp := in[2].(int)
 		var key interface{}
-		switch alg.(algorithmTypes.Signature) {
+		switch algorithmTypes.Signature(alg) {
 		case algorithmTypes.Ed25519:
-			key = ed25519.PublicKey(in[6].([]byte))
+			key = ed25519.PublicKey(in[3].([]byte))
 		default:
 			return fmt.Errorf("unsupported algorithm: %v", alg)
 		}
 		pkey := keys.PublicKey{
 			PublicKeyID: keys.PublicKeyID{
-				Algorithm: alg.(algorithmTypes.Signature),
-				KeySpace:  ks,
+				Algorithm: algorithmTypes.Signature(alg),
+				KeySpace:  keys.RainsKeySpace,
 				KeyPhase:  kp,
 			},
-			ValidSince: vs,
-			ValidUntil: vu,
-			Key:        key,
+			Key: key,
 		}
 		obj.Value = pkey
 	case OTExtraKey:
-		alg := in[1].(algorithmTypes.Signature)
-		ks := in[2].(keys.KeySpaceID)
+		alg := in[1].(int)
+		ks := keys.KeySpaceID(in[2].(int))
 		var key interface{}
-		switch alg {
+		switch algorithmTypes.Signature(alg) {
 		case algorithmTypes.Ed25519:
 			key = ed25519.PublicKey(in[3].([]byte))
 		default:
@@ -122,15 +112,35 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		}
 		pk := keys.PublicKey{
 			PublicKeyID: keys.PublicKeyID{
-				Algorithm: alg,
+				Algorithm: algorithmTypes.Signature(alg),
 				KeySpace:  ks,
 			},
 			Key: key,
 		}
 		obj.Value = pk
 	case OTNextKey:
-		// TODO: Implement OTNextKey.
-		log.Error("not yet implemented")
+		alg := in[1].(int)
+		kp := in[2].(int)
+		var key interface{}
+		vs := int64(in[4].(int))
+		vu := int64(in[5].(int))
+		switch algorithmTypes.Signature(alg) {
+		case algorithmTypes.Ed25519:
+			key = ed25519.PublicKey(in[3].([]byte))
+		default:
+			return fmt.Errorf("unsupported algorithm: %v", alg)
+		}
+		pk := keys.PublicKey{
+			PublicKeyID: keys.PublicKeyID{
+				Algorithm: algorithmTypes.Signature(alg),
+				KeySpace:  keys.RainsKeySpace,
+				KeyPhase:  kp,
+			},
+			ValidSince: vs,
+			ValidUntil: vu,
+			Key:        key,
+		}
+		obj.Value = pk
 	default:
 		return errors.New("unknown object type in unmarshalling object")
 	}
@@ -167,9 +177,8 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 		if !ok {
 			return fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", obj.Value)
 		}
-		// TODO: ValidSince and ValidUntil should be tagged.
 		b := pubkeyToCBORBytes(pkey)
-		res = []interface{}{OTDelegation, int(pkey.Algorithm), int(pkey.KeySpace), pkey.KeyPhase, pkey.ValidSince, pkey.ValidUntil, b}
+		res = []interface{}{OTDelegation, int(pkey.Algorithm), pkey.KeyPhase, b}
 	case OTNameset:
 		nse, ok := obj.Value.(NamesetExpr)
 		if !ok {
@@ -203,19 +212,24 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 	case OTInfraKey:
 		pkey, ok := obj.Value.(keys.PublicKey)
 		if !ok {
-			return fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", obj.Value)
+			return fmt.Errorf("expected OTInfraKey value to be PublicKey but got: %T", obj.Value)
 		}
-		// TODO: ValidSince and ValidUntl should be tagged.
 		b := pubkeyToCBORBytes(pkey)
-		res = []interface{}{OTInfraKey, int(pkey.Algorithm), int(pkey.KeySpace), pkey.KeyPhase, pkey.ValidSince, pkey.ValidUntil, b}
+		res = []interface{}{OTInfraKey, int(pkey.Algorithm), pkey.KeyPhase, b}
 	case OTExtraKey:
 		pkey, ok := obj.Value.(keys.PublicKey)
 		if !ok {
-			return fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", obj.Value)
+			return fmt.Errorf("expected OTExtraKey value to be PublicKey but got: %T", obj.Value)
 		}
 		b := pubkeyToCBORBytes(pkey)
 		res = []interface{}{OTExtraKey, int(pkey.Algorithm), int(pkey.KeySpace), b}
 	case OTNextKey:
+		pkey, ok := obj.Value.(keys.PublicKey)
+		if !ok {
+			return fmt.Errorf("expected OTNextKey value to be PublicKey but got: %T", obj.Value)
+		}
+		b := pubkeyToCBORBytes(pkey)
+		res = []interface{}{OTNextKey, int(pkey.Algorithm), pkey.KeyPhase, b, pkey.ValidSince, pkey.ValidUntil}
 	default:
 		return fmt.Errorf("unknown object type: %v", obj.Type)
 	}

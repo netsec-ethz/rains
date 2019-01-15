@@ -211,6 +211,47 @@ func sortedShards(nof int) []*Shard {
 	return shards
 }
 
+func sortedBloomFilters(nof int) []BloomFilter {
+	bf := []BloomFilter{}
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 3; j++ {
+			for m := 0; m < nof; m++ {
+				bf = append(bf, BloomFilter{
+					Algorithm: BloomFilterAlgo(i),
+					Hash:      algorithmTypes.Hash(j + 4),
+					Filter:    make(bitarray.BitArray, 8*(1+m)),
+				})
+			}
+		}
+	}
+	bf = append(bf, bf[len(bf)-1]) //equals
+	return bf
+}
+
+func sortedPshards(nof int) []*Pshard {
+	pshards := []*Pshard{}
+	bfs := sortedBloomFilters(1)
+	for i := 0; i < nof; i++ {
+		for j := 0; j < nof; j++ {
+			for k := 0; k < nof; k++ {
+				for l := 0; l < nof; l++ {
+					for m := 0; m < 12; m++ {
+						pshards = append(pshards, &Pshard{
+							SubjectZone: strconv.Itoa(i),
+							Context:     strconv.Itoa(j),
+							RangeFrom:   strconv.Itoa(k),
+							RangeTo:     strconv.Itoa(l),
+							BloomFilter: bfs[m],
+						})
+					}
+				}
+			}
+		}
+	}
+	pshards = append(pshards, pshards[len(pshards)-1]) //equals
+	return pshards
+}
+
 func sortedZones(nof int) []*Zone {
 	zones := []*Zone{}
 	assertions := sortedAssertions(2)
