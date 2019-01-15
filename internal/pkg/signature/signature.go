@@ -13,17 +13,40 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-// UnmarshalArray takes in a CBOR decoded aray and populates Sig.
+// UnmarshalArray takes in a CBOR decoded array and populates Sig.
 func (sig *Sig) UnmarshalArray(in []interface{}) error {
-	if len(in) < 6 {
-		return fmt.Errorf("expected at least 5 items in input array but got %d", len(in))
+	if len(in) != 6 {
+		return fmt.Errorf("expected 6 items in input array but got %d", len(in))
 	}
-	sig.PublicKeyID.Algorithm = algorithmTypes.Signature(in[0].(int))
-	sig.PublicKeyID.KeySpace = keys.KeySpaceID(in[1].(int))
-	sig.PublicKeyID.KeyPhase = int(in[2].(int))
-	sig.ValidSince = int64(in[3].(int))
-	sig.ValidUntil = int64(in[4].(int))
-	sig.Data = in[5]
+	algo, ok := in[0].(int)
+	if !ok {
+		return errors.New("cbor encoding of the algorithm should be an int")
+	}
+	sig.PublicKeyID.Algorithm = algorithmTypes.Signature(algo)
+	keySpace, ok := in[1].(int)
+	if !ok {
+		return errors.New("cbor encoding of the key space should be an int")
+	}
+	sig.PublicKeyID.KeySpace = keys.KeySpaceID(keySpace)
+	sig.PublicKeyID.KeyPhase, ok = in[2].(int)
+	if !ok {
+		return errors.New("cbor encoding of the key phase should be an int")
+	}
+	validSince, ok := in[3].(int)
+	if !ok {
+		return errors.New("cbor encoding of the validSince should be an int")
+	}
+	sig.ValidSince = int64(validSince)
+	validUntil, ok := in[4].(int)
+	if !ok {
+		return errors.New("cbor encoding of the validUntil should be an int")
+	}
+	sig.ValidUntil = int64(validUntil)
+	data, ok := in[5].([]byte)
+	if !ok {
+		return errors.New("cbor encoding of the data should be a byte array")
+	}
+	sig.Data = data
 	return nil
 }
 
