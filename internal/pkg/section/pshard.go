@@ -27,29 +27,50 @@ type Pshard struct {
 
 // UnmarshalMap decodes the output from the CBOR decoder into this struct.
 func (s *Pshard) UnmarshalMap(m map[int]interface{}) error {
-	if sigs, ok := m[0]; ok {
-		s.Signatures = make([]signature.Sig, len(sigs.([]interface{})))
-		for i, sig := range sigs.([]interface{}) {
-			if err := s.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
+	if sigs, ok := m[0].([]interface{}); ok {
+		s.Signatures = make([]signature.Sig, len(sigs))
+		for i, sig := range sigs {
+			sigVal, ok := sig.([]interface{})
+			if !ok {
+				return errors.New("cbor zone signatures entry is not an array")
+			}
+			if err := s.Signatures[i].UnmarshalArray(sigVal); err != nil {
 				return err
 			}
 		}
+	} else {
+		return errors.New("cbor zone map does not contain a signature")
 	}
-	if zone, ok := m[4]; ok {
-		s.SubjectZone = zone.(string)
+	if zone, ok := m[4].(string); ok {
+		s.SubjectZone = zone
+	} else {
+		return errors.New("cbor pshard map does not contain a subject zone")
 	}
-	if ctx, ok := m[6]; ok {
-		s.Context = ctx.(string)
+	if ctx, ok := m[6].(string); ok {
+		s.Context = ctx
+	} else {
+		return errors.New("cbor pshard map does not contain a context")
 	}
-	if sr, ok := m[11]; ok {
-		srange := sr.([]interface{})
-		s.RangeFrom = srange[0].(string)
-		s.RangeTo = srange[1].(string)
+	if srange, ok := m[11].([]interface{}); ok {
+		begin, ok := srange[0].(string)
+		if !ok {
+			return errors.New("cbor pshard encoding of rangeFrom should be a string")
+		}
+		s.RangeFrom = begin
+		end, ok := srange[1].(string)
+		if !ok {
+			return errors.New("cbor pshard encoding of rangeEnd should be a string")
+		}
+		s.RangeTo = end
+	} else {
+		return errors.New("cbor pshard map does not contain a range")
 	}
-	if ds, ok := m[23]; ok {
-		if err := s.BloomFilter.UnmarshalArray(ds.([]interface{})); err != nil {
+	if ds, ok := m[23].([]interface{}); ok {
+		if err := s.BloomFilter.UnmarshalArray(ds); err != nil {
 			return err
 		}
+	} else {
+		return errors.New("cbor pshard map does not contain a bloom filter")
 	}
 	return nil
 }

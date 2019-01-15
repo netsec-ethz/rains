@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 
@@ -22,6 +23,11 @@ type Name struct {
 
 // UnmarshalMap unpacks a CBOR marshaled map to this struct.
 func (q *Name) UnmarshalMap(m map[int]interface{}) error {
+	if n, ok := m[8].(string); ok {
+		q.Name = n
+	} else {
+		return errors.New("cbor query map does not contain a fqdn name")
+	}
 	q.Name = m[8].(string)
 	q.Context = m[6].(string)
 	q.Types = make([]object.Type, 0)
