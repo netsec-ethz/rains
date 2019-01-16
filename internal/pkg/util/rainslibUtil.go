@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 
 	"golang.org/x/crypto/ed25519"
@@ -183,4 +185,23 @@ func SendQuery(msg message.Message, addr net.Addr, timeout time.Duration) (
 	case <-time.After(timeout):
 		return message.Message{}, fmt.Errorf("timed out waiting for response")
 	}
+}
+
+// GetOverlapValidityForSignatures returns the validity window common (i.e. valid) for all signatures
+// Returns 0,0 if no valid window exists (no overlap)
+func GetOverlapValidityForSignatures(sigs []signature.Sig) (since, until int64) {
+	since = math.MinInt64
+	until = math.MaxInt64
+	for _, s := range sigs {
+		if s.ValidSince > since {
+			since = s.ValidSince
+		}
+		if s.ValidUntil < until {
+			until = s.ValidUntil
+		}
+	}
+	if since >= until {
+		since, until = 0, 0
+	}
+	return
 }
