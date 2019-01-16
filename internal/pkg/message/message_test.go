@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"testing"
 
+	cbor2 "github.com/britram/borat"
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
-
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
@@ -28,6 +28,30 @@ func TestCBOR(t *testing.T) {
 			t.Fatalf("%d: Was not able to unmarshal msg, err=%s", i, err.Error())
 		}
 		CheckMessage(test.input, msg, t)
+	}
+}
+
+func TestCBORErrorCases(t *testing.T) {
+	encWithRainsTag := new(bytes.Buffer)
+	cbor2.NewCBORWriter(encWithRainsTag).WriteTag(cbor2.CBORTag(rainsTag))
+	encWithTag := new(bytes.Buffer)
+	cbor2.NewCBORWriter(encWithTag).WriteTag(cbor2.CBORTag(rainsTag + 1))
+	var tests = []struct {
+		encoding []byte
+		errMsg   string
+	}{
+		{[]byte("Just some nonsense data"), "failed to read tag: invalid CBOR type for typed read"},
+		{encWithTag.Bytes(), "expected tag for RAINS message but got: 15309737"},
+		{append(encWithRainsTag.Bytes(), []byte("Just some nonsense data")...), "failed to read map: invalid CBOR type for typed read"},
+	}
+	for i, test := range tests {
+		encoding := bytes.NewBuffer(test.encoding)
+		msg := Message{}
+		err := cbor.NewReader(encoding).Unmarshal(&msg)
+		if err == nil || err.Error() != test.errMsg {
+			t.Fatalf("%d: Wrong error msg while unmarshal msg, expected=%s, actual=%s", i,
+				test.errMsg, err.Error())
+		}
 	}
 }
 
