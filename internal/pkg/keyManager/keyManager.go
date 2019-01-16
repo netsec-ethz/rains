@@ -149,22 +149,27 @@ func DecryptKey(keyPath, name, pwd string) *pem.Block {
 	pblock, rest := pem.Decode(data)
 	if len(rest) != 0 {
 		log.Error("Was not able to decode pem encoded private key", "error", err)
+		return nil
 	}
 	salt, err := hex.DecodeString(pblock.Headers["salt"])
 	if err != nil {
 		log.Error("Was not able to decode salt from pem encoding", "error", err)
+		return nil
 	}
 	iv, err := hex.DecodeString(pblock.Headers["iv"])
 	if err != nil {
 		log.Error("Was not able to decode iv from pem encoding", "error", err)
+		return nil
 	}
 	dk, err := scrypt.Key([]byte(pwd), salt, 1<<15, 8, 1, 32)
 	if err != nil {
 		log.Error("Was not able to create key from password and salt", "error", err)
+		return nil
 	}
 	block, err := aes.NewCipher(dk)
 	if err != nil {
 		log.Error("Was not able to create aes cipher from key", "error", err)
+		return nil
 	}
 
 	stream := cipher.NewCFBDecrypter(block, iv)
