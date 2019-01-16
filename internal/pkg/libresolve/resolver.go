@@ -64,12 +64,19 @@ func New(rootNS, forwarders []net.Addr, rootKeyPath string, mode ResolutionMode,
 		Connections:      cache.NewConnection(maxConn),
 		MaxCacheValidity: maxCacheValidity,
 	}
+	// load the root zone public key and store it as a delegation:
 	a := new(section.Assertion)
 	err := util.Load(rootKeyPath, a)
 	if err != nil {
 		log.Warn("Failed to load root zone public key", "err", err)
 		return nil, err
 	}
+	since, until := util.GetOverlapValidityForSignatures(a.AllSigs())
+	a.UpdateValidity(since, until, maxCacheValidity.AssertionValidity)
+	pk := a.Content[0].Value.(keys.PublicKey)
+	pk.ValidSince = a.ValidSince()
+	pk.ValidUntil = a.ValidUntil()
+	a.Content[0].Value = pk
 	r.Delegations.Add(a.GetSubjectZone(), a)
 	return r, nil
 }
