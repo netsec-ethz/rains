@@ -1,9 +1,9 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 	"sort"
-	"testing"
 
 	cbor "github.com/britram/borat"
 
@@ -23,31 +23,63 @@ type Name struct {
 
 // UnmarshalMap unpacks a CBOR marshaled map to this struct.
 func (q *Name) UnmarshalMap(m map[int]interface{}) error {
-	q.Name = m[8].(string)
-	q.Context = m[6].(string)
+	if n, ok := m[6].(string); ok {
+		q.Context = n
+	} else {
+		return errors.New("cbor query map does not contain a context name")
+	}
+	if n, ok := m[8].(string); ok {
+		q.Name = n
+	} else {
+		return errors.New("cbor query map does not contain a fqdn name")
+	}
 	q.Types = make([]object.Type, 0)
-	if types, ok := m[10]; ok {
-		for _, qt := range types.([]interface{}) {
-			q.Types = append(q.Types, object.Type(qt.(int)))
+	if types, ok := m[10].([]interface{}); ok {
+		for _, qt := range types {
+			t, ok := qt.(int)
+			if !ok {
+				return errors.New("cbor query encoding of a type array's element should be an int")
+			}
+			q.Types = append(q.Types, object.Type(t))
 		}
+	} else {
+		return errors.New("cbor query map does not contain a types array")
 	}
-	q.Expiration = int64(m[12].(int))
+	if exp, ok := m[12].(int); ok {
+		q.Expiration = int64(exp)
+	} else {
+		return errors.New("cbor query map does not contain an expiration")
+	}
 	q.Options = make([]Option, 0)
-	if opts, ok := m[13]; ok {
-		for _, opt := range opts.([]interface{}) {
-			q.Options = append(q.Options, Option(opt.(int)))
+	if opts, ok := m[13].([]interface{}); ok {
+		for _, opt := range opts {
+			o, ok := opt.(int)
+			if !ok {
+				return errors.New("cbor query encoding of a option array's element should be an int")
+			}
+			q.Options = append(q.Options, Option(o))
 		}
+	} else {
+		return errors.New("cbor query map does not contain a query options array")
 	}
-	q.KeyPhase = m[17].(int)
-	q.CurrentTime = int64(m[14].(int))
+	if ct, ok := m[14].(int); ok {
+		q.CurrentTime = int64(ct)
+	} else {
+		return errors.New("cbor query map does not contain the current time")
+	}
+	var ok bool
+	q.KeyPhase, ok = m[17].(int)
+	if !ok {
+		return errors.New("cbor query encoding of the key phase should be an int")
+	}
 	return nil
 }
 
 // MarshalCBOR implements the CBORMarshaler interface.
 func (q *Name) MarshalCBOR(w *cbor.CBORWriter) error {
 	m := make(map[int]interface{})
-	m[8] = q.Name
 	m[6] = q.Context
+	m[8] = q.Name
 	qtypes := make([]int, len(q.Types))
 	for i, qtype := range q.Types {
 		qtypes[i] = int(qtype)
@@ -167,31 +199,3 @@ const (
 	QONoVerificationDelegation Option = 7
 	QONoProactiveCaching       Option = 8
 )
-
-func CheckQuery(q1, q2 *Name, t *testing.T) {
-	if q1.Context != q2.Context {
-		t.Error("Query context mismatch")
-	}
-	if q1.Expiration != q2.Expiration {
-		t.Error("Query Expires mismatch")
-	}
-	if q1.Name != q2.Name {
-		t.Error("Query Name mismatch")
-	}
-	if len(q1.Types) != len(q2.Types) {
-		t.Error("Query Type length mismatch")
-	}
-	for i, o1 := range q1.Types {
-		if o1 != q2.Types[i] {
-			t.Errorf("Query Type at position %d mismatch", i)
-		}
-	}
-	if len(q1.Options) != len(q2.Options) {
-		t.Error("Query Option length mismatch")
-	}
-	for i, o1 := range q1.Options {
-		if o1 != q2.Options[i] {
-			t.Errorf("Query Option at position %d mismatch", i)
-		}
-	}
-}

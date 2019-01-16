@@ -39,7 +39,8 @@ type PublicKey struct {
 	Key        interface{}
 }
 
-//CompareTo compares two publicKey objects and returns 0 if they are equal, 1 if p is greater than pkey and -1 if p is smaller than pkey
+//CompareTo compares two publicKey objects and returns 0 if they are equal, 1 if p is greater than
+//pkey and -1 if p is smaller than pkey
 func (p PublicKey) CompareTo(pkey PublicKey) int {
 	if p.Algorithm < pkey.Algorithm {
 		return -1

@@ -13,9 +13,9 @@ import (
 func TestShardCopy(t *testing.T) {
 	shard := GetShard()
 	sCopy := shard.Copy(shard.Context, shard.SubjectZone)
-	CheckShard(shard, sCopy, t)
+	checkShard(shard, sCopy, t)
 	if shard == sCopy {
-		t.Error("Assertion was not copied. Pointer is still the same.")
+		t.Error("Shard was not copied. Pointer is still the same.")
 	}
 }
 
@@ -30,7 +30,7 @@ func TestShardInterval(t *testing.T) {
 	}
 	for i, test := range tests {
 		if test.input.Begin() != test.wantBegin || test.input.End() != test.wantEnd {
-			t.Errorf("%d: Assertion Begin and End are not as expectedBegin=%s expectedEnd=%s actualBegin=%s actualEnd=%s", i,
+			t.Errorf("%d: Shard Begin and End are not as expectedBegin=%s expectedEnd=%s actualBegin=%s actualEnd=%s", i,
 				test.wantBegin, test.wantEnd, test.input.Begin(), test.input.End())
 		}
 	}
@@ -73,7 +73,7 @@ func TestShardCompareTo(t *testing.T) {
 		return shuffled[i].(*Shard).CompareTo(shuffled[j].(*Shard)) < 0
 	})
 	for i, s := range shards {
-		CheckShard(s, shuffled[i].(*Shard), t)
+		checkShard(s, shuffled[i].(*Shard), t)
 	}
 	s1 := &Shard{}
 	s2 := &Shard{Content: []*Assertion{&Assertion{}}}
@@ -102,7 +102,7 @@ func TestShardSort(t *testing.T) {
 	}
 }
 
-func TestInRange(t *testing.T) {
+func TestShardInRange(t *testing.T) {
 	ss := Shard{
 		RangeFrom: "abc",
 		RangeTo:   "xyz",
@@ -136,7 +136,7 @@ func TestInRange(t *testing.T) {
 	}
 }
 
-func TestIsConsistent(t *testing.T) {
+func TestShardIsConsistent(t *testing.T) {
 	testMatrix := []struct {
 		section    *Shard
 		wellformed bool
@@ -184,5 +184,27 @@ func TestIsConsistent(t *testing.T) {
 		if res := testCase.section.IsConsistent(); res != testCase.wellformed {
 			t.Errorf("case %d: wrong consistency: got %t, want %t", i, res, testCase.wellformed)
 		}
+	}
+}
+
+func checkShard(s1, s2 *Shard, t *testing.T) {
+	if s1.Context != s2.Context {
+		t.Error("Shard context mismatch")
+	}
+	if s1.SubjectZone != s2.SubjectZone {
+		t.Error("Shard subjectZone mismatch")
+	}
+	if s1.RangeFrom != s2.RangeFrom {
+		t.Error("Shard RangeFrom mismatch")
+	}
+	if s1.RangeTo != s2.RangeTo {
+		t.Error("Shard RangeTo mismatch")
+	}
+	checkSignatures(s1.Signatures, s2.Signatures, t)
+	if len(s1.Content) != len(s2.Content) {
+		t.Error("Shard Content length mismatch")
+	}
+	for i, a1 := range s1.Content {
+		checkAssertion(a1, s2.Content[i], t)
 	}
 }

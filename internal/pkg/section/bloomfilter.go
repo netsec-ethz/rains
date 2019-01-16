@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"hash/fnv"
 
 	cbor "github.com/britram/borat"
@@ -22,9 +23,24 @@ type BloomFilter struct {
 
 // UnmarshalArray takes in a CBOR decoded array and populates the object.
 func (b *BloomFilter) UnmarshalArray(in []interface{}) error {
-	b.Algorithm = BloomFilterAlgo(int(in[0].(int)))
-	b.Hash = algorithmTypes.Hash(in[1].(int))
-	b.Filter = bitarray.BitArray(in[2].([]byte))
+	if len(in) != 3 {
+		return fmt.Errorf("cbor array encoding of bloom filter is not of length 3. actual=%d", len(in))
+	}
+	algo, ok := in[0].(int)
+	if !ok {
+		return errors.New("cbor encoding of the algorithm should be an int")
+	}
+	b.Algorithm = BloomFilterAlgo(algo)
+	hash, ok := in[1].(int)
+	if !ok {
+		return errors.New("cbor encoding of the hash should be an int")
+	}
+	b.Hash = algorithmTypes.Hash(hash)
+	filter, ok := in[2].([]byte)
+	if !ok {
+		return errors.New("cbor encoding of the filter should be an byte array")
+	}
+	b.Filter = bitarray.BitArray(filter)
 	return nil
 }
 

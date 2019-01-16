@@ -46,4 +46,9 @@ tests:
 	go test ./internal/pkg/...
 	go test -v ./test/integration/
 
+cover:
+	go test -coverprofile=coverage.out -coverpkg=./internal/pkg/... ./internal/pkg/... ./test/...
+	go tool cover -html=coverage.out -o coverage.html
+	firefox coverage.html
+
 .PHONY: clean rainsd zonepub rainsdig zoneman resolve

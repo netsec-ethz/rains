@@ -148,11 +148,31 @@ func TestSignNotification(t *testing.T) {
 	}
 }
 
+func TestSignErrors(t *testing.T) {
+	var tests = []struct {
+		section section.WithSig
+		sig     signature.Sig
+		key     interface{}
+	}{
+		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{}}}, signature.Sig{}, nil},
+		{&section.Assertion{}, signature.Sig{Data: []byte("some data")}, nil},
+	}
+	for i, test := range tests {
+		ok := SignSectionUnsafe(test.section, test.key, test.sig)
+		if ok {
+			t.Fatalf("%d: SignSectionUnsafe should fail", i)
+		}
+	}
+}
+
 func TestCheckSectionSignaturesErrors(t *testing.T) {
 	maxVal := util.MaxCacheValidity{AddressAssertionValidity: time.Hour}
 	keys0 := make(map[keys.PublicKeyID][]keys.PublicKey)
 	keys1 := make(map[keys.PublicKeyID][]keys.PublicKey)
-	keys1[keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}] = []keys.PublicKey{}
+	keys1[keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}] = []keys.PublicKey{
+		keys.PublicKey{ValidSince: time.Now().Unix(), ValidUntil: time.Now().Add(time.Minute).Unix()}}
+	keys2 := make(map[keys.PublicKeyID][]keys.PublicKey)
+	keys2[keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}] = []keys.PublicKey{}
 	var tests = []struct {
 		input           section.WithSig
 		inputPublicKeys map[keys.PublicKeyID][]keys.PublicKey
@@ -165,35 +185,12 @@ func TestCheckSectionSignaturesErrors(t *testing.T) {
 		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{}}}, keys0, false},                                                                 //no matching algotype in keys
 		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}}}}, keys1, false}, //sig expired
 		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519},
-			ValidUntil: time.Now().Add(time.Second).Unix()}}}, keys1, false}, //VerifySignature invalid
+			ValidUntil: time.Now().Add(time.Minute).Unix()}}}, keys2, false}, //public key not overlapping
+		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519},
+			ValidUntil: time.Now().Add(time.Minute).Unix()}}}, keys1, false}, //VerifySignature invalid
 	}
 	for _, test := range tests {
 		res := CheckSectionSignatures(test.input, test.inputPublicKeys, maxVal)
-		if res != test.want {
-			t.Fatalf("expected=%v, actual=%v, value=%v", test.want, res, test.input)
-		}
-	}
-}
-
-func TestCheckMessageSignaturesErrors(t *testing.T) {
-	msg := message.GetMessage()
-	message2 := message.GetMessage()
-	message2.Capabilities = []message.Capability{message.Capability(":ip:")}
-	message3 := message.GetMessage()
-	message3.Signatures = []signature.Sig{signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}}
-	var tests = []struct {
-		input          *message.Message
-		inputPublicKey keys.PublicKey
-		want           bool
-	}{
-		{nil, keys.PublicKey{}, false},                //msg nil
-		{&msg, keys.PublicKey{}, false},               //sig expired
-		{&message.Message{}, keys.PublicKey{}, false}, //no sig
-		{&message2, keys.PublicKey{}, false},          //TextField of Content invalid
-		{&message3, keys.PublicKey{}, false},          //signature invalid
-	}
-	for _, test := range tests {
-		res := CheckMessageSignatures(test.input, test.inputPublicKey)
 		if res != test.want {
 			t.Fatalf("expected=%v, actual=%v, value=%v", test.want, res, test.input)
 		}
@@ -231,10 +228,13 @@ func TestCheckStringFields(t *testing.T) {
 		{sections[2], true},
 		{sections[3], true},
 		{sections[4], true},
+		{sections[5], true},
 		{&section.Assertion{SubjectName: ":ip:"}, false},
 		{&section.Assertion{Context: ":ip:"}, false},
 		{&section.Assertion{SubjectZone: ":ip:"}, false},
 		{&section.Assertion{Content: []object.Object{object.Object{Type: object.OTRegistrar, Value: ":ip55:"}}}, false},
+		{&section.Pshard{RangeFrom: ":ip:"}, false},
+		{&section.Pshard{RangeTo: ":ip:"}, false},
 		{&section.Shard{Context: ":ip:"}, false},
 		{&section.Shard{SubjectZone: ":ip:"}, false},
 		{&section.Shard{RangeFrom: ":ip:"}, false},
@@ -338,6 +338,50 @@ func TestContainsZoneFileType(t *testing.T) {
 	for _, test := range tests {
 		if containsZoneFileType(test.input) != test.want {
 			t.Errorf("expected=%v, actual=%v, value=%v", test.want, containsZoneFileType(test.input), test.input)
+		}
+	}
+}
+
+func TestValidSectionAndSignature(t *testing.T) {
+	var tests = []struct {
+		s        section.WithSig
+		sig      signature.Sig
+		expected bool
+	}{
+		{nil, signature.Sig{}, false},
+		{&section.Assertion{}, signature.Sig{}, false},
+		{&section.Assertion{}, signature.Sig{}, false},
+		{&section.Shard{RangeFrom: ":A:"}, signature.Sig{ValidUntil: time.Now().Add(time.Minute).Unix()}, false},
+		{&section.Assertion{}, signature.Sig{ValidUntil: time.Now().Add(time.Minute).Unix()}, true},
+	}
+	for i, test := range tests {
+		if test.s != nil {
+			test.s.AddSig(test.sig)
+		}
+		ok := ValidSectionAndSignature(test.s)
+		if ok != test.expected {
+			t.Fatalf("%d: unexpected result. expected=%v actual=%v", i, test.expected, ok)
+		}
+	}
+}
+
+func TestCheckSignatureNotExpired(t *testing.T) {
+	var tests = []struct {
+		s        section.WithSig
+		sig      signature.Sig
+		expected bool
+	}{
+		{nil, signature.Sig{}, true},
+		{&section.Assertion{}, signature.Sig{}, false},
+		{&section.Assertion{}, signature.Sig{ValidUntil: time.Now().Add(time.Minute).Unix()}, true},
+	}
+	for i, test := range tests {
+		if test.s != nil {
+			test.s.AddSig(test.sig)
+		}
+		ok := CheckSignatureNotExpired(test.s)
+		if ok != test.expected {
+			t.Fatalf("%d: unexpected result. expected=%v actual=%v", i, test.expected, ok)
 		}
 	}
 }
