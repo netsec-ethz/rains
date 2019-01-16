@@ -13,11 +13,7 @@ import (
 
 //encodeMessage returns a rains message as a string in signable format (which resembles the zone file format)
 func encodeMessage(m *message.Message) string {
-	content := []string{}
-	for _, section := range m.Content {
-		content = append(content, GetEncoding(section, true))
-	}
-	return fmt.Sprintf(":M: %s %s [\n%s\n]", encodeCapabilities(m.Capabilities), m.Token.String(), strings.Join(content, "\n"))
+	return fmt.Sprintf(":M: %s %s [\n%s\n]", encodeCapabilities(m.Capabilities), m.Token.String(), IO{}.Encode(m.Content))
 }
 
 //encodeQuery returns an encoding which resembles the zone file format

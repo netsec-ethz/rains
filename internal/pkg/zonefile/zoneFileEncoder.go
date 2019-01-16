@@ -309,6 +309,10 @@ func encodeCertificate(cert object.Certificate) string {
 		return ""
 	}
 	ca = encodeHashAlgo(cert.HashAlgo)
+	if ca == "" {
+		log.Warn("Unsupported certificate hash algorithm type", "hashAlgoType", cert.HashAlgo)
+		return ""
+	}
 	return fmt.Sprintf("%s %s %s %s", pt, cu, ca, hex.EncodeToString(cert.Data))
 }
 
@@ -329,7 +333,6 @@ func encodeHashAlgo(h algorithmTypes.Hash) string {
 	case algorithmTypes.Fnv128:
 		return TypeFnv128
 	default:
-		log.Warn("Unsupported certificate hash algorithm type", "hashAlgoType", h)
 		return ""
 	}
 }

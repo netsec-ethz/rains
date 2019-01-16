@@ -7,7 +7,7 @@
     ]
     :A: ch [ :redir:   ns.ch. ]
     :A: ch [ :deleg:   :ed25519: 5 e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702 ]
-    :A: ch [ :nameset: Hello How are you ]
+    :A: ch [ :nameset: [:alpha:][:alnum:]* ]
     :A: ch [ :cert:    :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
     :A: ch [ :srv:     dns 53 0 ]
     :A: ch [ :regr:    registrar text ]
@@ -16,5 +16,38 @@
     :A: ch [ :extra:    :ed25519: 5 e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702 ]
     :A: ch [ :next:    :ed25519: 5 e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702 100000 20000000 ]
     :A: ch [ :ip4:     192.168.1.10 ]
+    :A: ch [ :ip4:     192.168.1.10 ] ( :sig: :ed25519: :rains: 1 2000 5000 )
+
+] ( :sig: :ed25519: :rains: 1 2000 5000 )
+
+:S: ch. . < > [
+    :A: ch [ :name:    a [ :ip4: :ip6: ] ]
+    :A: ch [ :ip4:     192.168.1.10 ]
+    :A: ethz [ 
+        :ip6:     2001:0db8:85a3:0000:0000:8a2e:0370:7334
+        :ip6:     129.132.128.139
+    ]
+    :A: ch [ :redir:   ns.ch. ]
+    :A: ch [ :deleg:   :ed25519: 5 e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702 ]
+    :A: ch [ :nameset: [:alpha:][:alnum:]* ]
+    :A: ch [ :cert:    :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
+    :A: ch [ :srv:     dns 53 0 ]
+    :A: ch [ :regr:    registrar text ]
+    :A: ch [ :regt:    registrant info ]
+    :A: ch [ :infra:   :ed25519: 5 e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702 ]
+    :A: ch [ :extra:    :ed25519: 5 e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702 ]
+    :A: ch [ :next:    :ed25519: 5 e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702 100000 20000000 ]
+    :A: ch [ :ip4:     192.168.1.10 ] ( :sig: :ed25519: :rains: 1 2000 5000 )
+
     :A: ch [ :ip4:     192.168.1.10 ]
 ] ( :sig: :ed25519: :rains: 1 2000 5000 )
+
+:P: ch. . < > :bloomKM12: :shake256: e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
+
+:P: ch. . < > :bloomKM16: :fnv128: e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
+
+:P: ch. . < > :bloomKM20: :fnv64: e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702
+
+:P: ch. . < > :bloomKM24: :shake256: e28b1bd3a73882b198dfe4f0fa95403c5916ac7b97387bd20f49511de628b702 ( :sig: :ed25519: :rains: 1 2000 5000 )
+
+:A: www ch. . [ :ip4:     192.168.1.10 ] ( :sig: :ed25519: :rains: 1 2000 5000 )
