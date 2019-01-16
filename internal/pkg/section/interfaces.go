@@ -42,8 +42,8 @@ type WithSig interface {
 type WithSigForward interface {
 	WithSig
 	Interval
-	AddSigInMarshaller()
-	DontAddSigInMarshaller()
+	AddSigInMarshaller()     // call this before marshalling for network
+	DontAddSigInMarshaller() // call this before marshalling for signing
 }
 
 //Query is the interface for a query section. In the current implementation it can be
