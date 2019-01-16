@@ -1,22 +1,20 @@
 package section
 
 import (
+	"math/rand"
 	"sort"
 	"testing"
 )
 
 func TestNotificationCompareTo(t *testing.T) {
 	ns := sortedNotifications(5)
-	var shuffled []Section
-	for _, n := range ns {
-		shuffled = append(shuffled, n)
-	}
-	shuffleSections(shuffled)
+	shuffled := append([]*Notification{}, ns...)
+	rand.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
 	sort.Slice(shuffled, func(i, j int) bool {
-		return shuffled[i].(*Notification).CompareTo(shuffled[j].(*Notification)) < 0
+		return shuffled[i].CompareTo(shuffled[j]) < 0
 	})
 	for i, n := range ns {
-		checkNotification(n, shuffled[i].(*Notification), t)
+		checkNotification(n, shuffled[i], t)
 	}
 }
 

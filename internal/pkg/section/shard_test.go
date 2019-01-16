@@ -1,6 +1,7 @@
 package section
 
 import (
+	"math/rand"
 	"reflect"
 	"sort"
 	"testing"
@@ -64,16 +65,13 @@ func TestShardHash(t *testing.T) {
 
 func TestShardCompareTo(t *testing.T) {
 	shards := sortedShards(5)
-	var shuffled []Section
-	for _, s := range shards {
-		shuffled = append(shuffled, s)
-	}
-	shuffleSections(shuffled)
+	shuffled := append([]*Shard{}, shards...)
+	rand.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
 	sort.Slice(shuffled, func(i, j int) bool {
-		return shuffled[i].(*Shard).CompareTo(shuffled[j].(*Shard)) < 0
+		return shuffled[i].CompareTo(shuffled[j]) < 0
 	})
 	for i, s := range shards {
-		checkShard(s, shuffled[i].(*Shard), t)
+		checkShard(s, shuffled[i], t)
 	}
 	s1 := &Shard{}
 	s2 := &Shard{Content: []*Assertion{&Assertion{}}}
@@ -141,6 +139,9 @@ func TestShardIsConsistent(t *testing.T) {
 		section    *Shard
 		wellformed bool
 	}{
+		{new(Shard), true},
+		{&Shard{Content: []*Assertion{&Assertion{SubjectZone: "zone"}}}, false},
+		{&Shard{Content: []*Assertion{&Assertion{Context: "ctx"}}}, false},
 		{
 			section:    &Shard{SubjectZone: "legitimate.zone"},
 			wellformed: true,

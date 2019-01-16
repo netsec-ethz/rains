@@ -114,6 +114,10 @@ func (sig Sig) CompareTo(s Sig) int {
 		return -1
 	} else if sig.KeySpace > s.KeySpace {
 		return 1
+	} else if sig.KeyPhase < s.KeyPhase {
+		return -1
+	} else if sig.KeyPhase > s.KeyPhase {
+		return 1
 	} else if sig.ValidSince < s.ValidSince {
 		return -1
 	} else if sig.ValidSince > s.ValidSince {
@@ -121,10 +125,6 @@ func (sig Sig) CompareTo(s Sig) int {
 	} else if sig.ValidUntil < s.ValidUntil {
 		return -1
 	} else if sig.ValidUntil > s.ValidUntil {
-		return 1
-	} else if sig.KeyPhase < s.KeyPhase {
-		return -1
-	} else if sig.KeyPhase > s.KeyPhase {
 		return 1
 	}
 	switch sig.Algorithm {

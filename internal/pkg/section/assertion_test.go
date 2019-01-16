@@ -84,16 +84,13 @@ func TestEqualContextZoneName(t *testing.T) {
 
 func TestAssertionCompareTo(t *testing.T) {
 	assertions := sortedAssertions(10)
-	var shuffled []Section
-	for _, a := range assertions {
-		shuffled = append(shuffled, a)
-	}
-	shuffleSections(shuffled)
+	shuffled := append([]*Assertion{}, assertions...)
+	rand.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
 	sort.Slice(shuffled, func(i, j int) bool {
-		return shuffled[i].(*Assertion).CompareTo(shuffled[j].(*Assertion)) < 0
+		return shuffled[i].CompareTo(shuffled[j]) < 0
 	})
 	for i, a := range assertions {
-		checkAssertion(a, shuffled[i].(*Assertion), t)
+		checkAssertion(a, shuffled[i], t)
 	}
 	a1 := &Assertion{}
 	a2 := &Assertion{Content: []object.Object{object.Object{}}}
@@ -295,12 +292,5 @@ func checkPublicKey(p1, p2 keys.PublicKey, t *testing.T) {
 		}
 	default:
 		t.Errorf("Not yet supported. Got Type:%T", p1)
-	}
-}
-
-func shuffleSections(sections []Section) {
-	for i := len(sections) - 1; i > 0; i-- {
-		j := rand.Intn(i)
-		sections[i], sections[j] = sections[j], sections[i]
 	}
 }
