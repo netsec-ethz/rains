@@ -18,6 +18,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/siglib"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
@@ -208,7 +209,45 @@ func (r *Resolver) handleAnswer(msg message.Message, q *query.Name) (isFinal boo
 		types[t] = true
 	}
 	for _, sec := range msg.Content {
-		//FIXME check signature of sections and request delegations if necessary
+		signed, ok := sec.(section.WithSigForward)
+		if !ok {
+			log.Error("Unexpected Section in Message not of type WithSigForward", "section", sec)
+			return
+		}
+		key, ok := r.Delegations.Get(signed.GetSubjectZone())
+		if !ok {
+			// key is missing
+			keyPhase := 0
+			if len(signed.Sigs(keys.RainsKeySpace)) > 0 {
+				keyPhase = signed.Sigs(keys.RainsKeySpace)[0].KeyPhase
+			}
+			keyQuery := query.Name{
+				Name:        signed.GetSubjectZone(),
+				Context:     signed.GetContext(),
+				Expiration:  q.Expiration,
+				CurrentTime: q.CurrentTime,
+				Types:       []object.Type{object.OTDelegation},
+				KeyPhase:    keyPhase,
+			}
+			m, err := r.recursiveResolve(&keyQuery)
+			if err != nil {
+				log.Error("Error trying to obtain public key", "query", keyQuery, "error", err)
+				return
+			}
+			// verify we do have now the key in the cache
+			key, ok = r.Delegations.Get(signed.GetSubjectZone())
+			if !ok {
+				log.Error("Error trying to obtain public key", "subject zone", signed.GetSubjectZone(), "answer", m)
+				return
+			}
+		}
+		// we have ensured that key is now an Assertion containing the delegation
+		pk := (key.(*section.Assertion)).Content[0].Value.(keys.PublicKey)
+		pkeys := map[keys.PublicKeyID][]keys.PublicKey{pk.PublicKeyID: []keys.PublicKey{pk}}
+		if !siglib.CheckSectionSignatures(signed, pkeys, r.MaxCacheValidity) {
+			log.Error("Section signature invalid!", "section", signed, "public keys", pkeys)
+			return
+		}
 		switch s := sec.(type) {
 		case *section.Assertion:
 			r.handleAssertion(s, redirMap, srvMap, ipMap, nameMap, types, q.Name, &isFinal, &isRedir)
@@ -232,6 +271,15 @@ func (r *Resolver) handleAssertion(a *section.Assertion, redirMap map[string]str
 				*isRedir = true
 			}
 		case object.OTDelegation:
+			// copy the valid times from the assertion to all public keys contained here:
+			for i, pk := range a.Content {
+				pk, ok := pk.Value.(keys.PublicKey)
+				if ok {
+					pk.ValidSince = a.ValidSince()
+					pk.ValidUntil = a.ValidUntil()
+					a.Content[i].Value = pk
+				}
+			}
 			r.Delegations.Add(a.FQDN(), a)
 		case object.OTServiceInfo:
 			srvMap[a.FQDN()] = o.Value.(object.ServiceInfo)
