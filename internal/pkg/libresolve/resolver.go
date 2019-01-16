@@ -251,10 +251,12 @@ func (r *Resolver) handleAnswer(msg message.Message, q *query.Name) (isFinal boo
 		// we have ensured that key is now an Assertion containing the delegation
 		pk := (key.(*section.Assertion)).Content[0].Value.(keys.PublicKey)
 		pkeys := map[keys.PublicKeyID][]keys.PublicKey{pk.PublicKeyID: []keys.PublicKey{pk}}
+		signed.DontAddSigInMarshaller()
 		if !siglib.CheckSectionSignatures(signed, pkeys, r.MaxCacheValidity) {
 			log.Error("Section signature invalid!", "section", signed, "public keys", pkeys)
 			return
 		}
+		signed.AddSigInMarshaller()
 		switch s := sec.(type) {
 		case *section.Assertion:
 			r.handleAssertion(s, redirMap, srvMap, ipMap, nameMap, types, q.Name, &isFinal, &isRedir)

@@ -79,8 +79,9 @@ func answerQueriesCachingResolver(ss util.MsgSectionSender, s *Server) {
 			qs = append(qs, q)
 		}
 		s.sendToRecursiveResolver(message.Message{Token: tok, Content: qs})
+	} else {
+		log.Info("Query has already been sent to recursive resolver", "queries", queries)
 	}
-	log.Info("Query has already been sent to recursive resolver", "queries", queries)
 }
 
 //answerQueryAuthoritative is how an authoritative server answers queries
