@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/cache"
+
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 
 	log "github.com/inconshreveable/log15"
@@ -113,7 +115,7 @@ func answerQueriesAuthoritative(qs []*query.Name, sender net.Addr, token token.T
 		//glueRecordNames assumes that the names of delegates do not contain a dot '.'.
 		names := glueRecordNames(queries, s.config.ZoneAuthority)
 		for name := range names {
-			glueRecords, err := glueRecordLookup(name.Zone, name.Context, s)
+			glueRecords, err := glueRecordLookup(name.Zone, name.Context, s.caches.AssertionsCache)
 			if err != nil {
 				log.Warn("Was not able to find all glue records for %s: %s", name, err.Error())
 				return
@@ -212,9 +214,9 @@ func glueRecordNames(qs []*query.Name, zoneAuths []string) map[zoneContext]bool 
 	return result
 }
 
-func glueRecordLookup(name, context string, s *Server) ([]section.Section, error) {
+func glueRecordLookup(name, context string, cache cache.Assertion) ([]section.Section, error) {
 	var assertions []section.Section
-	asserts, ok := s.caches.AssertionsCache.Get(name, context, object.OTDelegation, true)
+	asserts, ok := cache.Get(name, context, object.OTDelegation, true)
 	if !ok {
 		return nil, errors.New("no delegation assertion found")
 	}
@@ -223,14 +225,14 @@ func glueRecordLookup(name, context string, s *Server) ([]section.Section, error
 	}
 
 	//Follow redirect and get all assertions along the way
-	asserts, ok = s.caches.AssertionsCache.Get(name, context, object.OTRedirection, true) //returns cached redirect assertions in random order
+	asserts, ok = cache.Get(name, context, object.OTRedirection, true) //returns cached redirect assertions in random order
 	if !ok {
 		return nil, errors.New("no redirect assertion found")
 	}
 	for _, a := range asserts {
 		for _, o := range a.Content {
 			if o.Type == object.OTRedirection {
-				if answers, err := handleRedirect(o.Value.(string), context, s,
+				if answers, err := handleRedirect(o.Value.(string), context, cache,
 					allAllowedTypes()); err == nil {
 					assertions = append(assertions, a) //append redir
 					for _, answer := range answers {
@@ -260,25 +262,25 @@ func allowedAddrTypes() map[object.Type]bool {
 	}
 }
 
-func handleRedirect(name, context string, s *Server, allowedTypes map[object.Type]bool) ([]*section.Assertion, error) {
+func handleRedirect(name, context string, cache cache.Assertion, allowedTypes map[object.Type]bool) ([]*section.Assertion, error) {
 	if allowedTypes[object.OTIP6Addr] {
-		if asserts, ok := s.caches.AssertionsCache.Get(name, context, object.OTIP6Addr, true); ok {
+		if asserts, ok := cache.Get(name, context, object.OTIP6Addr, true); ok {
 			return asserts, nil
 		}
 	}
 	if allowedTypes[object.OTIP4Addr] {
-		if asserts, ok := s.caches.AssertionsCache.Get(name, context, object.OTIP4Addr, true); ok {
+		if asserts, ok := cache.Get(name, context, object.OTIP4Addr, true); ok {
 			return asserts, nil
 		}
 	}
 	//TODO add scion addr types
 	if allowedTypes[object.OTServiceInfo] && strings.HasPrefix(name, rainsSrvPrefix) {
-		if asserts, ok := s.caches.AssertionsCache.Get(name, context, object.OTServiceInfo, true); ok {
+		if asserts, ok := cache.Get(name, context, object.OTServiceInfo, true); ok {
 			for _, srv := range asserts {
 				for _, srvObj := range srv.Content {
 					if srvObj.Type == object.OTServiceInfo {
 						srvVal := srvObj.Value.(object.ServiceInfo)
-						if as, err := handleRedirect(srvVal.Name, context, s,
+						if as, err := handleRedirect(srvVal.Name, context, cache,
 							allowedAddrTypes()); err == nil {
 							return append(as, srv), nil
 						}
@@ -288,7 +290,7 @@ func handleRedirect(name, context string, s *Server, allowedTypes map[object.Typ
 		}
 	}
 	if allowedTypes[object.OTName] {
-		if asserts, ok := s.caches.AssertionsCache.Get(name, context, object.OTName, true); ok {
+		if asserts, ok := cache.Get(name, context, object.OTName, true); ok {
 			for _, name := range asserts {
 				for _, nameObj := range name.Content {
 					if nameObj.Type == object.OTName {
@@ -297,7 +299,7 @@ func handleRedirect(name, context string, s *Server, allowedTypes map[object.Typ
 						for _, t := range nameVal.Types {
 							allowTypes[t] = true
 						}
-						if as, err := handleRedirect(nameVal.Name, context, s,
+						if as, err := handleRedirect(nameVal.Name, context, cache,
 							allowTypes); err == nil {
 							return append(as, name), nil
 						}
