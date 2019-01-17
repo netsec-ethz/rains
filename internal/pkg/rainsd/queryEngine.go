@@ -1,14 +1,16 @@
 package rainsd
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"time"
 
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
-	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
@@ -107,9 +109,9 @@ func answerQueriesAuthoritative(qs []*query.Name, sender net.Addr, token token.T
 		//glueRecordNames assumes that the names of delegates do not contain a dot '.'.
 		names := glueRecordNames(queries, s.config.ZoneAuthority)
 		for name := range names {
-			glueRecords := glueRecordLookup(name.Zone, name.Context, s)
-			if len(glueRecords) < 4 {
-				log.Warn("Not enough matching glue records")
+			glueRecords, err := glueRecordLookup(name.Zone, name.Context, true, s)
+			if err != nil {
+				log.Warn("Was not able to find all glue records for %s: %s", name, err.Error())
 				return
 			}
 			sections = append(sections, glueRecords...)
@@ -199,18 +201,15 @@ func glueRecordNames(qs []*query.Name, zoneAuths []string) map[zoneContext]bool 
 				} else { //root zone
 					name = names[len(names)-1] + auth
 				}
-				if _, ok := result[zoneContext{name, q.Context}]; !ok {
-					result[zoneContext{name, q.Context}] = true
-				}
-
+				result[zoneContext{name, q.Context}] = true
 			}
 		}
 	}
 	return result
 }
 
-func glueRecordLookup(name, context string, s *Server) (assertions []section.Section) {
-	types := []object.Type{object.OTDelegation, object.OTRedirection, object.OTServiceInfo, object.OTServiceInfo, object.OTIP4Addr}
+func glueRecordLookup(name, context string, addDeleg bool, s *Server) ([]section.Section, error) {
+	/*types := []object.Type{object.OTDelegation, object.OTRedirection, object.OTServiceInfo, object.OTServiceInfo, object.OTIP4Addr}
 	names := []string{name, name, "_rains._tcp.ns." + name, "_rains._udpscion.ns." + name, "ns1." + name}
 	for i, t := range types {
 		if asserts, ok := s.caches.AssertionsCache.Get(names[i], context, t, false); !ok {
@@ -225,7 +224,38 @@ func glueRecordLookup(name, context string, s *Server) (assertions []section.Sec
 	if len(assertions) != 4 {
 		log.Error("No glue record in cache!", "Name", names[2], "Type", object.OTServiceInfo, "len", len(assertions))
 	}
-	return
+	return*/
+	var assertions []section.Section
+	if addDeleg {
+		asserts, ok := s.caches.AssertionsCache.Get(name, context, object.OTDelegation, true)
+		if !ok {
+			return nil, errors.New("no delegation assertion found")
+		}
+		for _, a := range asserts {
+			assertions = append(assertions, a)
+		}
+	}
+
+	//Follow redirect and get all assertions along the way
+	asserts, ok := s.caches.AssertionsCache.Get(name, context, object.OTRedirection, true) //returns cached redirect assertions in random order
+	if !ok {
+		return nil, errors.New("no redirect assertion found")
+	}
+	for _, a := range asserts {
+		for _, o := range a.Content {
+			if o.Type == object.OTRedirection {
+				if answers, err := handleRedirect(o.Value.(string), context, s); err == nil {
+					assertions = append(assertions, answers...)
+					return assertions, nil
+				}
+			}
+		}
+	}
+	return nil, errors.New("no redir ended in a host addr")
+}
+
+func handleRedirect(name, context string, s *Server) ([]section.Section, error) {
+	return nil, nil
 }
 
 // toSubjectZone splits a name into a subject and zone.
