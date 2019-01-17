@@ -1,7 +1,7 @@
 :Z: ethz.ch. . [
-    :A: www  [ :ip4:     198.175.162.241 ]
+    :A: www  [ :name: a [ :ip6: :ip4: ] ]
     :A: www  [ :ip6:     2001:db8:: ]
-    :A: www  [ :name: a [ :ip4: :ip6: ] ]
+    :A: www  [ :ip4:     198.175.162.241 ]
     :A: www  [ :cert: :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
     :A: www  [ :srv: ftp 20 0 ]
 ]

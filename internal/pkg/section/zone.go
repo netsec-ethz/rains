@@ -1,6 +1,7 @@
 package section
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -26,48 +27,53 @@ type Zone struct {
 
 // UnmarshalMap decodes the output from the CBOR decoder into this struct.
 func (z *Zone) UnmarshalMap(m map[int]interface{}) error {
-	if sigs, ok := m[0]; ok {
-		z.Signatures = make([]signature.Sig, len(sigs.([]interface{})))
-		for i, sig := range sigs.([]interface{}) {
-			if err := z.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
+	if sigs, ok := m[0].([]interface{}); ok {
+		z.Signatures = make([]signature.Sig, len(sigs))
+		for i, sig := range sigs {
+			sigVal, ok := sig.([]interface{})
+			if !ok {
+				return errors.New("cbor zone signatures entry is not an array")
+			}
+			if err := z.Signatures[i].UnmarshalArray(sigVal); err != nil {
 				return err
 			}
 		}
 	} else {
-		return fmt.Errorf("missing signatures from Zone")
+		return errors.New("cbor zone map does not contain a signature")
 	}
-	if sz, ok := m[4]; ok {
-		z.SubjectZone = sz.(string)
+	// SubjectZone
+	if zone, ok := m[4].(string); ok {
+		z.SubjectZone = zone
 	} else {
-		return fmt.Errorf("missing SubjectZone from Zone")
+		return errors.New("cbor zone map does not contain a subject zone")
 	}
-	if ctx, ok := m[6]; ok {
-		z.Context = ctx.(string)
+	// Context
+	if ctx, ok := m[6].(string); ok {
+		z.Context = ctx
 	} else {
-		return fmt.Errorf("missing Context from Zone")
+		return errors.New("cbor zone map does not contain a context")
 	}
-	// Content is an array of ShardSections and / or Assertionsection.
-	if content, ok := m[23]; ok {
+	// Content
+	if cont, ok := m[23].([]interface{}); ok {
 		z.Content = make([]*Assertion, 0)
-		for _, item := range content.([]interface{}) {
-			m := item.(map[int]interface{})
-			if _, ok := m[3]; ok {
-				// Assertion.
-				as := &Assertion{}
-				if err := as.UnmarshalMap(m); err != nil {
-					return fmt.Errorf("failed to unmarshal Assertion map in Zone: %v", err)
-				}
-				z.Content = append(z.Content, as)
-			} else {
-				log.Error("Unsupported section in zone content")
+		for _, obj := range cont {
+			as := &Assertion{}
+			a, ok := obj.(map[int]interface{})
+			if !ok {
+				return errors.New("cbor zone content entry is not a map")
 			}
+			if err := as.UnmarshalMap(a); err != nil {
+				return err
+			}
+			z.Content = append(z.Content, as)
 		}
 	} else {
-		return fmt.Errorf("missing content for Zone")
+		return errors.New("cbor zone map does not contain a content")
 	}
 	return nil
 }
 
+// MarshalCBOR implements the CBORMarshaler interface.
 func (z *Zone) MarshalCBOR(w *cbor.CBORWriter) error {
 	m := make(map[int]interface{})
 	m[23] = z.Content
@@ -153,6 +159,16 @@ func (z *Zone) ValidSince() int64 {
 //ValidUntil returns the latest validUntil date of all contained signatures
 func (z *Zone) ValidUntil() int64 {
 	return z.validUntil
+}
+
+//SetValidSince sets the validSince time
+func (z *Zone) SetValidSince(validSince int64) {
+	z.validSince = validSince
+}
+
+//SetValidUntil sets the validUntil time
+func (z *Zone) SetValidUntil(validUntil int64) {
+	z.validUntil = validUntil
 }
 
 //Hash returns a string containing all information uniquely identifying a shard.

@@ -11,7 +11,6 @@ import (
 
 	cbor "github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
-
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"golang.org/x/crypto/ed25519"
@@ -25,112 +24,225 @@ type Object struct {
 
 // UnmarshalArray takes in a CBOR decoded array and populates the object.
 func (obj *Object) UnmarshalArray(in []interface{}) error {
-	switch Type(in[0].(int)) {
+	t, ok := in[0].(int)
+	if !ok {
+		return errors.New("cbor object encoding first element (type) must be an int")
+	}
+	switch Type(t) {
 	case OTName:
 		no := Name{Types: make([]Type, 0)}
-		no.Name = in[1].(string)
-		for _, ot := range in[2].([]interface{}) {
-			no.Types = append(no.Types, Type(ot.(int)))
+		no.Name, ok = in[1].(string)
+		if !ok {
+			return errors.New("cbor object encoding of name not a string")
+		}
+		ots, ok := in[2].([]interface{})
+		if !ok {
+			return errors.New("cbor object encoding of name not an array")
+		}
+		for _, ot := range ots {
+			o, ok := ot.(int)
+			if !ok {
+				return errors.New("cbor object encoding of name not an array")
+			}
+			no.Types = append(no.Types, Type(o))
 		}
 		obj.Value = no
 	case OTIP6Addr:
-		ip := net.IP(in[1].([]byte))
+		v, ok := in[1].([]byte)
+		if !ok {
+			return errors.New("cbor object encoding of ip6 not a byte array")
+		}
+		ip := net.IP(v)
 		obj.Value = ip.String()
 	case OTIP4Addr:
-		ip := net.IP(in[1].([]byte))
+		v, ok := in[1].([]byte)
+		if !ok {
+			return errors.New("cbor object encoding of ip6 not a byte array")
+		}
+		ip := net.IP(v)
 		obj.Value = ip.String()
 	case OTRedirection:
 		obj.Value = in[1]
 	case OTDelegation:
-		alg := in[1].(int)
-		ks := keys.KeySpaceID(in[2].(int))
-		kp := int(in[3].(int))
-		vs := int64(in[4].(int))
-		vu := int64(in[5].(int))
-		var key interface{}
+		alg, ok := in[1].(int)
+		if !ok {
+			return errors.New("cbor object encoding of deleg algo not an int")
+		}
+		kp, ok := in[2].(int)
+		if !ok {
+			return errors.New("cbor object encoding of deleg phase not an int")
+		}
+		var key []byte
 		switch algorithmTypes.Signature(alg) {
 		case algorithmTypes.Ed25519:
-			key = ed25519.PublicKey(in[6].([]byte))
+			key, ok = in[3].([]byte)
+			if !ok {
+				return errors.New("cbor object encoding of deleg key not a byte array")
+			}
 		default:
 			return fmt.Errorf("unsupported algorithm: %v", alg)
 		}
 		pkey := keys.PublicKey{
 			PublicKeyID: keys.PublicKeyID{
 				Algorithm: algorithmTypes.Signature(alg),
-				KeySpace:  ks,
+				KeySpace:  keys.RainsKeySpace,
 				KeyPhase:  kp,
 			},
-			ValidSince: vs,
-			ValidUntil: vu,
-			Key:        key,
+			Key: ed25519.PublicKey(key),
 		}
 		obj.Value = pkey
 	case OTNameset:
-		obj.Value = NamesetExpr(in[1].(string))
+		v, ok := in[1].(string)
+		if !ok {
+			return errors.New("cbor object encoding of nameset not a string")
+		}
+		obj.Value = NamesetExpr(v)
 	case OTCertInfo:
+		proto, ok := in[1].(int)
+		if !ok {
+			return errors.New("cbor object encoding of cert proto not an int")
+		}
+		usage, ok := in[2].(int)
+		if !ok {
+			return errors.New("cbor object encoding of cert usage not an int")
+		}
+		hash, ok := in[3].(int)
+		if !ok {
+			return errors.New("cbor object encoding of cert hash not an int")
+		}
+		data, ok := in[4].([]byte)
+		if !ok {
+			return errors.New("cbor object encoding of cert data not a byte array")
+		}
 		co := Certificate{
-			Type:     ProtocolType(in[1].(int)),
-			Usage:    CertificateUsage(in[2].(int)),
-			HashAlgo: algorithmTypes.Hash(in[3].(int)),
-			Data:     in[4].([]byte),
+			Type:     ProtocolType(proto),
+			Usage:    CertificateUsage(usage),
+			HashAlgo: algorithmTypes.Hash(hash),
+			Data:     data,
 		}
 		obj.Value = co
 	case OTServiceInfo:
+		name, ok := in[1].(string)
+		if !ok {
+			return errors.New("cbor object encoding of serv name not an string")
+		}
+		port, ok := in[2].(int)
+		if !ok {
+			return errors.New("cbor object encoding of serv port not an int")
+		}
+		prio, ok := in[3].(int)
+		if !ok {
+			return errors.New("cbor object encoding of serv prio not an int")
+		}
 		si := ServiceInfo{
-			Name:     in[1].(string),
-			Port:     uint16(in[2].(int)),
-			Priority: uint(in[3].(int)),
+			Name:     name,
+			Port:     uint16(port),
+			Priority: uint(prio),
 		}
 		obj.Value = si
 	case OTRegistrar:
-		obj.Value = in[2].(string)
+		obj.Value, ok = in[1].(string)
+		if !ok {
+			return errors.New("cbor object encoding of serv name not an string")
+		}
 	case OTRegistrant:
-		obj.Value = in[2].(string)
+		obj.Value, ok = in[1].(string)
+		if !ok {
+			return errors.New("cbor object encoding of serv name not an string")
+		}
 	case OTInfraKey:
-		alg := in[1]
-		ks := in[2].(keys.KeySpaceID)
-		kp := in[3].(int)
-		vs := in[4].(int64)
-		vu := in[5].(int64)
-		var key interface{}
-		switch alg.(algorithmTypes.Signature) {
+		alg, ok := in[1].(int)
+		if !ok {
+			return errors.New("cbor object encoding of infra algo not an int")
+		}
+		kp, ok := in[2].(int)
+		if !ok {
+			return errors.New("cbor object encoding of infra phase not an int")
+		}
+		var key []byte
+		switch algorithmTypes.Signature(alg) {
 		case algorithmTypes.Ed25519:
-			key = ed25519.PublicKey(in[6].([]byte))
+			key, ok = in[3].([]byte)
+			if !ok {
+				return errors.New("cbor object encoding of infra key not a byte array")
+			}
 		default:
 			return fmt.Errorf("unsupported algorithm: %v", alg)
 		}
 		pkey := keys.PublicKey{
 			PublicKeyID: keys.PublicKeyID{
-				Algorithm: alg.(algorithmTypes.Signature),
-				KeySpace:  ks,
+				Algorithm: algorithmTypes.Signature(alg),
+				KeySpace:  keys.RainsKeySpace,
 				KeyPhase:  kp,
 			},
-			ValidSince: vs,
-			ValidUntil: vu,
-			Key:        key,
+			Key: ed25519.PublicKey(key),
 		}
 		obj.Value = pkey
 	case OTExtraKey:
-		alg := in[1].(algorithmTypes.Signature)
-		ks := in[2].(keys.KeySpaceID)
-		var key interface{}
-		switch alg {
+		alg, ok := in[1].(int)
+		if !ok {
+			return errors.New("cbor object encoding of extra algo not an int")
+		}
+		ks, ok := in[2].(int)
+		if !ok {
+			return errors.New("cbor object encoding of extra keyspace not an int")
+		}
+		var key []byte
+		switch algorithmTypes.Signature(alg) {
 		case algorithmTypes.Ed25519:
-			key = ed25519.PublicKey(in[3].([]byte))
+			key, ok = in[3].([]byte)
+			if !ok {
+				return errors.New("cbor object encoding of extra key not a byte array")
+			}
 		default:
 			return fmt.Errorf("unsupported algorithm: %v", alg)
 		}
-		pk := keys.PublicKey{
+		pkey := keys.PublicKey{
 			PublicKeyID: keys.PublicKeyID{
-				Algorithm: alg,
-				KeySpace:  ks,
+				Algorithm: algorithmTypes.Signature(alg),
+				KeySpace:  keys.KeySpaceID(ks),
 			},
-			Key: key,
+			Key: ed25519.PublicKey(key),
 		}
-		obj.Value = pk
+		obj.Value = pkey
 	case OTNextKey:
-		// TODO: Implement OTNextKey.
-		log.Error("not yet implemented")
+		alg, ok := in[1].(int)
+		if !ok {
+			return errors.New("cbor object encoding of nextKey algo not an int")
+		}
+		kp, ok := in[2].(int)
+		if !ok {
+			return errors.New("cbor object encoding of nextKey phase not an int")
+		}
+		vs, ok := in[4].(int)
+		if !ok {
+			return errors.New("cbor object encoding of nextKey validSince not an int")
+		}
+		vu, ok := in[5].(int)
+		if !ok {
+			return errors.New("cbor object encoding of nextKey validUntil not an int")
+		}
+		var key []byte
+		switch algorithmTypes.Signature(alg) {
+		case algorithmTypes.Ed25519:
+			key, ok = in[3].([]byte)
+			if !ok {
+				return errors.New("cbor object encoding of nextKey key not a byte array")
+			}
+		default:
+			return fmt.Errorf("unsupported algorithm: %v", alg)
+		}
+		pkey := keys.PublicKey{
+			PublicKeyID: keys.PublicKeyID{
+				Algorithm: algorithmTypes.Signature(alg),
+				KeySpace:  keys.RainsKeySpace,
+				KeyPhase:  kp,
+			},
+			ValidSince: int64(vs),
+			ValidUntil: int64(vu),
+			Key:        ed25519.PublicKey(key),
+		}
+		obj.Value = pkey
 	default:
 		return errors.New("unknown object type in unmarshalling object")
 	}
@@ -167,9 +279,8 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 		if !ok {
 			return fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", obj.Value)
 		}
-		// TODO: ValidSince and ValidUntil should be tagged.
 		b := pubkeyToCBORBytes(pkey)
-		res = []interface{}{OTDelegation, int(pkey.Algorithm), int(pkey.KeySpace), pkey.KeyPhase, pkey.ValidSince, pkey.ValidUntil, b}
+		res = []interface{}{OTDelegation, int(pkey.Algorithm), pkey.KeyPhase, b}
 	case OTNameset:
 		nse, ok := obj.Value.(NamesetExpr)
 		if !ok {
@@ -203,19 +314,24 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 	case OTInfraKey:
 		pkey, ok := obj.Value.(keys.PublicKey)
 		if !ok {
-			return fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", obj.Value)
+			return fmt.Errorf("expected OTInfraKey value to be PublicKey but got: %T", obj.Value)
 		}
-		// TODO: ValidSince and ValidUntl should be tagged.
 		b := pubkeyToCBORBytes(pkey)
-		res = []interface{}{OTInfraKey, int(pkey.Algorithm), int(pkey.KeySpace), pkey.KeyPhase, pkey.ValidSince, pkey.ValidUntil, b}
+		res = []interface{}{OTInfraKey, int(pkey.Algorithm), pkey.KeyPhase, b}
 	case OTExtraKey:
 		pkey, ok := obj.Value.(keys.PublicKey)
 		if !ok {
-			return fmt.Errorf("expected OTDelegation value to be PublicKey but got: %T", obj.Value)
+			return fmt.Errorf("expected OTExtraKey value to be PublicKey but got: %T", obj.Value)
 		}
 		b := pubkeyToCBORBytes(pkey)
 		res = []interface{}{OTExtraKey, int(pkey.Algorithm), int(pkey.KeySpace), b}
 	case OTNextKey:
+		pkey, ok := obj.Value.(keys.PublicKey)
+		if !ok {
+			return fmt.Errorf("expected OTNextKey value to be PublicKey but got: %T", obj.Value)
+		}
+		b := pubkeyToCBORBytes(pkey)
+		res = []interface{}{OTNextKey, int(pkey.Algorithm), pkey.KeyPhase, b, pkey.ValidSince, pkey.ValidUntil}
 	default:
 		return fmt.Errorf("unknown object type: %v", obj.Type)
 	}
@@ -433,14 +549,4 @@ func (s ServiceInfo) CompareTo(serviceInfo ServiceInfo) int {
 		return 1
 	}
 	return 0
-}
-
-//ContainsType returns the first object with oType and true if objects contains at least one
-func ContainsType(objects []Object, oType Type) (Object, bool) {
-	for _, o := range objects {
-		if o.Type == oType {
-			return o, true
-		}
-	}
-	return Object{}, false
 }

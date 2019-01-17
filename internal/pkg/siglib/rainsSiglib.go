@@ -83,46 +83,6 @@ func CheckSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 	return len(s.AllSigs()) > 0
 }
 
-//CheckMessageSignatures verifies all signatures on the message. Signatures that are not valid now are removed.
-//Returns true if at least one signature is valid and all signatures are correct.
-//
-//Process is defined as:
-//1) check that there is at least one signature
-//2) check that string fields do not contain  <whitespace>:<non whitespace>:<whitespace>
-//3) sort message
-//4) encode message
-//5) sign the encoding and compare the resulting signature data with the signature data received with the message. The encoding of the
-//   signature meta data is added in the verifySignature() method
-func CheckMessageSignatures(msg *message.Message, publicKey keys.PublicKey) bool {
-	log.Debug("Check Message signature")
-	if msg == nil {
-		log.Warn("msg is nil")
-		return false
-	}
-	if len(msg.Signatures) == 0 {
-		log.Debug("Message does not contain signatures")
-		return false
-	}
-	if !checkMessageStringFields(msg) {
-		return false
-	}
-	sigs := msg.Signatures
-	msg.Signatures = []signature.Sig{}
-	encoding := new(bytes.Buffer)
-	if err := msg.MarshalCBOR(cbor.NewCBORWriter(encoding)); err != nil {
-		log.Warn("Was not able to marshal message.", "error", err)
-		return false
-	}
-	for _, sig := range sigs {
-		if int64(sig.ValidUntil) < time.Now().Unix() {
-			log.Debug("signature is expired", "signature", sig)
-		} else if !sig.VerifySignature(publicKey.Key, encoding.Bytes()) {
-			return false
-		}
-	}
-	return true
-}
-
 //ValidSectionAndSignature returns true if the section is not nil, all the signatures ValidUntil are
 //in the future, the string fields do not contain  <whitespace>:<non whitespace>:<whitespace>, and
 //the section's content is sorted (by sorting it).
@@ -226,33 +186,6 @@ func SignMessageUnsafe(msg *message.Message, privateKey interface{}, sig signatu
 	}
 	msg.Signatures = append(msg.Signatures, sig)
 	return true
-}
-
-//SignMessage signs a message with the given private Key and adds the resulting bytestring to the given signature.
-//Signatures with validUntil in the past are not signed and added
-//Returns false if the signature was not added to the message
-//
-//Process is defined as:
-//1) check that the signature's ValidUntil is in the future
-//2) check that string fields do not contain  <whitespace>:<non whitespace>:<whitespace>
-//3) sort message
-//4) encode message
-//5) sign the encoding and add it to the signature which will then be added to the message. The encoding of the
-//   signature meta data is added in the verifySignature() method
-func SignMessage(msg *message.Message, privateKey interface{}, sig signature.Sig) bool {
-	log.Debug("Sign Message")
-	if msg == nil {
-		log.Warn("msg is nil")
-		return false
-	}
-	if sig.ValidUntil < time.Now().Unix() {
-		log.Warn("signature is expired", "signature", sig)
-		return false
-	}
-	if !checkMessageStringFields(msg) {
-		return false
-	}
-	return SignMessageUnsafe(msg, privateKey, sig)
 }
 
 //checkMessageStringFields returns true if the capabilities and all string fields in the contained

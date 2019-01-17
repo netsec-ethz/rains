@@ -13,17 +13,40 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-// UnmarshalArray takes in a CBOR decoded aray and populates Sig.
+// UnmarshalArray takes in a CBOR decoded array and populates Sig.
 func (sig *Sig) UnmarshalArray(in []interface{}) error {
-	if len(in) < 6 {
-		return fmt.Errorf("expected at least 5 items in input array but got %d", len(in))
+	if len(in) != 6 {
+		return fmt.Errorf("expected 6 items in input array but got %d", len(in))
 	}
-	sig.PublicKeyID.Algorithm = algorithmTypes.Signature(in[0].(int))
-	sig.PublicKeyID.KeySpace = keys.KeySpaceID(in[1].(int))
-	sig.PublicKeyID.KeyPhase = int(in[2].(int))
-	sig.ValidSince = int64(in[3].(int))
-	sig.ValidUntil = int64(in[4].(int))
-	sig.Data = in[5]
+	algo, ok := in[0].(int)
+	if !ok {
+		return errors.New("cbor encoding of the algorithm should be an int")
+	}
+	sig.PublicKeyID.Algorithm = algorithmTypes.Signature(algo)
+	keySpace, ok := in[1].(int)
+	if !ok {
+		return errors.New("cbor encoding of the key space should be an int")
+	}
+	sig.PublicKeyID.KeySpace = keys.KeySpaceID(keySpace)
+	sig.PublicKeyID.KeyPhase, ok = in[2].(int)
+	if !ok {
+		return errors.New("cbor encoding of the key phase should be an int")
+	}
+	validSince, ok := in[3].(int)
+	if !ok {
+		return errors.New("cbor encoding of the validSince should be an int")
+	}
+	sig.ValidSince = int64(validSince)
+	validUntil, ok := in[4].(int)
+	if !ok {
+		return errors.New("cbor encoding of the validUntil should be an int")
+	}
+	sig.ValidUntil = int64(validUntil)
+	data, ok := in[5].([]byte)
+	if !ok {
+		return errors.New("cbor encoding of the data should be a byte array")
+	}
+	sig.Data = data
 	return nil
 }
 
@@ -43,11 +66,6 @@ type MetaData struct {
 	ValidSince int64
 	//ValidUntil defines the time after which this signature is not valid anymore. ValidUntil is represented as seconds since the UNIX epoch UTC.
 	ValidUntil int64
-}
-
-func (sig MetaData) String() string {
-	return fmt.Sprintf("%s %d %d",
-		sig.PublicKeyID, sig.ValidSince, sig.ValidUntil)
 }
 
 //Sig contains meta data of the signature and the signature data itself.
@@ -85,11 +103,43 @@ func (sig Sig) String() string {
 		sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, sig.KeyPhase, data)
 }
 
+//CompareTo compares two signature objects and returns 0 if they are equal, 1 if sig is greater than
+//s and -1 if sig is smaller than s
+func (sig Sig) CompareTo(s Sig) int {
+	if sig.Algorithm < s.Algorithm {
+		return -1
+	} else if sig.Algorithm > s.Algorithm {
+		return 1
+	} else if sig.KeySpace < s.KeySpace {
+		return -1
+	} else if sig.KeySpace > s.KeySpace {
+		return 1
+	} else if sig.KeyPhase < s.KeyPhase {
+		return -1
+	} else if sig.KeyPhase > s.KeyPhase {
+		return 1
+	} else if sig.ValidSince < s.ValidSince {
+		return -1
+	} else if sig.ValidSince > s.ValidSince {
+		return 1
+	} else if sig.ValidUntil < s.ValidUntil {
+		return -1
+	} else if sig.ValidUntil > s.ValidUntil {
+		return 1
+	}
+	switch sig.Algorithm {
+	case algorithmTypes.Ed25519:
+		return bytes.Compare(sig.Data.([]byte), s.Data.([]byte))
+	default:
+		log.Warn("Unsupported algo type", "type", fmt.Sprintf("%T", sig.Algorithm))
+	}
+	return 0
+}
+
 //SignData adds signature meta data to encoding. It then signs the encoding with privateKey and updates sig.Data field with the generated signature
 //In case of an error an error is returned indicating the cause, otherwise nil is returned
 func (sig *Sig) SignData(privateKey interface{}, encoding []byte) error {
 	if privateKey == nil {
-		log.Warn("PrivateKey is nil")
 		return errors.New("privateKey is nil")
 	}
 	sigEncoding := new(bytes.Buffer)
@@ -104,11 +154,9 @@ func (sig *Sig) SignData(privateKey interface{}, encoding []byte) error {
 			sig.Data = ed25519.Sign(pkey, encoding)
 			return nil
 		}
-		log.Warn("Could not assert type ed25519.PrivateKey", "privateKeyType", fmt.Sprintf("%T", privateKey))
 		return errors.New("could not assert type ed25519.PrivateKey")
 	default:
-		log.Warn("Sig algorithm type not supported", "type", sig.Algorithm)
-		return errors.New("signature algorithm type not supported")
+		return fmt.Errorf("signature algorithm type not supported: %s", sig.Algorithm)
 	}
 }
 

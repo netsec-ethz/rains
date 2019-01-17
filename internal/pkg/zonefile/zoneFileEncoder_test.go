@@ -8,7 +8,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
-
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -18,36 +17,6 @@ func TestEncodeObjects(t *testing.T) {
 		encodedO := encodeObjects(objects, objectsIndents.Indents[i])
 		if encodedO != encodings[i] {
 			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedO)
-		}
-	}
-}
-
-func TestEncodeAssertions(t *testing.T) {
-	assertions, encodings := getAssertionAndEncodings("")
-	for i, assertion := range assertions {
-		encodedA := encodeAssertion(assertion, assertion.Context, assertion.SubjectZone, "", false)
-		if encodedA != encodings[i] {
-			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedA)
-		}
-	}
-}
-
-func TestEncodeShards(t *testing.T) {
-	shards, encodings := getShardAndEncodings()
-	for i, shard := range shards {
-		encodedS := encodeShard(shard, shard.Context, shard.SubjectZone, "")
-		if encodedS != encodings[i] {
-			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedS)
-		}
-	}
-}
-
-func TestEncodeZones(t *testing.T) {
-	zones, encodings := getZonesAndEncodings()
-	for i, zone := range zones {
-		encodedZ := encodeZone(zone)
-		if encodedZ != encodings[i] {
-			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedZ)
 		}
 	}
 }
@@ -74,7 +43,7 @@ func TestEncodeNameObject(t *testing.T) {
 				object.OTExtraKey,
 				object.OTNextKey,
 			},
-		}, "name.ethz.ch [ name ip6 ip4 redir deleg nameset cert srv regr regt infra extra next ]"},
+		}, "name.ethz.ch [ :name: :ip6: :ip4: :redir: :deleg: :nameset: :cert: :srv: :regr: :regt: :infra: :extra: :next: ]"},
 		{object.Name{Name: "ethz.ch", Types: []object.Type{object.Type(-1)}}, "ethz.ch [  ]"},
 	}
 	for _, test := range tests {
@@ -90,7 +59,7 @@ func TestEncodePublicKey(t *testing.T) {
 		input keys.PublicKey
 		want  string
 	}{
-		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}, Key: pkey}, fmt.Sprintf("ed25519 %s", hex.EncodeToString(pkey))},
+		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}, Key: pkey}, fmt.Sprintf(":ed25519: 0 %s", hex.EncodeToString(pkey))},
 		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}, Key: []byte(" ")}, ""},
 		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed448}}, ""},
 		{keys.PublicKey{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Signature(-1)}}, ""},
@@ -107,7 +76,7 @@ func TestEncodeKeySpace(t *testing.T) {
 		input keys.KeySpaceID
 		want  string
 	}{
-		{keys.RainsKeySpace, "rains"},
+		{keys.RainsKeySpace, ":rains:"},
 		{keys.KeySpaceID(-1), ""},
 	}
 	for _, test := range tests {

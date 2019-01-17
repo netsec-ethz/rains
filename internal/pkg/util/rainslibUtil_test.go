@@ -1,20 +1,39 @@
 package util
 
-/*
+import (
+	"reflect"
+	"testing"
+	"time"
+
+	"github.com/netsec-ethz/rains/internal/pkg/message"
+
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
+)
+
+const (
+	testSubjectName = "test"
+	testZone        = "zone"
+	globalContext   = "context"
+	ip4TestAddr     = "192.0.2.0"
+)
+
 func TestSaveAndLoad(t *testing.T) {
 	var tests = []struct {
-		input       *AssertionSection
-		output      *AssertionSection
+		input       *section.Assertion
+		output      *section.Assertion
 		path        string
 		storeErrMsg string
 		loadErrMsg  string
 	}{
-		{&AssertionSection{SubjectName: testSubjectName, SubjectZone: testZone, Context: globalContext, Content: []Object{Object{Type: OTIP4Addr, Value: ip4TestAddr}}},
-			new(AssertionSection), "test/test.gob", "", ""},
-		{&AssertionSection{SubjectName: testSubjectName, SubjectZone: testZone, Context: globalContext, Content: []Object{Object{Type: OTIP4Addr, Value: ip4TestAddr}}},
+		{&section.Assertion{SubjectName: testSubjectName, SubjectZone: testZone, Context: globalContext, Content: []object.Object{object.Object{Type: object.OTIP4Addr, Value: ip4TestAddr}}},
+			new(section.Assertion), "test/test.gob", "", ""},
+		{&section.Assertion{SubjectName: testSubjectName, SubjectZone: testZone, Context: globalContext, Content: []object.Object{object.Object{Type: object.OTIP4Addr, Value: ip4TestAddr}}},
 			nil, "test/test.gob", "", "gob: DecodeValue of unassignable value"},
-		{&AssertionSection{SubjectName: testSubjectName, SubjectZone: "ch", Context: globalContext, Content: []Object{Object{Type: OTIP4Addr, Value: ip4TestAddr}}},
-			new(AssertionSection), "nonExistDir/test.gob", "open nonExistDir/test.gob: no such file or directory", "open nonExistDir/test.gob: no such file or directory"},
+		{&section.Assertion{SubjectName: testSubjectName, SubjectZone: "ch", Context: globalContext, Content: []object.Object{object.Object{Type: object.OTIP4Addr, Value: ip4TestAddr}}},
+			new(section.Assertion), "nonExistDir/test.gob", "open nonExistDir/test.gob: no such file or directory", "open nonExistDir/test.gob: no such file or directory"},
 	}
 	for i, test := range tests {
 		err := Save(test.path, test.input)
@@ -31,18 +50,10 @@ func TestSaveAndLoad(t *testing.T) {
 	}
 }
 
-func TestGenerateToken(t *testing.T) {
-	t1 := token.New()
-	t2 := token.New()
-	if t1 == t2 {
-		t.Errorf("Subsequent generated tokens should not have the same value t1=%s t2=%s", t1, t2)
-	}
-}
-
 func TestUpdateSectionValidity(t *testing.T) {
 	now := time.Now().Unix()
 	var tests = []struct {
-		input          MessageSectionWithSig
+		input          section.WithSigForward
 		pkeyValidSince int64
 		pkeyValidUntil int64
 		sigValidSince  int64
@@ -52,40 +63,26 @@ func TestUpdateSectionValidity(t *testing.T) {
 		wantValidUntil int64
 	}{
 		{input: nil}, //should not result in panic
-		{new(AssertionSection), now + 1, now + 4, now + 2, now + 3, MaxCacheValidity{AssertionValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(AssertionSection), now + 2, now + 3, now + 1, now + 4, MaxCacheValidity{AssertionValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(AssertionSection), now + 1, now + 3, now + 2, now + 4, MaxCacheValidity{AssertionValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(AssertionSection), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{AssertionValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(AssertionSection), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{AssertionValidity: 2 * time.Second}, now + 2, now + 2},
-		{new(AssertionSection), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{AssertionValidity: 1 * time.Second}, now + 1, now + 1},
+		{new(section.Assertion), now + 1, now + 4, now + 2, now + 3, MaxCacheValidity{AssertionValidity: 4 * time.Second}, now + 2, now + 3},
+		{new(section.Assertion), now + 2, now + 3, now + 1, now + 4, MaxCacheValidity{AssertionValidity: 4 * time.Second}, now + 2, now + 3},
+		{new(section.Assertion), now + 1, now + 3, now + 2, now + 4, MaxCacheValidity{AssertionValidity: 4 * time.Second}, now + 2, now + 3},
+		{new(section.Assertion), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{AssertionValidity: 4 * time.Second}, now + 2, now + 3},
+		{new(section.Assertion), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{AssertionValidity: 2 * time.Second}, now + 2, now + 2},
+		{new(section.Assertion), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{AssertionValidity: 1 * time.Second}, now + 1, now + 1},
 
-		{new(ShardSection), now + 1, now + 4, now + 2, now + 3, MaxCacheValidity{ShardValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(ShardSection), now + 2, now + 3, now + 1, now + 4, MaxCacheValidity{ShardValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(ShardSection), now + 1, now + 3, now + 2, now + 4, MaxCacheValidity{ShardValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(ShardSection), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{ShardValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(ShardSection), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{ShardValidity: 2 * time.Second}, now + 2, now + 2},
-		{new(ShardSection), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{ShardValidity: 1 * time.Second}, now + 1, now + 1},
+		{new(section.Shard), now + 1, now + 4, now + 2, now + 3, MaxCacheValidity{ShardValidity: 4 * time.Second}, now + 2, now + 3},
+		{new(section.Shard), now + 2, now + 3, now + 1, now + 4, MaxCacheValidity{ShardValidity: 4 * time.Second}, now + 2, now + 3},
+		{new(section.Shard), now + 1, now + 3, now + 2, now + 4, MaxCacheValidity{ShardValidity: 4 * time.Second}, now + 2, now + 3},
+		{new(section.Shard), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{ShardValidity: 4 * time.Second}, now + 2, now + 3},
+		{new(section.Shard), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{ShardValidity: 2 * time.Second}, now + 2, now + 2},
+		{new(section.Shard), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{ShardValidity: 1 * time.Second}, now + 1, now + 1},
 
-		{new(ZoneSection), now + 1, now + 4, now + 2, now + 3, MaxCacheValidity{ZoneValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(ZoneSection), now + 2, now + 3, now + 1, now + 4, MaxCacheValidity{ZoneValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(ZoneSection), now + 1, now + 3, now + 2, now + 4, MaxCacheValidity{ZoneValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(ZoneSection), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{ZoneValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(ZoneSection), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{ZoneValidity: 2 * time.Second}, now + 2, now + 2},
-		{new(ZoneSection), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{ZoneValidity: 1 * time.Second}, now + 1, now + 1},
-
-		{new(AddressAssertionSection), now + 1, now + 4, now + 2, now + 3, MaxCacheValidity{AddressAssertionValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(AddressAssertionSection), now + 2, now + 3, now + 1, now + 4, MaxCacheValidity{AddressAssertionValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(AddressAssertionSection), now + 1, now + 3, now + 2, now + 4, MaxCacheValidity{AddressAssertionValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(AddressAssertionSection), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{AddressAssertionValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(AddressAssertionSection), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{AddressAssertionValidity: 2 * time.Second}, now + 2, now + 2},
-		{new(AddressAssertionSection), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{AddressAssertionValidity: 1 * time.Second}, now + 1, now + 1},
-
-		{new(AddressZoneSection), now + 1, now + 4, now + 2, now + 3, MaxCacheValidity{AddressZoneValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(AddressZoneSection), now + 2, now + 3, now + 1, now + 4, MaxCacheValidity{AddressZoneValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(AddressZoneSection), now + 1, now + 3, now + 2, now + 4, MaxCacheValidity{AddressZoneValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(AddressZoneSection), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{AddressZoneValidity: 4 * time.Second}, now + 2, now + 3},
-		{new(AddressZoneSection), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{AddressZoneValidity: 2 * time.Second}, now + 2, now + 2},
-		{new(AddressZoneSection), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{AddressZoneValidity: 1 * time.Second}, now + 1, now + 1},
+		{new(section.Zone), now + 1, now + 4, now + 2, now + 3, MaxCacheValidity{ZoneValidity: 4 * time.Second}, now + 2, now + 3},
+		{new(section.Zone), now + 2, now + 3, now + 1, now + 4, MaxCacheValidity{ZoneValidity: 4 * time.Second}, now + 2, now + 3},
+		{new(section.Zone), now + 1, now + 3, now + 2, now + 4, MaxCacheValidity{ZoneValidity: 4 * time.Second}, now + 2, now + 3},
+		{new(section.Zone), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{ZoneValidity: 4 * time.Second}, now + 2, now + 3},
+		{new(section.Zone), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{ZoneValidity: 2 * time.Second}, now + 2, now + 2},
+		{new(section.Zone), now + 2, now + 4, now + 1, now + 3, MaxCacheValidity{ZoneValidity: 1 * time.Second}, now + 1, now + 1},
 	}
 	for i, test := range tests {
 		UpdateSectionValidity(test.input, test.pkeyValidSince, test.pkeyValidUntil, test.sigValidSince, test.sigValidUntil, test.maxVal)
@@ -99,26 +96,26 @@ func TestUpdateSectionValidity(t *testing.T) {
 }
 
 func TestNewQueryMessage(t *testing.T) {
-	token := GenerateToken()
+	tok := token.New()
 	var tests = []struct {
 		context  string
 		name     string
 		expires  int64
-		types    []ObjectType
-		options  []QueryOption
-		token    Token
-		expected RainsMessage
+		types    []object.Type
+		options  []query.Option
+		token    token.Token
+		expected message.Message
 	}{
-		{".", "example.com", 100, []ObjectType{OTIP4Addr}, []QueryOption{QOTokenTracing, QOMinE2ELatency}, token,
-			RainsMessage{
-				Token: token,
-				Content: []MessageSection{
-					&QuerySection{
+		{".", "example.com", 100, []object.Type{object.OTIP4Addr}, []query.Option{query.QOTokenTracing, query.QOMinE2ELatency}, tok,
+			message.Message{
+				Token: tok,
+				Content: []section.Section{
+					&query.Name{
 						Name:       "example.com",
 						Context:    ".",
 						Expiration: 100,
-						Types:      []ObjectType{OTIP4Addr},
-						Options:    []QueryOption{QOTokenTracing, QOMinE2ELatency},
+						Types:      []object.Type{object.OTIP4Addr},
+						Options:    []query.Option{query.QOTokenTracing, query.QOMinE2ELatency},
 					},
 				},
 			},
@@ -132,72 +129,22 @@ func TestNewQueryMessage(t *testing.T) {
 	}
 }
 
-func TestNewAddressQueryMessage(t *testing.T) {
-	token := GenerateToken()
-	_, subjectAddress1, _ := net.ParseCIDR(ip4TestAddrCIDR32)
-	_, subjectAddress2, _ := net.ParseCIDR(ip6TestAddrCIDR)
-	var tests = []struct {
-		context  string
-		ipNet    *net.IPNet
-		expires  int64
-		types    []ObjectType
-		options  []QueryOption
-		token    Token
-		expected RainsMessage
-	}{
-		{".", subjectAddress1, 100, []ObjectType{OTIP4Addr}, []QueryOption{QOTokenTracing, QOMinE2ELatency}, token,
-			RainsMessage{
-				Token: token,
-				Content: []MessageSection{
-					&AddressQuerySection{
-						SubjectAddr: subjectAddress1,
-						Context:     ".",
-						Expiration:  100,
-						Types:       []ObjectType{OTIP4Addr},
-						Options:     []QueryOption{QOTokenTracing, QOMinE2ELatency},
-					},
-				},
-			},
-		},
-		{".", subjectAddress2, 100, []ObjectType{OTIP4Addr}, []QueryOption{QOTokenTracing, QOMinE2ELatency}, token,
-			RainsMessage{
-				Token: token,
-				Content: []MessageSection{
-					&AddressQuerySection{
-						SubjectAddr: subjectAddress2,
-						Context:     ".",
-						Expiration:  100,
-						Types:       []ObjectType{OTIP4Addr},
-						Options:     []QueryOption{QOTokenTracing, QOMinE2ELatency},
-					},
-				},
-			},
-		},
-	}
-	for i, test := range tests {
-		msg := NewAddressQueryMessage(test.context, test.ipNet, test.expires, test.types, test.options, test.token)
-		if !reflect.DeepEqual(test.expected, msg) {
-			t.Errorf("%d: Message containing Query do not match. expected=%v actual=%v", i, test.expected, msg)
-		}
-	}
-}
-
 func TestNewNotificationsMessage(t *testing.T) {
-	tokens := []Token{}
+	tokens := []token.Token{}
 	for i := 0; i < 10; i++ {
-		tokens = append(tokens, GenerateToken())
+		tokens = append(tokens, token.New())
 	}
 	var tests = []struct {
-		tokens   []Token
-		types    []NotificationType
+		tokens   []token.Token
+		types    []section.NotificationType
 		data     []string
-		expected RainsMessage
+		expected message.Message
 		errMsg   string
 	}{
-		{tokens[:2], []NotificationType{NTHeartbeat, NTMsgTooLarge}, []string{"1", "2"},
-			RainsMessage{Content: []MessageSection{&NotificationSection{Token: tokens[0], Type: NTHeartbeat, Data: "1"},
-				&NotificationSection{Token: tokens[1], Type: NTMsgTooLarge, Data: "2"}}}, ""},
-		{tokens[:3], []NotificationType{NTHeartbeat, NTMsgTooLarge}, []string{"1", "2"}, RainsMessage{}, "input slices have not the same length"},
+		{tokens[:2], []section.NotificationType{section.NTHeartbeat, section.NTMsgTooLarge}, []string{"1", "2"},
+			message.Message{Content: []section.Section{&section.Notification{Token: tokens[0], Type: section.NTHeartbeat, Data: "1"},
+				&section.Notification{Token: tokens[1], Type: section.NTMsgTooLarge, Data: "2"}}}, ""},
+		{tokens[:3], []section.NotificationType{section.NTHeartbeat, section.NTMsgTooLarge}, []string{"1", "2"}, message.Message{}, "input slices have not the same length"},
 	}
 	for i, test := range tests {
 		msg, err := NewNotificationsMessage(test.tokens, test.types, test.data)
@@ -212,15 +159,15 @@ func TestNewNotificationsMessage(t *testing.T) {
 }
 
 func TestNewNotificationMessage(t *testing.T) {
-	token := GenerateToken()
+	tok := token.New()
 	var tests = []struct {
-		token    Token
-		t        NotificationType
+		token    token.Token
+		t        section.NotificationType
 		data     string
-		expected RainsMessage
+		expected message.Message
 	}{
-		{token, NTHeartbeat, "1",
-			RainsMessage{Content: []MessageSection{&NotificationSection{Token: token, Type: NTHeartbeat, Data: "1"}}}},
+		{tok, section.NTHeartbeat, "1",
+			message.Message{Content: []section.Section{&section.Notification{Token: tok, Type: section.NTHeartbeat, Data: "1"}}}},
 	}
 	for i, test := range tests {
 		msg := NewNotificationMessage(test.token, test.t, test.data)
@@ -229,4 +176,4 @@ func TestNewNotificationMessage(t *testing.T) {
 			t.Errorf("%d: Message containing Notification do not match. expected=%v actual=%v", i, test.expected, msg)
 		}
 	}
-}*/
+}

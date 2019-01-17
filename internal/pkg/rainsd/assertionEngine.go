@@ -43,29 +43,23 @@ func addSectionsToCache(sections []section.WithSigForward, authZone, authContext
 	assertionsCache cache.Assertion, negAssertionCache cache.NegativeAssertion,
 	zoneKeyCache cache.ZonePublicKey) {
 	for _, sec := range sections {
-		isAuthoritative := false
-		for i, zone := range authZone {
-			if zone == sec.GetSubjectZone() && authContext[i] == sec.GetContext() {
-				isAuthoritative = true
-				break
-			}
-		}
+		isAuth := isAuthoritative(sec, authZone, authContext)
 		switch sec := sec.(type) {
 		case *section.Assertion:
 			if shouldAssertionBeCached(sec) {
-				addAssertionToCache(sec, isAuthoritative, assertionsCache, zoneKeyCache)
+				addAssertionToCache(sec, isAuth, assertionsCache, zoneKeyCache)
 			}
 		case *section.Shard:
 			if shouldShardBeCached(sec) {
-				addShardToCache(sec, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
+				addShardToCache(sec, isAuth, assertionsCache, negAssertionCache, zoneKeyCache)
 			}
 		case *section.Pshard:
 			if shouldPshardBeCached(sec) {
-				addPshardToCache(sec, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
+				addPshardToCache(sec, isAuth, assertionsCache, negAssertionCache, zoneKeyCache)
 			}
 		case *section.Zone:
 			if shouldZoneBeCached(sec) {
-				addZoneToCache(sec, isAuthoritative, assertionsCache, negAssertionCache, zoneKeyCache)
+				addZoneToCache(sec, isAuth, assertionsCache, negAssertionCache, zoneKeyCache)
 			}
 		default:
 			log.Error("Not supported message section with sig. This case must be prevented beforehand")

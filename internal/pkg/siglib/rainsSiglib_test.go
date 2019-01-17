@@ -3,22 +3,27 @@ package siglib
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	cbor "github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
 
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
-	"github.com/netsec-ethz/rains/test/data"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"golang.org/x/crypto/ed25519"
 )
 
 func TestSignAssertion(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := data.Assertion()
-	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
+	sec := section.GetAssertion()
+	if !SignSectionUnsafe(sec, genPrivateKey, section.Signature()) {
 		t.Error("Was not able to sign assertion")
 		return
 	}
@@ -37,8 +42,8 @@ func TestSignAssertion(t *testing.T) {
 
 func TestSignShard(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := data.Shard()
-	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
+	sec := section.GetShard()
+	if !SignSectionUnsafe(sec, genPrivateKey, section.Signature()) {
 		t.Error("Was not able to sign shard")
 		return
 	}
@@ -57,8 +62,8 @@ func TestSignShard(t *testing.T) {
 
 func TestSignPshard(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := data.Pshard()
-	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
+	sec := section.GetPshard()
+	if !SignSectionUnsafe(sec, genPrivateKey, section.Signature()) {
 		t.Error("Was not able to sign shard")
 		return
 	}
@@ -77,8 +82,8 @@ func TestSignPshard(t *testing.T) {
 
 func TestSignZone(t *testing.T) {
 	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := data.Zone()
-	if !SignSectionUnsafe(sec, genPrivateKey, data.Signature()) {
+	sec := section.GetZone()
+	if !SignSectionUnsafe(sec, genPrivateKey, section.Signature()) {
 		t.Error("Was not able to sign zone")
 		return
 	}
@@ -100,9 +105,9 @@ func TestSignQuery(t *testing.T) {
 	msg := &message.Message{
 		Token:        token.New(),
 		Capabilities: []message.Capability{message.NoCapability, message.TLSOverTCP},
-		Content:      []section.Section{data.Query()},
+		Content:      []section.Section{section.GetQuery()},
 	}
-	if !SignMessageUnsafe(msg, genPrivateKey, data.Signature()) {
+	if !SignMessageUnsafe(msg, genPrivateKey, section.Signature()) {
 		t.Error("Was not able to sign query")
 		return
 	}
@@ -124,9 +129,9 @@ func TestSignNotification(t *testing.T) {
 	msg := &message.Message{
 		Token:        token.New(),
 		Capabilities: []message.Capability{message.NoCapability, message.TLSOverTCP},
-		Content:      []section.Section{data.Notification(), data.NotificationNoData()},
+		Content:      []section.Section{section.GetNotification(), section.NotificationNoData()},
 	}
-	if !SignMessageUnsafe(msg, genPrivateKey, data.Signature()) {
+	if !SignMessageUnsafe(msg, genPrivateKey, section.Signature()) {
 		t.Error("Was not able to sign query")
 		return
 	}
@@ -143,143 +148,66 @@ func TestSignNotification(t *testing.T) {
 	}
 }
 
-/*
+func TestSignErrors(t *testing.T) {
+	var tests = []struct {
+		section section.WithSig
+		sig     signature.Sig
+		key     interface{}
+	}{
+		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{}}}, signature.Sig{}, nil},
+		{&section.Assertion{}, signature.Sig{Data: []byte("some data")}, nil},
+	}
+	for i, test := range tests {
+		ok := SignSectionUnsafe(test.section, test.key, test.sig)
+		if ok {
+			t.Fatalf("%d: SignSectionUnsafe should fail", i)
+		}
+	}
+}
+
 func TestCheckSectionSignaturesErrors(t *testing.T) {
-	log.Root().SetHandler(log.DiscardHandler())
 	maxVal := util.MaxCacheValidity{AddressAssertionValidity: time.Hour}
 	keys0 := make(map[keys.PublicKeyID][]keys.PublicKey)
 	keys1 := make(map[keys.PublicKeyID][]keys.PublicKey)
-	keys1[keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}] = []keys.PublicKey{}
+	keys1[keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}] = []keys.PublicKey{
+		keys.PublicKey{ValidSince: time.Now().Unix(), ValidUntil: time.Now().Add(time.Minute).Unix()}}
+	keys2 := make(map[keys.PublicKeyID][]keys.PublicKey)
+	keys2[keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}] = []keys.PublicKey{}
 	var tests = []struct {
 		input           section.WithSig
 		inputPublicKeys map[keys.PublicKeyID][]keys.PublicKey
 		want            bool
 	}{
-		{nil, nil, false},                                                                                                                               //msg nil
-		{&section.Assertion{}, nil, false},                                                                                                              //pkeys nil
-		{&section.Assertion{}, keys0, true},                                                                                                             //no signatures
-		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{}}, SubjectName: ":ip55:"}, keys0, false},                                         //checkStringField false
-		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{}}}, keys0, false},                                                                //no matching algotype in keys
-		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}}}}, keys1, true}, //sig expired
+		{nil, nil, false},                                                                                                                                //msg nil
+		{&section.Assertion{}, nil, false},                                                                                                               //pkeys nil
+		{&section.Assertion{}, keys0, true},                                                                                                              //no signatures
+		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{}}, SubjectName: ":ip55:"}, keys0, false},                                          //checkStringField false
+		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{}}}, keys0, false},                                                                 //no matching algotype in keys
+		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}}}}, keys1, false}, //sig expired
 		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519},
-			ValidUntil: time.Now().Add(time.Second).Unix()}}}, keys1, false}, //VerifySignature invalid
+			ValidUntil: time.Now().Add(time.Minute).Unix()}}}, keys2, false}, //public key not overlapping
+		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519},
+			ValidUntil: time.Now().Add(time.Minute).Unix()}}}, keys1, false}, //VerifySignature invalid
 	}
 	for _, test := range tests {
-		if CheckSectionSignatures(test.input, test.inputPublicKeys, maxVal) != test.want {
-			t.Errorf("expected=%v, actual=%v, value=%v", test.want, CheckSectionSignatures(test.input, test.inputPublicKeys, maxVal), test.input)
-		}
-	}
-}
-
-
-func TestCheckMessageSignaturesErrors(t *testing.T) {
-	log.Root().SetHandler(log.DiscardHandler())
-	encoder := new(parser.Parser)
-	message := data.GetMessage()
-	message2 := data.GetMessage()
-	message2.Capabilities = []message.Capability{message.Capability(":ip:")}
-	message3 := data.GetMessage()
-	message3.Signatures = []signature.Sig{signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}}
-	var tests = []struct {
-		input          *message.RainsMessage
-		inputPublicKey keys.PublicKey
-		want           bool
-	}{
-		{nil, keys.PublicKey{}, false},                     //msg nil
-		{&message, keys.PublicKey{}, false},                //sig expired
-		{&message.RainsMessage{}, keys.PublicKey{}, false}, //no sig
-		{&message2, keys.PublicKey{}, false},               //TextField of Content invalid
-		{&message3, keys.PublicKey{}, false},               //signature invalid
-	}
-	for _, test := range tests {
-		if CheckMessageSignatures(test.input, test.inputPublicKey, encoder) != test.want {
-			t.Errorf("expected=%v, actual=%v, value=%v", test.want, CheckMessageSignatures(test.input, test.inputPublicKey, encoder), test.input)
-		}
-	}
-}
-
-func TestSignSection(t *testing.T) {
-	log.Root().SetHandler(log.DiscardHandler())
-	encoder := new(parser.Parser)
-	sections := data.GetMessage().Content
-	_, pkey, _ := ed25519.GenerateKey(nil)
-	var tests = []struct {
-		input           section.MessageSectionWithSig
-		inputPrivateKey interface{}
-		inputSig        signature.Sig
-		want            bool
-	}{
-		{nil, nil, signature.Sig{}, false},
-		{
-			sections[0].(section.MessageSectionWithSig),
-			pkey,
-			signature.Sig{
-				PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519},
-				ValidUntil:  time.Now().Add(time.Second).Unix(),
-			},
-			true,
-		},
-		{sections[0].(section.MessageSectionWithSig), pkey, signature.Sig{ValidUntil: time.Now().Unix() - 100}, false},
-		{&section.AssertionSection{SubjectName: ":ip:"}, pkey, signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
-		{sections[0].(section.MessageSectionWithSig), nil, signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
-	}
-	for _, test := range tests {
-		if SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder) != test.want {
-			t.Errorf("expected=%v, actual=%v, value=%v", test.want, SignSection(test.input, test.inputPrivateKey, test.inputSig, encoder), test.input)
-		}
-		if test.want && test.input.Sigs(keys.RainsKeySpace)[0].Data == nil {
-			t.Error("msg.Sig does not contain generated signature data")
-		}
-	}
-}
-
-func TestSignMessage(t *testing.T) {
-	log.Root().SetHandler(log.DiscardHandler())
-	encoder := new(parser.Parser)
-	message := data.GetMessage()
-	_, pkey, _ := ed25519.GenerateKey(nil)
-	var tests = []struct {
-		input           *message.RainsMessage
-		inputPrivateKey interface{}
-		inputSig        signature.Sig
-		want            bool
-	}{
-		{nil, nil, signature.Sig{}, false},
-		{
-			&message,
-			pkey,
-			signature.Sig{
-				PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519},
-				ValidUntil:  time.Now().Add(time.Second).Unix(),
-			},
-			true,
-		},
-		{&message, pkey, signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix() - 100}, false},
-		{&message.RainsMessage{Capabilities: []message.Capability{message.Capability(":ip:")}}, pkey,
-			signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
-		{&message.RainsMessage{}, nil, signature.Sig{ValidUntil: time.Now().Add(time.Second).Unix()}, false},
-	}
-	for _, test := range tests {
-		if SignMessage(test.input, test.inputPrivateKey, test.inputSig, encoder) != test.want {
-			t.Errorf("expected=%v, actual=%v, value=%v", test.want, SignMessage(test.input, test.inputPrivateKey, test.inputSig, encoder), test.input)
-		}
-		if test.want && test.input.Signatures[0].Data == nil {
-			t.Error("msg.Sig does not contain generated signature data")
+		res := CheckSectionSignatures(test.input, test.inputPublicKeys, maxVal)
+		if res != test.want {
+			t.Fatalf("expected=%v, actual=%v, value=%v", test.want, res, test.input)
 		}
 	}
 }
 
 func TestCheckMessageStringFields(t *testing.T) {
 	log.Root().SetHandler(log.DiscardHandler())
-	message := data.GetMessage()
+	msg := message.GetMessage()
 	var tests = []struct {
-		input *message.RainsMessage
+		input *message.Message
 		want  bool
 	}{
 		{nil, false},
-		{&message, true},
-		{&message.RainsMessage{Capabilities: []message.Capability{message.Capability(":ip:")}}, false},
-		{&message.RainsMessage{Content: []section.Section{&section.Assertion{SubjectName: ":ip:"}}}, false},
+		{&msg, true},
+		{&message.Message{Capabilities: []message.Capability{message.Capability(":ip:")}}, false},
+		{&message.Message{Content: []section.Section{&section.Assertion{SubjectName: ":ip:"}}}, false},
 	}
 	for _, test := range tests {
 		if checkMessageStringFields(test.input) != test.want {
@@ -289,10 +217,9 @@ func TestCheckMessageStringFields(t *testing.T) {
 }
 
 func TestCheckStringFields(t *testing.T) {
-	log.Root().SetHandler(log.DiscardHandler())
-	sections := data.GetMessage().Content
+	sections := message.GetMessage().Content
 	var tests = []struct {
-		input section.MessageSection
+		input section.Section
 		want  bool
 	}{
 		{nil, false},
@@ -302,33 +229,28 @@ func TestCheckStringFields(t *testing.T) {
 		{sections[3], true},
 		{sections[4], true},
 		{sections[5], true},
-		{sections[6], true},
-		{sections[8], true},
-		{sections[9], true},
-		{&section.AssertionSection{SubjectName: ":ip:"}, false},
-		{&section.AssertionSection{Context: ":ip:"}, false},
-		{&section.AssertionSection{SubjectZone: ":ip:"}, false},
-		{&section.AssertionSection{Content: []object.Object{object.Object{Type: object.OTRegistrar, Value: ":ip55:"}}}, false},
-		{&section.ShardSection{Context: ":ip:"}, false},
-		{&section.ShardSection{SubjectZone: ":ip:"}, false},
-		{&section.ShardSection{RangeFrom: ":ip:"}, false},
-		{&section.ShardSection{RangeTo: ":ip:"}, false},
-		{&section.ShardSection{Content: []*section.AssertionSection{&section.AssertionSection{SubjectName: ":ip:"}}}, false},
-		{&section.ZoneSection{SubjectZone: ":ip:"}, false},
-		{&section.ZoneSection{Context: ":ip:"}, false},
-		{&section.ZoneSection{Content: []section.MessageSectionWithSigForward{&section.AssertionSection{SubjectName: ":ip:"}}}, false},
-		{&query.QuerySection{Context: ":ip:"}, false},
-		{&query.QuerySection{Name: ":ip:"}, false},
-		{&section.NotificationSection{Data: ":ip:"}, false},
-		{&section.AddressQuerySection{Context: ":ip:"}, false},
-		{&section.AddressAssertionSection{Context: ":ip:"}, false},
-		{&section.AddressAssertionSection{Content: []object.Object{object.Object{Type: object.OTRegistrant, Value: ":ip55:"}}}, false},
-		{&section.AddressZoneSection{Context: ":ip:"}, false},
-		{&section.AddressZoneSection{Content: []*section.AddressAssertionSection{&section.AddressAssertionSection{Context: ":ip:"}}}, false},
+		{&section.Assertion{SubjectName: ":ip:"}, false},
+		{&section.Assertion{Context: ":ip:"}, false},
+		{&section.Assertion{SubjectZone: ":ip:"}, false},
+		{&section.Assertion{Content: []object.Object{object.Object{Type: object.OTRegistrar, Value: ":ip55:"}}}, false},
+		{&section.Pshard{RangeFrom: ":ip:"}, false},
+		{&section.Pshard{RangeTo: ":ip:"}, false},
+		{&section.Shard{Context: ":ip:"}, false},
+		{&section.Shard{SubjectZone: ":ip:"}, false},
+		{&section.Shard{RangeFrom: ":ip:"}, false},
+		{&section.Shard{RangeTo: ":ip:"}, false},
+		{&section.Shard{Content: []*section.Assertion{&section.Assertion{SubjectName: ":ip:"}}}, false},
+		{&section.Zone{SubjectZone: ":ip:"}, false},
+		{&section.Zone{Context: ":ip:"}, false},
+		{&section.Zone{Content: []*section.Assertion{&section.Assertion{SubjectName: ":ip:"}}}, false},
+		{&query.Name{Context: ":ip:"}, false},
+		{&query.Name{Name: ":ip:"}, false},
+		{&section.Notification{Data: ":ip:"}, false},
 	}
 	for _, test := range tests {
-		if checkStringFields(test.input) != test.want {
-			t.Errorf("expected=%v, actual=%v, value=%v", test.want, checkStringFields(test.input), test.input)
+		val := CheckStringFields(test.input)
+		if val != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, val, test.input)
 		}
 	}
 }
@@ -341,7 +263,7 @@ func TestCheckObjectFields(t *testing.T) {
 	}{
 		{nil, true},
 		{[]object.Object{}, true},
-		{object.GetAllValidObjects(), true},
+		{object.AllObjects(), true},
 		{[]object.Object{object.Object{Type: object.OTName, Value: object.Name{Name: ":ip55:"}}}, false},
 		{[]object.Object{object.Object{Type: object.OTRedirection, Value: ":ip55:"}}, false},
 		{[]object.Object{object.Object{Type: object.OTNameset, Value: object.NamesetExpr(":ip55:")}}, false},
@@ -384,8 +306,8 @@ func TestCheckCapabilites(t *testing.T) {
 		{[]message.Capability{message.Capability("::"), message.Capability(":ip4: Good")}, false},
 	}
 	for _, test := range tests {
-		if checkCapabilites(test.input) != test.want {
-			t.Errorf("expected=%v, actual=%v, value=%v", test.want, checkCapabilites(test.input), test.input)
+		if checkCapabilities(test.input) != test.want {
+			t.Errorf("expected=%v, actual=%v, value=%v", test.want, checkCapabilities(test.input), test.input)
 		}
 	}
 }
@@ -419,4 +341,47 @@ func TestContainsZoneFileType(t *testing.T) {
 		}
 	}
 }
-*/
+
+func TestValidSectionAndSignature(t *testing.T) {
+	var tests = []struct {
+		s        section.WithSig
+		sig      signature.Sig
+		expected bool
+	}{
+		{nil, signature.Sig{}, false},
+		{&section.Assertion{}, signature.Sig{}, false},
+		{&section.Assertion{}, signature.Sig{}, false},
+		{&section.Shard{RangeFrom: ":A:"}, signature.Sig{ValidUntil: time.Now().Add(time.Minute).Unix()}, false},
+		{&section.Assertion{}, signature.Sig{ValidUntil: time.Now().Add(time.Minute).Unix()}, true},
+	}
+	for i, test := range tests {
+		if test.s != nil {
+			test.s.AddSig(test.sig)
+		}
+		ok := ValidSectionAndSignature(test.s)
+		if ok != test.expected {
+			t.Fatalf("%d: unexpected result. expected=%v actual=%v", i, test.expected, ok)
+		}
+	}
+}
+
+func TestCheckSignatureNotExpired(t *testing.T) {
+	var tests = []struct {
+		s        section.WithSig
+		sig      signature.Sig
+		expected bool
+	}{
+		{nil, signature.Sig{}, true},
+		{&section.Assertion{}, signature.Sig{}, false},
+		{&section.Assertion{}, signature.Sig{ValidUntil: time.Now().Add(time.Minute).Unix()}, true},
+	}
+	for i, test := range tests {
+		if test.s != nil {
+			test.s.AddSig(test.sig)
+		}
+		ok := CheckSignatureNotExpired(test.s)
+		if ok != test.expected {
+			t.Fatalf("%d: unexpected result. expected=%v actual=%v", i, test.expected, ok)
+		}
+	}
+}

@@ -20,11 +20,14 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
+	"github.com/netsec-ethz/rains/tools/keycreator"
 )
 
 func TestFullCoverage(t *testing.T) {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
+	//Generate self signed root key
+	keycreator.DelegationAssertion(".", ".", "testdata/keys/selfSignedRootDelegationAssertion.gob", "testdata/keys/privateKeyRoot.txt")
 	//Start authoritative Servers and publish zonefiles to them
 	rootServer := startAuthServer(t, "Root", nil)
 	chServer := startAuthServer(t, "ch", []net.Addr{rootServer.Addr()})
@@ -51,17 +54,35 @@ func TestFullCoverage(t *testing.T) {
 	for i, query := range queries {
 		sendQueryVerifyResponse(t, *query, cachingResolver.Addr(), answers[i])
 	}
+	log.Info("Done sending queries for recursive lookups")
 
 	//Shut down authoritative servers
 	rootServer.Shutdown()
 	chServer.Shutdown()
 	ethzChServer.Shutdown()
 	time.Sleep(500 * time.Millisecond)
-	log.Info("begin sending queries which should be cached")
-	//Send queries to client resolver and observe the cached results.
+	log.Info("begin sending queries which should be cached by recursive lookup")
 	for i, query := range queries {
 		sendQueryVerifyResponse(t, *query, cachingResolver.Addr(), answers[i])
 	}
+	log.Info("Done sending queries for cached entries from a recursive lookup")
+
+	//Restart caching resolver from checkpoint
+	time.Sleep(1000 * time.Millisecond) //make sure that caches are checkpointed
+	cachingResolver.Shutdown()
+	cachingResolver2, err := rainsd.New("testdata/conf/resolver2.conf", "resolver2")
+	if err != nil {
+		t.Fatalf("Was not able to create client resolver: %v", err)
+	}
+	go cachingResolver2.Start(false)
+	time.Sleep(500 * time.Millisecond)
+	log.Info("caching server successfully started")
+	log.Info("begin sending queries which should be cached by pre load")
+	for i, query := range queries {
+		sendQueryVerifyResponse(t, *query, cachingResolver2.Addr(), answers[i])
+	}
+	log.Info("Done sending queries for cached entries that are preloaded")
+	cachingResolver2.Shutdown()
 }
 
 func startAuthServer(t *testing.T, name string, rootServers []net.Addr) *rainsd.Server {
@@ -71,6 +92,7 @@ func startAuthServer(t *testing.T, name string, rootServers []net.Addr) *rainsd.
 	}
 	server.SetResolver(libresolve.New(rootServers, nil, libresolve.Recursive, server.Addr(), 1000))
 	go server.Start(false)
+	time.Sleep(250 * time.Millisecond)
 	config, err := publisher.LoadConfig("testdata/conf/publisher" + name + ".conf")
 	if err != nil {
 		t.Fatal(fmt.Sprintf("Was not able to load %s publisher config: ", name), err)

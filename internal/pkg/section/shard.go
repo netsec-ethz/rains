@@ -1,6 +1,7 @@
 package section
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -10,7 +11,6 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
 
@@ -29,37 +29,63 @@ type Shard struct {
 
 // UnmarshalMap converts a CBOR decoded map to this Shard.
 func (s *Shard) UnmarshalMap(m map[int]interface{}) error {
-	s.Signatures = make([]signature.Sig, 0)
-	if sigs, ok := m[0]; ok {
-		s.Signatures = make([]signature.Sig, len(sigs.([]interface{})))
-		for i, sig := range sigs.([]interface{}) {
-			if err := s.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
+	if sigs, ok := m[0].([]interface{}); ok {
+		s.Signatures = make([]signature.Sig, len(sigs))
+		for i, sig := range sigs {
+			sigVal, ok := sig.([]interface{})
+			if !ok {
+				return errors.New("cbor zone signatures entry is not an array")
+			}
+			if err := s.Signatures[i].UnmarshalArray(sigVal); err != nil {
 				return err
 			}
 		}
+	} else {
+		return errors.New("cbor zone map does not contain a signature")
 	}
 	// SubjectZone
-	if sz, ok := m[4]; ok {
-		s.SubjectZone = sz.(string)
+	if zone, ok := m[4].(string); ok {
+		s.SubjectZone = zone
+	} else {
+		return errors.New("cbor shard map does not contain a subject zone")
 	}
 	// Context
-	if ctx, ok := m[6]; ok {
-		s.Context = ctx.(string)
+	if ctx, ok := m[6].(string); ok {
+		s.Context = ctx
+	} else {
+		return errors.New("cbor shard map does not contain a context")
 	}
 	// RangeFrom/RangeTo
-	if sr, ok := m[11]; ok {
-		srange := sr.([]interface{})
-		s.RangeFrom = srange[0].(string)
-		s.RangeTo = srange[1].(string)
+	if srange, ok := m[11].([]interface{}); ok {
+		begin, ok := srange[0].(string)
+		if !ok {
+			return errors.New("cbor shard encoding of rangeFrom should be a string")
+		}
+		s.RangeFrom = begin
+		end, ok := srange[1].(string)
+		if !ok {
+			return errors.New("cbor shard encoding of rangeEnd should be a string")
+		}
+		s.RangeTo = end
+	} else {
+		return errors.New("cbor shard map does not contain a range")
 	}
 	// Content
-	if cont, ok := m[23]; ok {
+	if cont, ok := m[23].([]interface{}); ok {
 		s.Content = make([]*Assertion, 0)
-		for _, obj := range cont.([]interface{}) {
+		for _, obj := range cont {
 			as := &Assertion{}
-			as.UnmarshalMap(obj.(map[int]interface{}))
+			a, ok := obj.(map[int]interface{})
+			if !ok {
+				return errors.New("cbor shard content entry is not a map")
+			}
+			if err := as.UnmarshalMap(a); err != nil {
+				return err
+			}
 			s.Content = append(s.Content, as)
 		}
+	} else {
+		return errors.New("cbor shard map does not contain a content")
 	}
 	return nil
 }
@@ -167,6 +193,16 @@ func (s *Shard) ValidUntil() int64 {
 	return s.validUntil
 }
 
+//SetValidSince sets the validSince time
+func (s *Shard) SetValidSince(validSince int64) {
+	s.validSince = validSince
+}
+
+//SetValidUntil sets the validUntil time
+func (s *Shard) SetValidUntil(validUntil int64) {
+	s.validUntil = validUntil
+}
+
 //Hash returns a string containing all information uniquely identifying a shard.
 func (s *Shard) Hash() string {
 	if s == nil {
@@ -227,27 +263,6 @@ func (s *Shard) String() string {
 	}
 	return fmt.Sprintf("Shard:[SZ=%s CTX=%s RF=%s RT=%s CONTENT=%v SIG=%v]",
 		s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, s.Content, s.Signatures)
-}
-
-//AssertionsByNameAndTypes returns all contained assertions with subjectName and at least one object
-//that has a type contained in connection. It is assumed that the contained assertions are sorted by
-//subjectName in ascending order. The returned assertions are pairwise distinct.
-func (s *Shard) AssertionsByNameAndTypes(subjectName string, types []object.Type) []*Assertion {
-	assertionMap := make(map[string]*Assertion)
-	i := sort.Search(len(s.Content), func(i int) bool { return s.Content[i].SubjectName >= subjectName })
-	for ; i < len(s.Content) && s.Content[i].SubjectName == subjectName; i++ {
-		for _, oType := range types {
-			if _, ok := object.ContainsType(s.Content[i].Content, oType); ok {
-				assertionMap[s.Content[i].Hash()] = s.Content[i]
-				break
-			}
-		}
-	}
-	var assertions []*Assertion
-	for _, a := range assertionMap {
-		assertions = append(assertions, a)
-	}
-	return assertions
 }
 
 //InRange returns true if subjectName is inside the shard range
