@@ -1,6 +1,7 @@
 package section
 
 import (
+	"math/rand"
 	"sort"
 	"testing"
 )
@@ -33,16 +34,16 @@ func TestPshardInterval(t *testing.T) {
 
 func TestPshardCompareTo(t *testing.T) {
 	pshards := sortedPshards(4)
-	var shuffled []Section
-	for _, s := range pshards {
-		shuffled = append(shuffled, s)
+	shuffled := append([]*Pshard{}, pshards...)
+	for i := len(shuffled) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	}
-	shuffleSections(shuffled)
 	sort.Slice(shuffled, func(i, j int) bool {
-		return shuffled[i].(*Pshard).CompareTo(shuffled[j].(*Pshard)) < 0
+		return shuffled[i].CompareTo(shuffled[j]) < 0
 	})
 	for i, s := range pshards {
-		checkPshard(s, shuffled[i].(*Pshard), t)
+		checkPshard(s, shuffled[i], t)
 	}
 }
 

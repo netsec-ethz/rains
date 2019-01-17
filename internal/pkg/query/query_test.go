@@ -50,23 +50,16 @@ func TestQuerySort(t *testing.T) {
 
 func TestQueryCompareTo(t *testing.T) {
 	queries := sortedQueries(5)
-	var shuffled []*Name
-	for _, q := range queries {
-		shuffled = append(shuffled, q)
+	shuffled := append([]*Name{}, queries...)
+	for i := len(shuffled) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	}
-	shuffleQueries(shuffled)
 	sort.Slice(shuffled, func(i, j int) bool {
 		return shuffled[i].CompareTo(shuffled[j]) < 0
 	})
 	for i, q := range queries {
 		checkQuery(q, shuffled[i], t)
-	}
-}
-
-func shuffleQueries(queries []*Name) {
-	for i := len(queries) - 1; i > 0; i-- {
-		j := rand.Intn(i)
-		queries[i], queries[j] = queries[j], queries[i]
 	}
 }
 

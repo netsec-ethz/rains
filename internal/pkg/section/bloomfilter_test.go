@@ -40,11 +40,11 @@ func TestBloomFilter(t *testing.T) {
 
 func TestBloomFilterCompareTo(t *testing.T) {
 	bfs := sortedBloomFilters(10)
-	var shuffled []BloomFilter
-	for _, b := range bfs {
-		shuffled = append(shuffled, b)
+	shuffled := append([]BloomFilter{}, bfs...)
+	for i := len(shuffled) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	}
-	shuffleBF(shuffled)
 	sort.Slice(shuffled, func(i, j int) bool {
 		return shuffled[i].CompareTo(shuffled[j]) < 0
 	})
@@ -52,12 +52,5 @@ func TestBloomFilterCompareTo(t *testing.T) {
 		if a.CompareTo(shuffled[i]) != 0 {
 			t.Fatal("Not sorted correctly")
 		}
-	}
-}
-
-func shuffleBF(sections []BloomFilter) {
-	for i := len(sections) - 1; i > 0; i-- {
-		j := rand.Intn(i)
-		sections[i], sections[j] = sections[j], sections[i]
 	}
 }

@@ -1,6 +1,9 @@
 package signature
 
 import (
+	"math/rand"
+	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
@@ -45,4 +48,49 @@ func TestVerifySignatureErrors(t *testing.T) {
 			t.Fatalf("%d: Signature should not verify", i)
 		}
 	}
+}
+
+func TestSigCompareTo(t *testing.T) {
+	sigs := sortedSigs()
+	shuffled := append([]Sig{}, sigs...)
+	for i := len(shuffled) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	}
+	sort.Slice(shuffled, func(i, j int) bool {
+		return shuffled[i].CompareTo(shuffled[j]) < 0
+	})
+	for i, s := range sigs {
+		if !reflect.DeepEqual(s, shuffled[i]) {
+			t.Fatalf("compareTo did not work correctly: sorted=%v result=%v", sigs, shuffled)
+		}
+	}
+}
+
+func sortedSigs() []Sig {
+	sigs := []Sig{}
+	for i := 0; i < 1; i++ {
+		for j := 0; j < 2; j++ {
+			for k := 0; k < 2; k++ {
+				for l := 0; l < 2; l++ {
+					for m := 0; m < 2; m++ {
+						for n := 0; n < 2; n++ {
+							sigs = append(sigs, Sig{
+								PublicKeyID: keys.PublicKeyID{
+									Algorithm: algorithmTypes.Signature(i + 1),
+									KeySpace:  keys.KeySpaceID(j),
+									KeyPhase:  k,
+								},
+								ValidSince: int64(l),
+								ValidUntil: int64(m),
+								Data:       make([]byte, 1+n),
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+	sigs = append(sigs, sigs[len(sigs)-1]) //equals
+	return sigs
 }

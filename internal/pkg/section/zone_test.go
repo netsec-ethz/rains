@@ -1,6 +1,7 @@
 package section
 
 import (
+	"math/rand"
 	"reflect"
 	"sort"
 	"testing"
@@ -20,6 +21,23 @@ func TestZoneInterval(t *testing.T) {
 	for i, test := range tests {
 		if test.input.Begin() != test.want || test.input.End() != test.want {
 			t.Errorf("%d: Assertion Begin and End are not as expected=%s actualBegin=%s actualEnd=%s", i, test.want, test.input.Begin(), test.input.End())
+		}
+	}
+}
+
+func TestZoneIsConsistent(t *testing.T) {
+	var tests = []struct {
+		input *Zone
+		want  bool
+	}{
+		{new(Zone), true},
+		{&Zone{Content: []*Assertion{&Assertion{SubjectZone: "zone"}}}, false},
+		{&Zone{Content: []*Assertion{&Assertion{Context: "ctx"}}}, false},
+	}
+	for i, test := range tests {
+		if test.input.IsConsistent() != test.want {
+			t.Errorf("%d: unexpected zone (in)consistency expected=%v actual=%v", i, test.want,
+				test.input.IsConsistent())
 		}
 	}
 }
@@ -52,16 +70,16 @@ func TestZoneHash(t *testing.T) {
 
 func TestZoneCompareTo(t *testing.T) {
 	zones := sortedZones(5)
-	var shuffled []Section
-	for _, z := range zones {
-		shuffled = append(shuffled, z)
+	shuffled := append([]*Zone{}, zones...)
+	for i := len(shuffled) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	}
-	shuffleSections(shuffled)
 	sort.Slice(shuffled, func(i, j int) bool {
-		return shuffled[i].(*Zone).CompareTo(shuffled[j].(*Zone)) < 0
+		return shuffled[i].CompareTo(shuffled[j]) < 0
 	})
 	for i, z := range zones {
-		checkZone(z, shuffled[i].(*Zone), t)
+		checkZone(z, shuffled[i], t)
 	}
 	z1 := &Zone{}
 	z2 := &Zone{Content: []*Assertion{&Assertion{}}}

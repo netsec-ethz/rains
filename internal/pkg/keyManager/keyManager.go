@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/pem"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -24,8 +23,9 @@ const (
 	secSuffix = "_sec.pem"
 )
 
-//LoadPublicKeys prints all public keys stored in the directory at keypath in pem format.
-func LoadPublicKeys(keyPath string) {
+//LoadPublicKeys returns all public keys stored in the directory at keypath in pem format.
+func LoadPublicKeys(keyPath string) string {
+	output := []string{}
 	files, err := ioutil.ReadDir(keyPath)
 	if err != nil {
 		log.Error("Was not able to read directory", "error", err)
@@ -35,11 +35,12 @@ func LoadPublicKeys(keyPath string) {
 			data, err := ioutil.ReadFile(path.Join(keyPath, f.Name()))
 			if err != nil {
 				log.Error("Was not able to read public key file", "error", err)
-				return
+				return ""
 			}
-			fmt.Println(string(data))
+			output = append(output, string(data))
 		}
 	}
+	return strings.Join(output, "\n")
 }
 
 //GenerateKey generates a keypair according to algo and stores them separately at keyPath/name in
@@ -138,36 +139,41 @@ func encryptPrivateKey(pwd string, privateKey []byte) (salt, iv, ciphertext []by
 	return
 }
 
-//DecryptKey decryptes the private key stored at keyPath/name with pwd and prints it in pem format.
-func DecryptKey(keyPath, name, pwd string) {
+//DecryptKey decryptes the private key stored at keyPath/name with pwd and returns it in pem format.
+func DecryptKey(keyPath, name, pwd string) *pem.Block {
 	data, err := ioutil.ReadFile(path.Join(keyPath, name+secSuffix))
 	if err != nil {
 		log.Error("Was not able to read private key file", "error", err)
-		return
+		return nil
 	}
 	pblock, rest := pem.Decode(data)
 	if len(rest) != 0 {
 		log.Error("Was not able to decode pem encoded private key", "error", err)
+		return nil
 	}
 	salt, err := hex.DecodeString(pblock.Headers["salt"])
 	if err != nil {
 		log.Error("Was not able to decode salt from pem encoding", "error", err)
+		return nil
 	}
 	iv, err := hex.DecodeString(pblock.Headers["iv"])
 	if err != nil {
 		log.Error("Was not able to decode iv from pem encoding", "error", err)
+		return nil
 	}
 	dk, err := scrypt.Key([]byte(pwd), salt, 1<<15, 8, 1, 32)
 	if err != nil {
 		log.Error("Was not able to create key from password and salt", "error", err)
+		return nil
 	}
 	block, err := aes.NewCipher(dk)
 	if err != nil {
 		log.Error("Was not able to create aes cipher from key", "error", err)
+		return nil
 	}
 
 	stream := cipher.NewCFBDecrypter(block, iv)
 	// XORKeyStream can work in-place if the two arguments are the same.
 	stream.XORKeyStream(pblock.Bytes, pblock.Bytes)
-	fmt.Printf("%s", pem.EncodeToMemory(pblock))
+	return pblock
 }

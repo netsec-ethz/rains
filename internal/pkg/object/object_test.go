@@ -14,10 +14,7 @@ import (
 
 func TestNameObjectCompareTo(t *testing.T) {
 	nos := sortedNameObjects(9)
-	var shuffled []Name
-	for _, no := range nos {
-		shuffled = append(shuffled, no)
-	}
+	shuffled := append([]Name{}, nos...)
 	for i := len(shuffled) - 1; i > 0; i-- {
 		j := rand.Intn(i)
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
@@ -73,12 +70,9 @@ func TestPublicKeyHash(t *testing.T) {
 
 func TestPublicKeyCompareTo(t *testing.T) {
 	pks := sortedPublicKeys(9)
-	var shuffled []keys.PublicKey
-	for _, pk := range pks {
-		shuffled = append(shuffled, pk)
-	}
+	shuffled := append([]keys.PublicKey{}, pks...)
 	for i := len(shuffled) - 1; i > 0; i-- {
-		j := rand.Intn(i)
+		j := rand.Intn(i + 1)
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	}
 	sort.Slice(shuffled, func(i, j int) bool { return shuffled[i].CompareTo(shuffled[j]) < 0 })
@@ -108,12 +102,9 @@ func TestPublicKeyCompareTo(t *testing.T) {
 
 func TestCertificateCompareTo(t *testing.T) {
 	certs := sortedCertificates(9)
-	var shuffled []Certificate
-	for _, cert := range certs {
-		shuffled = append(shuffled, cert)
-	}
+	shuffled := append([]Certificate{}, certs...)
 	for i := len(shuffled) - 1; i > 0; i-- {
-		j := rand.Intn(i)
+		j := rand.Intn(i + 1)
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	}
 	sort.Slice(shuffled, func(i, j int) bool { return shuffled[i].CompareTo(shuffled[j]) < 0 })
@@ -126,12 +117,9 @@ func TestCertificateCompareTo(t *testing.T) {
 
 func TestServiceInfoCompareTo(t *testing.T) {
 	sis := sortedServiceInfo(5)
-	var shuffled []ServiceInfo
-	for _, si := range sis {
-		shuffled = append(shuffled, si)
-	}
+	shuffled := append([]ServiceInfo{}, sis...)
 	for i := len(shuffled) - 1; i > 0; i-- {
-		j := rand.Intn(i)
+		j := rand.Intn(i + 1)
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	}
 	sort.Slice(shuffled, func(i, j int) bool { return shuffled[i].CompareTo(shuffled[j]) < 0 })
@@ -144,12 +132,9 @@ func TestServiceInfoCompareTo(t *testing.T) {
 
 func TestObjectCompareTo(t *testing.T) {
 	objs := SortedObjects(13)
-	var shuffled []Object
-	for _, obj := range objs {
-		shuffled = append(shuffled, obj)
-	}
+	shuffled := append([]Object{}, objs...)
 	for i := len(shuffled) - 1; i > 0; i-- {
-		j := rand.Intn(i)
+		j := rand.Intn(i + 1)
 		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	}
 	sort.Slice(shuffled, func(i, j int) bool { return shuffled[i].CompareTo(shuffled[j]) < 0 })
