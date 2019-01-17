@@ -10,9 +10,11 @@ SUBJECT-NAME := LABEL.[...LABEL].
 
 ## DESCRIPTION
 
-rdig (short for RAINS dig) is a tool for querying RAINS servers from the command line. It performs lookups of the provided domain names and prints the results on the command line.
+rdig (short for RAINS dig) is a tool for querying RAINS servers from the command line. It performs
+lookups of the provided domain names and prints the results on the command line.
 
-The queries are sent to the resolvers specified in the */etc/rains.conf* file, unless it is told to use a specific server via command line arguments.
+The queries are sent to the resolvers specified in the */etc/rains.conf* file, unless it is told to
+use a specific server via command line arguments.
 
 When no command line arguments are specified, then 
 

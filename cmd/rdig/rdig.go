@@ -22,7 +22,6 @@ var anyQuery = []object.Type{object.OTName, object.OTIP4Addr,
 	object.OTIP6Addr, object.OTDelegation, object.OTServiceInfo, object.OTRedirection}
 
 //TODO add default values to description
-var revLookup = flag.String("x", "", "Reverse lookup, addr is an IPv4 address in dotted-decimal notation, or a colon-delimited IPv6 address.")
 var queryType = flag.Int("t", -1, "specifies the type for which dig issues a query.")
 var name = flag.String("q", "", "sets the query's subjectName to this value.")
 var port = flag.Uint("p", 5022, "is the port number that dig will send its queries to.")
@@ -34,10 +33,7 @@ var filePath = flag.String("filePath", "", "specifies a file path where the quer
 var insecureTLS = flag.Bool("insecureTLS", false, "when set it does not check the validity of the server's TLS certificate.")
 var queryOptions qoptFlag
 
-var zfParser zonefile.ZoneFileIO
-
 func init() {
-	zfParser = zonefile.IO{}
 	//TODO CFE this list should be generated from internal constants
 	flag.Var(&queryOptions, "qopt", `specifies which query options are added to the query. Several query options are allowed. The sequence in which they are given determines the priority in descending order. Supported values are:
 	1: Minimize end-to-end latency
@@ -55,53 +51,48 @@ func init() {
 //main parses the input flags, creates a query, send the query to the server defined in the input, waits for a response and writes the result to the command line.
 func main() {
 	flag.Parse()
-	if *revLookup != "" {
-		//TODO CFE implement reverse lookup
-		fmt.Println("TODO CFE reverse lookup is not yet supported")
+	switch flag.NArg() {
+	case 0:
+		//all information present
+	case 2:
+		serverAddr = &flag.Args()[0]
+		name = &flag.Args()[1]
+	case 3:
+		serverAddr = &flag.Args()[0]
+		name = &flag.Args()[1]
+		typeNo, err := strconv.Atoi(flag.Args()[2])
+		if err != nil {
+			fmt.Println("malformed type")
+			os.Exit(1)
+		}
+		queryType = &typeNo
+	default:
+		fmt.Println("input parameters malformed")
+	}
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", *serverAddr, *port))
+	if err != nil {
+		fmt.Printf("serverAddr malformed, error=%v\n", err)
+		os.Exit(1)
+	}
+
+	var qt []object.Type
+	if *queryType == -1 {
+		qt = anyQuery
 	} else {
-		switch flag.NArg() {
-		case 0:
-			//all information present
-		case 2:
-			serverAddr = &flag.Args()[0]
-			name = &flag.Args()[1]
-		case 3:
-			serverAddr = &flag.Args()[0]
-			name = &flag.Args()[1]
-			typeNo, err := strconv.Atoi(flag.Args()[2])
-			if err != nil {
-				fmt.Println("malformed type")
-				os.Exit(1)
-			}
-			queryType = &typeNo
-		default:
-			fmt.Println("input parameters malformed")
-		}
+		qt = []object.Type{object.Type(*queryType)}
+	}
 
-		tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", *serverAddr, *port))
-		if err != nil {
-			fmt.Printf("serverAddr malformed, error=%v\n", err)
-			os.Exit(1)
-		}
+	msg := util.NewQueryMessage(*name, *context, *expires, qt, queryOptions, token.New())
 
-		var qt []object.Type
-		if *queryType == -1 {
-			qt = anyQuery
-		} else {
-			qt = []object.Type{object.Type(*queryType)}
-		}
-
-		msg := util.NewQueryMessage(*name, *context, *expires, qt, queryOptions, token.New())
-
-		answerMsg, err := util.SendQuery(msg, tcpAddr, time.Second)
-		if err != nil {
-			log.Info(fmt.Sprintf("could not send query: %v", err))
-			os.Exit(1)
-		}
-		for _, section := range answerMsg.Content {
-			// TODO: validate signatures.
-			fmt.Println(zfParser.EncodeSection(section))
-		}
+	answerMsg, err := util.SendQuery(msg, tcpAddr, time.Second)
+	if err != nil {
+		log.Info(fmt.Sprintf("could not send query: %v", err))
+		os.Exit(1)
+	}
+	for _, section := range answerMsg.Content {
+		// TODO: validate signatures.
+		fmt.Println(zonefile.IO{}.EncodeSection(section))
 	}
 }
 
