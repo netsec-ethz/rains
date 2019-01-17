@@ -362,6 +362,9 @@ assertionBody   : assertionType ID lBracket objects rBracket
                 }
 
 objects         : object
+                {
+                    $$ = []object.Object{$1}
+                }
                 | objects object
                 {
                     $$ = append($1,$2)
