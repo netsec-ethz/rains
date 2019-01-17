@@ -14,6 +14,8 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"golang.org/x/crypto/ed25519"
+
+	"github.com/scionproto/scion/go/lib/snet"
 )
 
 //Object contains a Value of to the specified Type
@@ -206,43 +208,22 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		}
 		obj.Value = pkey
 	case OTNextKey:
-		alg, ok := in[1].(int)
-		if !ok {
-			return errors.New("cbor object encoding of nextKey algo not an int")
+		// TODO: Implement OTNextKey.
+		log.Error("not yet implemented")
+	case OTScionAddr4:
+		addrStr := in[1].(string)
+		addr, err := snet.AddrFromString(addrStr)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal OTScionAddr4: %v", err)
 		}
-		kp, ok := in[2].(int)
-		if !ok {
-			return errors.New("cbor object encoding of nextKey phase not an int")
+		obj.Value = addr
+	case OTScionAddr6:
+		addrStr := in[1].(string)
+		addr, err := snet.AddrFromString(addrStr)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal OTScionAddr6: %v", err)
 		}
-		vs, ok := in[4].(int)
-		if !ok {
-			return errors.New("cbor object encoding of nextKey validSince not an int")
-		}
-		vu, ok := in[5].(int)
-		if !ok {
-			return errors.New("cbor object encoding of nextKey validUntil not an int")
-		}
-		var key []byte
-		switch algorithmTypes.Signature(alg) {
-		case algorithmTypes.Ed25519:
-			key, ok = in[3].([]byte)
-			if !ok {
-				return errors.New("cbor object encoding of nextKey key not a byte array")
-			}
-		default:
-			return fmt.Errorf("unsupported algorithm: %v", alg)
-		}
-		pkey := keys.PublicKey{
-			PublicKeyID: keys.PublicKeyID{
-				Algorithm: algorithmTypes.Signature(alg),
-				KeySpace:  keys.RainsKeySpace,
-				KeyPhase:  kp,
-			},
-			ValidSince: int64(vs),
-			ValidUntil: int64(vu),
-			Key:        ed25519.PublicKey(key),
-		}
-		obj.Value = pkey
+		obj.Value = addr
 	default:
 		return errors.New("unknown object type in unmarshalling object")
 	}
@@ -325,6 +306,18 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 		}
 		b := pubkeyToCBORBytes(pkey)
 		res = []interface{}{OTExtraKey, int(pkey.Algorithm), int(pkey.KeySpace), b}
+	case OTScionAddr4:
+		addr, ok := obj.Value.(*snet.Addr)
+		if !ok {
+			return fmt.Errorf("expected OTScionAddr4 to be of type *snet.Addr but got: %T", obj.Value)
+		}
+		res = []interface{}{OTScionAddr4, addr.String()}
+	case OTScionAddr6:
+		addr, ok := obj.Value.(*snet.Addr)
+		if !ok {
+			return fmt.Errorf("expected OTScionAddr6 to be of type *snet.Addr but got: %T", obj.Value)
+		}
+		res = []interface{}{OTScionAddr6, addr.String()}
 	case OTNextKey:
 		pkey, ok := obj.Value.(keys.PublicKey)
 		if !ok {
@@ -446,6 +439,8 @@ const (
 	OTInfraKey    Type = 11
 	OTExtraKey    Type = 12
 	OTNextKey     Type = 13
+	OTScionAddr4  Type = 14
+	OTScionAddr6  Type = 15
 )
 
 //ParseTypes returns the object type(s) specified in qType
