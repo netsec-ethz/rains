@@ -17,6 +17,10 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
+const (
+	rainsSrvPrefix = "_rains."
+)
+
 //processQuery processes msgSender containing a query section
 func (s *Server) processQuery(msgSender util.MsgSectionSender) {
 	queries := []*query.Name{}
@@ -109,7 +113,7 @@ func answerQueriesAuthoritative(qs []*query.Name, sender net.Addr, token token.T
 		//glueRecordNames assumes that the names of delegates do not contain a dot '.'.
 		names := glueRecordNames(queries, s.config.ZoneAuthority)
 		for name := range names {
-			glueRecords, err := glueRecordLookup(name.Zone, name.Context, true, s)
+			glueRecords, err := glueRecordLookup(name.Zone, name.Context, s)
 			if err != nil {
 				log.Warn("Was not able to find all glue records for %s: %s", name, err.Error())
 				return
@@ -208,44 +212,30 @@ func glueRecordNames(qs []*query.Name, zoneAuths []string) map[zoneContext]bool 
 	return result
 }
 
-func glueRecordLookup(name, context string, addDeleg bool, s *Server) ([]section.Section, error) {
-	/*types := []object.Type{object.OTDelegation, object.OTRedirection, object.OTServiceInfo, object.OTServiceInfo, object.OTIP4Addr}
-	names := []string{name, name, "_rains._tcp.ns." + name, "_rains._udpscion.ns." + name, "ns1." + name}
-	for i, t := range types {
-		if asserts, ok := s.caches.AssertionsCache.Get(names[i], context, t, false); !ok {
-			if !strings.HasPrefix(names[i], "_rains._tcp.ns.") &&
-				!strings.HasPrefix(names[i], "_rains._udpscion.ns.") {
-				log.Error("No glue record in cache!", "Name", names[i], "Type", t)
-			}
-		} else {
-			assertions = append(assertions, asserts[0]) //FIXME CFE, handle if there are more assertions in response
-		}
-	}
-	if len(assertions) != 4 {
-		log.Error("No glue record in cache!", "Name", names[2], "Type", object.OTServiceInfo, "len", len(assertions))
-	}
-	return*/
+func glueRecordLookup(name, context string, s *Server) ([]section.Section, error) {
 	var assertions []section.Section
-	if addDeleg {
-		asserts, ok := s.caches.AssertionsCache.Get(name, context, object.OTDelegation, true)
-		if !ok {
-			return nil, errors.New("no delegation assertion found")
-		}
-		for _, a := range asserts {
-			assertions = append(assertions, a)
-		}
+	asserts, ok := s.caches.AssertionsCache.Get(name, context, object.OTDelegation, true)
+	if !ok {
+		return nil, errors.New("no delegation assertion found")
+	}
+	for _, a := range asserts {
+		assertions = append(assertions, a) //append delegations
 	}
 
 	//Follow redirect and get all assertions along the way
-	asserts, ok := s.caches.AssertionsCache.Get(name, context, object.OTRedirection, true) //returns cached redirect assertions in random order
+	asserts, ok = s.caches.AssertionsCache.Get(name, context, object.OTRedirection, true) //returns cached redirect assertions in random order
 	if !ok {
 		return nil, errors.New("no redirect assertion found")
 	}
 	for _, a := range asserts {
 		for _, o := range a.Content {
 			if o.Type == object.OTRedirection {
-				if answers, err := handleRedirect(o.Value.(string), context, s); err == nil {
-					assertions = append(assertions, answers...)
+				if answers, err := handleRedirect(o.Value.(string), context, s,
+					allAllowedTypes()); err == nil {
+					assertions = append(assertions, a) //append redir
+					for _, answer := range answers {
+						assertions = append(assertions, answer) //append addr, and if necessary srv and/or names.
+					}
 					return assertions, nil
 				}
 			}
@@ -254,8 +244,69 @@ func glueRecordLookup(name, context string, addDeleg bool, s *Server) ([]section
 	return nil, errors.New("no redir ended in a host addr")
 }
 
-func handleRedirect(name, context string, s *Server) ([]section.Section, error) {
-	return nil, nil
+func allAllowedTypes() map[object.Type]bool {
+	return map[object.Type]bool{
+		object.OTIP6Addr:     true,
+		object.OTIP4Addr:     true,
+		object.OTServiceInfo: true,
+		object.OTName:        true,
+	}
+}
+
+func allowedAddrTypes() map[object.Type]bool {
+	return map[object.Type]bool{
+		object.OTIP6Addr: true,
+		object.OTIP4Addr: true,
+	}
+}
+
+func handleRedirect(name, context string, s *Server, allowedTypes map[object.Type]bool) ([]*section.Assertion, error) {
+	if allowedTypes[object.OTIP6Addr] {
+		if asserts, ok := s.caches.AssertionsCache.Get(name, context, object.OTIP6Addr, true); ok {
+			return asserts, nil
+		}
+	}
+	if allowedTypes[object.OTIP4Addr] {
+		if asserts, ok := s.caches.AssertionsCache.Get(name, context, object.OTIP4Addr, true); ok {
+			return asserts, nil
+		}
+	}
+	//TODO add scion addr types
+	if allowedTypes[object.OTServiceInfo] && strings.HasPrefix(name, rainsSrvPrefix) {
+		if asserts, ok := s.caches.AssertionsCache.Get(name, context, object.OTServiceInfo, true); ok {
+			for _, srv := range asserts {
+				for _, srvObj := range srv.Content {
+					if srvObj.Type == object.OTServiceInfo {
+						srvVal := srvObj.Value.(object.ServiceInfo)
+						if as, err := handleRedirect(srvVal.Name, context, s,
+							allowedAddrTypes()); err == nil {
+							return append(as, srv), nil
+						}
+					}
+				}
+			}
+		}
+	}
+	if allowedTypes[object.OTName] {
+		if asserts, ok := s.caches.AssertionsCache.Get(name, context, object.OTName, true); ok {
+			for _, name := range asserts {
+				for _, nameObj := range name.Content {
+					if nameObj.Type == object.OTName {
+						nameVal := nameObj.Value.(object.Name)
+						allowTypes := make(map[object.Type]bool)
+						for _, t := range nameVal.Types {
+							allowTypes[t] = true
+						}
+						if as, err := handleRedirect(nameVal.Name, context, s,
+							allowTypes); err == nil {
+							return append(as, name), nil
+						}
+					}
+				}
+			}
+		}
+	}
+	return nil, fmt.Errorf("redir name did not end in a host addr. redirName=%s", name)
 }
 
 // toSubjectZone splits a name into a subject and zone.
