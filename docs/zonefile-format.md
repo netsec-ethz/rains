@@ -35,34 +35,22 @@ comments. There are three special encodings:
 <bfHash> ::= ":shake256:" | ":fnv64:" | ":fnv128:"
 <assertion> ::= <assertionBody> | <assertionBody> <annotation>
 <assertionBody> ::= ":A:" <name> "[" <objects> "]" | ":A:" <name> <subjectZone> <context> "[" <objects> "]"
-<objects> ::= <name> | <ip6> | <ip4> | <redir> | <deleg> | <nameset> | <cert> | <srv> | <regr> 
+<objects> ::= <object> | <objects> <object>
+<object> ::= <name> | <ip6> | <ip4> | <redir> | <deleg> | <nameset> | <cert> | <srv> | <regr> 
               | <regt> | <infra> | <extra> | <next>
-<name> ::= <namebody> | <name> <namebody>
-<ip6> ::= <ip6body> | <ip6> <ip6body>
-<ip4> ::= <ip4body> | <ip4> <ip4body>
-<redir> ::= <redirbody> | <redir> <redirbody>
-<deleg> ::= <delegbody> | <deleg> <delegbody>
-<nameset> ::= <namesetbody> | <nameset> <namesetbody>
-<cert> ::= <certbody> | <cert> <certbody>
-<srv> ::= <srvbody> | <srv> <srvbody>
-<regr> ::= <regrbody> | <regr> <regrbody>
-<regt> ::= <regtbody> | <regt> <regtbody>
-<infra> ::= <infrabody> | <infra> <infrabody>
-<extra> ::= <extrabody> | <extra> <extrabody>
-<next> ::= <nextbody> | <next> <nextbody>
-<namebody> ::= ":name:" <cname> "[" <objectTypes> "]"
-<ip6body> ::= ":ip6:" <ip6Addr>
-<ip4body> ::= ":ip4:" <ip4Addr>
-<redirbody> ::= ":redir:" <redirname>
-<delegbody> ::= ":deleg:" ":ed25519:" <keyphase> <publicKeyData>
-<namesetbody> ::= ":nameset:" <freeText>
-<certbody> ::= ":cert:" <protocolType> <certificatUsage> <hashType> <certData>
-<srvbody> ::= ":srv:" <serviceName> <port> <priority>
-<regrbody> ::= ":regr:" <freeText>
-<regtbody> ::= ":regt:" <freeText>
-<infrabody> ::= ":infra:" ":ed25519:" <keyphase> <publicKeyData>
-<extrabody> ::= ":extra:" ":ed25519:" <keyspace> <keyphase> <publicKeyData>
-<nextbody> ::= ":next:" ":ed25519:" <keyphase> <publicKeyData> <validFrom> <validSince>
+<name> ::= ":name:" <cname> "[" <objectTypes> "]"
+<ip6> ::= ":ip6:" <ip6Addr>
+<ip4> ::= ":ip4:" <ip4Addr>
+<redir> ::= ":redir:" <redirname>
+<deleg> ::= ":deleg:" ":ed25519:" <keyphase> <publicKeyData>
+<nameset> ::= ":nameset:" <freeText>
+<cert> ::= ":cert:" <protocolType> <certificatUsage> <hashType> <certData>
+<srv> ::= ":srv:" <serviceName> <port> <priority>
+<regr> ::= ":regr:" <freeText>
+<regt> ::= ":regt:" <freeText>
+<infra> ::= ":infra:" ":ed25519:" <keyphase> <publicKeyData>
+<extra> ::= ":extra:" ":ed25519:" <keyspace> <keyphase> <publicKeyData>
+<next> ::= ":next:" ":ed25519:" <keyphase> <publicKeyData> <validFrom> <validSince>
 <objectTypes> ::= <objectType> | <objectTypes> <objectType>
 <objectType> ::= ":name:" | ":ip6:" | ":ip4:" | ":redir:" | ":deleg:" |  
                  ":nameset:" | ":cert:" | ":srv:" | ":regr:" | ":regt:" |  
@@ -85,7 +73,7 @@ TODO: make it compatible with https://tools.ietf.org/html/rfc5234
 :Z: com. . [
     :A: ns1.example [ 
             :ip6:      2001:0db8:85a3:0000:0000:8a2e:0370:7334
-            :ip6:      2001:db8::68
+            :ip4:      192.168.1.11
     ]
     :A: ns1.example  [ :ip4: 192.168.1.11 ]
     :A: example [ :redir: ns.example.com. ]
