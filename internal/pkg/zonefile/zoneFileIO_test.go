@@ -4,27 +4,25 @@ import (
 	"bufio"
 	"bytes"
 	"io/ioutil"
-	"strings"
 	"testing"
+
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
 
 func TestEncodeDecodeZone(t *testing.T) {
-	data, err := ioutil.ReadFile("test/zonefile.txt")
+	zone, err := IO{}.LoadZonefile("test/zonefile.txt")
 	if err != nil {
 		t.Error(err)
 	}
-	parser := IO{}
-	zone, err := parser.Decode(data)
-	if err != nil {
-		t.Error(err)
+	sections := []section.Section{}
+	for _, e := range zone {
+		sections = append(sections, e)
 	}
-	encoding := parser.EncodeSection(zone[0])
-	err = ioutil.WriteFile("test/newzonefile.txt", []byte(encoding), 0600)
-	if err != nil {
-		t.Error(err)
-	}
-	scanner1 := bufio.NewScanner(bytes.NewReader(data))
-	scanner2 := bufio.NewScanner(strings.NewReader(encoding))
+	err = IO{}.EncodeAndStore("test/newzonefile.txt", sections)
+	origData, _ := ioutil.ReadFile("test/zonefile.txt")
+	newData, _ := ioutil.ReadFile("test/newzonefile.txt")
+	scanner1 := bufio.NewScanner(bytes.NewReader(origData))
+	scanner2 := bufio.NewScanner(bytes.NewReader(newData))
 	scanner1.Split(bufio.ScanWords)
 	scanner2.Split(bufio.ScanWords)
 	go1 := scanner1.Scan()

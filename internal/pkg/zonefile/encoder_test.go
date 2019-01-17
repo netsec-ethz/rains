@@ -27,14 +27,13 @@ func TestEncodeNotification(t *testing.T) {
 }
 
 func TestMessageEncoding(t *testing.T) {
-	//FIXME
-	/*messages, encodings := getMessagesAndEncodings()
+	messages, encodings := getMessagesAndEncodings()
 	for i, message := range messages {
 		encodedM := encodeMessage(message)
 		if encodedM != encodings[i] {
 			t.Errorf("Encoding wrong. expected=%s actual=%s", encodings[i], encodedM)
 		}
-	}*/
+	}
 }
 
 func TestEncodeCapabilities(t *testing.T) {

@@ -20,11 +20,14 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
+	"github.com/netsec-ethz/rains/tools/keycreator"
 )
 
 func TestFullCoverage(t *testing.T) {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
+	//Generate self signed root key
+	keycreator.DelegationAssertion(".", ".", "testdata/keys/selfSignedRootDelegationAssertion.gob", "testdata/keys/privateKeyRoot.txt")
 	//Start authoritative Servers and publish zonefiles to them
 	rootServer := startAuthServer(t, "Root", nil)
 	chServer := startAuthServer(t, "ch", []net.Addr{rootServer.Addr()})

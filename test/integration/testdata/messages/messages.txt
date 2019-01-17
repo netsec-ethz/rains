@@ -12,3 +12,12 @@
 
 :Q: . _ftp._tcp.ethz.ch. [ 8 ] -1 [ ]
 :A: _ftp._tcp ethz.ch. . [ :srv: ftp.ethz.ch. 20 0 ]
+
+:Q: . www.ethz.ch. [ 9 ] -1 [ ]
+:Z: ethz.ch. . [
+    :A: _ftp._tcp  [ :srv: ftp.ethz.ch. 20 0 ]
+    :A: www  [ :name: a [ :ip6: :ip4: ] ]
+    :A: www  [ :ip6:     2001:db8:: ]
+    :A: www  [ :ip4:     198.175.162.241 ]
+    :A: www  [ :cert: :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
+]

@@ -23,7 +23,6 @@ import (
 //DelegationAssertion generates a new public/private key pair for the given context and zone. It stores the private key and a delegation assertion to a file.
 //In case of root public key the assertion is self signed (zone=.)
 func DelegationAssertion(context, zone, rootPath, keyPath string) error {
-	//FIXME CFE change source of randomness
 	publicKey, privateKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return err
@@ -34,9 +33,7 @@ func DelegationAssertion(context, zone, rootPath, keyPath string) error {
 			KeyPhase:  1,
 			Algorithm: algorithmTypes.Ed25519,
 		},
-		Key:        publicKey,
-		ValidSince: time.Now().Unix(),
-		ValidUntil: time.Now().Add(365 * 24 * time.Hour).Unix(),
+		Key: publicKey,
 	}
 	assertion := &section.Assertion{
 		Context:     context,

@@ -131,31 +131,18 @@ func (p IO) LoadZonefile(path string) ([]section.WithSigForward, error) {
 func (p IO) Encode(sections []section.Section) string {
 	var encodings []string
 	for _, s := range sections {
-		encodings = append(encodings, GetEncoding(s, false))
+		encodings = append(encodings, p.EncodeSection(s))
 	}
 	return strings.Join(encodings, "\n")
 }
 
 //EncodeSection returns the given section represented in the zone file format if it is a zoneSection.
 //In all other cases it returns the section in a displayable format similar to the zone file format
-func (p IO) EncodeSection(section section.Section) string {
-	return GetEncoding(section, false)
-}
-
-//EncodeAndStore stores the given section represented in zone file format if
-//it is an assertion, shard, pshard, or zone. In all other cases it stores
-//the section in a displayable format similar to the zone file format
-func (p IO) EncodeAndStore(path string, sections []section.Section) error {
-	encoding := p.Encode(sections)
-	return ioutil.WriteFile(path, []byte(encoding), 0600)
-}
-
-//GetEncoding returns an encoding in zonefile format
-func GetEncoding(s section.Section, forSigning bool) string {
+func (p IO) EncodeSection(s section.Section) string {
 	encoding := ""
 	switch s := s.(type) {
 	case *section.Assertion:
-		encoding = encodeAssertion(s, s.Context, s.SubjectZone, "", forSigning)
+		encoding = encodeAssertion(s, s.Context, s.SubjectZone, "", true)
 	case *section.Shard:
 		encoding = encodeShard(s, s.Context, s.SubjectZone, "")
 	case *section.Pshard:
@@ -171,4 +158,12 @@ func GetEncoding(s section.Section, forSigning bool) string {
 		return ""
 	}
 	return encoding
+}
+
+//EncodeAndStore stores the given section represented in zone file format if
+//it is an assertion, shard, pshard, or zone. In all other cases it stores
+//the section in a displayable format similar to the zone file format
+func (p IO) EncodeAndStore(path string, sections []section.Section) error {
+	encoding := p.Encode(sections)
+	return ioutil.WriteFile(path, []byte(encoding), 0600)
 }

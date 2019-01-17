@@ -1,6 +1,7 @@
 package section
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -28,37 +29,63 @@ type Shard struct {
 
 // UnmarshalMap converts a CBOR decoded map to this Shard.
 func (s *Shard) UnmarshalMap(m map[int]interface{}) error {
-	s.Signatures = make([]signature.Sig, 0)
-	if sigs, ok := m[0]; ok {
-		s.Signatures = make([]signature.Sig, len(sigs.([]interface{})))
-		for i, sig := range sigs.([]interface{}) {
-			if err := s.Signatures[i].UnmarshalArray(sig.([]interface{})); err != nil {
+	if sigs, ok := m[0].([]interface{}); ok {
+		s.Signatures = make([]signature.Sig, len(sigs))
+		for i, sig := range sigs {
+			sigVal, ok := sig.([]interface{})
+			if !ok {
+				return errors.New("cbor zone signatures entry is not an array")
+			}
+			if err := s.Signatures[i].UnmarshalArray(sigVal); err != nil {
 				return err
 			}
 		}
+	} else {
+		return errors.New("cbor zone map does not contain a signature")
 	}
 	// SubjectZone
-	if sz, ok := m[4]; ok {
-		s.SubjectZone = sz.(string)
+	if zone, ok := m[4].(string); ok {
+		s.SubjectZone = zone
+	} else {
+		return errors.New("cbor shard map does not contain a subject zone")
 	}
 	// Context
-	if ctx, ok := m[6]; ok {
-		s.Context = ctx.(string)
+	if ctx, ok := m[6].(string); ok {
+		s.Context = ctx
+	} else {
+		return errors.New("cbor shard map does not contain a context")
 	}
 	// RangeFrom/RangeTo
-	if sr, ok := m[11]; ok {
-		srange := sr.([]interface{})
-		s.RangeFrom = srange[0].(string)
-		s.RangeTo = srange[1].(string)
+	if srange, ok := m[11].([]interface{}); ok {
+		begin, ok := srange[0].(string)
+		if !ok {
+			return errors.New("cbor shard encoding of rangeFrom should be a string")
+		}
+		s.RangeFrom = begin
+		end, ok := srange[1].(string)
+		if !ok {
+			return errors.New("cbor shard encoding of rangeEnd should be a string")
+		}
+		s.RangeTo = end
+	} else {
+		return errors.New("cbor shard map does not contain a range")
 	}
 	// Content
-	if cont, ok := m[23]; ok {
+	if cont, ok := m[23].([]interface{}); ok {
 		s.Content = make([]*Assertion, 0)
-		for _, obj := range cont.([]interface{}) {
+		for _, obj := range cont {
 			as := &Assertion{}
-			as.UnmarshalMap(obj.(map[int]interface{}))
+			a, ok := obj.(map[int]interface{})
+			if !ok {
+				return errors.New("cbor shard content entry is not a map")
+			}
+			if err := as.UnmarshalMap(a); err != nil {
+				return err
+			}
 			s.Content = append(s.Content, as)
 		}
+	} else {
+		return errors.New("cbor shard map does not contain a content")
 	}
 	return nil
 }

@@ -44,8 +44,10 @@ _testmain.go
 /cmd/zonepub/zonepub
 /build/*
 
-#zonepub test file
+#test file
 /cmd/zonepub/data/newZonefile.txt
+internal/pkg/keyManager/testdata/test_pub.pem
+internal/pkg/keyManager/testdata/test_sec.pem
 
 #test coverage files
 *coverage.out
@@ -55,6 +57,8 @@ _testmain.go
 *assertionCheckPoint.gob
 *negAssertionCheckPoint.gob
 *zoneKeyCheckPoint.gob
+test/integration/testdata/keys/privateKeyRoot.txt
+test/integration/testdata/keys/selfSignedRootDelegationAssertion.gob
 
 #Yacc
 /tools/yacc/y.go

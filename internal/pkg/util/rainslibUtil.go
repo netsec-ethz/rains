@@ -56,10 +56,6 @@ type SectionWithSigSender struct {
 	Token    token.Token
 }
 
-func (s *SectionWithSigSender) Hash() string {
-	return fmt.Sprintf("%s_%s_%v_%v", s.Sender.Network(), s.Sender.String(), s.Sections, s.Token)
-}
-
 //Save stores the object to the file located at the specified path gob encoded.
 func Save(path string, object interface{}) error {
 	file, err := os.Create(path)

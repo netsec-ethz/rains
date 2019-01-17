@@ -184,3 +184,15 @@ func checkAllContained(set *Set, t *testing.T, function func() []section.Hasher)
 		}
 	}
 }
+
+func TestLen(t *testing.T) {
+	set := New()
+	set.data["d"] = structWithPointer{}
+	if set.Len() != 1 {
+		t.Errorf("Wrong length. expected=%v actual=%v", len(set.data), set.Len())
+	}
+	delete(set.data, "d")
+	if set.Len() != 0 {
+		t.Errorf("Wrong length. expected=%v actual=%v", len(set.data), set.Len())
+	}
+}

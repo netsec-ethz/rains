@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/pem"
+	"fmt"
 	"log"
 
 	"github.com/netsec-ethz/rains/internal/pkg/keyManager"
@@ -24,11 +26,15 @@ func main() {
 	}
 	switch flag.Arg(0) {
 	case "load", "l":
-		keyManager.LoadPublicKeys(*keyPath)
+		fmt.Println(keyManager.LoadPublicKeys(*keyPath))
 	case "generate", "gen", "g":
 		keyManager.GenerateKey(*keyPath, *keyName, *description, *algo, *pwd, *phase)
 	case "decrypt", "d":
-		keyManager.DecryptKey(*keyPath, *keyName, *pwd)
+		block := keyManager.DecryptKey(*keyPath, *keyName, *pwd)
+		if block != nil {
+			log.Fatal("Was not able to decrypt private key")
+		}
+		fmt.Printf("%s", pem.EncodeToMemory(block))
 	default:
 		log.Fatal("Unknown command")
 	}

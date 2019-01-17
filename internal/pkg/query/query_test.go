@@ -50,23 +50,16 @@ func TestQuerySort(t *testing.T) {
 
 func TestQueryCompareTo(t *testing.T) {
 	queries := sortedQueries(5)
-	var shuffled []*Name
-	for _, q := range queries {
-		shuffled = append(shuffled, q)
+	shuffled := append([]*Name{}, queries...)
+	for i := len(shuffled) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
 	}
-	shuffleQueries(shuffled)
 	sort.Slice(shuffled, func(i, j int) bool {
 		return shuffled[i].CompareTo(shuffled[j]) < 0
 	})
 	for i, q := range queries {
-		CheckQuery(q, shuffled[i], t)
-	}
-}
-
-func shuffleQueries(queries []*Name) {
-	for i := len(queries) - 1; i > 0; i-- {
-		j := rand.Intn(i)
-		queries[i], queries[j] = queries[j], queries[i]
+		checkQuery(q, shuffled[i], t)
 	}
 }
 
@@ -104,4 +97,32 @@ func sortedQueries(nof int) []*Name {
 	}
 	queries = append(queries, queries[len(queries)-1])
 	return queries
+}
+
+func checkQuery(q1, q2 *Name, t *testing.T) {
+	if q1.Context != q2.Context {
+		t.Error("Query context mismatch")
+	}
+	if q1.Expiration != q2.Expiration {
+		t.Error("Query Expires mismatch")
+	}
+	if q1.Name != q2.Name {
+		t.Error("Query Name mismatch")
+	}
+	if len(q1.Types) != len(q2.Types) {
+		t.Error("Query Type length mismatch")
+	}
+	for i, o1 := range q1.Types {
+		if o1 != q2.Types[i] {
+			t.Errorf("Query Type at position %d mismatch", i)
+		}
+	}
+	if len(q1.Options) != len(q2.Options) {
+		t.Error("Query Option length mismatch")
+	}
+	for i, o1 := range q1.Options {
+		if o1 != q2.Options[i] {
+			t.Errorf("Query Option at position %d mismatch", i)
+		}
+	}
 }
