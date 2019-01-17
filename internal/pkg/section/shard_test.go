@@ -66,7 +66,10 @@ func TestShardHash(t *testing.T) {
 func TestShardCompareTo(t *testing.T) {
 	shards := sortedShards(5)
 	shuffled := append([]*Shard{}, shards...)
-	rand.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
+	for i := len(shuffled) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	}
 	sort.Slice(shuffled, func(i, j int) bool {
 		return shuffled[i].CompareTo(shuffled[j]) < 0
 	})

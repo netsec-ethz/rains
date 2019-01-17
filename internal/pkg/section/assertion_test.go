@@ -85,7 +85,10 @@ func TestEqualContextZoneName(t *testing.T) {
 func TestAssertionCompareTo(t *testing.T) {
 	assertions := sortedAssertions(10)
 	shuffled := append([]*Assertion{}, assertions...)
-	rand.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
+	for i := len(shuffled) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	}
 	sort.Slice(shuffled, func(i, j int) bool {
 		return shuffled[i].CompareTo(shuffled[j]) < 0
 	})

@@ -53,7 +53,10 @@ func TestVerifySignatureErrors(t *testing.T) {
 func TestSigCompareTo(t *testing.T) {
 	sigs := sortedSigs()
 	shuffled := append([]Sig{}, sigs...)
-	rand.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
+	for i := len(shuffled) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	}
 	sort.Slice(shuffled, func(i, j int) bool {
 		return shuffled[i].CompareTo(shuffled[j]) < 0
 	})

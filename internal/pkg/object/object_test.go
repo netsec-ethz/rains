@@ -71,7 +71,10 @@ func TestPublicKeyHash(t *testing.T) {
 func TestPublicKeyCompareTo(t *testing.T) {
 	pks := sortedPublicKeys(9)
 	shuffled := append([]keys.PublicKey{}, pks...)
-	rand.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
+	for i := len(shuffled) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	}
 	sort.Slice(shuffled, func(i, j int) bool { return shuffled[i].CompareTo(shuffled[j]) < 0 })
 	for i, pk := range pks {
 		if !reflect.DeepEqual(pk, shuffled[i]) {
@@ -100,7 +103,10 @@ func TestPublicKeyCompareTo(t *testing.T) {
 func TestCertificateCompareTo(t *testing.T) {
 	certs := sortedCertificates(9)
 	shuffled := append([]Certificate{}, certs...)
-	rand.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
+	for i := len(shuffled) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	}
 	sort.Slice(shuffled, func(i, j int) bool { return shuffled[i].CompareTo(shuffled[j]) < 0 })
 	for i, cert := range certs {
 		if !reflect.DeepEqual(cert, shuffled[i]) {
@@ -112,7 +118,10 @@ func TestCertificateCompareTo(t *testing.T) {
 func TestServiceInfoCompareTo(t *testing.T) {
 	sis := sortedServiceInfo(5)
 	shuffled := append([]ServiceInfo{}, sis...)
-	rand.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
+	for i := len(shuffled) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	}
 	sort.Slice(shuffled, func(i, j int) bool { return shuffled[i].CompareTo(shuffled[j]) < 0 })
 	for i, si := range sis {
 		if !reflect.DeepEqual(si, shuffled[i]) {
@@ -124,7 +133,10 @@ func TestServiceInfoCompareTo(t *testing.T) {
 func TestObjectCompareTo(t *testing.T) {
 	objs := SortedObjects(13)
 	shuffled := append([]Object{}, objs...)
-	rand.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
+	for i := len(shuffled) - 1; i > 0; i-- {
+		j := rand.Intn(i + 1)
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	}
 	sort.Slice(shuffled, func(i, j int) bool { return shuffled[i].CompareTo(shuffled[j]) < 0 })
 	for i, obj := range objs {
 		if !reflect.DeepEqual(obj, shuffled[i]) {
