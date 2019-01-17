@@ -147,10 +147,9 @@ var output []section.WithSigForward
 %type <pshard>          pshard pshardBody
 %type <assertions>      shardContent zoneContent
 %type <assertion>       assertion assertionBody
-%type <objects>         objects name ip4 ip6 redir deleg nameset cert
-%type <objects>         srv regr regt infra extra next
-%type <object>          nameBody ip4Body ip6Body redirBody delegBody namesetBody certBody
-%type <object>          srvBody regrBody regtBody infraBody extraBody nextBody
+%type <objects>         objects
+%type <object>          object name ip4 ip6 redir deleg nameset 
+%type <object>          cert srv regr regt infra extra next
 %type <objectTypes>     oTypes
 %type <objectType>      oType
 %type <signatures>      annotation annotationBody
@@ -362,7 +361,13 @@ assertionBody   : assertionType ID lBracket objects rBracket
                     }
                 }
 
-objects          : name
+objects         : object
+                | objects object
+                {
+                    $$ = append($1,$2)
+                }
+
+object          : name
                 | ip6
                 | ip4
                 | redir
@@ -376,16 +381,7 @@ objects          : name
                 | extra
                 | next
 
-name            : nameBody
-                {
-                    $$ = []object.Object{$1}
-                }
-                | name nameBody
-                {
-                    $$ = append($1,$2)
-                }
-
-nameBody        : nameType ID lBracket oTypes rBracket
+name            : nameType ID lBracket oTypes rBracket
                 {
                     $$ = object.Object{
                         Type: object.OTName,
@@ -458,16 +454,7 @@ oType           : nameType
                     $$ = object.OTNextKey
                 }
 
-ip6             : ip6Body
-                {
-                    $$ = []object.Object{$1}
-                }
-                | ip6 ip6Body
-                {
-                    $$ = append($1,$2)
-                }
-
-ip6Body         : ip6Type ID
+ip6             : ip6Type ID
                 {
                     $$ = object.Object{
                         Type: object.OTIP6Addr,
@@ -475,16 +462,7 @@ ip6Body         : ip6Type ID
                     }
                 }
 
-ip4             : ip4Body
-                {
-                    $$ = []object.Object{$1}
-                }
-                | ip4 ip4Body
-                {
-                    $$ = append($1,$2)
-                }
-
-ip4Body         : ip4Type ID
+ip4             : ip4Type ID
                 {
                     $$ = object.Object{
                         Type: object.OTIP4Addr,
@@ -492,16 +470,7 @@ ip4Body         : ip4Type ID
                     }
                 }
 
-redir             : redirBody
-                {
-                    $$ = []object.Object{$1}
-                }
-                | redir redirBody
-                {
-                    $$ = append($1,$2)
-                }
-
-redirBody       : redirType ID
+redir           : redirType ID
                 {
                     $$ = object.Object{
                         Type: object.OTRedirection,
@@ -509,16 +478,7 @@ redirBody       : redirType ID
                     }
                 }
 
-deleg           : delegBody
-                {
-                    $$ = []object.Object{$1}
-                }
-                | deleg delegBody
-                {
-                    $$ = append($1,$2)
-                }
-
-delegBody       : delegType ed25519Type ID ID
+deleg           : delegType ed25519Type ID ID
                 {
                     pkey, err := DecodeEd25519PublicKeyData($4, $3)
                     if  err != nil {
@@ -530,16 +490,7 @@ delegBody       : delegType ed25519Type ID ID
                     }
                 }
 
-nameset         : namesetBody
-                {
-                    $$ = []object.Object{$1}
-                }
-                | nameset namesetBody
-                {
-                    $$ = append($1,$2)
-                }
-
-namesetBody     : namesetType freeText
+nameset         : namesetType freeText
                 {
                     $$ = object.Object{
                         Type: object.OTNameset,
@@ -547,16 +498,7 @@ namesetBody     : namesetType freeText
                     }
                 }
 
-cert            : certBody
-                {
-                    $$ = []object.Object{$1}
-                }
-                | cert certBody
-                {
-                    $$ = append($1,$2)
-                }
-
-certBody :      certType protocolType certUsage hashType ID
+cert            : certType protocolType certUsage hashType ID
                 {
                     cert, err := DecodeCertificate($2,$3,$4,$5)
                     if err != nil {
@@ -568,16 +510,7 @@ certBody :      certType protocolType certUsage hashType ID
                     }
                 }
 
-srv             : srvBody
-                {
-                    $$ = []object.Object{$1}
-                }
-                | srv srvBody
-                {
-                    $$ = append($1,$2)
-                }
-
-srvBody         : srvType ID ID ID
+srv             : srvType ID ID ID
                 {
                     srv, err := DecodeSrv($2,$3,$4)
                     if err != nil {
@@ -589,16 +522,7 @@ srvBody         : srvType ID ID ID
                     }
                 }
 
-regr            : regrBody
-                {
-                    $$ = []object.Object{$1}
-                }
-                | regr regrBody
-                {
-                    $$ = append($1,$2)
-                }
-
-regrBody        : regrType freeText
+regr            : regrType freeText
                 {
                     $$ = object.Object{
                         Type: object.OTRegistrar,
@@ -606,16 +530,7 @@ regrBody        : regrType freeText
                     }
                 }
 
-regt            : regtBody
-                {
-                    $$ = []object.Object{$1}
-                }
-                | regt regtBody
-                {
-                    $$ = append($1,$2)
-                }
-
-regtBody        : regtType freeText
+regt            : regtType freeText
                 {
                     $$ = object.Object{
                         Type: object.OTRegistrant,
@@ -623,16 +538,7 @@ regtBody        : regtType freeText
                     }
                 }
 
-infra           : infraBody
-                {
-                    $$ = []object.Object{$1}
-                }
-                | infra infraBody
-                {
-                    $$ = append($1,$2)
-                }
-
-infraBody       : infraType ed25519Type ID ID
+infra           : infraType ed25519Type ID ID
                 {
                     pkey, err := DecodeEd25519PublicKeyData($4, $3)
                     if  err != nil {
@@ -644,16 +550,7 @@ infraBody       : infraType ed25519Type ID ID
                     }
                 }
 
-extra           : extraBody
-                {
-                    $$ = []object.Object{$1}
-                }
-                | extra extraBody
-                {
-                    $$ = append($1,$2)
-                }
-
-extraBody       : extraType ed25519Type ID ID
+extra           : extraType ed25519Type ID ID
                 {   //TODO CFE as of now there is only the rains key space. There will
                     //be additional rules in case there are new key spaces 
                     pkey, err := DecodeEd25519PublicKeyData($4, $3)
@@ -666,16 +563,7 @@ extraBody       : extraType ed25519Type ID ID
                     }
                 }
 
-next            : nextBody
-                {
-                    $$ = []object.Object{$1}
-                }
-                | next nextBody
-                {
-                    $$ = append($1,$2)
-                }
-
-nextBody        : nextType ed25519Type ID ID ID ID
+next            : nextType ed25519Type ID ID ID ID
                 {
                     pkey, err := DecodeEd25519PublicKeyData($4, $3)
                     if  err != nil {
