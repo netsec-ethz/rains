@@ -2,129 +2,156 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"strconv"
+	"log"
+	"net"
 	"strings"
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
+	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	flag "github.com/spf13/pflag"
 )
 
-var anyQuery = []object.Type{object.OTName, object.OTIP4Addr,
-	object.OTIP6Addr, object.OTDelegation, object.OTServiceInfo, object.OTRedirection}
+//Options
+var qType = flag.StringP("type", "t", "ip6", `specifies the type for which rdig issues a query. Allowed 
+types are: name, ip6, ip4, redir, deleg, nameset, cert, srv, regr, regt, infra, extra, next. If no 
+type argument is provided, the type is set to ip6`)
+var port = flag.UintP("port", "p", 55553,
+	"is the port number that rdig will send its queries to. The default port is 55553.")
+var keyPhase = flag.IntP("keyphase", "k", 0,
+	"is the key phase for which a delegation is requested. The default key phase is 0.")
+var context = flag.StringP("context", "c", ".",
+	"specifies the context for which rdig issues a query. The default context is the global context '.'.")
+var expires = flag.Int64P("expires", "e", time.Now().Add(time.Second).Unix(),
+	"expires sets the valid until value of the query. A query expires after one second per default.")
+var insecureTLS = flag.BoolP("insecureTLS", "i", false,
+	"when set it does not check the validity of the server's TLS certificate. The certificate is checked by default.")
+var nonce = flag.StringP("nonce", "n", "",
+	"specifies a nonce to be used in the query instead of using a randomly generated one.")
 
-//TODO add default values to description
-var queryType = flag.IntP("type", "t", 2, "specifies the type for which rdig issues a query.")
-var port = flag.UintP("port", "p", 55553, "is the port number that rdig will send its queries to.")
-var keyPhase = flag.IntP("keyphase", "k", 0, "is the key phase for which a delegation is requested")
-var context = flag.StringP("context", "c", ".", "context specifies the context for which rdig issues a query.")
-var expires = flag.Int64P("expires", "e", time.Now().Add(time.Second).Unix(), "expires sets the valid until value of the query.")
-var insecureTLS = flag.BoolP("insecureTLS", "i", false, "when set it does not check the validity of the server's TLS certificate.")
-var nonce = flag.StringP("nonce", "n", "", "specifies a nonce to be used in the query instead of using a randomly generated one.")
-var minEE = flag.BoolP("minEE", "1", false, "minimizes end-to-end latency")
+//Query Options
+var minEE = flag.BoolP("minEE", "1", false, "Minimize end-to-end latency")
+var minAS = flag.BoolP("minAS", "2", false, "Minimize last-hop answer size (bandwidth)")
+var minIL = flag.BoolP("minIL", "3", false, "Minimize information leakage beyond first hop")
+var noIL = flag.BoolP("noIL", "4", false, "No information leakage beyond first hop: cached answers only")
+var exp = flag.BoolP("exp", "5", false, "Expired assertions are acceptable")
+var tracing = flag.BoolP("tracing", "6", false, "Enable query token tracing")
+var noVD = flag.BoolP("noVD", "7", false, "Disable verification delegation (client protocol only)")
+var noCaching = flag.BoolP("noCaching", "8", false, "Suppress proactive caching of future assertions")
+var maxAF = flag.BoolP("maxAF", "9", false, "Maximize answer freshness")
 
 func init() {
-	//TODO CFE this list should be generated from internal constants
+	flag.CommandLine.SortFlags = false
 	flag.Lookup("insecureTLS").NoOptDefVal = "true"
 	flag.Lookup("minEE").NoOptDefVal = "true"
-
-	/*flag.Var(&queryOptions, "qopt", `specifies which query options are added to the query. Several query options are allowed. The sequence in which they are given determines the priority in descending order. Supported values are:
-	1: Minimize end-to-end latency
-	2: Minimize last-hop answer size (bandwidth)
-	3: Minimize information leakage beyond first hop
-	4: No information leakage beyond first hop: cached answers only
-	5: Expired assertions are acceptable
-	6: Enable query token tracing
-	7: Disable verification delegation (client protocol only)
-	8: Suppress proactive caching of future assertions
-	e.g. to specify query options 4 and 2 with higher priority on option 4 write: -qopt=4 -qopt=2
-	`)*/
+	flag.Lookup("minAS").NoOptDefVal = "true"
+	flag.Lookup("minIL").NoOptDefVal = "true"
+	flag.Lookup("noIL").NoOptDefVal = "true"
+	flag.Lookup("exp").NoOptDefVal = "true"
+	flag.Lookup("tracing").NoOptDefVal = "true"
+	flag.Lookup("noVD").NoOptDefVal = "true"
+	flag.Lookup("noCaching").NoOptDefVal = "true"
+	flag.Lookup("maxAF").NoOptDefVal = "true"
 }
 
-//main parses the input flags, creates a query, send the query to the server defined in the input, waits for a response and writes the result to the command line.
 func main() {
 	flag.Parse()
+	var name, server string
 	switch flag.NArg() {
 	case 0:
-		//all information present
-	case 2:
-		//serverAddr = &flag.Args()[0]
-		//name = &flag.Args()[1]
-	case 3:
-		//serverAddr = &flag.Args()[0]
-		//name = &flag.Args()[1]
-		typeNo, err := strconv.Atoi(flag.Args()[2])
-		if err != nil {
-			fmt.Println("malformed type")
-			os.Exit(1)
+		log.Fatal("Error: no domain name specified.")
+	case 1:
+		name = flag.Arg(0)
+		if strings.HasPrefix(name, "@") {
+			log.Fatal("Error: no domain name specified.")
 		}
-		queryType = &typeNo
+	case 2:
+		server = flag.Arg(0)
+		if !strings.HasPrefix(server, "@") {
+			log.Fatal("Error: server name or addr does not start with an @")
+		}
+		name = flag.Arg(1)
+	case 3:
+		server = flag.Arg(0)
+		if !strings.HasPrefix(server, "@") {
+			log.Fatal("Error: server name or addr does not start with an @")
+		}
+		name = flag.Arg(1)
+		t := flag.Arg(2)
+		qType = &t
 	default:
 		fmt.Println("input parameters malformed")
 	}
-	if *minEE {
-		fmt.Println("works")
+	if _, err := net.ResolveIPAddr("", server[1:]); err != nil {
+		//FIXME
+		log.Fatal("Error: default server not yet implemented. Please specify a server addr")
 	}
-	/*tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", *serverAddr, *port))
+
+	tcpAddr, err := net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", server[1:], *port))
 	if err != nil {
-		fmt.Printf("serverAddr malformed, error=%v\n", err)
-		os.Exit(1)
+		log.Fatalf("Error: serverAddr or port malformed: %v", err)
 	}
 
-	var qt []object.Type
-	if *queryType == -1 {
-		qt = anyQuery
-	} else {
-		qt = []object.Type{object.Type(*queryType)}
+	qTypes, err := object.ParseTypes(*qType)
+	if err != nil {
+		log.Fatalf("Error: %s", err.Error())
 	}
 
-	msg := util.NewQueryMessage(*name, *context, *expires, qt, queryOptions, token.New())
+	tok := token.New()
+	if flag.Lookup("nonce").Changed {
+		for i := 0; i < len(tok); i++ {
+			if i < len(*nonce) {
+				tok[i] = (*nonce)[i]
+			} else {
+				tok[i] = 0x0
+			}
+		}
+	}
+
+	msg := util.NewQueryMessage(name, *context, *expires, qTypes, parseAllQueryOptions(), tok)
 
 	answerMsg, err := util.SendQuery(msg, tcpAddr, time.Second)
 	if err != nil {
-		log.Info(fmt.Sprintf("could not send query: %v", err))
-		os.Exit(1)
+		log.Fatalf("was not able to send query: %v", err)
 	}
-	for _, section := range answerMsg.Content {
-		// TODO: validate signatures.
-		fmt.Println(zonefile.IO{}.EncodeSection(section))
-	}*/
+	fmt.Println(zonefile.IO{}.Encode(answerMsg.Content))
 }
 
-//qoptFlag defines the query options flag. It allows a user to specify multiple query options and their priority (by input sequence)
-type qoptFlag []query.Option
-
-func (i *qoptFlag) String() string {
-	list := []string{}
-	for _, opt := range *i {
-		list = append(list, strconv.Itoa(int(opt)))
+func parseAllQueryOptions() []query.Option {
+	qOptions := []query.Option{}
+	addOption := func(f *flag.Flag) {
+		if opt, ok := parseQueryOption(f.Shorthand); ok {
+			qOptions = append(qOptions, opt)
+		}
 	}
-	return fmt.Sprintf("[%s]", strings.Join(list, " "))
+	flag.Visit(addOption)
+	return qOptions
 }
 
-//Set transforms command line input of a query option to its internal representation
-func (i *qoptFlag) Set(value string) error {
-	switch value {
+func parseQueryOption(name string) (query.Option, bool) {
+	switch name {
 	case "1":
-		*i = append(*i, query.QOMinE2ELatency)
+		return query.QOMinE2ELatency, true
 	case "2":
-		*i = append(*i, query.QOMinLastHopAnswerSize)
+		return query.QOMinLastHopAnswerSize, true
 	case "3":
-		*i = append(*i, query.QOMinInfoLeakage)
+		return query.QOMinInfoLeakage, true
 	case "4":
-		*i = append(*i, query.QOCachedAnswersOnly)
+		return query.QOCachedAnswersOnly, true
 	case "5":
-		*i = append(*i, query.QOExpiredAssertionsOk)
+		return query.QOExpiredAssertionsOk, true
 	case "6":
-		*i = append(*i, query.QOTokenTracing)
+		return query.QOTokenTracing, true
 	case "7":
-		*i = append(*i, query.QONoVerificationDelegation)
+		return query.QONoVerificationDelegation, true
 	case "8":
-		*i = append(*i, query.QONoProactiveCaching)
+		return query.QONoProactiveCaching, true
+	case "9":
+		return query.QOMaxFreshness, true
 	default:
-		return fmt.Errorf("There is no query option for value: %s", value)
+		return query.Option(-1), false
 	}
-	return nil
 }
