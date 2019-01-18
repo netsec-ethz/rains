@@ -1,5 +1,7 @@
 # Pending query cache
 
+THIS DESIGN DOCUMENT IS DEPRECATED
+
 ## Cache design decisions
 - This cache is used in case the server does not have a cached answer in response to a query. It
   allows to buffer the query so that the processing go routine can handle another section from the

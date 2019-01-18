@@ -1,4 +1,7 @@
 # General Design decisions
+
+PARTS OF THIS DESIGN DOCUMENT ARE DEPRECATED
+
 - Queries are answered as soon as any queried information is available, i.e. a server does not wait
   until it can completely answer a query but already responds with partial information.
 - A server should keep all public keys necessary to validate the signatures on all its cached
