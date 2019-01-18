@@ -9,14 +9,14 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
-var keyName = flag.StringP("name", "n", "", "prefix of the file name where the key is loaded from or will be stored to.")
+var keyName = flag.StringP("name", "n", "", "prefix of the file name where the key is loaded from or will be stored to. (default \"\")")
 var algo = flag.StringP("algo", "a", "ed25519", `defines the algorithm which is used in key generation. 
-The default is ed25519. Supported algorithms are: ed25519`)
-var phase = flag.Int("phase", 0, "defines the key phase for which a key is generated. The default is 0")
+Supported algorithms are: ed25519`)
+var phase = flag.Int("phase", 0, "defines the key phase for which a key is generated. (default 0)")
 var description = flag.StringP("description", "d", "", `allows to store an arbitrary 
 string value with the key. It can e.g. be used to store the information in which zone and context 
-the key pair is used. The default is the empty string.`)
-var pwd = flag.String("pwd", "", "states the password to encrypt or decrypt a private key. The default is the empty string.")
+the key pair is used. The default is the empty string. (default \"\")`)
+var pwd = flag.String("pwd", "", "states the password to encrypt or decrypt a private key. (default \"\")")
 
 func main() {
 	flag.Parse()

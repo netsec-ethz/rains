@@ -46,7 +46,7 @@ func (r *Rainspub) Publish() {
 	}
 	log.Info("Zonefile successful loaded")
 	zone, shards, pshards, err := splitZoneContent(zoneContent,
-		!r.Config.ShardingConf.IncludeShards, !r.Config.PShardingConf.IncludePshards)
+		!r.Config.ShardingConf.KeepShards, !r.Config.PShardingConf.KeepPshards)
 	if err != nil {
 		log.Error(err.Error())
 		return
@@ -61,7 +61,7 @@ func (r *Rainspub) Publish() {
 	if r.Config.PShardingConf.DoPsharding {
 		if pshards, err = DoPsharding(zone.SubjectZone, zone.Context, zone.Content, pshards,
 			r.Config.PShardingConf,
-			!r.Config.ShardingConf.IncludeShards && r.Config.ConsistencyConf.SortShards); err != nil {
+			!r.Config.ShardingConf.KeepShards && r.Config.ConsistencyConf.SortShards); err != nil {
 			log.Error(err.Error())
 			return
 		}

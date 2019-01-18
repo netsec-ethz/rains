@@ -4,16 +4,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"net"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
-
-	log "github.com/inconshreveable/log15"
-
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
@@ -24,33 +22,35 @@ var zonefilePath = flag.String("zonefilePath", "", "Path to the zonefile")
 var authServers addressesFlag
 var privateKeyPath = flag.String("privateKeyPath", "", `Path to a file storing the private keys. 
 Each line contains a key phase and a private key encoded in hexadecimal separated by a space.`)
-var includeShards boolFlag
+var keepShards boolFlag
 var doSharding boolFlag
-var nofAssertionsPerShard = flag.Int("nofAssertionsPerShard", -1, `Defines the number of assertions
-per shard if sharding is performed`)
+var nofAssertionsPerShard = flag.Int("nofAssertionsPerShard", -1, `this option only has an effect 
+when DoSharding is true. Defines the number of assertions per shard`)
 var maxShardSize = flag.Int("maxShardSize", -1, `this option only has an effect when DoSharding is 
 true. Assertions are added to a shard until its size would become larger than maxShardSize. Then the
 process is repeated with a new shard.`)
-var includePshards boolFlag
+var keepPshards boolFlag
 var doPsharding boolFlag
 var nofAssertionsPerPshard = flag.Int("nofAssertionsPerPshard", -1, `this option only has an effect
-when doPsharding is true. Defines the number of assertions with different names per pshard if
-sharding is performed. Because the number of assertions per name can vary, shards may have different
-sizes.`)
+when doPsharding is true. Defines the number of assertions with different names per pshard.`)
 var bfHash bfHashFlag
 var bfAlgo bfAlgoFlag
-var bloomFilterSize = flag.Int("bloomFilterSize", -1, `Number of bits in the bloom filter. It will
-be rounded up to the next multiple of eight.`)
+var bloomFilterSize = flag.Int("bloomFilterSize", -1, `Number of bytes in the bloom filter.`)
 var addSignatureMetaData boolFlag
 var signatureAlgorithm algorithmFlag
-var keyPhase = flag.Int("keyPhase", -1, "Defines which private key is used for signing")
-var sigValidSince = flag.Int64("sigValidSince", -1, `Defines the starting point of the 
-SigSigningInterval for the Signature validSince values. Assertions' validSince values are uniformly
-spread out over this interval. Value must be an int64 representing unix seconds since 1.1.1970`)
-var sigValidUntil = flag.Int64("sigValidUntil", -1, `Defines the starting point of the 
+var keyPhase = flag.Int("keyPhase", -1, `this option only has an effect when addSignatureMetaData 
+is true. Defines the key phase in which the sections will be signed. Together with KeyPhase this 
+uniquely defines which private key will be used.`)
+var sigValidSince = flag.Int64("sigValidSince", -1, `this option only has an effect when 
+addSignatureMetaData is true. Defines the starting point of the SigSigningInterval for the Signature 
+validSince values. Assertions' validSince values are uniformly spread out over this interval.
+Value must be an int64 representing unix seconds since 1.1.1970`)
+var sigValidUntil = flag.Int64("sigValidUntil", -1, `this option only has an effect when 
+addSignatureMetaData is true. Defines the starting point of the 
 SigSigningInterval for the Signature validUntil values. Assertions' validUntil values are uniformly
 spread out over this interval. Value must be an int64 representing unix seconds since 1.1.1970`)
-var sigSigningInterval = flag.Int64("sigSigningInterval", -1, `Defines the time interval in seconds 
+var sigSigningInterval = flag.Int64("sigSigningInterval", -1, `this option only has an effect when 
+addSignatureMetaData is true. Defines the time interval in seconds 
 over which the assertions' signature lifetimes are uniformly spread out.`)
 var doConsistencyCheck boolFlag
 var sortShards boolFlag
@@ -58,35 +58,33 @@ var sortZone boolFlag
 var sigNotExpired boolFlag
 var checkStringFields boolFlag
 var doSigning boolFlag
-var maxZoneSize = flag.Int("maxZoneSize", -1, `this option only has an effect when DoSigning is
-true. If the zone's size is larger than MaxZoneSize then only the zone's content is signed but not
+var maxZoneSize = flag.Int("maxZoneSize", -1, `this option only has an effect when doSigning is
+true. If the zone's size is larger than maxZoneSize then only the zone's content is signed but not
 the zone itself.`)
 var addSigMetaDataToAssertions boolFlag
 var addSigMetaDataToShards boolFlag
 var addSigMetaDataToPshards boolFlag
-var outputPath = flag.String("outputPath", "", `If set, a zonefile with the signed sections is 
-generated and stored at the provided path`)
+var outputPath = flag.String("outputPath", "", `If not an empty string, a zonefile with the signed 
+sections is generated and stored at the provided path`)
 var doPublish boolFlag
 
 func init() {
-	h := log.CallerFileHandler(log.StdoutHandler)
-	log.Root().SetHandler(log.LvlFilterHandler(log.LvlDebug, h))
-	flag.Var(&authServers, "authServers", `Authoritative server addresses to which the 
-	sections in the zone file are forwarded.`)
-	flag.Var(&includeShards, "includeShards", `If set to true, only assertions in the zonefile are 
-	considered and grouped into shards based on configuration`)
-	flag.Var(&doSharding, "keepExistingShards", `this option only has an effect when 
-	DoSharding is true. If the zonefile already contains shards and keepExistingShards is true, the 
-	shards are kept. Otherwise, all existing shards are removed before the new ones are created.`)
-	flag.Var(&includePshards, "doPsharding", `If set to true, all assertions in the zonefile
-	are grouped into pshards based on KeepExistingPshards, NofAssertionsPerPshard, Hashfamily,
-	NofHashFunctions, BFOpMode, and BloomFilterSize parameters.`)
-	flag.Var(&doPsharding, "keepExistingPshards", `this option only has an effect when 
-	DoPsharding is true. If the zonefile already contains pshards and keepExistingPshards is true,
-	the pshards are kept. Otherwise, all existing pshards are removed before the new ones are
-	created.`)
-	flag.Var(&bfHash, "bfhash", `Hash algorithm used to add to or check bloomfilter`)
+	flag.Var(&authServers, "authServers",
+		`Authoritative server addresses to which the sections in the zone file are forwarded.`)
+	flag.Var(&doSharding, "doSharding", `If set to true, all assertions in the zonefile are grouped 
+	into shards based on keepShards and, nofAssertionsPerShard or maxShardSize parameters. 
+	If nofAssertionsPerShard and maxShardSize are set, the latter takes precedence.`)
+	flag.Var(&keepShards, "keepShards", `this option only has an effect when DoSharding is true. 
+	If the zonefile already contains shards, they are kept. 
+	Otherwise, all existing shards are removed before the new ones are created.`)
+	flag.Var(&doPsharding, "doPsharding", `If set to true, all assertions in the zonefile 
+	are grouped into pshards based on keepPshards, nofAssertionsPerPshard, bFAlgo, BFHash, and 
+	bloomFilterSize parameters.`)
+	flag.Var(&keepPshards, "keepPshards", `this option only has an effect when DoPsharding is true. 
+	If the zonefile already contains pshards, they are kept. 
+	Otherwise, all existing pshards are removed before the new ones are created.`)
 	flag.Var(&bfAlgo, "bfAlgo", `Bloom filter's algorithm`)
+	flag.Var(&bfHash, "bfhash", `Hash algorithm used to add to or check bloomfilter`)
 	flag.Var(&addSignatureMetaData, "addSignatureMetaData", `If set to true, adds signature meta 
 	data to sections`)
 	flag.Var(&addSigMetaDataToAssertions, "addSigMetaDataToAssertions", `this option only has an
@@ -98,29 +96,32 @@ func init() {
 	flag.Var(&addSigMetaDataToPshards, "addSigMetaDataToPshards", `this option only has an effect
 	when AddSignatureMetaData is true. If set to true, signature meta data is added to all pshards
 	contained the zone.`)
-	flag.Var(&signatureAlgorithm, "signatureAlgorithm", "Algorithm to be used for signing")
+	flag.Var(&signatureAlgorithm, "signatureAlgorithm", `this option only has an effect when 
+	addSignatureMetaData is true. Defines which algorithm will be used for signing. 
+	Together with keyPhase this uniquely defines which private key will be used.`)
 	flag.Var(&doConsistencyCheck, "doConsistencyCheck", `Performs all consistency checks if set to 
-	true. The check involves: TODO CFE`)
-	flag.Var(&sortShards, "sortShards", `If set, makes sure that the assertions withing the shard 
+	true. The check involves: sorting shards, sorting zones, checking that no signature is expired, 
+	and that all string fields contain no protocol keywords.`)
+	flag.Var(&sortShards, "sortShards", `If set to true, makes sure that the assertions withing the
+	shard are sorted.`)
+	flag.Var(&sortZone, "sortZone", `If set to true, makes sure that the assertions withing the zone 
 	are sorted.`)
-	flag.Var(&sortZone, "sortZone", `If set, makes sure that the assertions withing the zone 
-	are sorted.`)
-	flag.Var(&sigNotExpired, "sigNotExpired", `If set, checks that all signatures have a validUntil
-	time in the future`)
-	flag.Var(&checkStringFields, "checkStringFields", `If set, checks that none of the assertions' 
-	text fields contain	type markers which are part of the protocol syntax (TODO CFE use more
-	precise	vocabulary)`)
-	flag.Var(&doSigning, "doSigning", "If set, signs all assertions and shards")
-	flag.Var(&doPublish, "doPublish", `If set, sends the signed sections to all authoritative rainsd
-	servers`)
+	flag.Var(&sigNotExpired, "sigNotExpired", `If set to true, checks that all signatures have a 
+	validUntil time in the future`)
+	flag.Var(&checkStringFields, "checkStringFields", `If set to true, checks that none of the 
+	assertions' text fields contain	protocol keywords.`)
+	flag.Var(&doSigning, "doSigning", "If set to true, all sections with signature meta data are signed.")
+	flag.Var(&doPublish, "doPublish", `If set to true, sends the signed sections to all 
+	authoritative rains servers. If the zone is smaller than the maximum allowed size, the zone is 
+	sent. Otherwise, the zone section's content is sent separately such that the maximum message 
+	size is not exceeded.`)
 	flag.Parse()
 }
 
 //main initializes rainspub
 func main() {
 	if flag.NArg() != 1 {
-		log.Error("Wrong number of arguments, expected 1 (configPath) after the flags",
-			"Got", flag.NArg())
+		log.Fatal("Error: config path not specified.")
 	}
 	config, err := publisher.LoadConfig(flag.Args()[0])
 	if err != nil {
@@ -136,8 +137,8 @@ func main() {
 	if *privateKeyPath != "" {
 		config.PrivateKeyPath = *privateKeyPath
 	}
-	if includeShards.set {
-		config.ShardingConf.IncludeShards = includeShards.value
+	if keepShards.set {
+		config.ShardingConf.KeepShards = keepShards.value
 	}
 	if doSharding.set {
 		config.ShardingConf.DoSharding = doSharding.value
@@ -148,8 +149,8 @@ func main() {
 	if *maxShardSize != -1 {
 		config.ShardingConf.MaxShardSize = *maxShardSize
 	}
-	if includePshards.set {
-		config.PShardingConf.IncludePshards = includePshards.value
+	if keepPshards.set {
+		config.PShardingConf.KeepPshards = keepPshards.value
 	}
 	if doPsharding.set {
 		config.PShardingConf.DoPsharding = doPsharding.value

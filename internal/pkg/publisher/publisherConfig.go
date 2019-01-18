@@ -3,9 +3,8 @@ package publisher
 import (
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
-
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
 
@@ -27,7 +26,7 @@ type Config struct {
 
 //ShardingConfig contains configuration options on how to split a zone into shards.
 type ShardingConfig struct {
-	IncludeShards         bool
+	KeepShards            bool
 	DoSharding            bool
 	NofAssertionsPerShard int
 	MaxShardSize          int
@@ -35,7 +34,7 @@ type ShardingConfig struct {
 
 //PShardingConfig contains configuration options on how to split a zone into probabilistic shards.
 type PShardingConfig struct {
-	IncludePshards         bool
+	KeepPshards            bool
 	DoPsharding            bool
 	NofAssertionsPerPshard int
 	BloomFilterConf        BloomFilterConfig
