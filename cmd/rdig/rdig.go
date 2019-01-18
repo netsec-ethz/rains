@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -10,27 +9,29 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
-
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
+	flag "github.com/spf13/pflag"
 )
 
 var anyQuery = []object.Type{object.OTName, object.OTIP4Addr,
 	object.OTIP6Addr, object.OTDelegation, object.OTServiceInfo, object.OTRedirection}
 
 //TODO add default values to description
-var queryType = flag.Int("t", -1, "specifies the type for which dig issues a query.")
-var name = flag.String("q", "", "sets the query's subjectName to this value.")
-var port = flag.Uint("p", 5022, "is the port number that dig will send its queries to.")
+var queryType = flag.IntP("type", "t", -1, "specifies the type for which dig issues a query.")
+var name = flag.StringP("name", "n", "", "sets the query's subjectName to this value.")
+var port = flag.UintP("port", "p", 55553, "is the port number that dig will send its queries to.")
+var keyPhase = flag.IntP("keyphase", "k", 0, "is the key phase for which a delegation is requested")
 var serverAddr = flag.String("s", "", `is the IP address of the name server to query.
 		This can be an IPv4 address in dotted-decimal notation or an IPv6 address in colon-delimited notation.`)
 var context = flag.String("c", ".", "context specifies the context for which dig issues a query.")
 var expires = flag.Int64("exp", time.Now().Add(10*time.Second).Unix(), "expires sets the valid until value of the query.")
 var filePath = flag.String("filePath", "", "specifies a file path where the query's response is appended to")
 var insecureTLS = flag.Bool("insecureTLS", false, "when set it does not check the validity of the server's TLS certificate.")
+var nonce = flag.String("nonce", "", "specifies a nonce to be used in the query instead of using a randomly generated one.")
 var queryOptions qoptFlag
 
 func init() {
