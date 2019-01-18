@@ -2,18 +2,13 @@ package main
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
-	"github.com/netsec-ethz/rains/internal/pkg/token"
-	"github.com/netsec-ethz/rains/internal/pkg/util"
-	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	flag "github.com/spf13/pflag"
 )
 
@@ -21,22 +16,21 @@ var anyQuery = []object.Type{object.OTName, object.OTIP4Addr,
 	object.OTIP6Addr, object.OTDelegation, object.OTServiceInfo, object.OTRedirection}
 
 //TODO add default values to description
-var queryType = flag.IntP("type", "t", -1, "specifies the type for which dig issues a query.")
-var name = flag.StringP("name", "n", "", "sets the query's subjectName to this value.")
-var port = flag.UintP("port", "p", 55553, "is the port number that dig will send its queries to.")
+var queryType = flag.IntP("type", "t", 2, "specifies the type for which rdig issues a query.")
+var port = flag.UintP("port", "p", 55553, "is the port number that rdig will send its queries to.")
 var keyPhase = flag.IntP("keyphase", "k", 0, "is the key phase for which a delegation is requested")
-var serverAddr = flag.String("s", "", `is the IP address of the name server to query.
-		This can be an IPv4 address in dotted-decimal notation or an IPv6 address in colon-delimited notation.`)
-var context = flag.String("c", ".", "context specifies the context for which dig issues a query.")
-var expires = flag.Int64("exp", time.Now().Add(10*time.Second).Unix(), "expires sets the valid until value of the query.")
-var filePath = flag.String("filePath", "", "specifies a file path where the query's response is appended to")
-var insecureTLS = flag.Bool("insecureTLS", false, "when set it does not check the validity of the server's TLS certificate.")
-var nonce = flag.String("nonce", "", "specifies a nonce to be used in the query instead of using a randomly generated one.")
-var queryOptions qoptFlag
+var context = flag.StringP("context", "c", ".", "context specifies the context for which rdig issues a query.")
+var expires = flag.Int64P("expires", "e", time.Now().Add(time.Second).Unix(), "expires sets the valid until value of the query.")
+var insecureTLS = flag.BoolP("insecureTLS", "i", false, "when set it does not check the validity of the server's TLS certificate.")
+var nonce = flag.StringP("nonce", "n", "", "specifies a nonce to be used in the query instead of using a randomly generated one.")
+var minEE = flag.BoolP("minEE", "1", false, "minimizes end-to-end latency")
 
 func init() {
 	//TODO CFE this list should be generated from internal constants
-	flag.Var(&queryOptions, "qopt", `specifies which query options are added to the query. Several query options are allowed. The sequence in which they are given determines the priority in descending order. Supported values are:
+	flag.Lookup("insecureTLS").NoOptDefVal = "true"
+	flag.Lookup("minEE").NoOptDefVal = "true"
+
+	/*flag.Var(&queryOptions, "qopt", `specifies which query options are added to the query. Several query options are allowed. The sequence in which they are given determines the priority in descending order. Supported values are:
 	1: Minimize end-to-end latency
 	2: Minimize last-hop answer size (bandwidth)
 	3: Minimize information leakage beyond first hop
@@ -46,7 +40,7 @@ func init() {
 	7: Disable verification delegation (client protocol only)
 	8: Suppress proactive caching of future assertions
 	e.g. to specify query options 4 and 2 with higher priority on option 4 write: -qopt=4 -qopt=2
-	`)
+	`)*/
 }
 
 //main parses the input flags, creates a query, send the query to the server defined in the input, waits for a response and writes the result to the command line.
@@ -56,11 +50,11 @@ func main() {
 	case 0:
 		//all information present
 	case 2:
-		serverAddr = &flag.Args()[0]
-		name = &flag.Args()[1]
+		//serverAddr = &flag.Args()[0]
+		//name = &flag.Args()[1]
 	case 3:
-		serverAddr = &flag.Args()[0]
-		name = &flag.Args()[1]
+		//serverAddr = &flag.Args()[0]
+		//name = &flag.Args()[1]
 		typeNo, err := strconv.Atoi(flag.Args()[2])
 		if err != nil {
 			fmt.Println("malformed type")
@@ -70,8 +64,10 @@ func main() {
 	default:
 		fmt.Println("input parameters malformed")
 	}
-
-	tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", *serverAddr, *port))
+	if *minEE {
+		fmt.Println("works")
+	}
+	/*tcpAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", *serverAddr, *port))
 	if err != nil {
 		fmt.Printf("serverAddr malformed, error=%v\n", err)
 		os.Exit(1)
@@ -94,7 +90,7 @@ func main() {
 	for _, section := range answerMsg.Content {
 		// TODO: validate signatures.
 		fmt.Println(zonefile.IO{}.EncodeSection(section))
-	}
+	}*/
 }
 
 //qoptFlag defines the query options flag. It allows a user to specify multiple query options and their priority (by input sequence)
