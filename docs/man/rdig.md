@@ -40,7 +40,7 @@ where:
   (default current timestamp + 1 second)
 * `-i`, `--insecureTLS`: when set it does not check the validity of the server's TLS certificate.
   (default false)
-* `-n`, `--nonce`: specifies a nonce to be used in the query instead of using a randomly generated
+* `-n`, `--token`: specifies a token to be used in the query instead of using a randomly generated
   one.
 
 ## QUERY OPTIONS

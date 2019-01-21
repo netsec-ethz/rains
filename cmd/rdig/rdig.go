@@ -28,8 +28,8 @@ var expires = flag.Int64P("expires", "e", time.Now().Add(time.Second).Unix(),
 	"expires sets the valid until timestamp of the query in unix seconds since 1970. (default current timestamp + 1 second)")
 var insecureTLS = flag.BoolP("insecureTLS", "i", false,
 	"when set it does not check the validity of the server's TLS certificate. (default false)")
-var nonce = flag.StringP("nonce", "n", "",
-	"specifies a nonce to be used in the query instead of using a randomly generated one.")
+var tok = flag.StringP("token", "n", "",
+	"specifies a token to be used in the query instead of using a randomly generated one.")
 
 //Query Options
 var minEE = flag.BoolP("minEE", "1", false, "Query option: Minimize end-to-end latency")
@@ -85,18 +85,18 @@ func main() {
 		log.Fatalf("Error: %s", err.Error())
 	}
 
-	tok := token.New()
+	t := token.New()
 	if flag.Lookup("nonce").Changed {
-		for i := 0; i < len(tok); i++ {
-			if i < len(*nonce) {
-				tok[i] = (*nonce)[i]
+		for i := 0; i < len(*tok); i++ {
+			if i < len(*tok) {
+				t[i] = (*tok)[i]
 			} else {
-				tok[i] = 0x0
+				t[i] = 0x0
 			}
 		}
 	}
 
-	msg := util.NewQueryMessage(name, *context, *expires, qTypes, parseAllQueryOptions(), tok)
+	msg := util.NewQueryMessage(name, *context, *expires, qTypes, parseAllQueryOptions(), t)
 
 	answerMsg, err := util.SendQuery(msg, tcpAddr, time.Second)
 	if err != nil {
