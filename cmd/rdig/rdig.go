@@ -16,32 +16,31 @@ import (
 )
 
 //Options
-var qType = flag.StringP("type", "t", "ip6", `specifies the type for which rdig issues a query. Allowed 
-types are: name, ip6, ip4, redir, deleg, nameset, cert, srv, regr, regt, infra, extra, next. If no 
-type argument is provided, the type is set to ip6`)
+var qType = flag.StringP("type", "t", "ip6", "specifies the type for which rdig issues a query. "+
+	"Allowed types are: name, ip6, ip4, redir, deleg, nameset, cert, srv, regr, regt, infra, extra, next.")
 var port = flag.UintP("port", "p", 55553,
-	"is the port number that rdig will send its queries to. The default port is 55553.")
+	"is the port number that rdig will send its queries to.")
 var keyPhase = flag.IntP("keyphase", "k", 0,
-	"is the key phase for which a delegation is requested. The default key phase is 0.")
+	"is the key phase for which a delegation is requested. (default 0)")
 var context = flag.StringP("context", "c", ".",
-	"specifies the context for which rdig issues a query. The default context is the global context '.'.")
+	"specifies the context for which rdig issues a query.")
 var expires = flag.Int64P("expires", "e", time.Now().Add(time.Second).Unix(),
-	"expires sets the valid until value of the query. A query expires after one second per default.")
+	"expires sets the valid until timestamp of the query in unix seconds since 1970. (default current timestamp + 1 second)")
 var insecureTLS = flag.BoolP("insecureTLS", "i", false,
-	"when set it does not check the validity of the server's TLS certificate. The certificate is checked by default.")
+	"when set it does not check the validity of the server's TLS certificate. (default false)")
 var nonce = flag.StringP("nonce", "n", "",
 	"specifies a nonce to be used in the query instead of using a randomly generated one.")
 
 //Query Options
-var minEE = flag.BoolP("minEE", "1", false, "Minimize end-to-end latency")
-var minAS = flag.BoolP("minAS", "2", false, "Minimize last-hop answer size (bandwidth)")
-var minIL = flag.BoolP("minIL", "3", false, "Minimize information leakage beyond first hop")
-var noIL = flag.BoolP("noIL", "4", false, "No information leakage beyond first hop: cached answers only")
-var exp = flag.BoolP("exp", "5", false, "Expired assertions are acceptable")
-var tracing = flag.BoolP("tracing", "6", false, "Enable query token tracing")
-var noVD = flag.BoolP("noVD", "7", false, "Disable verification delegation (client protocol only)")
-var noCaching = flag.BoolP("noCaching", "8", false, "Suppress proactive caching of future assertions")
-var maxAF = flag.BoolP("maxAF", "9", false, "Maximize answer freshness")
+var minEE = flag.BoolP("minEE", "1", false, "Query option: Minimize end-to-end latency")
+var minAS = flag.BoolP("minAS", "2", false, "Query option: Minimize last-hop answer size (bandwidth)")
+var minIL = flag.BoolP("minIL", "3", false, "Query option: Minimize information leakage beyond first hop")
+var noIL = flag.BoolP("noIL", "4", false, "Query option: No information leakage beyond first hop: cached answers only")
+var exp = flag.BoolP("exp", "5", false, "Query option: Expired assertions are acceptable")
+var tracing = flag.BoolP("tracing", "6", false, "Query option: Enable query token tracing")
+var noVD = flag.BoolP("noVD", "7", false, "Query option: Disable verification delegation (client protocol only)")
+var noCaching = flag.BoolP("noCaching", "8", false, "Query option: Suppress proactive caching of future assertions")
+var maxAF = flag.BoolP("maxAF", "9", false, "Query option: Maximize answer freshness")
 
 func init() {
 	flag.CommandLine.SortFlags = false
@@ -63,29 +62,15 @@ func main() {
 	switch flag.NArg() {
 	case 0:
 		log.Fatal("Error: no domain name specified.")
-	case 1:
-		name = flag.Arg(0)
-		if strings.HasPrefix(name, "@") {
+	case 1, 2, 3:
+		if !handleArgs(&server, &name, qType, flag.Args()...) {
 			log.Fatal("Error: no domain name specified.")
 		}
-	case 2:
-		server = flag.Arg(0)
-		if !strings.HasPrefix(server, "@") {
-			log.Fatal("Error: server name or addr does not start with an @")
-		}
-		name = flag.Arg(1)
-	case 3:
-		server = flag.Arg(0)
-		if !strings.HasPrefix(server, "@") {
-			log.Fatal("Error: server name or addr does not start with an @")
-		}
-		name = flag.Arg(1)
-		t := flag.Arg(2)
-		qType = &t
 	default:
-		fmt.Println("input parameters malformed")
+		fmt.Println("Error: too many arguments")
 	}
-	if _, err := net.ResolveIPAddr("", server[1:]); err != nil {
+	log.Fatalf("%s %s %s", server, name, *qType)
+	if _, err := net.ResolveIPAddr("", server); err != nil {
 		//FIXME
 		log.Fatal("Error: default server not yet implemented. Please specify a server addr")
 	}
@@ -129,6 +114,25 @@ func parseAllQueryOptions() []query.Option {
 	}
 	flag.Visit(addOption)
 	return qOptions
+}
+
+//handleArgs stores the cmd line argument with prefix '@' in srvAddr and additional arguments in
+//name and qType. It returns false when no name was specified
+func handleArgs(srvAddr, name, qType *string, args ...string) bool {
+	nameSet := false
+	for _, a := range args {
+		if strings.HasPrefix(a, "@") {
+			*srvAddr = a[1:]
+		} else {
+			if nameSet {
+				*qType = a
+			} else {
+				*name = a
+				nameSet = true
+			}
+		}
+	}
+	return nameSet
 }
 
 func parseQueryOption(name string) (query.Option, bool) {

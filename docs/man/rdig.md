@@ -12,16 +12,16 @@ lookups of the provided domain names and prints the results on the command line 
 
 ## Simple Usage
 
-A typical usage of dig looks like:
+A typical usage of rdig looks like:
 
-dig @server name type
+rdig @server name type
 
 where:
 * server: is the IP address or a name of the RAINS server to which the query will be sent. The
     address can be an IPv4 address in dotted-decimal notation or an IPv6 address in colon-delimited
     notation. If the provided argument is a host name, rdig first resolves the IP address of that
     host before sending the actual query to this RAINS server. If no server argument is provided,
-    dig consults /etc/resolv.conf and queries the name servers listed there.
+    rdig consults /etc/resolv.conf and queries the name servers listed there.
 
 * name: "is the fully qualified domain name of the Assertion that will be looked up"
 
@@ -32,17 +32,14 @@ where:
 ## OPTIONS
 
 * `-t`, `--type`: specifies the type for which rdig issues a query. Allowed types are: name, ip6,
-  ip4, redir, deleg, nameset, cert, srv, regr, regt, infra, extra, next. If no type argument is
-  provided, the type is set to ip6.
-* `-p`, `--port`: is the port number that rdig will send its queries to. The default port is 55553.
-* `-k`, `--keyphase`: is the key phase for which a delegation is requested. The default key phase is
-  0.
-* `-c`, `--context`: specifies the context for which rdig issues a query. The default context is the
-  global context '.'.
-* `-e`, `--expires`: expires sets the valid until value of the query. A query expires after one
-  second per default.
+  ip4, redir, deleg, nameset, cert, srv, regr, regt, infra, extra, next. (default "ip6")
+* `-p`, `--port`: is the port number that rdig will send its queries to. (default 55553)
+* `-k`, `--keyphase`: is the key phase for which a delegation is requested. (default 0)
+* `-c`, `--context`: specifies the context for which rdig issues a query. (default ".")
+* `-e`, `--expires`: expires sets the valid until timestamp of the query in unix seconds since 1970.
+  (default current timestamp + 1 second)
 * `-i`, `--insecureTLS`: when set it does not check the validity of the server's TLS certificate.
-  The certificate is checked by default.
+  (default false)
 * `-n`, `--nonce`: specifies a nonce to be used in the query instead of using a randomly generated
   one.
 
@@ -53,15 +50,15 @@ should be handled. RAINS servers are not bound to these preferences. Query optio
 priority order, i.e. to specify query options minEE and minIL with higher priority on minEE, write:
 -minEE -minIL. Each query option is identified by a keyword.
 
-* `-1`, `--minEE`: Minimize end-to-end latency
-* `-2`, `--minAS`: Minimize last-hop answer size (bandwidth)
-* `-3`, `--minIL`: Minimize information leakage beyond first hop
-* `-4`, `--noIL`: No information leakage beyond first hop: cached answers only
-* `-5`, `--exp`: Expired assertions are acceptable
-* `-6`, `--tracing`: Enable query token tracing
-* `-7`, `--noVD`: Disable verification delegation (client protocol only)
-* `-8`, `--noCaching`: Suppress proactive caching of future assertions
-* `-9`, `--maxAF`: Maximize answer freshness
+* `-1`, `--minEE`: Query option: Minimize end-to-end latency
+* `-2`, `--minAS`: Query option: Minimize last-hop answer size (bandwidth)
+* `-3`, `--minIL`: Query option: Minimize information leakage beyond first hop
+* `-4`, `--noIL`: Query option: No information leakage beyond first hop: cached answers only
+* `-5`, `--exp`: Query option: Expired assertions are acceptable
+* `-6`, `--tracing`: Query option: Enable query token tracing
+* `-7`, `--noVD`: Query option: Disable verification delegation (client protocol only)
+* `-8`, `--noCaching`: Query option: Suppress proactive caching of future assertions
+* `-9`, `--maxAF`: Query option: Maximize answer freshness
 
 ## EXAMPLES
 
