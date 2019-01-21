@@ -97,7 +97,6 @@ func loadConfig(configPath string) (rainsdConfig, error) {
 	config.DelegationQueryValidity *= time.Second
 	config.ReapVerifyTimeout *= time.Second
 	config.QueryValidity *= time.Second
-	config.AddressQueryValidity *= time.Second
 	config.ReapEngineTimeout *= time.Second
 	config.MaxCacheValidity.AddressAssertionValidity *= time.Hour
 	config.MaxCacheValidity.AssertionValidity *= time.Hour

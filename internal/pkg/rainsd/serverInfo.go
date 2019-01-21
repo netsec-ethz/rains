@@ -26,7 +26,6 @@ type rainsdConfig struct {
 
 	//switchboard
 	ServerAddress      connection.Info
-	PublisherAddress   connection.Info
 	MaxConnections     int
 	KeepAlivePeriod    time.Duration //in seconds
 	TCPTimeout         time.Duration //in seconds
@@ -34,7 +33,6 @@ type rainsdConfig struct {
 	TLSPrivateKeyFile  string
 
 	//inbox
-	MaxMsgByteLength        uint
 	PrioBufferSize          uint
 	NormalBufferSize        uint
 	NotificationBufferSize  uint
@@ -42,28 +40,21 @@ type rainsdConfig struct {
 	NormalWorkerCount       uint
 	NotificationWorkerCount uint
 	CapabilitiesCacheSize   int
-	PeerToCapCacheSize      uint
-	ActiveTokenCacheSize    uint
 	Capabilities            []message.Capability
 
 	//verify
-	ZoneKeyCacheSize           int
-	ZoneKeyCacheWarnSize       int
-	MaxPublicKeysPerZone       int
-	PendingKeyCacheSize        int
-	InfrastructureKeyCacheSize uint
-	ExternalKeyCacheSize       uint
-	DelegationQueryValidity    time.Duration //in seconds
-	ReapVerifyTimeout          time.Duration //in seconds
+	ZoneKeyCacheSize        int
+	ZoneKeyCacheWarnSize    int
+	MaxPublicKeysPerZone    int
+	PendingKeyCacheSize     int
+	DelegationQueryValidity time.Duration //in seconds
+	ReapVerifyTimeout       time.Duration //in seconds
 
 	//engine
 	AssertionCacheSize         int
 	NegativeAssertionCacheSize int
 	PendingQueryCacheSize      int
-	RedirectionCacheSize       int
-	RedirectionCacheWarnSize   int
 	QueryValidity              time.Duration //in seconds
-	AddressQueryValidity       time.Duration //in seconds
 	ContextAuthority           []string
 	ZoneAuthority              []string
 	MaxCacheValidity           util.MaxCacheValidity //in hours
