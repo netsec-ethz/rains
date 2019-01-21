@@ -16,8 +16,6 @@ import (
 )
 
 //Options
-var qType = flag.StringP("type", "t", "ip6", "specifies the type for which rdig issues a query. "+
-	"Allowed types are: name, ip6, ip4, redir, deleg, nameset, cert, srv, regr, regt, infra, extra, next.")
 var port = flag.UintP("port", "p", 55553,
 	"is the port number that rdig will send its queries to.")
 var keyPhase = flag.IntP("keyphase", "k", 0,
@@ -59,32 +57,27 @@ func init() {
 func main() {
 	flag.Parse()
 	var name, server string
+	var types []object.Type
 	switch flag.NArg() {
 	case 0:
 		log.Fatal("Error: no domain name specified.")
-	case 1, 2, 3:
-		if !handleArgs(&server, &name, qType, flag.Args()...) {
+	case 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15:
+		ok := false
+		if types, ok = handleArgs(&server, &name, flag.Args()...); !ok {
 			log.Fatal("Error: no domain name specified.")
 		}
 	default:
 		fmt.Println("Error: too many arguments")
 	}
-	log.Fatalf("%s %s %s", server, name, *qType)
 	if _, err := net.ResolveIPAddr("", server); err != nil {
 		//FIXME
 		log.Fatal("Error: default server not yet implemented. Please specify a server addr")
 	}
 
-	tcpAddr, err := net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", server[1:], *port))
+	tcpAddr, err := net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", server, *port))
 	if err != nil {
 		log.Fatalf("Error: serverAddr or port malformed: %v", err)
 	}
-
-	qTypes, err := object.ParseTypes(*qType)
-	if err != nil {
-		log.Fatalf("Error: %s", err.Error())
-	}
-
 	t := token.New()
 	if flag.Lookup("nonce").Changed {
 		for i := 0; i < len(*tok); i++ {
@@ -96,7 +89,7 @@ func main() {
 		}
 	}
 
-	msg := util.NewQueryMessage(name, *context, *expires, qTypes, parseAllQueryOptions(), t)
+	msg := util.NewQueryMessage(name, *context, *expires, types, parseAllQueryOptions(), t)
 
 	answerMsg, err := util.SendQuery(msg, tcpAddr, time.Second)
 	if err != nil {
@@ -118,21 +111,31 @@ func parseAllQueryOptions() []query.Option {
 
 //handleArgs stores the cmd line argument with prefix '@' in srvAddr and additional arguments in
 //name and qType. It returns false when no name was specified
-func handleArgs(srvAddr, name, qType *string, args ...string) bool {
+func handleArgs(srvAddr, name *string, args ...string) (types []object.Type, noName bool) {
 	nameSet := false
+	typeMap := make(map[object.Type]bool)
 	for _, a := range args {
 		if strings.HasPrefix(a, "@") {
 			*srvAddr = a[1:]
 		} else {
 			if nameSet {
-				*qType = a
+				ts, err := object.ParseTypes(a)
+				if err != nil {
+					log.Fatalf("Error: malformed type: %v", err)
+				}
+				for _, t := range ts {
+					typeMap[t] = true
+				}
 			} else {
 				*name = a
 				nameSet = true
 			}
 		}
 	}
-	return nameSet
+	for t := range typeMap {
+		types = append(types, t)
+	}
+	return types, nameSet
 }
 
 func parseQueryOption(name string) (query.Option, bool) {

@@ -14,7 +14,7 @@ lookups of the provided domain names and prints the results on the command line 
 
 A typical usage of rdig looks like:
 
-rdig @server name type
+rdig @server name type...
 
 where:
 * server: is the IP address or a name of the RAINS server to which the query will be sent. The
@@ -25,7 +25,7 @@ where:
 
 * name: "is the fully qualified domain name of the Assertion that will be looked up"
 
-* type: specifies the type for which rdig issues a query. Allowed types are: name, ip6, ip4, redir,
+* type: specifies the type(s) for which rdig issues a query. Allowed types are: name, ip6, ip4, redir,
   deleg, nameset, cert, srv, regr, regt, infra, extra, next. If no type argument is provided, the
   type is set to ip6.
 
