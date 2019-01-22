@@ -72,7 +72,7 @@ type ConsistencyConfig struct {
 }
 
 //DefaultConfig return the default configuration for the zone publisher.
-func DefaultConfig() (Config, error) {
+func DefaultConfig() Config {
 	return Config{
 		ZonefilePath:   "data/zonefiles/zf.txt",
 		AuthServers:    []connection.Info{},
@@ -115,5 +115,5 @@ func DefaultConfig() (Config, error) {
 		MaxZoneSize: 60000,
 		OutputPath:  "",
 		DoPublish:   true,
-	}, nil
+	}
 }

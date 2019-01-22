@@ -134,7 +134,7 @@ func (b BloomFilter) CompareTo(bloomFilter BloomFilter) int {
 type BloomFilterAlgo int
 
 const (
-	BloomKM12 BloomFilterAlgo = iota
+	BloomKM12 BloomFilterAlgo = iota + 1
 	BloomKM16
 	BloomKM20
 	BloomKM24

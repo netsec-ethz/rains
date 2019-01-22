@@ -18,7 +18,7 @@ location] if not told otherwise by a command line flag.
 The following options can be specified in the configuration file for the rzpub
 program. Keys are to be specified in a top-level JSON map.
 
-* path : Path to the config file
+* path : Path to the config file. If no path is provided a default config is used.
 * `--zonefilePath`: Path to the zonefile. The zonefile must contain exactly one zoneBody as the top
   most element according to the zonefile format.
 * `--authServers`: Authoritative server addresses to which the sections in the zone file are forwarded
