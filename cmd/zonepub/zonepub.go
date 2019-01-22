@@ -108,21 +108,26 @@ func init() {
 //main initializes rainspub
 func main() {
 	flag.Parse()
-	if flag.NArg() != 1 {
-		log.Fatal("Error: config path not specified.")
+	config := publisher.DefaultConfig()
+	switch flag.NArg() {
+	case 0: //default config
+	case 1:
+		var err error
+		if config, err = publisher.LoadConfig(flag.Arg(0)); err != nil {
+			log.Fatalf("Error: was not able to load config file: %v", err)
+		}
+	default:
+		log.Fatalf("Error: too many arguments specified. At most one is allowed. Got %d", flag.NArg())
 	}
-	config, err := publisher.LoadConfig(flag.Args()[0])
-	if err != nil {
-		return
-	}
-	//Overwrite config with provided cmd line flags
-	if *zonefilePath != "" {
+
+	//Override config with provided cmd line flags
+	if flag.Lookup("zonefilePath").Changed {
 		config.ZonefilePath = *zonefilePath
 	}
 	if flag.Lookup("authServers").Changed {
 		config.AuthServers = authServers.value
 	}
-	if *privateKeyPath != "" {
+	if flag.Lookup("privateKeyPath").Changed {
 		config.PrivateKeyPath = *privateKeyPath
 	}
 	if flag.Lookup("keepShards").Changed {
@@ -131,10 +136,10 @@ func main() {
 	if flag.Lookup("doSharding").Changed {
 		config.ShardingConf.DoSharding = *doSharding
 	}
-	if *nofAssertionsPerShard != -1 {
+	if flag.Lookup("nofAssertionsPerShard").Changed {
 		config.ShardingConf.NofAssertionsPerShard = *nofAssertionsPerShard
 	}
-	if *maxShardSize != -1 {
+	if flag.Lookup("maxShardSize").Changed {
 		config.ShardingConf.MaxShardSize = *maxShardSize
 	}
 	if flag.Lookup("keepPshards").Changed {
@@ -143,7 +148,7 @@ func main() {
 	if flag.Lookup("doPsharding").Changed {
 		config.PShardingConf.DoPsharding = *doPsharding
 	}
-	if *nofAssertionsPerPshard != -1 {
+	if flag.Lookup("nofAssertionsPerPshard").Changed {
 		config.PShardingConf.NofAssertionsPerPshard = *nofAssertionsPerPshard
 	}
 	if flag.Lookup("bfAlgo").Changed {
@@ -152,7 +157,7 @@ func main() {
 	if flag.Lookup("bfHash").Changed {
 		config.PShardingConf.BloomFilterConf.BFHash = bfHash.value
 	}
-	if *bloomFilterSize != -1 {
+	if flag.Lookup("bloomFilterSize").Changed {
 		config.PShardingConf.BloomFilterConf.BloomFilterSize = *bloomFilterSize
 	}
 	if flag.Lookup("addSignatureMetaData").Changed {
@@ -170,16 +175,16 @@ func main() {
 	if flag.Lookup("signatureAlgorithm").Changed {
 		config.MetaDataConf.SignatureAlgorithm = signatureAlgorithm.value
 	}
-	if *keyPhase != -1 {
+	if flag.Lookup("keyPhase").Changed {
 		config.MetaDataConf.KeyPhase = *keyPhase
 	}
-	if *sigValidSince != -1 {
+	if flag.Lookup("sigValidSince").Changed {
 		config.MetaDataConf.SigValidSince = *sigValidSince
 	}
-	if *sigValidUntil != -1 {
+	if flag.Lookup("sigValidUntil").Changed {
 		config.MetaDataConf.SigValidUntil = *sigValidUntil
 	}
-	if *sigSigningInterval != -1 {
+	if flag.Lookup("sigSigningInterval").Changed {
 		config.MetaDataConf.SigSigningInterval = time.Duration(*sigSigningInterval) * time.Second
 	}
 	if flag.Lookup("doConsistencyCheck").Changed {
@@ -200,10 +205,10 @@ func main() {
 	if flag.Lookup("doSigning").Changed {
 		config.DoSigning = *doSigning
 	}
-	if *maxZoneSize != -1 {
+	if flag.Lookup("maxZoneSize").Changed {
 		config.MaxZoneSize = *maxZoneSize
 	}
-	if *outputPath != "" {
+	if flag.Lookup("outputPath").Changed {
 		config.OutputPath = *outputPath
 	}
 	if flag.Lookup("doPublish").Changed {
