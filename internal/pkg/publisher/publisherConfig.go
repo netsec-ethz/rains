@@ -3,8 +3,9 @@ package publisher
 import (
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
+
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
 
@@ -68,4 +69,51 @@ type ConsistencyConfig struct {
 	SortZone           bool
 	SigNotExpired      bool
 	CheckStringFields  bool
+}
+
+//DefaultConfig return the default configuration for the zone publisher.
+func DefaultConfig() (Config, error) {
+	return Config{
+		ZonefilePath:   "data/zonefiles/zf.txt",
+		AuthServers:    []connection.Info{},
+		PrivateKeyPath: "data/keys/key_sec.pem",
+		ShardingConf: ShardingConfig{
+			DoSharding:            true,
+			KeepShards:            false,
+			MaxShardSize:          1000,
+			NofAssertionsPerShard: -1,
+		},
+		PShardingConf: PShardingConfig{
+			DoPsharding:            true,
+			KeepPshards:            false,
+			NofAssertionsPerPshard: 50,
+			BloomFilterConf: BloomFilterConfig{
+				BFAlgo:          section.BloomKM12,
+				BFHash:          algorithmTypes.Shake256,
+				BloomFilterSize: 200,
+			},
+		},
+		MetaDataConf: MetaDataConfig{
+			AddSignatureMetaData:       true,
+			AddSigMetaDataToAssertions: true,
+			AddSigMetaDataToShards:     true,
+			AddSigMetaDataToPshards:    true,
+			SignatureAlgorithm:         algorithmTypes.Ed25519,
+			KeyPhase:                   0,
+			SigValidSince:              time.Now().Unix(),
+			SigValidUntil:              time.Now().Add(24 * time.Hour).Unix(),
+			SigSigningInterval:         time.Minute,
+		},
+		ConsistencyConf: ConsistencyConfig{
+			DoConsistencyCheck: true,
+			SortShards:         false,
+			SortZone:           false,
+			SigNotExpired:      false,
+			CheckStringFields:  false,
+		},
+		DoSigning:   true,
+		MaxZoneSize: 60000,
+		OutputPath:  "",
+		DoPublish:   true,
+	}, nil
 }

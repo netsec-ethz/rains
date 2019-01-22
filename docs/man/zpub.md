@@ -34,7 +34,7 @@ program. Keys are to be specified in a top-level JSON map.
   number of assertions with different names per shard if sharding is performed. Because the number
   of assertions per name can vary, shards may have different sizes.
 * `--maxShardSize`: this option only has an effect when DoSharding is true. Assertions are added to a
-  shard until its size would become larger than maxShardSize. Then the process is repeated with a
+  shard until its size would become larger than maxShardSize bytes. Then the process is repeated with a
   new shard.
 * `--doPsharding` : If set to true, all assertions in the zonefile are grouped into pshards based on
   KeepExistingPshards, NofAssertionsPerPshard, Hashfamily, NofHashFunctions, BFOpMode, and
