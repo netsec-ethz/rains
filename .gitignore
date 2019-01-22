@@ -37,7 +37,7 @@ _testmain.go
 #binary of executables
 /cmd/keyManager/keyManager
 /cmd/rainsd/rainsd
-/cmd/rainsdig/rainsdig
+/cmd/rdig/rdig
 /cmd/resolve/resolve
 /cmd/test/*
 /cmd/zoneManager/zoneManager

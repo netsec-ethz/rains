@@ -443,6 +443,49 @@ const (
 	OTScionAddr6  Type = 15
 )
 
+//ParseTypes returns the object type(s) specified in qType
+func ParseTypes(qType string) ([]Type, error) {
+	switch qType {
+	case "name":
+		return []Type{OTName}, nil
+	case "ip6":
+		return []Type{OTIP6Addr}, nil
+	case "ip4":
+		return []Type{OTIP4Addr}, nil
+	case "redir":
+		return []Type{OTRedirection}, nil
+	case "deleg":
+		return []Type{OTDelegation}, nil
+	case "nameset":
+		return []Type{OTNameset}, nil
+	case "cert":
+		return []Type{OTCertInfo}, nil
+	case "srv":
+		return []Type{OTServiceInfo}, nil
+	case "regr":
+		return []Type{OTRegistrar}, nil
+	case "regt":
+		return []Type{OTRegistrant}, nil
+	case "infra":
+		return []Type{OTInfraKey}, nil
+	case "extra":
+		return []Type{OTExtraKey}, nil
+	case "next":
+		return []Type{OTNextKey}, nil
+	case "any":
+		return AllTypes(), nil
+	}
+	return []Type{Type(-1)}, fmt.Errorf("%s is not a query option", qType)
+}
+
+//AllTypes returns all object types.
+func AllTypes() []Type {
+	return []Type{OTName, OTIP6Addr, OTIP4Addr, OTRedirection,
+		OTDelegation, OTNameset, OTCertInfo, OTServiceInfo,
+		OTRegistrar, OTRegistrant, OTInfraKey, OTExtraKey,
+		OTNextKey}
+}
+
 //Name contains a name associated with a name as an alias. Types specifies for which object connection the alias is valid
 type Name struct {
 	Name string

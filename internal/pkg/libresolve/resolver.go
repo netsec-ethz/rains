@@ -22,17 +22,18 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
-var (
-	defaultTimeout      = 10 * time.Second
-	defaultFailFast     = true
-	defaultInsecureTLS  = false
-	defaultQueryTimeout = time.Duration(1000) //in milliseconds
-)
-
 type ResolutionMode int
 
 const (
-	Recursive ResolutionMode = iota
+	defaultTimeout                     = 10 * time.Second
+	defaultFailFast                    = true
+	defaultInsecureTLS                 = false
+	defaultQueryTimeout                = time.Duration(1000) //in milliseconds
+	rainsPrefix                        = "_rains"
+	rainsPort                          = uint16(55553)
+	tcpPrefix                          = "_tcp"
+	udpScionPrefix                     = "_udpscion"
+	Recursive           ResolutionMode = iota
 	Forward
 )
 
@@ -150,21 +151,21 @@ func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
 			msg := message.Message{Token: token.New(), Content: []section.Section{q}}
 			answer, err := util.SendQuery(msg, addr, r.DialTimeout*time.Millisecond)
 			if err != nil || len(answer.Content) == 0 {
-				continue
+				break
 			}
 			log.Info("recursive resolver rcv answer", "answer", answer, "query", q)
-			isFinal, isRedir, redirMap, srvMap, ipMap := r.handleAnswer(answer, q)
+			isFinal, isRedir, redirMap, srvMap, ipMap, nameMap := r.handleAnswer(answer, q)
 			log.Info("handling answer in recursive lookup", "serverAddr", addr, "isFinal",
-				isFinal, "isRedir", isRedir, "redirMap", redirMap, "srvMap", srvMap, "ipMap", ipMap)
+				isFinal, "isRedir", isRedir, "redirMap", redirMap, "srvMap", srvMap, "ipMap", ipMap,
+				"nameMap", nameMap)
 			if isFinal {
 				return &answer, nil
 			} else if isRedir {
-				redirTarget, err := followRedirect(redirMap, answer, q.Name)
-				if err != nil {
-					return nil, err
-				}
-				if addr, err = updateConnInfo(answer, redirTarget, srvMap, ipMap); err != nil {
-					return nil, err
+				for _, name := range redirMap {
+					addr, err = handleRedirect(name, srvMap, ipMap, nameMap, allAllowedTypes())
+					if err == nil {
+						break
+					}
 				}
 			} else {
 				log.Warn("received unexpected answer to query. Recursive lookup cannot be continued",
@@ -177,70 +178,17 @@ func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
 		q.String())
 }
 
-//followRedirect returns the last name of the redirect chain which should have a corresponding
-//service information object
-func followRedirect(redirMap map[string]string, msg message.Message, name string) (string, error) {
-	// Check if there is a redirection for a suffix we are interested in.
-	redirTarget := ""
-	for key, value := range redirMap {
-		if strings.HasSuffix(name, key) {
-			redirTarget = value
-			break
-		}
-	}
-	if redirTarget == "" {
-		return "", fmt.Errorf("failed to find result or redirection, response was: %v", msg)
-	}
-
-	// Follow redir until we encounter a srv.
-	seen := make(map[string]bool)
-	for {
-		if _, ok := seen[redirTarget]; ok {
-			return "", fmt.Errorf("redirect loop detected, target %q, response: %v", redirTarget, msg)
-		}
-		seen[redirTarget] = true
-		if next, ok := redirMap[redirTarget]; ok {
-			redirTarget = next
-		} else {
-			break
-		}
-	}
-	return redirTarget, nil
-}
-
-//updateConnInfo returns the network address of the next hop in the recursive lookup. If not
-//sufficient information is available, an error is returned
-func updateConnInfo(msg message.Message, redirTarget string, srvMap map[string]object.ServiceInfo,
-	ipMap map[string]string) (addr net.Addr, err error) {
-	if srvInfo, ok := srvMap[redirTarget]; ok {
-		if ipAddr, ok := ipMap[srvInfo.Name]; ok {
-			addr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%d", ipAddr, srvInfo.Port))
-			if err != nil {
-				return nil, fmt.Errorf("received IP address or port is malformed: %v", msg)
-			}
-		} else {
-			return nil, fmt.Errorf(
-				"serviceInfo target could not be found in response, target: %q, response: %v",
-				srvInfo.Name, msg)
-		}
-	} else {
-		return nil, fmt.Errorf(
-			"received incomplete response, missing serviceInfo for target FQDN %q, response: %v",
-			redirTarget, msg)
-	}
-	return
-}
-
 //handleAnswer stores delegation assertions in the delegationCache. It informs the caller if msg
 //answers q. It also returns if the msg contains a redirect assertion which indicates that
 //another lookup must be performed. Information that is relevant for the next lookup are returned in
 //maps.
 func (r *Resolver) handleAnswer(msg message.Message, q *query.Name) (isFinal bool, isRedir bool,
-	redirMap map[string]string, srvMap map[string]object.ServiceInfo, ipMap map[string]string) {
+	redirMap map[string]string, srvMap map[string]object.ServiceInfo, ipMap map[string]string, nameMap map[string]object.Name) {
 	types := make(map[object.Type]bool)
 	redirMap = make(map[string]string)
 	srvMap = make(map[string]object.ServiceInfo)
 	ipMap = make(map[string]string)
+	nameMap = make(map[string]object.Name)
 	for _, t := range q.Types {
 		types[t] = true
 	}
@@ -248,19 +196,19 @@ func (r *Resolver) handleAnswer(msg message.Message, q *query.Name) (isFinal boo
 		//FIXME check signature of sections and request delegations if necessary
 		switch s := sec.(type) {
 		case *section.Assertion:
-			r.handleAssertion(s, redirMap, srvMap, ipMap, types, q.Name, &isFinal, &isRedir)
+			r.handleAssertion(s, redirMap, srvMap, ipMap, nameMap, types, q.Name, &isFinal, &isRedir)
 		case *section.Shard:
 			handleShard(s, types, q.Name, &isFinal)
 		case *section.Zone:
-			r.handleZone(s, redirMap, srvMap, ipMap, types, q.Name, &isFinal, &isRedir)
+			r.handleZone(s, redirMap, srvMap, ipMap, nameMap, types, q.Name, &isFinal, &isRedir)
 		}
 	}
 	return
 }
 
 func (r *Resolver) handleAssertion(a *section.Assertion, redirMap map[string]string,
-	srvMap map[string]object.ServiceInfo, ipMap map[string]string, types map[object.Type]bool,
-	name string, isFinal, isRedir *bool) {
+	srvMap map[string]object.ServiceInfo, ipMap map[string]string, nameMap map[string]object.Name,
+	types map[object.Type]bool, name string, isFinal, isRedir *bool) {
 	for _, o := range a.Content {
 		switch o.Type {
 		case object.OTRedirection:
@@ -276,7 +224,9 @@ func (r *Resolver) handleAssertion(a *section.Assertion, redirMap map[string]str
 			ipMap[a.FQDN()] = o.Value.(string)
 		case object.OTIP4Addr:
 			ipMap[a.FQDN()] = o.Value.(string)
-		}
+		case object.OTName:
+			nameMap[a.FQDN()] = o.Value.(object.Name)
+		} //TODO add scion addresses
 		if _, ok := types[o.Type]; ok && a.FQDN() == name {
 			*isFinal = true
 		}
@@ -294,14 +244,63 @@ func handleShard(s *section.Shard, types map[object.Type]bool, name string, isFi
 
 //handleZone checks if z or the contained assertions are an answer to the query.
 func (r *Resolver) handleZone(z *section.Zone, redirMap map[string]string,
-	srvMap map[string]object.ServiceInfo, ipMap map[string]string, types map[object.Type]bool,
-	name string, isFinal, isRedir *bool) {
+	srvMap map[string]object.ServiceInfo, ipMap map[string]string, nameMap map[string]object.Name,
+	types map[object.Type]bool, name string, isFinal, isRedir *bool) {
 	for _, sec := range z.Content {
-		r.handleAssertion(sec, redirMap, srvMap, ipMap, types, name, isFinal, isRedir)
+		r.handleAssertion(sec, redirMap, srvMap, ipMap, nameMap, types, name, isFinal, isRedir)
 	}
 	if strings.HasSuffix(name, z.SubjectZone) {
 		*isFinal = true
 	}
+}
+
+func allAllowedTypes() map[object.Type]bool {
+	return map[object.Type]bool{
+		object.OTIP6Addr:     true,
+		object.OTIP4Addr:     true,
+		object.OTServiceInfo: true,
+		object.OTName:        true,
+	}
+}
+
+func allowedAddrTypes() map[object.Type]bool {
+	return map[object.Type]bool{
+		object.OTIP6Addr: true,
+		object.OTIP4Addr: true,
+	}
+}
+
+func handleRedirect(name string, srvMap map[string]object.ServiceInfo,
+	ipMap map[string]string, nameMap map[string]object.Name, allowedTypes map[object.Type]bool) (
+	net.Addr, error) {
+	if allowedTypes[object.OTIP6Addr] || allowedTypes[object.OTIP4Addr] {
+		if ipAddr, ok := ipMap[name]; ok {
+			return net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", ipAddr, rainsPort))
+		}
+	}
+	//TODO add scion addr types
+	if allowedTypes[object.OTServiceInfo] && strings.HasPrefix(name, rainsPrefix) {
+		if srvVal, ok := srvMap[name]; ok {
+			if addr, err := handleRedirect(srvVal.Name, srvMap, ipMap, nameMap,
+				allowedAddrTypes()); err == nil {
+				ip := strings.Split(addr.String(), ":")[0]
+				return net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", ip, srvVal.Port))
+			}
+		}
+	}
+	if allowedTypes[object.OTName] {
+		if nameVal, ok := nameMap[name]; ok {
+			allowTypes := make(map[object.Type]bool)
+			for _, t := range nameVal.Types {
+				allowTypes[t] = true
+			}
+			if as, err := handleRedirect(nameVal.Name, srvMap, ipMap, nameMap,
+				allowTypes); err == nil {
+				return as, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("redir name did not end in a host addr. redirName=%s", name)
 }
 
 //answerDelegQueries answers delegation queries on conn from its cache. The cache is populated
