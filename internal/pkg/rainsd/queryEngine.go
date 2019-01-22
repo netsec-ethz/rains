@@ -115,7 +115,7 @@ func answerQueriesAuthoritative(qs []*query.Name, sender net.Addr, token token.T
 		for name := range names {
 			glueRecords, err := glueRecordLookup(name.Zone, name.Context, s.caches.AssertionsCache)
 			if err != nil {
-				log.Warn("Was not able to find all glue records for %s: %s", name, err.Error())
+				log.Warn("Was not able to find all glue records.", "name", name, "error", err.Error())
 				return
 			}
 			sections = append(sections, glueRecords...)
@@ -201,7 +201,7 @@ func glueRecordNames(qs []*query.Name, zoneAuths []ZoneContext) map[ZoneContext]
 				name := strings.TrimSuffix(q.Name, auth.Zone)
 				names := strings.Split(name, ".")
 				if names[len(names)-1] == "" {
-					name = fmt.Sprintf("%s.%s", names[len(names)-2], auth)
+					name = fmt.Sprintf("%s.%s", names[len(names)-2], auth.Zone)
 				} else { //root zone
 					name = names[len(names)-1] + auth.Zone
 				}

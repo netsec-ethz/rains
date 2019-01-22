@@ -67,8 +67,7 @@ func addSectionsToCache(sections []section.WithSigForward, authorities []ZoneCon
 
 //shouldAssertionBeCached returns true if assertion should be cached
 func shouldAssertionBeCached(assertion *section.Assertion) bool {
-	log.Info("Assertion will be cached", "assertion", assertion)
-	return true
+	return len(assertion.Signatures) > 0
 }
 
 //shouldShardBeCached returns true if shard should be cached
@@ -94,7 +93,7 @@ func shouldZoneBeCached(zone *section.Zone) bool {
 func addAssertionToCache(a *section.Assertion, isAuthoritative bool, assertionsCache cache.Assertion,
 	zoneKeyCache cache.ZonePublicKey) {
 	assertionsCache.Add(a, a.ValidUntil(), isAuthoritative)
-	log.Debug("Added assertion to cache", "assertion", *a)
+	log.Info("Added assertion to cache", "assertion", *a)
 	for _, obj := range a.Content {
 		if obj.Type == object.OTDelegation {
 			publicKey, _ := obj.Value.(keys.PublicKey)

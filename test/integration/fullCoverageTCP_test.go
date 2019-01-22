@@ -54,7 +54,7 @@ func TestFullCoverage(t *testing.T) {
 	for i, query := range queries {
 		sendQueryVerifyResponse(t, *query, cachingResolver.Addr(), answers[i])
 	}
-	log.Info("Done sending queries for recursive lookups")
+	log.Warn("Done sending queries for recursive lookups")
 
 	//Shut down authoritative servers
 	rootServer.Shutdown()
@@ -65,7 +65,7 @@ func TestFullCoverage(t *testing.T) {
 	for i, query := range queries {
 		sendQueryVerifyResponse(t, *query, cachingResolver.Addr(), answers[i])
 	}
-	log.Info("Done sending queries for cached entries from a recursive lookup")
+	log.Warn("Done sending queries for cached entries from a recursive lookup")
 
 	//Restart caching resolver from checkpoint
 	time.Sleep(1000 * time.Millisecond) //make sure that caches are checkpointed
@@ -81,7 +81,7 @@ func TestFullCoverage(t *testing.T) {
 	for i, query := range queries {
 		sendQueryVerifyResponse(t, *query, cachingResolver2.Addr(), answers[i])
 	}
-	log.Info("Done sending queries for cached entries that are preloaded")
+	log.Warn("Done sending queries for cached entries that are preloaded")
 	cachingResolver2.Shutdown()
 }
 
@@ -143,7 +143,7 @@ func decodeAnswers(input []byte, t *testing.T) []section.WithSigForward {
 func sendQueryVerifyResponse(t *testing.T, query query.Name, connInfo net.Addr,
 	answer section.Section) {
 	msg := message.Message{Token: token.New(), Content: []section.Section{&query}}
-	log.Error("Integration test sends query", "msg", msg)
+	log.Warn("Integration test sends query", "msg", msg)
 	answerMsg, err := util.SendQuery(msg, connInfo, time.Second)
 	if err != nil {
 		t.Fatalf("could not send query or receive answer. query=%v err=%v", msg.Content, err)

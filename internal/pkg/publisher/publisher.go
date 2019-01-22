@@ -341,14 +341,16 @@ func addSignatureMetaData(zone *section.Zone, shards []*section.Shard, pshards [
 		pshardWaitInterval /= int64(len(pshards))
 	}
 	for _, assertion := range zone.Content {
-		assertion.AddSig(signature)
-		signature.ValidSince += assertionWaitInterval / int64(time.Second)
-		signature.ValidUntil += assertionWaitInterval / int64(time.Second)
+		if config.AddSigMetaDataToAssertions {
+			assertion.AddSig(signature)
+			signature.ValidSince += assertionWaitInterval / int64(time.Second)
+			signature.ValidUntil += assertionWaitInterval / int64(time.Second)
+		}
 	}
 	signature.ValidSince = config.SigValidSince
 	signature.ValidUntil = config.SigValidUntil
 	for _, shard := range shards {
-		if config.AddSigMetaDataToPshards {
+		if config.AddSigMetaDataToShards {
 			shard.AddSig(signature)
 			signature.ValidSince += shardWaitInterval / int64(time.Second)
 			signature.ValidUntil += shardWaitInterval / int64(time.Second)
@@ -445,9 +447,9 @@ func (r *Rainspub) publishZone(zoneContent []section.Section, config Config) {
 			Content:      zoneContent,
 			Capabilities: []message.Capability{message.NoCapability},
 		}
-		unreachableServers := publishSections(msg, config.AuthServers)
-		if unreachableServers != nil {
-			log.Warn("Was not able to connect to all authoritative servers", "unreachableServers", unreachableServers)
+		unsuccessfulServers := publishSections(msg, config.AuthServers)
+		if unsuccessfulServers != nil {
+			log.Warn("Was not able to connect and successfully publish to all authoritative servers", "unsuccessfulServers", unsuccessfulServers)
 		} else {
 			log.Info("publishing to server completed successfully")
 		}
