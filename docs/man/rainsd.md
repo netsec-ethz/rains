@@ -62,16 +62,22 @@ program. Keys are to be specified in a top-level JSON map.
 * `MaxPublicKeysPerZone`: The maximum number of public keys for each zone.
 * `PendingKeyCacheSize`: The maximum number of entries in the pending key cache.
 * `DelegationQueryValidity`: The amount of seconds in the future when delegation queries are set to expire.
-* `ReapVerifyTimeout`: The time interval to wait between removing expired entries from the various caches.
+* `ReapZoneKeyCacheTimeout`: The time interval to wait between removing expired entries from the
+  zone key cache.
+* `ReapPendingKeyCacheTimeout`: The time interval to wait between removing expired entries from the
+  pending key cache.
 
 * `AssertionCacheSize`: The maximum number of entries in the assertion cache.
 * `NegativeAssertionCacheSize`: The maximum number of entries in the negative assertion cache.
 * `PendingQueryCacheSize`: The maximum number of entries in the pending query cache.
 * `QueryValidity`: The amount of seconds in the future when a query is set to expire.
-//TODO take the following to entries into one struct so context and zone are bound together.
-* `ContextAuthority`: The context within which this server is authoritative,
-* `ZoneAuthority`: The zones for which this server is authoritative,
+* `Authorities`: A list of contexts and zones for which this server is authoritative.
 * `MaxCacheValidity`: contains for each cache the maximum number of seconds an entry can be in the
   cache before it expires. It is not guaranteed that expired entries are directly removed.
-  //TODO make a reap time for each server separately.
 * `ReapEngineTimeout`: Timeout for cache reaping routines in the server,
+* `ReapAssertionCacheTimeout`: The time interval to wait between removing expired entries from the 
+assertion cache.
+* `ReapNegAssertionCacheTimeout`: The time interval to wait between removing expired entries from
+  the negative assertion cache.
+* `ReapPendingQCacheTimeout`: The time interval to wait between removing expired entries from the
+  pending query cache.

@@ -5,9 +5,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/cache"
-
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/cache"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"

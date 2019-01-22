@@ -3,10 +3,8 @@ package rainsd
 import (
 	"fmt"
 
-	"github.com/netsec-ethz/rains/internal/pkg/cache"
-
 	log "github.com/inconshreveable/log15"
-
+	"github.com/netsec-ethz/rains/internal/pkg/cache"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
@@ -24,8 +22,8 @@ func (s *Server) assert(ss util.SectionWithSigSender) {
 		sendNotificationMsg(ss.Token, ss.Sender, section.NTRcvInconsistentMsg, "", s)
 		return
 	}
-	addSectionsToCache(ss.Sections, s.config.ZoneAuthority, s.config.ContextAuthority,
-		s.caches.AssertionsCache, s.caches.NegAssertionCache, s.caches.ZoneKeyCache)
+	addSectionsToCache(ss.Sections, s.config.Authorities, s.caches.AssertionsCache,
+		s.caches.NegAssertionCache, s.caches.ZoneKeyCache)
 	pendingKeysCallback(ss, s.caches.PendingKeys, s.queues.Normal)
 	pendingQueriesCallback(ss, s)
 	log.Info(fmt.Sprintf("Finished handling %T", ss.Sections), "section", ss.Sections)
@@ -39,11 +37,11 @@ func sectionsAreInconsistent(sec []section.WithSigForward, assertionsCache cache
 }
 
 //addSectionToCache adds sec to the cache if it comlies with the server's caching policy
-func addSectionsToCache(sections []section.WithSigForward, authZone, authContext []string,
+func addSectionsToCache(sections []section.WithSigForward, authorities []ZoneContext,
 	assertionsCache cache.Assertion, negAssertionCache cache.NegativeAssertion,
 	zoneKeyCache cache.ZonePublicKey) {
 	for _, sec := range sections {
-		isAuth := isAuthoritative(sec, authZone, authContext)
+		isAuth := isAuthoritative(sec, authorities)
 		switch sec := sec.(type) {
 		case *section.Assertion:
 			if shouldAssertionBeCached(sec) {

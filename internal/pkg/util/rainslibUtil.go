@@ -35,11 +35,10 @@ func init() {
 
 //MaxCacheValidity defines the maximum duration each section containing signatures can be valid, starting from time.Now()
 type MaxCacheValidity struct {
-	AssertionValidity        time.Duration
-	ShardValidity            time.Duration
-	PhardValidity            time.Duration
-	ZoneValidity             time.Duration
-	AddressAssertionValidity time.Duration
+	AssertionValidity time.Duration
+	ShardValidity     time.Duration
+	PshardValidity    time.Duration
+	ZoneValidity      time.Duration
 }
 
 //MsgSectionSender contains the message section section and connection infos about the sender
@@ -95,7 +94,7 @@ func UpdateSectionValidity(sec section.WithSig, pkeyValidSince, pkeyValidUntil, 
 		case *section.Shard:
 			maxValidity = maxVal.ShardValidity
 		case *section.Pshard:
-			maxValidity = maxVal.PhardValidity
+			maxValidity = maxVal.PshardValidity
 		case *section.Zone:
 			maxValidity = maxVal.ZoneValidity
 		default:

@@ -6,9 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/cache"
-
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/cache"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -33,7 +32,7 @@ func (s *Server) verify(msgSender util.MsgSectionSender) {
 	switch msgSender.Sections[0].(type) {
 	case *section.Assertion, *section.Shard, *section.Pshard, *section.Zone:
 		isAuthoritative := hasAuthority(msgSender, s)
-		if len(s.config.ZoneAuthority) != 0 {
+		if len(s.config.Authorities) != 0 {
 			//An authoritative server drops all messages containing sections over which it has no
 			//authority and are not a response to a query issued by this server
 			if !isAuthoritative && !s.caches.PendingKeys.ContainsToken(msgSender.Token) {
@@ -51,14 +50,8 @@ func (s *Server) verify(msgSender util.MsgSectionSender) {
 
 func hasAuthority(msgSender util.MsgSectionSender, s *Server) bool {
 	for _, sec := range msgSender.Sections {
-		sec := sec.(section.WithSigForward)
-		for i, zone := range s.config.ZoneAuthority {
-			if sec.GetSubjectZone() == zone && sec.GetContext() == s.config.ContextAuthority[i] {
-				break
-			}
-			if i == len(s.config.ZoneAuthority)-1 {
-				return false
-			}
+		if !isAuthoritative(sec.(section.WithSigForward), s.config.Authorities) {
+			return false
 		}
 	}
 	return true

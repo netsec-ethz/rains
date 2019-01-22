@@ -7,12 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/cache"
-
-	"github.com/netsec-ethz/rains/internal/pkg/object"
-
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/cache"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
@@ -34,7 +32,7 @@ func (s *Server) processQuery(msgSender util.MsgSectionSender) {
 			return
 		}
 	}
-	if len(s.config.ZoneAuthority) == 0 {
+	if len(s.config.Authorities) == 0 {
 		//caching resolver
 		answerQueriesCachingResolver(msgSender, s)
 	} else {
@@ -89,13 +87,13 @@ func answerQueriesCachingResolver(ss util.MsgSectionSender, s *Server) {
 func answerQueriesAuthoritative(qs []*query.Name, sender net.Addr, token token.Token, s *Server) {
 	log.Info("Start processing query as authority", "queries", qs)
 	for _, q := range qs {
-		for i, zone := range s.config.ZoneAuthority {
-			if strings.HasSuffix(q.Name, zone) && q.Context == s.config.ContextAuthority[i] {
+		for i, auth := range s.config.Authorities {
+			if strings.HasSuffix(q.Name, auth.Zone) && q.Context == auth.Context {
 				break
 			}
-			if i == len(s.config.ZoneAuthority)-1 {
+			if i == len(s.config.Authorities)-1 {
 				log.Info("Query is not about a name this zone has authority over", "name", q.Name,
-					"authZone", s.config.ZoneAuthority, "authContxt", s.config.ContextAuthority)
+					"authorities", s.config.Authorities)
 				return
 			}
 		}
@@ -113,7 +111,7 @@ func answerQueriesAuthoritative(qs []*query.Name, sender net.Addr, token token.T
 
 	if len(queries) != 0 {
 		//glueRecordNames assumes that the names of delegates do not contain a dot '.'.
-		names := glueRecordNames(queries, s.config.ZoneAuthority)
+		names := glueRecordNames(queries, s.config.Authorities)
 		for name := range names {
 			glueRecords, err := glueRecordLookup(name.Zone, name.Context, s.caches.AssertionsCache)
 			if err != nil {
@@ -195,19 +193,19 @@ func filterAnswer(sections []section.WithSigForward) (answer []section.Section) 
 
 //glueRecordNames returns the unique names for which glue records should be looked up based on qs.
 //It assumes that the names of all delegates do not contain a dot '.'.
-func glueRecordNames(qs []*query.Name, zoneAuths []string) map[zoneContext]bool {
-	result := make(map[zoneContext]bool)
+func glueRecordNames(qs []*query.Name, zoneAuths []ZoneContext) map[ZoneContext]bool {
+	result := make(map[ZoneContext]bool)
 	for _, q := range qs {
 		for _, auth := range zoneAuths {
-			if strings.HasSuffix(q.Name, auth) {
-				name := strings.TrimSuffix(q.Name, auth)
+			if strings.HasSuffix(q.Name, auth.Zone) {
+				name := strings.TrimSuffix(q.Name, auth.Zone)
 				names := strings.Split(name, ".")
 				if names[len(names)-1] == "" {
 					name = fmt.Sprintf("%s.%s", names[len(names)-2], auth)
 				} else { //root zone
-					name = names[len(names)-1] + auth
+					name = names[len(names)-1] + auth.Zone
 				}
-				result[zoneContext{name, q.Context}] = true
+				result[ZoneContext{name, q.Context}] = true
 			}
 		}
 	}
