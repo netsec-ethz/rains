@@ -198,4 +198,5 @@ const (
 	QOTokenTracing             Option = 6
 	QONoVerificationDelegation Option = 7
 	QONoProactiveCaching       Option = 8
+	QOMaxFreshness             Option = 9
 )
