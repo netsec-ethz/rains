@@ -2,14 +2,28 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.9
-    working_directory: /go/src/github.com/netsec-ethz/rains
+      - image: scionproto/scion_base
+    working_directory: /tmp/go/src/github.com/netsec-ethz/rains
     steps:
+      - run:
+          name: setup envvar
+          command: |
+              echo 'export GOPATH=/tmp/go' >> $BASH_ENV
+              echo 'export PATH=$PATH:/tmp/go/bin' >> $BASH_ENV
       - checkout
       - restore_cache:
           keys:
-            - v1-pkg-cache
+            - v2-pkg-cache
       - run: go get -u github.com/golang/dep/cmd/dep
+      - run:
+          name: scion
+          command: |
+            sudo apt-get install --assume-yes libpcap0.8 libpcap0.8-dev 
+            mkdir -p $GOPATH/src/github.com/scionproto/scion
+            git clone https://github.com/scionproto/scion $GOPATH/src/github.com/scionproto/scion
+            cd $GOPATH/src/github.com/scionproto/scion
+            ./env/deps
+            make
       - run:
           name: run build
           command: |
@@ -28,6 +42,6 @@ jobs:
             go test ./internal/pkg/...
             go test -v ./test/integration/
       - save_cache:
-          key: v1-pkg-cache
+          key: v2-pkg-cache
           paths:
-            - "/go/pkg"
+            - "/tmp/go/pkg"

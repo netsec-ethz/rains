@@ -25,6 +25,10 @@
 #   unused-packages = true
 
 
+ignored = [
+    "github.com/scionproto/scion/go/lib/snet",
+    "github.com/scionproto/scion/go/lib/sciond"]
+
 [[constraint]]
   branch = "master"
   name = "github.com/britram/borat"
