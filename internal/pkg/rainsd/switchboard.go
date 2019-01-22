@@ -19,29 +19,53 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
+	"github.com/scionproto/scion/go/lib/snet"
 )
+
+const maxUDPPacketBytes = 9000
 
 //sendTo sends message to the specified receiver.
 func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 	backoffMilliSeconds int) (err error) {
+	// In any case we add the capabilities of this server to the message.
+	msg.Capabilities = []message.Capability{message.Capability(s.capabilityHash)}
+	// SCION is a special case because it is operating on a connectionless protocol so we
+	// keep the server socket in the Server struct and use that to send.
+	if saddr, ok := receiver.(*snet.Addr); ok {
+		conn := s.scionConn
+		if conn == nil {
+			return errors.New("underlying scion connection was nil")
+		}
+		encoding := new(bytes.Buffer)
+		if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
+			return fmt.Errorf("failed to marshal message to conn: %v", err)
+		}
+		if _, err := conn.WriteToSCION(encoding.Bytes(), saddr); err != nil {
+			log.Warn("Was not able to send encoded message")
+			return fmt.Errorf("unable to send encoded message: %v", err)
+		}
+		return nil
+	}
 	conns, ok := s.caches.ConnCache.GetConnection(receiver)
 	if !ok {
-		conn, err := createConnection(receiver, s.config.KeepAlivePeriod, s.certPool)
-		//add connection to cache
-		conns = append(conns, conn)
-		if err != nil {
-			log.Warn("Could not establish connection", "error", err, "receiver", receiver)
-			return err
+		switch receiver.(type) {
+		case *net.TCPAddr:
+			conn, err := createConnection(receiver, s.config.KeepAlivePeriod, s.certPool)
+			//add connection to cache
+			conns = append(conns, conn)
+			if err != nil {
+				log.Warn("Could not establish connection", "error", err, "receiver", receiver)
+				return err
+			}
+			s.caches.ConnCache.AddConnection(conn)
+			//handle connection
+			if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+				go s.handleConnection(conn, tcpAddr)
+			} else {
+				log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
+			}
+			conns = []net.Conn{conn}
 		}
-		s.caches.ConnCache.AddConnection(conn)
-		//handle connection
-		if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-			go s.handleConnection(conn, tcpAddr)
-		} else {
-			log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
-		}
-		//add capabilities to message
-		msg.Capabilities = []message.Capability{message.Capability(s.capabilityHash)}
 	}
 	for _, conn := range conns {
 		log.Debug("Send message", "dst", conn.RemoteAddr(), "content", msg)
@@ -135,6 +159,39 @@ func (s *Server) listen() {
 			} else {
 				log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 			}
+		}
+	case connection.SCION:
+		addr, ok := s.config.ServerAddress.Addr.(*snet.Addr)
+		if !ok {
+			log.Warn(fmt.Sprintf("Type assertion failed. Expected *connection.SCIONAddr, got %T", addr))
+			return
+		}
+		if err := snet.Init(addr.IA, s.config.SciondSock, s.config.DispatcherSock); err != nil {
+			log.Warn("failed to snet.Init: %v", err)
+			return
+		}
+		listener, err := snet.ListenSCION("udp4", addr)
+		if err != nil {
+			log.Warn("failed to ListenSCION: %v", err)
+			return
+		}
+		s.scionConn = listener
+		for {
+			buf := make([]byte, maxUDPPacketBytes)
+			n, addr, err := listener.ReadFromSCION(buf)
+			if err != nil {
+				log.Warn("Failed to ReadFromSCION: %v", err)
+				continue
+			}
+			data := buf[:n]
+			// Note: We cannot use handleConnection because UDP is connectionless and we have to
+			// manually stick the remote endpoint address in the handler.
+			var msg message.Message
+			if err := cbor.NewReader(bytes.NewReader(data)).Unmarshal(&msg); err != nil {
+				log.Warn("failed to unmarshal CBOR: %v", err)
+			}
+			deliver(&msg, addr,
+				s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)
 		}
 	default:
 		log.Warn("Unsupported Network address type.")

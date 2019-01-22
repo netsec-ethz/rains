@@ -1,6 +1,7 @@
 package connection
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,9 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
+
+	sd "github.com/scionproto/scion/go/lib/sciond"
+	"github.com/scionproto/scion/go/lib/snet"
 )
 
 //Info contains address information about one actor of a connection of the declared type
@@ -21,6 +25,7 @@ type Info struct {
 	Addr net.Addr
 }
 
+// UnmarshalJSON implements the JSONUnmarshaler interface.
 func (c *Info) UnmarshalJSON(data []byte) error {
 	var err error
 	c.Type, c.Addr, err = UnmarshalNetAddr(data)
@@ -30,6 +35,7 @@ func (c *Info) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// UnmarshalNetAddr is a helper function that unmarshals network addresses.
 func UnmarshalNetAddr(data []byte) (Type, net.Addr, error) {
 	m := map[string]interface{}{}
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -41,21 +47,46 @@ func UnmarshalNetAddr(data []byte) (Type, net.Addr, error) {
 	case "TCP":
 		value = reflect.New(reflect.TypeOf(net.TCPAddr{})).Interface()
 		t = TCP
+		if _, ok := m["TCPAddr"]; !ok {
+			return -1, nil, errors.New("TCPAddr key not found in JSON config")
+		}
+		addrData, err := json.Marshal(m["TCPAddr"])
+		if err != nil {
+			return -1, nil, err
+		}
+		if err = json.Unmarshal(addrData, &value); err != nil {
+			return -1, nil, err
+		}
 	case "Chan":
 		value = reflect.New(reflect.TypeOf(ChannelAddr{})).Interface()
-		t = TCP
+		t = Chan
+		addrData, err := json.Marshal(m["Addr"])
+		if err != nil {
+			return -1, nil, err
+		}
+		if err = json.Unmarshal(addrData, &value); err != nil {
+			return -1, nil, err
+		}
+	case "SCION":
+		if _, ok := m["Local"]; !ok {
+			return -1, nil, errors.New("local address is required for SCION")
+		}
+		local, ok := m["Local"].(string)
+		if !ok {
+			return -1, nil, errors.New("local address must be a string")
+		}
+		scionLocal, err := snet.AddrFromString(local)
+		if err != nil {
+			return -1, nil, fmt.Errorf("failed to parse local addr: %v", err)
+		}
+		if scionLocal == nil {
+			return -1, nil, fmt.Errorf("returned SCION address was nil")
+		}
+		value = scionLocal
+		t = SCION
 	default:
 		return -1, nil, errors.New("Unknown Addr type")
 	}
-
-	addrData, err := json.Marshal(m["Addr"])
-	if err != nil {
-		return -1, nil, err
-	}
-	if err = json.Unmarshal(addrData, &value); err != nil {
-		return -1, nil, err
-	}
-
 	return t, value.(net.Addr), nil
 }
 
@@ -68,6 +99,7 @@ type Type int
 const (
 	Chan Type = iota
 	TCP
+	SCION
 )
 
 type Message struct {
@@ -144,9 +176,22 @@ func CreateConnection(addr net.Addr) (conn net.Conn, err error) {
 	switch addr.(type) {
 	case *net.TCPAddr:
 		return tls.Dial(addr.Network(), addr.String(), &tls.Config{InsecureSkipVerify: true})
+	case *snet.Addr:
+		return nil, errors.New("creating SCION connections is unsupported")
 	default:
 		return nil, errors.New("unsupported Network address type")
 	}
+}
+
+// choosePathSCION is a naive implementation of a path selection algorithm that
+// chooses the first available path.
+func choosePathSCION(ctx context.Context, la, ra *snet.Addr) *sd.PathReplyEntry {
+	pathMgr := snet.DefNetwork.PathResolver()
+	pathSet := pathMgr.Query(ctx, la.IA, ra.IA, sd.PathReqFlags{})
+	for _, p := range pathSet {
+		return p.Entry
+	}
+	return nil
 }
 
 func Listen(conn net.Conn, tok token.Token, done chan<- message.Message, ec chan<- error) {
