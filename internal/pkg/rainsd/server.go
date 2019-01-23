@@ -28,7 +28,7 @@ type Server struct {
 	//resolver can be configured as a forwarder or perform recursive lookup by itself.
 	resolver *libresolve.Resolver
 	//config contains configurations of this server
-	config rainsdConfig
+	config Config
 	//authority states the names over which this server has authority
 	authority map[ZoneContext]bool
 	//certPool stores received certificates
@@ -51,14 +51,12 @@ type Server struct {
 
 //New returns a pointer to a newly created rainsd server instance with the given config. The server
 //logs with the provided level of logging.
-func New(configPath string, id string) (server *Server, err error) {
+func New(config Config, id string) (server *Server, err error) {
 	server = &Server{
 		inputChannel: &connection.Channel{RemoteChan: make(chan connection.Message, 100)},
+		config:       config,
 	}
 	server.inputChannel.SetRemoteAddr(connection.ChannelAddr{ID: id})
-	if server.config, err = loadConfig(configPath); err != nil {
-		return nil, err
-	}
 	server.authority = make(map[ZoneContext]bool)
 	for _, auth := range server.config.Authorities {
 		server.authority[auth] = true
