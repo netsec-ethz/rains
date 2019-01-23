@@ -36,12 +36,12 @@ type rainsdConfig struct {
 	SciondSock     string
 
 	//inbox
-	PrioBufferSize          uint
-	NormalBufferSize        uint
-	NotificationBufferSize  uint
-	PrioWorkerCount         uint
-	NormalWorkerCount       uint
-	NotificationWorkerCount uint
+	PrioBufferSize          int
+	NormalBufferSize        int
+	NotificationBufferSize  int
+	PrioWorkerCount         int
+	NormalWorkerCount       int
+	NotificationWorkerCount int
 	CapabilitiesCacheSize   int
 	Capabilities            []message.Capability
 
@@ -83,8 +83,8 @@ func DefaultConfig() rainsdConfig {
 			Addr: serverAddr,
 		},
 		MaxConnections:     10000,
-		KeepAlivePeriod:    60 * time.Second,
-		TCPTimeout:         300 * time.Second,
+		KeepAlivePeriod:    time.Minute,
+		TCPTimeout:         5 * time.Minute,
 		TLSCertificateFile: "data/cert/server.crt",
 		TLSPrivateKeyFile:  "data/cert/server.key",
 
@@ -107,7 +107,7 @@ func DefaultConfig() rainsdConfig {
 		ZoneKeyCacheWarnSize:        750,
 		MaxPublicKeysPerZone:        5,
 		PendingKeyCacheSize:         100,
-		DelegationQueryValidity:     1 * time.Second,
+		DelegationQueryValidity:     time.Second,
 		ReapZoneKeyCacheInterval:    15 * time.Minute,
 		ReapPendingKeyCacheInterval: 15 * time.Minute,
 
@@ -115,7 +115,7 @@ func DefaultConfig() rainsdConfig {
 		AssertionCacheSize:         10000,
 		NegativeAssertionCacheSize: 1000,
 		PendingQueryCacheSize:      1000,
-		QueryValidity:              1,
+		QueryValidity:              time.Second,
 		Authorities:                []ZoneContext{},
 		MaxCacheValidity: util.MaxCacheValidity{
 			AssertionValidity: 3 * time.Hour,
