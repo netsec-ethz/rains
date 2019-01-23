@@ -107,16 +107,16 @@ func loadConfig(configPath string) (rainsdConfig, error) {
 	config.KeepAlivePeriod *= time.Second
 	config.TCPTimeout *= time.Second
 	config.DelegationQueryValidity *= time.Second
-	config.ReapZoneKeyCacheTimeout *= time.Second
-	config.ReapPendingKeyCacheTimeout *= time.Second
+	config.ReapZoneKeyCacheInterval *= time.Second
+	config.ReapPendingKeyCacheInterval *= time.Second
 	config.QueryValidity *= time.Second
 	config.MaxCacheValidity.PshardValidity *= time.Hour
 	config.MaxCacheValidity.AssertionValidity *= time.Hour
 	config.MaxCacheValidity.ShardValidity *= time.Hour
 	config.MaxCacheValidity.ZoneValidity *= time.Hour
-	config.ReapAssertionCacheTimeout *= time.Second
-	config.ReapNegAssertionCacheTimeout *= time.Second
-	config.ReapPendingQCacheTimeout *= time.Second
+	config.ReapAssertionCacheInterval *= time.Second
+	config.ReapNegAssertionCacheInterval *= time.Second
+	config.ReapPendingQCacheInterval *= time.Second
 	return config, nil
 }
 

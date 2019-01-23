@@ -1,6 +1,7 @@
 package rainsd
 
 import (
+	"net"
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
@@ -45,22 +46,85 @@ type rainsdConfig struct {
 	Capabilities            []message.Capability
 
 	//verify
-	ZoneKeyCacheSize           int
-	ZoneKeyCacheWarnSize       int
-	MaxPublicKeysPerZone       int
-	PendingKeyCacheSize        int
-	DelegationQueryValidity    time.Duration //in seconds
-	ReapZoneKeyCacheTimeout    time.Duration //in seconds
-	ReapPendingKeyCacheTimeout time.Duration //in seconds
+	ZoneKeyCacheSize            int
+	ZoneKeyCacheWarnSize        int
+	MaxPublicKeysPerZone        int
+	PendingKeyCacheSize         int
+	DelegationQueryValidity     time.Duration //in seconds
+	ReapZoneKeyCacheInterval    time.Duration //in seconds
+	ReapPendingKeyCacheInterval time.Duration //in seconds
 
 	//engine
-	AssertionCacheSize           int
-	NegativeAssertionCacheSize   int
-	PendingQueryCacheSize        int
-	QueryValidity                time.Duration //in seconds
-	Authorities                  []ZoneContext
-	MaxCacheValidity             util.MaxCacheValidity //in hours
-	ReapAssertionCacheTimeout    time.Duration         //in seconds
-	ReapNegAssertionCacheTimeout time.Duration         //in seconds
-	ReapPendingQCacheTimeout     time.Duration         //in seconds
+	AssertionCacheSize            int
+	NegativeAssertionCacheSize    int
+	PendingQueryCacheSize         int
+	QueryValidity                 time.Duration //in seconds
+	Authorities                   []ZoneContext
+	MaxCacheValidity              util.MaxCacheValidity //in hours
+	ReapAssertionCacheInterval    time.Duration         //in seconds
+	ReapNegAssertionCacheInterval time.Duration         //in seconds
+	ReapPendingQCacheInterval     time.Duration         //in seconds
+}
+
+//DefaultConfig return the default configuration for the zone publisher.
+func DefaultConfig() rainsdConfig {
+	serverAddr, _ := net.ResolveTCPAddr("", "127.0.0.1:55553")
+	return rainsdConfig{
+		RootZonePublicKeyPath:          "data/keys/rootDelegationAssertion.gob",
+		AssertionCheckPointInterval:    30 * time.Minute,
+		NegAssertionCheckPointInterval: time.Hour,
+		ZoneKeyCheckPointInterval:      30 * time.Minute,
+		CheckPointPath:                 "data/checkpoint/resolver/",
+		PreLoadCaches:                  false,
+
+		//switchboard
+		ServerAddress: connection.Info{
+			Type: connection.TCP,
+			Addr: serverAddr,
+		},
+		MaxConnections:     10000,
+		KeepAlivePeriod:    60 * time.Second,
+		TCPTimeout:         300 * time.Second,
+		TLSCertificateFile: "data/cert/server.crt",
+		TLSPrivateKeyFile:  "data/cert/server.key",
+
+		// SCION specific settings
+		DispatcherSock: "TODO determine default value",
+		SciondSock:     "TODO determine default value",
+
+		//inbox
+		PrioBufferSize:          50,
+		NormalBufferSize:        1000,
+		NotificationBufferSize:  10,
+		PrioWorkerCount:         2,
+		NormalWorkerCount:       10,
+		NotificationWorkerCount: 1,
+		CapabilitiesCacheSize:   10,
+		Capabilities:            []message.Capability{message.Capability("urn:x-rains:tlssrv")},
+
+		//verify
+		ZoneKeyCacheSize:            1000,
+		ZoneKeyCacheWarnSize:        750,
+		MaxPublicKeysPerZone:        5,
+		PendingKeyCacheSize:         100,
+		DelegationQueryValidity:     1 * time.Second,
+		ReapZoneKeyCacheInterval:    15 * time.Minute,
+		ReapPendingKeyCacheInterval: 15 * time.Minute,
+
+		//engine
+		AssertionCacheSize:         10000,
+		NegativeAssertionCacheSize: 1000,
+		PendingQueryCacheSize:      1000,
+		QueryValidity:              1,
+		Authorities:                []ZoneContext{},
+		MaxCacheValidity: util.MaxCacheValidity{
+			AssertionValidity: 3 * time.Hour,
+			ShardValidity:     3 * time.Hour,
+			PshardValidity:    3 * time.Hour,
+			ZoneValidity:      3 * time.Hour,
+		},
+		ReapAssertionCacheInterval:    15 * time.Minute,
+		ReapNegAssertionCacheInterval: 15 * time.Minute,
+		ReapPendingQCacheInterval:     15 * time.Minute,
+	}
 }
