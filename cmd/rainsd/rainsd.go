@@ -42,8 +42,8 @@ var tlsPrivateKeyFile = flag.String("tlsPrivateKeyFile", "data/cert/server.key",
 	"private key file proving the server's identity.")
 
 // SCION specific settings
-var dispatcherSock = flag.String("dispatcherSock", "", "TODO write description")
-var sciondSock = flag.String("sciondSock", "", "TODO write description")
+var dispatcherSock = flag.String("dispatcherSock", "/run/shm/dispatcher/default.sock", "Path to the dispatcher socket.")
+var sciondSock = flag.String("sciondSock", "/run/shm/sciond/default.sock", "Path to the sciond socket.")
 
 //inbox
 var prioBufferSize = flag.Int("prioBufferSize", 50, "The maximum number of messages in the priority buffer.")

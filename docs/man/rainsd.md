@@ -8,8 +8,8 @@ rainsd(8) -- A RAINS server
 ## DESCRIPTION
 
 This program implements a RAINS server which serves requests over the RAINS protocol. 
-The server can be configured to support the first two modes of operation. The third one
-is not yet implemented.
+The server can be configured to support the first two modes of operation, authority 
+service and query service. The third one is not yet implemented.
 
 * authority service -- the server acts on behalf of an authority to ensure
  properly signed assertions are available to the system,

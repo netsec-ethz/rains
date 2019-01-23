@@ -15,8 +15,7 @@ var globalTracer *Tracer
 //Config lists possible configurations of a rains server
 type Config struct {
 	//general
-	RootZonePublicKeyPath string
-	//TODO add these two options to man page
+	RootZonePublicKeyPath          string
 	AssertionCheckPointInterval    time.Duration //in seconds
 	NegAssertionCheckPointInterval time.Duration //in seconds
 	ZoneKeyCheckPointInterval      time.Duration //in seconds

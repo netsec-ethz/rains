@@ -20,7 +20,7 @@ var configPath string
 var zonefilePath = flag.String("zonefilePath", "data/zonefiles/zf.txt", "Path to the zonefile")
 var authServers addressesFlag
 var privateKeyPath = flag.String("privateKeyPath", "data/keys/key_sec.pem", "Path to a file storing the private keys. "+
-	"Each line contains a key phase and a private key encoded in hexadecimal separated by a space.")
+	"Each line contains a key phase as integer and a private key encoded in hexadecimal separated by a space.")
 var doSharding = flag.Bool("doSharding", true, "If set to true, all assertions in the zonefile "+
 	"are grouped into pshards based on keepPshards, nofAssertionsPerPshard, bFAlgo, BFHash, and "+
 	"bloomFilterSize parameters.")
