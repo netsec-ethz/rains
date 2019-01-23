@@ -12,11 +12,13 @@ The server can be configured to support the first two modes of operation. The th
 is not yet implemented.
 
 * authority service -- the server acts on behalf of an authority to ensure
-    properly signed assertions are available to the system,
+ properly signed assertions are available to the system,
 * query service -- the server acts on behalf of clients to respond to queries
-     with relevant assertions to answer these queries,
+ with relevant assertions to answer these queries,
 * intermediary service -- the server provides storage and lookup services to
-    authority services and query services.
+ authority services and query services.
+
+If no path to a config file is provided, the default config is used.
 
 A capability represents a set of features the server supports, and is used for
 advertising functionality to other servers. Currently only the following
@@ -29,55 +31,74 @@ capabilities are supported:
 The following options can be specified in the configuration file for the rainsd
 program. Keys are to be specified in a top-level JSON map.
 
-* `RootZonePublicKeyPath`: Path to the file storing the RAINS' root zone public key.
-* `AssertionCheckPointInterval`: The time duration in seconds after which a checkpoint of the
-  assertion cache is performed.
-* `NegAssertionCheckPointInterval`: The time duration in seconds after which a checkpoint of the
-  negative assertion cache is performed.
-* `ZoneKeyCheckPointInterval`: The time duration in seconds after which a checkpoint of the
-  zone key cache is performed.
-* `CheckPointPath`: Path where the server's checkpoint information is stored.
-* `PreLoadCaches`: If true, the assertion, negative assertion, and zone key cache are pre-loaded
+* `--assertionCacheSize`: int The maximum number of entries in the assertion cache. (default 10000)
+* `--assertionCheckPointInterval`: duration The time duration in seconds after which a checkpoint of
+  the assertion cache is performed. (default 30m0s)
+* `--authorities`: main.authoritiesFlag A list of contexts and zones for which this server is
+  authoritative. The format is elem(,elem) where elem := zoneName,contextName (default [])
+* `--capabilities`: string A list of capabilities this server supports. (default
+  "urn:x-rains:tlssrv")
+* `--capabilitiesCacheSize`: int Maximum number of elements in the capabilities cache. (default 10)
+* `--checkPointPath`: string Path where the server's checkpoint information is stored. (default
+  "data/checkpoint/resolver/")
+* `--delegationQueryValidity`: duration The amount of seconds in the future when delegation queries
+  are set to expire. (default 1s)
+* `--dispatcherSock`: string TODO write description
+* `--keepAlivePeriod`: duration How long to keep idle connections open. (default 1m0s)
+* `--maxAssertionValidity`: duration contains the maximum number of seconds an assertion can be in
+  the cache before the cached entry expires. It is not guaranteed that expired entries are directly
+  removed. (default 3h0m0s)
+* `--maxConnections`: int The maximum number of allowed active connections. (default 10000)
+* `--maxPshardValidity`: duration contains the maximum number of seconds an pshard can be in the
+  cache before the cached entry expires. It is not guaranteed that expired entries are directly
+  removed. (default 3h0m0s)
+* `--maxPublicKeysPerZone`: int The maximum number of public keys for each zone. (default 5)
+* `--maxShardValidity`: duration contains the maximum number of seconds an shard can be in the cache
+  before the cached entry expires. It is not guaranteed that expired entries are directly removed.
+  (default 3h0m0s)
+* `--maxZoneValidity`: duration contains the maximum number of seconds an zone can be in the cache
+  before the cached entry expires. It is not guaranteed that expired entries are directly removed.
+  (default 3h0m0s)
+* `--negAssertionCheckPointInterval`: duration The time duration in seconds after which a checkpoint
+  of the negative assertion cache is performed. (default 1h0m0s)
+* `--negativeAssertionCacheSize`: int The maximum number of entries in the negative assertion cache.
+  (default 1000)
+* `--normalBufferSize`: int The maximum number of messages in the normal buffer. (default 100)
+* `--normalWorkerCount`: int Number of workers on the normal queue. (default 10)
+* `--notificationBufferSize`: int The maximum number of messages in the notification buffer.
+  (default 10)
+* `--notificationWorkerCount`: int Number of workers on the notification queue. (default 1)
+* `--pendingKeyCacheSize`: intThe maximum number of entries in the pending key cache. (default 100)
+* `--pendingQueryCacheSize`: int The maximum number of entries in the pending query cache. (default
+  1000)
+* `--preLoadCaches`: If true, the assertion, negative assertion, and zone key cache are pre-loaded
   from the checkpoint files in CheckPointPath at start up.
-  
-* `ServerAddress`: The network address of this server.
-* `MaxConnections`: The maximum number of allowed active connections.
-* `KeepAlivePeriod`: How long to keep idle connections open for,
-* `TCPTimeout`: TCPTimeout is the maximum amount of time a dial will wait for a tcp connect to complete.
-* `TLSCertificateFile`: The path to the server's tls certificate file proving the server's identity.
-* `TLSPrivateKeyFile`: The path to the server's tls private key file proving the server's identity.
-
-* `PrioBufferSize`: The maximum number of messages in the priority buffer,
-* `NormalBufferSize`: The maximum number of messages in the normal buffer,
-* `NotificationBufferSize`: The maximum number of messages in the notification buffer,
-* `PrioWorkerCount`: Number of workers on the priority queue,
-* `NormalWorkerCount`: Number of workers on the normal queue,
-* `NotificationWorkerCount`: Number of workers on the notification queue,
-* `CapabilitiesCacheSize`: Maximum number of elements in the capabilities cache,
-* `Capabilities`: A list of capabilities this server supports.
-
-* `ZoneKeyCacheSize`: The maximum number of entries in the zone key cache.
-* `ZoneKeyCacheWarnSize`: When the number of elements in the zone key cache exceeds this value, a
-  warning is logged.
-* `MaxPublicKeysPerZone`: The maximum number of public keys for each zone.
-* `PendingKeyCacheSize`: The maximum number of entries in the pending key cache.
-* `DelegationQueryValidity`: The amount of seconds in the future when delegation queries are set to expire.
-* `ReapZoneKeyCacheTimeout`: The time interval to wait between removing expired entries from the
-  zone key cache.
-* `ReapPendingKeyCacheTimeout`: The time interval to wait between removing expired entries from the
-  pending key cache.
-
-* `AssertionCacheSize`: The maximum number of entries in the assertion cache.
-* `NegativeAssertionCacheSize`: The maximum number of entries in the negative assertion cache.
-* `PendingQueryCacheSize`: The maximum number of entries in the pending query cache.
-* `QueryValidity`: The amount of seconds in the future when a query is set to expire.
-* `Authorities`: A list of contexts and zones for which this server is authoritative.
-* `MaxCacheValidity`: contains for each cache the maximum number of seconds an entry can be in the
-  cache before it expires. It is not guaranteed that expired entries are directly removed.
-* `ReapEngineTimeout`: Timeout for cache reaping routines in the server,
-* `ReapAssertionCacheTimeout`: The time interval to wait between removing expired entries from the 
-assertion cache.
-* `ReapNegAssertionCacheTimeout`: The time interval to wait between removing expired entries from
-  the negative assertion cache.
-* `ReapPendingQCacheTimeout`: The time interval to wait between removing expired entries from the
-  pending query cache.
+* `--prioBufferSize`: int The maximum number of messages in the priority buffer. (default 50)
+* `--prioWorkerCount`: int Number of workers on the priority queue. (default 2)
+* `--queryValidity`: duration The amount of seconds in the future when a query is set to expire.
+  (default 1s)
+* `--reapAssertionCacheInterval`: duration The time interval to wait between removing expired
+  entries from the assertion cache. (default 15m0s)
+* `--reapNegAssertionCacheInterval`: duration The time interval to wait between removing expired
+  entries from the negative assertion cache. (default 15m0s)
+* `--reapPendingKeyCacheInterval`: duration The time interval to wait between removing expired
+  entries from the pending key cache. (default 15m0s)
+* `--reapPendingQCacheInterval`: duration The time interval to wait between removing expired entries
+  from the pending query cache. (default 15m0s)
+* `--reapZoneKeyCacheInterval`: duration The time interval to wait between removing expired entries
+  from the zone key cache. (default 15m0s)
+* `--rootZonePublicKeyPath`: string Path to the file storing the RAINS' root zone public key.
+  (default "data/keys/rootDelegationAssertion.gob")
+* `--sciondSock`: string TODO write description
+* `--serverAddress`: main.addressFlag The network address of this server. (default 127.0.0.1:55553)
+* `--tcpTimeout`: duration TCPTimeout is the maximum amount of time a dial will wait for a tcp
+  connect to complete. (default 5m0s)
+* `--tlsCertificateFile`: string The path to the server's tls certificate file proving the server's
+  identity. (default "data/cert/server.crt")
+* `--tlsPrivateKeyFile`: string The path to the server's tls private key file proving the server's
+  identity. (default "data/cert/server.key")
+* `--zoneKeyCacheSize`: int The maximum number of entries in the zone key cache. (default 1000)
+* `--zoneKeyCacheWarnSize`: int When the number of elements in the zone key cache exceeds this
+  value, a warning is logged. (default 750)
+* `--zoneKeyCheckPointInterval`: duration The time duration in seconds after which a checkpoint of
+  the zone key cache is performed. (default 30m0s)
