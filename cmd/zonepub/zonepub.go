@@ -120,7 +120,13 @@ func main() {
 		log.Fatalf("Error: too many arguments specified. At most one is allowed. Got %d", flag.NArg())
 	}
 
-	//Override config with provided cmd line flags
+	updateConfig(&config)
+	server := publisher.New(config)
+	server.Publish()
+}
+
+//updateConfig overrides config with the provided cmd line flags
+func updateConfig(config *publisher.Config) {
 	if flag.Lookup("zonefilePath").Changed {
 		config.ZonefilePath = *zonefilePath
 	}
@@ -214,10 +220,6 @@ func main() {
 	if flag.Lookup("doPublish").Changed {
 		config.DoPublish = *doPublish
 	}
-
-	//Call rainspub to do the work according to the updated config
-	server := publisher.New(config)
-	server.Publish()
 }
 
 type addressesFlag struct {
@@ -244,7 +246,7 @@ func (i *addressesFlag) Set(value string) error {
 }
 
 func (i *addressesFlag) Type() string {
-	return fmt.Sprintf("%T", *i)
+	return fmt.Sprint("[]net.Addr")
 }
 
 type bfHashFlag struct {
@@ -274,7 +276,7 @@ func (i *bfHashFlag) Set(value string) error {
 }
 
 func (i *bfHashFlag) Type() string {
-	return fmt.Sprintf("%T", *i)
+	return fmt.Sprint("bfHash")
 }
 
 type algoFlag struct {
@@ -298,7 +300,7 @@ func (i *algoFlag) Set(value string) error {
 }
 
 func (i *algoFlag) Type() string {
-	return fmt.Sprintf("%T", *i)
+	return fmt.Sprint("sigAlgo")
 }
 
 type bfAlgoFlag struct {
@@ -331,5 +333,5 @@ func (i *bfAlgoFlag) Set(value string) error {
 }
 
 func (i *bfAlgoFlag) Type() string {
-	return fmt.Sprintf("%T", *i)
+	return fmt.Sprint("bfAlgo")
 }

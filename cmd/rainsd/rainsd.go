@@ -132,6 +132,7 @@ func main() {
 	log.Println("Server shut down")
 }
 
+//updateConfig overrides config with the provided cmd line flags
 func updateConfig(config *rainsd.Config) {
 	if flag.Lookup("rootZonePublicKeyPath").Changed {
 		config.RootZonePublicKeyPath = *rootZonePublicKeyPath
