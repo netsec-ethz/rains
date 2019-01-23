@@ -31,7 +31,7 @@ type Caches struct {
 	NegAssertionCache cache.NegativeAssertion
 }
 
-func initCaches(config rainsdConfig) *Caches {
+func initCaches(config Config) *Caches {
 	caches := new(Caches)
 	caches.ConnCache = cache.NewConnection(config.MaxConnections)
 
@@ -51,7 +51,7 @@ func initCaches(config rainsdConfig) *Caches {
 	return caches
 }
 
-func initReapers(config rainsdConfig, caches *Caches, stop chan bool) {
+func initReapers(config Config, caches *Caches, stop chan bool) {
 	go repeatFuncCaller(caches.ZoneKeyCache.RemoveExpiredKeys, config.ReapZoneKeyCacheInterval, stop)
 	go repeatFuncCaller(caches.PendingKeys.RemoveExpiredValues, config.ReapPendingKeyCacheInterval, stop)
 	go repeatFuncCaller(caches.AssertionsCache.RemoveExpiredValues, config.ReapAssertionCacheInterval, stop)
