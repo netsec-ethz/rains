@@ -68,7 +68,7 @@ program. Keys are to be specified in a top-level JSON map.
 * `--outputPath`: string If not an empty string, a zonefile with the signed sections is generated
    and stored at the provided path. (default "") 
 * `--privateKeyPath`: string Path to a file storing the private keys. Each line contains a key phase
-   and a private key encoded in hexadecimal separated by a space. (default
+   as integer and a private key encoded in hexadecimal separated by a space. (default
    "data/keys/key_sec.pem") 
 * `--sigNotExpired`: If set to true, checks that all signatures have a validUntil time in the future
 * `--sigSigningInterval`: int this option only has an effect when addSignatureMetaData is true.
