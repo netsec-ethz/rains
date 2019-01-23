@@ -90,16 +90,16 @@ func sendCapability(destination net.Addr, capabilities []message.Capability, s *
 }
 
 //LoadConfig loads and stores server configuration
-func loadConfig(configPath string) (rainsdConfig, error) {
-	config := rainsdConfig{}
+func LoadConfig(configPath string) (Config, error) {
+	config := Config{}
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Warn("Could not open config file...", "path", configPath, "error", err)
-		return rainsdConfig{}, err
+		return Config{}, err
 	}
 	if err = json.Unmarshal(file, &config); err != nil {
 		log.Warn("Could not unmarshal json format of config", "error", err)
-		return rainsdConfig{}, err
+		return Config{}, err
 	}
 	config.AssertionCheckPointInterval *= time.Second
 	config.NegAssertionCheckPointInterval *= time.Second
@@ -201,7 +201,7 @@ func measureSystemRessources() {
 	//Not yet implemented
 }
 
-func initStoreCachesContent(config rainsdConfig, caches *Caches, stop chan bool) {
+func initStoreCachesContent(config Config, caches *Caches, stop chan bool) {
 	if err := os.MkdirAll(config.CheckPointPath, os.ModePerm); err != nil {
 		log.Error("Was not able to create folders", "error", err)
 	}

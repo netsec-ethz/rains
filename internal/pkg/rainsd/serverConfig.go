@@ -12,8 +12,8 @@ import (
 // globalTracer is used to report traces to the tracing server.
 var globalTracer *Tracer
 
-//rainsdConfig lists possible configurations of a rains server
-type rainsdConfig struct {
+//Config lists possible configurations of a rains server
+type Config struct {
 	//general
 	RootZonePublicKeyPath string
 	//TODO add these two options to man page
@@ -67,9 +67,9 @@ type rainsdConfig struct {
 }
 
 //DefaultConfig return the default configuration for the zone publisher.
-func DefaultConfig() rainsdConfig {
+func DefaultConfig() Config {
 	serverAddr, _ := net.ResolveTCPAddr("", "127.0.0.1:55553")
-	return rainsdConfig{
+	return Config{
 		RootZonePublicKeyPath:          "data/keys/rootDelegationAssertion.gob",
 		AssertionCheckPointInterval:    30 * time.Minute,
 		NegAssertionCheckPointInterval: time.Hour,
