@@ -187,7 +187,7 @@ func CreateConnection(addr net.Addr) (conn net.Conn, err error) {
 // chooses the first available path.
 func choosePathSCION(ctx context.Context, la, ra *snet.Addr) *sd.PathReplyEntry {
 	pathMgr := snet.DefNetwork.PathResolver()
-	pathSet := pathMgr.Query(ctx, la.IA, ra.IA)
+	pathSet := pathMgr.Query(ctx, la.IA, ra.IA, sd.PathReqFlags{})
 	for _, p := range pathSet {
 		return p.Entry
 	}
