@@ -274,7 +274,10 @@ type addressFlag struct {
 }
 
 func (i *addressFlag) String() string {
-	return fmt.Sprint("127.0.0.1:55553")
+	if i.set {
+		return i.value.Addr.String()
+	}
+	return "127.0.0.1:55553" //default
 }
 
 func (i *addressFlag) Set(value string) (err error) {
@@ -285,7 +288,7 @@ func (i *addressFlag) Set(value string) (err error) {
 }
 
 func (i *addressFlag) Type() string {
-	return fmt.Sprintf("%T", *i)
+	return "net.Addr"
 }
 
 type authoritiesFlag struct {
@@ -294,7 +297,10 @@ type authoritiesFlag struct {
 }
 
 func (i *authoritiesFlag) String() string {
-	return fmt.Sprint("[]")
+	if i.set {
+		return fmt.Sprintf("%v", i.value)
+	}
+	return "[]" //default
 }
 
 func (i *authoritiesFlag) Set(value string) error {
@@ -311,5 +317,5 @@ func (i *authoritiesFlag) Set(value string) error {
 }
 
 func (i *authoritiesFlag) Type() string {
-	return fmt.Sprintf("%T", *i)
+	return "[]zoneContext"
 }

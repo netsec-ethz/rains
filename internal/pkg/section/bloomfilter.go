@@ -133,6 +133,7 @@ func (b BloomFilter) CompareTo(bloomFilter BloomFilter) int {
 //filter.
 type BloomFilterAlgo int
 
+//go:generate stringer -type=BloomFilterAlgo
 const (
 	BloomKM12 BloomFilterAlgo = iota + 1
 	BloomKM16

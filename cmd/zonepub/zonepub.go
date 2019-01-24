@@ -228,7 +228,10 @@ type addressesFlag struct {
 }
 
 func (i *addressesFlag) String() string {
-	return fmt.Sprint("[]")
+	if i.set {
+		return fmt.Sprintf("%v", i.value)
+	}
+	return "[]" //default
 }
 
 func (i *addressesFlag) Set(value string) error {
@@ -246,7 +249,7 @@ func (i *addressesFlag) Set(value string) error {
 }
 
 func (i *addressesFlag) Type() string {
-	return fmt.Sprint("[]net.Addr")
+	return "[]net.Addr"
 }
 
 type bfHashFlag struct {
@@ -255,7 +258,10 @@ type bfHashFlag struct {
 }
 
 func (i *bfHashFlag) String() string {
-	return fmt.Sprint("shake256")
+	if i.set {
+		return i.value.String()
+	}
+	return "shake256" //default
 }
 
 func (i *bfHashFlag) Set(value string) error {
@@ -276,7 +282,7 @@ func (i *bfHashFlag) Set(value string) error {
 }
 
 func (i *bfHashFlag) Type() string {
-	return fmt.Sprint("bfHash")
+	return "BloomFilterHash"
 }
 
 type algoFlag struct {
@@ -285,7 +291,10 @@ type algoFlag struct {
 }
 
 func (i *algoFlag) String() string {
-	return fmt.Sprint("ed25519")
+	if i.set {
+		return i.value.String()
+	}
+	return "ed25519" //default
 }
 
 func (i *algoFlag) Set(value string) error {
@@ -300,7 +309,7 @@ func (i *algoFlag) Set(value string) error {
 }
 
 func (i *algoFlag) Type() string {
-	return fmt.Sprint("sigAlgo")
+	return "SignatureAlgo"
 }
 
 type bfAlgoFlag struct {
@@ -309,7 +318,10 @@ type bfAlgoFlag struct {
 }
 
 func (i *bfAlgoFlag) String() string {
-	return fmt.Sprint("bloomKM12")
+	if i.set {
+		return i.value.String()
+	}
+	return "bloomKM12" //default
 }
 
 func (i *bfAlgoFlag) Set(value string) error {
@@ -333,5 +345,5 @@ func (i *bfAlgoFlag) Set(value string) error {
 }
 
 func (i *bfAlgoFlag) Type() string {
-	return fmt.Sprint("bfAlgo")
+	return "BloomFilterAlgo"
 }
