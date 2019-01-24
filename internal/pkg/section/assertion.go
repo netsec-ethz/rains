@@ -1,6 +1,7 @@
 package section
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"sort"
@@ -191,8 +192,10 @@ func (a *Assertion) Hash() string {
 	if a == nil {
 		return "A_nil"
 	}
-	return fmt.Sprintf("A_%s_%s_%s_%v_%v",
-		a.SubjectName, a.SubjectZone, a.Context, a.Content, a.Signatures)
+	encoding := new(bytes.Buffer)
+	w := cbor.NewCBORWriter(encoding)
+	w.WriteArray([]interface{}{1, a})
+	return encoding.String()
 }
 
 //EqualContextZoneName return true if the given assertion has the same context, subjectZone,
