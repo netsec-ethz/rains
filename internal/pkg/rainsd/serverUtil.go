@@ -19,6 +19,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/siglib"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
@@ -174,7 +175,7 @@ func loadRootZonePublicKey(keyPath string, zoneKeyCache cache.ZonePublicKey,
 				publicKey.ValidUntil = a.Signatures[0].ValidUntil
 				keyMap := make(map[keys.PublicKeyID][]keys.PublicKey)
 				keyMap[publicKey.PublicKeyID] = []keys.PublicKey{publicKey}
-				if validateSignatures(a, keyMap, maxValidity) {
+				if siglib.CheckSectionSignatures(a, keyMap, maxValidity) {
 					if ok := zoneKeyCache.Add(a, publicKey, true); !ok {
 						return errors.New("Cache is smaller than the amount of root public keys")
 					}

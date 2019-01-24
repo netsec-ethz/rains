@@ -36,14 +36,14 @@ type WithSig interface {
 	Hash() string
 	IsConsistent() bool
 	NeededKeys(map[signature.MetaData]bool)
+	AddSigInMarshaller()
+	DontAddSigInMarshaller()
 }
 
 //WithSigForward can be either an Assertion, Shard or Zone
 type WithSigForward interface {
 	WithSig
 	Interval
-	AddSigInMarshaller()
-	DontAddSigInMarshaller()
 }
 
 //Query is the interface for a query section. In the current implementation it can be

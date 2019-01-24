@@ -151,8 +151,7 @@ func (s *Shard) AddCtxAndZoneToContent() {
 
 func (s *Shard) RemoveCtxAndZoneFromContent() {
 	for _, a := range s.Content {
-		a.Context = ""
-		a.SubjectZone = ""
+		a.RemoveContextAndSubjectZone()
 	}
 }
 

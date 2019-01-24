@@ -128,9 +128,8 @@ func (z *Zone) AddCtxAndZoneToContent() {
 }
 
 func (z *Zone) RemoveCtxAndZoneFromContent() {
-	for _, s := range z.Content {
-		s.SetContext("")
-		s.SetSubjectZone("")
+	for _, a := range z.Content {
+		a.RemoveContextAndSubjectZone()
 	}
 }
 

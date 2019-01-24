@@ -419,17 +419,19 @@ func signZoneContent(zone *section.Zone, shards []*section.Shard, pshards []*sec
 	if err != nil {
 		return errors.New("Was not able to load private keys")
 	}
-	if err := signZone(zone, keys); err != nil {
-		return err
+	if err := siglib.SignSectionUnsafe(zone, keys); err != nil {
+		return fmt.Errorf("Was not able to sign zone: %v", err)
 	}
+	zone.RemoveCtxAndZoneFromContent()
 	for _, shard := range shards {
-		if err := signShard(shard, keys); err != nil {
-			return err
+		if err := siglib.SignSectionUnsafe(shard, keys); err != nil {
+			return fmt.Errorf("Was not able to sign shard: %v", err)
 		}
+		shard.RemoveCtxAndZoneFromContent()
 	}
 	for _, pshard := range pshards {
-		if err := signSection(pshard, keys); err != nil {
-			return err
+		if err := siglib.SignSectionUnsafe(pshard, keys); err != nil {
+			return fmt.Errorf("Was not able to sign pshard: %v", err)
 		}
 	}
 	return nil

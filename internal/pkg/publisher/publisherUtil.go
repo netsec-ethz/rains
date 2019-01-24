@@ -10,8 +10,6 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"github.com/netsec-ethz/rains/internal/pkg/section"
-	"github.com/netsec-ethz/rains/internal/pkg/siglib"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -72,70 +70,4 @@ func StorePrivateKey(path string, privateKeys []keys.PrivateKey) error {
 	} else {
 		return ioutil.WriteFile(path, encoding, 0600)
 	}
-}
-
-//signZone signs the zone and all contained assertions with the zone's private key. It adds the
-//subjectZone and context to the contained assertions before signing them and removes them after the
-//signatures have been added. It returns an error if it was unable to sign the zone or any of the
-//contained assertions.
-func signZone(zone *section.Zone, keys map[keys.PublicKeyID]interface{}) error {
-	if zone == nil {
-		return errors.New("zone is nil")
-	}
-	zone.DontAddSigInMarshaller()
-	if err := signSection(zone, keys); err != nil {
-		return err
-	}
-	zone.AddCtxAndZoneToContent()
-	for _, a := range zone.Content {
-		if err := signSection(a, keys); err != nil {
-			return err
-		}
-	}
-	zone.RemoveCtxAndZoneFromContent()
-	zone.AddSigInMarshaller()
-	return nil
-}
-
-//signShard signs the shard and all contained assertions with the zone's private key. It removes the
-//subjectZone and context of the contained assertions after the signatures have been added. It
-//returns an error if it was unable to sign the shard or any of the assertions.
-func signShard(s *section.Shard, keys map[keys.PublicKeyID]interface{}) error {
-	if s == nil {
-		return errors.New("shard is nil")
-	}
-	s.DontAddSigInMarshaller()
-	if err := signSection(s, keys); err != nil {
-		return err
-	}
-	s.AddCtxAndZoneToContent()
-	for _, a := range s.Content {
-		if err := signSection(a, keys); err != nil {
-			return err
-		}
-	}
-	s.RemoveCtxAndZoneFromContent()
-	s.AddSigInMarshaller()
-	return nil
-}
-
-//signSection computes the signature data for all contained signatures.
-//It returns an error if it was unable to create all signatures on the assertion.
-func signSection(s section.WithSigForward, keys map[keys.PublicKeyID]interface{}) error {
-	if s == nil {
-		return errors.New("section is nil")
-	}
-	sigs := s.AllSigs()
-	s.DeleteAllSigs()
-	for _, sig := range sigs {
-		if sig.ValidUntil < time.Now().Unix() {
-			log.Error("Signature validUntil is in the past")
-		} else if ok := siglib.SignSectionUnsafe(s, keys[sig.PublicKeyID], sig); !ok {
-			log.Error("Was not able to sign and add the signature", "section", s, "signature", sig)
-		} else {
-			continue
-		}
-		return errors.New("Was not able to sign and add the signature")
-	}
-	return nil
 }
