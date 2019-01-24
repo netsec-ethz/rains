@@ -29,6 +29,18 @@ const (
 	zCheckPointFileName = "zoneKeyCheckPoint.gob"
 )
 
+type missingKeyMetaData struct {
+	Zone     string
+	Context  string
+	KeyPhase int
+}
+
+//ZoneContext stores a context and a zone
+type ZoneContext struct {
+	Zone    string
+	Context string
+}
+
 type checkPointValue struct {
 	Sections   []section.Section
 	ValidSince []int64
@@ -78,16 +90,16 @@ func sendCapability(destination net.Addr, capabilities []message.Capability, s *
 }
 
 //LoadConfig loads and stores server configuration
-func loadConfig(configPath string) (rainsdConfig, error) {
-	config := rainsdConfig{}
+func LoadConfig(configPath string) (Config, error) {
+	config := Config{}
 	file, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		log.Warn("Could not open config file...", "path", configPath, "error", err)
-		return rainsdConfig{}, err
+		return Config{}, err
 	}
 	if err = json.Unmarshal(file, &config); err != nil {
 		log.Warn("Could not unmarshal json format of config", "error", err)
-		return rainsdConfig{}, err
+		return Config{}, err
 	}
 	config.AssertionCheckPointInterval *= time.Second
 	config.NegAssertionCheckPointInterval *= time.Second
@@ -95,14 +107,16 @@ func loadConfig(configPath string) (rainsdConfig, error) {
 	config.KeepAlivePeriod *= time.Second
 	config.TCPTimeout *= time.Second
 	config.DelegationQueryValidity *= time.Second
-	config.ReapVerifyTimeout *= time.Second
+	config.ReapZoneKeyCacheInterval *= time.Second
+	config.ReapPendingKeyCacheInterval *= time.Second
 	config.QueryValidity *= time.Second
-	config.AddressQueryValidity *= time.Second
-	config.ReapEngineTimeout *= time.Second
-	config.MaxCacheValidity.AddressAssertionValidity *= time.Hour
+	config.MaxCacheValidity.PshardValidity *= time.Hour
 	config.MaxCacheValidity.AssertionValidity *= time.Hour
 	config.MaxCacheValidity.ShardValidity *= time.Hour
 	config.MaxCacheValidity.ZoneValidity *= time.Hour
+	config.ReapAssertionCacheInterval *= time.Second
+	config.ReapNegAssertionCacheInterval *= time.Second
+	config.ReapPendingQCacheInterval *= time.Second
 	return config, nil
 }
 
@@ -187,7 +201,7 @@ func measureSystemRessources() {
 	//Not yet implemented
 }
 
-func initStoreCachesContent(config rainsdConfig, caches *Caches, stop chan bool) {
+func initStoreCachesContent(config Config, caches *Caches, stop chan bool) {
 	if err := os.MkdirAll(config.CheckPointPath, os.ModePerm); err != nil {
 		log.Error("Was not able to create folders", "error", err)
 	}
@@ -217,7 +231,7 @@ func checkpoint(path string, values func() []section.Section) {
 	}
 }
 
-func loadCaches(cpPath string, caches *Caches, authZone, authContext []string) {
+func loadCaches(cpPath string, caches *Caches, authorities []ZoneContext) {
 
 	//load assertion check point
 	sections, err := readMsgFromFile(path.Join(cpPath, aCheckPointFileName))
@@ -227,7 +241,7 @@ func loadCaches(cpPath string, caches *Caches, authZone, authContext []string) {
 	for _, s := range sections {
 		if s, ok := s.(*section.Assertion); ok {
 			caches.AssertionsCache.Add(s, time.Now().Add(24*time.Hour).Unix(),
-				isAuthoritative(s, authZone, authContext))
+				isAuthoritative(s, authorities))
 		} else {
 			log.Warn("Invalid type for assertion cache", "type", fmt.Sprintf("%T", s))
 		}
@@ -242,13 +256,13 @@ func loadCaches(cpPath string, caches *Caches, authZone, authContext []string) {
 		switch s := s.(type) {
 		case *section.Shard:
 			caches.NegAssertionCache.AddShard(s, time.Now().Add(24*time.Hour).Unix(),
-				isAuthoritative(s, authZone, authContext))
+				isAuthoritative(s, authorities))
 		case *section.Pshard:
 			caches.NegAssertionCache.AddPshard(s, time.Now().Add(24*time.Hour).Unix(),
-				isAuthoritative(s, authZone, authContext))
+				isAuthoritative(s, authorities))
 		case *section.Zone:
 			caches.NegAssertionCache.AddZone(s, time.Now().Add(24*time.Hour).Unix(),
-				isAuthoritative(s, authZone, authContext))
+				isAuthoritative(s, authorities))
 		default:
 			log.Warn("Invalid type for negative Assertion cache", "type", fmt.Sprintf("%T", s))
 		}
@@ -264,7 +278,7 @@ func loadCaches(cpPath string, caches *Caches, authZone, authContext []string) {
 			for _, o := range s.Content {
 				if o.Type == object.OTDelegation {
 					caches.ZoneKeyCache.Add(s, o.Value.(keys.PublicKey),
-						isAuthoritative(s, authZone, authContext))
+						isAuthoritative(s, authorities))
 				}
 			}
 		} else {
@@ -285,10 +299,10 @@ func readMsgFromFile(path string) ([]section.Section, error) {
 	return values.Sections, nil
 }
 
-func isAuthoritative(s section.WithSigForward, authZone, authContext []string) bool {
+func isAuthoritative(s section.WithSigForward, authorities []ZoneContext) bool {
 	isAuthoritative := false
-	for i, zone := range authZone {
-		if zone == s.GetSubjectZone() && authContext[i] == s.GetContext() {
+	for _, auth := range authorities {
+		if auth.Zone == s.GetSubjectZone() && auth.Context == s.GetContext() {
 			isAuthoritative = true
 			break
 		}

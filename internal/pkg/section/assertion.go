@@ -33,14 +33,12 @@ func (a *Assertion) UnmarshalMap(m map[int]interface{}) error {
 		for i, sig := range sigs {
 			sigVal, ok := sig.([]interface{})
 			if !ok {
-				return errors.New("cbor zone signatures entry is not an array")
+				return errors.New("cbor assertion signatures entry is not an array")
 			}
 			if err := a.Signatures[i].UnmarshalArray(sigVal); err != nil {
 				return err
 			}
 		}
-	} else {
-		return errors.New("cbor zone map does not contain a signature")
 	}
 	if sn, ok := m[3].(string); ok {
 		a.SubjectName = sn

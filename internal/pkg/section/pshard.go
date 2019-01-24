@@ -33,14 +33,14 @@ func (s *Pshard) UnmarshalMap(m map[int]interface{}) error {
 		for i, sig := range sigs {
 			sigVal, ok := sig.([]interface{})
 			if !ok {
-				return errors.New("cbor zone signatures entry is not an array")
+				return errors.New("cbor pshard signatures entry is not an array")
 			}
 			if err := s.Signatures[i].UnmarshalArray(sigVal); err != nil {
 				return err
 			}
 		}
 	} else {
-		return errors.New("cbor zone map does not contain a signature")
+		return errors.New("cbor pshard map does not contain a signature")
 	}
 	if zone, ok := m[4].(string); ok {
 		s.SubjectZone = zone

@@ -1,5 +1,7 @@
 # Pending key cache
 
+THIS DESIGN DOCUMENT IS DEPRECATED
+
 ## Cache design decisions
 - This cache is used in case the server does not have a cached public key to check a signature. It
   allows to buffer the section so that the processing goroutine can handle another section from the

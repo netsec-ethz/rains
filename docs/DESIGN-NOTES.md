@@ -1,4 +1,5 @@
 # General Design decisions
+
 - Queries are answered as soon as any queried information is available, i.e. a server does not wait
   until it can completely answer a query but already responds with partial information.
 - A server should keep all public keys necessary to validate the signatures on all its cached
@@ -93,6 +94,9 @@
    to delegations can be configured to be processes with high priority.
 
 ## Conclusion
+
+NOTE: We changed from section wise processing to message wise processing to simplify recursive
+lookups. If the sender wants section wise processing, he must send all sections in a separate msg.
 
 The first proposal with the second pending query design proposal was chosen as sections are
 independent of each other and it leverages this property. Goroutines do not have to communicate with

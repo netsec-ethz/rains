@@ -82,12 +82,15 @@ func waitForResponse(conn net.Conn, token token.Token, serverError chan<- bool) 
 	var msg message.Message
 	if err := reader.Unmarshal(&msg); err != nil {
 		errs := strings.Split(err.Error(), ": ")
-		if errs[len(errs)-1] == "use of closed network connection" {
+		if errs[len(errs)-1] == "use of closed network connection" ||
+			err.Error() == "failed to read tag: EOF" {
 			log.Info("Connection has been closed", "conn", conn.RemoteAddr())
+			conn.Close()
+			serverError <- true
 		} else {
 			log.Warn("Was not able to decode received message", "error", err)
+			serverError <- false
 		}
-		serverError <- false
 		return
 	}
 	//Rainspub only accepts notification messages in response to published information.
