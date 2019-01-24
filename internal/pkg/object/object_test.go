@@ -180,7 +180,7 @@ func TestObjectString(t *testing.T) {
 		want  string
 	}{
 		{Object{}, "OT:0 OV:<nil>"},
-		{obj[0], "OT:1 OV:{example.com [3 2]}"},
+		{obj[0], "OT:1 OV:{example.com [OTIP4Addr OTIP6Addr]}"},
 		{obj[1], "OT:2 OV:2001:db8::"},
 		{obj[2], "OT:3 OV:192.0.2.0"},
 		{obj[3], "OT:4 OV:example.com"},

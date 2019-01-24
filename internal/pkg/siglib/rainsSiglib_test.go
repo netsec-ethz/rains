@@ -166,7 +166,6 @@ func TestSignErrors(t *testing.T) {
 }
 
 func TestCheckSectionSignaturesErrors(t *testing.T) {
-	maxVal := util.MaxCacheValidity{AddressAssertionValidity: time.Hour}
 	keys0 := make(map[keys.PublicKeyID][]keys.PublicKey)
 	keys1 := make(map[keys.PublicKeyID][]keys.PublicKey)
 	keys1[keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}] = []keys.PublicKey{
@@ -190,7 +189,7 @@ func TestCheckSectionSignaturesErrors(t *testing.T) {
 			ValidUntil: time.Now().Add(time.Minute).Unix()}}}, keys1, false}, //VerifySignature invalid
 	}
 	for _, test := range tests {
-		res := CheckSectionSignatures(test.input, test.inputPublicKeys, maxVal)
+		res := CheckSectionSignatures(test.input, test.inputPublicKeys, util.MaxCacheValidity{})
 		if res != test.want {
 			t.Fatalf("expected=%v, actual=%v, value=%v", test.want, res, test.input)
 		}

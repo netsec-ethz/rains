@@ -3,7 +3,7 @@ keyManager(1) -- A RAINS key manager
 
 ## SYNOPSIS
 
-`keyManager` [-p|--path <path>] <command> 
+`keyManager` [command] [path] [options]
 
 ## DESCRIPTION
 
@@ -14,6 +14,9 @@ from a user provided password. Given the name of the key and the correct passwor
 decrypts the private key and prints it pem encoded.
 
 ## OPTIONS
+
+* path:
+    Path where the keys are or will be stored. The current location is the default path.
 
 * `-n`, `--name`:
     The prefix of the file name where the key is loaded from or will be stored to.
@@ -29,7 +32,7 @@ decrypts the private key and prints it pem encoded.
     Description allows to store an arbitrary string value with the key. It can e.g. be used to store
     the information in which zone and context the key pair is used. The default is the empty string.
 
-* `-pwd`:
+* `--pwd`:
     Pwd states the password to encrypt or decrypt a private key. The default is the empty string.
 
 ## COMMANDS
