@@ -2,7 +2,6 @@ package rainsd
 
 import (
 	"fmt"
-	"math"
 	"strings"
 	"time"
 
@@ -160,65 +159,11 @@ func verifySignatures(ss util.MsgSectionSender, keys map[keys.PublicKeyID][]keys
 	for _, sec := range ss.Sections {
 		sec := sec.(section.WithSigForward)
 		sections = append(sections, sec)
-		sec.DontAddSigInMarshaller()
-		if !validSignature(sec, keys, s.config.MaxCacheValidity) {
+		if !siglib.CheckSectionSignatures(sec, keys, s.config.MaxCacheValidity) {
 			return nil, false
 		}
-		sec.AddSigInMarshaller()
 	}
 	return sections, true
-}
-
-//validSignature validates section's signatures and strips all expired signatures away. Returns
-//false if there are no signatures left (not considering internal sections) or if at least one
-//signature is invalid (due to incorrect signature)
-func validSignature(sec section.WithSigForward, keys map[keys.PublicKeyID][]keys.PublicKey,
-	maxValidity util.MaxCacheValidity) bool {
-	switch sec := sec.(type) {
-	case *section.Assertion, *section.Pshard:
-		return validateSignatures(sec, keys, maxValidity)
-	case *section.Shard:
-		return validShardSignatures(sec, keys, maxValidity)
-	case *section.Zone:
-		return validZoneSignatures(sec, keys, maxValidity)
-	default:
-		log.Warn("Not supported Msg Section")
-		return false
-	}
-}
-
-//validShardSignatures validates all signatures on the shard and contained assertions. It returns
-//false if there is a signatures that does not verify. It removes the context and subjectZone of all
-//contained assertions (which were necessary for signature verification)
-func validShardSignatures(shard *section.Shard, keys map[keys.PublicKeyID][]keys.PublicKey,
-	maxValidity util.MaxCacheValidity) bool {
-	if !validateSignatures(shard, keys, maxValidity) {
-		return false
-	}
-	shard.AddCtxAndZoneToContent()
-	for _, s := range shard.Content {
-		if !siglib.CheckSectionSignatures(s, keys, maxValidity) {
-			return false
-		}
-	}
-	return true
-}
-
-//validZoneSignatures validates all signatures on the zone and contained assertions and shards. It
-//returns false if there is a signatures that does not verify. It removes the subjectZone and
-//context of all contained assertions and shards (which were necessary for signature verification)
-func validZoneSignatures(zone *section.Zone, keys map[keys.PublicKeyID][]keys.PublicKey,
-	maxValidity util.MaxCacheValidity) bool {
-	if !validateSignatures(zone, keys, maxValidity) {
-		return false
-	}
-	zone.AddCtxAndZoneToContent()
-	for _, s := range zone.Content {
-		if !siglib.CheckSectionSignatures(s, keys, maxValidity) {
-			return false
-		}
-	}
-	return true
 }
 
 //handleMissingKeys adds sectionSender to the pending key cache and sends a delegation query if
@@ -266,17 +211,4 @@ func getQueryValidity(sigs []signature.Sig, delegQValidity time.Duration) (valid
 		validity = upperBound
 	}
 	return validity
-}
-
-//validateSignatures returns true if all non expired signatures of section are valid and there is at
-//least one signature valid before Config.MaxValidity. It removes valid signatures that are expired
-func validateSignatures(section section.WithSigForward, keyMap map[keys.PublicKeyID][]keys.PublicKey, maxValidity util.MaxCacheValidity) bool {
-	if !siglib.CheckSectionSignatures(section, keyMap, maxValidity) {
-		return false //already logged
-	}
-	if section.ValidSince() == math.MaxInt64 {
-		log.Info("No signature is valid before the MaxValidity date in the future.")
-		return false
-	}
-	return len(section.Sigs(keys.RainsKeySpace)) > 0
 }

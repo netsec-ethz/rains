@@ -68,7 +68,9 @@ func addSignature(a section.WithSig, key ed25519.PrivateKey, publicKeyID keys.Pu
 		ValidSince:  time.Now().Unix(),
 		ValidUntil:  time.Now().Add(365 * 24 * time.Hour).Unix(),
 	}
-	return siglib.SignSection(a, key, sig)
+	a.AddSig(sig)
+	ks := map[keys.PublicKeyID]interface{}{publicKeyID: key}
+	return siglib.SignSectionUnsafe(a, ks) == nil
 }
 
 //storeKeyPair stores the public and private key to temp/private.key (hex
