@@ -1,10 +1,10 @@
 package section
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	cbor "github.com/britram/borat"
@@ -208,12 +208,10 @@ func (s *Shard) Hash() string {
 	if s == nil {
 		return "S_nil"
 	}
-	aHashes := []string{}
-	for _, a := range s.Content {
-		aHashes = append(aHashes, a.Hash())
-	}
-	return fmt.Sprintf("S_%s_%s_%s_%s_[%s]_%v", s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo,
-		strings.Join(aHashes, " "), s.Signatures)
+	encoding := new(bytes.Buffer)
+	w := cbor.NewCBORWriter(encoding)
+	w.WriteArray([]interface{}{2, s})
+	return encoding.String()
 }
 
 //Sort sorts the content of the shard lexicographically.

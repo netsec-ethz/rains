@@ -37,24 +37,6 @@ func TestAssertionInterval(t *testing.T) {
 	}
 }
 
-func TestAssertionHash(t *testing.T) {
-	var tests = []struct {
-		input *Assertion
-		want  string
-	}{
-		{nil, "A_nil"},
-		{new(Assertion), "A____[]_[]"},
-		{&Assertion{SubjectName: "name", SubjectZone: "zone", Context: "ctx", Content: object.AllObjects()[:3],
-			Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{KeySpace: keys.RainsKeySpace, Algorithm: algorithmTypes.Ed25519}, ValidSince: 1000, ValidUntil: 2000, Data: []byte("SigData")}}},
-			"A_name_zone_ctx_[OT:1 OV:{example.com [OTIP4Addr OTIP6Addr]} OT:2 OV:2001:db8:: OT:3 OV:192.0.2.0]_[{KS=0 AT=1 VS=1000 VU=2000 KP=0 data=53696744617461}]"},
-	}
-	for i, test := range tests {
-		if test.input.Hash() != test.want {
-			t.Errorf("%d: Wrong assertion hash. expected=%v, actual=%v", i, test.want, test.input.Hash())
-		}
-	}
-}
-
 func TestEqualContextZoneName(t *testing.T) {
 	var tests = []struct {
 		input *Assertion

@@ -5,10 +5,6 @@ import (
 	"reflect"
 	"sort"
 	"testing"
-
-	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
-	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
 
 func TestZoneInterval(t *testing.T) {
@@ -38,32 +34,6 @@ func TestZoneIsConsistent(t *testing.T) {
 		if test.input.IsConsistent() != test.want {
 			t.Errorf("%d: unexpected zone (in)consistency expected=%v actual=%v", i, test.want,
 				test.input.IsConsistent())
-		}
-	}
-}
-
-func TestZoneHash(t *testing.T) {
-	var tests = []struct {
-		input *Zone
-		want  string
-	}{
-		{nil, "Z_nil"},
-		{new(Zone), "Z___[]_[]"},
-		{&Zone{SubjectZone: "zone", Context: "ctx", Content: []*Assertion{new(Assertion)},
-			Signatures: []signature.Sig{signature.Sig{
-				PublicKeyID: keys.PublicKeyID{
-					KeySpace:  keys.RainsKeySpace,
-					Algorithm: algorithmTypes.Ed25519,
-					KeyPhase:  1,
-				},
-				ValidSince: 1000,
-				ValidUntil: 2000,
-				Data:       []byte("SigData")}}},
-			"Z_zone_ctx_[A____[]_[]]_[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461}]"},
-	}
-	for i, test := range tests {
-		if test.input.Hash() != test.want {
-			t.Errorf("%d: Wrong zone hash. expected=%v, actual=%v", i, test.want, test.input.Hash())
 		}
 	}
 }

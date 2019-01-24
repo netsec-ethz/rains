@@ -1,6 +1,7 @@
 package section
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strings"
@@ -168,8 +169,10 @@ func (s *Pshard) Hash() string {
 	if s == nil {
 		return "P_nil"
 	}
-	return fmt.Sprintf("P_%s_%s_%s_%s_%v_%v", s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo,
-		s.BloomFilter, s.Signatures)
+	encoding := new(bytes.Buffer)
+	w := cbor.NewCBORWriter(encoding)
+	w.WriteArray([]interface{}{3, s})
+	return encoding.String()
 }
 
 //Sort sorts the content of the pshard lexicographically.
