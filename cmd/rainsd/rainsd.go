@@ -17,6 +17,7 @@ import (
 )
 
 var configPath string
+var id = flag.String("id", "", "Server id")
 var rootZonePublicKeyPath = flag.String("rootZonePublicKeyPath", "data/keys/rootDelegationAssertion.gob", "Path to the "+
 	"file storing the RAINS' root zone public key.")
 var assertionCheckPointInterval = flag.Duration("assertionCheckPointInterval", 30*time.Minute, "The time duration in "+
@@ -32,6 +33,7 @@ var preLoadCaches = flag.Bool("preLoadCaches", false, "If true, the assertion, n
 
 //switchboard
 var serverAddress addressFlag
+var rootServerAddress addressFlag
 var maxConnections = flag.Int("maxConnections", 10000, "The maximum number of allowed active connections.")
 var keepAlivePeriod = flag.Duration("keepAlivePeriod", time.Minute, "How long to keep idle connections open.")
 var tcpTimeout = flag.Duration("tcpTimeout", 5*time.Minute, "TCPTimeout is the maximum amount of "+
@@ -101,6 +103,7 @@ func init() {
 	flag.Var(&serverAddress, "serverAddress", "The network address of this server.")
 	flag.Var(&authorities, "authorities", "A list of contexts and zones for which this server "+
 		"is authoritative. The format is elem(,elem)* where elem := zoneName,contextName")
+	flag.Var(&rootServerAddress, "rootServerAddress", "The root name server address")
 }
 
 func main() {
@@ -120,12 +123,13 @@ func main() {
 	}
 
 	updateConfig(&config)
-	server, err := rainsd.New(config, "0")
+	server, err := rainsd.New(config, *id)
 	if err != nil {
 		log.Fatalf("Error: Was not able to initialize server: %v", err)
 		return
 	}
-	server.SetResolver(libresolve.New(nil, nil, libresolve.Recursive, server.Addr(), 10000))
+	rootNameServers := []net.Addr{rootServerAddress.value.Addr}
+	server.SetResolver(libresolve.New(rootNameServers, nil, libresolve.Recursive, server.Addr(), 10000))
 	go server.Start(false)
 	handleUserInput()
 	server.Shutdown()

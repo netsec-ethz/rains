@@ -80,14 +80,19 @@ func (r *Resolver) ClientLookup(query *query.Name) (*message.Message, error) {
 //starting at the specified root servers. It sends the received information to conInfo.
 func (r *Resolver) ServerLookup(query *query.Name, addr net.Addr, token token.Token) {
 	var msg *message.Message
+	var err error
 	log.Info("recResolver received query", "query", query, "token", token)
 	switch r.Mode {
 	case Recursive:
-		msg, _ = r.recursiveResolve(query)
+		msg, err = r.recursiveResolve(query)
 	case Forward:
-		msg, _ = r.forwardQuery(query)
+		msg, err = r.forwardQuery(query)
 	default:
 		log.Error("Unsupported resolution mode", "mode", r.Mode)
+	}
+	if err != nil {
+		log.Error("Query failed", err)
+		return
 	}
 	msg.Token = token
 	if conn, ok := r.Connections.GetConnection(addr); ok {
