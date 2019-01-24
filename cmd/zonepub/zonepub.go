@@ -82,7 +82,7 @@ var sortZone = flag.Bool("sortZone", false, "If set to true, makes sure that the
 var sigNotExpired = flag.Bool("sigNotExpired", false, "If set to true, checks that all signatures "+
 	"have a validUntil time in the future")
 var checkStringFields = flag.Bool("checkStringFields", false, "If set to true, checks that none "+
-	"of the assertions' text fields contain	protocol keywords.")
+	"of the assertions' text fields contain protocol keywords.")
 var doSigning = flag.Bool("doSigning", true, "If set to true, all sections with signature meta "+
 	"data are signed.")
 var maxZoneSize = flag.Int("maxZoneSize", 60000, "this option only has an effect when doSigning is "+
