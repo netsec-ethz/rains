@@ -16,7 +16,7 @@ var phase = flag.Int("phase", 0, "defines the key phase for which a key is gener
 var description = flag.StringP("description", "d", "", `allows to store an arbitrary 
 string value with the key. It can e.g. be used to store the information in which zone and context 
 the key pair is used. The default is the empty string. (default \"\")`)
-var pwd = flag.String("pwd", "", "states the password to encrypt or decrypt a private key. (default \"\")")
+var pwd = flag.String("pwd", "", "password to encrypt or decrypt a private key. (default \"\")")
 
 func main() {
 	flag.Parse()
