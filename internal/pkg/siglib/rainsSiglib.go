@@ -180,8 +180,6 @@ func signSectionUnsafe(s section.WithSig, ks map[keys.PublicKeyID]interface{}) e
 		if err := (&sig).SignData(ks[sig.PublicKeyID], encoding.Bytes()); err != nil {
 			return err
 		}
-		//FIXME replace signature array with array to signature pointers to avoid removing and
-		//readding signatures.
 		s.AddSig(sig)
 	}
 	return nil
