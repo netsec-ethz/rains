@@ -129,7 +129,8 @@ func main() {
 		return
 	}
 	rootNameServers := []net.Addr{rootServerAddress.value.Addr}
-	server.SetResolver(libresolve.New(rootNameServers, nil, libresolve.Recursive, server.Addr(), 10000))
+	server.SetResolver(libresolve.New(rootNameServers, nil, libresolve.Recursive, server.Addr(),
+		*maxConnections))
 	go server.Start(false)
 	handleUserInput()
 	server.Shutdown()
