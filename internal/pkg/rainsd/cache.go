@@ -31,7 +31,7 @@ type Caches struct {
 	NegAssertionCache cache.NegativeAssertion
 }
 
-func initCaches(config rainsdConfig) *Caches {
+func initCaches(config Config) *Caches {
 	caches := new(Caches)
 	caches.ConnCache = cache.NewConnection(config.MaxConnections)
 
@@ -51,10 +51,10 @@ func initCaches(config rainsdConfig) *Caches {
 	return caches
 }
 
-func initReapers(config rainsdConfig, caches *Caches, stop chan bool) {
-	go repeatFuncCaller(caches.ZoneKeyCache.RemoveExpiredKeys, config.ReapVerifyTimeout, stop)
-	go repeatFuncCaller(caches.PendingKeys.RemoveExpiredValues, config.ReapVerifyTimeout, stop)
-	go repeatFuncCaller(caches.AssertionsCache.RemoveExpiredValues, config.ReapEngineTimeout, stop)
-	go repeatFuncCaller(caches.NegAssertionCache.RemoveExpiredValues, config.ReapEngineTimeout, stop)
-	go repeatFuncCaller(caches.PendingQueries.RemoveExpiredValues, config.ReapEngineTimeout, stop)
+func initReapers(config Config, caches *Caches, stop chan bool) {
+	go repeatFuncCaller(caches.ZoneKeyCache.RemoveExpiredKeys, config.ReapZoneKeyCacheInterval, stop)
+	go repeatFuncCaller(caches.PendingKeys.RemoveExpiredValues, config.ReapPendingKeyCacheInterval, stop)
+	go repeatFuncCaller(caches.AssertionsCache.RemoveExpiredValues, config.ReapAssertionCacheInterval, stop)
+	go repeatFuncCaller(caches.NegAssertionCache.RemoveExpiredValues, config.ReapNegAssertionCacheInterval, stop)
+	go repeatFuncCaller(caches.PendingQueries.RemoveExpiredValues, config.ReapPendingQCacheInterval, stop)
 }

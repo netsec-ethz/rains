@@ -36,8 +36,15 @@ func GetMessage() Message {
 		Signatures:  []signature.Sig{sig},
 	}
 
+	aWithoutSig := &section.Assertion{
+		Content:     object.AllObjects(),
+		Context:     globalContext,
+		SubjectName: testSubjectName,
+		SubjectZone: testSubjectName,
+	}
+
 	shard := &section.Shard{
-		Content:     []*section.Assertion{assertion},
+		Content:     []*section.Assertion{assertion, aWithoutSig},
 		Context:     globalContext,
 		SubjectZone: testSubjectName,
 		RangeFrom:   "aaa",
@@ -54,7 +61,7 @@ func GetMessage() Message {
 	}
 
 	zone := &section.Zone{
-		Content:     []*section.Assertion{assertion},
+		Content:     []*section.Assertion{assertion, aWithoutSig},
 		Context:     globalContext,
 		SubjectZone: testSubjectName,
 		Signatures:  []signature.Sig{sig},

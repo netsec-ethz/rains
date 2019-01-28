@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"sort"
-	"strconv"
 
 	cbor "github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
@@ -420,11 +419,7 @@ func logObjectTypeAssertionFailure(t Type, value interface{}) {
 //Type identifier for object connection. ID chosen according to RAINS Protocol Specification
 type Type int
 
-//String returns the ID as a string
-func (o Type) String() string {
-	return strconv.Itoa(int(o))
-}
-
+//go:generate stringer -type=Type
 const (
 	OTName        Type = 1
 	OTIP6Addr     Type = 2
@@ -551,6 +546,7 @@ func (c Certificate) String() string {
 //ProtocolType is an identifier for a protocol. The ID is chosen according to the RAINS Protocol Specification.
 type ProtocolType int
 
+//go:generate stringer -type=ProtocolType
 const (
 	PTUnspecified ProtocolType = 0
 	PTTLS         ProtocolType = 1
@@ -559,6 +555,7 @@ const (
 //CertificateUsage is an identifier for a certificate usage. The ID is chosen according to the RAINS Protocol Specification.
 type CertificateUsage int
 
+//go:generate stringer -type=CertificateUsage
 const (
 	CUTrustAnchor CertificateUsage = 2
 	CUEndEntity   CertificateUsage = 3

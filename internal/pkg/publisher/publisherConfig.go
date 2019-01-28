@@ -27,7 +27,7 @@ type Config struct {
 
 //ShardingConfig contains configuration options on how to split a zone into shards.
 type ShardingConfig struct {
-	IncludeShards         bool
+	KeepShards            bool
 	DoSharding            bool
 	NofAssertionsPerShard int
 	MaxShardSize          int
@@ -35,7 +35,7 @@ type ShardingConfig struct {
 
 //PShardingConfig contains configuration options on how to split a zone into probabilistic shards.
 type PShardingConfig struct {
-	IncludePshards         bool
+	KeepPshards            bool
 	DoPsharding            bool
 	NofAssertionsPerPshard int
 	BloomFilterConf        BloomFilterConfig
@@ -69,4 +69,51 @@ type ConsistencyConfig struct {
 	SortZone           bool
 	SigNotExpired      bool
 	CheckStringFields  bool
+}
+
+//DefaultConfig return the default configuration for the zone publisher.
+func DefaultConfig() Config {
+	return Config{
+		ZonefilePath:   "data/zonefiles/zf.txt",
+		AuthServers:    []connection.Info{},
+		PrivateKeyPath: "data/keys/key_sec.pem",
+		ShardingConf: ShardingConfig{
+			DoSharding:            true,
+			KeepShards:            false,
+			MaxShardSize:          1000,
+			NofAssertionsPerShard: -1,
+		},
+		PShardingConf: PShardingConfig{
+			DoPsharding:            true,
+			KeepPshards:            false,
+			NofAssertionsPerPshard: 50,
+			BloomFilterConf: BloomFilterConfig{
+				BFAlgo:          section.BloomKM12,
+				BFHash:          algorithmTypes.Shake256,
+				BloomFilterSize: 200,
+			},
+		},
+		MetaDataConf: MetaDataConfig{
+			AddSignatureMetaData:       true,
+			AddSigMetaDataToAssertions: true,
+			AddSigMetaDataToShards:     true,
+			AddSigMetaDataToPshards:    true,
+			SignatureAlgorithm:         algorithmTypes.Ed25519,
+			KeyPhase:                   0,
+			SigValidSince:              time.Now().Unix(),
+			SigValidUntil:              time.Now().Add(24 * time.Hour).Unix(),
+			SigSigningInterval:         time.Minute,
+		},
+		ConsistencyConf: ConsistencyConfig{
+			DoConsistencyCheck: true,
+			SortShards:         false,
+			SortZone:           false,
+			SigNotExpired:      false,
+			CheckStringFields:  false,
+		},
+		DoSigning:   true,
+		MaxZoneSize: 60000,
+		OutputPath:  "",
+		DoPublish:   true,
+	}
 }

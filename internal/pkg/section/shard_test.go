@@ -5,10 +5,6 @@ import (
 	"reflect"
 	"sort"
 	"testing"
-
-	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
-	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
 
 func TestShardCopy(t *testing.T) {
@@ -33,32 +29,6 @@ func TestShardInterval(t *testing.T) {
 		if test.input.Begin() != test.wantBegin || test.input.End() != test.wantEnd {
 			t.Errorf("%d: Shard Begin and End are not as expectedBegin=%s expectedEnd=%s actualBegin=%s actualEnd=%s", i,
 				test.wantBegin, test.wantEnd, test.input.Begin(), test.input.End())
-		}
-	}
-}
-
-func TestShardHash(t *testing.T) {
-	var tests = []struct {
-		input *Shard
-		want  string
-	}{
-		{nil, "S_nil"},
-		{new(Shard), "S_____[]_[]"},
-		{&Shard{SubjectZone: "zone", Context: "ctx", RangeFrom: "RB", RangeTo: "RT", Content: []*Assertion{new(Assertion)},
-			Signatures: []signature.Sig{signature.Sig{
-				PublicKeyID: keys.PublicKeyID{
-					KeySpace:  keys.RainsKeySpace,
-					Algorithm: algorithmTypes.Ed25519,
-					KeyPhase:  1,
-				},
-				ValidSince: 1000,
-				ValidUntil: 2000,
-				Data:       []byte("SigData")}}},
-			"S_zone_ctx_RB_RT_[A____[]_[]]_[{KS=0 AT=1 VS=1000 VU=2000 KP=1 data=53696744617461}]"},
-	}
-	for i, test := range tests {
-		if test.input.Hash() != test.want {
-			t.Errorf("%d: Wrong shard hash. expected=%v, actual=%v", i, test.want, test.input.Hash())
 		}
 	}
 }

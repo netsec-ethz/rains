@@ -79,7 +79,7 @@ func main() {
 		log.Fatalf("Error: serverAddr or port malformed: %v", err)
 	}
 	t := token.New()
-	if flag.Lookup("nonce").Changed {
+	if flag.Lookup("token").Changed {
 		for i := 0; i < len(*tok); i++ {
 			if i < len(*tok) {
 				t[i] = (*tok)[i]

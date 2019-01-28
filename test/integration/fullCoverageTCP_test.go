@@ -34,7 +34,11 @@ func TestFullCoverage(t *testing.T) {
 	ethzChServer := startAuthServer(t, "ethz.ch", []net.Addr{rootServer.Addr()})
 	log.Info("all authoritative servers successfully started")
 	//Start client resolver
-	cachingResolver, err := rainsd.New("testdata/conf/resolver.conf", "resolver")
+	conf, err := rainsd.LoadConfig("testdata/conf/resolver.conf")
+	if err != nil {
+		t.Fatalf("Was not able to load resolver config: %v", err)
+	}
+	cachingResolver, err := rainsd.New(conf, "resolver")
 	if err != nil {
 		t.Fatalf("Was not able to create client resolver: %v", err)
 	}
@@ -54,7 +58,7 @@ func TestFullCoverage(t *testing.T) {
 	for i, query := range queries {
 		sendQueryVerifyResponse(t, *query, cachingResolver.Addr(), answers[i])
 	}
-	log.Info("Done sending queries for recursive lookups")
+	log.Warn("Done sending queries for recursive lookups")
 
 	//Shut down authoritative servers
 	rootServer.Shutdown()
@@ -65,12 +69,16 @@ func TestFullCoverage(t *testing.T) {
 	for i, query := range queries {
 		sendQueryVerifyResponse(t, *query, cachingResolver.Addr(), answers[i])
 	}
-	log.Info("Done sending queries for cached entries from a recursive lookup")
+	log.Warn("Done sending queries for cached entries from a recursive lookup")
 
 	//Restart caching resolver from checkpoint
 	time.Sleep(1000 * time.Millisecond) //make sure that caches are checkpointed
 	cachingResolver.Shutdown()
-	cachingResolver2, err := rainsd.New("testdata/conf/resolver2.conf", "resolver2")
+	conf, err = rainsd.LoadConfig("testdata/conf/resolver2.conf")
+	if err != nil {
+		t.Fatalf("Was not able to load resolver2 config: %v", err)
+	}
+	cachingResolver2, err := rainsd.New(conf, "resolver2")
 	if err != nil {
 		t.Fatalf("Was not able to create client resolver: %v", err)
 	}
@@ -81,12 +89,16 @@ func TestFullCoverage(t *testing.T) {
 	for i, query := range queries {
 		sendQueryVerifyResponse(t, *query, cachingResolver2.Addr(), answers[i])
 	}
-	log.Info("Done sending queries for cached entries that are preloaded")
+	log.Warn("Done sending queries for cached entries that are preloaded")
 	cachingResolver2.Shutdown()
 }
 
 func startAuthServer(t *testing.T, name string, rootServers []net.Addr) *rainsd.Server {
-	server, err := rainsd.New("testdata/conf/namingServer"+name+".conf", "nameServer"+name)
+	conf, err := rainsd.LoadConfig("testdata/conf/namingServer" + name + ".conf")
+	if err != nil {
+		t.Fatalf("Was not able to load namingServer%s config: %v", name, err)
+	}
+	server, err := rainsd.New(conf, "nameServer"+name)
 	if err != nil {
 		t.Fatal(fmt.Sprintf("Was not able to create %s server: ", name), err)
 	}
@@ -143,7 +155,7 @@ func decodeAnswers(input []byte, t *testing.T) []section.WithSigForward {
 func sendQueryVerifyResponse(t *testing.T, query query.Name, connInfo net.Addr,
 	answer section.Section) {
 	msg := message.Message{Token: token.New(), Content: []section.Section{&query}}
-	log.Error("Integration test sends query", "msg", msg)
+	log.Warn("Integration test sends query", "msg", msg)
 	answerMsg, err := util.SendQuery(msg, connInfo, time.Second)
 	if err != nil {
 		t.Fatalf("could not send query or receive answer. query=%v err=%v", msg.Content, err)

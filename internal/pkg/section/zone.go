@@ -1,10 +1,10 @@
 package section
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	cbor "github.com/britram/borat"
@@ -176,12 +176,10 @@ func (z *Zone) Hash() string {
 	if z == nil {
 		return "Z_nil"
 	}
-	contentHashes := []string{}
-	for _, v := range z.Content {
-		contentHashes = append(contentHashes, v.Hash())
-	}
-	return fmt.Sprintf("Z_%s_%s_[%s]_%v", z.SubjectZone, z.Context, strings.Join(contentHashes, " "),
-		z.Signatures)
+	encoding := new(bytes.Buffer)
+	w := cbor.NewCBORWriter(encoding)
+	w.WriteArray([]interface{}{4, z})
+	return encoding.String()
 }
 
 //Sort sorts the content of the zone lexicographically.

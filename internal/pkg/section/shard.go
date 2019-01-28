@@ -1,10 +1,10 @@
 package section
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	cbor "github.com/britram/borat"
@@ -34,14 +34,14 @@ func (s *Shard) UnmarshalMap(m map[int]interface{}) error {
 		for i, sig := range sigs {
 			sigVal, ok := sig.([]interface{})
 			if !ok {
-				return errors.New("cbor zone signatures entry is not an array")
+				return errors.New("cbor shard signatures entry is not an array")
 			}
 			if err := s.Signatures[i].UnmarshalArray(sigVal); err != nil {
 				return err
 			}
 		}
 	} else {
-		return errors.New("cbor zone map does not contain a signature")
+		return errors.New("cbor shard map does not contain a signature")
 	}
 	// SubjectZone
 	if zone, ok := m[4].(string); ok {
@@ -208,12 +208,10 @@ func (s *Shard) Hash() string {
 	if s == nil {
 		return "S_nil"
 	}
-	aHashes := []string{}
-	for _, a := range s.Content {
-		aHashes = append(aHashes, a.Hash())
-	}
-	return fmt.Sprintf("S_%s_%s_%s_%s_[%s]_%v", s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo,
-		strings.Join(aHashes, " "), s.Signatures)
+	encoding := new(bytes.Buffer)
+	w := cbor.NewCBORWriter(encoding)
+	w.WriteArray([]interface{}{2, s})
+	return encoding.String()
 }
 
 //Sort sorts the content of the shard lexicographically.

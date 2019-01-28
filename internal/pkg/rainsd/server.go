@@ -28,9 +28,9 @@ type Server struct {
 	//resolver can be configured as a forwarder or perform recursive lookup by itself.
 	resolver *libresolve.Resolver
 	//config contains configurations of this server
-	config rainsdConfig
+	config Config
 	//authority states the names over which this server has authority
-	authority map[zoneContext]bool
+	authority map[ZoneContext]bool
 	//certPool stores received certificates
 	certPool *x509.CertPool
 	//tlsCert holds the tls certificate of this server
@@ -51,17 +51,15 @@ type Server struct {
 
 //New returns a pointer to a newly created rainsd server instance with the given config. The server
 //logs with the provided level of logging.
-func New(configPath string, id string) (server *Server, err error) {
+func New(config Config, id string) (server *Server, err error) {
 	server = &Server{
 		inputChannel: &connection.Channel{RemoteChan: make(chan connection.Message, 100)},
+		config:       config,
 	}
 	server.inputChannel.SetRemoteAddr(connection.ChannelAddr{ID: id})
-	if server.config, err = loadConfig(configPath); err != nil {
-		return nil, err
-	}
-	server.authority = make(map[zoneContext]bool)
-	for i, context := range server.config.ContextAuthority {
-		server.authority[zoneContext{Zone: server.config.ZoneAuthority[i], Context: context}] = true
+	server.authority = make(map[ZoneContext]bool)
+	for _, auth := range server.config.Authorities {
+		server.authority[auth] = true
 	}
 	if server.certPool, server.tlsCert, err = loadTLSCertificate(server.config.TLSCertificateFile,
 		server.config.TLSPrivateKeyFile); err != nil {
@@ -112,7 +110,7 @@ func (s *Server) Start(monitorResources bool) error {
 	log.Debug("Goroutines working on input queue started")
 	initReapers(s.config, s.caches, s.shutdown)
 	if s.config.PreLoadCaches {
-		loadCaches(s.config.CheckPointPath, s.caches, s.config.ZoneAuthority, s.config.ContextAuthority)
+		loadCaches(s.config.CheckPointPath, s.caches, s.config.Authorities)
 		log.Info("Caches loaded from checkpoint",
 			"assertions", s.caches.AssertionsCache.Len(),
 			"negAssertions", s.caches.NegAssertionCache.Len(),
