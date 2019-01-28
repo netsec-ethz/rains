@@ -24,11 +24,10 @@ func TestRecursiveResolve(t *testing.T) {
 		Delegations:     safeHashMap.New(),
 		Connections:     cache.NewConnection(1),
 		MaxCacheValidity: util.MaxCacheValidity{
-			AssertionValidity:        100,
-			ShardValidity:            100,
-			PhardValidity:            100,
-			ZoneValidity:             100,
-			AddressAssertionValidity: 100,
+			AssertionValidity: 100,
+			ShardValidity:     100,
+			PshardValidity:    100,
+			ZoneValidity:      100,
 		},
 		MaxRecursiveCount: 1,
 	}
