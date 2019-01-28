@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
 
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
@@ -175,5 +176,40 @@ func TestNewNotificationMessage(t *testing.T) {
 		if !reflect.DeepEqual(test.expected, msg) {
 			t.Errorf("%d: Message containing Notification do not match. expected=%v actual=%v", i, test.expected, msg)
 		}
+	}
+}
+
+func TestGetOverlapValidityForSignatures(t *testing.T) {
+	s := signature.Sig{}
+	s.ValidSince = 10
+	s.ValidUntil = 20
+	sigs := []signature.Sig{s}
+	since, until := GetOverlapValidityForSignatures(sigs)
+	if since != s.ValidSince || until != s.ValidUntil {
+		t.Errorf("Wrong range for validity of signature collection (%d, %d)", since, until)
+	}
+	s = signature.Sig{}
+	s.ValidSince = sigs[0].ValidSince
+	s.ValidUntil = 30
+	sigs = append(sigs, s)
+	since, until = GetOverlapValidityForSignatures(sigs)
+	if since != 10 || until != 30 {
+		t.Errorf("Wrong range for validity of signature collection (%d, %d)", since, until)
+	}
+	s = signature.Sig{}
+	s.ValidSince = 1
+	s.ValidUntil = 2
+	sigs = append(sigs, s)
+	since, until = GetOverlapValidityForSignatures(sigs)
+	if since != 0 || until != 0 {
+		t.Errorf("Wrong range for validity of signature collection (%d, %d)", since, until)
+	}
+	s = signature.Sig{}
+	s.ValidSince = 2
+	s.ValidUntil = 200
+	sigs = append(sigs, s)
+	since, until = GetOverlapValidityForSignatures(sigs)
+	if since != 1 || until != 200 {
+		t.Errorf("Wrong range for validity of signature collection (%d, %d)", since, until)
 	}
 }
