@@ -122,16 +122,13 @@ func (a *Assertion) GetSubjectZone() string {
 
 //FQDN returns the fully qualified domain name of this assertion
 func (a *Assertion) FQDN() string {
-	var subjectName string
 	if a.SubjectName == "@" {
-		subjectName = ""
-	} else {
-		subjectName = a.SubjectName
+		return a.SubjectZone
 	}
 	if a.SubjectZone == "." {
-		return subjectName + a.SubjectZone
+		return a.SubjectName + a.SubjectZone
 	}
-	return fmt.Sprintf("%s.%s", subjectName, a.SubjectZone)
+	return fmt.Sprintf("%s.%s", a.SubjectName, a.SubjectZone)
 }
 
 func (a *Assertion) SetContext(ctx string) {

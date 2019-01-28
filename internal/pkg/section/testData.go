@@ -26,8 +26,8 @@ const (
 	ip4TestAddr2CIDR  = "198.51.100.0/24"
 	ip4TestAddr3CIDR  = "203.0.113.0/24"
 	ip6TestAddrCIDR   = "2001:db8::/32"
-	testDomain        = "example.com"
-	testZone          = "com"
+	testDomain        = "example.com."
+	testZone          = "com."
 	testSubjectName   = "example"
 	globalContext     = "."
 )
