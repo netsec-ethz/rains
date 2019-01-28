@@ -161,7 +161,7 @@ func (r *Resolver) forwardQuery(q *query.Name) (*message.Message, error) {
 // recursiveResolve starts at the root and follows delegations until it receives an answer.
 // It aborts if called more than "recurseCount" times recursively.
 func (r *Resolver) recursiveResolve(q *query.Name, recurseCount int) (*message.Message, error) {
-	if recurseCount > r.MaxRecursiveCount {
+	if recurseCount >= r.MaxRecursiveCount {
 		return nil, fmt.Errorf("Maximum number of recursive calls reached at %d. Aborting", recurseCount)
 	}
 	//Check for cached delegation assertion
