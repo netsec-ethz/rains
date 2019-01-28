@@ -208,17 +208,58 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		}
 		obj.Value = pkey
 	case OTNextKey:
-		// TODO: Implement OTNextKey.
-		log.Error("not yet implemented")
+		alg, ok := in[1].(int)
+		if !ok {
+			return errors.New("cbor object encoding of nextKey algo not an int")
+		}
+		kp, ok := in[2].(int)
+		if !ok {
+			return errors.New("cbor object encoding of nextKey phase not an int")
+		}
+		vs, ok := in[4].(int)
+		if !ok {
+			return errors.New("cbor object encoding of nextKey validSince not an int")
+		}
+		vu, ok := in[5].(int)
+		if !ok {
+			return errors.New("cbor object encoding of nextKey validUntil not an int")
+		}
+		var key []byte
+		switch algorithmTypes.Signature(alg) {
+		case algorithmTypes.Ed25519:
+			key, ok = in[3].([]byte)
+			if !ok {
+				return errors.New("cbor object encoding of nextKey key not a byte array")
+			}
+		default:
+			return fmt.Errorf("unsupported algorithm: %v", alg)
+		}
+		pkey := keys.PublicKey{
+			PublicKeyID: keys.PublicKeyID{
+				Algorithm: algorithmTypes.Signature(alg),
+				KeySpace:  keys.RainsKeySpace,
+				KeyPhase:  kp,
+			},
+			ValidSince: int64(vs),
+			ValidUntil: int64(vu),
+			Key:        ed25519.PublicKey(key),
+		}
+		obj.Value = pkey
 	case OTScionAddr4:
-		addrStr := in[1].(string)
+		addrStr, ok := in[1].(string)
+		if !ok {
+			return fmt.Errorf("wrong object value for OTScionAddr4: %T", in[1])
+		}
 		addr, err := snet.AddrFromString(addrStr)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal OTScionAddr4: %v", err)
 		}
 		obj.Value = addr
 	case OTScionAddr6:
-		addrStr := in[1].(string)
+		addrStr, ok := in[1].(string)
+		if !ok {
+			return fmt.Errorf("failed to unmarshal OTScionAddr6: %T", in[1])
+		}
 		addr, err := snet.AddrFromString(addrStr)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal OTScionAddr6: %v", err)
