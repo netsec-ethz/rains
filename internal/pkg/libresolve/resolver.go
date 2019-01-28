@@ -77,7 +77,7 @@ func New(rootNS, forwarders []net.Addr, rootKeyPath string, mode ResolutionMode,
 	pk.ValidSince = a.ValidSince()
 	pk.ValidUntil = a.ValidUntil()
 	a.Content[0].Value = pk
-	r.Delegations.Add(a.GetSubjectZone(), a)
+	r.Delegations.Add(a.FQDN(), a)
 	return r, nil
 }
 
@@ -107,6 +107,7 @@ func (r *Resolver) ServerLookup(query *query.Name, addr net.Addr, token token.To
 		msg, err = r.forwardQuery(query)
 	default:
 		log.Error("Unsupported resolution mode", "mode", r.Mode)
+		return
 	}
 	if err != nil {
 		log.Error("Query failed", err)
@@ -227,6 +228,9 @@ func (r *Resolver) handleAnswer(msg message.Message, q *query.Name) (isFinal boo
 			keyPhase := 0
 			if len(signed.Sigs(keys.RainsKeySpace)) > 0 {
 				keyPhase = signed.Sigs(keys.RainsKeySpace)[0].KeyPhase
+			} else {
+				log.Error("Section does not contain RAINS signatures", "section", sec)
+				return
 			}
 			keyQuery := query.Name{
 				Name:        signed.GetSubjectZone(),
