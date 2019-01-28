@@ -207,7 +207,6 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		}
 		obj.Value = pkey
 	case OTNextKey:
-<<<<<<< HEAD
 		alg, ok := in[1].(int)
 		if !ok {
 			return errors.New("cbor object encoding of nextKey algo not an int")
@@ -250,26 +249,16 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		if !ok {
 			return fmt.Errorf("wrong object value for OTScionAddr4: %T", in[1])
 		}
-=======
-		// TODO: Implement OTNextKey.
-		log.Error("not yet implemented")
-	case OTScionAddr4:
-		addrStr := in[1].(string)
->>>>>>> f13f222386b002869601447a6ab7797434187979
 		addr, err := snet.AddrFromString(addrStr)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal OTScionAddr4: %v", err)
 		}
 		obj.Value = addr
 	case OTScionAddr6:
-<<<<<<< HEAD
 		addrStr, ok := in[1].(string)
 		if !ok {
 			return fmt.Errorf("failed to unmarshal OTScionAddr6: %T", in[1])
 		}
-=======
-		addrStr := in[1].(string)
->>>>>>> f13f222386b002869601447a6ab7797434187979
 		addr, err := snet.AddrFromString(addrStr)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal OTScionAddr6: %v", err)
