@@ -6,7 +6,7 @@ BUILD_PATH=${PWD}/build/
 
 LDFLAGS = -ldflags "-X main.buildinfo_hostname=${HOSTNAME} -X main.buildinfo_commit=${COMMIT} -X main.buildinfo_branch=${BRANCH}"
 
-all: clean rainsd rainsd zonepub rainsdig zoneman resolve
+all: clean rainsd rainsd zonepub rdig zoneman keymanager
 
 clean:
 	rm -rf ${BUILD_PATH}
@@ -22,9 +22,9 @@ zonepub:
 	go build ${LDFLAGS} -o publisher github.com/netsec-ethz/rains/cmd/zonepub ; \
 	cd - >/dev/null
 
-rainsdig:
+rdig:
 	cd ${BUILD_PATH}; \
-	go build ${LDFLAGS} -o rainsdig github.com/netsec-ethz/rains/cmd/rainsdig ; \
+	go build ${LDFLAGS} -o rdig github.com/netsec-ethz/rains/cmd/rdig ; \
 	cd - >/dev/null
 
 zoneman:
@@ -32,9 +32,9 @@ zoneman:
 	go build ${LDFLAGS} -o zoneman github.com/netsec-ethz/rains/cmd/zoneManager ;\
 	cd - >/dev/null
 
-resolve:
+keymanager:
 	cd ${BUILD_PATH}; \
-	go build ${LDFLAGS} -o resolve github.com/netsec-ethz/rains/cmd/resolve ; \
+	go build ${LDFLAGS} -o keymanager github.com/netsec-ethz/rains/cmd/keyManager ;\
 	cd - >/dev/null
 
 tests:
@@ -51,4 +51,4 @@ cover:
 	go tool cover -html=coverage.out -o coverage.html
 	firefox coverage.html
 
-.PHONY: clean rainsd zonepub rainsdig zoneman resolve
+.PHONY: clean rainsd zonepub rdig zoneman keymanager
