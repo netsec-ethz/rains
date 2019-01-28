@@ -52,10 +52,10 @@ var doPublish bool
 var rootCmd = &cobra.Command{
 	Use:   "zonepub [PATH]",
 	Short: "zonepub is a tool to publish zone information",
-	Long: `zonepub (short for zone publisher) is a tool for pushing sections to RAINS
-servers from the command line. It reads a zone file and sends it to all
-authoritative RAINS servers specified in the config file. If no PATH to a
-config file is provided, the default config is used.`,
+	Long: `	zonepub (short for zone publisher) is a tool for pushing sections to RAINS
+	servers from the command line. It reads a zone file and sends it to all
+	authoritative RAINS servers specified in the config file. If no PATH to a
+	config file is provided, the default config is used.`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 1 {
@@ -155,9 +155,11 @@ func main() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
 	}
-	updateConfig(&config)
-	server := publisher.New(config)
-	server.Publish()
+	if !rootCmd.Flag("help").Changed {
+		updateConfig(&config)
+		server := publisher.New(config)
+		server.Publish()
+	}
 }
 
 //updateConfig overrides config with the provided cmd line flags
