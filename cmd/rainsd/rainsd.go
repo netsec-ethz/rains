@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"time"
 
 	log "github.com/inconshreveable/log15"
@@ -10,7 +11,10 @@ import (
 	"github.com/netsec-ethz/rains/tools/keycreator"
 )
 
+var maxRecurseDepth = flag.Int("maxrecurse", 50, "Recursive resolver maximum depth (max. depth of recursive stack)")
+
 func main() {
+	flag.Parse()
 	keycreator.DelegationAssertion(".", ".", "keys/selfSignedRootDelegationAssertion.gob", "keys/rootPrivateKey.txt")
 	server, err := rainsd.New("config/server.conf", "0")
 	if err != nil {
@@ -18,9 +22,10 @@ func main() {
 		return
 	}
 	log.Info("Server successfully initialized")
+
 	// maxRecurseCount = 50 means the recursion will abort if called to itself more than 50 times
 	resolver, err := libresolve.New(nil, nil, server.Config().RootZonePublicKeyPath,
-		libresolve.Recursive, server.Addr(), 10000, server.Config().MaxCacheValidity, 50)
+		libresolve.Recursive, server.Addr(), 10000, server.Config().MaxCacheValidity, *maxRecurseDepth)
 	if err != nil {
 		log.Error(err.Error())
 		return
