@@ -21,18 +21,36 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
-//CheckSectionSignatures verifies all signatures on the section. Expired signatures are removed.
-//Returns true if all signatures are correct. The content of a shard or zone must be sorted. If it
-//is not, then the signature verification will fail.
-//
-//Process is defined as:
-//1) check that there is at least one signature
-//2) check that string fields do not contain  <whitespace>:<non whitespace>:<whitespace>
-//4) encode section
-//5) sign the encoding and compare the resulting signature data with the signature data received
-//   with the section. The encoding of the
-//   signature meta data is added in the verifySignature() method
+//CheckSectionSignatures verifies all signatures on s and its content. It assumes that s is sorted.
+//Expired signatures are removed. Returns true if all non expired signatures are correct.
 func CheckSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys.PublicKey,
+	maxVal util.MaxCacheValidity) bool {
+	s.DontAddSigInMarshaller()
+	if !checkSectionSignatures(s, pkeys, maxVal) {
+		return false
+	}
+	var assertions []*section.Assertion
+	switch s := s.(type) {
+	case *section.Shard:
+		s.AddCtxAndZoneToContent()
+		assertions = s.Content
+	case *section.Zone:
+		s.AddCtxAndZoneToContent()
+		assertions = s.Content
+	}
+	for _, a := range assertions {
+		if len(a.Sigs(keys.RainsKeySpace)) > 0 && !checkSectionSignatures(a, pkeys, maxVal) {
+			return false
+		}
+	}
+	s.AddSigInMarshaller()
+	return true
+}
+
+//checkSectionSignatures verifies all signatures on the section (but not signatures on the section's
+//content). It assumes that the section is sorted. Expired signatures are removed. Returns true if
+//all non expired signatures are correct.
+func checkSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys.PublicKey,
 	maxVal util.MaxCacheValidity) bool {
 	log.Debug(fmt.Sprintf("Check %T signature", s), "section", s)
 	if s == nil {
@@ -43,14 +61,14 @@ func CheckSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 		log.Warn("pkeys map is nil")
 		return false
 	}
-	if len(s.Sigs(keys.RainsKeySpace)) == 0 {
+	sigs := s.Sigs(keys.RainsKeySpace)
+	if len(sigs) == 0 {
 		log.Debug("Section contain no signatures")
 		return true
 	}
 	if !CheckStringFields(s) {
 		return false //error already logged
 	}
-	sigs := s.Sigs(keys.RainsKeySpace)
 	s.DeleteAllSigs()
 	encoding := new(bytes.Buffer)
 	if err := s.MarshalCBOR(cbor.NewCBORWriter(encoding)); err != nil {
@@ -80,7 +98,7 @@ func CheckSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 			return false
 		}
 	}
-	return len(s.AllSigs()) > 0
+	return len(s.Sigs(keys.RainsKeySpace)) > 0
 }
 
 //ValidSectionAndSignature returns true if the section is not nil, all the signatures ValidUntil are
@@ -117,75 +135,54 @@ func CheckSignatureNotExpired(s section.WithSig) bool {
 	return true
 }
 
-//SignSectionUnsafe signs a section with the given private Key and adds the resulting bytestring to
-//the given signatures. The shard's or zone's content must already be sorted. It does not check the
-//validity of the signature or the section. Returns false if the signature was not added to the
-//section.
-//FIXME: Note that this function only works if one signature is added. Otherwise the cbor
-//marshaller also adds the previous signature to encoding which leads to a different signature.
-func SignSectionUnsafe(s section.WithSig, privateKey interface{}, sig signature.Sig) bool {
-	if len(s.AllSigs()) != 0 {
-		log.Error("Section must not contain a signature. FIXME")
-		return false
+//SignSectionUnsafe signs a section and all contained assertions with the given private Key and
+//adds the resulting bytestring to the given signatures. s must be sorted. It does not check the
+//validity of s or sig. Returns false if the signature was not added to the section.
+func SignSectionUnsafe(s section.WithSig, ks map[keys.PublicKeyID]interface{}) error {
+	s.DontAddSigInMarshaller()
+	if err := signSectionUnsafe(s, ks); err != nil {
+		return err
 	}
+	var assertions []*section.Assertion
+	switch s := s.(type) {
+	case *section.Shard:
+		s.AddCtxAndZoneToContent()
+		assertions = s.Content
+	case *section.Zone:
+		s.AddCtxAndZoneToContent()
+		assertions = s.Content
+	}
+	for _, a := range assertions {
+		if len(a.Sigs(keys.RainsKeySpace)) > 0 {
+			if err := signSectionUnsafe(a, ks); err != nil {
+				return err
+			}
+		}
+		a.RemoveContextAndSubjectZone()
+	}
+	s.AddSigInMarshaller()
+	return nil
+}
+
+//signSectionUnsafe signs a section with the given private Key and adds the resulting bytestring to
+//the given signatures. It assumes that s is sorted, the sign flag is set to true, and contained
+//assertions have a non-empty zone and context values. It does not check the validity of s or sig.
+//Returns false if it was not able to sign all signatures
+func signSectionUnsafe(s section.WithSig, ks map[keys.PublicKeyID]interface{}) error {
 	encoding := new(bytes.Buffer)
 	if err := s.MarshalCBOR(cbor.NewCBORWriter(encoding)); err != nil {
-		log.Warn("Was not able to marshal section.", "error", err)
-		return false
+		return fmt.Errorf("Was not able to marshal section: %v", err)
 	}
 	log.Debug("Marshalling section successful")
-	if err := (&sig).SignData(privateKey, encoding.Bytes()); err != nil {
-		log.Error(err.Error())
-		return false
+	sigs := s.Sigs(keys.RainsKeySpace)
+	s.DeleteAllSigs()
+	for _, sig := range sigs {
+		if err := (&sig).SignData(ks[sig.PublicKeyID], encoding.Bytes()); err != nil {
+			return err
+		}
+		s.AddSig(sig)
 	}
-	s.AddSig(sig)
-	return true
-}
-
-//SignSection signs a section with the given private Key and adds the resulting bytestring to the given signature.
-//Signatures with validUntil in the past are not signed and added
-//Returns false if the signature was not added to the section
-//
-//Process is defined as:
-//1) check that the signature's ValidUntil is in the future
-//2) check that string fields do not contain  <whitespace>:<non whitespace>:<whitespace>
-//3) sort section
-//4) encode section
-//5) sign the encoding and add it to the signature which will then be added to the section. The encoding of the
-//   signature meta data is added in the verifySignature() method
-func SignSection(s section.WithSig, privateKey interface{}, sig signature.Sig) bool {
-	s.AddSig(sig)
-	if !ValidSectionAndSignature(s) {
-		return false
-	}
-	s.DeleteSig(0)
-	log.Debug("Checks before signing were successful")
-	return SignSectionUnsafe(s, privateKey, sig)
-}
-
-//SignMessageUnsafe signs a message with the given private Key and adds the resulting bytestring to
-//the given signature. The messages content must already be sorted. It does not check the
-//validity of the signature or the message. Returns false if the signature was not added to the
-//message.
-//FIXME: Note that this function only works if one signature is added. Otherwise the cbor
-//marshaller also adds the previous signature to encoding which leads to a different signature.
-func SignMessageUnsafe(msg *message.Message, privateKey interface{}, sig signature.Sig) bool {
-	if len(msg.Signatures) != 0 {
-		log.Error("Message must not contain a signature. FIXME")
-		return false
-	}
-	encoding := new(bytes.Buffer)
-	if err := msg.MarshalCBOR(cbor.NewCBORWriter(encoding)); err != nil {
-		log.Warn("Was not able to marshal message.", "error", err)
-		return false
-	}
-	log.Debug("Marshalling section successful")
-	if err := (&sig).SignData(privateKey, encoding.Bytes()); err != nil {
-		log.Error(err.Error())
-		return false
-	}
-	msg.Signatures = append(msg.Signatures, sig)
-	return true
+	return nil
 }
 
 //checkMessageStringFields returns true if the capabilities and all string fields in the contained
