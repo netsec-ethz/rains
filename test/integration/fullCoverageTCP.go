@@ -17,5 +17,5 @@ import (
 func AddCoverageInstrumentation() {
 	rainsd.New(rainsd.Config{}, "")
 	publisher.New(publisher.Config{})
-	libresolve.New(nil, nil, "", libresolve.Recursive, &net.TCPAddr{}, 1000, util.MaxCacheValidity{})
+	libresolve.New(nil, nil, "", libresolve.Recursive, &net.TCPAddr{}, 1000, util.MaxCacheValidity{}, 50)
 }

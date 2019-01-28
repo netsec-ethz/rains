@@ -195,7 +195,6 @@ func main() {
 		log.Fatal(err)
 	}
 	if !rootCmd.Flag("help").Changed {
-
 		updateConfig(&config)
 		server, err := rainsd.New(config, id)
 		if err != nil {
@@ -203,8 +202,9 @@ func main() {
 			return
 		}
 		rootNameServers := []net.Addr{rootServerAddress.value.Addr}
+		// maxRecurseCount = 50 means the recursion will abort if called to itself more than 50 times
 		resolver, err := libresolve.New(rootNameServers, nil, server.Config().RootZonePublicKeyPath,
-			libresolve.Recursive, server.Addr(), maxConnections, server.Config().MaxCacheValidity)
+			libresolve.Recursive, server.Addr(), *maxConnections, server.Config().MaxCacheValidity, 50)
 		if err != nil {
 			log.Fatalf("Error: Unable to initialize recursive resolver: %v", err.Error())
 			return
