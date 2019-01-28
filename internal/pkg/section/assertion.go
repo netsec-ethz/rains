@@ -1,6 +1,7 @@
 package section
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"sort"
@@ -32,14 +33,12 @@ func (a *Assertion) UnmarshalMap(m map[int]interface{}) error {
 		for i, sig := range sigs {
 			sigVal, ok := sig.([]interface{})
 			if !ok {
-				return errors.New("cbor zone signatures entry is not an array")
+				return errors.New("cbor assertion signatures entry is not an array")
 			}
 			if err := a.Signatures[i].UnmarshalArray(sigVal); err != nil {
 				return err
 			}
 		}
-	} else {
-		return errors.New("cbor zone map does not contain a signature")
 	}
 	if sn, ok := m[3].(string); ok {
 		a.SubjectName = sn
@@ -191,8 +190,10 @@ func (a *Assertion) Hash() string {
 	if a == nil {
 		return "A_nil"
 	}
-	return fmt.Sprintf("A_%s_%s_%s_%v_%v",
-		a.SubjectName, a.SubjectZone, a.Context, a.Content, a.Signatures)
+	encoding := new(bytes.Buffer)
+	w := cbor.NewCBORWriter(encoding)
+	w.WriteArray([]interface{}{1, a})
+	return encoding.String()
 }
 
 //EqualContextZoneName return true if the given assertion has the same context, subjectZone,

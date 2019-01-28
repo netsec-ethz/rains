@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"sort"
-	"strconv"
 
 	cbor "github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
@@ -208,6 +207,7 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		}
 		obj.Value = pkey
 	case OTNextKey:
+<<<<<<< HEAD
 		alg, ok := in[1].(int)
 		if !ok {
 			return errors.New("cbor object encoding of nextKey algo not an int")
@@ -250,16 +250,26 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		if !ok {
 			return fmt.Errorf("wrong object value for OTScionAddr4: %T", in[1])
 		}
+=======
+		// TODO: Implement OTNextKey.
+		log.Error("not yet implemented")
+	case OTScionAddr4:
+		addrStr := in[1].(string)
+>>>>>>> f13f222386b002869601447a6ab7797434187979
 		addr, err := snet.AddrFromString(addrStr)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal OTScionAddr4: %v", err)
 		}
 		obj.Value = addr
 	case OTScionAddr6:
+<<<<<<< HEAD
 		addrStr, ok := in[1].(string)
 		if !ok {
 			return fmt.Errorf("failed to unmarshal OTScionAddr6: %T", in[1])
 		}
+=======
+		addrStr := in[1].(string)
+>>>>>>> f13f222386b002869601447a6ab7797434187979
 		addr, err := snet.AddrFromString(addrStr)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal OTScionAddr6: %v", err)
@@ -461,11 +471,7 @@ func logObjectTypeAssertionFailure(t Type, value interface{}) {
 //Type identifier for object connection. ID chosen according to RAINS Protocol Specification
 type Type int
 
-//String returns the ID as a string
-func (o Type) String() string {
-	return strconv.Itoa(int(o))
-}
-
+//go:generate stringer -type=Type
 const (
 	OTName        Type = 1
 	OTIP6Addr     Type = 2
@@ -592,6 +598,7 @@ func (c Certificate) String() string {
 //ProtocolType is an identifier for a protocol. The ID is chosen according to the RAINS Protocol Specification.
 type ProtocolType int
 
+//go:generate stringer -type=ProtocolType
 const (
 	PTUnspecified ProtocolType = 0
 	PTTLS         ProtocolType = 1
@@ -600,6 +607,7 @@ const (
 //CertificateUsage is an identifier for a certificate usage. The ID is chosen according to the RAINS Protocol Specification.
 type CertificateUsage int
 
+//go:generate stringer -type=CertificateUsage
 const (
 	CUTrustAnchor CertificateUsage = 2
 	CUEndEntity   CertificateUsage = 3

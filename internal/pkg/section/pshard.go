@@ -1,6 +1,7 @@
 package section
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strings"
@@ -32,14 +33,14 @@ func (s *Pshard) UnmarshalMap(m map[int]interface{}) error {
 		for i, sig := range sigs {
 			sigVal, ok := sig.([]interface{})
 			if !ok {
-				return errors.New("cbor zone signatures entry is not an array")
+				return errors.New("cbor pshard signatures entry is not an array")
 			}
 			if err := s.Signatures[i].UnmarshalArray(sigVal); err != nil {
 				return err
 			}
 		}
 	} else {
-		return errors.New("cbor zone map does not contain a signature")
+		return errors.New("cbor pshard map does not contain a signature")
 	}
 	if zone, ok := m[4].(string); ok {
 		s.SubjectZone = zone
@@ -168,8 +169,10 @@ func (s *Pshard) Hash() string {
 	if s == nil {
 		return "P_nil"
 	}
-	return fmt.Sprintf("P_%s_%s_%s_%s_%v_%v", s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo,
-		s.BloomFilter, s.Signatures)
+	encoding := new(bytes.Buffer)
+	w := cbor.NewCBORWriter(encoding)
+	w.WriteArray([]interface{}{3, s})
+	return encoding.String()
 }
 
 //Sort sorts the content of the pshard lexicographically.

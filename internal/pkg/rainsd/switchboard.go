@@ -27,6 +27,11 @@ const maxUDPPacketBytes = 9000
 //sendTo sends message to the specified receiver.
 func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 	backoffMilliSeconds int) (err error) {
+<<<<<<< HEAD
+=======
+	// In any case we add the capabilities of this server to the message.
+	msg.Capabilities = []message.Capability{message.Capability(s.capabilityHash)}
+>>>>>>> f13f222386b002869601447a6ab7797434187979
 	// SCION is a special case because it is operating on a connectionless protocol so we
 	// keep the server socket in the Server struct and use that to send.
 	if saddr, ok := receiver.(*snet.Addr); ok {
@@ -62,8 +67,11 @@ func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 			} else {
 				log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 			}
+<<<<<<< HEAD
 			//add capabilities to message
 			msg.Capabilities = []message.Capability{message.Capability(s.capabilityHash)}
+=======
+>>>>>>> f13f222386b002869601447a6ab7797434187979
 			conns = []net.Conn{conn}
 		}
 	}

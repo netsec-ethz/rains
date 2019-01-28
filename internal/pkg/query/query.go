@@ -189,6 +189,7 @@ func (q *Name) String() string {
 //Option enables a client or server to specify performance/privacy tradeoffs
 type Option int
 
+//go:generate stringer -type=Option
 const (
 	QOMinE2ELatency            Option = 1
 	QOMinLastHopAnswerSize     Option = 2
