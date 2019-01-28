@@ -279,3 +279,21 @@ func checkPublicKey(p1, p2 keys.PublicKey, t *testing.T) {
 		t.Errorf("Not yet supported. Got Type:%T", p1)
 	}
 }
+
+func shuffleSections(sections []Section) {
+	for i := len(sections) - 1; i > 0; i-- {
+		j := rand.Intn(i)
+		sections[i], sections[j] = sections[j], sections[i]
+	}
+}
+
+func TestFQDN(t *testing.T) {
+	assertion := GetAssertion()
+	if assertion.FQDN() != "example.com" {
+		t.Errorf("Wrong FQDN() = %s", assertion.FQDN())
+	}
+	assertion.SubjectName = "@"
+	if assertion.FQDN() != ".com" {
+		t.Errorf("Wrong FQDN() = %s", assertion.FQDN())
+	}
+}
