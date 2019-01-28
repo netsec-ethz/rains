@@ -4,9 +4,9 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"math"
 	"net"
 	"os"
+	"sort"
 	"time"
 
 	log "github.com/inconshreveable/log15"
@@ -187,21 +187,27 @@ func SendQuery(msg message.Message, addr net.Addr, timeout time.Duration) (
 	}
 }
 
-// GetOverlapValidityForSignatures returns the validity window common (i.e. valid) for all signatures
-// Returns 0,0 if no valid window exists (no overlap)
-func GetOverlapValidityForSignatures(sigs []signature.Sig) (since, until int64) {
-	since = math.MinInt64
-	until = math.MaxInt64
-	for _, s := range sigs {
-		if s.ValidSince > since {
-			since = s.ValidSince
+// GetOverlapValidityForSignatures returns the union of the validity windows for all signatures
+// Returns 0,0 if no valid window exists (there exist gaps)
+func GetOverlapValidityForSignatures(sigs []signature.Sig) (int64, int64) {
+	// strategy is to sort the intervals using ValidSince and check the max validUntil for all of them
+	if len(sigs) == 0 {
+		return 0, 0
+	}
+	bySince := make([]*signature.Sig, len(sigs))
+	for i := range sigs {
+		bySince[i] = &sigs[i]
+	}
+	sort.Slice(bySince, func(i, j int) bool { return bySince[i].ValidSince < bySince[j].ValidSince })
+	// now find out if there are gaps
+	until := bySince[0].ValidUntil
+	for i := 1; i < len(bySince); i++ {
+		if until < bySince[i].ValidSince {
+			return 0, 0
 		}
-		if s.ValidUntil < until {
-			until = s.ValidUntil
+		if bySince[i].ValidUntil > until {
+			until = bySince[i].ValidUntil
 		}
 	}
-	if since >= until {
-		since, until = 0, 0
-	}
-	return
+	return bySince[0].ValidSince, until
 }
