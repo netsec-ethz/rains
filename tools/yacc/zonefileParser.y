@@ -1,7 +1,7 @@
 // To build it:
 // goyacc -p "ZFP" zonefileParser.y (produces y.go)
 // go build -o zonefileParser y.go
-// run ./zonefileParser, the zonefile must be placed in the same directoy and
+// run ./zonefileParser, the zonefile must be placed in the same directory and
 // must be called zonefile.txt
 
 %{
@@ -148,7 +148,7 @@ var output []section.WithSigForward
 %type <assertions>      shardContent zoneContent
 %type <assertion>       assertion assertionBody
 %type <objects>         objects
-%type <object>          object name ip4 ip6 redir deleg nameset 
+%type <object>          object name ip4 ip6 scionip4 scionip6 redir deleg nameset 
 %type <object>          cert srv regr regt infra extra next
 %type <objectTypes>     oTypes
 %type <objectType>      oType
@@ -165,7 +165,7 @@ var output []section.WithSigForward
 // Section types
 %token assertionType shardType pshardType zoneType
 // Object types
-%token nameType ip4Type ip6Type redirType delegType namesetType certType
+%token nameType ip4Type ip6Type scionip4Type scionip6Type redirType delegType namesetType certType
 %token srvType regrType regtType infraType extraType nextType
 // Annotation types
 %token sigType 
@@ -373,6 +373,8 @@ objects         : object
 object          : name
                 | ip6
                 | ip4
+                | scionip4
+                | scionip6
                 | redir
                 | deleg
                 | nameset
@@ -416,6 +418,14 @@ oType           : nameType
                 {
                     $$ = object.OTIP6Addr
                 }
+                | scionip4Type
+                {
+                    $$ = object.OTScionAddr4
+                }
+                | scionip6Type
+                {
+                    $$ = object.OTScionAddr6
+                }
                 | redirType
                 {
                     $$ = object.OTRedirection
@@ -456,7 +466,6 @@ oType           : nameType
                 {
                     $$ = object.OTNextKey
                 }
-
 ip6             : ip6Type ID
                 {
                     $$ = object.Object{
@@ -464,7 +473,6 @@ ip6             : ip6Type ID
                         Value: $2,
                     }
                 }
-
 ip4             : ip4Type ID
                 {
                     $$ = object.Object{
@@ -472,7 +480,20 @@ ip4             : ip4Type ID
                         Value: $2,
                     }
                 }
-
+scionip6        : scionip6Type ID
+                {
+                    $$ = object.Object{
+                        Type: object.OTScionAddr6,
+                        Value: $2,
+                    }
+                }
+scionip4        : scionip4Type ID
+                {
+                    $$ = object.Object{
+                        Type: object.OTScionAddr4,
+                        Value: $2,
+                    }
+                }
 redir           : redirType ID
                 {
                     $$ = object.Object{
@@ -725,6 +746,10 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
 		return ip6Type
 	case zonefile.TypeIP4 :
 		return ip4Type
+    case zonefile.TypeScionIP6:
+        return scionip6Type
+    case zonefile.TypeScionIP4:
+        return scionip4Type
 	case zonefile.TypeRedirection :
 		return redirType
 	case zonefile.TypeDelegation :

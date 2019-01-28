@@ -23,6 +23,8 @@ const (
 	TypeName          = ":name:"
 	TypeIP6           = ":ip6:"
 	TypeIP4           = ":ip4:"
+	TypeScionIP6      = ":scionip6:"
+	TypeScionIP4      = ":scionip4:"
 	TypeRedirection   = ":redir:"
 	TypeDelegation    = ":deleg:"
 	TypeNameSet       = ":nameset:"
