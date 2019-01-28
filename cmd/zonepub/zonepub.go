@@ -14,7 +14,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	"github.com/spf13/cobra"
-	flag "github.com/spf13/pflag"
 )
 
 var config = publisher.DefaultConfig()
@@ -65,9 +64,6 @@ config file is provided, the default config is used.`,
 				log.Fatalf("Error: was not able to load config file: %v", err)
 			}
 		}
-		updateConfig(&config)
-		server := publisher.New(config)
-		server.Publish()
 	},
 }
 
@@ -159,101 +155,104 @@ func main() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
 	}
+	updateConfig(&config)
+	server := publisher.New(config)
+	server.Publish()
 }
 
 //updateConfig overrides config with the provided cmd line flags
 func updateConfig(config *publisher.Config) {
-	if flag.Lookup("zonefilePath").Changed {
+	if rootCmd.Flag("zonefilePath").Changed {
 		config.ZonefilePath = zonefilePath
 	}
-	if flag.Lookup("authServers").Changed {
+	if rootCmd.Flag("authServers").Changed {
 		config.AuthServers = authServers.value
 	}
-	if flag.Lookup("privateKeyPath").Changed {
+	if rootCmd.Flag("privateKeyPath").Changed {
 		config.PrivateKeyPath = privateKeyPath
 	}
-	if flag.Lookup("keepShards").Changed {
+	if rootCmd.Flag("keepShards").Changed {
 		config.ShardingConf.KeepShards = keepShards
 	}
-	if flag.Lookup("doSharding").Changed {
+	if rootCmd.Flag("doSharding").Changed {
 		config.ShardingConf.DoSharding = doSharding
 	}
-	if flag.Lookup("nofAssertionsPerShard").Changed {
+	if rootCmd.Flag("nofAssertionsPerShard").Changed {
 		config.ShardingConf.NofAssertionsPerShard = nofAssertionsPerShard
 	}
-	if flag.Lookup("maxShardSize").Changed {
+	if rootCmd.Flag("maxShardSize").Changed {
 		config.ShardingConf.MaxShardSize = maxShardSize
 	}
-	if flag.Lookup("keepPshards").Changed {
+	if rootCmd.Flag("keepPshards").Changed {
 		config.PShardingConf.KeepPshards = keepPshards
 	}
-	if flag.Lookup("doPsharding").Changed {
+	if rootCmd.Flag("doPsharding").Changed {
 		config.PShardingConf.DoPsharding = doPsharding
 	}
-	if flag.Lookup("nofAssertionsPerPshard").Changed {
+	if rootCmd.Flag("nofAssertionsPerPshard").Changed {
 		config.PShardingConf.NofAssertionsPerPshard = nofAssertionsPerPshard
 	}
-	if flag.Lookup("bfAlgo").Changed {
+	if rootCmd.Flag("bfAlgo").Changed {
 		config.PShardingConf.BloomFilterConf.BFAlgo = bfAlgo.value
 	}
-	if flag.Lookup("bfHash").Changed {
+	if rootCmd.Flag("bfHash").Changed {
 		config.PShardingConf.BloomFilterConf.BFHash = bfHash.value
 	}
-	if flag.Lookup("bloomFilterSize").Changed {
+	if rootCmd.Flag("bloomFilterSize").Changed {
 		config.PShardingConf.BloomFilterConf.BloomFilterSize = bloomFilterSize
 	}
-	if flag.Lookup("addSignatureMetaData").Changed {
+	if rootCmd.Flag("addSignatureMetaData").Changed {
 		config.MetaDataConf.AddSignatureMetaData = addSignatureMetaData
 	}
-	if flag.Lookup("addSigMetaDataToAssertions").Changed {
+	if rootCmd.Flag("addSigMetaDataToAssertions").Changed {
 		config.MetaDataConf.AddSigMetaDataToAssertions = addSigMetaDataToAssertions
 	}
-	if flag.Lookup("addSigMetaDataToShards").Changed {
+	if rootCmd.Flag("addSigMetaDataToShards").Changed {
 		config.MetaDataConf.AddSigMetaDataToShards = addSigMetaDataToShards
 	}
-	if flag.Lookup("addSigMetaDataToPshards").Changed {
+	if rootCmd.Flag("addSigMetaDataToPshards").Changed {
 		config.MetaDataConf.AddSigMetaDataToPshards = addSigMetaDataToPshards
 	}
-	if flag.Lookup("signatureAlgorithm").Changed {
+	if rootCmd.Flag("signatureAlgorithm").Changed {
 		config.MetaDataConf.SignatureAlgorithm = signatureAlgorithm.value
 	}
-	if flag.Lookup("keyPhase").Changed {
+	if rootCmd.Flag("keyPhase").Changed {
 		config.MetaDataConf.KeyPhase = keyPhase
 	}
-	if flag.Lookup("sigValidSince").Changed {
+	if rootCmd.Flag("sigValidSince").Changed {
 		config.MetaDataConf.SigValidSince = sigValidSince
 	}
-	if flag.Lookup("sigValidUntil").Changed {
+	if rootCmd.Flag("sigValidUntil").Changed {
 		config.MetaDataConf.SigValidUntil = sigValidUntil
 	}
-	if flag.Lookup("sigSigningInterval").Changed {
+	if rootCmd.Flag("sigSigningInterval").Changed {
 		config.MetaDataConf.SigSigningInterval = time.Duration(sigSigningInterval) * time.Second
 	}
-	if flag.Lookup("doConsistencyCheck").Changed {
+	if rootCmd.Flag("doConsistencyCheck").Changed {
 		config.ConsistencyConf.DoConsistencyCheck = doConsistencyCheck
 	}
-	if flag.Lookup("sortShards").Changed {
+	if rootCmd.Flag("sortShards").Changed {
 		config.ConsistencyConf.SortShards = sortShards
 	}
-	if flag.Lookup("sortZone").Changed {
+	if rootCmd.Flag("sortZone").Changed {
 		config.ConsistencyConf.SortZone = sortZone
 	}
-	if flag.Lookup("sigNotExpired").Changed {
+	if rootCmd.Flag("sigNotExpired").Changed {
 		config.ConsistencyConf.SigNotExpired = sigNotExpired
 	}
-	if flag.Lookup("checkStringFields").Changed {
+	if rootCmd.Flag("checkStringFields").Changed {
 		config.ConsistencyConf.CheckStringFields = checkStringFields
 	}
-	if flag.Lookup("doSigning").Changed {
+	if rootCmd.Flag("doSigning").Changed {
 		config.DoSigning = doSigning
 	}
-	if flag.Lookup("maxZoneSize").Changed {
+	if rootCmd.Flag("maxZoneSize").Changed {
 		config.MaxZoneSize = maxZoneSize
 	}
-	if flag.Lookup("outputPath").Changed {
+	if rootCmd.Flag("outputPath").Changed {
 		config.OutputPath = outputPath
 	}
-	if flag.Lookup("doPublish").Changed {
+	if rootCmd.Flag("doPublish").Changed {
 		config.DoPublish = doPublish
 	}
 }
