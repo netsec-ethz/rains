@@ -514,6 +514,40 @@ func ParseTypes(qType string) ([]Type, error) {
 	return []Type{Type(-1)}, fmt.Errorf("%s is not a query option", qType)
 }
 
+
+//TypeString returns the CLI type string corresponding to the object type specified in qType
+func (t Type) CLIString() string {
+	switch t {
+	case OTName:
+		return "name"
+	case OTIP6Addr:
+		return "ip6"
+	case OTIP4Addr:
+		return "ip4"
+	case OTRedirection:
+		return "redir"
+	case OTDelegation:
+		return "deleg"
+	case OTNameset:
+		return "nameset"
+	case OTCertInfo:
+		return "cert"
+	case OTServiceInfo:
+		return "srv"
+	case OTRegistrar:
+		return "regr"
+	case OTRegistrant:
+		return "regt"
+	case OTInfraKey:
+		return "infra"
+	case OTExtraKey:
+		return "extra"
+	case OTNextKey:
+		return "next"
+	}
+	return t.String()
+}
+
 //AllTypes returns all object types.
 func AllTypes() []Type {
 	return []Type{OTName, OTIP6Addr, OTIP4Addr, OTRedirection,

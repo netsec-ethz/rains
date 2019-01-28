@@ -31,6 +31,8 @@ type Connection interface {
 	CloseAndRemoveConnection(conn net.Conn)
 	//CloseAndRemoveConnections closes and removes all cached connections to addr
 	CloseAndRemoveConnections(addr net.Addr)
+	//CloseAndRemoveAllConnections closes and removes all cached connections
+	CloseAndRemoveAllConnections()
 	//Len returns the number of connections currently in the cache.
 	Len() int
 }
