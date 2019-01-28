@@ -20,8 +20,9 @@ decrypts the private key and prints it pem encoded.`,
 }
 
 var genCmd = &cobra.Command{
-	Use:   "gen [PATH]",
-	Short: "Gen creates and stores a new public-private key pair",
+	Use:     "gen [PATH]",
+	Aliases: []string{"g"},
+	Short:   "Gen creates and stores a new public-private key pair",
 	Long: `Generate first creates a new public-private key pair according to the provided algorithm. It
 then encrypts the private key with the provided password. Lastly, it pem encodes the private and
 public key separately and stores them at the provided PATH (default current folder). The file 
@@ -33,18 +34,20 @@ prefix corresponds to the provided name followed by _sec.pem or _pub.pem (for pr
 }
 
 var loadCmd = &cobra.Command{
-	Use:   "load [PATH]",
-	Short: "Prints all public keys stored in a folder",
-	Long:  `Prints all public keys stored at PATH (default current folder).`,
-	Args:  cobra.MaximumNArgs(1),
+	Use:     "load [PATH]",
+	Aliases: []string{"l"},
+	Short:   "Prints all public keys stored in a folder",
+	Long:    `Prints all public keys stored at PATH (default current folder).`,
+	Args:    cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(keyManager.LoadPublicKeys(path))
 	},
 }
 
 var decryptCmd = &cobra.Command{
-	Use:   "decrypt [PATH]",
-	Short: "Decrypts and prints a private key",
+	Use:     "decrypt [PATH]",
+	Aliases: []string{"d"},
+	Short:   "Decrypts and prints a private key",
 	Long: `Decrypt loads the pem encoded private key at PATH (default current folder) 
 corresponding to name. It then encrypts the private key with the user 
 provided password and prints the decrypted key pem encoded to stdout.`,
