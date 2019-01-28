@@ -14,6 +14,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeHashMap"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
@@ -40,29 +41,31 @@ const (
 
 // Resolver provides methods to resolve names in RAINS.
 type Resolver struct {
-	RootNameServers  []net.Addr
-	Forwarders       []net.Addr
-	Mode             ResolutionMode
-	InsecureTLS      bool
-	DialTimeout      time.Duration
-	FailFast         bool
-	Delegations      *safeHashMap.Map
-	Connections      cache.Connection
-	MaxCacheValidity util.MaxCacheValidity
+	RootNameServers   []net.Addr
+	Forwarders        []net.Addr
+	Mode              ResolutionMode
+	InsecureTLS       bool
+	DialTimeout       time.Duration
+	FailFast          bool
+	Delegations       *safeHashMap.Map
+	Connections       cache.Connection
+	MaxCacheValidity  util.MaxCacheValidity
+	MaxRecursiveCount int
 }
 
 //New creates a resolver with the given parameters and default settings
-func New(rootNS, forwarders []net.Addr, rootKeyPath string, mode ResolutionMode, addr net.Addr, maxConn int, maxCacheValidity util.MaxCacheValidity) (*Resolver, error) {
+func New(rootNS, forwarders []net.Addr, rootKeyPath string, mode ResolutionMode, addr net.Addr, maxConn int, maxCacheValidity util.MaxCacheValidity, maxRecursiveCount int) (*Resolver, error) {
 	r := &Resolver{
-		RootNameServers:  rootNS,
-		Forwarders:       forwarders,
-		Mode:             mode,
-		InsecureTLS:      defaultInsecureTLS,
-		DialTimeout:      defaultTimeout,
-		FailFast:         defaultFailFast,
-		Delegations:      safeHashMap.New(),
-		Connections:      cache.NewConnection(maxConn),
-		MaxCacheValidity: maxCacheValidity,
+		RootNameServers:   rootNS,
+		Forwarders:        forwarders,
+		Mode:              mode,
+		InsecureTLS:       defaultInsecureTLS,
+		DialTimeout:       defaultTimeout,
+		FailFast:          defaultFailFast,
+		Delegations:       safeHashMap.New(),
+		Connections:       cache.NewConnection(maxConn),
+		MaxCacheValidity:  maxCacheValidity,
+		MaxRecursiveCount: maxRecursiveCount,
 	}
 	// load the root zone public key and store it as a delegation:
 	a := new(section.Assertion)
@@ -86,7 +89,7 @@ func New(rootNS, forwarders []net.Addr, rootKeyPath string, mode ResolutionMode,
 func (r *Resolver) ClientLookup(query *query.Name) (*message.Message, error) {
 	switch r.Mode {
 	case Recursive:
-		return r.recursiveResolve(query)
+		return r.recursiveResolve(query, 0)
 	case Forward:
 		return r.forwardQuery(query)
 	default:
@@ -102,7 +105,7 @@ func (r *Resolver) ServerLookup(query *query.Name, addr net.Addr, token token.To
 	log.Info("recResolver received query", "query", query, "token", token)
 	switch r.Mode {
 	case Recursive:
-		msg, err = r.recursiveResolve(query)
+		msg, err = r.recursiveResolve(query, 0)
 	case Forward:
 		msg, err = r.forwardQuery(query)
 	default:
@@ -156,7 +159,11 @@ func (r *Resolver) forwardQuery(q *query.Name) (*message.Message, error) {
 }
 
 // recursiveResolve starts at the root and follows delegations until it receives an answer.
-func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
+// It aborts if called more than "recurseCount" times recursively.
+func (r *Resolver) recursiveResolve(q *query.Name, recurseCount int) (*message.Message, error) {
+	if recurseCount > r.MaxRecursiveCount {
+		return nil, fmt.Errorf("Maximum number of recursive calls reached at %d. Aborting", recurseCount)
+	}
 	//Check for cached delegation assertion
 	for _, t := range q.Types {
 		if t == object.OTDelegation {
@@ -178,7 +185,7 @@ func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
 				break
 			}
 			log.Info("recursive resolver rcv answer", "answer", answer, "query", q)
-			isFinal, isRedir, redirMap, srvMap, ipMap, nameMap := r.handleAnswer(answer, q)
+			isFinal, isRedir, redirMap, srvMap, ipMap, nameMap := r.handleAnswer(answer, q, recurseCount)
 			log.Info("handling answer in recursive lookup", "serverAddr", addr, "isFinal",
 				isFinal, "isRedir", isRedir, "redirMap", redirMap, "srvMap", srvMap, "ipMap", ipMap,
 				"nameMap", nameMap)
@@ -206,7 +213,7 @@ func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
 //answers q. It also returns if the msg contains a redirect assertion which indicates that
 //another lookup must be performed. Information that is relevant for the next lookup are returned in
 //maps.
-func (r *Resolver) handleAnswer(msg message.Message, q *query.Name) (isFinal bool, isRedir bool,
+func (r *Resolver) handleAnswer(msg message.Message, q *query.Name, recurseCount int) (isFinal bool, isRedir bool,
 	redirMap map[string]string, srvMap map[string]object.ServiceInfo, ipMap map[string]string, nameMap map[string]object.Name) {
 	types := make(map[object.Type]bool)
 	redirMap = make(map[string]string)
@@ -240,7 +247,7 @@ func (r *Resolver) handleAnswer(msg message.Message, q *query.Name) (isFinal boo
 				Types:       []object.Type{object.OTDelegation},
 				KeyPhase:    keyPhase,
 			}
-			m, err := r.recursiveResolve(&keyQuery)
+			m, err := r.recursiveResolve(&keyQuery, recurseCount+1)
 			if err != nil {
 				log.Error("Error trying to obtain public key", "query", keyQuery, "error", err)
 				return
