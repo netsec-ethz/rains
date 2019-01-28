@@ -16,6 +16,7 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
+// <<<<<<< 64a3e10b9814d41e48000f46898a13c121040b12
 var configPath string
 var id = flag.String("id", "", "Server id")
 var rootZonePublicKeyPath = flag.String("rootZonePublicKeyPath", "data/keys/rootDelegationAssertion.gob", "Path to the "+
@@ -98,6 +99,7 @@ var reapNegAssertionCacheInterval = flag.Duration("reapNegAssertionCacheInterval
 	"wait between removing expired entries from the negative assertion cache.")
 var reapPendingQCacheInterval = flag.Duration("reapPendingQCacheInterval", 15*time.Minute, "The time interval to "+
 	"wait between removing expired entries from the pending query cache.")
+var maxRecurseDepth = flag.Int("maxrecurse", 50, "Recursive resolver maximum depth (max. depth of recursive stack)")
 
 func init() {
 	flag.Var(&serverAddress, "serverAddress", "The network address of this server.")
@@ -124,15 +126,30 @@ func main() {
 
 	updateConfig(&config)
 	server, err := rainsd.New(config, *id)
+	// =======
+
+	// func main() {
+
+	// 	keycreator.DelegationAssertion(".", ".", "keys/selfSignedRootDelegationAssertion.gob", "keys/rootPrivateKey.txt")
+	// 	server, err := rainsd.New("config/server.conf", "0")
+	// >>>>>>> Fixes from review
 	if err != nil {
 		log.Fatalf("Error: Was not able to initialize server: %v", err)
 		return
 	}
+	// <<<<<<< 64a3e10b9814d41e48000f46898a13c121040b12
 	log.Println("Server successfully initialized")
 	rootNameServers := []net.Addr{rootServerAddress.value.Addr}
 	// maxRecurseCount = 50 means the recursion will abort if called to itself more than 50 times
 	resolver, err := libresolve.New(rootNameServers, nil, server.Config().RootZonePublicKeyPath,
-		libresolve.Recursive, server.Addr(), *maxConnections, server.Config().MaxCacheValidity, 50)
+		libresolve.Recursive, server.Addr(), *maxConnections, server.Config().MaxCacheValidity, *maxRecurseDepth)
+	// =======
+	// 	log.Info("Server successfully initialized")
+
+	// 	// maxRecurseCount = 50 means the recursion will abort if called to itself more than 50 times
+	// 	resolver, err := libresolve.New(nil, nil, server.Config().RootZonePublicKeyPath,
+	// 		libresolve.Recursive, server.Addr(), 10000, server.Config().MaxCacheValidity, *maxRecurseDepth)
+	// >>>>>>> Fixes from review
 	if err != nil {
 		log.Fatalf("Error: Unable to initialize recursive resolver: %v", err.Error())
 		return
