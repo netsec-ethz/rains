@@ -160,6 +160,26 @@ func (c *ConnectionImpl) CloseAndRemoveConnections(addr net.Addr) {
 	}
 }
 
+//CloseAndRemoveAllConnections closes all cached connections and removes them from the cache
+func (c *ConnectionImpl) CloseAndRemoveAllConnections() {
+	for _, e := range c.cache.GetAll() {
+		v := e.(*connCacheValue)
+		v.mux.Lock()
+		defer v.mux.Unlock()
+		if !v.deleted {
+			for _, connection := range v.connections {
+				connection.Close()
+				c.counter.Dec()
+			}
+			v.deleted = true
+			if len(v.connections) > 0 {
+				addr := v.connections[0].RemoteAddr()
+				c.cache.Remove(networkAddr(addr))
+			}
+		}
+	}
+}
+
 func (c *ConnectionImpl) Len() int {
 	return c.counter.Value()
 }
