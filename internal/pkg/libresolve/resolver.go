@@ -264,7 +264,7 @@ func (r *Resolver) handleAnswer(msg message.Message, q *query.Name, recurseCount
 		for _, k := range (key.(*section.Assertion)).Content {
 			pk, isPublicKey := k.Value.(keys.PublicKey)
 			if isPublicKey {
-				pkeys[pk.PublicKeyID] = []keys.PublicKey{pk}
+				pkeys[pk.PublicKeyID] = append(pkeys[pk.PublicKeyID], pk)
 			}
 		}
 		signed.DontAddSigInMarshaller()

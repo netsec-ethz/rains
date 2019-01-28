@@ -70,6 +70,7 @@ var maxZoneValidity time.Duration
 var reapAssertionCacheInterval time.Duration
 var reapNegAssertionCacheInterval time.Duration
 var reapPendingQCacheInterval time.Duration
+var maxRecurseDepth int
 
 var rootCmd = &cobra.Command{
 	Use:   "rainsd [PATH]",
@@ -186,6 +187,7 @@ func init() {
 		"wait between removing expired entries from the negative assertion cache.")
 	rootCmd.Flags().DurationVar(&reapPendingQCacheInterval, "reapPendingQCacheInterval", 15*time.Minute, "The time interval to "+
 		"wait between removing expired entries from the pending query cache.")
+	rootCmd.Flags().Int("maxrecurse", 50, "Recursive resolver maximum depth (max. depth of recursive stack)")
 }
 
 func main() {
@@ -204,7 +206,7 @@ func main() {
 		rootNameServers := []net.Addr{rootServerAddress.value.Addr}
 		// maxRecurseCount = 50 means the recursion will abort if called to itself more than 50 times
 		resolver, err := libresolve.New(rootNameServers, nil, server.Config().RootZonePublicKeyPath,
-			libresolve.Recursive, server.Addr(), *maxConnections, server.Config().MaxCacheValidity, 50)
+			libresolve.Recursive, server.Addr(), *maxConnections, server.Config().MaxCacheValidity, maxRecurseDepth)
 		if err != nil {
 			log.Fatalf("Error: Unable to initialize recursive resolver: %v", err.Error())
 			return
