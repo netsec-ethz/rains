@@ -289,11 +289,11 @@ func shuffleSections(sections []Section) {
 
 func TestFQDN(t *testing.T) {
 	assertion := GetAssertion()
-	if assertion.FQDN() != "example.com" {
+	if assertion.FQDN() != "example.com." {
 		t.Errorf("Wrong FQDN() = %s", assertion.FQDN())
 	}
 	assertion.SubjectName = "@"
-	if assertion.FQDN() != ".com" {
+	if assertion.FQDN() != "com." {
 		t.Errorf("Wrong FQDN() = %s", assertion.FQDN())
 	}
 }
