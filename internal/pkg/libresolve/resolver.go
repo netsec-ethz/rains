@@ -260,8 +260,13 @@ func (r *Resolver) handleAnswer(msg message.Message, q *query.Name, recurseCount
 			}
 		}
 		// we have ensured that key is now an Assertion containing the delegation
-		pk := (key.(*section.Assertion)).Content[0].Value.(keys.PublicKey)
-		pkeys := map[keys.PublicKeyID][]keys.PublicKey{pk.PublicKeyID: []keys.PublicKey{pk}}
+		pkeys := make(map[keys.PublicKeyID][]keys.PublicKey)
+		for _, k := range (key.(*section.Assertion)).Content {
+			pk, isPublicKey := k.Value.(keys.PublicKey)
+			if isPublicKey {
+				pkeys[pk.PublicKeyID] = []keys.PublicKey{pk}
+			}
+		}
 		signed.DontAddSigInMarshaller()
 		if !siglib.CheckSectionSignatures(signed, pkeys, r.MaxCacheValidity) {
 			log.Error("Section signature invalid!", "section", signed, "public keys", pkeys)
