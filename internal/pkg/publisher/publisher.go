@@ -1,10 +1,12 @@
 package publisher
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
@@ -19,7 +21,15 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
+
+	"github.com/scionproto/scion/go/lib/snet"
 )
+
+const defaultDispatcher = "/run/shm/dispatcher/default.sock"
+
+func scionAddrToSciond(a *snet.Addr) string {
+	return fmt.Sprintf("/run/shm/sciond/sd%s.sock", strings.Replace(a.IA.String(), ":", "_", -1))
+}
 
 //Rainspub represents the publishing process of a zone authority. It can be configured to do
 //anything from just one step to the whole process of publishing information to the zone's
@@ -38,6 +48,14 @@ func New(config Config) *Rainspub {
 //Publish performs various tasks of a zone's publishing process to rains servers according to its
 //configuration. This implementation assumes that there is exactly one zone per zonefile.
 func (r *Rainspub) Publish() {
+	// If we have a SCION source address, initialize snet now.
+	if r.Config.SrcAddr.Type == connection.SCION {
+		SCIONLocal := r.Config.SrcAddr.Addr.(*snet.Addr)
+		if err := snet.Init(SCIONLocal.IA, scionAddrToSciond(SCIONLocal), defaultDispatcher); err != nil {
+			log.Error(fmt.Sprintf("failed to initialize snet: %v", err))
+			return
+		}
+	}
 	encoder := zonefile.IO{}
 	zoneContent, err := encoder.LoadZonefile(r.Config.ZonefilePath)
 	if err != nil {
@@ -96,7 +114,7 @@ func (r *Rainspub) Publish() {
 		}
 		log.Info("Writing updated zonefile to disk completed successfully")
 	}
-	r.publishZone(output, r.Config)
+	r.publishZone(output)
 }
 
 //splitZoneContent returns assertions, pshards and shards contained in zone as three separate
@@ -439,17 +457,17 @@ func signZoneContent(zone *section.Zone, shards []*section.Shard, pshards []*sec
 
 //publishZone publishes the zone's content either to the specified authoritative servers or to a
 //file in zonefile format.
-func (r *Rainspub) publishZone(zoneContent []section.Section, config Config) {
-	if config.DoPublish {
+func (r *Rainspub) publishZone(zoneContent []section.Section) {
+	if r.Config.DoPublish {
 		//TODO check if zone is not too large. If it is, split it up and send
 		//content separately.
-		log.Debug("published zone", "zone", zoneContent)
+		log.Debug("publishing zone", "zone", zoneContent)
 		msg := message.Message{
 			Token:        token.New(),
 			Content:      zoneContent,
 			Capabilities: []message.Capability{message.NoCapability},
 		}
-		unsuccessfulServers := publishSections(msg, config.AuthServers)
+		unsuccessfulServers := r.publishSections(msg)
 		if unsuccessfulServers != nil {
 			log.Warn("Was not able to connect and successfully publish to all authoritative servers", "unsuccessfulServers", unsuccessfulServers)
 		} else {
@@ -461,13 +479,13 @@ func (r *Rainspub) publishZone(zoneContent []section.Section, config Config) {
 //publishSections establishes connections to all authoritative servers according to the r.Config. It
 //then sends sections to all of them. It returns the connection information of those servers it was
 //not able to push sections, otherwise nil is returned.
-func publishSections(msg message.Message, authServers []connection.Info) []net.Addr {
+func (r *Rainspub) publishSections(msg message.Message) []net.Addr {
 	var errorConns []net.Addr
-	results := make(chan net.Addr, len(authServers))
-	for _, info := range authServers {
-		go connectAndSendMsg(msg, info.Addr, results)
+	results := make(chan net.Addr, len(r.Config.AuthServers))
+	for _, info := range r.Config.AuthServers {
+		go connectAndSendMsg(context.TODO(), msg, info.Addr, r.Config.SrcAddr, results)
 	}
-	for i := 0; i < len(authServers); i++ {
+	for i := 0; i < len(r.Config.AuthServers); i++ {
 		if errorConn := <-results; errorConn != nil {
 			errorConns = append(errorConns, errorConn)
 		}
