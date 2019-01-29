@@ -70,27 +70,28 @@ var maxZoneValidity time.Duration
 var reapAssertionCacheInterval time.Duration
 var reapNegAssertionCacheInterval time.Duration
 var reapPendingQCacheInterval time.Duration
+var maxRecurseDepth int
 
 var rootCmd = &cobra.Command{
 	Use:   "rainsd [PATH]",
 	Short: "rainsd is an implementation of a RAINS server",
-	Long: `	This program implements a RAINS server which serves requests over the RAINS protocol. 
-	The server can be configured to support the first two modes of operation, authority 
+	Long: `	This program implements a RAINS server which serves requests over the RAINS protocol.
+	The server can be configured to support the first two modes of operation, authority
 	service and query service. The third one is not yet implemented.
-	
+
 	* authority service -- the server acts on behalf of an authority to ensure
 	 properly signed assertions are available to the system,
 	* query service -- the server acts on behalf of clients to respond to queries
 	 with relevant assertions to answer these queries,
 	* intermediary service -- the server provides storage and lookup services to
 	 authority services and query services.
-	
+
 	If no path to a config file is provided, the default config is used.
-	
+
 	A capability represents a set of features the server supports, and is used for
 	advertising functionality to other servers. Currently only the following
 	capabilities are supported:
-	
+
 	* 'urn:x-rains:tlssrv'`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -186,6 +187,7 @@ func init() {
 		"wait between removing expired entries from the negative assertion cache.")
 	rootCmd.Flags().DurationVar(&reapPendingQCacheInterval, "reapPendingQCacheInterval", 15*time.Minute, "The time interval to "+
 		"wait between removing expired entries from the pending query cache.")
+	rootCmd.Flags().IntVar(&maxRecurseDepth, "maxrecurse", 50, "Recursive resolver maximum depth (max. depth of recursive stack)")
 }
 
 func main() {
@@ -195,7 +197,6 @@ func main() {
 		log.Fatal(err)
 	}
 	if !rootCmd.Flag("help").Changed {
-
 		updateConfig(&config)
 		server, err := rainsd.New(config, id)
 		if err != nil {
@@ -203,8 +204,15 @@ func main() {
 			return
 		}
 		rootNameServers := []net.Addr{rootServerAddress.value.Addr}
-		server.SetResolver(libresolve.New(rootNameServers, nil, libresolve.Recursive, server.Addr(),
-			maxConnections))
+		// maxRecurseCount = 50 means the recursion will abort if called to itself more than 50 times
+		resolver, err := libresolve.New(rootNameServers, nil, server.Config().RootZonePublicKeyPath,
+			libresolve.Recursive, server.Addr(), maxConnections, server.Config().MaxCacheValidity, maxRecurseDepth)
+		if err != nil {
+			log.Fatalf("Error: Unable to initialize recursive resolver: %v", err.Error())
+			return
+		}
+		server.SetResolver(resolver)
+		log.Println("Server successfully initialized")
 		go server.Start(false)
 		handleUserInput()
 		server.Shutdown()
