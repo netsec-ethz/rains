@@ -15,7 +15,8 @@ import (
 const (
 	nofReapers       = 3
 	nofCheckPointers = 3
-	shutdownChannels = nofReapers + nofCheckPointers
+	noListeners      = 1
+	shutdownChannels = nofReapers + nofCheckPointers + noListeners
 )
 
 //Server represents a rainsd server instance.
@@ -145,6 +146,23 @@ func (s *Server) Shutdown() {
 	for i := 0; i < shutdownChannels; i++ {
 		s.shutdown <- true
 	}
+
+	// Unblock the switchboard listener to get the shutdown message delivered
+	switch s.config.ServerAddress.Type {
+	case connection.TCP:
+		if conn, err := net.Dial(s.Addr().Network(), s.Addr().String()); err == nil {
+			conn.Close()
+		}
+	case connection.SCION:
+		if conn, err := snet.DialSCION(s.Addr().Network(),
+			s.scionConn.LocalAddr().(*snet.Addr), s.Addr().(*snet.Addr)); err == nil {
+			conn.Close()
+		}
+	default:
+		log.Warn("Unsupported Network address type.")
+	}
+	
+	s.caches.ConnCache.CloseAndRemoveAllConnections()
 	s.queues.Normal <- util.MsgSectionSender{}
 	s.queues.Prio <- util.MsgSectionSender{}
 	s.queues.Notify <- util.MsgSectionSender{}
