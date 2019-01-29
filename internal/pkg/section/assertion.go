@@ -122,6 +122,9 @@ func (a *Assertion) GetSubjectZone() string {
 
 //FQDN returns the fully qualified domain name of this assertion
 func (a *Assertion) FQDN() string {
+	if a.SubjectName == "@" {
+		return a.SubjectZone
+	}
 	if a.SubjectZone == "." {
 		return a.SubjectName + a.SubjectZone
 	}

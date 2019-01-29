@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"time"
 
 	log "github.com/inconshreveable/log15"
@@ -16,6 +17,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 
 	"golang.org/x/crypto/ed25519"
@@ -183,4 +185,29 @@ func SendQuery(msg message.Message, addr net.Addr, timeout time.Duration) (
 	case <-time.After(timeout):
 		return message.Message{}, fmt.Errorf("timed out waiting for response")
 	}
+}
+
+// GetOverlapValidityForSignatures returns the union of the validity windows for all signatures
+// Returns 0,0 if no valid window exists (there exist gaps)
+func GetOverlapValidityForSignatures(sigs []signature.Sig) (int64, int64) {
+	// strategy is to sort the intervals using ValidSince and check the max validUntil for all of them
+	if len(sigs) == 0 {
+		return 0, 0
+	}
+	bySince := make([]*signature.Sig, len(sigs))
+	for i := range sigs {
+		bySince[i] = &sigs[i]
+	}
+	sort.Slice(bySince, func(i, j int) bool { return bySince[i].ValidSince < bySince[j].ValidSince })
+	// now find out if there are gaps
+	until := bySince[0].ValidUntil
+	for i := 1; i < len(bySince); i++ {
+		if until < bySince[i].ValidSince {
+			return 0, 0
+		}
+		if bySince[i].ValidUntil > until {
+			until = bySince[i].ValidUntil
+		}
+	}
+	return bySince[0].ValidSince, until
 }

@@ -14,10 +14,12 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeHashMap"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/siglib"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
@@ -39,28 +41,47 @@ const (
 
 // Resolver provides methods to resolve names in RAINS.
 type Resolver struct {
-	RootNameServers []net.Addr
-	Forwarders      []net.Addr
-	Mode            ResolutionMode
-	InsecureTLS     bool
-	DialTimeout     time.Duration
-	FailFast        bool
-	Delegations     *safeHashMap.Map
-	Connections     cache.Connection
+	RootNameServers   []net.Addr
+	Forwarders        []net.Addr
+	Mode              ResolutionMode
+	InsecureTLS       bool
+	DialTimeout       time.Duration
+	FailFast          bool
+	Delegations       *safeHashMap.Map
+	Connections       cache.Connection
+	MaxCacheValidity  util.MaxCacheValidity
+	MaxRecursiveCount int
 }
 
 //New creates a resolver with the given parameters and default settings
-func New(rootNS, forwarders []net.Addr, mode ResolutionMode, addr net.Addr, maxConn int) *Resolver {
-	return &Resolver{
-		RootNameServers: rootNS,
-		Forwarders:      forwarders,
-		Mode:            mode,
-		InsecureTLS:     defaultInsecureTLS,
-		DialTimeout:     defaultTimeout,
-		FailFast:        defaultFailFast,
-		Delegations:     safeHashMap.New(),
-		Connections:     cache.NewConnection(maxConn),
+func New(rootNS, forwarders []net.Addr, rootKeyPath string, mode ResolutionMode, addr net.Addr, maxConn int, maxCacheValidity util.MaxCacheValidity, maxRecursiveCount int) (*Resolver, error) {
+	r := &Resolver{
+		RootNameServers:   rootNS,
+		Forwarders:        forwarders,
+		Mode:              mode,
+		InsecureTLS:       defaultInsecureTLS,
+		DialTimeout:       defaultTimeout,
+		FailFast:          defaultFailFast,
+		Delegations:       safeHashMap.New(),
+		Connections:       cache.NewConnection(maxConn),
+		MaxCacheValidity:  maxCacheValidity,
+		MaxRecursiveCount: maxRecursiveCount,
 	}
+	// load the root zone public key and store it as a delegation:
+	a := new(section.Assertion)
+	err := util.Load(rootKeyPath, a)
+	if err != nil {
+		log.Warn("Failed to load root zone public key", "err", err)
+		return nil, err
+	}
+	since, until := util.GetOverlapValidityForSignatures(a.AllSigs())
+	a.UpdateValidity(since, until, maxCacheValidity.AssertionValidity)
+	pk := a.Content[0].Value.(keys.PublicKey)
+	pk.ValidSince = a.ValidSince()
+	pk.ValidUntil = a.ValidUntil()
+	a.Content[0].Value = pk
+	r.Delegations.Add(a.FQDN(), a)
+	return r, nil
 }
 
 //ClientLookup forwards the query to the specified forwarders or performs a recursive lookup starting at
@@ -68,7 +89,7 @@ func New(rootNS, forwarders []net.Addr, mode ResolutionMode, addr net.Addr, maxC
 func (r *Resolver) ClientLookup(query *query.Name) (*message.Message, error) {
 	switch r.Mode {
 	case Recursive:
-		return r.recursiveResolve(query)
+		return r.recursiveResolve(query, 0)
 	case Forward:
 		return r.forwardQuery(query)
 	default:
@@ -84,11 +105,12 @@ func (r *Resolver) ServerLookup(query *query.Name, addr net.Addr, token token.To
 	log.Info("recResolver received query", "query", query, "token", token)
 	switch r.Mode {
 	case Recursive:
-		msg, err = r.recursiveResolve(query)
+		msg, err = r.recursiveResolve(query, 0)
 	case Forward:
 		msg, err = r.forwardQuery(query)
 	default:
 		log.Error("Unsupported resolution mode", "mode", r.Mode)
+		return
 	}
 	if err != nil {
 		log.Error("Query failed", err)
@@ -137,7 +159,11 @@ func (r *Resolver) forwardQuery(q *query.Name) (*message.Message, error) {
 }
 
 // recursiveResolve starts at the root and follows delegations until it receives an answer.
-func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
+// It aborts if called more than "recurseCount" times recursively.
+func (r *Resolver) recursiveResolve(q *query.Name, recurseCount int) (*message.Message, error) {
+	if recurseCount >= r.MaxRecursiveCount {
+		return nil, fmt.Errorf("Maximum number of recursive calls reached at %d. Aborting", recurseCount)
+	}
 	//Check for cached delegation assertion
 	for _, t := range q.Types {
 		if t == object.OTDelegation {
@@ -159,7 +185,7 @@ func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
 				break
 			}
 			log.Info("recursive resolver rcv answer", "answer", answer, "query", q)
-			isFinal, isRedir, redirMap, srvMap, ipMap, nameMap := r.handleAnswer(answer, q)
+			isFinal, isRedir, redirMap, srvMap, ipMap, nameMap := r.handleAnswer(answer, q, recurseCount)
 			log.Info("handling answer in recursive lookup", "serverAddr", addr, "isFinal",
 				isFinal, "isRedir", isRedir, "redirMap", redirMap, "srvMap", srvMap, "ipMap", ipMap,
 				"nameMap", nameMap)
@@ -187,7 +213,7 @@ func (r *Resolver) recursiveResolve(q *query.Name) (*message.Message, error) {
 //answers q. It also returns if the msg contains a redirect assertion which indicates that
 //another lookup must be performed. Information that is relevant for the next lookup are returned in
 //maps.
-func (r *Resolver) handleAnswer(msg message.Message, q *query.Name) (isFinal bool, isRedir bool,
+func (r *Resolver) handleAnswer(msg message.Message, q *query.Name, recurseCount int) (isFinal bool, isRedir bool,
 	redirMap map[string]string, srvMap map[string]object.ServiceInfo, ipMap map[string]string, nameMap map[string]object.Name) {
 	types := make(map[object.Type]bool)
 	redirMap = make(map[string]string)
@@ -198,7 +224,53 @@ func (r *Resolver) handleAnswer(msg message.Message, q *query.Name) (isFinal boo
 		types[t] = true
 	}
 	for _, sec := range msg.Content {
-		//FIXME check signature of sections and request delegations if necessary
+		signed, ok := sec.(section.WithSigForward)
+		if !ok {
+			log.Error("Unexpected Section in Message not of type WithSigForward", "section", sec)
+			return
+		}
+		key, ok := r.Delegations.Get(signed.GetSubjectZone())
+		if !ok {
+			// key is missing
+			keyPhase := 0
+			if len(signed.Sigs(keys.RainsKeySpace)) > 0 {
+				keyPhase = signed.Sigs(keys.RainsKeySpace)[0].KeyPhase
+			} else {
+				log.Error("Section does not contain RAINS signatures", "section", sec)
+				return
+			}
+			keyQuery := query.Name{
+				Name:        signed.GetSubjectZone(),
+				Context:     signed.GetContext(),
+				Expiration:  q.Expiration,
+				CurrentTime: q.CurrentTime,
+				Types:       []object.Type{object.OTDelegation},
+				KeyPhase:    keyPhase,
+			}
+			m, err := r.recursiveResolve(&keyQuery, recurseCount+1)
+			if err != nil {
+				log.Error("Error trying to obtain public key", "query", keyQuery, "error", err)
+				return
+			}
+			// verify we do have now the key in the cache
+			key, ok = r.Delegations.Get(signed.GetSubjectZone())
+			if !ok {
+				log.Error("Error trying to obtain public key", "subject zone", signed.GetSubjectZone(), "answer", m)
+				return
+			}
+		}
+		// we have ensured that key is now an Assertion containing the delegation
+		pkeys := make(map[keys.PublicKeyID][]keys.PublicKey)
+		for _, k := range (key.(*section.Assertion)).Content {
+			pk, isPublicKey := k.Value.(keys.PublicKey)
+			if isPublicKey {
+				pkeys[pk.PublicKeyID] = append(pkeys[pk.PublicKeyID], pk)
+			}
+		}
+		if !siglib.CheckSectionSignatures(signed, pkeys, r.MaxCacheValidity) {
+			log.Error("Section signature invalid!", "section", signed, "public keys", pkeys)
+			return
+		}
 		switch s := sec.(type) {
 		case *section.Assertion:
 			r.handleAssertion(s, redirMap, srvMap, ipMap, nameMap, types, q.Name, &isFinal, &isRedir)
@@ -222,6 +294,15 @@ func (r *Resolver) handleAssertion(a *section.Assertion, redirMap map[string]str
 				*isRedir = true
 			}
 		case object.OTDelegation:
+			// copy the valid times from the assertion to all public keys contained here:
+			for i, pk := range a.Content {
+				pk, ok := pk.Value.(keys.PublicKey)
+				if ok {
+					pk.ValidSince = a.ValidSince()
+					pk.ValidUntil = a.ValidUntil()
+					a.Content[i].Value = pk
+				}
+			}
 			r.Delegations.Add(a.FQDN(), a)
 		case object.OTServiceInfo:
 			srvMap[a.FQDN()] = o.Value.(object.ServiceInfo)
