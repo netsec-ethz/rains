@@ -26,7 +26,7 @@ var expires = flag.Int64P("expires", "e", time.Now().Add(time.Second).Unix(),
 	"expires sets the valid until timestamp of the query in unix seconds since 1970. (default current timestamp + 1 second)")
 var insecureTLS = flag.BoolP("insecureTLS", "i", false,
 	"when set it does not check the validity of the server's TLS certificate. (default false)")
-var tok = flag.StringP("token", "n", "",
+var tok = flag.StringP("token", "t", "",
 	"specifies a token to be used in the query instead of using a randomly generated one.")
 
 //Query Options
