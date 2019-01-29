@@ -37,33 +37,29 @@ func New(config Config) *Rainspub {
 
 //Publish performs various tasks of a zone's publishing process to rains servers according to its
 //configuration. This implementation assumes that there is exactly one zone per zonefile.
-func (r *Rainspub) Publish() {
+func (r *Rainspub) Publish() error {
 	encoder := zonefile.IO{}
 	zoneContent, err := encoder.LoadZonefile(r.Config.ZonefilePath)
 	if err != nil {
-		log.Error(err.Error())
-		return
+		return err
 	}
 	log.Info("Zonefile successful loaded")
 	zone, shards, pshards, err := splitZoneContent(zoneContent,
 		!r.Config.ShardingConf.KeepShards, !r.Config.PShardingConf.KeepPshards)
 	if err != nil {
-		log.Error(err.Error())
-		return
+		return err
 	}
 	if r.Config.ShardingConf.DoSharding {
 		if shards, err = DoSharding(zone.SubjectZone, zone.Context, zone.Content, shards,
 			r.Config.ShardingConf, r.Config.ConsistencyConf.SortShards); err != nil {
-			log.Error(err.Error())
-			return
+			return err
 		}
 	}
 	if r.Config.PShardingConf.DoPsharding {
 		if pshards, err = DoPsharding(zone.SubjectZone, zone.Context, zone.Content, pshards,
 			r.Config.PShardingConf,
 			!r.Config.ShardingConf.KeepShards && r.Config.ConsistencyConf.SortShards); err != nil {
-			log.Error(err.Error())
-			return
+			return err
 		}
 	}
 	if r.Config.ConsistencyConf.SortZone {
@@ -73,12 +69,11 @@ func (r *Rainspub) Publish() {
 		addSignatureMetaData(zone, shards, pshards, r.Config.MetaDataConf)
 	}
 	if !isConsistent(zone, shards, pshards, r.Config.ConsistencyConf) {
-		return
+		return errors.New("sections are not consistent")
 	}
 	if r.Config.DoSigning {
 		if err := signZoneContent(zone, shards, pshards, r.Config.PrivateKeyPath); err != nil {
-			log.Error(err.Error())
-			return
+			return err
 		}
 		log.Info("Signing completed successfully")
 	}
@@ -91,12 +86,12 @@ func (r *Rainspub) Publish() {
 	}
 	if r.Config.OutputPath != "" {
 		if err := encoder.EncodeAndStore(r.Config.OutputPath, output); err != nil {
-			log.Error(err.Error())
-			return
+			return err
 		}
 		log.Info("Writing updated zonefile to disk completed successfully")
 	}
 	r.publishZone(output, r.Config)
+	return nil
 }
 
 //splitZoneContent returns assertions, pshards and shards contained in zone as three separate

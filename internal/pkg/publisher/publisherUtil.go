@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/crypto/ed25519"
+
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keyManager"
@@ -61,7 +63,7 @@ func LoadPrivateKeys(path string) (map[keys.PublicKeyID]interface{}, error) {
 			if _, ok := output[keyID]; ok {
 				return nil, errors.New("Two keys for the same key meta data are not allowed")
 			}
-			output[keyID] = keyPem.Bytes
+			output[keyID] = ed25519.PrivateKey(keyPem.Bytes)
 		}
 	}
 	return output, nil

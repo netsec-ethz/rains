@@ -30,7 +30,7 @@ public key separately and stores them at the provided PATH (default current fold
 prefix corresponds to the provided name followed by _sec.pem or _pub.pem (for private or public key).`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		err := keyManager.GenerateKey(path, name, description, algo, pwd, phase)
+		_, err := keyManager.GenerateKey(path, name, description, algo, pwd, phase)
 		if err != nil {
 			log.Fatalf("Was not able to generate key pair: %v", err)
 		}

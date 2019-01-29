@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+
 	log "github.com/inconshreveable/log15"
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/scrypt"
@@ -27,6 +29,7 @@ const (
 	description = "description"
 	salt        = "salt"
 	iv          = "iv"
+	HexEncoding = "hexEncoding"
 )
 
 //LoadPublicKeys returns all public keys stored in the directory at keypath in pem format.
@@ -56,35 +59,36 @@ func LoadPublicKeys(keyPath string) ([]*pem.Block, error) {
 //pem format. The suffix of the filename is either PublicKey or PrivateKey. The private key is
 //encrypted using pwd. Both pem blocks contain the description and the key phase in the header. The
 //private key pem block additionally has a salt and iv value in the header required for decryption.
-func GenerateKey(keyPath, name, description, algo, pwd string, phase int) error {
+//Returns the public key in pem format or an error
+func GenerateKey(keyPath, name, description, algo, pwd string, phase int) (*pem.Block, error) {
 	var publicKey, privateKey []byte
-	var err error
-	switch algo {
-	case "ed25519":
+	algoType, err := algorithmTypes.AtoSig(algo)
+	switch algoType {
+	case algorithmTypes.Ed25519:
 		if publicKey, privateKey, err = ed25519.GenerateKey(nil); err != nil {
-			return fmt.Errorf("Was not able to generate ed25519 key pair: %v", err)
+			return nil, fmt.Errorf("Was not able to generate ed25519 key pair: %v", err)
 		}
-	case "ed448":
-		return fmt.Errorf("ed448 key algorithm type not yet supported")
+	case algorithmTypes.Ed448:
+		return nil, fmt.Errorf("ed448 key algorithm type not yet supported")
 	default:
-		return fmt.Errorf("unsupported algorithm: %v", algo)
+		return nil, fmt.Errorf("unsupported algorithm: %v", algo)
 	}
 	publicBlock, privateBlock, err := createPEMBlocks(description, algo, pwd, phase, publicKey, privateKey)
 	publicFile, err := os.Create(path.Join(keyPath, name+pubSuffix))
 	if err != nil {
-		return fmt.Errorf("Was not able to create file for public key: %v", err)
+		return nil, fmt.Errorf("Was not able to create file for public key: %v", err)
 	}
 	privateFile, err := os.Create(path.Join(keyPath, name+SecSuffix))
 	if err != nil {
-		return fmt.Errorf("Was not able to create file for private key: %v", err)
+		return nil, fmt.Errorf("Was not able to create file for private key: %v", err)
 	}
 	if err = pem.Encode(publicFile, publicBlock); err != nil {
-		return fmt.Errorf("Was not able to write public pem block to file: %v", err)
+		return nil, fmt.Errorf("Was not able to write public pem block to file: %v", err)
 	}
 	if err = pem.Encode(privateFile, privateBlock); err != nil {
-		return fmt.Errorf("Was not able to write private pem block to file: %v", err)
+		return nil, fmt.Errorf("Was not able to write private pem block to file: %v", err)
 	}
-	return nil
+	return publicBlock, nil
 }
 
 func createPEMBlocks(description, algo, pwd string, phase int, publicKey, privateKey []byte) (
@@ -95,6 +99,7 @@ func createPEMBlocks(description, algo, pwd string, phase int, publicKey, privat
 			KeyAlgo:     algo,
 			KeyPhase:    strconv.Itoa(phase),
 			description: description,
+			HexEncoding: hex.EncodeToString(publicKey),
 		},
 		Bytes: publicKey,
 	}

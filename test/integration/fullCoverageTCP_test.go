@@ -27,7 +27,10 @@ func TestFullCoverage(t *testing.T) {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
 	//Generate self signed root key
-	keycreator.DelegationAssertion(".", ".", "testdata/keys/selfSignedRootDelegationAssertion.gob", "testdata/keys/privateKeyRoot.txt")
+	if err := keycreator.Generate("testdata/keys/selfSignedRootDelegationAssertion.gob",
+		"testdata/keys/root", "@", ".", ".", 1); err != nil {
+		t.Fatalf("Was not able to create root key pair: %v", err)
+	}
 	//Start authoritative Servers and publish zonefiles to them
 	rootServer := startAuthServer(t, "Root", nil)
 	chServer := startAuthServer(t, "ch", []net.Addr{rootServer.Addr()})
@@ -110,7 +113,9 @@ func startAuthServer(t *testing.T, name string, rootServers []net.Addr) *rainsd.
 		t.Fatal(fmt.Sprintf("Was not able to load %s publisher config: ", name), err)
 	}
 	pubServer := publisher.New(config)
-	pubServer.Publish()
+	if err := pubServer.Publish(); err != nil {
+		t.Fatalf("%s publisher error: %v", name, err)
+	}
 	time.Sleep(1000 * time.Millisecond)
 	return server
 }
