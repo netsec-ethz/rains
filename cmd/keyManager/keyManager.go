@@ -4,6 +4,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/netsec-ethz/rains/internal/pkg/keyManager"
 	flag "github.com/spf13/pflag"
@@ -36,13 +37,24 @@ func main() {
 
 	switch cmd {
 	case "load", "l":
-		fmt.Println(keyManager.LoadPublicKeys(path))
+		keys, err := keyManager.LoadPublicKeys(path)
+		if err != nil {
+			log.Fatalf("Was not able to load public keys: %v", err)
+		}
+		val := []string{}
+		for _, key := range keys {
+			val = append(val, fmt.Sprintf("%s", pem.EncodeToMemory(key)))
+		}
+		fmt.Println(strings.Join(val, "\n"))
 	case "generate", "gen", "g":
-		keyManager.GenerateKey(path, *keyName, *description, *algo, *pwd, *phase)
+		err := keyManager.GenerateKey(path, *keyName, *description, *algo, *pwd, *phase)
+		if err != nil {
+			log.Fatalf("Was not able to generate key pair: %v", err)
+		}
 	case "decrypt", "d":
-		block := keyManager.DecryptKey(path, *keyName, *pwd)
-		if block != nil {
-			log.Fatal("Was not able to decrypt private key")
+		block, err := keyManager.DecryptKey(path, *keyName, *pwd)
+		if err != nil {
+			log.Fatalf("Was not able to decrypt private key: %v", err)
 		}
 		fmt.Printf("%s", pem.EncodeToMemory(block))
 	default:

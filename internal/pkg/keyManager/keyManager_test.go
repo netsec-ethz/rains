@@ -3,16 +3,19 @@ package keyManager
 import (
 	"encoding/pem"
 	"fmt"
+	"strings"
 	"testing"
 )
 
 func TestGenerateKey(t *testing.T) {
-	GenerateKey("testdata", "test", "description3", "ed25519", "testPwd", 1)
-	if LoadPublicKeys("testdata") == "" {
-		t.Fatal("was not able to load public keys")
+	if err := GenerateKey("testdata", "test", "description3", "ed25519", "testPwd", 1); err != nil {
+		t.Fatal("was not able to generate public keys")
 	}
-	if DecryptKey("testdata", "test_pub.pem", "testPwd") != nil {
-		t.Fatal("was not able to decrypt private keys")
+	if _, err := LoadPublicKeys("testdata"); err != nil {
+		t.Fatalf("was not able to load public keys: %v", err)
+	}
+	if _, err := DecryptKey("testdata", "test", "testPwd"); err != nil {
+		t.Fatalf("was not able to decrypt private keys: %v", err)
 	}
 }
 
@@ -38,10 +41,19 @@ keyPhase: 1
 -----END RAINS PUBLIC KEY-----
 `},
 	}
+
 	for i, test := range tests {
-		if LoadPublicKeys(test.path) != test.result {
-			t.Fatalf("%d: Was not able to load public keys, expected=%s actual=%s", i,
-				test.result, LoadPublicKeys(test.path))
+		keys, err := LoadPublicKeys(test.path)
+		if err != nil {
+			t.Fatal("was not able to load public keys")
+		}
+		val := []string{}
+		for _, key := range keys {
+			val = append(val, fmt.Sprintf("%s", pem.EncodeToMemory(key)))
+		}
+		if strings.Join(val, "\n") != test.result {
+			t.Fatalf("%d: Public content is different, expected=%s actual=%s", i,
+				test.result, strings.Join(val, "\n"))
 		}
 	}
 }
@@ -77,10 +89,14 @@ N9wbflzKQKYX9NUOV2lMOg==
 `},
 	}
 	for i, test := range tests {
-		if fmt.Sprintf("%s", pem.EncodeToMemory(DecryptKey(test.path, test.name, test.pwd))) != test.result {
+		key, err := DecryptKey(test.path, test.name, test.pwd)
+		if err != nil {
+			t.Fatal("was not able to load private keys")
+		}
+		if fmt.Sprintf("%s", pem.EncodeToMemory(key)) != test.result {
 			t.Fatalf("%d: Was not able to load public keys, expected=%s actual=%s", i,
 				test.result,
-				fmt.Sprintf("%s", pem.EncodeToMemory(DecryptKey(test.path, test.name, test.pwd))))
+				fmt.Sprintf("%s", pem.EncodeToMemory(key)))
 		}
 	}
 }
