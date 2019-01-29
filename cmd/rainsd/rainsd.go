@@ -187,7 +187,7 @@ func init() {
 		"wait between removing expired entries from the negative assertion cache.")
 	rootCmd.Flags().DurationVar(&reapPendingQCacheInterval, "reapPendingQCacheInterval", 15*time.Minute, "The time interval to "+
 		"wait between removing expired entries from the pending query cache.")
-	rootCmd.Flags().Int("maxrecurse", 50, "Recursive resolver maximum depth (max. depth of recursive stack)")
+	rootCmd.Flags().IntVar(&maxRecurseDepth, "maxrecurse", 50, "Recursive resolver maximum depth (max. depth of recursive stack)")
 }
 
 func main() {
