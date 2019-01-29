@@ -2,24 +2,16 @@ package main
 
 import (
 	"bytes"
-	"time"
 
 	"github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
-	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/publisher"
-	"github.com/netsec-ethz/rains/internal/pkg/query"
-	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
-	"github.com/netsec-ethz/rains/internal/pkg/section"
-	"github.com/netsec-ethz/rains/internal/pkg/token"
-	"github.com/netsec-ethz/rains/tools/keycreator"
 )
 
 func main() {
-	keycreator.DelegationAssertion(".", ".", "keys/selfSignedRootDelegationAssertion.gob", "keys/rootPrivateKey.txt")
+	/*keycreator.DelegationAssertion(".", ".", "keys/selfSignedRootDelegationAssertion.gob", "keys/rootPrivateKey.txt")
 	conf, _ := rainsd.LoadConfig("config/server.conf")
 	server, err := rainsd.New(conf, "0")
 	if err != nil {
@@ -65,7 +57,7 @@ func main() {
 
 	time.Sleep(time.Hour)
 	server.Shutdown()
-	log.Info("Server shut down")
+	log.Info("Server shut down")*/
 }
 
 func handleResponse(channel chan connection.Message) {

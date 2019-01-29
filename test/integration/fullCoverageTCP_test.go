@@ -31,9 +31,10 @@ func TestFullCoverage(t *testing.T) {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
 	//Generate self signed root key
-	keycreator.DelegationAssertion(".", ".",
-		"testdata/keys/selfSignedRootDelegationAssertion.gob",
-		"testdata/keys/privateKeyRoot.txt")
+	if err := keycreator.Generate("testdata/keys/selfSignedRootDelegationAssertion.gob",
+		"testdata/keys/root/root", "@", ".", ".", 1); err != nil {
+		t.Fatalf("Was not able to create root key pair: %v", err)
+	}
 	//Start authoritative Servers and publish zonefiles to them
 	rootServer := startAuthServer(t, "Root", nil)
 	chServer := startAuthServer(t, "ch", []net.Addr{rootServer.Addr()})
@@ -116,7 +117,7 @@ func TestFullCoverageCLITools(t *testing.T) {
 
 	for _, tool := range []string{"rainsd", "zonepub", "rdig"} {
 		cmd := exec.Command("/bin/bash", "-c",
-			fmt.Sprintf("go build -o %s/%s -v " +
+			fmt.Sprintf("go build -o %s/%s -v "+
 				"$GOPATH/src/github.com/netsec-ethz/rains/cmd/%[2]s/%[2]s.go",
 				tool_dir, tool))
 		if err := cmd.Run(); err != nil {
@@ -149,7 +150,7 @@ func TestFullCoverageCLITools(t *testing.T) {
 	root_ip := root_ip_addr.IP.String()
 	root_port := strconv.Itoa(root_ip_addr.Port)
 	cmd := exec.Command("/bin/bash", "-c",
-		fmt.Sprintf("%s/rainsd " +
+		fmt.Sprintf("%s/rainsd "+
 			"./testdata/conf/namingServerRoot.conf --id nameServerRoot", tool_dir))
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
@@ -157,7 +158,7 @@ func TestFullCoverageCLITools(t *testing.T) {
 	commands = append(commands, cmd)
 	time.Sleep(250 * time.Millisecond)
 
-	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/zonepub " +
+	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/zonepub "+
 		"./testdata/conf/publisherRoot.conf", tool_dir))
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Error during zonepub %v: %v", "zonepub", err)
@@ -165,8 +166,8 @@ func TestFullCoverageCLITools(t *testing.T) {
 	time.Sleep(1000 * time.Millisecond)
 
 	for _, zone := range []string{"ch", "ethz.ch"} {
-		cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/rainsd " +
-			"./testdata/conf/namingServer%[2]s.conf " +
+		cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/rainsd "+
+			"./testdata/conf/namingServer%[2]s.conf "+
 			"--rootServerAddress %s:%s --id nameServer%[2]s", tool_dir, zone, root_ip,
 			root_port))
 		if err := cmd.Start(); err != nil {
@@ -175,7 +176,7 @@ func TestFullCoverageCLITools(t *testing.T) {
 		commands = append(commands, cmd)
 		time.Sleep(250 * time.Millisecond)
 
-		cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/zonepub " +
+		cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/zonepub "+
 			"./testdata/conf/publisher%s.conf", tool_dir, zone))
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("Error during zonepub %v: %v", "zonepub", err)
@@ -194,8 +195,8 @@ func TestFullCoverageCLITools(t *testing.T) {
 	}
 	resolver_ip := resolver_ip_addr.IP.String()
 	resolver_port := strconv.Itoa(resolver_ip_addr.Port)
-	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/rainsd " +
-		"./testdata/conf/resolver.conf " +
+	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/rainsd "+
+		"./testdata/conf/resolver.conf "+
 		"--rootServerAddress %s:%s --id resolver", tool_dir, root_ip, root_port))
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
@@ -264,7 +265,9 @@ func startAuthServer(t *testing.T, name string, rootServers []net.Addr) *rainsd.
 		t.Fatal(fmt.Sprintf("Was not able to load %s publisher config: ", name), err)
 	}
 	pubServer := publisher.New(config)
-	pubServer.Publish()
+	if err := pubServer.Publish(); err != nil {
+		t.Fatalf("%s publisher error: %v", name, err)
+	}
 	time.Sleep(1000 * time.Millisecond)
 	return server
 }
@@ -337,7 +340,7 @@ func sendQueryVerifyResponse(t *testing.T, query query.Name, connInfo net.Addr,
 			correctAnswer = s.CompareTo(a) == 0
 		}
 	default:
-		t.Fatalf("Not yet implemented! So far only assertion, shard, " +
+		t.Fatalf("Not yet implemented! So far only assertion, shard, "+
 			"pshard and zones are supported. section=%v", s)
 	}
 	if !correctAnswer {

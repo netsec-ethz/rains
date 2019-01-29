@@ -1,16 +1,20 @@
 package publisher
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
+	"strconv"
+	"strings"
 	"time"
 
-	log "github.com/inconshreveable/log15"
-
-	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"golang.org/x/crypto/ed25519"
+
+	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/keyManager"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
 )
 
 //LoadConfig loads configuration information from configPath
@@ -32,42 +36,35 @@ func LoadConfig(configPath string) (Config, error) {
 //LoadPrivateKeys reads private keys from the path provided in the config and returns a map from
 //PublicKeyID to the corresponding private key data.
 func LoadPrivateKeys(path string) (map[keys.PublicKeyID]interface{}, error) {
-	var privateKeys []keys.PrivateKey
-	file, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Error("Could not open config file...", "path", path, "error", err)
-		return nil, err
-	}
-	if err = json.Unmarshal(file, &privateKeys); err != nil {
-		log.Error("Could not unmarshal json format of private keys", "error", err)
-		return nil, err
-	}
 	output := make(map[keys.PublicKeyID]interface{})
-	for _, keyData := range privateKeys {
-		keyString := keyData.Key.(string)
-		privateKey := make([]byte, hex.DecodedLen(len([]byte(keyString))))
-		privateKey, err := hex.DecodeString(keyString)
-		if err != nil {
-			log.Error("Was not able to decode privateKey", "error", err)
-			return nil, err
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, fmt.Errorf("Was not able to read directory: %v", err)
+	}
+	for _, f := range files {
+		if strings.HasSuffix(f.Name(), keyManager.SecSuffix) {
+			keyPem, err := keyManager.DecryptKey(path, strings.Split(f.Name(), keyManager.SecSuffix)[0], "")
+			if err != nil {
+				return nil, fmt.Errorf("Was not able to decrypt private key: %v", err)
+			}
+			phase, err := strconv.Atoi(keyPem.Headers[keyManager.KeyPhase])
+			if err != nil {
+				return nil, fmt.Errorf("Was not able to parse key phase from pem: %v", err)
+			}
+			algo, err := algorithmTypes.AtoSig(keyPem.Headers[keyManager.KeyAlgo])
+			if err != nil {
+				return nil, fmt.Errorf("Was not able to parse key algorithm from pem %v", err)
+			}
+			keyID := keys.PublicKeyID{
+				Algorithm: algo,
+				KeyPhase:  phase,
+				KeySpace:  keys.RainsKeySpace,
+			}
+			if _, ok := output[keyID]; ok {
+				return nil, errors.New("Two keys for the same key meta data are not allowed")
+			}
+			output[keyID] = ed25519.PrivateKey(keyPem.Bytes)
 		}
-		if len(privateKey) != ed25519.PrivateKeySize {
-			log.Error("Private key length is incorrect", "expected", ed25519.PrivateKeySize,
-				"actual", len(privateKey))
-			return nil, errors.New("incorrect private key length")
-		}
-		output[keyData.PublicKeyID] = ed25519.PrivateKey(privateKey)
 	}
 	return output, nil
-}
-
-func StorePrivateKey(path string, privateKeys []keys.PrivateKey) error {
-	for i, key := range privateKeys {
-		privateKeys[i].Key = hex.EncodeToString(key.Key.(ed25519.PrivateKey))
-	}
-	if encoding, err := json.Marshal(privateKeys); err != nil {
-		return err
-	} else {
-		return ioutil.WriteFile(path, encoding, 0600)
-	}
 }

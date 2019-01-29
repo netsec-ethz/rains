@@ -4,6 +4,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/netsec-ethz/rains/internal/pkg/keyManager"
 	"github.com/spf13/cobra"
@@ -29,7 +30,10 @@ public key separately and stores them at the provided PATH (default current fold
 prefix corresponds to the provided name followed by _sec.pem or _pub.pem (for private or public key).`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		keyManager.GenerateKey(path, name, description, algo, pwd, phase)
+		_, err := keyManager.GenerateKey(path, name, description, algo, pwd, phase)
+		if err != nil {
+			log.Fatalf("Was not able to generate key pair: %v", err)
+		}
 	},
 }
 
@@ -40,7 +44,15 @@ var loadCmd = &cobra.Command{
 	Long:    `Prints all public keys stored at PATH (default current folder).`,
 	Args:    cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(keyManager.LoadPublicKeys(path))
+		keys, err := keyManager.LoadPublicKeys(path)
+		if err != nil {
+			log.Fatalf("Was not able to load public keys: %v", err)
+		}
+		val := []string{}
+		for _, key := range keys {
+			val = append(val, fmt.Sprintf("%s", pem.EncodeToMemory(key)))
+		}
+		fmt.Println(strings.Join(val, "\n"))
 	},
 }
 
@@ -53,9 +65,9 @@ corresponding to name. It then encrypts the private key with the user
 provided password and prints the decrypted key pem encoded to stdout.`,
 	Args: cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		block := keyManager.DecryptKey(path, name, pwd)
-		if block != nil {
-			log.Fatal("Was not able to decrypt private key")
+		block, err := keyManager.DecryptKey(path, name, pwd)
+		if err != nil {
+			log.Fatalf("Was not able to decrypt private key: %v", err)
 		}
 		fmt.Printf("%s", pem.EncodeToMemory(block))
 	},
