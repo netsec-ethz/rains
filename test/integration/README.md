@@ -1,10 +1,34 @@
 # README
 
+This document describes the different components of the integration test and what we are testing.
+
+## Topology
+
+The integration consists of three authoritative servers, 2 caching resolvers and a client sending
+queries to the two caching resolvers. There is one authoritative server for the root, a TLD and a
+SLD. The SLD is a subzone of the TLD. The caching resolvers start their recursive lookups at the
+root and get then referred to the other authoritative servers.
+
 ## Queries
-The queries and expected answers are stored in a file located at 'testdata/messages/messages.txt'.
-The query must be on a single line. The answer sections must be on the following line(s). An empty
-line marks the end of the answer. Queries are represented in a zonefile like format and answers are
-represented in zonefile format.
+The queries the client is going to send and expected answers are stored in a file located at
+'testdata/messages/messages.txt'. The query must be on a single line. The answer sections must be on
+the following line(s). An empty line marks the end of the answer. Queries are represented in a
+zonefile like format and answers are represented in zonefile format.
+
+## Test
+
+The integration test covers the following parts:
+
+- Loading files such as config, zonefile, keys, checkpoints, certificates
+- tcp connection handling and sending messages over tcp between all components
+- recursive lookup with and without alias
+- preprocessing and publishing zone information
+- preloading caches of a caching resolver from checkpoint files
+- a caching resolver answers with cached entries if present
+- marshal and unmarshal of messages and sections
+- signing sections and verifying signatures
+- queries are correctly answered
+- key generation, storing and loading
 
 ## Coverage
 The file fullCoverageTCP.go must be present and include all paths for which we want to do coverage

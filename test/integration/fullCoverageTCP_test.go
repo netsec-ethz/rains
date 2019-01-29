@@ -42,8 +42,12 @@ func TestFullCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Was not able to create client resolver: %v", err)
 	}
-	cachingResolver.SetResolver(libresolve.New([]net.Addr{rootServer.Addr()}, nil,
-		libresolve.Recursive, cachingResolver.Addr(), 1000))
+	resolver, err := libresolve.New([]net.Addr{rootServer.Addr()}, nil, rootServer.Config().RootZonePublicKeyPath,
+		libresolve.Recursive, cachingResolver.Addr(), 1000, rootServer.Config().MaxCacheValidity, 50)
+	if err != nil {
+		panic(err.Error())
+	}
+	cachingResolver.SetResolver(resolver)
 	go cachingResolver.Start(false)
 	time.Sleep(1000 * time.Millisecond)
 	log.Info("caching server successfully started")
@@ -102,7 +106,12 @@ func startAuthServer(t *testing.T, name string, rootServers []net.Addr) *rainsd.
 	if err != nil {
 		t.Fatal(fmt.Sprintf("Was not able to create %s server: ", name), err)
 	}
-	server.SetResolver(libresolve.New(rootServers, nil, libresolve.Recursive, server.Addr(), 1000))
+	resolver, err := libresolve.New(rootServers, nil, server.Config().RootZonePublicKeyPath,
+		libresolve.Recursive, server.Addr(), 1000, server.Config().MaxCacheValidity, 50)
+	if err != nil {
+		panic(err.Error())
+	}
+	server.SetResolver(resolver)
 	go server.Start(false)
 	time.Sleep(250 * time.Millisecond)
 	config, err := publisher.LoadConfig("testdata/conf/publisher" + name + ".conf")
