@@ -68,10 +68,10 @@ func UnmarshalNetAddr(data []byte) (Type, net.Addr, error) {
 			return -1, nil, err
 		}
 	case "SCION":
-		if _, ok := m["Local"]; !ok {
+		if _, ok := m["SCIONAddr"]; !ok {
 			return -1, nil, errors.New("local address is required for SCION")
 		}
-		local, ok := m["Local"].(string)
+		local, ok := m["SCIONAddr"].(string)
 		if !ok {
 			return -1, nil, errors.New("local address must be a string")
 		}

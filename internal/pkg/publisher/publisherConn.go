@@ -1,7 +1,9 @@
 package publisher
 
 import (
+	"bytes"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -9,14 +11,16 @@ import (
 	log "github.com/inconshreveable/log15"
 
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
+	"github.com/scionproto/scion/go/lib/snet"
 )
 
 //connectAndSendMsg establishes a connection to server and sends msg. It returns the server info on
 //the result channel if it was not able to send the whole msg to it, else nil.
-func connectAndSendMsg(msg message.Message, server net.Addr, result chan<- net.Addr) {
+func connectAndSendMsg(msg message.Message, server net.Addr, srcAddr connection.Info, result chan<- net.Addr) {
 	conf := &tls.Config{
 		InsecureSkipVerify: true,
 	}
@@ -44,6 +48,37 @@ func connectAndSendMsg(msg message.Message, server net.Addr, result chan<- net.A
 		} else {
 			result <- server
 		}
+	case *snet.Addr:
+		if srcAddr.Type != connection.SCION {
+			log.Error("SrcAddr must be specified and be set to a SCION address.")
+			result <- server
+			return
+		}
+		SCIONSrc, ok := srcAddr.Addr.(*snet.Addr)
+		if !ok {
+			log.Error(fmt.Sprintf("srcAddr.Addr must be an *snet.Addr, but was: %T", srcAddr.Addr))
+			result <- server
+			return
+		}
+		saddr := server.(*snet.Addr)
+		conn, err := snet.DialSCION("udp4", SCIONSrc, saddr)
+		if err != nil {
+			log.Error(fmt.Sprintf("failed to DialSCION: %v", err))
+			result <- server
+			return
+		}
+		encoding := new(bytes.Buffer)
+		if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
+			log.Error(fmt.Sprintf("failed to marshal message to conn: %v", err))
+			result <- server
+			return
+		}
+		if _, err := conn.Write(encoding.Bytes()); err != nil {
+			log.Error(fmt.Sprintf("unable to write encoded message to connection: %v", err))
+			result <- server
+			return
+		}
+		result <- nil
 	default:
 		log.Error("Unsupported connection information type.", "conn", server)
 		result <- server
