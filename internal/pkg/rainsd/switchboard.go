@@ -147,6 +147,13 @@ func (s *Server) listen() {
 		defer listener.Close()
 		defer srvLogger.Info("Shutdown listener")
 		for {
+			select {
+			case <-s.shutdown:
+				// break out of the loop when receiving shutdown
+				srvLogger.Info("Received shutdown signal")
+				return
+			default:
+			}
 			conn, err := listener.Accept()
 			if err != nil {
 				srvLogger.Error("listener could not accept connection", "error", err)
@@ -177,8 +184,17 @@ func (s *Server) listen() {
 			log.Warn("failed to ListenSCION: %v", err)
 			return
 		}
+		defer listener.Close()
+		defer srvLogger.Info("Shutdown listener")
 		s.scionConn = listener
 		for {
+			select {
+			case <-s.shutdown:
+				// break out of the loop when receiving shutdown
+				srvLogger.Info("Received shutdown signal")
+				return
+			default:
+			}
 			buf := make([]byte, maxUDPPacketBytes)
 			n, addr, err := listener.ReadFromSCION(buf)
 			if err != nil {
