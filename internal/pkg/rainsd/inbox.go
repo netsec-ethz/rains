@@ -142,7 +142,7 @@ func (s *Server) workBoth() {
 			go normalWorkerHandler(s, msg)
 		default:
 			<-s.queues.NormalW
-			time.Sleep(100*time.Millisecond)
+			time.Sleep(time.Millisecond)
 		}
 	}
 }

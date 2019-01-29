@@ -64,6 +64,8 @@ func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 			} else {
 				log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
 			}
+			//add capabilities to message
+			msg.Capabilities = []message.Capability{message.Capability(s.capabilityHash)}
 			conns = []net.Conn{conn}
 		}
 	}
