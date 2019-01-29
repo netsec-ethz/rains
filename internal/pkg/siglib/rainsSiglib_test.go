@@ -1,12 +1,11 @@
 package siglib
 
 import (
-	"bytes"
 	"testing"
 	"time"
 
-	cbor "github.com/britram/borat"
 	log "github.com/inconshreveable/log15"
+	"golang.org/x/crypto/ed25519"
 
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
@@ -15,136 +14,35 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
-	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
-	"golang.org/x/crypto/ed25519"
 )
 
-func TestSignAssertion(t *testing.T) {
-	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := section.GetAssertion()
-	if !SignSectionUnsafe(sec, genPrivateKey, section.Signature()) {
-		t.Error("Was not able to sign assertion")
-		return
+func TestSignSectionUnsafe(t *testing.T) {
+	var tests = []struct {
+		sec section.WithSig
+	}{
+		{section.GetAssertion()},
+		{section.GetShard()},
+		{section.GetPshard()},
+		{section.GetZone()},
 	}
-	log.Info("Successful added sig", "sigLen", len(sec.AllSigs()))
-
-	newSig := sec.AllSigs()[0]
-	sec.DontAddSigInMarshaller()
-	encoding := new(bytes.Buffer)
-	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
-
-	//Test signature
-	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
-		t.Error("Sig does not match")
-	}
-}
-
-func TestSignShard(t *testing.T) {
-	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := section.GetShard()
-	if !SignSectionUnsafe(sec, genPrivateKey, section.Signature()) {
-		t.Error("Was not able to sign shard")
-		return
-	}
-	log.Info("Successful added sig", "sigLen", len(sec.AllSigs()))
-
-	newSig := sec.AllSigs()[0]
-	sec.DontAddSigInMarshaller()
-	encoding := new(bytes.Buffer)
-	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
-
-	//Test signature
-	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
-		t.Error("Sig does not match")
-	}
-}
-
-func TestSignPshard(t *testing.T) {
-	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := section.GetPshard()
-	if !SignSectionUnsafe(sec, genPrivateKey, section.Signature()) {
-		t.Error("Was not able to sign shard")
-		return
-	}
-	log.Info("Successful added sig", "sigLen", len(sec.AllSigs()))
-
-	newSig := sec.AllSigs()[0]
-	sec.DontAddSigInMarshaller()
-	encoding := new(bytes.Buffer)
-	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
-
-	//Test signature
-	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
-		t.Error("Sig does not match")
-	}
-}
-
-func TestSignZone(t *testing.T) {
-	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	sec := section.GetZone()
-	if !SignSectionUnsafe(sec, genPrivateKey, section.Signature()) {
-		t.Error("Was not able to sign zone")
-		return
-	}
-	log.Info("Successful added sig", "sigLen", len(sec.AllSigs()))
-
-	newSig := sec.AllSigs()[0]
-	sec.DontAddSigInMarshaller()
-	encoding := new(bytes.Buffer)
-	sec.MarshalCBOR(cbor.NewCBORWriter(encoding))
-
-	//Test signature
-	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
-		t.Error("Sig does not match")
-	}
-}
-
-func TestSignQuery(t *testing.T) {
-	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	msg := &message.Message{
-		Token:        token.New(),
-		Capabilities: []message.Capability{message.NoCapability, message.TLSOverTCP},
-		Content:      []section.Section{section.GetQuery()},
-	}
-	if !SignMessageUnsafe(msg, genPrivateKey, section.Signature()) {
-		t.Error("Was not able to sign query")
-		return
-	}
-	log.Info("Successful added sig", "sigLen", len(msg.Signatures))
-
-	newSig := msg.Signatures[0]
-	msg.Signatures = []signature.Sig{}
-	encoding := new(bytes.Buffer)
-	msg.MarshalCBOR(cbor.NewCBORWriter(encoding))
-
-	//Test signature
-	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
-		t.Error("Sig does not match")
-	}
-}
-
-func TestSignNotification(t *testing.T) {
-	genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
-	msg := &message.Message{
-		Token:        token.New(),
-		Capabilities: []message.Capability{message.NoCapability, message.TLSOverTCP},
-		Content:      []section.Section{section.GetNotification(), section.NotificationNoData()},
-	}
-	if !SignMessageUnsafe(msg, genPrivateKey, section.Signature()) {
-		t.Error("Was not able to sign query")
-		return
-	}
-	log.Info("Successful added sig", "sigLen", len(msg.Signatures))
-
-	newSig := msg.Signatures[0]
-	msg.Signatures = []signature.Sig{}
-	encoding := new(bytes.Buffer)
-	msg.MarshalCBOR(cbor.NewCBORWriter(encoding))
-
-	//Test signature
-	if !newSig.VerifySignature(genPublicKey, encoding.Bytes()) {
-		t.Error("Sig does not match")
+	for i, test := range tests {
+		genPublicKey, genPrivateKey, _ := ed25519.GenerateKey(nil)
+		sig := section.Signature()
+		test.sec.AddSig(sig)
+		ks := map[keys.PublicKeyID]interface{}{sig.PublicKeyID: genPrivateKey}
+		if err := SignSectionUnsafe(test.sec, ks); err != nil {
+			t.Errorf("%d: Was not able to sign %T", i, test.sec)
+			return
+		}
+		pubKey := keys.PublicKey{
+			PublicKeyID: sig.PublicKeyID,
+			ValidSince:  time.Now().Unix(),
+			ValidUntil:  time.Now().Add(time.Hour).Unix(),
+			Key:         genPublicKey,
+		}
+		ksPub := map[keys.PublicKeyID][]keys.PublicKey{sig.PublicKeyID: []keys.PublicKey{pubKey}}
+		CheckSectionSignatures(test.sec, ksPub, util.MaxCacheValidity{})
 	}
 }
 
@@ -158,8 +56,9 @@ func TestSignErrors(t *testing.T) {
 		{&section.Assertion{}, signature.Sig{Data: []byte("some data")}, nil},
 	}
 	for i, test := range tests {
-		ok := SignSectionUnsafe(test.section, test.key, test.sig)
-		if ok {
+		ks := map[keys.PublicKeyID]interface{}{test.sig.PublicKeyID: test.key}
+		test.section.AddSig(test.sig)
+		if SignSectionUnsafe(test.section, ks) == nil {
 			t.Fatalf("%d: SignSectionUnsafe should fail", i)
 		}
 	}
@@ -189,7 +88,7 @@ func TestCheckSectionSignaturesErrors(t *testing.T) {
 			ValidUntil: time.Now().Add(time.Minute).Unix()}}}, keys1, false}, //VerifySignature invalid
 	}
 	for _, test := range tests {
-		res := CheckSectionSignatures(test.input, test.inputPublicKeys, util.MaxCacheValidity{})
+		res := checkSectionSignatures(test.input, test.inputPublicKeys, util.MaxCacheValidity{})
 		if res != test.want {
 			t.Fatalf("expected=%v, actual=%v, value=%v", test.want, res, test.input)
 		}
