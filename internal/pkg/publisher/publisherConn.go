@@ -2,6 +2,7 @@ package publisher
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -15,12 +16,14 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
+	sd "github.com/scionproto/scion/go/lib/sciond"
 	"github.com/scionproto/scion/go/lib/snet"
+	"github.com/scionproto/scion/go/lib/spath"
 )
 
 //connectAndSendMsg establishes a connection to server and sends msg. It returns the server info on
 //the result channel if it was not able to send the whole msg to it, else nil.
-func connectAndSendMsg(msg message.Message, server net.Addr, srcAddr connection.Info, result chan<- net.Addr) {
+func connectAndSendMsg(ctx context.Context, msg message.Message, server net.Addr, srcAddr connection.Info, result chan<- net.Addr) {
 	conf := &tls.Config{
 		InsecureSkipVerify: true,
 	}
@@ -61,6 +64,21 @@ func connectAndSendMsg(msg message.Message, server net.Addr, srcAddr connection.
 			return
 		}
 		saddr := server.(*snet.Addr)
+		if !SCIONSrc.IA.Eq(saddr.IA) {
+			pathEntry := choosePath(ctx, SCIONSrc, saddr)
+			if pathEntry == nil {
+				log.Error(fmt.Sprintf("failed to find path from %s to %s", SCIONSrc, saddr))
+				result <- server
+				return
+			}
+			saddr.Path = spath.New(pathEntry.Path.FwdPath)
+			if err := saddr.Path.InitOffsets(); err != nil {
+				log.Error(fmt.Sprintf("failed to InitOffsets on remote SCION address: %v", err))
+				result <- server
+				return
+			}
+			saddr.NextHop, _ = pathEntry.HostInfo.Overlay()
+		}
 		conn, err := snet.DialSCION("udp4", SCIONSrc, saddr)
 		if err != nil {
 			log.Error(fmt.Sprintf("failed to DialSCION: %v", err))
@@ -83,6 +101,15 @@ func connectAndSendMsg(msg message.Message, server net.Addr, srcAddr connection.
 		log.Error("Unsupported connection information type.", "conn", server)
 		result <- server
 	}
+}
+
+func choosePath(ctx context.Context, local, remote *snet.Addr) *sd.PathReplyEntry {
+	pathMgr := snet.DefNetwork.PathResolver()
+	pathSet := pathMgr.Query(ctx, local.IA, remote.IA)
+	for _, p := range pathSet {
+		return p.Entry
+	}
+	return nil
 }
 
 //listen receives incoming messages for one second. If the message's token matches the query's

@@ -1,6 +1,7 @@
 package publisher
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -482,7 +483,7 @@ func (r *Rainspub) publishSections(msg message.Message) []net.Addr {
 	var errorConns []net.Addr
 	results := make(chan net.Addr, len(r.Config.AuthServers))
 	for _, info := range r.Config.AuthServers {
-		go connectAndSendMsg(msg, info.Addr, r.Config.SrcAddr, results)
+		go connectAndSendMsg(context.TODO(), msg, info.Addr, r.Config.SrcAddr, results)
 	}
 	for i := 0; i < len(r.Config.AuthServers); i++ {
 		if errorConn := <-results; errorConn != nil {
