@@ -412,7 +412,7 @@ func signZoneContent(zone *section.Zone, shards []*section.Shard, pshards []*sec
 	keyPath string) error {
 	keys, err := LoadPrivateKeys(keyPath)
 	if err != nil {
-		return errors.New("Was not able to load private keys")
+		return fmt.Errorf("Was not able to load private keys: %v", err)
 	}
 	if err := siglib.SignSectionUnsafe(zone, keys); err != nil {
 		return fmt.Errorf("Was not able to sign zone: %v", err)

@@ -43,7 +43,7 @@ func LoadPrivateKeys(path string) (map[keys.PublicKeyID]interface{}, error) {
 	}
 	for _, f := range files {
 		if strings.HasSuffix(f.Name(), keyManager.SecSuffix) {
-			keyPem, err := keyManager.DecryptKey(path, f.Name(), "")
+			keyPem, err := keyManager.DecryptKey(path, strings.Split(f.Name(), keyManager.SecSuffix)[0], "")
 			if err != nil {
 				return nil, fmt.Errorf("Was not able to decrypt private key: %v", err)
 			}

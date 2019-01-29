@@ -28,7 +28,7 @@ func TestFullCoverage(t *testing.T) {
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
 	//Generate self signed root key
 	if err := keycreator.Generate("testdata/keys/selfSignedRootDelegationAssertion.gob",
-		"testdata/keys/root", "@", ".", ".", 1); err != nil {
+		"testdata/keys/root/root", "@", ".", ".", 1); err != nil {
 		t.Fatalf("Was not able to create root key pair: %v", err)
 	}
 	//Start authoritative Servers and publish zonefiles to them
