@@ -267,12 +267,10 @@ func (r *Resolver) handleAnswer(msg message.Message, q *query.Name, recurseCount
 				pkeys[pk.PublicKeyID] = append(pkeys[pk.PublicKeyID], pk)
 			}
 		}
-		signed.DontAddSigInMarshaller()
 		if !siglib.CheckSectionSignatures(signed, pkeys, r.MaxCacheValidity) {
 			log.Error("Section signature invalid!", "section", signed, "public keys", pkeys)
 			return
 		}
-		signed.AddSigInMarshaller()
 		switch s := sec.(type) {
 		case *section.Assertion:
 			r.handleAssertion(s, redirMap, srvMap, ipMap, nameMap, types, q.Name, &isFinal, &isRedir)
