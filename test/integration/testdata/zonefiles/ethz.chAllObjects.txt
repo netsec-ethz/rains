@@ -1,6 +1,8 @@
 :Z: ethz.ch. . [
     :A: www  [ :ip4:     198.175.162.241 ]
     :A: www  [ :ip6:     2001:db8:: ]
+    :A: www  [ :scionip4: 2-ff00:0:222,[127.0.0.1] ]
+    :A: www  [ :scionip6:  2-ff00:0:222,[2001:db8::] ]
     :A: www  [ :name: a [ :ip4: :ip6: ] ]
     :A: www  [ :nameset: nameset expression ]
     :A: www  [ :cert: :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
