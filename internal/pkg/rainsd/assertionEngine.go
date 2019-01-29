@@ -117,7 +117,6 @@ func addShardToCache(shard *section.Shard, isAuthoritative bool, assertionsCache
 			a := assertion.Copy(shard.Context, shard.SubjectZone)
 			addAssertionToCache(a, isAuthoritative, assertionsCache, zoneKeyCache)
 		}
-		assertion.RemoveContextAndSubjectZone()
 	}
 	negAssertionCache.AddShard(shard, shard.ValidUntil(), isAuthoritative)
 	log.Debug("Added shard to cache", "shard", *shard)
@@ -139,7 +138,6 @@ func addZoneToCache(zone *section.Zone, isAuthoritative bool, assertionsCache ca
 			a := assertion.Copy(zone.Context, zone.SubjectZone)
 			addAssertionToCache(a, isAuthoritative, assertionsCache, zoneKeyCache)
 		}
-		assertion.RemoveContextAndSubjectZone()
 	}
 	negAssertionCache.AddZone(zone, zone.ValidUntil(), isAuthoritative)
 	log.Debug("Added zone to cache", "zone", *zone)

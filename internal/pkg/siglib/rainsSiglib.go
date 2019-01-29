@@ -29,19 +29,23 @@ func CheckSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 	if !checkSectionSignatures(s, pkeys, maxVal) {
 		return false
 	}
-	var assertions []*section.Assertion
 	switch s := s.(type) {
 	case *section.Shard:
 		s.AddCtxAndZoneToContent()
-		assertions = s.Content
+		for _, a := range s.Content {
+			if len(a.Sigs(keys.RainsKeySpace)) > 0 && !checkSectionSignatures(a, pkeys, maxVal) {
+				return false
+			}
+		}
+		s.RemoveCtxAndZoneFromContent()
 	case *section.Zone:
 		s.AddCtxAndZoneToContent()
-		assertions = s.Content
-	}
-	for _, a := range assertions {
-		if len(a.Sigs(keys.RainsKeySpace)) > 0 && !checkSectionSignatures(a, pkeys, maxVal) {
-			return false
+		for _, a := range s.Content {
+			if len(a.Sigs(keys.RainsKeySpace)) > 0 && !checkSectionSignatures(a, pkeys, maxVal) {
+				return false
+			}
 		}
+		s.RemoveCtxAndZoneFromContent()
 	}
 	s.AddSigInMarshaller()
 	return true
