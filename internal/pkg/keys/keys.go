@@ -99,24 +99,6 @@ func (p PublicKey) Hash() string {
 	return fmt.Sprintf("%s,%d,%d,%s", p.PublicKeyID.Hash(), p.ValidSince, p.ValidUntil, keyString)
 }
 
-//PrivateKey contains information about a private key
-type PrivateKey struct {
-	PublicKeyID
-	Key interface{}
-}
-
-//String implements Stringer interface
-func (p PrivateKey) String() string {
-	keyString := ""
-	switch k1 := p.Key.(type) {
-	case ed25519.PrivateKey:
-		keyString = hex.EncodeToString(k1)
-	default:
-		log.Warn("Unsupported private key type", "type", fmt.Sprintf("%T", p.Key))
-	}
-	return fmt.Sprintf("{%s data=%s}", p.PublicKeyID, keyString)
-}
-
 //KeySpaceID identifies a key space
 type KeySpaceID int
 
