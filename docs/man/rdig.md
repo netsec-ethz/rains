@@ -31,8 +31,6 @@ where:
 
 ## OPTIONS
 
-* `-t`, `--type`: specifies the type for which rdig issues a query. Allowed types are: name, ip6,
-  ip4, redir, deleg, nameset, cert, srv, regr, regt, infra, extra, next. (default "ip6")
 * `-p`, `--port`: is the port number that rdig will send its queries to. (default 55553)
 * `-k`, `--keyphase`: is the key phase for which a delegation is requested. (default 0)
 * `-c`, `--context`: specifies the context for which rdig issues a query. (default ".")
@@ -40,7 +38,7 @@ where:
   (default current timestamp + 1 second)
 * `-i`, `--insecureTLS`: when set it does not check the validity of the server's TLS certificate.
   (default false)
-* `-n`, `--token`: specifies a token to be used in the query instead of using a randomly generated
+* `-t`, `--token`: specifies a token to be used in the query instead of using a randomly generated
   one.
 
 ## QUERY OPTIONS

@@ -13,251 +13,326 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/libresolve"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
-	flag "github.com/spf13/pflag"
+	"github.com/spf13/cobra"
 )
 
-var configPath string
-var id = flag.String("id", "", "Server id")
-var rootZonePublicKeyPath = flag.String("rootZonePublicKeyPath", "data/keys/rootDelegationAssertion.gob", "Path to the "+
-	"file storing the RAINS' root zone public key.")
-var assertionCheckPointInterval = flag.Duration("assertionCheckPointInterval", 30*time.Minute, "The time duration in "+
-	"seconds after which a checkpoint of the assertion cache is performed.")
-var negAssertionCheckPointInterval = flag.Duration("negAssertionCheckPointInterval", time.Hour, "The time duration in seconds "+
-	"after which a checkpoint of the negative assertion cache is performed.")
-var zoneKeyCheckPointInterval = flag.Duration("zoneKeyCheckPointInterval", 30*time.Minute, "The time duration in "+
-	"seconds after which a checkpoint of the zone key cache is performed.")
-var checkPointPath = flag.String("checkPointPath", "data/checkpoint/resolver/", "Path where the server's "+
-	"checkpoint information is stored.")
-var preLoadCaches = flag.Bool("preLoadCaches", false, "If true, the assertion, negative assertion, "+
-	"and zone key cache are pre-loaded from the checkpoint files in CheckPointPath at start up.")
+var config = rainsd.DefaultConfig()
+var id string
+var rootZonePublicKeyPath string
+var assertionCheckPointInterval time.Duration
+var negAssertionCheckPointInterval time.Duration
+var zoneKeyCheckPointInterval time.Duration
+var checkPointPath string
+var preLoadCaches bool
 
 //switchboard
 var serverAddress addressFlag
 var rootServerAddress addressFlag
-var maxConnections = flag.Int("maxConnections", 10000, "The maximum number of allowed active connections.")
-var keepAlivePeriod = flag.Duration("keepAlivePeriod", time.Minute, "How long to keep idle connections open.")
-var tcpTimeout = flag.Duration("tcpTimeout", 5*time.Minute, "TCPTimeout is the maximum amount of "+
-	"time a dial will wait for a tcp connect to complete.")
-var tlsCertificateFile = flag.String("tlsCertificateFile", "data/cert/server.crt", "The path to the server's tls "+
-	"certificate file proving the server's identity.")
-var tlsPrivateKeyFile = flag.String("tlsPrivateKeyFile", "data/cert/server.key", "The path to the server's tls "+
-	"private key file proving the server's identity.")
+var maxConnections int
+var keepAlivePeriod time.Duration
+var tcpTimeout time.Duration
+var tlsCertificateFile string
+var tlsPrivateKeyFile string
 
 // SCION specific settings
-var dispatcherSock = flag.String("dispatcherSock", "/run/shm/dispatcher/default.sock", "Path to the dispatcher socket.")
-var sciondSock = flag.String("sciondSock", "/run/shm/sciond/default.sock", "Path to the sciond socket.")
+var dispatcherSock string
+var sciondSock string
 
 //inbox
-var prioBufferSize = flag.Int("prioBufferSize", 50, "The maximum number of messages in the priority buffer.")
-var normalBufferSize = flag.Int("normalBufferSize", 100, "The maximum number of messages in the normal buffer.")
-var notificationBufferSize = flag.Int("notificationBufferSize", 10, "The maximum number of messages in the notification buffer.")
-var prioWorkerCount = flag.Int("prioWorkerCount", 2, "Number of workers on the priority queue.")
-var normalWorkerCount = flag.Int("normalWorkerCount", 10, "Number of workers on the normal queue.")
-var notificationWorkerCount = flag.Int("notificationWorkerCount", 1, "Number of workers on the notification queue.")
-var capabilitiesCacheSize = flag.Int("capabilitiesCacheSize", 10, "Maximum number of elements in the capabilities cache.")
-var capabilities = flag.String("capabilities", "urn:x-rains:tlssrv", "A list of capabilities this server supports.")
+var prioBufferSize int
+var normalBufferSize int
+var notificationBufferSize int
+var prioWorkerCount int
+var normalWorkerCount int
+var notificationWorkerCount int
+var capabilitiesCacheSize int
+var capabilities string
 
 //verify
-var zoneKeyCacheSize = flag.Int("zoneKeyCacheSize", 1000, "The maximum number of entries in the zone key cache.")
-var zoneKeyCacheWarnSize = flag.Int("zoneKeyCacheWarnSize", 750, "When the number of elements in the zone key "+
-	"cache exceeds this value, a warning is logged.")
-var maxPublicKeysPerZone = flag.Int("maxPublicKeysPerZone", 5, "The maximum number of public keys for each zone.")
-var pendingKeyCacheSize = flag.Int("pendingKeyCacheSize", 100, "The maximum number of entries in the pending key cache.")
-var delegationQueryValidity = flag.Duration("delegationQueryValidity", time.Second, "The amount of seconds in the "+
-	"future when delegation queries are set to expire.")
-var reapZoneKeyCacheInterval = flag.Duration("reapZoneKeyCacheInterval", 15*time.Minute, "The time interval to wait "+
-	"between removing expired entries from the zone key cache.")
-var reapPendingKeyCacheInterval = flag.Duration("reapPendingKeyCacheInterval", 15*time.Minute, "The time interval to wait "+
-	"between removing expired entries from the pending key cache.")
+var zoneKeyCacheSize int
+var zoneKeyCacheWarnSize int
+var maxPublicKeysPerZone int
+var pendingKeyCacheSize int
+var delegationQueryValidity time.Duration
+var reapZoneKeyCacheInterval time.Duration
+var reapPendingKeyCacheInterval time.Duration
 
 //engine
-var assertionCacheSize = flag.Int("assertionCacheSize", 10000, "The maximum number of entries in the "+
-	"assertion cache.")
-var negativeAssertionCacheSize = flag.Int("negativeAssertionCacheSize", 1000, "The maximum number of entries in the "+
-	"negative assertion cache.")
-var pendingQueryCacheSize = flag.Int("pendingQueryCacheSize", 1000, " The maximum number of entries in the "+
-	"pending query cache.")
-var queryValidity = flag.Duration("queryValidity", time.Second, "The amount of seconds in the "+
-	"future when a query is set to expire.")
+var assertionCacheSize int
+var negativeAssertionCacheSize int
+var pendingQueryCacheSize int
+var queryValidity time.Duration
 var authorities authoritiesFlag
-var maxAssertionValidity = flag.Duration("maxAssertionValidity", 3*time.Hour, "contains the maximum number "+
-	"of seconds an assertion can be in the cache before the cached entry expires. It is not "+
-	"guaranteed that expired entries are directly removed.")
-var maxShardValidity = flag.Duration("maxShardValidity", 3*time.Hour, "contains the maximum number "+
-	"of seconds an shard can be in the cache before the cached entry expires. It is not guaranteed"+
-	" that expired entries are directly removed.")
-var maxPshardValidity = flag.Duration("maxPshardValidity", 3*time.Hour, "contains the maximum number of "+
-	"seconds an pshard can be in the cache before the cached entry expires. It is not guaranteed "+
-	"that expired entries are directly removed.")
-var maxZoneValidity = flag.Duration("maxZoneValidity", 3*time.Hour, "contains the maximum number of "+
-	"seconds an zone can be in the cache before the cached entry expires. It is not guaranteed "+
-	"that expired entries are directly removed.")
-var reapAssertionCacheInterval = flag.Duration("reapAssertionCacheInterval", 15*time.Minute, "The time interval to "+
-	"wait between removing expired entries from the assertion cache.")
-var reapNegAssertionCacheInterval = flag.Duration("reapNegAssertionCacheInterval", 15*time.Minute, " The time interval to "+
-	"wait between removing expired entries from the negative assertion cache.")
-var reapPendingQCacheInterval = flag.Duration("reapPendingQCacheInterval", 15*time.Minute, "The time interval to "+
-	"wait between removing expired entries from the pending query cache.")
+var maxAssertionValidity time.Duration
+var maxShardValidity time.Duration
+var maxPshardValidity time.Duration
+var maxZoneValidity time.Duration
+var reapAssertionCacheInterval time.Duration
+var reapNegAssertionCacheInterval time.Duration
+var reapPendingQCacheInterval time.Duration
+
+var rootCmd = &cobra.Command{
+	Use:   "rainsd [PATH]",
+	Short: "rainsd is an implementation of a RAINS server",
+	Long: `	This program implements a RAINS server which serves requests over the RAINS protocol. 
+	The server can be configured to support the first two modes of operation, authority 
+	service and query service. The third one is not yet implemented.
+	
+	* authority service -- the server acts on behalf of an authority to ensure
+	 properly signed assertions are available to the system,
+	* query service -- the server acts on behalf of clients to respond to queries
+	 with relevant assertions to answer these queries,
+	* intermediary service -- the server provides storage and lookup services to
+	 authority services and query services.
+	
+	If no path to a config file is provided, the default config is used.
+	
+	A capability represents a set of features the server supports, and is used for
+	advertising functionality to other servers. Currently only the following
+	capabilities are supported:
+	
+	* 'urn:x-rains:tlssrv'`,
+	Args: cobra.MaximumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) == 1 {
+			var err error
+			if config, err = rainsd.LoadConfig(args[0]); err != nil {
+				log.Fatalf("Error: was not able to load config file: %v", err)
+			}
+		}
+	},
+}
 
 func init() {
-	flag.Var(&serverAddress, "serverAddress", "The network address of this server.")
-	flag.Var(&authorities, "authorities", "A list of contexts and zones for which this server "+
+	rootCmd.Flags().Var(&serverAddress, "serverAddress", "The network address of this server.")
+	rootCmd.Flags().Var(&authorities, "authorities", "A list of contexts and zones for which this server "+
 		"is authoritative. The format is elem(,elem)* where elem := zoneName,contextName")
-	flag.Var(&rootServerAddress, "rootServerAddress", "The root name server address")
+	rootCmd.Flags().Var(&rootServerAddress, "rootServerAddress", "The root name server address")
+	rootCmd.Flags().String("id", "", "Server id")
+	rootCmd.Flags().String("rootZonePublicKeyPath", "data/keys/rootDelegationAssertion.gob", "Path to the "+
+		"file storing the RAINS' root zone public key.")
+	rootCmd.Flags().Duration("assertionCheckPointInterval", 30*time.Minute, "The time duration in "+
+		"seconds after which a checkpoint of the assertion cache is performed.")
+	rootCmd.Flags().Duration("negAssertionCheckPointInterval", time.Hour, "The time duration in seconds "+
+		"after which a checkpoint of the negative assertion cache is performed.")
+	rootCmd.Flags().Duration("zoneKeyCheckPointInterval", 30*time.Minute, "The time duration in "+
+		"seconds after which a checkpoint of the zone key cache is performed.")
+	rootCmd.Flags().String("checkPointPath", "data/checkpoint/resolver/", "Path where the server's "+
+		"checkpoint information is stored.")
+	rootCmd.Flags().Bool("preLoadCaches", false, "If true, the assertion, negative assertion, "+
+		"and zone key cache are pre-loaded from the checkpoint files in CheckPointPath at start up.")
+
+	//switchboard
+	rootCmd.Flags().Int("maxConnections", 10000, "The maximum number of allowed active connections.")
+	rootCmd.Flags().Duration("keepAlivePeriod", time.Minute, "How long to keep idle connections open.")
+	rootCmd.Flags().Duration("tcpTimeout", 5*time.Minute, "TCPTimeout is the maximum amount of "+
+		"time a dial will wait for a tcp connect to complete.")
+	rootCmd.Flags().String("tlsCertificateFile", "data/cert/server.crt", "The path to the server's tls "+
+		"certificate file proving the server's identity.")
+	rootCmd.Flags().String("tlsPrivateKeyFile", "data/cert/server.key", "The path to the server's tls "+
+		"private key file proving the server's identity.")
+
+	// SCION specific settings
+	rootCmd.Flags().String("dispatcherSock", "/run/shm/dispatcher/default.sock", "Path to the dispatcher socket.")
+	rootCmd.Flags().String("sciondSock", "/run/shm/sciond/default.sock", "Path to the sciond socket.")
+
+	//inbox
+	rootCmd.Flags().Int("prioBufferSize", 50, "The maximum number of messages in the priority buffer.")
+	rootCmd.Flags().Int("normalBufferSize", 100, "The maximum number of messages in the normal buffer.")
+	rootCmd.Flags().Int("notificationBufferSize", 10, "The maximum number of messages in the notification buffer.")
+	rootCmd.Flags().Int("prioWorkerCount", 2, "Number of workers on the priority queue.")
+	rootCmd.Flags().Int("normalWorkerCount", 10, "Number of workers on the normal queue.")
+	rootCmd.Flags().Int("notificationWorkerCount", 1, "Number of workers on the notification queue.")
+	rootCmd.Flags().Int("capabilitiesCacheSize", 10, "Maximum number of elements in the capabilities cache.")
+	rootCmd.Flags().String("capabilities", "urn:x-rains:tlssrv", "A list of capabilities this server supports.")
+
+	//verify
+	rootCmd.Flags().Int("zoneKeyCacheSize", 1000, "The maximum number of entries in the zone key cache.")
+	rootCmd.Flags().Int("zoneKeyCacheWarnSize", 750, "When the number of elements in the zone key "+
+		"cache exceeds this value, a warning is logged.")
+	rootCmd.Flags().Int("maxPublicKeysPerZone", 5, "The maximum number of public keys for each zone.")
+	rootCmd.Flags().Int("pendingKeyCacheSize", 100, "The maximum number of entries in the pending key cache.")
+	rootCmd.Flags().Duration("delegationQueryValidity", time.Second, "The amount of seconds in the "+
+		"future when delegation queries are set to expire.")
+	rootCmd.Flags().Duration("reapZoneKeyCacheInterval", 15*time.Minute, "The time interval to wait "+
+		"between removing expired entries from the zone key cache.")
+	rootCmd.Flags().Duration("reapPendingKeyCacheInterval", 15*time.Minute, "The time interval to wait "+
+		"between removing expired entries from the pending key cache.")
+
+	//engine
+	rootCmd.Flags().Int("assertionCacheSize", 10000, "The maximum number of entries in the "+
+		"assertion cache.")
+	rootCmd.Flags().Int("negativeAssertionCacheSize", 1000, "The maximum number of entries in the "+
+		"negative assertion cache.")
+	rootCmd.Flags().Int("pendingQueryCacheSize", 1000, " The maximum number of entries in the "+
+		"pending query cache.")
+	rootCmd.Flags().Duration("queryValidity", time.Second, "The amount of seconds in the "+
+		"future when a query is set to expire.")
+	rootCmd.Flags().Duration("maxAssertionValidity", 3*time.Hour, "contains the maximum number "+
+		"of seconds an assertion can be in the cache before the cached entry expires. It is not "+
+		"guaranteed that expired entries are directly removed.")
+	rootCmd.Flags().Duration("maxShardValidity", 3*time.Hour, "contains the maximum number "+
+		"of seconds an shard can be in the cache before the cached entry expires. It is not guaranteed"+
+		" that expired entries are directly removed.")
+	rootCmd.Flags().Duration("maxPshardValidity", 3*time.Hour, "contains the maximum number of "+
+		"seconds an pshard can be in the cache before the cached entry expires. It is not guaranteed "+
+		"that expired entries are directly removed.")
+	rootCmd.Flags().Duration("maxZoneValidity", 3*time.Hour, "contains the maximum number of "+
+		"seconds an zone can be in the cache before the cached entry expires. It is not guaranteed "+
+		"that expired entries are directly removed.")
+	rootCmd.Flags().Duration("reapAssertionCacheInterval", 15*time.Minute, "The time interval to "+
+		"wait between removing expired entries from the assertion cache.")
+	rootCmd.Flags().Duration("reapNegAssertionCacheInterval", 15*time.Minute, " The time interval to "+
+		"wait between removing expired entries from the negative assertion cache.")
+	rootCmd.Flags().Duration("reapPendingQCacheInterval", 15*time.Minute, "The time interval to "+
+		"wait between removing expired entries from the pending query cache.")
 }
 
 func main() {
 	h := log15.CallerFileHandler(log15.StdoutHandler)
 	log15.Root().SetHandler(log15.LvlFilterHandler(log15.LvlInfo, h))
-	flag.Parse()
-	config := rainsd.DefaultConfig()
-	switch flag.NArg() {
-	case 0: //default config
-	case 1:
-		var err error
-		if config, err = rainsd.LoadConfig(flag.Arg(0)); err != nil {
-			log.Fatalf("Error: was not able to load config file: %v", err)
-		}
-	default:
-		log.Fatalf("Error: too many arguments specified. At most one is allowed. Got %d", flag.NArg())
+	if err := rootCmd.Execute(); err != nil {
+		log.Fatal(err)
 	}
+	if !rootCmd.Flag("help").Changed {
 
-	updateConfig(&config)
-	server, err := rainsd.New(config, *id)
-	if err != nil {
-		log.Fatalf("Error: Was not able to initialize server: %v", err)
-		return
+		updateConfig(&config)
+		server, err := rainsd.New(config, id)
+		if err != nil {
+			log.Fatalf("Error: Was not able to initialize server: %v", err)
+			return
+		}
+		rootNameServers := []net.Addr{rootServerAddress.value.Addr}
+		server.SetResolver(libresolve.New(rootNameServers, nil, libresolve.Recursive, server.Addr(),
+			maxConnections))
+		go server.Start(false)
+		handleUserInput()
+		server.Shutdown()
+		log.Println("Server shut down")
 	}
-	rootNameServers := []net.Addr{rootServerAddress.value.Addr}
-	server.SetResolver(libresolve.New(rootNameServers, nil, libresolve.Recursive, server.Addr(),
-		*maxConnections))
-	go server.Start(false)
-	handleUserInput()
-	server.Shutdown()
-	log.Println("Server shut down")
 }
 
 //updateConfig overrides config with the provided cmd line flags
 func updateConfig(config *rainsd.Config) {
-	if flag.Lookup("rootZonePublicKeyPath").Changed {
-		config.RootZonePublicKeyPath = *rootZonePublicKeyPath
+	if rootCmd.Flag("rootZonePublicKeyPath").Changed {
+		config.RootZonePublicKeyPath = rootZonePublicKeyPath
 	}
-	if flag.Lookup("assertionCheckPointInterval").Changed {
-		config.AssertionCheckPointInterval = *assertionCheckPointInterval
+	if rootCmd.Flag("assertionCheckPointInterval").Changed {
+		config.AssertionCheckPointInterval = assertionCheckPointInterval
 	}
-	if flag.Lookup("negAssertionCheckPointInterval").Changed {
-		config.NegAssertionCheckPointInterval = *negAssertionCheckPointInterval
+	if rootCmd.Flag("negAssertionCheckPointInterval").Changed {
+		config.NegAssertionCheckPointInterval = negAssertionCheckPointInterval
 	}
-	if flag.Lookup("zoneKeyCheckPointInterval").Changed {
-		config.ZoneKeyCheckPointInterval = *zoneKeyCheckPointInterval
+	if rootCmd.Flag("zoneKeyCheckPointInterval").Changed {
+		config.ZoneKeyCheckPointInterval = zoneKeyCheckPointInterval
 	}
-	if flag.Lookup("checkPointPath").Changed {
-		config.CheckPointPath = *checkPointPath
+	if rootCmd.Flag("checkPointPath").Changed {
+		config.CheckPointPath = checkPointPath
 	}
-	if flag.Lookup("preLoadCaches").Changed {
-		config.PreLoadCaches = *preLoadCaches
+	if rootCmd.Flag("preLoadCaches").Changed {
+		config.PreLoadCaches = preLoadCaches
 	}
-	if flag.Lookup("serverAddress").Changed {
+	if rootCmd.Flag("serverAddress").Changed {
 		config.ServerAddress = serverAddress.value
 	}
-	if flag.Lookup("maxConnections").Changed {
-		config.MaxConnections = *maxConnections
+	if rootCmd.Flag("maxConnections").Changed {
+		config.MaxConnections = maxConnections
 	}
-	if flag.Lookup("keepAlivePeriod").Changed {
-		config.KeepAlivePeriod = *keepAlivePeriod
+	if rootCmd.Flag("keepAlivePeriod").Changed {
+		config.KeepAlivePeriod = keepAlivePeriod
 	}
-	if flag.Lookup("tcpTimeout").Changed {
-		config.TCPTimeout = *tcpTimeout
+	if rootCmd.Flag("tcpTimeout").Changed {
+		config.TCPTimeout = tcpTimeout
 	}
-	if flag.Lookup("tlsCertificateFile").Changed {
-		config.TLSCertificateFile = *tlsCertificateFile
+	if rootCmd.Flag("tlsCertificateFile").Changed {
+		config.TLSCertificateFile = tlsCertificateFile
 	}
-	if flag.Lookup("tlsPrivateKeyFile").Changed {
-		config.TLSPrivateKeyFile = *tlsPrivateKeyFile
+	if rootCmd.Flag("tlsPrivateKeyFile").Changed {
+		config.TLSPrivateKeyFile = tlsPrivateKeyFile
 	}
-	if flag.Lookup("dispatcherSock").Changed {
-		config.DispatcherSock = *dispatcherSock
+	if rootCmd.Flag("dispatcherSock").Changed {
+		config.DispatcherSock = dispatcherSock
 	}
-	if flag.Lookup("sciondSock").Changed {
-		config.SciondSock = *sciondSock
+	if rootCmd.Flag("sciondSock").Changed {
+		config.SciondSock = sciondSock
 	}
-	if flag.Lookup("prioBufferSize").Changed {
-		config.PrioBufferSize = *prioBufferSize
+	if rootCmd.Flag("prioBufferSize").Changed {
+		config.PrioBufferSize = prioBufferSize
 	}
-	if flag.Lookup("normalBufferSize").Changed {
-		config.NormalBufferSize = *normalBufferSize
+	if rootCmd.Flag("normalBufferSize").Changed {
+		config.NormalBufferSize = normalBufferSize
 	}
-	if flag.Lookup("notificationBufferSize").Changed {
-		config.NotificationBufferSize = *notificationBufferSize
+	if rootCmd.Flag("notificationBufferSize").Changed {
+		config.NotificationBufferSize = notificationBufferSize
 	}
-	if flag.Lookup("prioWorkerCount").Changed {
-		config.PrioWorkerCount = *prioWorkerCount
+	if rootCmd.Flag("prioWorkerCount").Changed {
+		config.PrioWorkerCount = prioWorkerCount
 	}
-	if flag.Lookup("normalWorkerCount").Changed {
-		config.NormalWorkerCount = *normalWorkerCount
+	if rootCmd.Flag("normalWorkerCount").Changed {
+		config.NormalWorkerCount = normalWorkerCount
 	}
-	if flag.Lookup("notificationWorkerCount").Changed {
-		config.NotificationWorkerCount = *notificationWorkerCount
+	if rootCmd.Flag("notificationWorkerCount").Changed {
+		config.NotificationWorkerCount = notificationWorkerCount
 	}
-	if flag.Lookup("capabilitiesCacheSize").Changed {
-		config.CapabilitiesCacheSize = *capabilitiesCacheSize
+	if rootCmd.Flag("capabilitiesCacheSize").Changed {
+		config.CapabilitiesCacheSize = capabilitiesCacheSize
 	}
-	if flag.Lookup("capabilities").Changed {
-		config.Capabilities = []message.Capability{message.Capability(*capabilities)}
+	if rootCmd.Flag("capabilities").Changed {
+		config.Capabilities = []message.Capability{message.Capability(capabilities)}
 	}
-	if flag.Lookup("zoneKeyCacheSize").Changed {
-		config.ZoneKeyCacheSize = *zoneKeyCacheSize
+	if rootCmd.Flag("zoneKeyCacheSize").Changed {
+		config.ZoneKeyCacheSize = zoneKeyCacheSize
 	}
-	if flag.Lookup("zoneKeyCacheWarnSize").Changed {
-		config.ZoneKeyCacheWarnSize = *zoneKeyCacheWarnSize
+	if rootCmd.Flag("zoneKeyCacheWarnSize").Changed {
+		config.ZoneKeyCacheWarnSize = zoneKeyCacheWarnSize
 	}
-	if flag.Lookup("maxPublicKeysPerZone").Changed {
-		config.MaxPublicKeysPerZone = *maxPublicKeysPerZone
+	if rootCmd.Flag("maxPublicKeysPerZone").Changed {
+		config.MaxPublicKeysPerZone = maxPublicKeysPerZone
 	}
-	if flag.Lookup("pendingKeyCacheSize").Changed {
-		config.PendingKeyCacheSize = *pendingKeyCacheSize
+	if rootCmd.Flag("pendingKeyCacheSize").Changed {
+		config.PendingKeyCacheSize = pendingKeyCacheSize
 	}
-	if flag.Lookup("delegationQueryValidity").Changed {
-		config.DelegationQueryValidity = *delegationQueryValidity
+	if rootCmd.Flag("delegationQueryValidity").Changed {
+		config.DelegationQueryValidity = delegationQueryValidity
 	}
-	if flag.Lookup("reapZoneKeyCacheInterval").Changed {
-		config.ReapZoneKeyCacheInterval = *reapZoneKeyCacheInterval
+	if rootCmd.Flag("reapZoneKeyCacheInterval").Changed {
+		config.ReapZoneKeyCacheInterval = reapZoneKeyCacheInterval
 	}
-	if flag.Lookup("reapPendingKeyCacheInterval").Changed {
-		config.ReapPendingKeyCacheInterval = *reapPendingKeyCacheInterval
+	if rootCmd.Flag("reapPendingKeyCacheInterval").Changed {
+		config.ReapPendingKeyCacheInterval = reapPendingKeyCacheInterval
 	}
-	if flag.Lookup("assertionCacheSize").Changed {
-		config.AssertionCacheSize = *assertionCacheSize
+	if rootCmd.Flag("assertionCacheSize").Changed {
+		config.AssertionCacheSize = assertionCacheSize
 	}
-	if flag.Lookup("negativeAssertionCacheSize").Changed {
-		config.NegativeAssertionCacheSize = *negativeAssertionCacheSize
+	if rootCmd.Flag("negativeAssertionCacheSize").Changed {
+		config.NegativeAssertionCacheSize = negativeAssertionCacheSize
 	}
-	if flag.Lookup("pendingQueryCacheSize").Changed {
-		config.PendingQueryCacheSize = *pendingQueryCacheSize
+	if rootCmd.Flag("pendingQueryCacheSize").Changed {
+		config.PendingQueryCacheSize = pendingQueryCacheSize
 	}
-	if flag.Lookup("authorities").Changed {
+	if rootCmd.Flag("authorities").Changed {
 		config.Authorities = authorities.value
 	}
-	if flag.Lookup("maxAssertionValidity").Changed {
-		config.MaxCacheValidity.AssertionValidity = *maxAssertionValidity
+	if rootCmd.Flag("maxAssertionValidity").Changed {
+		config.MaxCacheValidity.AssertionValidity = maxAssertionValidity
 	}
-	if flag.Lookup("maxShardValidity").Changed {
-		config.MaxCacheValidity.ShardValidity = *maxShardValidity
+	if rootCmd.Flag("maxShardValidity").Changed {
+		config.MaxCacheValidity.ShardValidity = maxShardValidity
 	}
-	if flag.Lookup("maxPshardValidity").Changed {
-		config.MaxCacheValidity.PshardValidity = *maxPshardValidity
+	if rootCmd.Flag("maxPshardValidity").Changed {
+		config.MaxCacheValidity.PshardValidity = maxPshardValidity
 	}
-	if flag.Lookup("maxZoneValidity").Changed {
-		config.MaxCacheValidity.ZoneValidity = *maxZoneValidity
+	if rootCmd.Flag("maxZoneValidity").Changed {
+		config.MaxCacheValidity.ZoneValidity = maxZoneValidity
 	}
-	if flag.Lookup("reapAssertionCacheInterval").Changed {
-		config.ReapAssertionCacheInterval = *reapAssertionCacheInterval
+	if rootCmd.Flag("reapAssertionCacheInterval").Changed {
+		config.ReapAssertionCacheInterval = reapAssertionCacheInterval
 	}
-	if flag.Lookup("reapNegAssertionCacheInterval").Changed {
-		config.ReapNegAssertionCacheInterval = *reapNegAssertionCacheInterval
+	if rootCmd.Flag("reapNegAssertionCacheInterval").Changed {
+		config.ReapNegAssertionCacheInterval = reapNegAssertionCacheInterval
 	}
-	if flag.Lookup("reapPendingQCacheInterval").Changed {
-		config.ReapPendingQCacheInterval = *reapPendingQCacheInterval
+	if rootCmd.Flag("reapPendingQCacheInterval").Changed {
+		config.ReapPendingQCacheInterval = reapPendingQCacheInterval
 	}
 }
 
