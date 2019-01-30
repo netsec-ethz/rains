@@ -9,10 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
-
 	log "github.com/inconshreveable/log15"
-
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
@@ -21,7 +19,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
-
 	"github.com/scionproto/scion/go/lib/snet"
 )
 
@@ -62,7 +59,7 @@ func (r *Rainspub) Publish() error {
 	}
 	log.Info("Zonefile successful loaded")
 	zone, shards, pshards, err := splitZoneContent(zoneContent,
-		!r.Config.ShardingConf.KeepShards, !r.Config.PShardingConf.KeepPshards)
+		r.Config.ShardingConf.KeepShards, r.Config.PShardingConf.KeepPshards)
 	if err != nil {
 		return err
 	}
@@ -143,10 +140,10 @@ func splitZoneContent(zoneContent []section.WithSigForward, keepShards, keepPsha
 //DoSharding creates shards based on the zone's content and config.
 func DoSharding(zone, ctx string, assertions []*section.Assertion, shards []*section.Shard,
 	config ShardingConfig, sortAssertions bool) ([]*section.Shard, error) {
+	var newShards []*section.Shard
 	if sortAssertions {
 		sort.Slice(assertions, func(i, j int) bool { return assertions[i].CompareTo(assertions[j]) < 0 })
 	}
-	var newShards []*section.Shard
 	var err error
 	if config.MaxShardSize > 0 {
 		newShards, err = groupAssertionsToShardsBySize(zone, ctx, assertions,
@@ -159,13 +156,8 @@ func DoSharding(zone, ctx string, assertions []*section.Assertion, shards []*sec
 	} else {
 		return nil, errors.New("MaxShardSize or NofAssertionsPerShard must be positive when DoSharding is set")
 	}
-	if len(shards) != 0 {
-		shards = append(shards, newShards...)
-		sort.Slice(shards, func(i, j int) bool { return shards[i].CompareTo(shards[j]) < 0 })
-	} else {
-		shards = newShards
-	}
-	return shards, nil
+	newShards = append(newShards, shards...)
+	return newShards, nil
 }
 
 //DoPsharding creates pshards based on the zone's content and config.
@@ -183,13 +175,8 @@ func DoPsharding(zone, ctx string, assertions []*section.Assertion,
 	} else {
 		return nil, errors.New("NofAssertionsPerPshard must be positive when DoPsharding is set")
 	}
-	if len(pshards) != 0 {
-		pshards = append(pshards, newPshards...)
-		sort.Slice(pshards, func(i, j int) bool { return pshards[i].CompareTo(pshards[j]) < 0 })
-	} else {
-		pshards = newPshards
-	}
-	return pshards, nil
+	newPshards = append(newPshards, pshards...)
+	return newPshards, nil
 }
 
 //groupAssertionsToShardsBySize groups assertions into shards such that each shard is not exceeding
@@ -200,7 +187,7 @@ func groupAssertionsToShardsBySize(subjectZone, context string, assertions []*se
 	shards := []*section.Shard{}
 	sameNameAssertions := groupAssertionByName(assertions, config)
 	prevShardAssertionSubjectName := ""
-	shard := &section.Shard{}
+	shard := &section.Shard{SubjectZone: subjectZone, Context: context}
 	for i, sameNameA := range sameNameAssertions {
 		shard.Content = append(shard.Content, sameNameA...)
 		if length := len(encoder.EncodeSection(shard)); length > config.MaxShardSize {
@@ -213,7 +200,7 @@ func groupAssertionsToShardsBySize(subjectZone, context string, assertions []*se
 			shard.RangeFrom = prevShardAssertionSubjectName
 			shard.RangeTo = sameNameA[0].SubjectName
 			shards = append(shards, shard)
-			shard = &section.Shard{}
+			shard = &section.Shard{SubjectZone: subjectZone, Context: context}
 			prevShardAssertionSubjectName = sameNameAssertions[i-1][0].SubjectName
 			shard.Content = append(shard.Content, sameNameA...)
 			if length := len(encoder.EncodeSection(shard)); length > config.MaxShardSize {
@@ -236,10 +223,10 @@ func groupAssertionByName(assertions []*section.Assertion,
 	config ShardingConfig) [][]*section.Assertion {
 	var output [][]*section.Assertion
 	for i := 0; i < len(assertions); i++ {
-		sameName := []*section.Assertion{assertions[i]}
+		sameName := []*section.Assertion{assertions[i].Copy("", "")}
 		name := assertions[i].SubjectName
 		for i++; i < len(assertions) && assertions[i].SubjectName == name; i++ {
-			sameName = append(sameName, assertions[i])
+			sameName = append(sameName, assertions[i].Copy("", ""))
 		}
 		output = append(output, sameName)
 		i--
@@ -255,7 +242,7 @@ func groupAssertionsToShardsByNumber(subjectZone, context string,
 	nameCount := 0
 	prevAssertionSubjectName := ""
 	prevShardAssertionSubjectName := ""
-	shard := &section.Shard{}
+	shard := &section.Shard{SubjectZone: subjectZone, Context: context}
 	for i, a := range assertions {
 		if prevAssertionSubjectName != a.SubjectName {
 			nameCount++
@@ -266,10 +253,10 @@ func groupAssertionsToShardsByNumber(subjectZone, context string,
 			shard.RangeTo = a.SubjectName
 			shards = append(shards, shard)
 			nameCount = 1
-			shard = &section.Shard{}
+			shard = &section.Shard{SubjectZone: subjectZone, Context: context}
 			prevShardAssertionSubjectName = assertions[i-1].SubjectName
 		}
-		shard.Content = append(shard.Content, a)
+		shard.Content = append(shard.Content, a.Copy("", ""))
 	}
 	shard.RangeFrom = prevShardAssertionSubjectName
 	shard.RangeTo = ""
@@ -300,9 +287,12 @@ func groupAssertionsToPshards(subjectZone, context string, assertions []*section
 			pshard = newPshard(subjectZone, context, config.BloomFilterConf)
 			prevShardAssertionSubjectName = assertions[i-1].SubjectName
 		}
+		a.Context = context
+		a.SubjectZone = subjectZone
 		if err := pshard.AddAssertion(a); err != nil {
 			return nil, err
 		}
+		a.RemoveContextAndSubjectZone()
 	}
 	pshard.RangeFrom = prevShardAssertionSubjectName
 	pshard.RangeTo = ""
@@ -434,12 +424,10 @@ func signZoneContent(zone *section.Zone, shards []*section.Shard, pshards []*sec
 	if err := siglib.SignSectionUnsafe(zone, keys); err != nil {
 		return fmt.Errorf("Was not able to sign zone: %v", err)
 	}
-	zone.RemoveCtxAndZoneFromContent()
 	for _, shard := range shards {
 		if err := siglib.SignSectionUnsafe(shard, keys); err != nil {
 			return fmt.Errorf("Was not able to sign shard: %v", err)
 		}
-		shard.RemoveCtxAndZoneFromContent()
 	}
 	for _, pshard := range pshards {
 		if err := siglib.SignSectionUnsafe(pshard, keys); err != nil {

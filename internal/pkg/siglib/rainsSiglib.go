@@ -87,10 +87,10 @@ func checkSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 			}
 			if key, ok := getPublicKey(keys, sig.MetaData()); ok {
 				if !sig.VerifySignature(key.Key, encoding.Bytes()) {
-					log.Warn("Sig does not match", "encoding", encoding.Bytes(), "signature", sig)
+					log.Warn("Sig does not match", "section", s, "encoding", encoding.Bytes(), "signature", sig)
 					return false
 				}
-				log.Debug("Sig was valid")
+				log.Debug("Sig was valid", "section", s, "encoding", encoding.Bytes(), "signature", sig)
 				s.AddSig(sig)
 				util.UpdateSectionValidity(s, key.ValidSince, key.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
 			} else {
@@ -147,22 +147,27 @@ func SignSectionUnsafe(s section.WithSig, ks map[keys.PublicKeyID]interface{}) e
 	if err := signSectionUnsafe(s, ks); err != nil {
 		return err
 	}
-	var assertions []*section.Assertion
 	switch s := s.(type) {
 	case *section.Shard:
 		s.AddCtxAndZoneToContent()
-		assertions = s.Content
-	case *section.Zone:
-		s.AddCtxAndZoneToContent()
-		assertions = s.Content
-	}
-	for _, a := range assertions {
-		if len(a.Sigs(keys.RainsKeySpace)) > 0 {
-			if err := signSectionUnsafe(a, ks); err != nil {
-				return err
+		for _, a := range s.Content {
+			if len(a.Sigs(keys.RainsKeySpace)) > 0 {
+				if err := signSectionUnsafe(a, ks); err != nil {
+					return err
+				}
 			}
 		}
-		a.RemoveContextAndSubjectZone()
+		s.RemoveCtxAndZoneFromContent()
+	case *section.Zone:
+		s.AddCtxAndZoneToContent()
+		for _, a := range s.Content {
+			if len(a.Sigs(keys.RainsKeySpace)) > 0 {
+				if err := signSectionUnsafe(a, ks); err != nil {
+					return err
+				}
+			}
+		}
+		s.RemoveCtxAndZoneFromContent()
 	}
 	s.AddSigInMarshaller()
 	return nil

@@ -158,7 +158,9 @@ func main() {
 	if !rootCmd.Flag("help").Changed {
 		updateConfig(&config)
 		server := publisher.New(config)
-		server.Publish()
+		if err := server.Publish(); err != nil {
+			log.Fatalf("Publishing to server [%v] failed: %v", config.AuthServers, err)
+		}
 	}
 }
 

@@ -103,6 +103,7 @@ func (p PublicKey) Hash() string {
 type KeySpaceID int
 
 //go:generate stringer -type=KeySpaceID
+//go:generate jsonenums -type=KeySpaceID
 const (
 	RainsKeySpace KeySpaceID = 0
 )

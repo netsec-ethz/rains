@@ -134,6 +134,7 @@ func (b BloomFilter) CompareTo(bloomFilter BloomFilter) int {
 type BloomFilterAlgo int
 
 //go:generate stringer -type=BloomFilterAlgo
+//go:generate jsonenums -type=BloomFilterAlgo
 const (
 	BloomKM12 BloomFilterAlgo = iota + 1
 	BloomKM16

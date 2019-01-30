@@ -3,9 +3,8 @@ package publisher
 import (
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
-
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
 
