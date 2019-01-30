@@ -9,6 +9,7 @@ import (
 type Signature int
 
 //go:generate stringer -type=Signature
+//go:generate jsonenums -type=Signature
 const (
 	Ed25519 Signature = iota + 1
 	Ed448
@@ -29,6 +30,7 @@ func AtoSig(str string) (Signature, error) {
 type Hash int
 
 //go:generate stringer -type=Hash
+//go:generate jsonenums -type=Hash
 const (
 	NoHashAlgo Hash = iota
 	Sha256

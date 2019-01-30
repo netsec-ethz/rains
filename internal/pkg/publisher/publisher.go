@@ -200,7 +200,7 @@ func groupAssertionsToShardsBySize(subjectZone, context string, assertions []*se
 	shards := []*section.Shard{}
 	sameNameAssertions := groupAssertionByName(assertions, config)
 	prevShardAssertionSubjectName := ""
-	shard := &section.Shard{}
+	shard := &section.Shard{SubjectZone: subjectZone, Context: context}
 	for i, sameNameA := range sameNameAssertions {
 		shard.Content = append(shard.Content, sameNameA...)
 		if length := len(encoder.EncodeSection(shard)); length > config.MaxShardSize {
@@ -213,7 +213,7 @@ func groupAssertionsToShardsBySize(subjectZone, context string, assertions []*se
 			shard.RangeFrom = prevShardAssertionSubjectName
 			shard.RangeTo = sameNameA[0].SubjectName
 			shards = append(shards, shard)
-			shard = &section.Shard{}
+			shard = &section.Shard{SubjectZone: subjectZone, Context: context}
 			prevShardAssertionSubjectName = sameNameAssertions[i-1][0].SubjectName
 			shard.Content = append(shard.Content, sameNameA...)
 			if length := len(encoder.EncodeSection(shard)); length > config.MaxShardSize {
@@ -255,7 +255,7 @@ func groupAssertionsToShardsByNumber(subjectZone, context string,
 	nameCount := 0
 	prevAssertionSubjectName := ""
 	prevShardAssertionSubjectName := ""
-	shard := &section.Shard{}
+	shard := &section.Shard{SubjectZone: subjectZone, Context: context}
 	for i, a := range assertions {
 		if prevAssertionSubjectName != a.SubjectName {
 			nameCount++
@@ -266,7 +266,7 @@ func groupAssertionsToShardsByNumber(subjectZone, context string,
 			shard.RangeTo = a.SubjectName
 			shards = append(shards, shard)
 			nameCount = 1
-			shard = &section.Shard{}
+			shard = &section.Shard{SubjectZone: subjectZone, Context: context}
 			prevShardAssertionSubjectName = assertions[i-1].SubjectName
 		}
 		shard.Content = append(shard.Content, a)

@@ -87,7 +87,7 @@ func checkSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 			}
 			if key, ok := getPublicKey(keys, sig.MetaData()); ok {
 				if !sig.VerifySignature(key.Key, encoding.Bytes()) {
-					log.Warn("Sig does not match", "encoding", encoding.Bytes(), "signature", sig)
+					log.Warn("Sig does not match", "section", s, "encoding", encoding.Bytes(), "signature", sig)
 					return false
 				}
 				log.Debug("Sig was valid")
