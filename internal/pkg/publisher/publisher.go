@@ -287,9 +287,12 @@ func groupAssertionsToPshards(subjectZone, context string, assertions []*section
 			pshard = newPshard(subjectZone, context, config.BloomFilterConf)
 			prevShardAssertionSubjectName = assertions[i-1].SubjectName
 		}
+		a.Context = context
+		a.SubjectZone = subjectZone
 		if err := pshard.AddAssertion(a); err != nil {
 			return nil, err
 		}
+		a.RemoveContextAndSubjectZone()
 	}
 	pshard.RangeFrom = prevShardAssertionSubjectName
 	pshard.RangeTo = ""

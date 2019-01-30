@@ -248,10 +248,10 @@ func (s *Pshard) IsNonexistent(q *query.Name) (bool, error) {
 //AddAssertion adds a to the s' Bloom filter. An error is returned, if a is not within s' range or
 //if they have a different context or zone.
 func (s *Pshard) AddAssertion(a *Assertion) error {
-	if a.Context != "" && a.Context != s.Context {
+	if a.Context != s.Context {
 		return fmt.Errorf("assertion has different context pshardCtx=%s aCtx=%s", s.Context, a.Context)
 	}
-	if a.SubjectZone != "" && a.SubjectZone != s.SubjectZone {
+	if a.SubjectZone != s.SubjectZone {
 		return fmt.Errorf("assertion has different pshardZone=%s aZone=%s", s.SubjectZone, a.SubjectZone)
 	}
 	if !s.InRange(a.SubjectName) {

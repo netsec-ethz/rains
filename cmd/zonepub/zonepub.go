@@ -159,7 +159,7 @@ func main() {
 		updateConfig(&config)
 		server := publisher.New(config)
 		if err := server.Publish(); err != nil {
-			log.Fatalf("Publishing to sever [%v] failed: %v", config.AuthServers, err)
+			log.Fatalf("Publishing to server [%v] failed: %v", config.AuthServers, err)
 		}
 	}
 }
