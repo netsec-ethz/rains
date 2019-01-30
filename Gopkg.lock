@@ -26,6 +26,14 @@
   version = "v2.14"
 
 [[projects]]
+  digest = "1:870d441fe217b8e689d7949fef6e43efbc787e50f200cb1e70dbca9204a1d6be"
+  name = "github.com/inconshreveable/mousetrap"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75"
+  version = "v1.0"
+
+[[projects]]
   digest = "1:c658e84ad3916da105a761660dcaeb01e63416c8ec7bc62256a9b411a05fcd67"
   name = "github.com/mattn/go-colorable"
   packages = ["."]
@@ -42,12 +50,30 @@
   version = "v0.0.4"
 
 [[projects]]
+  digest = "1:645cabccbb4fa8aab25a956cbcbdf6a6845ca736b2c64e197ca7cbb9d210b939"
+  name = "github.com/spf13/cobra"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "ef82de70bb3f60c65fb8eebacbb2d122ef517385"
+  version = "v0.0.3"
+
+[[projects]]
+  digest = "1:c1b1102241e7f645bc8e0c22ae352e8f0dc6484b6cb4d132fa9f24174e0119e2"
+  name = "github.com/spf13/pflag"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "298182f68c66c05229eb03ac171abe6e309ee79a"
+  version = "v1.0.3"
+
+[[projects]]
   branch = "master"
-  digest = "1:7b97a15a7a2396f7581d9a0ba645461fa6d6586dea94bef37a8d9a47083ea912"
+  digest = "1:b1db63cf8405ba5956dbd1c44ceacaa11a849d519da796a90e75288515af5088"
   name = "golang.org/x/crypto"
   packages = [
     "ed25519",
     "ed25519/internal/edwards25519",
+    "pbkdf2",
+    "scrypt",
     "sha3",
   ]
   pruneopts = "UT"
@@ -67,7 +93,10 @@
   input-imports = [
     "github.com/britram/borat",
     "github.com/inconshreveable/log15",
+    "github.com/spf13/cobra",
+    "github.com/spf13/pflag",
     "golang.org/x/crypto/ed25519",
+    "golang.org/x/crypto/scrypt",
     "golang.org/x/crypto/sha3",
   ]
   solver-name = "gps-cdcl"
