@@ -15,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -43,7 +42,7 @@ func LoadPublicKeys(keyPath string) ([]*pem.Block, error) {
 	output := []*pem.Block{}
 	files, err := ioutil.ReadDir(keyPath)
 	if err != nil {
-		log.Error("Was not able to read directory: %v", err)
+		return nil, fmt.Errorf("Was not able to read directory: %v", err)
 	}
 	for _, f := range files {
 		if strings.HasSuffix(f.Name(), pubSuffix) {
@@ -60,7 +59,7 @@ func LoadPublicKeys(keyPath string) ([]*pem.Block, error) {
 func loadPemBlock(folder, name string) (*pem.Block, error) {
 	data, err := ioutil.ReadFile(path.Join(folder, name))
 	if err != nil {
-		return nil, fmt.Errorf("Was not able to read key file: %v", err)
+		return nil, fmt.Errorf("Was not able to read key file %s: %v", path.Join(folder, name), err)
 	}
 	pblock, rest := pem.Decode(data)
 	if len(rest) != 0 {
