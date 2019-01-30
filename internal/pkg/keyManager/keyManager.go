@@ -13,10 +13,16 @@ import (
 	"path"
 	"strconv"
 	"strings"
-
-	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"time"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/siglib"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
+	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"golang.org/x/crypto/ed25519"
 	"golang.org/x/crypto/scrypt"
 )
@@ -41,18 +47,26 @@ func LoadPublicKeys(keyPath string) ([]*pem.Block, error) {
 	}
 	for _, f := range files {
 		if strings.HasSuffix(f.Name(), pubSuffix) {
-			data, err := ioutil.ReadFile(path.Join(keyPath, f.Name()))
+			pblock, err := loadPemBlock(keyPath, f.Name())
 			if err != nil {
-				return nil, fmt.Errorf("Was not able to read public key file: %v", err)
-			}
-			pblock, rest := pem.Decode(data)
-			if len(rest) != 0 {
-				return nil, fmt.Errorf("Was not able to decode pem encoded public key %s: %v", f.Name(), err)
+				return nil, err
 			}
 			output = append(output, pblock)
 		}
 	}
 	return output, nil
+}
+
+func loadPemBlock(folder, name string) (*pem.Block, error) {
+	data, err := ioutil.ReadFile(path.Join(folder, name))
+	if err != nil {
+		return nil, fmt.Errorf("Was not able to read key file: %v", err)
+	}
+	pblock, rest := pem.Decode(data)
+	if len(rest) != 0 {
+		return nil, fmt.Errorf("Was not able to decode pem encoded key %s: %v", name, err)
+	}
+	return pblock, nil
 }
 
 //GenerateKey generates a keypair according to algo and stores them separately at keyPath/name in
@@ -149,13 +163,9 @@ func encryptPrivateKey(pwd string, privateKey []byte) (salt, iv, ciphertext []by
 
 //DecryptKey decryptes the private key stored at keyPath/name with pwd and returns it in pem format.
 func DecryptKey(keyPath, name, pwd string) (*pem.Block, error) {
-	data, err := ioutil.ReadFile(path.Join(keyPath, name+SecSuffix))
+	pblock, err := loadPemBlock(keyPath, name)
 	if err != nil {
-		return nil, fmt.Errorf("Was not able to read private key file: %v", err)
-	}
-	pblock, rest := pem.Decode(data)
-	if len(rest) != 0 {
-		return nil, fmt.Errorf("Was not able to decode pem encoded private key: %v", err)
+		return nil, err
 	}
 	salt, err := hex.DecodeString(pblock.Headers[salt])
 	if err != nil {
@@ -178,4 +188,69 @@ func DecryptKey(keyPath, name, pwd string) (*pem.Block, error) {
 	// XORKeyStream can work in-place if the two arguments are the same.
 	stream.XORKeyStream(pblock.Bytes, pblock.Bytes)
 	return pblock, nil
+}
+
+//PemToKeyID decodes a pem encoded private key into a publicKeyID and a privateKey Object
+func PemToKeyID(block *pem.Block) (keyID keys.PublicKeyID, pkey interface{}, err error) {
+	phase, err := strconv.Atoi(block.Headers[KeyPhase])
+	if err != nil {
+		return keys.PublicKeyID{}, nil, fmt.Errorf("Was not able to parse key phase from pem: %v", err)
+	}
+	algo, err := algorithmTypes.AtoSig(block.Headers[KeyAlgo])
+	if err != nil {
+		return keys.PublicKeyID{}, nil, fmt.Errorf("Was not able to parse key algorithm from pem %v", err)
+	}
+	keyID = keys.PublicKeyID{
+		Algorithm: algo,
+		KeyPhase:  phase,
+		KeySpace:  keys.RainsKeySpace,
+	}
+	switch algo {
+	case algorithmTypes.Ed25519:
+		pkey = ed25519.PrivateKey(block.Bytes)
+	case algorithmTypes.Ed448:
+		return keys.PublicKeyID{}, nil, fmt.Errorf("not yet supported signature algo type: %v", algo)
+	default:
+		return keys.PublicKeyID{}, nil, fmt.Errorf("unsupported signature algo type: %v", algo)
+	}
+	return
+}
+
+//SelfSignedDelegation creates, self signs, and stores a delgation assertion for the key pair with
+//name at path.
+func SelfSignedDelegation(srcPath, dstPath, pwd, zone, context string, validityPeriod time.Duration) error {
+	folder, file := path.Split(srcPath)
+	block, err := DecryptKey(folder, file+SecSuffix, pwd)
+	if err != nil {
+		return err
+	}
+	keyID, privateKey, err := PemToKeyID(block)
+	if err != nil {
+		return err
+	}
+	pubBlock, err := loadPemBlock(folder, file+pubSuffix)
+	if err != nil {
+		return err
+	}
+	pkey := keys.PublicKey{
+		PublicKeyID: keyID,
+		Key:         ed25519.PublicKey(pubBlock.Bytes),
+	}
+	assertion := &section.Assertion{
+		SubjectName: "@",
+		SubjectZone: zone,
+		Context:     context,
+		Content:     []object.Object{object.Object{Type: object.OTDelegation, Value: pkey}},
+	}
+	sig := signature.Sig{
+		PublicKeyID: keyID,
+		ValidSince:  time.Now().Unix(),
+		ValidUntil:  time.Now().Add(validityPeriod).Unix(),
+	}
+	assertion.AddSig(sig)
+	ks := map[keys.PublicKeyID]interface{}{pkey.PublicKeyID: privateKey}
+	if err := siglib.SignSectionUnsafe(assertion, ks); err != nil {
+		return err
+	}
+	return util.Save(dstPath, assertion)
 }

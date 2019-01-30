@@ -14,7 +14,7 @@ func TestGenerateKey(t *testing.T) {
 	if _, err := LoadPublicKeys("testdata"); err != nil {
 		t.Fatalf("was not able to load public keys: %v", err)
 	}
-	if _, err := DecryptKey("testdata", "test", "testPwd"); err != nil {
+	if _, err := DecryptKey("testdata", "test_sec.pem", "testPwd"); err != nil {
 		t.Fatalf("was not able to decrypt private keys: %v", err)
 	}
 }
@@ -65,7 +65,7 @@ func TestDecryptKey(t *testing.T) {
 		pwd    string
 		result string
 	}{
-		{"testdata/privateKeyTest", "test", "testPwd", `-----BEGIN RAINS ENCRYPTED PRIVATE KEY-----
+		{"testdata/privateKeyTest", "test_sec.pem", "testPwd", `-----BEGIN RAINS ENCRYPTED PRIVATE KEY-----
 description: description
 iv: 59540bd9d74515e2f33be1ee9cc80dea
 keyAlgo: ed25519
@@ -76,7 +76,7 @@ ROEfF6uzOsPP20+mADJFpvU6SmHrmUlrdvf62PprS7nwaM9eh6IuMjwhe281CFQk
 zn0UWlko8XeX7Ziit9FYJQ==
 -----END RAINS ENCRYPTED PRIVATE KEY-----
 `},
-		{"testdata/privateKeyTest", "test2", "testPwd", `-----BEGIN RAINS ENCRYPTED PRIVATE KEY-----
+		{"testdata/privateKeyTest", "test2_sec.pem", "testPwd", `-----BEGIN RAINS ENCRYPTED PRIVATE KEY-----
 description: description2
 iv: a8bcc983643b3cfbe3781694a43ad90a
 keyAlgo: ed25519
@@ -91,7 +91,7 @@ N9wbflzKQKYX9NUOV2lMOg==
 	for i, test := range tests {
 		key, err := DecryptKey(test.path, test.name, test.pwd)
 		if err != nil {
-			t.Fatal("was not able to load private keys")
+			t.Fatalf("%d: was not able to load private keys", i)
 		}
 		if fmt.Sprintf("%s", pem.EncodeToMemory(key)) != test.result {
 			t.Fatalf("%d: Was not able to load public keys, expected=%s actual=%s", i,
