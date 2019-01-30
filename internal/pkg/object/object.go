@@ -514,7 +514,6 @@ func ParseTypes(qType string) ([]Type, error) {
 	return []Type{Type(-1)}, fmt.Errorf("%s is not a query option", qType)
 }
 
-
 //TypeString returns the CLI type string corresponding to the object type specified in qType
 func (t Type) CLIString() string {
 	switch t {

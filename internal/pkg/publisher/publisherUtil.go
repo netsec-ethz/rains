@@ -5,14 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"strconv"
 	"strings"
 	"time"
 
-	"golang.org/x/crypto/ed25519"
-
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keyManager"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 )
@@ -43,27 +39,18 @@ func LoadPrivateKeys(path string) (map[keys.PublicKeyID]interface{}, error) {
 	}
 	for _, f := range files {
 		if strings.HasSuffix(f.Name(), keyManager.SecSuffix) {
-			keyPem, err := keyManager.DecryptKey(path, strings.Split(f.Name(), keyManager.SecSuffix)[0], "")
+			keyPem, err := keyManager.DecryptKey(path, f.Name(), "")
 			if err != nil {
-				return nil, fmt.Errorf("Was not able to decrypt private key: %v", err)
+				return nil, fmt.Errorf("Was not able to decrypt key: %v", err)
 			}
-			phase, err := strconv.Atoi(keyPem.Headers[keyManager.KeyPhase])
+			keyID, pkey, err := keyManager.PemToKeyID(keyPem)
 			if err != nil {
-				return nil, fmt.Errorf("Was not able to parse key phase from pem: %v", err)
-			}
-			algo, err := algorithmTypes.AtoSig(keyPem.Headers[keyManager.KeyAlgo])
-			if err != nil {
-				return nil, fmt.Errorf("Was not able to parse key algorithm from pem %v", err)
-			}
-			keyID := keys.PublicKeyID{
-				Algorithm: algo,
-				KeyPhase:  phase,
-				KeySpace:  keys.RainsKeySpace,
+				return nil, fmt.Errorf("Was not able to decode pem encoded private key: %v", err)
 			}
 			if _, ok := output[keyID]; ok {
 				return nil, errors.New("Two keys for the same key meta data are not allowed")
 			}
-			output[keyID] = ed25519.PrivateKey(keyPem.Bytes)
+			output[keyID] = pkey
 		}
 	}
 	return output, nil

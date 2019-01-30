@@ -161,7 +161,7 @@ func (s *Server) Shutdown() {
 	default:
 		log.Warn("Unsupported Network address type.")
 	}
-	
+
 	s.caches.ConnCache.CloseAndRemoveAllConnections()
 	s.queues.Normal <- util.MsgSectionSender{}
 	s.queues.Prio <- util.MsgSectionSender{}
