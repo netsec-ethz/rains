@@ -8,7 +8,7 @@ import (
 )
 
 func TestGenerateKey(t *testing.T) {
-	if _, err := GenerateKey("testdata", "test", "description3", "ed25519", "testPwd", 1); err != nil {
+	if err := GenerateKey("testdata", "test", "description3", "ed25519", "testPwd", 1); err != nil {
 		t.Fatal("was not able to generate public keys")
 	}
 	if _, err := LoadPublicKeys("testdata"); err != nil {

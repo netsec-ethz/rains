@@ -92,7 +92,7 @@ func checkSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 				}
 				log.Debug("Sig was valid", "section", s, "encoding", encoding.Bytes(), "signature", sig)
 				s.AddSig(sig)
-				util.UpdateSectionValidity(s, key.ValidSince, key.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
+				updateSectionValidity(s, key.ValidSince, key.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
 			} else {
 				log.Warn("No time overlapping publicKey in keys for signature", "keys", keys, "signature", sig)
 				return false
@@ -103,40 +103,6 @@ func checkSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 		}
 	}
 	return len(s.Sigs(keys.RainsKeySpace)) > 0
-}
-
-//ValidSectionAndSignature returns true if the section is not nil, all the signatures ValidUntil are
-//in the future, the string fields do not contain  <whitespace>:<non whitespace>:<whitespace>, and
-//the section's content is sorted (by sorting it).
-func ValidSectionAndSignature(s section.WithSig) bool {
-	log.Debug("Validating section and signature before signing")
-	if s == nil {
-		log.Warn("section is nil")
-		return false
-	}
-	if !CheckSignatureNotExpired(s) {
-		return false
-	}
-	if !CheckStringFields(s) {
-		return false
-	}
-	s.Sort()
-	return true
-}
-
-//CheckSignatureNotExpired returns true if s is nil or all the signatures ValidUntil are in the
-//future
-func CheckSignatureNotExpired(s section.WithSig) bool {
-	if s == nil {
-		return true
-	}
-	for _, sig := range s.AllSigs() {
-		if int64(sig.ValidUntil) < time.Now().Unix() {
-			log.Warn("signature is expired", "signature", sig)
-			return false
-		}
-	}
-	return true
 }
 
 //SignSectionUnsafe signs a section and all contained assertions with the given private Key and
@@ -192,6 +158,40 @@ func signSectionUnsafe(s section.WithSig, ks map[keys.PublicKeyID]interface{}) e
 		s.AddSig(sig)
 	}
 	return nil
+}
+
+//ValidSectionAndSignature returns true if the section is not nil, all the signatures ValidUntil are
+//in the future, the string fields do not contain  <whitespace>:<non whitespace>:<whitespace>, and
+//the section's content is sorted (by sorting it).
+func ValidSectionAndSignature(s section.WithSig) bool {
+	log.Debug("Validating section and signature before signing")
+	if s == nil {
+		log.Warn("section is nil")
+		return false
+	}
+	if !CheckSignatureNotExpired(s) {
+		return false
+	}
+	if !CheckStringFields(s) {
+		return false
+	}
+	s.Sort()
+	return true
+}
+
+//CheckSignatureNotExpired returns true if s is nil or all the signatures ValidUntil are in the
+//future
+func CheckSignatureNotExpired(s section.WithSig) bool {
+	if s == nil {
+		return true
+	}
+	for _, sig := range s.AllSigs() {
+		if int64(sig.ValidUntil) < time.Now().Unix() {
+			log.Warn("signature is expired", "signature", sig)
+			return false
+		}
+	}
+	return true
 }
 
 //checkMessageStringFields returns true if the capabilities and all string fields in the contained
@@ -351,4 +351,39 @@ func getPublicKey(pkeys []keys.PublicKey, sigMetaData signature.MetaData) (keys.
 		}
 	}
 	return keys.PublicKey{}, false
+}
+
+//updateSectionValidity updates the validity of the section according to the signature validity and the publicKey validity used to verify this signature
+func updateSectionValidity(sec section.WithSig, pkeyValidSince, pkeyValidUntil, sigValidSince,
+	sigValidUntil int64, maxVal util.MaxCacheValidity) {
+	if sec != nil {
+		var maxValidity time.Duration
+		switch sec.(type) {
+		case *section.Assertion:
+			maxValidity = maxVal.AssertionValidity
+		case *section.Shard:
+			maxValidity = maxVal.ShardValidity
+		case *section.Pshard:
+			maxValidity = maxVal.PshardValidity
+		case *section.Zone:
+			maxValidity = maxVal.ZoneValidity
+		default:
+			log.Warn("Not supported section", "type", fmt.Sprintf("%T", sec))
+			return
+		}
+		if pkeyValidSince < sigValidSince {
+			if pkeyValidUntil < sigValidUntil {
+				sec.UpdateValidity(sigValidSince, pkeyValidUntil, maxValidity)
+			} else {
+				sec.UpdateValidity(sigValidSince, sigValidUntil, maxValidity)
+			}
+
+		} else {
+			if pkeyValidUntil < sigValidUntil {
+				sec.UpdateValidity(pkeyValidSince, pkeyValidUntil, maxValidity)
+			} else {
+				sec.UpdateValidity(pkeyValidSince, sigValidUntil, maxValidity)
+			}
+		}
+	}
 }

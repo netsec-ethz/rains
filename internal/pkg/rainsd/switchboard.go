@@ -96,23 +96,10 @@ func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 }
 
 func (s *Server) sendToRecursiveResolver(msg message.Message) {
-	if s.resolver != nil {
-		for _, sec := range msg.Content {
-			if q, ok := sec.(*query.Name); ok {
-				go s.resolver.ServerLookup(q, s.config.ServerAddress.Addr, msg.Token)
-			}
+	for _, sec := range msg.Content {
+		if q, ok := sec.(*query.Name); ok {
+			go s.resolver.ServerLookup(q, s.config.ServerAddress.Addr, msg.Token)
 		}
-	} else {
-		encoding := new(bytes.Buffer)
-		if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
-			log.Warn(fmt.Sprintf("failed to marshal message to conn: %v", err))
-		}
-		message := connection.Message{
-			Msg:    encoding.Bytes(),
-			Sender: s.inputChannel,
-		}
-		s.sendToRecResolver(message)
-		log.Info("Send successfully to recursive resolver", "msg", msg)
 	}
 }
 
@@ -132,8 +119,6 @@ func createConnection(receiver net.Addr, keepAlive time.Duration, pool *x509.Cer
 //Listen listens for incoming connections and creates a go routine for each connection.
 func (s *Server) listen() {
 	srvLogger := log.New("addr", s.config.ServerAddress.Addr.String())
-	//always listen on channel
-	go s.handleChannel()
 	switch s.config.ServerAddress.Type {
 	case connection.TCP:
 		srvLogger.Info("Start TCP listener")
@@ -213,28 +198,6 @@ func (s *Server) listen() {
 		}
 	default:
 		log.Warn("Unsupported Network address type.")
-	}
-}
-
-//handleChannel handles incoming messages over the channel
-func (s *Server) handleChannel() {
-	for {
-		select {
-		case <-s.shutdown:
-			return
-		case msg := <-s.inputChannel.RemoteChan:
-			msg.Sender.LocalChan = s.inputChannel.RemoteChan
-			msg.Sender.SetLocalAddr(s.inputChannel.RemoteAddr().(connection.ChannelAddr))
-			s.caches.ConnCache.AddConnection(msg.Sender)
-			m := &message.Message{}
-			reader := cbor.NewReader(bytes.NewBuffer(msg.Msg))
-			if err := reader.Unmarshal(m); err != nil {
-				log.Warn(fmt.Sprintf("failed to unmarshal msg recv over channel: %v", err))
-				continue
-			}
-			deliver(m, msg.Sender.RemoteAddr(),
-				s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)
-		}
 	}
 }
 

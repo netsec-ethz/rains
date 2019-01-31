@@ -5,15 +5,13 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
-
-	"github.com/netsec-ethz/rains/internal/pkg/object"
-	"github.com/netsec-ethz/rains/internal/pkg/token"
-
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
+	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
 const (

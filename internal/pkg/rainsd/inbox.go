@@ -47,12 +47,10 @@ func deliver(msg *message.Message, sender net.Addr, prioChannel chan util.MsgSec
 		case *section.Assertion, *section.Shard, *section.Pshard, *section.Zone:
 			if !isZoneBlacklisted(m.(section.WithSig).GetSubjectZone()) {
 				sections = append(sections, m)
-				trace(msg.Token, fmt.Sprintf("added message section to queue: %v", m))
 			}
 		case *query.Name:
 			log.Debug(fmt.Sprintf("add %T to normal queue", m))
 			queries = append(queries, m)
-			trace(msg.Token, fmt.Sprintf("sent query section %v to normal channel", m))
 		case *section.Notification:
 			log.Debug("Add notification to notification queue", "token", msg.Token)
 			notificationChannel <- util.MsgSectionSender{
@@ -60,10 +58,8 @@ func deliver(msg *message.Message, sender net.Addr, prioChannel chan util.MsgSec
 				Sections: []section.Section{m},
 				Token:    msg.Token,
 			}
-			trace(msg.Token, fmt.Sprintf("sent notification section %v to notification channel", m))
 		default:
 			log.Warn(fmt.Sprintf("unsupported message section type %T", m))
-			trace(msg.Token, fmt.Sprintf("unsupported message section type: %T", m))
 			return
 		}
 	}

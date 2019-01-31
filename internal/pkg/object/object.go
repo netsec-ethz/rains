@@ -12,9 +12,8 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"golang.org/x/crypto/ed25519"
-
 	"github.com/scionproto/scion/go/lib/snet"
+	"golang.org/x/crypto/ed25519"
 )
 
 //Object contains a Value of to the specified Type

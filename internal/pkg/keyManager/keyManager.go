@@ -73,35 +73,35 @@ func loadPemBlock(folder, name string) (*pem.Block, error) {
 //encrypted using pwd. Both pem blocks contain the description and the key phase in the header. The
 //private key pem block additionally has a salt and iv value in the header required for decryption.
 //Returns the public key in pem format or an error
-func GenerateKey(keyPath, name, description, algo, pwd string, phase int) (*pem.Block, error) {
+func GenerateKey(keyPath, name, description, algo, pwd string, phase int) error {
 	var publicKey, privateKey []byte
 	algoType, err := algorithmTypes.AtoSig(algo)
 	switch algoType {
 	case algorithmTypes.Ed25519:
 		if publicKey, privateKey, err = ed25519.GenerateKey(nil); err != nil {
-			return nil, fmt.Errorf("Was not able to generate ed25519 key pair: %v", err)
+			return fmt.Errorf("Was not able to generate ed25519 key pair: %v", err)
 		}
 	case algorithmTypes.Ed448:
-		return nil, fmt.Errorf("ed448 key algorithm type not yet supported")
+		return fmt.Errorf("ed448 key algorithm type not yet supported")
 	default:
-		return nil, fmt.Errorf("unsupported algorithm: %v", algo)
+		return fmt.Errorf("unsupported algorithm: %v", algo)
 	}
 	publicBlock, privateBlock, err := createPEMBlocks(description, algo, pwd, phase, publicKey, privateKey)
 	publicFile, err := os.Create(path.Join(keyPath, name+pubSuffix))
 	if err != nil {
-		return nil, fmt.Errorf("Was not able to create file for public key: %v", err)
+		return fmt.Errorf("Was not able to create file for public key: %v", err)
 	}
 	privateFile, err := os.Create(path.Join(keyPath, name+SecSuffix))
 	if err != nil {
-		return nil, fmt.Errorf("Was not able to create file for private key: %v", err)
+		return fmt.Errorf("Was not able to create file for private key: %v", err)
 	}
 	if err = pem.Encode(publicFile, publicBlock); err != nil {
-		return nil, fmt.Errorf("Was not able to write public pem block to file: %v", err)
+		return fmt.Errorf("Was not able to write public pem block to file: %v", err)
 	}
 	if err = pem.Encode(privateFile, privateBlock); err != nil {
-		return nil, fmt.Errorf("Was not able to write private pem block to file: %v", err)
+		return fmt.Errorf("Was not able to write private pem block to file: %v", err)
 	}
-	return publicBlock, nil
+	return nil
 }
 
 func createPEMBlocks(description, algo, pwd string, phase int, publicKey, privateKey []byte) (
