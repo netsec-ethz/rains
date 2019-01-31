@@ -6,7 +6,6 @@ import (
 	"sort"
 
 	cbor "github.com/britram/borat"
-
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 )
 

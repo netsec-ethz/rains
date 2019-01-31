@@ -34,20 +34,13 @@ type Caches struct {
 func initCaches(config Config) *Caches {
 	caches := new(Caches)
 	caches.ConnCache = cache.NewConnection(config.MaxConnections)
-
 	caches.Capabilities = cache.NewCapability(config.CapabilitiesCacheSize)
-
 	caches.ZoneKeyCache = cache.NewZoneKey(config.ZoneKeyCacheSize, config.ZoneKeyCacheWarnSize,
 		config.MaxPublicKeysPerZone)
-
 	caches.PendingKeys = cache.NewPendingKey(config.PendingKeyCacheSize)
-
 	caches.PendingQueries = cache.NewPendingQuery(config.PendingQueryCacheSize)
-
 	caches.AssertionsCache = cache.NewAssertion(config.AssertionCacheSize)
-
 	caches.NegAssertionCache = cache.NewNegAssertion(config.NegativeAssertionCacheSize)
-
 	return caches
 }
 

@@ -33,7 +33,7 @@ func TestFullCoverage(t *testing.T) {
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
 	//Generate self signed root key
 	os.Mkdir("testdata/keys/root", os.ModePerm)
-	_, err := keyManager.GenerateKey("testdata/keys/root", "root", "",
+	err := keyManager.GenerateKey("testdata/keys/root", "root", "",
 		algorithmTypes.Ed25519.String(), "", 1)
 	if err != nil {
 		t.Fatalf("Was not able to generate root key pair: %v", err)
