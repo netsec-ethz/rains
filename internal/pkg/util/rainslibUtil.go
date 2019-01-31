@@ -85,41 +85,6 @@ func Load(path string, object interface{}) error {
 	return err
 }
 
-//UpdateSectionValidity updates the validity of the section according to the signature validity and the publicKey validity used to verify this signature
-func UpdateSectionValidity(sec section.WithSig, pkeyValidSince, pkeyValidUntil, sigValidSince,
-	sigValidUntil int64, maxVal MaxCacheValidity) {
-	if sec != nil {
-		var maxValidity time.Duration
-		switch sec.(type) {
-		case *section.Assertion:
-			maxValidity = maxVal.AssertionValidity
-		case *section.Shard:
-			maxValidity = maxVal.ShardValidity
-		case *section.Pshard:
-			maxValidity = maxVal.PshardValidity
-		case *section.Zone:
-			maxValidity = maxVal.ZoneValidity
-		default:
-			log.Warn("Not supported section", "type", fmt.Sprintf("%T", sec))
-			return
-		}
-		if pkeyValidSince < sigValidSince {
-			if pkeyValidUntil < sigValidUntil {
-				sec.UpdateValidity(sigValidSince, pkeyValidUntil, maxValidity)
-			} else {
-				sec.UpdateValidity(sigValidSince, sigValidUntil, maxValidity)
-			}
-
-		} else {
-			if pkeyValidUntil < sigValidUntil {
-				sec.UpdateValidity(pkeyValidSince, pkeyValidUntil, maxValidity)
-			} else {
-				sec.UpdateValidity(pkeyValidSince, sigValidUntil, maxValidity)
-			}
-		}
-	}
-}
-
 //NewQueryMessage creates a new message containing a query body with values obtained from the input parameter
 func NewQueryMessage(name, context string, expTime int64, objType []object.Type,
 	queryOptions []query.Option, token token.Token) message.Message {
