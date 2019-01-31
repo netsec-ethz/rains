@@ -1,7 +1,9 @@
 :Z: ethz.ch. . [
-    :A: www  [ :name: a [ :ip6: :ip4: ] ]
-    :A: www  [ :ip6:     2001:0db8:85a3:0000:0000:8a2e:0370:7334 ]
-    :A: www  [ :ip4:     198.175.162.241 ]
+    :A: www  [ :name: a [ :ip6: :ip4: :scionip4: :scionip6: ] ]
+    :A: www  [ :ip6:      2001:0db8:85a3:0000:0000:8a2e:0370:7334 ]
+    :A: www  [ :ip4:      198.175.162.241 ]
+    :A: www  [ :scionip6: 2-ff00:0:222,[2001:db8::] ]
+    :A: www  [ :scionip4: 2-ff00:0:222,[127.0.0.1] ]
     :A: www  [ :cert: :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
     :A: _ftp._tcp  [ :srv: ftp.ethz.ch. 20 0 ]
 ]

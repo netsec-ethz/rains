@@ -285,6 +285,8 @@ func checkObjectFields(objs []object.Object) bool {
 			}
 		case object.OTIP6Addr:
 		case object.OTIP4Addr:
+		case object.OTScionAddr6:
+		case object.OTScionAddr4:
 		case object.OTRedirection:
 			if containsZoneFileType(obj.Value.(string)) {
 				log.Warn("Section contains an object with a string field containing forbidden content", "redirection", obj.Value)

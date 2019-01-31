@@ -24,6 +24,9 @@
 #   go-tests = true
 #   unused-packages = true
 
+required = [
+    "golang.org/x/tools/cmd/goyacc"
+]
 
 ignored = [
     "github.com/scionproto/scion/go/lib/snet",

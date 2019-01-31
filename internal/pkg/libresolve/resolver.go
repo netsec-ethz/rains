@@ -21,6 +21,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/siglib"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
+	"github.com/scionproto/scion/go/lib/snet"
 )
 
 type ResolutionMode int
@@ -37,6 +38,21 @@ const (
 	Recursive           ResolutionMode = iota
 	Forward
 )
+
+var AllowedAddrTypes = map[object.Type]bool{
+	object.OTIP6Addr:    true,
+	object.OTIP4Addr:    true,
+	object.OTScionAddr6: true,
+	object.OTScionAddr4: true,
+}
+var AllowedRedirectTypes = map[object.Type]bool{
+	object.OTIP6Addr:     true,
+	object.OTIP4Addr:     true,
+	object.OTScionAddr6:  true,
+	object.OTScionAddr4:  true,
+	object.OTServiceInfo: true,
+	object.OTName:        true,
+}
 
 // some of these types are not "method expressions" but will be invoked as such
 // they (or an interface-based approach) are needed to decouple logic and run tests on different
@@ -64,7 +80,8 @@ type Resolver struct {
 }
 
 //New creates a resolver with the given parameters and default settings
-func New(rootNS, forwarders []net.Addr, rootKeyPath string, mode ResolutionMode, addr net.Addr, maxConn int, maxCacheValidity util.MaxCacheValidity, maxRecursiveCount int) (*Resolver, error) {
+func New(rootNS, forwarders []net.Addr, rootKeyPath string, mode ResolutionMode, addr net.Addr,
+	maxConn int, maxCacheValidity util.MaxCacheValidity, maxRecursiveCount int) (*Resolver, error) {
 	r := &Resolver{
 		RootNameServers:   rootNS,
 		Forwarders:        forwarders,
@@ -126,7 +143,7 @@ func (r *Resolver) ServerLookup(query *query.Name, addr net.Addr, token token.To
 		return
 	}
 	if err != nil {
-		log.Error("Query failed", err)
+		log.Error("Query failed", "query failure", err)
 		return
 	}
 	msg.Token = token
@@ -206,7 +223,7 @@ func (r *Resolver) recursiveResolve(q *query.Name, recurseCount int) (*message.M
 				return &answer, nil
 			} else if isRedir {
 				for _, name := range redirMap {
-					addr, err = handleRedirect(name, srvMap, ipMap, nameMap, allAllowedTypes())
+					addr, err = r.handleRedirect(name, srvMap, ipMap, nameMap, AllowedRedirectTypes)
 					if err == nil {
 						break
 					}
@@ -288,7 +305,7 @@ func handleAnswer(r *Resolver, msg message.Message, q *query.Name, recurseCount 
 		case *section.Assertion:
 			r.handleAssertion(s, redirMap, srvMap, ipMap, nameMap, types, q.Name, &isFinal, &isRedir)
 		case *section.Shard:
-			handleShard(s, types, q.Name, &isFinal)
+			r.handleShard(s, types, q.Name, &isFinal)
 		case *section.Zone:
 			r.handleZone(s, redirMap, srvMap, ipMap, nameMap, types, q.Name, &isFinal, &isRedir)
 		}
@@ -323,9 +340,13 @@ func (r *Resolver) handleAssertion(a *section.Assertion, redirMap map[string]str
 			ipMap[a.FQDN()] = o.Value.(string)
 		case object.OTIP4Addr:
 			ipMap[a.FQDN()] = o.Value.(string)
+		case object.OTScionAddr6:
+			ipMap[a.FQDN()] = o.Value.(string)
+		case object.OTScionAddr4:
+			ipMap[a.FQDN()] = o.Value.(string)
 		case object.OTName:
 			nameMap[a.FQDN()] = o.Value.(object.Name)
-		} //TODO add scion addresses
+		}
 		if _, ok := types[o.Type]; ok && a.FQDN() == name {
 			*isFinal = true
 		}
@@ -335,7 +356,7 @@ func (r *Resolver) handleAssertion(a *section.Assertion, redirMap map[string]str
 //handleShard checks if s is an answer to the query. Note that a shard containing a positive answer
 //for the query is considered answering it although this is not allowed by the protocol. The caller
 //is responsible for checking this property.
-func handleShard(s *section.Shard, types map[object.Type]bool, name string, isFinal *bool) {
+func (r *Resolver) handleShard(s *section.Shard, types map[object.Type]bool, name string, isFinal *bool) {
 	if strings.HasSuffix(name, s.SubjectZone) && s.InRange(strings.TrimSuffix(name, s.SubjectZone)) {
 		*isFinal = true
 	}
@@ -353,23 +374,7 @@ func (r *Resolver) handleZone(z *section.Zone, redirMap map[string]string,
 	}
 }
 
-func allAllowedTypes() map[object.Type]bool {
-	return map[object.Type]bool{
-		object.OTIP6Addr:     true,
-		object.OTIP4Addr:     true,
-		object.OTServiceInfo: true,
-		object.OTName:        true,
-	}
-}
-
-func allowedAddrTypes() map[object.Type]bool {
-	return map[object.Type]bool{
-		object.OTIP6Addr: true,
-		object.OTIP4Addr: true,
-	}
-}
-
-func handleRedirect(name string, srvMap map[string]object.ServiceInfo,
+func (r *Resolver) handleRedirect(name string, srvMap map[string]object.ServiceInfo,
 	ipMap map[string]string, nameMap map[string]object.Name, allowedTypes map[object.Type]bool) (
 	net.Addr, error) {
 	if allowedTypes[object.OTIP6Addr] || allowedTypes[object.OTIP4Addr] {
@@ -377,11 +382,15 @@ func handleRedirect(name string, srvMap map[string]object.ServiceInfo,
 			return net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", ipAddr, rainsPort))
 		}
 	}
-	//TODO add scion addr types
+	if allowedTypes[object.OTScionAddr6] || allowedTypes[object.OTScionAddr4] {
+		if ipAddr, ok := ipMap[name]; ok {
+			return snet.AddrFromString(fmt.Sprintf("%s:%d", ipAddr, rainsPort))
+		}
+	}
 	if allowedTypes[object.OTServiceInfo] && strings.HasPrefix(name, rainsPrefix) {
 		if srvVal, ok := srvMap[name]; ok {
-			if addr, err := handleRedirect(srvVal.Name, srvMap, ipMap, nameMap,
-				allowedAddrTypes()); err == nil {
+			if addr, err := r.handleRedirect(srvVal.Name, srvMap, ipMap, nameMap,
+				AllowedAddrTypes); err == nil {
 				ip := strings.Split(addr.String(), ":")[0]
 				return net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", ip, srvVal.Port))
 			}
@@ -393,7 +402,7 @@ func handleRedirect(name string, srvMap map[string]object.ServiceInfo,
 			for _, t := range nameVal.Types {
 				allowTypes[t] = true
 			}
-			if as, err := handleRedirect(nameVal.Name, srvMap, ipMap, nameMap,
+			if as, err := r.handleRedirect(nameVal.Name, srvMap, ipMap, nameMap,
 				allowTypes); err == nil {
 				return as, nil
 			}

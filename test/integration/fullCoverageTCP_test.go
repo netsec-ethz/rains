@@ -244,7 +244,7 @@ func TestFullCoverageCLITools(t *testing.T) {
 		expected_ans := strings.TrimSpace(
 			fmt.Sprint(zonefile.IO{}.Encode([]section.Section{answers[i]})))
 		if rdig_answer != expected_ans {
-			t.Fatalf("Expected -%v-\nGot: -%v-",
+			t.Fatalf("Expected %v\nGot: %v",
 				expected_ans,
 				rdig_answer)
 		}

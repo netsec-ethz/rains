@@ -20,7 +20,7 @@ func TestCBOR(t *testing.T) {
 		encoding := new(bytes.Buffer)
 		err := cbor.NewWriter(encoding).Marshal(&test.input)
 		if err != nil {
-			t.Fatalf("%d: Was not able to marshal msg", i)
+			t.Fatalf("%d: Was not able to marshal msg, err=%s", i, err.Error())
 		}
 		msg := Message{}
 		err = cbor.NewReader(encoding).Unmarshal(&msg)

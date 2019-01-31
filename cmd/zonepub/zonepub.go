@@ -276,7 +276,6 @@ func (i *addressesFlag) String() string {
 func (i *addressesFlag) Set(value string) error {
 	var addresses []string
 	addresses = strings.Split(value, ",")
-	i.set = true
 	for _, addr := range addresses {
 		if tcpAddr, err := net.ResolveTCPAddr("tcp", addr); err == nil {
 			i.value = append(i.value, connection.Info{Type: connection.TCP, Addr: tcpAddr})
@@ -284,6 +283,7 @@ func (i *addressesFlag) Set(value string) error {
 			return err
 		}
 	}
+	i.set = true
 	return nil
 }
 

@@ -10,15 +10,19 @@ import (
 )
 
 const (
-	ip4TestAddr = "192.0.2.0"
-	ip6TestAddr = "2001:db8::"
-	testDomain  = "example.com"
+	ip4TestAddr      = "192.0.2.0"
+	ip6TestAddr      = "2001:db8::"
+	scionip4TestAddr = "1-ff00:0:111,[192.0.2.0]"
+	scionip6TestAddr = "1-ff00:0:111,[2001:db8::]"
+	testDomain       = "example.com"
 )
 
 //AllObjects returns all objects with valid content
 func AllObjects() []Object {
 	ip6Object := Object{Type: OTIP6Addr, Value: ip6TestAddr}
 	ip4Object := Object{Type: OTIP4Addr, Value: ip4TestAddr}
+	scionip6Object := Object{Type: OTScionAddr6, Value: scionip6TestAddr}
+	scionip4Object := Object{Type: OTScionAddr4, Value: scionip4TestAddr}
 	redirObject := Object{Type: OTRedirection, Value: testDomain}
 	delegObject := Object{Type: OTDelegation, Value: PublicKey()}
 	nameSetObject := Object{Type: OTNameset, Value: NamesetExpr("Would be an expression")}
@@ -32,14 +36,14 @@ func AllObjects() []Object {
 	nextKey := Object{Type: OTNextKey, Value: nextPublicKey}
 	return []Object{NameObject(), ip6Object, ip4Object, redirObject, delegObject,
 		nameSetObject, CertificateObject(), ServiceObject(), registrarObject,
-		registrantObject, infraObject, extraObject, nextKey}
+		registrantObject, infraObject, extraObject, nextKey, scionip6Object, scionip4Object}
 }
 
 //NameObject returns a name object with valid content
 func NameObject() Object {
 	nameObjectContent := Name{
 		Name:  testDomain,
-		Types: []Type{OTIP4Addr, OTIP6Addr},
+		Types: []Type{OTIP4Addr, OTIP6Addr, OTScionAddr4, OTScionAddr6},
 	}
 	return Object{Type: OTName, Value: nameObjectContent}
 }
@@ -80,8 +84,8 @@ func PublicKey() keys.PublicKey {
 
 func SortedObjects(nofObj int) []Object {
 	objects := []Object{}
-	if nofObj > 13 {
-		nofObj = 13
+	if nofObj > 15 {
+		nofObj = 15
 	}
 	nos := sortedNameObjects(nofObj)
 	pkeys := sortedPublicKeys(nofObj)
@@ -117,6 +121,10 @@ func SortedObjects(nofObj int) []Object {
 				value = pkeys[j]
 			case 12:
 				value = pkeys[j]
+			case 14:
+				value = strconv.Itoa(j) // scionip6
+			case 15:
+				value = strconv.Itoa(j) // scionip4
 
 			}
 			objects = append(objects, Object{
@@ -132,8 +140,8 @@ func sortedNameObjects(nof int) []Name {
 	objects := []Name{}
 	for i := 0; i < nof; i++ {
 		objTypes := nof
-		if objTypes > 13 {
-			objTypes = 13
+		if objTypes > 15 {
+			objTypes = 15
 		}
 		for j := 0; j < objTypes; j++ {
 			objects = append(objects, Name{Name: strconv.Itoa(i), Types: []Type{Type(j)}})

@@ -180,7 +180,7 @@ func TestObjectString(t *testing.T) {
 		want  string
 	}{
 		{Object{}, "OT:0 OV:<nil>"},
-		{obj[0], "OT:1 OV:{example.com [OTIP4Addr OTIP6Addr]}"},
+		{obj[0], "OT:1 OV:{example.com [OTIP4Addr OTIP6Addr OTScionAddr4 OTScionAddr6]}"},
 		{obj[1], "OT:2 OV:2001:db8::"},
 		{obj[2], "OT:3 OV:192.0.2.0"},
 		{obj[3], "OT:4 OV:example.com"},
@@ -193,6 +193,8 @@ func TestObjectString(t *testing.T) {
 		{obj[10], fmt.Sprintf("OT:11 OV:%s", obj[10].Value.(keys.PublicKey).String())},
 		{obj[11], fmt.Sprintf("OT:12 OV:%s", obj[11].Value.(keys.PublicKey).String())},
 		{obj[12], fmt.Sprintf("OT:13 OV:%s", obj[12].Value.(keys.PublicKey).String())},
+		{obj[13], "OT:14 OV:1-ff00:0:111,[2001:db8::]"},
+		{obj[14], "OT:15 OV:1-ff00:0:111,[192.0.2.0]"},
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {
@@ -203,9 +205,9 @@ func TestObjectString(t *testing.T) {
 
 func TestObjectSort(t *testing.T) {
 	objTypes := []Type{OTNextKey, OTExtraKey, OTInfraKey, OTRegistrant, OTRegistrar, OTServiceInfo, OTCertInfo, OTNameset, OTDelegation, OTRedirection,
-		OTIP4Addr, OTIP6Addr, OTName}
+		OTIP4Addr, OTIP6Addr, OTScionAddr6, OTScionAddr4, OTName}
 	expected := []Type{OTName, OTIP6Addr, OTIP4Addr, OTRedirection, OTDelegation, OTNameset, OTCertInfo, OTServiceInfo, OTRegistrar, OTRegistrant,
-		OTInfraKey, OTExtraKey, OTNextKey}
+		OTInfraKey, OTExtraKey, OTNextKey, OTScionAddr6, OTScionAddr4}
 	obj := Object{Type: OTName, Value: Name{Name: "", Types: objTypes}}
 	expectedObj := Object{Type: OTName, Value: Name{Name: "", Types: expected}}
 	obj.Sort()
