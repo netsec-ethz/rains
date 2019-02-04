@@ -4,10 +4,3 @@
     :A: _rains._tcp.ns.ch [ :srv:     ns1.ch. 5023 0 ]
     :A: ns1.ch [ :ip4:     127.0.0.1 ]
 ]
-
-:S: . . < > [
-    :A: ch [ :redir:   _rains._tcp.ns.ch. ]
-    :A: ch [ :deleg:   :ed25519: 1 06c6d21fa1f2047581e8dcf2b014a9a001cd00c58de592c57cc86b2be641a220 ]
-    :A: _rains._tcp.ns.ch [ :srv:     ns1.ch. 5023 0 ]
-    :A: ns1.ch [ :ip4:     127.0.0.1 ]
-]

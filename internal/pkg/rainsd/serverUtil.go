@@ -48,14 +48,6 @@ type checkPointValue struct {
 	ValidUntil []int64
 }
 
-// trace is a wrapper function which all callees wishing to submit a trace should use,
-// as it will only send the trace if a tracer server is connected.
-func trace(tok token.Token, msg string) {
-	if globalTracer != nil {
-		globalTracer.SendMessage(tok, msg)
-	}
-}
-
 //sendNotificationMsg sends a message containing freshly generated token and a notification section with
 //notificationType, token, and data to destination.
 func sendNotificationMsg(tok token.Token, destination net.Addr,

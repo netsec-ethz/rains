@@ -9,9 +9,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
-// globalTracer is used to report traces to the tracing server.
-var globalTracer *Tracer
-
 //Config lists possible configurations of a rains server
 type Config struct {
 	//general

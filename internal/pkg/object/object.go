@@ -12,9 +12,8 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
-	"golang.org/x/crypto/ed25519"
-
 	"github.com/scionproto/scion/go/lib/snet"
+	"golang.org/x/crypto/ed25519"
 )
 
 //Object contains a Value of to the specified Type
@@ -513,7 +512,6 @@ func ParseTypes(qType string) ([]Type, error) {
 	}
 	return []Type{Type(-1)}, fmt.Errorf("%s is not a query option", qType)
 }
-
 
 //TypeString returns the CLI type string corresponding to the object type specified in qType
 func (t Type) CLIString() string {

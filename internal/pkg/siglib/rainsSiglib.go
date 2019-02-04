@@ -87,12 +87,12 @@ func checkSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 			}
 			if key, ok := getPublicKey(keys, sig.MetaData()); ok {
 				if !sig.VerifySignature(key.Key, encoding.Bytes()) {
-					log.Warn("Sig does not match", "encoding", encoding.Bytes(), "signature", sig)
+					log.Warn("Sig does not match", "section", s, "encoding", encoding.Bytes(), "signature", sig)
 					return false
 				}
-				log.Debug("Sig was valid")
+				log.Debug("Sig was valid", "section", s, "encoding", encoding.Bytes(), "signature", sig)
 				s.AddSig(sig)
-				util.UpdateSectionValidity(s, key.ValidSince, key.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
+				updateSectionValidity(s, key.ValidSince, key.ValidUntil, sig.ValidSince, sig.ValidUntil, maxVal)
 			} else {
 				log.Warn("No time overlapping publicKey in keys for signature", "keys", keys, "signature", sig)
 				return false
@@ -103,6 +103,61 @@ func checkSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 		}
 	}
 	return len(s.Sigs(keys.RainsKeySpace)) > 0
+}
+
+//SignSectionUnsafe signs a section and all contained assertions with the given private Key and
+//adds the resulting bytestring to the given signatures. s must be sorted. It does not check the
+//validity of s or sig. Returns false if the signature was not added to the section.
+func SignSectionUnsafe(s section.WithSig, ks map[keys.PublicKeyID]interface{}) error {
+	s.DontAddSigInMarshaller()
+	if err := signSectionUnsafe(s, ks); err != nil {
+		return err
+	}
+	switch s := s.(type) {
+	case *section.Shard:
+		s.AddCtxAndZoneToContent()
+		for _, a := range s.Content {
+			if len(a.Sigs(keys.RainsKeySpace)) > 0 {
+				if err := signSectionUnsafe(a, ks); err != nil {
+					return err
+				}
+			}
+		}
+		s.RemoveCtxAndZoneFromContent()
+	case *section.Zone:
+		s.AddCtxAndZoneToContent()
+		for _, a := range s.Content {
+			if len(a.Sigs(keys.RainsKeySpace)) > 0 {
+				if err := signSectionUnsafe(a, ks); err != nil {
+					return err
+				}
+			}
+		}
+		s.RemoveCtxAndZoneFromContent()
+	}
+	s.AddSigInMarshaller()
+	return nil
+}
+
+//signSectionUnsafe signs a section with the given private Key and adds the resulting bytestring to
+//the given signatures. It assumes that s is sorted, the sign flag is set to true, and contained
+//assertions have a non-empty zone and context values. It does not check the validity of s or sig.
+//Returns false if it was not able to sign all signatures
+func signSectionUnsafe(s section.WithSig, ks map[keys.PublicKeyID]interface{}) error {
+	encoding := new(bytes.Buffer)
+	if err := s.MarshalCBOR(cbor.NewCBORWriter(encoding)); err != nil {
+		return fmt.Errorf("Was not able to marshal section: %v", err)
+	}
+	log.Debug("Marshalling section successful")
+	sigs := s.Sigs(keys.RainsKeySpace)
+	s.DeleteAllSigs()
+	for _, sig := range sigs {
+		if err := (&sig).SignData(ks[sig.PublicKeyID], encoding.Bytes()); err != nil {
+			return err
+		}
+		s.AddSig(sig)
+	}
+	return nil
 }
 
 //ValidSectionAndSignature returns true if the section is not nil, all the signatures ValidUntil are
@@ -137,56 +192,6 @@ func CheckSignatureNotExpired(s section.WithSig) bool {
 		}
 	}
 	return true
-}
-
-//SignSectionUnsafe signs a section and all contained assertions with the given private Key and
-//adds the resulting bytestring to the given signatures. s must be sorted. It does not check the
-//validity of s or sig. Returns false if the signature was not added to the section.
-func SignSectionUnsafe(s section.WithSig, ks map[keys.PublicKeyID]interface{}) error {
-	s.DontAddSigInMarshaller()
-	if err := signSectionUnsafe(s, ks); err != nil {
-		return err
-	}
-	var assertions []*section.Assertion
-	switch s := s.(type) {
-	case *section.Shard:
-		s.AddCtxAndZoneToContent()
-		assertions = s.Content
-	case *section.Zone:
-		s.AddCtxAndZoneToContent()
-		assertions = s.Content
-	}
-	for _, a := range assertions {
-		if len(a.Sigs(keys.RainsKeySpace)) > 0 {
-			if err := signSectionUnsafe(a, ks); err != nil {
-				return err
-			}
-		}
-		a.RemoveContextAndSubjectZone()
-	}
-	s.AddSigInMarshaller()
-	return nil
-}
-
-//signSectionUnsafe signs a section with the given private Key and adds the resulting bytestring to
-//the given signatures. It assumes that s is sorted, the sign flag is set to true, and contained
-//assertions have a non-empty zone and context values. It does not check the validity of s or sig.
-//Returns false if it was not able to sign all signatures
-func signSectionUnsafe(s section.WithSig, ks map[keys.PublicKeyID]interface{}) error {
-	encoding := new(bytes.Buffer)
-	if err := s.MarshalCBOR(cbor.NewCBORWriter(encoding)); err != nil {
-		return fmt.Errorf("Was not able to marshal section: %v", err)
-	}
-	log.Debug("Marshalling section successful")
-	sigs := s.Sigs(keys.RainsKeySpace)
-	s.DeleteAllSigs()
-	for _, sig := range sigs {
-		if err := (&sig).SignData(ks[sig.PublicKeyID], encoding.Bytes()); err != nil {
-			return err
-		}
-		s.AddSig(sig)
-	}
-	return nil
 }
 
 //checkMessageStringFields returns true if the capabilities and all string fields in the contained
@@ -346,4 +351,39 @@ func getPublicKey(pkeys []keys.PublicKey, sigMetaData signature.MetaData) (keys.
 		}
 	}
 	return keys.PublicKey{}, false
+}
+
+//updateSectionValidity updates the validity of the section according to the signature validity and the publicKey validity used to verify this signature
+func updateSectionValidity(sec section.WithSig, pkeyValidSince, pkeyValidUntil, sigValidSince,
+	sigValidUntil int64, maxVal util.MaxCacheValidity) {
+	if sec != nil {
+		var maxValidity time.Duration
+		switch sec.(type) {
+		case *section.Assertion:
+			maxValidity = maxVal.AssertionValidity
+		case *section.Shard:
+			maxValidity = maxVal.ShardValidity
+		case *section.Pshard:
+			maxValidity = maxVal.PshardValidity
+		case *section.Zone:
+			maxValidity = maxVal.ZoneValidity
+		default:
+			log.Warn("Not supported section", "type", fmt.Sprintf("%T", sec))
+			return
+		}
+		if pkeyValidSince < sigValidSince {
+			if pkeyValidUntil < sigValidUntil {
+				sec.UpdateValidity(sigValidSince, pkeyValidUntil, maxValidity)
+			} else {
+				sec.UpdateValidity(sigValidSince, sigValidUntil, maxValidity)
+			}
+
+		} else {
+			if pkeyValidUntil < sigValidUntil {
+				sec.UpdateValidity(pkeyValidSince, pkeyValidUntil, maxValidity)
+			} else {
+				sec.UpdateValidity(pkeyValidSince, sigValidUntil, maxValidity)
+			}
+		}
+	}
 }

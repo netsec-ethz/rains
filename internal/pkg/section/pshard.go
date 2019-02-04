@@ -249,10 +249,10 @@ func (s *Pshard) IsNonexistent(q *query.Name) (bool, error) {
 //if they have a different context or zone.
 func (s *Pshard) AddAssertion(a *Assertion) error {
 	if a.Context != s.Context {
-		return errors.New("assertion has different context")
+		return fmt.Errorf("assertion has different context pshardCtx=%s aCtx=%s", s.Context, a.Context)
 	}
 	if a.SubjectZone != s.SubjectZone {
-		return errors.New("assertion has different subjectZone")
+		return fmt.Errorf("assertion has different pshardZone=%s aZone=%s", s.SubjectZone, a.SubjectZone)
 	}
 	if !s.InRange(a.SubjectName) {
 		return errors.New("assertion is not in pshard's range")

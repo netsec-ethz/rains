@@ -15,6 +15,8 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/keyManager"
 	"github.com/netsec-ethz/rains/internal/pkg/libresolve"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
@@ -24,17 +26,23 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
-	"github.com/netsec-ethz/rains/tools/keycreator"
 )
 
 func TestFullCoverage(t *testing.T) {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
 	//Generate self signed root key
-	if err := keycreator.Generate("testdata/keys/selfSignedRootDelegationAssertion.gob",
-		"testdata/keys/root/root", "@", ".", ".", 1); err != nil {
-		t.Fatalf("Was not able to create root key pair: %v", err)
+	os.Mkdir("testdata/keys/root", os.ModePerm)
+	err := keyManager.GenerateKey("testdata/keys/root", "root", "",
+		algorithmTypes.Ed25519.String(), "", 1)
+	if err != nil {
+		t.Fatalf("Was not able to generate root key pair: %v", err)
 	}
+	if err := keyManager.SelfSignedDelegation("testdata/keys/root/root",
+		"testdata/keys/selfSignedRootDelegationAssertion.gob", "", ".", ".", 24*time.Hour); err != nil {
+		t.Fatalf("Was not able to self sign root key pair: %v", err)
+	}
+
 	//Start authoritative Servers and publish zonefiles to them
 	rootServer := startAuthServer(t, "Root", nil)
 	chServer := startAuthServer(t, "ch", []net.Addr{rootServer.Addr()})

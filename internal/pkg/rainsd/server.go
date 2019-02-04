@@ -21,11 +21,6 @@ const (
 
 //Server represents a rainsd server instance.
 type Server struct {
-	//inputChannel is used by this server to receive messages from other servers
-	inputChannel *connection.Channel
-	//recursiveResolver is the input channel of a recursive resolver which handles all recursive lookups
-	//of this server
-	sendToRecResolver func(connection.Message)
 	//resolver can be configured as a forwarder or perform recursive lookup by itself.
 	resolver *libresolve.Resolver
 	//config contains configurations of this server
@@ -53,11 +48,7 @@ type Server struct {
 //New returns a pointer to a newly created rainsd server instance with the given config. The server
 //logs with the provided level of logging.
 func New(config Config, id string) (server *Server, err error) {
-	server = &Server{
-		inputChannel: &connection.Channel{RemoteChan: make(chan connection.Message, 100)},
-		config:       config,
-	}
-	server.inputChannel.SetRemoteAddr(connection.ChannelAddr{ID: id})
+	server = &Server{config: config}
 	server.authority = make(map[ZoneContext]bool)
 	for _, auth := range server.config.Authorities {
 		server.authority[auth] = true
@@ -96,11 +87,6 @@ func (s *Server) Config() Config {
 	return s.config
 }
 
-//SetRecursiveResolver adds a channel which handles recursive lookups for this server
-func (s *Server) SetRecursiveResolver(write func(connection.Message)) {
-	s.sendToRecResolver = write
-}
-
 //SetResolver adds a resolver which can forward or recursively resolve queries for this server
 func (s *Server) SetResolver(resolver *libresolve.Resolver) {
 	s.resolver = resolver
@@ -126,16 +112,6 @@ func (s *Server) Start(monitorResources bool) error {
 	if monitorResources {
 		go measureSystemRessources()
 	}
-	// Initialize Rayhaan's tracer?
-	/*if traceAddr != "" {
-		t, err := NewTracer(traceSrvID, traceAddr)
-		if err != nil {
-			return fmt.Errorf("failed to initialize the tracer: %v", err)
-		}
-		globalTracer = t
-		go t.SendLoop()
-	}
-	log.Debug("successfully initialized tracer")*/
 	s.listen()
 	return nil
 }
@@ -161,14 +137,9 @@ func (s *Server) Shutdown() {
 	default:
 		log.Warn("Unsupported Network address type.")
 	}
-	
+
 	s.caches.ConnCache.CloseAndRemoveAllConnections()
 	s.queues.Normal <- util.MsgSectionSender{}
 	s.queues.Prio <- util.MsgSectionSender{}
 	s.queues.Notify <- util.MsgSectionSender{}
-}
-
-//Write delivers an encoded rains message and a response inputChannel to the server.
-func (s *Server) Write(msg connection.Message) {
-	s.inputChannel.RemoteChan <- msg
 }
