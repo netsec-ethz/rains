@@ -1,15 +1,13 @@
 package libresolve
 
 import (
-	"log"
 	"net"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/netsec-ethz/rains/internal/pkg/section"
-
 	"github.com/netsec-ethz/rains/internal/pkg/message"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
 
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
@@ -19,7 +17,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
-func createResolver() *Resolver {
+func newResolver() *Resolver {
 	return &Resolver{
 		RootNameServers: []net.Addr{},
 		Forwarders:      []net.Addr{},
@@ -39,7 +37,7 @@ func createResolver() *Resolver {
 	}
 }
 
-func createQuery() *query.Name {
+func newQuery() *query.Name {
 	return &query.Name{
 		Context:     "",
 		Name:        "",
@@ -52,8 +50,8 @@ func createQuery() *query.Name {
 }
 
 func TestRecursiveResolveMaxDepth(t *testing.T) {
-	resolver := createResolver()
-	q := createQuery()
+	resolver := newResolver()
+	q := newQuery()
 	_, err := resolver.recursiveResolve(q, 1)
 	if err == nil {
 		t.Error("Should fail because max recursion depth is 1")
@@ -68,31 +66,31 @@ func TestRecursiveResolveMaxDepth(t *testing.T) {
 
 func TestRecursiveResolveQueriesRoot(t *testing.T) {
 	assertion := section.Assertion{SubjectZone: ".", SubjectName: "ch"}
-	resolver := createResolver()
-	resolver.RootNameServers = []net.Addr{&net.IPAddr{IP: net.IPv4(127, 0, 0, 1), Zone: "test-zone"}}
+	resolver := newResolver()
+	resolver.RootNameServers = []net.Addr{&net.IPAddr{IP: net.IPv4(127, 0, 0, 11), Zone: "test-zone"}}
 	numberOfMessagesSent := 0
-	resolver.sendQueryFcn = func(msg message.Message, addr net.Addr, timeout time.Duration) (message.Message, error) {
-		if addr.(*net.IPAddr) == nil || addr.(*net.IPAddr).Zone != "test-zone" {
-			t.Fatalf("Resolver contacted some other server")
+	resolver.sendQuery = func(msg message.Message, addr net.Addr, timeout time.Duration) (message.Message, error) {
+		if ipAddr, ok := addr.(*net.IPAddr); !ok || !ipAddr.IP.Equal(net.IPv4(127, 0, 0, 11)) || ipAddr.Zone != "test-zone" {
+			t.Fatalf("Resolver contacted some other server at %v", ipAddr)
 		}
 		numberOfMessagesSent++
 		return message.Message{Content: []section.Section{&assertion}}, nil
 	}
-	resolver.handleAnswerFcn = func(r *Resolver, msg message.Message, q *query.Name, recurseCount int) (
+	resolver.handleAnswer = func(r *Resolver, msg message.Message, q *query.Name, recurseCount int) (
 		isFinal bool, isRedir bool, redirMap map[string]string, srvMap map[string]object.ServiceInfo,
 		ipMap map[string]string, nameMap map[string]object.Name) {
 		isFinal = true
 		return
 	}
-	q := createQuery()
+	q := newQuery()
 	ans, err := resolver.recursiveResolve(q, 0)
 	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
+		t.Fatalf("The call to recursiveResolve finished with an error: %v", err)
 	}
 	if len(ans.Content) != 1 || ans.Content[0].(*section.Assertion) == nil || ans.Content[0].(*section.Assertion).FQDN() != assertion.FQDN() {
-		t.Errorf("Wrong answer received, fqdn=%s", assertion.FQDN())
+		t.Errorf("Wrong answer received, FQDN: %q", assertion.FQDN())
 	}
 	if numberOfMessagesSent != 1 {
-		log.Fatalf("Should have contacted 1 root server, but did it %d times", numberOfMessagesSent)
+		t.Errorf("Should have contacted 1 root server, but did it %d times", numberOfMessagesSent)
 	}
 }
