@@ -32,13 +32,12 @@ page which explains all commands and flags that are supported.
 
 ### On your machine
 
-The following installation steps were tested for TODO define os and version
-
-1. Install and setup go development environment [TODO source]
-2. Download the repo e.g. `go get github.com/netsec-ethz/rains`
-3. Download the scion repo according to [TODO source]
-4. TODO necessary? Build all executables by calling make
-5. Use the binaries created in the cmd folder
+1. Make sure that you are using a clean and recently updated Ubuntu 16.04.
+2. Make sure that you have a Go workspace setup
+3. Download the repo e.g. `go get github.com/netsec-ethz/rains`
+4. Download and install scion according to the [README](https://github.com/scionproto/scion)
+4. Create the necessary binaries by calling [make](Makefile)
+5. Use the binaries created in the cmd [folder](cmd/)
 
 ### In scion lab
 
@@ -50,7 +49,7 @@ The RAINS server and tools are under active development. An up to date
 list of issues and bugs can be found [here](https://github.com/netsec-ethz/rains/issues/).
 
 The server and all tools are tested using unit and integration tests.
-A description of the integration test can be found in the [readme](test/integration/README.md)
+A description of the integration test can be found in this [readme](test/integration/README.md)
 To inspect the test coverage of all unit tests together with the integration test,
 perform the following steps:
 1. go test -coverprofile=coverage.out -coverpkg=./internal/pkg/... ./...
