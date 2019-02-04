@@ -42,8 +42,8 @@ const (
 // they (or an interface-based approach) are needed to decouple logic and run tests on different
 // parts of the Resolver type
 
-type sendQueryFcnType func(msg message.Message, addr net.Addr, timeout time.Duration) (message.Message, error)
-type handleAnswerFcnType func(r *Resolver, msg message.Message, q *query.Name, recurseCount int) (
+type querySender func(msg message.Message, addr net.Addr, timeout time.Duration) (message.Message, error)
+type answerHandler func(r *Resolver, msg message.Message, q *query.Name, recurseCount int) (
 	isFinal bool, isRedir bool, redirMap map[string]string, srvMap map[string]object.ServiceInfo,
 	ipMap map[string]string, nameMap map[string]object.Name)
 
@@ -59,8 +59,8 @@ type Resolver struct {
 	Connections       cache.Connection
 	MaxCacheValidity  util.MaxCacheValidity
 	MaxRecursiveCount int
-	sendQueryFcn      sendQueryFcnType
-	handleAnswerFcn   handleAnswerFcnType
+	sendQuery         querySender
+	handleAnswer      answerHandler
 }
 
 //New creates a resolver with the given parameters and default settings
@@ -77,8 +77,8 @@ func New(rootNS, forwarders []net.Addr, rootKeyPath string, mode ResolutionMode,
 		MaxCacheValidity:  maxCacheValidity,
 		MaxRecursiveCount: maxRecursiveCount,
 		// now the pointers to functions
-		sendQueryFcn:    util.SendQuery,
-		handleAnswerFcn: _handleAnswer,
+		sendQuery:    util.SendQuery,
+		handleAnswer: handleAnswer,
 	}
 	// load the root zone public key and store it as a delegation:
 	a := new(section.Assertion)
@@ -163,7 +163,7 @@ func (r *Resolver) forwardQuery(q *query.Name) (*message.Message, error) {
 	}
 	for _, forwarder := range r.Forwarders {
 		msg := message.Message{Token: token.New(), Content: []section.Section{q}}
-		answer, err := r.sendQueryFcn(msg, forwarder, r.DialTimeout*time.Millisecond)
+		answer, err := r.sendQuery(msg, forwarder, r.DialTimeout*time.Millisecond)
 		if err == nil {
 			return &answer, nil
 		}
@@ -193,12 +193,12 @@ func (r *Resolver) recursiveResolve(q *query.Name, recurseCount int) (*message.M
 		addr := root
 		for {
 			msg := message.Message{Token: token.New(), Content: []section.Section{q}}
-			answer, err := r.sendQueryFcn(msg, addr, r.DialTimeout*time.Millisecond)
+			answer, err := r.sendQuery(msg, addr, r.DialTimeout*time.Millisecond)
 			if err != nil || len(answer.Content) == 0 {
 				break
 			}
 			log.Info("recursive resolver rcv answer", "answer", answer, "query", q)
-			isFinal, isRedir, redirMap, srvMap, ipMap, nameMap := r.handleAnswer(answer, q, recurseCount)
+			isFinal, isRedir, redirMap, srvMap, ipMap, nameMap := r.handleAnswer(r, answer, q, recurseCount)
 			log.Info("handling answer in recursive lookup", "serverAddr", addr, "isFinal",
 				isFinal, "isRedir", isRedir, "redirMap", redirMap, "srvMap", srvMap, "ipMap", ipMap,
 				"nameMap", nameMap)
@@ -222,16 +222,11 @@ func (r *Resolver) recursiveResolve(q *query.Name, recurseCount int) (*message.M
 		q.String())
 }
 
-func (r *Resolver) handleAnswer(msg message.Message, q *query.Name, recurseCount int) (isFinal bool, isRedir bool,
-	redirMap map[string]string, srvMap map[string]object.ServiceInfo, ipMap map[string]string, nameMap map[string]object.Name) {
-	return r.handleAnswerFcn(r, msg, q, recurseCount)
-}
-
-// _handleAnswer stores delegation assertions in the delegationCache. It informs the caller if msg
+// handleAnswer stores delegation assertions in the delegationCache. It informs the caller if msg
 // answers q. It also returns if the msg contains a redirect assertion which indicates that
 // another lookup must be performed. Information that is relevant for the next lookup are returned in
 // maps.
-func _handleAnswer(r *Resolver, msg message.Message, q *query.Name, recurseCount int) (isFinal bool, isRedir bool,
+func handleAnswer(r *Resolver, msg message.Message, q *query.Name, recurseCount int) (isFinal bool, isRedir bool,
 	redirMap map[string]string, srvMap map[string]object.ServiceInfo, ipMap map[string]string, nameMap map[string]object.Name) {
 	types := make(map[object.Type]bool)
 	redirMap = make(map[string]string)
