@@ -1,0 +1,7 @@
+:Z: ethz.ch. . [
+    :A: www  [ :name: a [ :scionip4: :scionip6: ] ]
+    :A: www  [ :scionip6: 2-ff00:0:222,[2001:db8:85a3::8a2e:370:7334] ]
+    :A: www  [ :scionip4: 2-ff00:0:222,[198.175.162.241] ]
+    :A: www  [ :cert: :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
+    :A: _ftp._udpscion  [ :srv: ftp.ethz.ch. 20 0 ]
+]

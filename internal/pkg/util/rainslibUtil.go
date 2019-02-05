@@ -20,6 +20,8 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 
+	"bytes"
+	"github.com/scionproto/scion/go/lib/snet"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -137,9 +139,22 @@ func SendQuery(msg message.Message, addr net.Addr, timeout time.Duration) (
 	ec := make(chan error)
 	go connection.Listen(conn, msg.Token, done, ec)
 
-	writer := cbor.NewWriter(conn)
-	if err := writer.Marshal(&msg); err != nil {
-		return message.Message{}, fmt.Errorf("failed to marshal message: %v", err)
+	switch addr.(type) {
+	case *net.TCPAddr:
+		writer := cbor.NewWriter(conn)
+		if err := writer.Marshal(&msg); err != nil {
+			return message.Message{}, fmt.Errorf("failed to marshal message: %v", err)
+		}
+	case *snet.Addr:
+		encoding := new(bytes.Buffer)
+		if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
+			return message.Message{}, fmt.Errorf("failed to marshal message to conn: %v", err)
+		}
+		if _, err := conn.Write(encoding.Bytes()); err != nil {
+			return message.Message{}, fmt.Errorf("unable to write encoded message to connection: %v", err)
+		}
+	default:
+		log.Error("Unsupported connection information type.", "conn", conn)
 	}
 
 	select {

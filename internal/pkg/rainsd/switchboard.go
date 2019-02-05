@@ -160,13 +160,15 @@ func (s *Server) listen() {
 			log.Warn(fmt.Sprintf("Type assertion failed. Expected *connection.SCIONAddr, got %T", addr))
 			return
 		}
-		if err := snet.Init(addr.IA, s.config.SciondSock, s.config.DispatcherSock); err != nil {
-			log.Warn("failed to snet.Init: %v", err)
-			return
+		if snet.DefNetwork == nil {
+			if err := snet.Init(addr.IA, s.config.SciondSock, s.config.DispatcherSock); err != nil {
+				log.Warn("failed to initialize snet", "err", err)
+				return
+			}
 		}
 		listener, err := snet.ListenSCION("udp4", addr)
 		if err != nil {
-			log.Warn("failed to ListenSCION: %v", err)
+			log.Warn("failed to ListenSCION", "err", err)
 			return
 		}
 		defer listener.Close()
@@ -183,7 +185,7 @@ func (s *Server) listen() {
 			buf := make([]byte, maxUDPPacketBytes)
 			n, addr, err := listener.ReadFromSCION(buf)
 			if err != nil {
-				log.Warn("Failed to ReadFromSCION: %v", err)
+				log.Warn("Failed to ReadFromSCION", "err", err)
 				continue
 			}
 			data := buf[:n]
@@ -191,7 +193,8 @@ func (s *Server) listen() {
 			// manually stick the remote endpoint address in the handler.
 			var msg message.Message
 			if err := cbor.NewReader(bytes.NewReader(data)).Unmarshal(&msg); err != nil {
-				log.Warn("failed to unmarshal CBOR: %v", err)
+				log.Warn("failed to unmarshal CBOR", "err", err)
+				continue
 			}
 			deliver(&msg, addr,
 				s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)

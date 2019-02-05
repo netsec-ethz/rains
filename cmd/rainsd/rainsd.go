@@ -13,6 +13,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/libresolve"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
+	"github.com/scionproto/scion/go/lib/snet"
 	"github.com/spf13/cobra"
 )
 
@@ -371,9 +372,17 @@ func (i *addressFlag) String() string {
 
 func (i *addressFlag) Set(value string) (err error) {
 	i.set = true
-	i.value = connection.Info{Type: connection.TCP}
+	i.value = connection.Info{}
 	i.value.Addr, err = net.ResolveTCPAddr("", value)
-	return
+	if err != nil { // Not an IP address
+		i.value.Addr, err = snet.AddrFromString(value)
+		if err == nil {
+			i.value.Type = connection.SCION
+		}
+	} else {
+		i.value.Type = connection.TCP
+	}
+	return err
 }
 
 func (i *addressFlag) Type() string {
