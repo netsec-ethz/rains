@@ -2,6 +2,7 @@ package cache
 
 import (
 	"bufio"
+	"fmt"
 	"net"
 	"reflect"
 	"testing"
@@ -94,7 +95,10 @@ func TestConnectionCache(t *testing.T) {
 }
 
 func mockServer(tcpAddr string, t *testing.T) {
-	ln, _ := net.Listen("tcp", tcpAddr)
+	ln, err := net.Listen("tcp", tcpAddr)
+	if err != nil {
+		panic(fmt.Sprintf("Could not mock the server: %v", err))
+	}
 	for {
 		conn, _ := ln.Accept()
 		go handleConn(conn)
