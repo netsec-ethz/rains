@@ -20,9 +20,9 @@ func TestConnectionCache(t *testing.T) {
 		{&ConnectionImpl{cache: lruCache.New(), counter: safeCounter.New(3)}},
 	}
 	for i, test := range tests {
-		tcpAddr := "localhost:8000"
-		tcpAddr2 := "localhost:8001"
-		tcpAddr3 := "localhost:8002"
+		tcpAddr := "localhost:8100"
+		tcpAddr2 := "localhost:8101"
+		tcpAddr3 := "localhost:8102"
 		go mockServer(tcpAddr, t)
 		go mockServer(tcpAddr2, t)
 		go mockServer(tcpAddr3, t)
