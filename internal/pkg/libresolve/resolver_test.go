@@ -88,9 +88,9 @@ func TestRecursiveResolveQueriesRoot(t *testing.T) {
 		t.Fatalf("The call to recursiveResolve finished with an error: %v", err)
 	}
 	if len(ans.Content) != 1 || ans.Content[0].(*section.Assertion) == nil || ans.Content[0].(*section.Assertion).FQDN() != assertion.FQDN() {
-		t.Errorf("Wrong answer received, FQDN: %q", assertion.FQDN())
+		t.Fatalf("Wrong answer received, FQDN: %q", assertion.FQDN())
 	}
 	if numberOfMessagesSent != 1 {
-		t.Errorf("Should have contacted 1 root server, but did it %d times", numberOfMessagesSent)
+		t.Fatalf("Should have contacted 1 root server, but did it %d times", numberOfMessagesSent)
 	}
 }
