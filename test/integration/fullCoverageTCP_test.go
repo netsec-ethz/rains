@@ -58,8 +58,7 @@ func TestFullCoverage(t *testing.T) {
 		t.Fatalf("Was not able to create client resolver: %v", err)
 	}
 	resolver, err := libresolve.New([]net.Addr{rootServer.Addr()}, nil, rootServer.Config().RootZonePublicKeyPath,
-		libresolve.Recursive, cachingResolver.Addr(), 1000, rootServer.Config().MaxCacheValidity, 50,
-		rainsd.DefaultAllowedAddrTypes, rainsd.DefaultAllAllowedTypes)
+		libresolve.Recursive, cachingResolver.Addr(), 1000, rootServer.Config().MaxCacheValidity, 50)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -262,8 +261,7 @@ func startAuthServer(t *testing.T, name string, rootServers []net.Addr) *rainsd.
 		t.Fatal(fmt.Sprintf("Was not able to create %s server: ", name), err)
 	}
 	resolver, err := libresolve.New(rootServers, nil, server.Config().RootZonePublicKeyPath,
-		libresolve.Recursive, server.Addr(), 1000, server.Config().MaxCacheValidity, 50,
-		rainsd.DefaultAllowedAddrTypes, rainsd.DefaultAllAllowedTypes)
+		libresolve.Recursive, server.Addr(), 1000, server.Config().MaxCacheValidity, 50)
 	if err != nil {
 		panic(err.Error())
 	}

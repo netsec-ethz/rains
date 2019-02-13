@@ -207,7 +207,7 @@ func main() {
 		// maxRecurseCount = 50 means the recursion will abort if called to itself more than 50 times
 		resolver, err := libresolve.New(rootNameServers, nil, server.Config().RootZonePublicKeyPath,
 			libresolve.Recursive, server.Addr(), maxConnections, server.Config().MaxCacheValidity,
-			maxRecurseDepth, server.Config().AllowedAddrTypes, server.Config().AllAllowedTypes)
+			maxRecurseDepth)
 		if err != nil {
 			log.Fatalf("Error: Unable to initialize recursive resolver: %v", err.Error())
 			return

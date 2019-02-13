@@ -39,6 +39,21 @@ const (
 	Forward
 )
 
+var AllowedAddrTypes = map[object.Type]bool{
+	object.OTIP6Addr:    true,
+	object.OTIP4Addr:    true,
+	object.OTScionAddr6: true,
+	object.OTScionAddr4: true,
+}
+var AllowedRedirectTypes = map[object.Type]bool{
+	object.OTIP6Addr:     true,
+	object.OTIP4Addr:     true,
+	object.OTScionAddr6:  true,
+	object.OTScionAddr4:  true,
+	object.OTServiceInfo: true,
+	object.OTName:        true,
+}
+
 // Resolver provides methods to resolve names in RAINS.
 type Resolver struct {
 	RootNameServers   []net.Addr
@@ -51,18 +66,11 @@ type Resolver struct {
 	Connections       cache.Connection
 	MaxCacheValidity  util.MaxCacheValidity
 	MaxRecursiveCount int
-	allowedAddrTypes  map[object.Type]bool
-	allAllowedTypes   map[object.Type]bool
 }
 
 //New creates a resolver with the given parameters and default settings
 func New(rootNS, forwarders []net.Addr, rootKeyPath string, mode ResolutionMode, addr net.Addr,
-	maxConn int, maxCacheValidity util.MaxCacheValidity, maxRecursiveCount int,
-	allowedAddrTypes map[object.Type]bool, allAllowedTypes map[object.Type]bool) (*Resolver, error) {
-	if allowedAddrTypes == nil || allAllowedTypes == nil {
-		return nil, fmt.Errorf("Invalid resolver configuration: allowedAddrTypes:%v," +
-			"allAllowedTypes: %v", allowedAddrTypes, allAllowedTypes)
-	}
+	maxConn int, maxCacheValidity util.MaxCacheValidity, maxRecursiveCount int) (*Resolver, error) {
 	r := &Resolver{
 		RootNameServers:   rootNS,
 		Forwarders:        forwarders,
@@ -74,8 +82,6 @@ func New(rootNS, forwarders []net.Addr, rootKeyPath string, mode ResolutionMode,
 		Connections:       cache.NewConnection(maxConn),
 		MaxCacheValidity:  maxCacheValidity,
 		MaxRecursiveCount: maxRecursiveCount,
-		allowedAddrTypes:  allowedAddrTypes,
-		allAllowedTypes:   allAllowedTypes,
 	}
 	// load the root zone public key and store it as a delegation:
 	a := new(section.Assertion)
@@ -203,7 +209,7 @@ func (r *Resolver) recursiveResolve(q *query.Name, recurseCount int) (*message.M
 				return &answer, nil
 			} else if isRedir {
 				for _, name := range redirMap {
-					addr, err = r.handleRedirect(name, srvMap, ipMap, nameMap, r.allAllowedTypes)
+					addr, err = r.handleRedirect(name, srvMap, ipMap, nameMap, AllowedRedirectTypes)
 					if err == nil {
 						break
 					}
@@ -370,7 +376,7 @@ func (r *Resolver) handleRedirect(name string, srvMap map[string]object.ServiceI
 	if allowedTypes[object.OTServiceInfo] && strings.HasPrefix(name, rainsPrefix) {
 		if srvVal, ok := srvMap[name]; ok {
 			if addr, err := r.handleRedirect(srvVal.Name, srvMap, ipMap, nameMap,
-				r.allowedAddrTypes); err == nil {
+				AllowedAddrTypes); err == nil {
 				ip := strings.Split(addr.String(), ":")[0]
 				return net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", ip, srvVal.Port))
 			}

@@ -94,12 +94,6 @@ func LoadConfig(configPath string) (Config, error) {
 		log.Warn("Could not unmarshal json format of config", "error", err)
 		return Config{}, err
 	}
-	if config.AllowedAddrTypes == nil {
-		config.AllowedAddrTypes = DefaultAllowedAddrTypes
-	}
-	if config.AllAllowedTypes == nil {
-		config.AllAllowedTypes = DefaultAllAllowedTypes
-	}
 	config.AssertionCheckPointInterval *= time.Second
 	config.NegAssertionCheckPointInterval *= time.Second
 	config.ZoneKeyCheckPointInterval *= time.Second

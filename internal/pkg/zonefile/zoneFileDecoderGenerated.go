@@ -19,7 +19,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
-	
+
 	"golang.org/x/crypto/ed25519"
 	"io/ioutil"
 	"strconv"
@@ -573,7 +573,7 @@ type ZFPLexer interface {
 type ZFPParser interface {
 	Parse(ZFPLexer) int
 	Lookahead() int
-    Result() []section.WithSigForward
+	Result() []section.WithSigForward
 }
 
 type ZFPParserImpl struct {
@@ -587,7 +587,7 @@ func (p *ZFPParserImpl) Lookahead() int {
 }
 
 func (p *ZFPParserImpl) Result() []section.WithSigForward {
-    return output
+	return output
 }
 func ZFPNewParser() ZFPParser {
 	return &ZFPParserImpl{}

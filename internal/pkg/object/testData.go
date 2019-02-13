@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	ip4TestAddr = "192.0.2.0"
-	ip6TestAddr = "2001:db8::"
+	ip4TestAddr      = "192.0.2.0"
+	ip6TestAddr      = "2001:db8::"
 	scionip4TestAddr = "1-ff00:0:111,[192.0.2.0]"
 	scionip6TestAddr = "1-ff00:0:111,[2001:db8::]"
-	testDomain  = "example.com"
+	testDomain       = "example.com"
 )
 
 //AllObjects returns all objects with valid content

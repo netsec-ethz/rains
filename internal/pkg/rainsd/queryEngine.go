@@ -9,6 +9,7 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/cache"
+	"github.com/netsec-ethz/rains/internal/pkg/libresolve"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
@@ -232,7 +233,7 @@ func (s *Server) glueRecordLookup(name, context string, cache cache.Assertion) (
 		for _, o := range a.Content {
 			if o.Type == object.OTRedirection {
 				if answers, err := s.handleRedirect(o.Value.(string), context, cache,
-					s.allAllowedTypes); err == nil {
+					libresolve.AllowedRedirectTypes); err == nil {
 					assertions = append(assertions, a) //append redir
 					for _, answer := range answers {
 						assertions = append(assertions, answer) //append addr, and if necessary srv and/or names.
@@ -273,7 +274,7 @@ func (s *Server) handleRedirect(name, context string, cache cache.Assertion, all
 					if srvObj.Type == object.OTServiceInfo {
 						srvVal := srvObj.Value.(object.ServiceInfo)
 						if as, err := s.handleRedirect(srvVal.Name, context, cache,
-							s.allowedAddrTypes); err == nil {
+							libresolve.AllowedAddrTypes); err == nil {
 							return append(as, srv), nil
 						}
 					}
