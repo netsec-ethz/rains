@@ -61,6 +61,26 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		}
 		ip := net.IP(v)
 		obj.Value = ip.String()
+	case OTScionAddr6:
+		addrStr, ok := in[1].(string)
+		if !ok {
+			return fmt.Errorf("failed to unmarshal OTScionAddr6: %T", in[1])
+		}
+		addr, err := snet.AddrFromString(addrStr)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal OTScionAddr6: %v", err)
+		}
+		obj.Value = fmt.Sprintf("%s,[%v]", addr.IA, addr.Host.L3)
+	case OTScionAddr4:
+		addrStr, ok := in[1].(string)
+		if !ok {
+			return fmt.Errorf("wrong object value for OTScionAddr4: %T", in[1])
+		}
+		addr, err := snet.AddrFromString(addrStr)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal OTScionAddr4: %v", err)
+		}
+		obj.Value = fmt.Sprintf("%s,[%v]", addr.IA, addr.Host.L3)
 	case OTRedirection:
 		obj.Value = in[1]
 	case OTDelegation:
@@ -243,26 +263,6 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 			Key:        ed25519.PublicKey(key),
 		}
 		obj.Value = pkey
-	case OTScionAddr4:
-		addrStr, ok := in[1].(string)
-		if !ok {
-			return fmt.Errorf("wrong object value for OTScionAddr4: %T", in[1])
-		}
-		addr, err := snet.AddrFromString(addrStr)
-		if err != nil {
-			return fmt.Errorf("failed to unmarshal OTScionAddr4: %v", err)
-		}
-		obj.Value = addr
-	case OTScionAddr6:
-		addrStr, ok := in[1].(string)
-		if !ok {
-			return fmt.Errorf("failed to unmarshal OTScionAddr6: %T", in[1])
-		}
-		addr, err := snet.AddrFromString(addrStr)
-		if err != nil {
-			return fmt.Errorf("failed to unmarshal OTScionAddr6: %v", err)
-		}
-		obj.Value = addr
 	default:
 		return errors.New("unknown object type in unmarshalling object")
 	}
@@ -292,6 +292,20 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 		addrStr := obj.Value.(string)
 		addr := net.ParseIP(addrStr)
 		res = []interface{}{OTIP4Addr, []byte(addr)}
+	case OTScionAddr6:
+		addrStr := obj.Value.(string)
+		addr, err := snet.AddrFromString(addrStr)
+		if err != nil {
+			return err
+		}
+		res = []interface{}{OTScionAddr6, fmt.Sprintf("%s,[%v]", addr.IA, addr.Host.L3)}
+	case OTScionAddr4:
+		addrStr := obj.Value.(string)
+		addr, err := snet.AddrFromString(addrStr)
+		if err != nil {
+			return err
+		}
+		res = []interface{}{OTScionAddr4, fmt.Sprintf("%s,[%v]", addr.IA, addr.Host.L3)}
 	case OTRedirection:
 		res = []interface{}{OTRedirection, obj.Value}
 	case OTDelegation:
@@ -345,18 +359,6 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 		}
 		b := pubkeyToCBORBytes(pkey)
 		res = []interface{}{OTExtraKey, int(pkey.Algorithm), int(pkey.KeySpace), b}
-	case OTScionAddr4:
-		addr, ok := obj.Value.(*snet.Addr)
-		if !ok {
-			return fmt.Errorf("expected OTScionAddr4 to be of type *snet.Addr but got: %T", obj.Value)
-		}
-		res = []interface{}{OTScionAddr4, addr.String()}
-	case OTScionAddr6:
-		addr, ok := obj.Value.(*snet.Addr)
-		if !ok {
-			return fmt.Errorf("expected OTScionAddr6 to be of type *snet.Addr but got: %T", obj.Value)
-		}
-		res = []interface{}{OTScionAddr6, addr.String()}
 	case OTNextKey:
 		pkey, ok := obj.Value.(keys.PublicKey)
 		if !ok {
@@ -474,8 +476,8 @@ const (
 	OTInfraKey    Type = 11
 	OTExtraKey    Type = 12
 	OTNextKey     Type = 13
-	OTScionAddr4  Type = 14
-	OTScionAddr6  Type = 15
+	OTScionAddr6  Type = 14
+	OTScionAddr4  Type = 15
 )
 
 //ParseTypes returns the object type(s) specified in qType
@@ -487,6 +489,10 @@ func ParseTypes(qType string) ([]Type, error) {
 		return []Type{OTIP6Addr}, nil
 	case "ip4":
 		return []Type{OTIP4Addr}, nil
+	case "scionip6":
+		return []Type{OTScionAddr6}, nil
+	case "scionip4":
+		return []Type{OTScionAddr4}, nil
 	case "redir":
 		return []Type{OTRedirection}, nil
 	case "deleg":
@@ -522,6 +528,10 @@ func (t Type) CLIString() string {
 		return "ip6"
 	case OTIP4Addr:
 		return "ip4"
+	case OTScionAddr6:
+		return "scionip6"
+	case OTScionAddr4:
+		return "scionip4"
 	case OTRedirection:
 		return "redir"
 	case OTDelegation:
@@ -551,7 +561,7 @@ func AllTypes() []Type {
 	return []Type{OTName, OTIP6Addr, OTIP4Addr, OTRedirection,
 		OTDelegation, OTNameset, OTCertInfo, OTServiceInfo,
 		OTRegistrar, OTRegistrant, OTInfraKey, OTExtraKey,
-		OTNextKey}
+		OTNextKey, OTScionAddr6, OTScionAddr4}
 }
 
 //Name contains a name associated with a name as an alias. Types specifies for which object connection the alias is valid

@@ -1,4 +1,5 @@
 all:
+	$(if which goyacc, @echo "Installing goyacc" && cd "../../vendor/golang.org/x/tools/cmd/goyacc" && go install . 1>/dev/null)
 	goyacc -p "ZFP" zonefileParser.y
 	go build -o zonefileParser y.go
 	./zonefileParser

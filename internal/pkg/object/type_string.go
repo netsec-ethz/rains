@@ -4,7 +4,7 @@ package object
 
 import "strconv"
 
-const _Type_name = "OTNameOTIP6AddrOTIP4AddrOTRedirectionOTDelegationOTNamesetOTCertInfoOTServiceInfoOTRegistrarOTRegistrantOTInfraKeyOTExtraKeyOTNextKeyOTScionAddr4OTScionAddr6"
+const _Type_name = "OTNameOTIP6AddrOTIP4AddrOTRedirectionOTDelegationOTNamesetOTCertInfoOTServiceInfoOTRegistrarOTRegistrantOTInfraKeyOTExtraKeyOTNextKeyOTScionAddr6OTScionAddr4"
 
 var _Type_index = [...]uint8{0, 6, 15, 24, 37, 49, 58, 68, 81, 92, 104, 114, 124, 133, 145, 157}
 

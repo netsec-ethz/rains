@@ -153,6 +153,8 @@ func AllObjectType() []object.Type {
 		object.OTInfraKey,
 		object.OTIP4Addr,
 		object.OTIP6Addr,
+		object.OTScionAddr4,
+		object.OTScionAddr6,
 		object.OTName,
 		object.OTNameset,
 		object.OTNextKey,

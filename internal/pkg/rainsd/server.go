@@ -74,6 +74,7 @@ func New(config Config, id string) (server *Server, err error) {
 		log.Warn("Failed to load root zone public key")
 		return nil, err
 	}
+
 	log.Info("Successfully initialized server", "id", id)
 	return
 }

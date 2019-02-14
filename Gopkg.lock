@@ -87,6 +87,14 @@
   pruneopts = "UT"
   revision = "4d1cda033e0619309c606fc686de3adcf599539e"
 
+[[projects]]
+  branch = "master"
+  digest = "1:de273c1d4d6f6a34f6637405288519299377c35424a586d0c8f17f8191624cd2"
+  name = "golang.org/x/tools"
+  packages = ["cmd/goyacc"]
+  pruneopts = "UT"
+  revision = "7414d4c1f71cec71978b1aec0539171a2e42d230"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -98,6 +106,7 @@
     "golang.org/x/crypto/ed25519",
     "golang.org/x/crypto/scrypt",
     "golang.org/x/crypto/sha3",
+    "golang.org/x/tools/cmd/goyacc",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

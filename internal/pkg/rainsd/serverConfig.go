@@ -85,8 +85,8 @@ func DefaultConfig() Config {
 		TLSPrivateKeyFile:  "data/cert/server.key",
 
 		// SCION specific settings
-		DispatcherSock: "TODO determine default value",
-		SciondSock:     "TODO determine default value",
+		DispatcherSock: "/run/shm/dispatcher/default.sock",
+		SciondSock:     "/run/shm/sciond/default.sock",
 
 		//inbox
 		PrioBufferSize:          50,

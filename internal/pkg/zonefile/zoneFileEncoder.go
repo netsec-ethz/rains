@@ -163,6 +163,10 @@ func encodeObjects(o []object.Object, indent string) string {
 			encoding += fmt.Sprintf("%s%s", addIndentToType(TypeIP6), obj.Value)
 		case object.OTIP4Addr:
 			encoding += fmt.Sprintf("%s%s", addIndentToType(TypeIP4), obj.Value)
+		case object.OTScionAddr6:
+			encoding += fmt.Sprintf("%s%s", addIndentToType(TypeScionIP6), obj.Value)
+		case object.OTScionAddr4:
+			encoding += fmt.Sprintf("%s%s", addIndentToType(TypeScionIP4), obj.Value)
 		case object.OTRedirection:
 			encoding += fmt.Sprintf("%s%s", addIndentToType(TypeRedirection), obj.Value)
 		case object.OTDelegation:
@@ -240,6 +244,10 @@ func encodeNameObject(no object.Name) string {
 			nameObject = append(nameObject, TypeIP6)
 		case object.OTIP4Addr:
 			nameObject = append(nameObject, TypeIP4)
+		case object.OTScionAddr6:
+			nameObject = append(nameObject, TypeScionIP6)
+		case object.OTScionAddr4:
+			nameObject = append(nameObject, TypeScionIP4)
 		case object.OTRedirection:
 			nameObject = append(nameObject, TypeRedirection)
 		case object.OTDelegation:
