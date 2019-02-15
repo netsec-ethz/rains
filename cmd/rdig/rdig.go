@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -16,7 +17,6 @@ import (
 	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/snet"
 	flag "github.com/spf13/pflag"
-	"io/ioutil"
 )
 
 //Options
@@ -102,11 +102,14 @@ func main() {
 			if err != nil {
 				log.Fatalf("Error: Unable to read ia file from $SC/gen/ia: %v", err)
 			}
-			localIA, _ = addr.IAFromFileFmt(string(rawIA[:]), false)
+			localIA, _ = addr.IAFromFileFmt(strings.TrimSpace(string(rawIA[:])), false)
 		} else {
-			localIA, _ = addr.IAFromString(*localAS)
+			localIA, err = addr.IAFromString(*localAS)
+			if err != nil {
+				log.Fatalf("localAS value is not valid: %v", err)
+			}
 		}
-		SCIONLocal, err := snet.AddrFromString(localIA.String())
+		SCIONLocal, err := snet.AddrFromString(fmt.Sprintf("%s,[127.0.0.1]:0", localIA.String()))
 		if err != nil {
 			log.Fatalf("Error: invalid local AS id from flag localAS: %v", err)
 		}

@@ -48,6 +48,7 @@ type Server struct {
 //New returns a pointer to a newly created rainsd server instance with the given config. The server
 //logs with the provided level of logging.
 func New(config Config, id string) (server *Server, err error) {
+	log.Info("server New", "id", id)
 	server = &Server{config: config}
 	server.authority = make(map[ZoneContext]bool)
 	for _, auth := range server.config.Authorities {
@@ -68,6 +69,7 @@ func New(config Config, id string) (server *Server, err error) {
 		NormalW: make(chan struct{}, server.config.NormalWorkerCount),
 		NotifyW: make(chan struct{}, server.config.NotificationWorkerCount),
 	}
+	log.Debug("Created server channels")
 	server.caches = initCaches(server.config)
 	if err = loadRootZonePublicKey(server.config.RootZonePublicKeyPath, server.caches.ZoneKeyCache,
 		server.config.MaxCacheValidity); err != nil {
@@ -95,7 +97,7 @@ func (s *Server) SetResolver(resolver *libresolve.Resolver) {
 
 //Start starts up the server and it begins to listen for incoming connections according to its
 //config.
-func (s *Server) Start(monitorResources bool) error {
+func (s *Server) Start(monitorResources bool, id string) error {
 	go s.workPrio()
 	go s.workBoth()
 	go s.workNotification()
@@ -113,7 +115,7 @@ func (s *Server) Start(monitorResources bool) error {
 	if monitorResources {
 		go measureSystemRessources()
 	}
-	s.listen()
+	s.listen(id)
 	return nil
 }
 
@@ -131,10 +133,7 @@ func (s *Server) Shutdown() {
 			conn.Close()
 		}
 	case connection.SCION:
-		if conn, err := snet.DialSCION(s.Addr().Network(),
-			s.scionConn.LocalAddr().(*snet.Addr), s.Addr().(*snet.Addr)); err == nil {
-			conn.Close()
-		}
+		s.scionConn.Close()
 	default:
 		log.Warn("Unsupported Network address type.")
 	}
@@ -143,4 +142,5 @@ func (s *Server) Shutdown() {
 	s.queues.Normal <- util.MsgSectionSender{}
 	s.queues.Prio <- util.MsgSectionSender{}
 	s.queues.Notify <- util.MsgSectionSender{}
+	log.Info("Server shut down")
 }

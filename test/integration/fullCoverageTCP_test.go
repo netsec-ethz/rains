@@ -32,16 +32,7 @@ func TestFullCoverage(t *testing.T) {
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
 	//Generate self signed root key
-	os.Mkdir("testdata/keys/root", os.ModePerm)
-	err := keyManager.GenerateKey("testdata/keys/root", "root", "",
-		algorithmTypes.Ed25519.String(), "", 1)
-	if err != nil {
-		t.Fatalf("Was not able to generate root key pair: %v", err)
-	}
-	if err := keyManager.SelfSignedDelegation("testdata/keys/root/root",
-		"testdata/keys/selfSignedRootDelegationAssertion.gob", "", ".", ".", 24*time.Hour); err != nil {
-		t.Fatalf("Was not able to self sign root key pair: %v", err)
-	}
+	keySetup(t, "testdata/keys/root")
 
 	//Start authoritative Servers and publish zonefiles to them
 	rootServer := startAuthServer(t, "Root", nil)
@@ -63,7 +54,7 @@ func TestFullCoverage(t *testing.T) {
 		panic(err.Error())
 	}
 	cachingResolver.SetResolver(resolver)
-	go cachingResolver.Start(false)
+	go cachingResolver.Start(false, "resolver")
 	time.Sleep(1000 * time.Millisecond)
 	log.Info("caching server successfully started")
 
@@ -97,11 +88,11 @@ func TestFullCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Was not able to load resolver2 config: %v", err)
 	}
-	cachingResolver2, err := rainsd.New(conf, "resolver2")
+	cachingResolver2, err := rainsd.New(conf, "resolver")
 	if err != nil {
 		t.Fatalf("Was not able to create client resolver: %v", err)
 	}
-	go cachingResolver2.Start(false)
+	go cachingResolver2.Start(false, "resolver")
 	time.Sleep(500 * time.Millisecond)
 	log.Info("caching server successfully started")
 	log.Info("begin sending queries which should be cached by pre load")
@@ -110,6 +101,7 @@ func TestFullCoverage(t *testing.T) {
 	}
 	log.Warn("Done sending queries for cached entries that are preloaded")
 	cachingResolver2.Shutdown()
+	time.Sleep(2 * time.Second)
 }
 
 func TestFullCoverageCLITools(t *testing.T) {
@@ -132,6 +124,9 @@ func TestFullCoverageCLITools(t *testing.T) {
 			t.Fatalf("Error during build of %v: %v", tool, err)
 		}
 	}
+
+	//Generate self signed root key
+	keySetup(t, "testdata/keys/root")
 
 	// Start the name servers and publish the zone information
 	var commands []*exec.Cmd
@@ -251,6 +246,19 @@ func TestFullCoverageCLITools(t *testing.T) {
 	}
 }
 
+func keySetup(t *testing.T, keyPath string) {
+	os.Mkdir(keyPath, os.ModePerm)
+	err := keyManager.GenerateKey(keyPath, "root", "",
+		algorithmTypes.Ed25519.String(), "", 1)
+	if err != nil {
+		t.Fatalf("Was not able to generate root key pair: %v", err)
+	}
+	if err := keyManager.SelfSignedDelegation(fmt.Sprintf("%s/root", keyPath),
+		"testdata/keys/selfSignedRootDelegationAssertion.gob", "", ".", ".", 24*time.Hour); err != nil {
+		t.Fatalf("Was not able to self sign root key pair: %v", err)
+	}
+}
+
 func startAuthServer(t *testing.T, name string, rootServers []net.Addr) *rainsd.Server {
 	conf, err := rainsd.LoadConfig("testdata/conf/namingServer" + name + ".conf")
 	if err != nil {
@@ -266,7 +274,7 @@ func startAuthServer(t *testing.T, name string, rootServers []net.Addr) *rainsd.
 		panic(err.Error())
 	}
 	server.SetResolver(resolver)
-	go server.Start(false)
+	go server.Start(false, "nameServer"+name)
 	time.Sleep(250 * time.Millisecond)
 	config, err := publisher.LoadConfig("testdata/conf/publisher" + name + ".conf")
 	if err != nil {

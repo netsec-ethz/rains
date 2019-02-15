@@ -9,6 +9,7 @@ jobs:
           name: setup envvar
           command: |
               echo 'export GOPATH=/tmp/go' >> $BASH_ENV
+              echo 'export SC=/tmp/go/src/github.com/scionproto/scion' >> $BASH_ENV
               echo 'export PATH=$PATH:/tmp/go/bin' >> $BASH_ENV
       - checkout
       - restore_cache:
@@ -24,6 +25,12 @@ jobs:
             cd $GOPATH/src/github.com/scionproto/scion
             ./env/deps
             make
+            PYTHONPATH=$PYTHONPATH:./topology:./python python/topology/generator.py -c ./topology/Tiny.topo
+            mkdir ./gen-cache/
+            echo  '1-ff00_0_110' > ./gen/ia
+            ./supervisor/supervisor.sh reload
+            ./supervisor/supervisor.sh start dispatcher
+            ./supervisor/supervisor.sh start as1-ff00_0_110:*
       - run:
           name: run build
           command: |

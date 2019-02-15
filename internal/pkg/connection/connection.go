@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"strings"
 
 	"bytes"
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
@@ -107,7 +108,7 @@ func CreateConnection(addr net.Addr) (conn net.Conn, err error) {
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("Error: Unable to read ia file from $SC/gen/ia: %v", err))
 		}
-		localIA, _ := saddr.IAFromFileFmt(string(rawIA[:]), false)
+		localIA, _ := saddr.IAFromFileFmt(strings.TrimSpace(string(rawIA[:])), false)
 		localAddr, err := getLocalIP()
 		if err != nil {
 			return nil, errors.New("No valid local address")

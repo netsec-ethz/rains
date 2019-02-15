@@ -227,7 +227,7 @@ func (r *Resolver) recursiveResolve(q *query.Name, recurseCount int) (*message.M
 			msg := message.Message{Token: token.New(), Content: []section.Section{q}}
 			answer, err := r.sendQuery(msg, addr, r.DialTimeout*time.Millisecond)
 			if err != nil || len(answer.Content) == 0 {
-				log.Debug("error in send query", "answer", answer, "len(answer.Content)", len(answer.Content), "err", err)
+				log.Debug("error in send query", "err", err)
 				break
 			}
 			log.Info("recursive resolver rcv answer", "answer", answer, "query", q)

@@ -203,6 +203,8 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error: Was not able to initialize server: %v", err)
 			return
+		} else {
+			log.Println("Starting server")
 		}
 		rootNameServers := []net.Addr{rootServerAddress.value.Addr}
 		// maxRecurseCount = 50 means the recursion will abort if called to itself more than 50 times
@@ -215,10 +217,9 @@ func main() {
 		}
 		server.SetResolver(resolver)
 		log.Println("Server successfully initialized")
-		go server.Start(false)
+		go server.Start(false, id)
 		handleUserInput()
 		server.Shutdown()
-		log.Println("Server shut down")
 	}
 }
 
