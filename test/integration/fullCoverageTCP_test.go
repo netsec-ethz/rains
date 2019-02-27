@@ -108,18 +108,18 @@ func TestFullCoverageCLITools(t *testing.T) {
 	// Same integration test as TestFullCoverage, using the CLI tools instead
 
 	// build the CLI tools
-	tool_dir, err := ioutil.TempDir("", "rains_tools")
+	toolDir, err := ioutil.TempDir("", "rains_tools")
 	if err != nil {
 		t.Fatalf("Error during tmp dir creation: %v", err)
 	} else {
-		log.Info("Created tmp dir", "path", tool_dir)
+		log.Info("Created tmp dir", "path", toolDir)
 	}
 
 	for _, tool := range []string{"rainsd", "zonepub", "rdig"} {
 		cmd := exec.Command("/bin/bash", "-c",
 			fmt.Sprintf("go build -o %s/%s -v "+
 				"$GOPATH/src/github.com/netsec-ethz/rains/cmd/%[2]s/%[2]s.go",
-				tool_dir, tool))
+				toolDir, tool))
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("Error during build of %v: %v", tool, err)
 		}
@@ -138,23 +138,23 @@ func TestFullCoverageCLITools(t *testing.T) {
 			}
 		}
 
-		if err := os.RemoveAll(tool_dir); err != nil {
-			fmt.Printf("Error while removing %v: %v", tool_dir, err)
+		if err := os.RemoveAll(toolDir); err != nil {
+			fmt.Printf("Error while removing %v: %v", toolDir, err)
 		}
 	}()
-	root_config, err := rainsd.LoadConfig("testdata/conf/namingServerRoot.conf")
+	rootConfig, err := rainsd.LoadConfig("testdata/conf/namingServerRoot.conf")
 	if err != nil {
 		t.Fatalf("Was not able to load namingServerRoot config: %v", err)
 	}
-	root_ip_addr, err := net.ResolveTCPAddr("", root_config.ServerAddress.Addr.String())
+	rootIPAddr, err := net.ResolveTCPAddr("", rootConfig.ServerAddress.Addr.String())
 	if err != nil {
 		t.Fatalf("Was not able to load ServerAddress from namingServerRoot config: %v", err)
 	}
-	root_ip := root_ip_addr.IP.String()
-	root_port := strconv.Itoa(root_ip_addr.Port)
+	rootIP := rootIPAddr.IP.String()
+	rootPort := strconv.Itoa(rootIPAddr.Port)
 	cmd := exec.Command("/bin/bash", "-c",
 		fmt.Sprintf("%s/rainsd "+
-			"./testdata/conf/namingServerRoot.conf --id nameServerRoot", tool_dir))
+			"./testdata/conf/namingServerRoot.conf --id nameServerRoot", toolDir))
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 	}
@@ -162,7 +162,7 @@ func TestFullCoverageCLITools(t *testing.T) {
 	time.Sleep(250 * time.Millisecond)
 
 	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/zonepub "+
-		"./testdata/conf/publisherRoot.conf", tool_dir))
+		"./testdata/conf/publisherRoot.conf", toolDir))
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Error during zonepub %v: %v", "zonepub", err)
 	}
@@ -171,8 +171,8 @@ func TestFullCoverageCLITools(t *testing.T) {
 	for _, zone := range []string{"ch", "ethz.ch"} {
 		cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/rainsd "+
 			"./testdata/conf/namingServer%[2]s.conf "+
-			"--rootServerAddress %s:%s --id nameServer%[2]s", tool_dir, zone, root_ip,
-			root_port))
+			"--rootServerAddress %s:%s --id nameServer%[2]s", toolDir, zone, rootIP,
+			rootPort))
 		if err := cmd.Start(); err != nil {
 			t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 		}
@@ -180,7 +180,7 @@ func TestFullCoverageCLITools(t *testing.T) {
 		time.Sleep(250 * time.Millisecond)
 
 		cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/zonepub "+
-			"./testdata/conf/publisher%s.conf", tool_dir, zone))
+			"./testdata/conf/publisher%s.conf", toolDir, zone))
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("Error during zonepub %v: %v", "zonepub", err)
 		}
@@ -188,19 +188,19 @@ func TestFullCoverageCLITools(t *testing.T) {
 	}
 
 	// Start a resolver
-	resolver_config, err := rainsd.LoadConfig("testdata/conf/resolver.conf")
+	resolverConfig, err := rainsd.LoadConfig("testdata/conf/resolver.conf")
 	if err != nil {
 		t.Fatalf("Was not able to load resolver config: %v", err)
 	}
-	resolver_ip_addr, err := net.ResolveTCPAddr("", resolver_config.ServerAddress.Addr.String())
+	resolverIPAddr, err := net.ResolveTCPAddr("", resolverConfig.ServerAddress.Addr.String())
 	if err != nil {
 		t.Fatalf("Was not able to load ServerAddress from resolver config: %v", err)
 	}
-	resolver_ip := resolver_ip_addr.IP.String()
-	resolver_port := strconv.Itoa(resolver_ip_addr.Port)
+	resolverIP := resolverIPAddr.IP.String()
+	resolverPort := strconv.Itoa(resolverIPAddr.Port)
 	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/rainsd "+
 		"./testdata/conf/resolver.conf "+
-		"--rootServerAddress %s:%s --id resolver", tool_dir, root_ip, root_port))
+		"--rootServerAddress %s:%s --id resolver", toolDir, rootIP, rootPort))
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 	}
@@ -221,9 +221,9 @@ func TestFullCoverageCLITools(t *testing.T) {
 			t.Fatalf("Error during rdig %v: %v", "type", err)
 		}
 		log.Info("Running:", "rdig query", fmt.Sprintf("%s/rdig -p %s @%s %s %s",
-			tool_dir, resolver_port, resolver_ip, rquery.Name, qtype))
+			toolDir, resolverPort, resolverIP, rquery.Name, qtype))
 		cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/rdig -p %s @%s %s %s",
-			tool_dir, resolver_port, resolver_ip, rquery.Name, qtype))
+			toolDir, resolverPort, resolverIP, rquery.Name, qtype))
 		cmdOut, _ := cmd.StdoutPipe()
 		if err := cmd.Start(); err != nil {
 			t.Fatalf("Error during rdig %v: %v", "rdig", err)
@@ -232,16 +232,16 @@ func TestFullCoverageCLITools(t *testing.T) {
 		log.Info(fmt.Sprintf("rdig out:\n%v", string(stdOutput)))
 		cmd.Wait()
 
-		rdig_answer := string(stdOutput)
-		sig_part := regexp.MustCompile(` \( :sig: :.*\n`)
-		rdig_answer = sig_part.ReplaceAllString(rdig_answer, "")
-		rdig_answer = strings.TrimSpace(rdig_answer)
-		expected_ans := strings.TrimSpace(
+		rdigAnswer := string(stdOutput)
+		sigPart := regexp.MustCompile(` \( :sig: :.*\n`)
+		rdigAnswer = sigPart.ReplaceAllString(rdigAnswer, "")
+		rdigAnswer = strings.TrimSpace(rdigAnswer)
+		expectedAns := strings.TrimSpace(
 			fmt.Sprint(zonefile.IO{}.Encode([]section.Section{answers[i]})))
-		if rdig_answer != expected_ans {
+		if rdigAnswer != expectedAns {
 			t.Fatalf("Expected %v\nGot: %v",
-				expected_ans,
-				rdig_answer)
+				expectedAns,
+				rdigAnswer)
 		}
 	}
 }

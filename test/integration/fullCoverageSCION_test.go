@@ -104,18 +104,18 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 	// Same integration test as TestFullCoverage, using the CLI tools instead
 
 	// build the CLI tools
-	tool_dir, err := ioutil.TempDir("", "rains_tools")
+	toolDir, err := ioutil.TempDir("", "rains_tools")
 	if err != nil {
 		t.Fatalf("Error during tmp dir creation: %v", err)
 	} else {
-		log.Info("Created tmp dir", "path", tool_dir)
+		log.Info("Created tmp dir", "path", toolDir)
 	}
 
 	for _, tool := range []string{"rainsd", "zonepub", "rdig"} {
 		cmd := exec.Command("/bin/bash", "-c",
 			fmt.Sprintf("go build -o %s/%s -v "+
 				"$GOPATH/src/github.com/netsec-ethz/rains/cmd/%[2]s/%[2]s.go",
-				tool_dir, tool))
+				toolDir, tool))
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("Error during build of %v: %v", tool, err)
 		}
@@ -137,100 +137,90 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 			}
 		}
 
-		if err := os.RemoveAll(tool_dir); err != nil {
-			fmt.Printf("Error while removing %v: %v", tool_dir, err)
+		if err := os.RemoveAll(toolDir); err != nil {
+			fmt.Printf("Error while removing %v: %v", toolDir, err)
 		}
 	}()
-	root_config, err := rainsd.LoadConfig("testdata/conf/SCIONnamingServerRoot.conf")
+	rootConfig, err := rainsd.LoadConfig("testdata/conf/SCIONnamingServerRoot.conf")
 	if err != nil {
 		t.Fatalf("Was not able to load namingServerRoot config: %v", err)
 	}
-	root_addr, err := snet.AddrFromString(
-		strings.Replace(root_config.ServerAddress.Addr.String(), " (UDP)", "", 1))
+	rootAddr, err := snet.AddrFromString(
+		strings.Replace(rootConfig.ServerAddress.Addr.String(), " (UDP)", "", 1))
 	if err != nil {
 		t.Fatalf("Was not able to load ServerAddress from namingServerRoot config: %v, %v",
-			err, root_config.ServerAddress.Addr)
+			err, rootConfig.ServerAddress.Addr)
 	}
-	root_host_addr := fmt.Sprintf("%s,[%v]", root_addr.IA, root_addr.Host.L3)
-	root_port := root_addr.Host.L4.Port()
-	rainsd_cmd := fmt.Sprintf("%s/rainsd --sciondSock /run/shm/sciond/sd1-ff00_0_110.sock "+
-		"./testdata/conf/SCIONnamingServerRoot.conf --id nameServerRootCLI > /tmp/root_fail1.log 2>&1", tool_dir)
-	cmd := exec.Command("/bin/bash", "-c", rainsd_cmd)
+	rootHostAddr := fmt.Sprintf("%s,[%v]", rootAddr.IA, rootAddr.Host.L3)
+	rootPort := rootAddr.Host.L4.Port()
+	rainsdCmd := fmt.Sprintf("%s/rainsd --sciondSock /run/shm/sciond/sd1-ff00_0_110.sock "+
+		"./testdata/conf/SCIONnamingServerRoot.conf --id nameServerRootCLI 2>&1", toolDir)
+	cmd := exec.Command("/bin/bash", "-c", rainsdCmd)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	commands = append(commands, cmd)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 	}
-	log.Info("Started rainsd for", "zone", "Root", "cmd", rainsd_cmd)
+	log.Info("Started rainsd for", "zone", "Root", "cmd", rainsdCmd)
 	time.Sleep(250 * time.Millisecond)
 
-	publish_cmd := fmt.Sprintf("%s/zonepub ./testdata/conf/SCIONpublisherRoot.conf > /tmp/zonepub_fail1.log 2>&1", tool_dir)
-	cmd = exec.Command("/bin/bash", "-c", publish_cmd)
+	publishCmd := fmt.Sprintf("%s/zonepub ./testdata/conf/SCIONpublisherRoot.conf 2>&1", toolDir)
+	cmd = exec.Command("/bin/bash", "-c", publishCmd)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Run(); err != nil {
-		rawFail, logerr := ioutil.ReadFile("/tmp/zonepub_fail1.log")
-		if logerr != nil {
-			log.Error("Error: Unable to read error log from /tmp/zonepub_fail1.log", "logerr", logerr)
-		}
-		log.Error("zonepub log", "err", string(rawFail[:]))
 		t.Fatalf("Error during zonepub: %v", err)
 	}
-	log.Info("Published zone for", "zone", "Root", "cmd", publish_cmd)
+	log.Info("Published zone for", "zone", "Root", "cmd", publishCmd)
 	time.Sleep(1000 * time.Millisecond)
 
 	for _, zone := range []string{"ch", "ethz.ch"} {
-		rainsd_cmd = fmt.Sprintf("%s/rainsd "+
+		rainsdCmd = fmt.Sprintf("%s/rainsd "+
 			"--sciondSock /run/shm/sciond/sd1-ff00_0_110.sock "+
 			"./testdata/conf/SCIONnamingServer%[2]s.conf "+
-			"--rootServerAddress %s:%d --id nameServer%[2]sCLI > /tmp/root_fail2.log 2>&1", tool_dir, zone,
-			root_host_addr, root_port)
-		cmd = exec.Command("/bin/bash", "-c", rainsd_cmd)
+			"--rootServerAddress %s:%d --id nameServer%[2]sCLI 2>&1", toolDir, zone,
+			rootHostAddr, rootPort)
+		cmd = exec.Command("/bin/bash", "-c", rainsdCmd)
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		commands = append(commands, cmd)
 		if err := cmd.Start(); err != nil {
 			t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 		}
-		log.Info("Started rainsd for", "zone", zone, "cmd", rainsd_cmd)
+		log.Info("Started rainsd for", "zone", zone, "cmd", rainsdCmd)
 		time.Sleep(250 * time.Millisecond)
 
-		publish_cmd = fmt.Sprintf("%s/zonepub "+
-			"./testdata/conf/SCIONpublisher%s.conf >> /tmp/zonepub_fail2.log 2>&1", tool_dir, zone)
-		cmd = exec.Command("/bin/bash", "-c", publish_cmd)
+		publishCmd = fmt.Sprintf("%s/zonepub "+
+			"./testdata/conf/SCIONpublisher%s.conf 2>&1", toolDir, zone)
+		cmd = exec.Command("/bin/bash", "-c", publishCmd)
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		if err := cmd.Run(); err != nil {
-			rawFail, logerr := ioutil.ReadFile("/tmp/zonepub_fail2.log")
-			if logerr != nil {
-				log.Error("Error: Unable to read error log from /tmp/zonepub_fail2.log", "logerr", logerr)
-			}
-			log.Error("zonepub log", "err", string(rawFail[:]))
 			t.Fatalf("Error during zonepub: %v", err)
 		}
-		log.Info("Published zone for", "zone", zone, "cmd", publish_cmd)
+		log.Info("Published zone for", "zone", zone, "cmd", publishCmd)
 		time.Sleep(1000 * time.Millisecond)
 	}
 
 	// Start a resolver
-	resolver_config, err := rainsd.LoadConfig("testdata/conf/SCIONresolver.conf")
+	resolverConfig, err := rainsd.LoadConfig("testdata/conf/SCIONresolver.conf")
 	if err != nil {
 		t.Fatalf("Was not able to load resolver config: %v", err)
 	}
-	resolver_addr, err := snet.AddrFromString(
-		strings.Replace(resolver_config.ServerAddress.Addr.String(), " (UDP)", "", 1))
+	resolverAddr, err := snet.AddrFromString(
+		strings.Replace(resolverConfig.ServerAddress.Addr.String(), " (UDP)", "", 1))
 	if err != nil {
 		t.Fatalf("Was not able to load ServerAddress from resolver config: %v", err)
 	}
-	resolver_host_addr := fmt.Sprintf("%s,[%v]", resolver_addr.IA, resolver_addr.Host.L3)
-	resolver_port := resolver_addr.Host.L4.Port()
-	resolver_cmd := fmt.Sprintf("%s/rainsd --sciondSock /run/shm/sciond/sd1-ff00_0_110.sock "+
+	resolverHostAddr := fmt.Sprintf("%s,[%v]", resolverAddr.IA, resolverAddr.Host.L3)
+	resolverPort := resolverAddr.Host.L4.Port()
+	resolverCmd := fmt.Sprintf("%s/rainsd --sciondSock /run/shm/sciond/sd1-ff00_0_110.sock "+
 		"./testdata/conf/SCIONresolver.conf "+
-		"--rootServerAddress %s:%d --id resolverCLI  > /tmp/resolver_fail.log 2>&1", tool_dir, root_host_addr, root_port)
-	cmd = exec.Command("/bin/bash", "-c", resolver_cmd)
+		"--rootServerAddress %s:%d --id resolverCLI 2>&1", toolDir, rootHostAddr, rootPort)
+	cmd = exec.Command("/bin/bash", "-c", resolverCmd)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	commands = append(commands, cmd)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 	}
-	log.Info("Started rainsd resolver", "cmd", resolver_cmd)
+	log.Info("Started rainsd resolver", "cmd", resolverCmd)
 	time.Sleep(5000 * time.Millisecond)
 
 	// Load queries with expected answer
@@ -246,11 +236,11 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error during rdig %v: %v", "type", err)
 		}
-		rdig_cmd := fmt.Sprintf("%s/rdig --localAS 1-ff00:0:110 "+
+		rdigCmd := fmt.Sprintf("%s/rdig --localAS 1-ff00:0:110 "+
 			"--sciondSock /run/shm/sciond/sd1-ff00_0_110.sock -p %d @%s %s %s",
-			tool_dir, resolver_port, resolver_host_addr, rquery.Name, qtype)
-		log.Info("Running:", "rdig query", rdig_cmd)
-		cmd = exec.Command("/bin/bash", "-c", rdig_cmd)
+			toolDir, resolverPort, resolverHostAddr, rquery.Name, qtype)
+		log.Info("Running:", "rdig query", rdigCmd)
+		cmd = exec.Command("/bin/bash", "-c", rdigCmd)
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		cmdOut, _ := cmd.StdoutPipe()
 		if err := cmd.Start(); err != nil {
@@ -260,18 +250,18 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 		log.Info(fmt.Sprintf("rdig out:\n%v", string(stdOutput)))
 		cmd.Wait()
 
-		rdig_answer := string(stdOutput)
-		sig_part := regexp.MustCompile(` \( :sig: :.*\n`)
-		rdig_answer = sig_part.ReplaceAllString(rdig_answer, "")
-		log_part := regexp.MustCompile(`t=.*lvl=.*\n`)
-		rdig_answer = log_part.ReplaceAllString(rdig_answer, "")
-		rdig_answer = strings.TrimSpace(rdig_answer)
-		expected_ans := strings.TrimSpace(
+		rdigAnswer := string(stdOutput)
+		sigPart := regexp.MustCompile(` \( :sig: :.*\n`)
+		rdigAnswer = sigPart.ReplaceAllString(rdigAnswer, "")
+		logPart := regexp.MustCompile(`t=.*lvl=.*\n`)
+		rdigAnswer = logPart.ReplaceAllString(rdigAnswer, "")
+		rdigAnswer = strings.TrimSpace(rdigAnswer)
+		expectedAns := strings.TrimSpace(
 			fmt.Sprint(zonefile.IO{}.Encode([]section.Section{answers[i]})))
-		if rdig_answer != expected_ans {
+		if rdigAnswer != expectedAns {
 			t.Fatalf("Expected %v\nGot: %v",
-				expected_ans,
-				rdig_answer)
+				expectedAns,
+				rdigAnswer)
 		}
 	}
 }
