@@ -39,7 +39,10 @@ var dispatcherSock = flag.String("dispatcherSock", "/run/shm/dispatcher/default.
 var sciondSock = flag.String("sciondSock", "/run/shm/sciond/default.sock",
 	"Path to the sciond socket.")
 var localAS = flag.String("localAS", "",
-	"SCION AS identifier of the host running rdig. e.g. 1-ff00:0:110")
+	"SCION AS identifier of the host running rdig. e.g. 1-ff00:0:110\n"+
+		"By default the value in $SC/gen/ia is used. Make sure to set this flag when "+
+		"either the environment variable $SC is not set or "+
+		"you are running multiple ASes and the file $SC/gen/ia does not exist.")
 
 //Query Options
 var minEE = flag.BoolP("minEE", "1", false, "Query option: Minimize end-to-end latency")
@@ -100,9 +103,15 @@ func main() {
 		if !flag.Lookup("localAS").Changed {
 			rawIA, err := ioutil.ReadFile(fmt.Sprintf("%s/gen/ia", os.Getenv("SC")))
 			if err != nil {
-				log.Fatalf("Error: Unable to read ia file from $SC/gen/ia: %v", err)
+				log.Fatalf("Error: Unable to read ia file from $SC/gen/ia: %v\n"+
+					"Please make sure that the file exists and "+
+					"the environment variable $SC is set or "+
+					"use the localAS flag.", err)
 			}
-			localIA, _ = addr.IAFromFileFmt(strings.TrimSpace(string(rawIA[:])), false)
+			localIA, err = addr.IAFromFileFmt(strings.TrimSpace(string(rawIA[:])), false)
+			if err != nil {
+				log.Fatalf("Error: Failed to parse IAin $SC/gen/ia: %v", err)
+			}
 		} else {
 			localIA, err = addr.IAFromString(*localAS)
 			if err != nil {

@@ -79,7 +79,9 @@ func TestFullCoverageSCION(t *testing.T) {
 	log.Warn("Done sending queries for cached entries from a recursive lookup")
 
 	//Restart caching resolver from checkpoint
-	time.Sleep(1000 * time.Millisecond) //make sure that caches are checkpointed
+
+	checkCheckpoint(t) //make sure that caches are checkpointed
+
 	cachingResolver.Shutdown()
 	conf, err = rainsd.LoadConfig("testdata/conf/SCIONresolver2.conf")
 	if err != nil {
@@ -221,7 +223,7 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 		t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 	}
 	log.Info("Started rainsd resolver", "cmd", resolverCmd)
-	time.Sleep(5000 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 
 	// Load queries with expected answer
 	qs, as := loadSCIONQueriesAndAnswers(t)

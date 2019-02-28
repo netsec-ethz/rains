@@ -23,7 +23,9 @@ import (
 	"io/ioutil"
 )
 
-const maxUDPPacketBytes = 9000
+const MaxUDPPacketBytes = 9000
+const vpnServerIP = "10.0.8.1:1194"
+const vpnServerPublicIP = "192.33.93.195:1194"
 
 //Info contains address information about one actor of a connection of the declared type
 type Info struct {
@@ -147,10 +149,10 @@ func choosePathSCION(ctx context.Context, local, remote *snet.Addr) *sd.PathRepl
 
 func getLocalIP() (net.IP, error) {
 	// check if we are using the default VPN
-	conn, err := net.Dial("udp", "10.0.8.1:1194")
+	conn, err := net.Dial("udp", vpnServerIP)
 	if err != nil {
 		// check what the outbound address is for Internet traffic
-		conn, err = net.Dial("udp", "192.33.93.195:1194")
+		conn, err = net.Dial("udp", vpnServerPublicIP)
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("Failed to determine local address: %v",
 				err))
@@ -177,7 +179,7 @@ func Listen(conn net.Conn, tok token.Token, done chan<- message.Message, ec chan
 			return
 		}
 	case *snet.Addr:
-		buf := make([]byte, maxUDPPacketBytes)
+		buf := make([]byte, MaxUDPPacketBytes)
 		n, _, err := conn.(snet.Conn).ReadFromSCION(buf)
 		if err != nil {
 			ec <- fmt.Errorf("Failed to ReadFromSCION: %v", err)

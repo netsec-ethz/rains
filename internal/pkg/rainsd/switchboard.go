@@ -22,8 +22,6 @@ import (
 	"github.com/scionproto/scion/go/lib/snet"
 )
 
-const maxUDPPacketBytes = 9000
-
 //sendTo sends message to the specified receiver.
 func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 	backoffMilliSeconds int) (err error) {
@@ -190,7 +188,7 @@ func (s *Server) listen(id string) {
 				return
 			default:
 			}
-			buf := make([]byte, maxUDPPacketBytes)
+			buf := make([]byte, connection.MaxUDPPacketBytes)
 			n, addr, err := listener.ReadFromSCION(buf)
 			if err != nil {
 				log.Warn("Failed to ReadFromSCION", "err", err)

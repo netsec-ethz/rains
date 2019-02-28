@@ -82,7 +82,8 @@ func TestFullCoverage(t *testing.T) {
 	log.Warn("Done sending queries for cached entries from a recursive lookup")
 
 	//Restart caching resolver from checkpoint
-	time.Sleep(1000 * time.Millisecond) //make sure that caches are checkpointed
+	checkCheckpoint(t) //make sure that caches are checkpointed
+
 	cachingResolver.Shutdown()
 	conf, err = rainsd.LoadConfig("testdata/conf/resolver2.conf")
 	if err != nil {
@@ -101,7 +102,6 @@ func TestFullCoverage(t *testing.T) {
 	}
 	log.Warn("Done sending queries for cached entries that are preloaded")
 	cachingResolver2.Shutdown()
-	time.Sleep(2 * time.Second)
 }
 
 func TestFullCoverageCLITools(t *testing.T) {
@@ -256,6 +256,30 @@ func keySetup(t *testing.T, keyPath string) {
 	if err := keyManager.SelfSignedDelegation(fmt.Sprintf("%s/root", keyPath),
 		"testdata/keys/selfSignedRootDelegationAssertion.gob", "", ".", ".", 24*time.Hour); err != nil {
 		t.Fatalf("Was not able to self sign root key pair: %v", err)
+	}
+}
+
+func checkCheckpoint(t *testing.T) {
+	checkpointPath := "testdata/checkpoint/resolver/zoneKeyCheckPoint.gob"
+	var modTime time.Time
+	if info, err := os.Stat(checkpointPath); err == nil {
+		modTime = info.ModTime()
+	}
+	for i := 0; ; i++ {
+		if info, err := os.Stat(checkpointPath); err == nil {
+			if modTime != info.ModTime() {
+				break
+			}
+			if i > 10 {
+				t.Fatalf("Was not able to confirm checkpointing: t1=%v, tn=%v", modTime, info.ModTime())
+			}
+		} else {
+			if i > 10 {
+				t.Fatalf("Was not able to confirm checkpointing, missing file: %v", err)
+			}
+		}
+
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 

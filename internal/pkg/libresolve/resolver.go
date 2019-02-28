@@ -40,8 +40,6 @@ const (
 	Forward
 )
 
-const maxUDPPacketBytes = 9000
-
 var AllowedAddrTypes = map[object.Type]bool{
 	object.OTIP6Addr:    true,
 	object.OTIP4Addr:    true,
@@ -393,16 +391,16 @@ func (r *Resolver) handleZone(z *section.Zone, redirMap map[string]string,
 func (r *Resolver) handleRedirect(name string, srvMap map[string]object.ServiceInfo,
 	ipMap map[string]string, nameMap map[string]object.Name, allowedTypes map[object.Type]bool) (
 	net.Addr, error) {
+	var err error
 	if allowedTypes[object.OTIP6Addr] || allowedTypes[object.OTIP4Addr] || allowedTypes[object.OTScionAddr6] || allowedTypes[object.OTScionAddr4] {
 		if ipAddr, ok := ipMap[name]; ok {
 			var addr net.Addr
-			addr, err := net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", ipAddr, rainsPort))
-			if err != nil {
-				log.Info("ResolveTCPAddr: Not an IP addr, will try as an SCION address", "addr", addr, "ipAddr", ipAddr, "err", err)
-
+			var tcpErr error
+			addr, tcpErr = net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", ipAddr, rainsPort))
+			if tcpErr != nil {
 				addr, err = snet.AddrFromString(fmt.Sprintf("%s:%d", ipAddr, rainsPort))
 				if err != nil {
-					log.Error("Not an IP addr nor a SCION addr at handleRedirect OTXAddrX", "addr", addr, "err", err)
+					log.Error("Not an IP addr nor a SCION addr at handleRedirect OTXAddrX", "addr", addr, "tcpErr", tcpErr, "scionErr", err)
 				}
 			}
 			return addr, err
@@ -411,18 +409,16 @@ func (r *Resolver) handleRedirect(name string, srvMap map[string]object.ServiceI
 	if allowedTypes[object.OTServiceInfo] && strings.HasPrefix(name, rainsPrefix) {
 		if srvVal, ok := srvMap[name]; ok {
 			var addr net.Addr
-			var err error
+			var tcpErr error
 			if addr, err = r.handleRedirect(srvVal.Name, srvMap, ipMap, nameMap,
 				AllowedAddrTypes); err == nil {
 				portSep := strings.LastIndex(addr.String(), ":")
 				ip := addr.String()[:portSep]
-				addr, err = net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", ip, srvVal.Port))
-				if err != nil {
-					log.Info("ResolveTCPAddr: Not an IP addr, will try as an SCION address", "addr", addr, "err", err)
-
+				addr, tcpErr = net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", ip, srvVal.Port))
+				if tcpErr != nil {
 					addr, err = snet.AddrFromString(fmt.Sprintf("%s:%d", ip, srvVal.Port))
 					if err != nil {
-						log.Error("Not and IP addr nor a SCION addr at handleRedirect OTXAddrX", "addr", addr, "err", err)
+						log.Error("Not and IP addr nor a SCION addr at handleRedirect OTXAddrX", "addr", addr, "tcpErr", tcpErr, "scionErr", err)
 					}
 				}
 				return addr, err
@@ -452,7 +448,7 @@ func (r *Resolver) handleRedirect(name string, srvMap map[string]object.ServiceI
 func (r *Resolver) answerDelegQueries(conn net.Conn) {
 	reader := cbor.NewReader(conn)
 	writer := cbor.NewWriter(conn)
-	buf := make([]byte, maxUDPPacketBytes)
+	buf := make([]byte, connection.MaxUDPPacketBytes)
 
 	breaking := false
 	for {
