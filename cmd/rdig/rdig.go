@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"strings"
 	"time"
 
@@ -12,6 +14,8 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
+	"github.com/scionproto/scion/go/lib/addr"
+	"github.com/scionproto/scion/go/lib/snet"
 	flag "github.com/spf13/pflag"
 )
 
@@ -28,6 +32,17 @@ var insecureTLS = flag.BoolP("insecureTLS", "i", false,
 	"when set it does not check the validity of the server's TLS certificate. (default false)")
 var tok = flag.StringP("token", "t", "",
 	"specifies a token to be used in the query instead of using a randomly generated one.")
+
+//SCION settings
+var dispatcherSock = flag.String("dispatcherSock", "/run/shm/dispatcher/default.sock",
+	"Path to the dispatcher socket.")
+var sciondSock = flag.String("sciondSock", "/run/shm/sciond/default.sock",
+	"Path to the sciond socket.")
+var localAS = flag.String("localAS", "",
+	"SCION AS identifier of the host running rdig. e.g. 1-ff00:0:110\n"+
+		"By default the value in $SC/gen/ia is used. Make sure to set this flag when "+
+		"either the environment variable $SC is not set or "+
+		"you are running multiple ASes and the file $SC/gen/ia does not exist.")
 
 //Query Options
 var minEE = flag.BoolP("minEE", "1", false, "Query option: Minimize end-to-end latency")
@@ -69,15 +84,49 @@ func main() {
 	default:
 		fmt.Println("Error: too many arguments")
 	}
-	if _, err := net.ResolveIPAddr("", server); err != nil {
+	if server == "" {
 		//FIXME
 		log.Fatal("Error: default server not yet implemented. Please specify a server addr")
 	}
 
-	tcpAddr, err := net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", server, *port))
+	var serverAddr net.Addr
+	serverAddr, err := snet.AddrFromString(fmt.Sprintf("%s:%d", server, *port))
 	if err != nil {
-		log.Fatalf("Error: serverAddr or port malformed: %v", err)
+		// was not a valid SCION address, try to parse it as a regular IP address
+		serverAddr, err = net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", server, *port))
+		if err != nil {
+			log.Fatalf("Error: serverAddr or port malformed: %v", err)
+		}
+	} else {
+		// talking to server over SCION, initialize snet
+		var localIA addr.IA
+		if !flag.Lookup("localAS").Changed {
+			rawIA, err := ioutil.ReadFile(fmt.Sprintf("%s/gen/ia", os.Getenv("SC")))
+			if err != nil {
+				log.Fatalf("Error: Unable to read ia file from $SC/gen/ia: %v\n"+
+					"Please make sure that the file exists and "+
+					"the environment variable $SC is set or "+
+					"use the localAS flag.", err)
+			}
+			localIA, err = addr.IAFromFileFmt(strings.TrimSpace(string(rawIA[:])), false)
+			if err != nil {
+				log.Fatalf("Error: Failed to parse IAin $SC/gen/ia: %v", err)
+			}
+		} else {
+			localIA, err = addr.IAFromString(*localAS)
+			if err != nil {
+				log.Fatalf("localAS value is not valid: %v", err)
+			}
+		}
+		SCIONLocal, err := snet.AddrFromString(fmt.Sprintf("%s,[127.0.0.1]:0", localIA.String()))
+		if err != nil {
+			log.Fatalf("Error: invalid local AS id from flag localAS: %v", err)
+		}
+		if err := snet.Init(SCIONLocal.IA, *sciondSock, *dispatcherSock); err != nil {
+			log.Fatalf("failed to initialize snet: %v", err)
+		}
 	}
+
 	t := token.New()
 	if flag.Lookup("token").Changed {
 		for i := 0; i < len(*tok); i++ {
@@ -91,7 +140,7 @@ func main() {
 
 	msg := util.NewQueryMessage(name, *context, *expires, types, parseAllQueryOptions(), t)
 
-	answerMsg, err := util.SendQuery(msg, tcpAddr, time.Second)
+	answerMsg, err := util.SendQuery(msg, serverAddr, time.Second)
 	if err != nil {
 		log.Fatalf("was not able to send query: %v", err)
 	}

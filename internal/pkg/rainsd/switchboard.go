@@ -22,8 +22,6 @@ import (
 	"github.com/scionproto/scion/go/lib/snet"
 )
 
-const maxUDPPacketBytes = 9000
-
 //sendTo sends message to the specified receiver.
 func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 	backoffMilliSeconds int) (err error) {
@@ -98,7 +96,7 @@ func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 func (s *Server) sendToRecursiveResolver(msg message.Message) {
 	for _, sec := range msg.Content {
 		if q, ok := sec.(*query.Name); ok {
-			go s.resolver.ServerLookup(q, s.config.ServerAddress.Addr, msg.Token)
+			go s.resolver.ServerLookup(q, s.Addr(), msg.Token)
 		}
 	}
 }
@@ -117,25 +115,32 @@ func createConnection(receiver net.Addr, keepAlive time.Duration, pool *x509.Cer
 }
 
 //Listen listens for incoming connections and creates a go routine for each connection.
-func (s *Server) listen() {
-	srvLogger := log.New("addr", s.config.ServerAddress.Addr.String())
+func (s *Server) listen(id string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered in listen", r, "id", id)
+			return
+		}
+
+	}()
+	srvLogger := log.New("id", id, "addr", s.Addr().String())
 	switch s.config.ServerAddress.Type {
 	case connection.TCP:
 		srvLogger.Info("Start TCP listener")
 		tlsConfig := &tls.Config{Certificates: []tls.Certificate{s.tlsCert}, InsecureSkipVerify: true}
-		listener, err := tls.Listen(s.config.ServerAddress.Addr.Network(),
+		listener, err := tls.Listen(s.Addr().Network(),
 			s.config.ServerAddress.Addr.String(), tlsConfig)
 		if err != nil {
 			srvLogger.Error("Listener error on startup", "error", err)
 			return
 		}
 		defer listener.Close()
-		defer srvLogger.Info("Shutdown listener")
+		defer srvLogger.Info("TCP Shutdown listener")
 		for {
 			select {
 			case <-s.shutdown:
 				// break out of the loop when receiving shutdown
-				srvLogger.Info("Received shutdown signal")
+				srvLogger.Info("Received shutdown signal from TCP")
 				return
 			default:
 			}
@@ -160,30 +165,33 @@ func (s *Server) listen() {
 			log.Warn(fmt.Sprintf("Type assertion failed. Expected *connection.SCIONAddr, got %T", addr))
 			return
 		}
-		if err := snet.Init(addr.IA, s.config.SciondSock, s.config.DispatcherSock); err != nil {
-			log.Warn("failed to snet.Init: %v", err)
-			return
+		if snet.DefNetwork == nil {
+			if err := snet.Init(addr.IA, s.config.SciondSock, s.config.DispatcherSock); err != nil {
+				log.Warn("failed to initialize snet", "err", err)
+				return
+			}
 		}
 		listener, err := snet.ListenSCION("udp4", addr)
+		srvLogger.Info(fmt.Sprintf("Started SCION listener on %v", addr), "id", id)
 		if err != nil {
-			log.Warn("failed to ListenSCION: %v", err)
+			log.Warn("failed to ListenSCION", "err", err)
 			return
 		}
 		defer listener.Close()
-		defer srvLogger.Info("Shutdown listener")
+		defer srvLogger.Info("SCION Shutdown listener", "id", id)
 		s.scionConn = listener
 		for {
 			select {
 			case <-s.shutdown:
 				// break out of the loop when receiving shutdown
-				srvLogger.Info("Received shutdown signal")
+				srvLogger.Info("Received shutdown signal from SCION")
 				return
 			default:
 			}
-			buf := make([]byte, maxUDPPacketBytes)
+			buf := make([]byte, connection.MaxUDPPacketBytes)
 			n, addr, err := listener.ReadFromSCION(buf)
 			if err != nil {
-				log.Warn("Failed to ReadFromSCION: %v", err)
+				log.Warn("Failed to ReadFromSCION", "err", err)
 				continue
 			}
 			data := buf[:n]
@@ -191,7 +199,8 @@ func (s *Server) listen() {
 			// manually stick the remote endpoint address in the handler.
 			var msg message.Message
 			if err := cbor.NewReader(bytes.NewReader(data)).Unmarshal(&msg); err != nil {
-				log.Warn("failed to unmarshal CBOR: %v", err)
+				log.Warn("failed to unmarshal CBOR", "err", err)
+				continue
 			}
 			deliver(&msg, addr,
 				s.queues.Prio, s.queues.Normal, s.queues.Notify, s.caches.PendingKeys)

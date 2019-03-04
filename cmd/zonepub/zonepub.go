@@ -13,6 +13,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
+	"github.com/scionproto/scion/go/lib/snet"
 	"github.com/spf13/cobra"
 )
 
@@ -280,7 +281,11 @@ func (i *addressesFlag) Set(value string) error {
 		if tcpAddr, err := net.ResolveTCPAddr("tcp", addr); err == nil {
 			i.value = append(i.value, connection.Info{Type: connection.TCP, Addr: tcpAddr})
 		} else {
-			return err
+			if scionAddr, err := snet.AddrFromString(value); err == nil {
+				i.value = append(i.value, connection.Info{Type: connection.SCION, Addr: scionAddr})
+			} else {
+				return err
+			}
 		}
 	}
 	i.set = true

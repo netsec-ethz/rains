@@ -122,6 +122,7 @@ func (s *Server) workBoth() {
 			time.Sleep(time.Second)
 			close(s.queues.Normal)
 			close(s.queues.NormalW)
+			log.Debug("Closed normal server channels")
 			return
 		default:
 		}

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"bytes"
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/cache"
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
@@ -165,12 +166,24 @@ func (r *Resolver) createConnAndWrite(addr net.Addr, msg *message.Message) {
 		log.Error("Was not able to open a connection", "dst", addr)
 		return
 	}
-	r.Connections.AddConnection(conn)
 	go r.answerDelegQueries(conn)
-	writer := cbor.NewWriter(conn)
-	if err := writer.Marshal(msg); err != nil {
-		log.Error("failed to marshal message", err)
-		r.Connections.CloseAndRemoveConnections(addr)
+
+	switch conn.LocalAddr().(type) {
+	case *net.TCPAddr:
+		r.Connections.AddConnection(conn)
+		writer := cbor.NewWriter(conn)
+		if err := writer.Marshal(&msg); err != nil {
+			log.Error("failed to marshal message", err)
+			r.Connections.CloseAndRemoveConnections(addr)
+		}
+	case *snet.Addr:
+		encoding := new(bytes.Buffer)
+		if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
+			log.Error("failed to marshal message to conn:", err)
+		}
+		if _, err := conn.Write(encoding.Bytes()); err != nil {
+			log.Error("unable to write encoded message to connection:", err)
+		}
 	}
 }
 
@@ -212,6 +225,7 @@ func (r *Resolver) recursiveResolve(q *query.Name, recurseCount int) (*message.M
 			msg := message.Message{Token: token.New(), Content: []section.Section{q}}
 			answer, err := r.sendQuery(msg, addr, r.DialTimeout*time.Millisecond)
 			if err != nil || len(answer.Content) == 0 {
+				log.Debug("error in send query", "err", err)
 				break
 			}
 			log.Info("recursive resolver rcv answer", "answer", answer, "query", q)
@@ -377,22 +391,37 @@ func (r *Resolver) handleZone(z *section.Zone, redirMap map[string]string,
 func (r *Resolver) handleRedirect(name string, srvMap map[string]object.ServiceInfo,
 	ipMap map[string]string, nameMap map[string]object.Name, allowedTypes map[object.Type]bool) (
 	net.Addr, error) {
-	if allowedTypes[object.OTIP6Addr] || allowedTypes[object.OTIP4Addr] {
+	var err error
+	if allowedTypes[object.OTIP6Addr] || allowedTypes[object.OTIP4Addr] || allowedTypes[object.OTScionAddr6] || allowedTypes[object.OTScionAddr4] {
 		if ipAddr, ok := ipMap[name]; ok {
-			return net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", ipAddr, rainsPort))
-		}
-	}
-	if allowedTypes[object.OTScionAddr6] || allowedTypes[object.OTScionAddr4] {
-		if ipAddr, ok := ipMap[name]; ok {
-			return snet.AddrFromString(fmt.Sprintf("%s:%d", ipAddr, rainsPort))
+			var addr net.Addr
+			var tcpErr error
+			addr, tcpErr = net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", ipAddr, rainsPort))
+			if tcpErr != nil {
+				addr, err = snet.AddrFromString(fmt.Sprintf("%s:%d", ipAddr, rainsPort))
+				if err != nil {
+					log.Error("Not an IP addr nor a SCION addr at handleRedirect OTXAddrX", "addr", addr, "tcpErr", tcpErr, "scionErr", err)
+				}
+			}
+			return addr, err
 		}
 	}
 	if allowedTypes[object.OTServiceInfo] && strings.HasPrefix(name, rainsPrefix) {
 		if srvVal, ok := srvMap[name]; ok {
-			if addr, err := r.handleRedirect(srvVal.Name, srvMap, ipMap, nameMap,
+			var addr net.Addr
+			var tcpErr error
+			if addr, err = r.handleRedirect(srvVal.Name, srvMap, ipMap, nameMap,
 				AllowedAddrTypes); err == nil {
-				ip := strings.Split(addr.String(), ":")[0]
-				return net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", ip, srvVal.Port))
+				portSep := strings.LastIndex(addr.String(), ":")
+				ip := addr.String()[:portSep]
+				addr, tcpErr = net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", ip, srvVal.Port))
+				if tcpErr != nil {
+					addr, err = snet.AddrFromString(fmt.Sprintf("%s:%d", ip, srvVal.Port))
+					if err != nil {
+						log.Error("Not and IP addr nor a SCION addr at handleRedirect OTXAddrX", "addr", addr, "tcpErr", tcpErr, "scionErr", err)
+					}
+				}
+				return addr, err
 			}
 		}
 	}
@@ -404,7 +433,10 @@ func (r *Resolver) handleRedirect(name string, srvMap map[string]object.ServiceI
 			}
 			if as, err := r.handleRedirect(nameVal.Name, srvMap, ipMap, nameMap,
 				allowTypes); err == nil {
-				return as, nil
+				if as == nil {
+					log.Error("Nil addr at handleRedirect OTName", "as", as, "err", err)
+				}
+				return as, err
 			}
 		}
 	}
@@ -416,23 +448,61 @@ func (r *Resolver) handleRedirect(name string, srvMap map[string]object.ServiceI
 func (r *Resolver) answerDelegQueries(conn net.Conn) {
 	reader := cbor.NewReader(conn)
 	writer := cbor.NewWriter(conn)
+	buf := make([]byte, connection.MaxUDPPacketBytes)
+
+	breaking := false
 	for {
 		var msg message.Message
-		if err := reader.Unmarshal(&msg); err != nil {
-			if err.Error() == "failed to read tag: EOF" {
-				log.Info("Connection has been closed", "remoteAddr", conn.RemoteAddr())
-			} else {
-				log.Warn(fmt.Sprintf("failed to read from client: %v", err))
+		switch conn.LocalAddr().(type) {
+		case *net.TCPAddr:
+			if err := reader.Unmarshal(&msg); err != nil {
+				if err.Error() == "failed to read tag: EOF" {
+					log.Info("Connection has been closed", "remoteAddr", conn.RemoteAddr())
+				} else {
+					log.Warn(fmt.Sprintf("failed to read from client: %v", err))
+				}
+				r.Connections.CloseAndRemoveConnection(conn)
+				breaking = true
 			}
-			r.Connections.CloseAndRemoveConnection(conn)
+		case *snet.Addr:
+			n, _, err := conn.(snet.Conn).ReadFromSCION(buf)
+			if err != nil {
+				log.Warn("Failed to ReadFromSCION", "err", err)
+				breaking = true
+			}
+			data := buf[:n]
+			if err := cbor.NewReader(bytes.NewReader(data)).Unmarshal(&msg); err != nil {
+				log.Warn("failed to unmarshal CBOR", "err", err)
+				breaking = true
+			}
+		}
+		if breaking {
 			break
 		}
+
 		answer := r.getDelegations(msg)
 		log.Info("received delegation query. Answer with cached assertions", "query", msg, "assertions", answer)
 		msg = message.Message{Token: msg.Token, Content: answer}
-		if err := writer.Marshal(&msg); err != nil {
-			log.Error("failed to marshal message", err)
-			r.Connections.CloseAndRemoveConnection(conn)
+
+		switch conn.LocalAddr().(type) {
+		case *net.TCPAddr:
+			if err := writer.Marshal(&msg); err != nil {
+				log.Error("failed to marshal message", err)
+				r.Connections.CloseAndRemoveConnection(conn)
+				breaking = true
+			}
+		case *snet.Addr:
+			encoding := new(bytes.Buffer)
+			if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
+				log.Error("failed to marshal message to conn", err)
+				breaking = true
+			}
+			if _, err := conn.Write(encoding.Bytes()); err != nil {
+				log.Error("unable to write encoded message to connection", err)
+				breaking = true
+			}
+		}
+		if breaking {
 			break
 		}
 	}
