@@ -13,35 +13,20 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
-	"github.com/scionproto/scion/go/lib/snet"
 )
 
 var scionIP4Addr = regexp.MustCompile(`:scionip4:(?P<addr>\d+-[\d:A-Fa-f]+,\[[^\]]+\])`)
 
 // QueryName queries the RAINS server at addr for name and returns the raw reply for the given type
-// addr must either be a *snet.Addr or *net.TCPAddr
-func QueryName(name, context string, types []string, opts []int, timeout time.Duration,
-	addr string, port uint16) (*message.Message, error) {
-
-	var serverAddr net.Addr
-	serverAddr, err := snet.AddrFromString(fmt.Sprintf("%s:%d", addr, port))
-	if err != nil {
-		// Not a valid SCION address, try to parse it as a regular IP address
-		serverAddr, err = net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", addr, port))
-		if err != nil {
-			return nil, err
-		}
-	}
+func QueryName(name, context string, types []string, opts []int,
+	timeout time.Duration, addr net.Addr) (*message.Message, error) {
 
 	token := token.New()
 	qOpts := parseQueryOption(opts)
 	qTypes := parseTypes(types)
-	if err != nil {
-		return nil, err
-	}
 
 	msg := util.NewQueryMessage(name, context, time.Now().Add(timeout).Unix(), qTypes, qOpts, token)
-	reply, err := util.SendQuery(msg, serverAddr, time.Second)
+	reply, err := util.SendQuery(msg, addr, time.Second)
 	if err != nil {
 		return nil, err
 	}
