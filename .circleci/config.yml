@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: scionproto/scion_base
+      - image: ethznetsec/scion_base
     working_directory: /tmp/go/src/github.com/netsec-ethz/rains
     steps:
       - run:
