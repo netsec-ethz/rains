@@ -40,7 +40,7 @@ func (m *Message) ParseMessage() (map[Type]string, error) {
 	return vals, nil
 }
 
-func (m *Message) String() string {
+func (m Message) String() string {
 	return formatSections(m.msg.Content)
 }
 
@@ -58,7 +58,13 @@ func Query(name, context string, types []Type, opts []Option,
 		return nil, err
 	}
 
-	return res, nil
+	// only return requested types
+	var m = map[Type]string{}
+	for _, t := range types {
+		m[t] = res[t]
+	}
+
+	return m, nil
 }
 
 // QueryRaw queries the RAINS server at addr for name and returns the raw reply
