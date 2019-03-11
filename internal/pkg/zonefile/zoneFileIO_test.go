@@ -3,7 +3,9 @@ package zonefile
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io/ioutil"
+	"strings"
 	"testing"
 
 	"github.com/netsec-ethz/rains/internal/pkg/section"
@@ -40,4 +42,29 @@ func TestEncodeDecodeZone(t *testing.T) {
 			t.Error("One file has more content")
 		}
 	}
+
+	// Check reencoding single assertions works
+	scanner3 := bufio.NewScanner(bytes.NewReader(origData))
+	scanner3.Split(bufio.ScanLines)
+	go3 := scanner3.Scan()
+	var next string
+	for go3 {
+		next = scanner3.Text()
+		go3 = scanner3.Scan()
+	}
+
+	decodedSection := decode(t, []byte(next))[0]
+	stringSection := strings.TrimSpace(IO{}.Encode([]section.Section{decodedSection}))
+	if next != stringSection {
+		t.Error(fmt.Sprintf("Content is different:\nExpected:\t'%v'\nGot:\t\t'%v'", next, stringSection))
+	}
+}
+
+func decode(t *testing.T, input []byte) []section.WithSigForward {
+        zfParser := IO{}
+        sections, err := zfParser.Decode(input)
+        if err != nil {
+                t.Error(fmt.Sprintf("Was not able to parse section: %v", err))
+        }
+        return sections
 }
