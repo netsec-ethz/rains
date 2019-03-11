@@ -229,7 +229,7 @@ func encodeObjects(o []object.Object, indent string) string {
 //addIndentToType returns the object type ot with appropriate indent such that the object value start at the same
 //indent.
 func addIndentToType(ot string) string {
-	result := "          "
+	result := indent12
 	return ot + result[len(ot):]
 }
 
