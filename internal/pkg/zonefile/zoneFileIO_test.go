@@ -34,7 +34,7 @@ func TestEncodeDecodeZone(t *testing.T) {
 	}
 	for go1 {
 		if scanner1.Text() != scanner2.Text() {
-			t.Error("Content is different", scanner1.Text(), scanner2.Text())
+			t.Error("Content is different at token level", scanner1.Text(), scanner2.Text())
 		}
 		go1 = scanner1.Scan()
 		go2 = scanner2.Scan()
@@ -45,12 +45,25 @@ func TestEncodeDecodeZone(t *testing.T) {
 
 	// Check reencoding single assertions works
 	scanner3 := bufio.NewScanner(bytes.NewReader(origData))
+	scanner4 := bufio.NewScanner(bytes.NewReader(newData))
 	scanner3.Split(bufio.ScanLines)
+	scanner4.Split(bufio.ScanLines)
 	go3 := scanner3.Scan()
+	go4 := scanner4.Scan()
 	var next string
+	if go3 != go4 {
+		t.Error("One file has more lines")
+	}
 	for go3 {
+		if scanner3.Text() != scanner4.Text() {
+			t.Error("Content is different at line level", scanner3.Text(), scanner4.Text())
+		}
 		next = scanner3.Text()
 		go3 = scanner3.Scan()
+		go4 = scanner4.Scan()
+		if go3 != go4 {
+			t.Error("One file has more lines")
+		}
 	}
 
 	decodedSection := decode(t, []byte(next))[0]

@@ -105,7 +105,7 @@ func getObjectsAndEncodings() (objectIndent, []string) {
 	infraObject0 := object.Object{Type: object.OTInfraKey, Value: publicKey}
 	infraObjectEncoding0 := fmt.Sprintf(":infra:     :ed25519: 0 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
 	extraObject0 := object.Object{Type: object.OTExtraKey, Value: publicKey}
-	extraObjectEncoding0 := fmt.Sprintf(":extra:      :ed25519: 0 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
+	extraObjectEncoding0 := fmt.Sprintf(":extra:     :ed25519: 0 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
 	nextObject0 := object.Object{Type: object.OTNextKey, Value: publicKeyWithValidity}
 	nextObjectEncoding0 := fmt.Sprintf(":next:      :ed25519: 0 %s 1000 20000\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
 

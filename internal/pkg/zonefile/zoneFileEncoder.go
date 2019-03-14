@@ -124,9 +124,9 @@ func encodeBloomFilter(b section.BloomFilter) string {
 func encodeAssertion(a *section.Assertion, context, zone, indent string, addZoneAndContext bool) string {
 	var assertion string
 	if addZoneAndContext {
-		assertion = fmt.Sprintf("%s%s %s %s %s [ ", indent, TypeAssertion, a.SubjectName, zone, context)
+		assertion = fmt.Sprintf("%s%s %s %s %s [", indent, TypeAssertion, a.SubjectName, zone, context)
 	} else {
-		assertion = fmt.Sprintf("%s%s %s [ ", indent, TypeAssertion, a.SubjectName)
+		assertion = fmt.Sprintf("%s%s %s [", indent, TypeAssertion, a.SubjectName)
 	}
 	signature := ""
 	if a.Signatures != nil {
@@ -143,7 +143,7 @@ func encodeAssertion(a *section.Assertion, context, zone, indent string, addZone
 	if len(a.Content) > 1 {
 		return fmt.Sprintf("%s\n%s\n%s]%s", assertion, encodeObjects(a.Content, indent+indent4), indent, signature)
 	}
-	return fmt.Sprintf("%s%s ]%s", assertion, encodeObjects(a.Content, ""), signature)
+	return fmt.Sprintf("%s %s ]%s", assertion, encodeObjects(a.Content, ""), signature)
 }
 
 //encodeObjects returns o in zonefile format.
@@ -200,21 +200,21 @@ func encodeObjects(o []object.Object, indent string) string {
 			if pkey, ok := obj.Value.(keys.PublicKey); ok {
 				encoding += fmt.Sprintf("%s%s", addIndentToType(TypeInfraKey), encodeEd25519PublicKey(pkey))
 			} else {
-				log.Warn("Type assertion failed. Expected object.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+				log.Warn("Type assertion failed. Expected object.OTInfraKey", "actualType", fmt.Sprintf("%T", obj.Value))
 				return ""
 			}
 		case object.OTExtraKey:
 			if pkey, ok := obj.Value.(keys.PublicKey); ok {
-				encoding += fmt.Sprintf("%s %s", addIndentToType(TypeExternalKey), encodeEd25519PublicKey(pkey))
+				encoding += fmt.Sprintf("%s%s", addIndentToType(TypeExternalKey), encodeEd25519PublicKey(pkey))
 			} else {
-				log.Warn("Type assertion failed. Expected object.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+				log.Warn("Type assertion failed. Expected object.OTExtraKey", "actualType", fmt.Sprintf("%T", obj.Value))
 				return ""
 			}
 		case object.OTNextKey:
 			if pkey, ok := obj.Value.(keys.PublicKey); ok {
 				encoding += fmt.Sprintf("%s%s %d %d", addIndentToType(TypeNextKey), encodeEd25519PublicKey(pkey), pkey.ValidSince, pkey.ValidUntil)
 			} else {
-				log.Warn("Type assertion failed. Expected object.PublicKey", "actualType", fmt.Sprintf("%T", obj.Value))
+				log.Warn("Type assertion failed. Expected object.OTNextKey ", "actualType", fmt.Sprintf("%T", obj.Value))
 				return ""
 			}
 		default:
