@@ -77,37 +77,37 @@ func getObjectsAndEncodings() (objectIndent, []string) {
 	}
 
 	nameObject0 := object.Object{Type: object.OTName, Value: nameObjectContent}
-	nameObjectEncoding0 := ":name:    ethz2.ch [ :ip4: :ip6: ]\n"
+	nameObjectEncoding0 := ":name:      ethz2.ch [ :ip4: :ip6: ]\n"
 	ip6Object0 := object.Object{Type: object.OTIP6Addr, Value: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"}
-	ip6ObjectEncoding0 := ":ip6:     2001:0db8:85a3:0000:0000:8a2e:0370:7334\n"
+	ip6ObjectEncoding0 := ":ip6:       2001:0db8:85a3:0000:0000:8a2e:0370:7334\n"
 	ip4Object0 := object.Object{Type: object.OTIP4Addr, Value: "127.0.0.1"}
-	ip4ObjectEncoding0 := ":ip4:     127.0.0.1\n"
+	ip4ObjectEncoding0 := ":ip4:       127.0.0.1\n"
 	redirObject0 := object.Object{Type: object.OTRedirection, Value: "ns.ethz.ch"}
-	redirObjectEncoding0 := ":redir:   ns.ethz.ch\n"
+	redirObjectEncoding0 := ":redir:     ns.ethz.ch\n"
 	delegObject0 := object.Object{Type: object.OTDelegation, Value: publicKey}
-	delegObjectEncoding0 := fmt.Sprintf(":deleg:   :ed25519: 0 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
+	delegObjectEncoding0 := fmt.Sprintf(":deleg:     :ed25519: 0 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
 	nameSetObject0 := object.Object{Type: object.OTNameset, Value: object.NamesetExpr("Would be an expression")}
-	nameSetObjectEncoding0 := ":nameset: Would be an expression\n"
+	nameSetObjectEncoding0 := ":nameset:   Would be an expression\n"
 	certObject0 := object.Object{Type: object.OTCertInfo, Value: certificate0}
-	certObjectEncoding0 := fmt.Sprintf(":cert:    :tls: :endEntity: :sha256: %s\n", hex.EncodeToString(certificate0.Data))
+	certObjectEncoding0 := fmt.Sprintf(":cert:      :tls: :endEntity: :sha256: %s\n", hex.EncodeToString(certificate0.Data))
 	certObject1 := object.Object{Type: object.OTCertInfo, Value: certificate1}
-	certObjectEncoding1 := fmt.Sprintf(":cert:    :unspecified: :trustAnchor: :sha512: %s\n", hex.EncodeToString(certificate1.Data))
+	certObjectEncoding1 := fmt.Sprintf(":cert:      :unspecified: :trustAnchor: :sha512: %s\n", hex.EncodeToString(certificate1.Data))
 	certObject2 := object.Object{Type: object.OTCertInfo, Value: certificate2}
-	certObjectEncoding2 := fmt.Sprintf(":cert:    :unspecified: :trustAnchor: :sha384: %s\n", hex.EncodeToString(certificate2.Data))
+	certObjectEncoding2 := fmt.Sprintf(":cert:      :unspecified: :trustAnchor: :sha384: %s\n", hex.EncodeToString(certificate2.Data))
 	certObject3 := object.Object{Type: object.OTCertInfo, Value: certificate3}
-	certObjectEncoding3 := fmt.Sprintf(":cert:    :unspecified: :trustAnchor: :noHash: %s\n", hex.EncodeToString(certificate3.Data))
+	certObjectEncoding3 := fmt.Sprintf(":cert:      :unspecified: :trustAnchor: :noHash: %s\n", hex.EncodeToString(certificate3.Data))
 	serviceInfoObject0 := object.Object{Type: object.OTServiceInfo, Value: serviceInfo}
-	serviceInfoObjectEncoding0 := ":srv:     lookup 49830 1\n"
+	serviceInfoObjectEncoding0 := ":srv:       lookup 49830 1\n"
 	registrarObject0 := object.Object{Type: object.OTRegistrar, Value: "Registrar information"}
-	registrarObjectEncoding0 := ":regr:    Registrar information\n"
+	registrarObjectEncoding0 := ":regr:      Registrar information\n"
 	registrantObject0 := object.Object{Type: object.OTRegistrant, Value: "Registrant information"}
-	registrantObjectEncoding0 := ":regt:    Registrant information\n"
+	registrantObjectEncoding0 := ":regt:      Registrant information\n"
 	infraObject0 := object.Object{Type: object.OTInfraKey, Value: publicKey}
-	infraObjectEncoding0 := fmt.Sprintf(":infra:   :ed25519: 0 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
+	infraObjectEncoding0 := fmt.Sprintf(":infra:     :ed25519: 0 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
 	extraObject0 := object.Object{Type: object.OTExtraKey, Value: publicKey}
-	extraObjectEncoding0 := fmt.Sprintf(":extra:    :ed25519: 0 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
+	extraObjectEncoding0 := fmt.Sprintf(":extra:     :ed25519: 0 %s\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
 	nextObject0 := object.Object{Type: object.OTNextKey, Value: publicKeyWithValidity}
-	nextObjectEncoding0 := fmt.Sprintf(":next:    :ed25519: 0 %s 1000 20000\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
+	nextObjectEncoding0 := fmt.Sprintf(":next:      :ed25519: 0 %s 1000 20000\n", hex.EncodeToString(publicKey.Key.(ed25519.PublicKey)))
 
 	objects = append(objects, []object.Object{nameObject0, ip6Object0, ip4Object0, redirObject0, delegObject0, nameSetObject0, certObject0, serviceInfoObject0,
 		registrarObject0, registrantObject0, infraObject0, extraObject0, nextObject0})
