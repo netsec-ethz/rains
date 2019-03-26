@@ -90,7 +90,8 @@ func answerQueriesAuthoritative(qs []*query.Name, sender net.Addr, token token.T
 	log.Info("Start processing query as authority", "queries", qs)
 	for _, q := range qs {
 		for i, auth := range s.config.Authorities {
-			if strings.HasSuffix(q.Name, auth.Zone) && q.Context == auth.Context {
+			// check this server is authoritative for the name and the query has the right context
+			if strings.HasSuffix(q.Name, auth.Zone) && q.Name != auth.Zone && q.Context == auth.Context {
 				break
 			}
 			if i == len(s.config.Authorities)-1 {
@@ -202,7 +203,7 @@ func glueRecordNames(qs []*query.Name, zoneAuths []ZoneContext) map[ZoneContext]
 			if strings.HasSuffix(q.Name, auth.Zone) {
 				name := strings.TrimSuffix(q.Name, auth.Zone)
 				names := strings.Split(name, ".")
-				if names[len(names)-1] == "" {
+				if len(names) > 1 && names[len(names)-1] == "" {
 					name = fmt.Sprintf("%s.%s", names[len(names)-2], auth.Zone)
 				} else { //root zone
 					name = names[len(names)-1] + auth.Zone
