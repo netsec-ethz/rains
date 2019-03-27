@@ -31,29 +31,31 @@ func main() {
 
 	ts, err := object.ParseTypes(*t)
 	if err != nil || len(ts) != 1 {
-		log.Fatal("please provide a single, valid type")
+		log.Fatal("Please provide a single, valid type")
 	}
 
-	zone, err := zonefile.IO{}.LoadZonefile(*file)
+	zf, err := zonefile.IO{}.LoadZonefile(*file)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	sections := []section.Section{}
-	for _, e := range zone {
+	var zone *section.Zone
+	for _, e := range zf {
 		sections = append(sections, e)
+		z, ok := e.(*section.Zone)
+		if ok {
+			zone = z
+		}
 	}
-	if len(sections) < 1 {
-		log.Fatal("No zone found")
-	}
-	z, ok := sections[0].(*section.Zone)
-	if !ok {
+	if zone == nil {
 		log.Fatal("No zone found")
 	}
 
 	obj := object.Object{Type: ts[0], Value: *value}
 	assertions := []*section.Assertion{}
 	added := false
-	for _, e := range z.Content {
+	for _, e := range zone.Content {
 		if e.SubjectName != *name {
 			assertions = append(assertions, e)
 		} else {
@@ -83,7 +85,11 @@ func main() {
 		assertions = append(assertions, &a)
 	}
 
-	z.Content = assertions
-	z.Sort()
+	zone.Content = assertions
+	zone.Sort()
+	consistent := zone.IsConsistent()
+	if !consistent {
+		log.Fatal("Updated zonefile is not consistent")
+	}
 	zonefile.IO{}.EncodeAndStore(*file, sections)
 }
