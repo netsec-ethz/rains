@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"sort"
 
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
@@ -50,25 +49,41 @@ func main() {
 	if !ok {
 		log.Fatal("No zone found")
 	}
+
+	obj := object.Object{Type: ts[0], Value: *value}
 	assertions := []*section.Assertion{}
+	added := false
 	for _, e := range z.Content {
-		// if name already present discard it
-		if e.SubjectName == *name {
-			continue
+		if e.SubjectName != *name {
+			assertions = append(assertions, e)
+		} else {
+			// assertion for name exists
+			objs := []object.Object{}
+			for _, o := range e.Content {
+				if o.Type != ts[0] {
+					objs = append(objs, o)
+				} else {
+					// update the object to the new value
+					objs = append(objs, obj)
+					added = true
+				}
+			}
+			if !added {
+				objs = append(objs, obj)
+				added = true
+			}
+			a := section.Assertion{SubjectName: e.SubjectName, Content: objs}
+			a.Sort()
+			assertions = append(assertions, &a)
 		}
-		assertions = append(assertions, e)
 	}
 
-	// create new scionip4 assertion for name with given value
-	obj := object.Object{Type: ts[0], Value: *value}
-	assertion := section.Assertion{SubjectName: *name, Content: []object.Object{obj}}
+	if !added {
+		a := section.Assertion{SubjectName: *name, Content: []object.Object{obj}}
+		assertions = append(assertions, &a)
+	}
 
-	// add back the other assertions plus the newly created one
 	z.Content = assertions
-	z.Content = append(z.Content, &assertion)
-	// ensure sorted ordere
-	sort.Slice(z.Content, func(i, j int) bool {
-		return z.Content[i].SubjectName < z.Content[j].SubjectName
-	})
+	z.Sort()
 	zonefile.IO{}.EncodeAndStore(*file, sections)
 }
