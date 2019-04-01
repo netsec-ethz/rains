@@ -15,6 +15,7 @@ import (
     "errors"
 	"fmt"
 	"io/ioutil"
+    "net"
     "strconv"
     "strings"
     log "github.com/inconshreveable/log15"
@@ -468,16 +469,24 @@ oType           : nameType
                 }
 ip6             : ip6Type ID
                 {
+                    ip := net.ParseIP($2)
+                    if ip == nil {
+                        log.Error("semantic error:", "ParseIP", "not a valid IP")
+                    }
                     $$ = object.Object{
                         Type: object.OTIP6Addr,
-                        Value: $2,
+                        Value: ip,
                     }
                 }
 ip4             : ip4Type ID
                 {
+                    ip := net.ParseIP($2)
+                    if ip == nil {
+                        log.Error("semantic error:", "ParseIP", "not a valid IP")
+                    }
                     $$ = object.Object{
                         Type: object.OTIP4Addr,
-                        Value: $2,
+                        Value: ip,
                     }
                 }
 scionip6        : scionip6Type ID

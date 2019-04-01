@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"bytes"
+
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/cache"
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
@@ -134,6 +135,9 @@ func (r *Resolver) ServerLookup(query *query.Name, addr net.Addr, token token.To
 	var msg *message.Message
 	var err error
 	log.Info("recResolver received query", "query", query, "token", token)
+	if r == nil {
+		log.Error("Resolver has value:", r, r)
+	}
 	switch r.Mode {
 	case Recursive:
 		msg, err = r.recursiveResolve(query, 0)
@@ -351,9 +355,9 @@ func (r *Resolver) handleAssertion(a *section.Assertion, redirMap map[string]str
 		case object.OTServiceInfo:
 			srvMap[a.FQDN()] = o.Value.(object.ServiceInfo)
 		case object.OTIP6Addr:
-			ipMap[a.FQDN()] = o.Value.(string)
+			ipMap[a.FQDN()] = o.Value.(net.IP).String()
 		case object.OTIP4Addr:
-			ipMap[a.FQDN()] = o.Value.(string)
+			ipMap[a.FQDN()] = o.Value.(net.IP).String()
 		case object.OTScionAddr6:
 			ipMap[a.FQDN()] = o.Value.(string)
 		case object.OTScionAddr4:

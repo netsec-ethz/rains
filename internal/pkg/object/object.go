@@ -52,15 +52,13 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		if !ok {
 			return errors.New("cbor object encoding of ip6 not a byte array")
 		}
-		ip := net.IP(v)
-		obj.Value = ip.String()
+		obj.Value = net.IP(v)
 	case OTIP4Addr:
 		v, ok := in[1].([]byte)
 		if !ok {
 			return errors.New("cbor object encoding of ip6 not a byte array")
 		}
-		ip := net.IP(v)
-		obj.Value = ip.String()
+		obj.Value = net.IP(v)
 	case OTScionAddr6:
 		addrStr, ok := in[1].(string)
 		if !ok {
@@ -285,12 +283,16 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 		}
 		res = []interface{}{OTName, no.Name, ots}
 	case OTIP6Addr:
-		addrStr := obj.Value.(string)
-		addr := net.ParseIP(addrStr)
+		addr, ok := obj.Value.(net.IP)
+		if !ok {
+			return fmt.Errorf("expected OTIP6Addr to be net.IP but got: %T", obj.Value)
+		}
 		res = []interface{}{OTIP6Addr, []byte(addr)}
 	case OTIP4Addr:
-		addrStr := obj.Value.(string)
-		addr := net.ParseIP(addrStr)
+		addr, ok := obj.Value.(net.IP)
+		if !ok {
+			return fmt.Errorf("expected OTIP4Addr to be net.IP but got: %T", obj.Value)
+		}
 		res = []interface{}{OTIP4Addr, []byte(addr)}
 	case OTScionAddr6:
 		addrStr := obj.Value.(string)
@@ -411,6 +413,16 @@ func (o Object) CompareTo(object Object) int {
 			if v1 < v2 {
 				return -1
 			} else if v1 > v2 {
+				return 1
+			}
+		} else {
+			logObjectTypeAssertionFailure(object.Type, object.Value)
+		}
+	case net.IP:
+		if v2, ok := object.Value.(net.IP); ok {
+			if v1.String() < v2.String() {
+				return -1
+			} else if v1.String() > v2.String() {
 				return 1
 			}
 		} else {
