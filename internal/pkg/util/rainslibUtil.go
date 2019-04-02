@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bytes"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -19,8 +20,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
-
-	"bytes"
 	"github.com/scionproto/scion/go/lib/snet"
 	"golang.org/x/crypto/ed25519"
 )
@@ -35,6 +34,7 @@ func init() {
 	gob.Register(object.ServiceInfo{})
 	gob.Register(object.Certificate{})
 	gob.Register(object.Name{})
+	gob.Register(net.IP{})
 }
 
 //MaxCacheValidity defines the maximum duration each section containing signatures can be valid, starting from time.Now()

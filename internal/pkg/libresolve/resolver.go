@@ -2,13 +2,12 @@
 package libresolve
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"time"
-
-	"bytes"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/cache"
@@ -135,9 +134,6 @@ func (r *Resolver) ServerLookup(query *query.Name, addr net.Addr, token token.To
 	var msg *message.Message
 	var err error
 	log.Info("recResolver received query", "query", query, "token", token)
-	if r == nil {
-		log.Error("Resolver has value:", r, r)
-	}
 	switch r.Mode {
 	case Recursive:
 		msg, err = r.recursiveResolve(query, 0)
