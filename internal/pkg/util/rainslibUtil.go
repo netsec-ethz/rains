@@ -65,7 +65,7 @@ func Save(path string, object interface{}) error {
 	defer file.Close()
 	if err == nil {
 		encoder := gob.NewEncoder(file)
-		encoder.Encode(object)
+		err = encoder.Encode(object)
 	}
 	return err
 }
