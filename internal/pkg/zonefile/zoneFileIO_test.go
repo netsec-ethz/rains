@@ -34,7 +34,7 @@ func TestEncodeDecodeZone(t *testing.T) {
 	}
 	for go1 {
 		if scanner1.Text() != scanner2.Text() {
-			t.Error("Content is different at token level", scanner1.Text(), scanner2.Text())
+			t.Error("Content is different at token level", "a=", scanner1.Text(), "b=", scanner2.Text())
 		}
 		go1 = scanner1.Scan()
 		go2 = scanner2.Scan()
@@ -74,10 +74,10 @@ func TestEncodeDecodeZone(t *testing.T) {
 }
 
 func decode(t *testing.T, input []byte) []section.WithSigForward {
-        zfParser := IO{}
-        sections, err := zfParser.Decode(input)
-        if err != nil {
-                t.Error(fmt.Sprintf("Was not able to parse section: %v", err))
-        }
-        return sections
+	zfParser := IO{}
+	sections, err := zfParser.Decode(input)
+	if err != nil {
+		t.Error(fmt.Sprintf("Was not able to parse section: %v", err))
+	}
+	return sections
 }
