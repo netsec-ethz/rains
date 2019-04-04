@@ -26,6 +26,7 @@ import (
     "github.com/netsec-ethz/rains/internal/pkg/zonefile"
     "github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
     "github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
+    "github.com/scionproto/scion/go/lib/snet"
     "golang.org/x/crypto/ed25519"
 )
 
@@ -490,17 +491,25 @@ ip4             : ip4Type ID
                     }
                 }
 scionip6        : scionip6Type ID
-                {
+                {   
+                    addr, err := snet.AddrFromString($2)
+                    if err != nil {
+                        log.Error("semantic error:", "AddrFromString", "not a valid SCION address")
+                    }
                     $$ = object.Object{
                         Type: object.OTScionAddr6,
-                        Value: $2,
+                        Value: addr,
                     }
                 }
 scionip4        : scionip4Type ID
                 {
+                    addr, err := snet.AddrFromString($2)
+                    if err != nil {
+                        log.Error("semantic error:", "AddrFromString", "not a valid SCION address")
+                    }
                     $$ = object.Object{
                         Type: object.OTScionAddr4,
-                        Value: $2,
+                        Value: addr,
                     }
                 }
 redir           : redirType ID

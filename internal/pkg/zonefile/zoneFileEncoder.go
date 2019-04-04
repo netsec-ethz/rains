@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/scionproto/scion/go/lib/snet"
+
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -164,9 +166,11 @@ func encodeObjects(o []object.Object, indent string) string {
 		case object.OTIP4Addr:
 			encoding += fmt.Sprintf("%s%s", addIndentToType(TypeIP4), obj.Value)
 		case object.OTScionAddr6:
-			encoding += fmt.Sprintf("%s%s", addIndentToType(TypeScionIP6), obj.Value)
+			v := obj.Value.(*snet.Addr)
+			encoding += fmt.Sprintf("%s%s,[%s]", addIndentToType(TypeScionIP6), v.IA, v.Host.L3)
 		case object.OTScionAddr4:
-			encoding += fmt.Sprintf("%s%s", addIndentToType(TypeScionIP4), obj.Value)
+			v := obj.Value.(*snet.Addr)
+			encoding += fmt.Sprintf("%s%s,[%s]", addIndentToType(TypeScionIP4), v.IA, v.Host.L3)
 		case object.OTRedirection:
 			encoding += fmt.Sprintf("%s%s", addIndentToType(TypeRedirection), obj.Value)
 		case object.OTDelegation:

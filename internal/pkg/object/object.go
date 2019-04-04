@@ -62,13 +62,13 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 	case OTScionAddr6:
 		addrStr, ok := in[1].(string)
 		if !ok {
-			return fmt.Errorf("failed to unmarshal OTScionAddr6: %T", in[1])
+			return fmt.Errorf("wrong object value for OTScionAddr6: %T", in[1])
 		}
 		addr, err := snet.AddrFromString(addrStr)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal OTScionAddr6: %v", err)
+			return fmt.Errorf("failed to unmarshal OTScionAddr6: %T", in[1])
 		}
-		obj.Value = fmt.Sprintf("%s,[%v]", addr.IA, addr.Host.L3)
+		obj.Value = addr
 	case OTScionAddr4:
 		addrStr, ok := in[1].(string)
 		if !ok {
@@ -76,9 +76,9 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		}
 		addr, err := snet.AddrFromString(addrStr)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal OTScionAddr4: %v", err)
+			return fmt.Errorf("failed to unmarshal OTScionAddr4: %T", in[1])
 		}
-		obj.Value = fmt.Sprintf("%s,[%v]", addr.IA, addr.Host.L3)
+		obj.Value = addr
 	case OTRedirection:
 		obj.Value = in[1]
 	case OTDelegation:
@@ -295,17 +295,15 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 		}
 		res = []interface{}{OTIP4Addr, []byte(addr)}
 	case OTScionAddr6:
-		addrStr := obj.Value.(string)
-		addr, err := snet.AddrFromString(addrStr)
-		if err != nil {
-			return err
+		addr, ok := obj.Value.(*snet.Addr)
+		if !ok {
+			return fmt.Errorf("expected OTSCIONAddr4 to be *snet.Addr but got: %T", obj.Value)
 		}
 		res = []interface{}{OTScionAddr6, fmt.Sprintf("%s,[%v]", addr.IA, addr.Host.L3)}
 	case OTScionAddr4:
-		addrStr := obj.Value.(string)
-		addr, err := snet.AddrFromString(addrStr)
-		if err != nil {
-			return err
+		addr, ok := obj.Value.(*snet.Addr)
+		if !ok {
+			return fmt.Errorf("expected OTSCIONAddr4 to be *snet.Addr but got: %T", obj.Value)
 		}
 		res = []interface{}{OTScionAddr4, fmt.Sprintf("%s,[%v]", addr.IA, addr.Host.L3)}
 	case OTRedirection:
@@ -420,6 +418,16 @@ func (o Object) CompareTo(object Object) int {
 		}
 	case net.IP:
 		if v2, ok := object.Value.(net.IP); ok {
+			if v1.String() < v2.String() {
+				return -1
+			} else if v1.String() > v2.String() {
+				return 1
+			}
+		} else {
+			logObjectTypeAssertionFailure(object.Type, object.Value)
+		}
+	case *snet.Addr:
+		if v2, ok := object.Value.(*snet.Addr); ok {
 			if v1.String() < v2.String() {
 				return -1
 			} else if v1.String() > v2.String() {

@@ -193,8 +193,8 @@ func TestObjectString(t *testing.T) {
 		{obj[10], fmt.Sprintf("OT:11 OV:%s", obj[10].Value.(keys.PublicKey).String())},
 		{obj[11], fmt.Sprintf("OT:12 OV:%s", obj[11].Value.(keys.PublicKey).String())},
 		{obj[12], fmt.Sprintf("OT:13 OV:%s", obj[12].Value.(keys.PublicKey).String())},
-		{obj[13], "OT:14 OV:1-ff00:0:111,[2001:db8::]"},
-		{obj[14], "OT:15 OV:1-ff00:0:111,[192.0.2.0]"},
+		{obj[13], "OT:14 OV:1-ff00:0:111,[2001:db8::]:<nil>"},
+		{obj[14], "OT:15 OV:1-ff00:0:111,[192.0.2.0]:<nil>"},
 	}
 	for i, test := range tests {
 		if test.input.String() != test.want {
