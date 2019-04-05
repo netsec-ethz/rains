@@ -355,11 +355,9 @@ func (r *Resolver) handleAssertion(a *section.Assertion, redirMap map[string]str
 		case object.OTIP4Addr:
 			ipMap[a.FQDN()] = o.Value.(net.IP).String()
 		case object.OTScionAddr6:
-			v := o.Value.(*snet.Addr)
-			ipMap[a.FQDN()] = fmt.Sprintf("%s,[%v]", v.IA, v.Host.L3)
+			ipMap[a.FQDN()] = o.Value.(*snet.SCIONAddress).String()
 		case object.OTScionAddr4:
-			v := o.Value.(*snet.Addr)
-			ipMap[a.FQDN()] = fmt.Sprintf("%s,[%v]", v.IA, v.Host.L3)
+			ipMap[a.FQDN()] = o.Value.(*snet.SCIONAddress).String()
 		case object.OTName:
 			nameMap[a.FQDN()] = o.Value.(object.Name)
 		}

@@ -1273,7 +1273,7 @@ ZFPdefault:
 			}
 			ZFPVAL.object = object.Object{
 				Type:  object.OTScionAddr6,
-				Value: addr,
+				Value: &snet.SCIONAddress{addr.IA, addr.Host.L3},
 			}
 		}
 	case 73:
@@ -1286,7 +1286,7 @@ ZFPdefault:
 			}
 			ZFPVAL.object = object.Object{
 				Type:  object.OTScionAddr4,
-				Value: addr,
+				Value: &snet.SCIONAddress{addr.IA, addr.Host.L3},
 			}
 		}
 	case 74:

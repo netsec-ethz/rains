@@ -35,7 +35,7 @@ func init() {
 	gob.Register(object.Certificate{})
 	gob.Register(object.Name{})
 	gob.Register(net.IP{})
-	gob.Register(snet.Addr{})
+	gob.Register(snet.SCIONAddress{})
 }
 
 //MaxCacheValidity defines the maximum duration each section containing signatures can be valid, starting from time.Now()

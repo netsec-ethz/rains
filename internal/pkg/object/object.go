@@ -68,7 +68,7 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal OTScionAddr6: %T", in[1])
 		}
-		obj.Value = addr
+		obj.Value = &snet.SCIONAddress{IA: addr.IA, Host: addr.Host.L3}
 	case OTScionAddr4:
 		addrStr, ok := in[1].(string)
 		if !ok {
@@ -78,7 +78,7 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal OTScionAddr4: %T", in[1])
 		}
-		obj.Value = addr
+		obj.Value = &snet.SCIONAddress{IA: addr.IA, Host: addr.Host.L3}
 	case OTRedirection:
 		obj.Value = in[1]
 	case OTDelegation:
@@ -295,17 +295,17 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 		}
 		res = []interface{}{OTIP4Addr, []byte(addr)}
 	case OTScionAddr6:
-		addr, ok := obj.Value.(*snet.Addr)
+		addr, ok := obj.Value.(*snet.SCIONAddress)
 		if !ok {
-			return fmt.Errorf("expected OTSCIONAddr4 to be *snet.Addr but got: %T", obj.Value)
+			return fmt.Errorf("expected OTSCIONAddr4 to be *snet.SCIONAddress but got: %T", obj.Value)
 		}
-		res = []interface{}{OTScionAddr6, fmt.Sprintf("%s,[%v]", addr.IA, addr.Host.L3)}
+		res = []interface{}{OTScionAddr6, fmt.Sprintf("%s", addr)}
 	case OTScionAddr4:
-		addr, ok := obj.Value.(*snet.Addr)
+		addr, ok := obj.Value.(*snet.SCIONAddress)
 		if !ok {
-			return fmt.Errorf("expected OTSCIONAddr4 to be *snet.Addr but got: %T", obj.Value)
+			return fmt.Errorf("expected OTSCIONAddr4 to be *snet.SCIONAddress but got: %T", obj.Value)
 		}
-		res = []interface{}{OTScionAddr4, fmt.Sprintf("%s,[%v]", addr.IA, addr.Host.L3)}
+		res = []interface{}{OTScionAddr4, fmt.Sprintf("%s", addr)}
 	case OTRedirection:
 		res = []interface{}{OTRedirection, obj.Value}
 	case OTDelegation:
@@ -426,8 +426,8 @@ func (o Object) CompareTo(object Object) int {
 		} else {
 			logObjectTypeAssertionFailure(object.Type, object.Value)
 		}
-	case *snet.Addr:
-		if v2, ok := object.Value.(*snet.Addr); ok {
+	case *snet.SCIONAddress:
+		if v2, ok := object.Value.(*snet.SCIONAddress); ok {
 			if v1.String() < v2.String() {
 				return -1
 			} else if v1.String() > v2.String() {
