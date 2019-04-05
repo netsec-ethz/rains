@@ -17,9 +17,9 @@ var (
 	ip4TestAddr      = net.ParseIP("192.0.2.0")
 	ip6TestAddr      = net.ParseIP("2001:db8::")
 	sAddr4, _        = snet.AddrFromString("1-ff00:0:111,[192.0.2.0]")
-	scionip4TestAddr = &snet.SCIONAddress{IA: sAddr4.IA, Host: sAddr4.Host.L3}
+	scionip4TestAddr = &SCIONAddress{IA: sAddr4.IA, Host: sAddr4.Host.L3}
 	sAddr6, _        = snet.AddrFromString("1-ff00:0:111,[2001:db8::]")
-	scionip6TestAddr = &snet.SCIONAddress{IA: sAddr6.IA, Host: sAddr6.Host.L3}
+	scionip6TestAddr = &SCIONAddress{IA: sAddr6.IA, Host: sAddr6.Host.L3}
 	testDomain       = "example.com"
 )
 
@@ -253,20 +253,20 @@ func sortedIPv6(nof int) []net.IP {
 	return ips
 }
 
-func sortedSCIONAddr4(nof int) []*snet.SCIONAddress {
-	addrs := []*snet.SCIONAddress{}
+func sortedSCIONAddr4(nof int) []*SCIONAddress {
+	addrs := []*SCIONAddress{}
 	for i := 0; i < nof; i++ {
 		a, _ := snet.AddrFromString(fmt.Sprintf("1-ffaa:1:1,[1.1.1.%d]", i))
-		addrs = append(addrs, &snet.SCIONAddress{IA: a.IA, Host: a.Host.L3})
+		addrs = append(addrs, &SCIONAddress{IA: a.IA, Host: a.Host.L3})
 	}
 	return addrs
 }
 
-func sortedSCIONAddr6(nof int) []*snet.SCIONAddress {
-	addrs := []*snet.SCIONAddress{}
+func sortedSCIONAddr6(nof int) []*SCIONAddress {
+	addrs := []*SCIONAddress{}
 	for i := 0; i < nof; i++ {
 		a, _ := snet.AddrFromString(fmt.Sprintf("1-ffaa:1:1,[::ffff:0.0.0.%d]", i))
-		addrs = append(addrs, &snet.SCIONAddress{IA: a.IA, Host: a.Host.L3})
+		addrs = append(addrs, &SCIONAddress{IA: a.IA, Host: a.Host.L3})
 	}
 	return addrs
 }

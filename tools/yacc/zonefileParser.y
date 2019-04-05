@@ -498,7 +498,7 @@ scionip6        : scionip6Type ID
                     }
                     $$ = object.Object{
                         Type: object.OTScionAddr6,
-                        Value: &snet.SCIONAddress{addr.IA, addr.Host.L3},
+                        Value: &object.SCIONAddress{addr.IA, addr.Host.L3},
                     }
                 }
 scionip4        : scionip4Type ID
@@ -509,7 +509,7 @@ scionip4        : scionip4Type ID
                     }
                     $$ = object.Object{
                         Type: object.OTScionAddr4,
-                        Value: &snet.SCIONAddress{addr.IA, addr.Host.L3},
+                        Value: &object.SCIONAddress{addr.IA, addr.Host.L3},
                     }
                 }
 redir           : redirType ID

@@ -7,8 +7,6 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/scionproto/scion/go/lib/snet"
-
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/object"
@@ -190,11 +188,11 @@ func checkObjects(objs1, objs2 []object.Object, t *testing.T) {
 				t.Errorf("Object Value IP4 mismatch at position %d", i)
 			}
 		case object.OTScionAddr6:
-			if o1.Value.(*snet.SCIONAddress).String() != o2.Value.(*snet.SCIONAddress).String() {
+			if o1.Value.(*object.SCIONAddress).String() != o2.Value.(*object.SCIONAddress).String() {
 				t.Errorf("Object Value scionIP6 mismatch at position %d", i)
 			}
 		case object.OTScionAddr4:
-			if o1.Value.(*snet.SCIONAddress).String() != o2.Value.(*snet.SCIONAddress).String() {
+			if o1.Value.(*object.SCIONAddress).String() != o2.Value.(*object.SCIONAddress).String() {
 				t.Errorf("Object Value scionIP4 mismatch at position %d", i)
 			}
 		case object.OTRedirection:

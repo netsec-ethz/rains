@@ -12,6 +12,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/snet"
 	"golang.org/x/crypto/ed25519"
 )
@@ -20,6 +21,18 @@ import (
 type Object struct {
 	Type  Type
 	Value interface{}
+}
+
+type SCIONAddress struct {
+	IA   addr.IA
+	Host addr.HostAddr
+}
+
+func (sa *SCIONAddress) String() string {
+	if sa.Host == nil {
+		return fmt.Sprintf("%s,<nil>", sa.IA)
+	}
+	return fmt.Sprintf("%s,[%v]", sa.IA, sa.Host)
 }
 
 // UnmarshalArray takes in a CBOR decoded array and populates the object.
@@ -68,7 +81,7 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal OTScionAddr6: %T", in[1])
 		}
-		obj.Value = &snet.SCIONAddress{IA: addr.IA, Host: addr.Host.L3}
+		obj.Value = &SCIONAddress{IA: addr.IA, Host: addr.Host.L3}
 	case OTScionAddr4:
 		addrStr, ok := in[1].(string)
 		if !ok {
@@ -78,7 +91,7 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal OTScionAddr4: %T", in[1])
 		}
-		obj.Value = &snet.SCIONAddress{IA: addr.IA, Host: addr.Host.L3}
+		obj.Value = &SCIONAddress{IA: addr.IA, Host: addr.Host.L3}
 	case OTRedirection:
 		obj.Value = in[1]
 	case OTDelegation:
@@ -295,15 +308,15 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 		}
 		res = []interface{}{OTIP4Addr, []byte(addr)}
 	case OTScionAddr6:
-		addr, ok := obj.Value.(*snet.SCIONAddress)
+		addr, ok := obj.Value.(*SCIONAddress)
 		if !ok {
-			return fmt.Errorf("expected OTSCIONAddr4 to be *snet.SCIONAddress but got: %T", obj.Value)
+			return fmt.Errorf("expected OTSCIONAddr4 to be *SCIONAddressress but got: %T", obj.Value)
 		}
 		res = []interface{}{OTScionAddr6, fmt.Sprintf("%s", addr)}
 	case OTScionAddr4:
-		addr, ok := obj.Value.(*snet.SCIONAddress)
+		addr, ok := obj.Value.(*SCIONAddress)
 		if !ok {
-			return fmt.Errorf("expected OTSCIONAddr4 to be *snet.SCIONAddress but got: %T", obj.Value)
+			return fmt.Errorf("expected OTSCIONAddr4 to be *SCIONAddressress but got: %T", obj.Value)
 		}
 		res = []interface{}{OTScionAddr4, fmt.Sprintf("%s", addr)}
 	case OTRedirection:
@@ -426,8 +439,8 @@ func (o Object) CompareTo(object Object) int {
 		} else {
 			logObjectTypeAssertionFailure(object.Type, object.Value)
 		}
-	case *snet.SCIONAddress:
-		if v2, ok := object.Value.(*snet.SCIONAddress); ok {
+	case *SCIONAddress:
+		if v2, ok := object.Value.(*SCIONAddress); ok {
 			if v1.String() < v2.String() {
 				return -1
 			} else if v1.String() > v2.String() {
