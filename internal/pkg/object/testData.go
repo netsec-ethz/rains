@@ -256,7 +256,7 @@ func sortedIPv6(nof int) []net.IP {
 func sortedSCIONAddr4(nof int) []*SCIONAddress {
 	addrs := []*SCIONAddress{}
 	for i := 0; i < nof; i++ {
-		a, _ := snet.AddrFromString(fmt.Sprintf("1-ffaa:1:1,[1.1.1.%d]", i))
+		a, _ := snet.AddrFromString(fmt.Sprintf("1-ffaa:1:1,[10.0.0.%d]", i))
 		addrs = append(addrs, &SCIONAddress{IA: a.IA, Host: a.Host.L3})
 	}
 	return addrs
@@ -265,7 +265,7 @@ func sortedSCIONAddr4(nof int) []*SCIONAddress {
 func sortedSCIONAddr6(nof int) []*SCIONAddress {
 	addrs := []*SCIONAddress{}
 	for i := 0; i < nof; i++ {
-		a, _ := snet.AddrFromString(fmt.Sprintf("1-ffaa:1:1,[::ffff:0.0.0.%d]", i))
+		a, _ := snet.AddrFromString(fmt.Sprintf("1-ffaa:1:1,[::ffff:10.0.0.%d]", i))
 		addrs = append(addrs, &SCIONAddress{IA: a.IA, Host: a.Host.L3})
 	}
 	return addrs

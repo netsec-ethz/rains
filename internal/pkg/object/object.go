@@ -310,7 +310,7 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 	case OTScionAddr6:
 		addr, ok := obj.Value.(*SCIONAddress)
 		if !ok {
-			return fmt.Errorf("expected OTSCIONAddr4 to be *SCIONAddressress but got: %T", obj.Value)
+			return fmt.Errorf("expected OTSCIONAddr6 to be *SCIONAddressress but got: %T", obj.Value)
 		}
 		res = []interface{}{OTScionAddr6, fmt.Sprintf("%s", addr)}
 	case OTScionAddr4:
