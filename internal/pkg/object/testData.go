@@ -1,7 +1,11 @@
 package object
 
 import (
+	"fmt"
+	"net"
 	"strconv"
+
+	"github.com/scionproto/scion/go/lib/snet"
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
@@ -9,11 +13,13 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-const (
-	ip4TestAddr      = "192.0.2.0"
-	ip6TestAddr      = "2001:db8::"
-	scionip4TestAddr = "1-ff00:0:111,[192.0.2.0]"
-	scionip6TestAddr = "1-ff00:0:111,[2001:db8::]"
+var (
+	ip4TestAddr      = net.ParseIP("192.0.2.0")
+	ip6TestAddr      = net.ParseIP("2001:db8::")
+	sAddr4, _        = snet.AddrFromString("1-ff00:0:111,[192.0.2.0]")
+	scionip4TestAddr = &SCIONAddress{IA: sAddr4.IA, Host: sAddr4.Host.L3}
+	sAddr6, _        = snet.AddrFromString("1-ff00:0:111,[2001:db8::]")
+	scionip6TestAddr = &SCIONAddress{IA: sAddr6.IA, Host: sAddr6.Host.L3}
 	testDomain       = "example.com"
 )
 
@@ -88,6 +94,10 @@ func SortedObjects(nofObj int) []Object {
 		nofObj = 15
 	}
 	nos := sortedNameObjects(nofObj)
+	ip4s := sortedIPv4(nofObj)
+	ip6s := sortedIPv6(nofObj)
+	scAddr4s := sortedSCIONAddr4(nofObj)
+	scAddr6s := sortedSCIONAddr6(nofObj)
 	pkeys := sortedPublicKeys(nofObj)
 	certs := sortedCertificates(nofObj)
 	sis := sortedServiceInfo(nofObj)
@@ -98,9 +108,9 @@ func SortedObjects(nofObj int) []Object {
 			case 0:
 				value = nos[j]
 			case 1:
-				value = strconv.Itoa(j) //ip6
+				value = ip6s[j] //ip6
 			case 2:
-				value = strconv.Itoa(j) //ip4
+				value = ip4s[j] //ip4
 			case 3:
 				value = strconv.Itoa(j) //redir
 			case 4:
@@ -122,9 +132,9 @@ func SortedObjects(nofObj int) []Object {
 			case 12:
 				value = pkeys[j]
 			case 14:
-				value = strconv.Itoa(j) // scionip6
+				value = scAddr6s[j] // scionip6
 			case 15:
-				value = strconv.Itoa(j) // scionip4
+				value = scAddr4s[j] // scionip4
 
 			}
 			objects = append(objects, Object{
@@ -133,6 +143,7 @@ func SortedObjects(nofObj int) []Object {
 			})
 		}
 	}
+	fmt.Printf("%v", objects)
 	return objects
 }
 
@@ -224,4 +235,38 @@ func sortedServiceInfo(nof int) []ServiceInfo {
 	}
 	sis = append(sis, sis[len(sis)-1])
 	return sis
+}
+
+func sortedIPv4(nof int) []net.IP {
+	ips := []net.IP{}
+	for i := 0; i < nof; i++ {
+		ips = append(ips, net.ParseIP(fmt.Sprintf("0.0.0.%d", i)))
+	}
+	return ips
+}
+
+func sortedIPv6(nof int) []net.IP {
+	ips := []net.IP{}
+	for i := 0; i < nof; i++ {
+		ips = append(ips, net.ParseIP(fmt.Sprintf("::ffff:0.0.0.%d", i)))
+	}
+	return ips
+}
+
+func sortedSCIONAddr4(nof int) []*SCIONAddress {
+	addrs := []*SCIONAddress{}
+	for i := 0; i < nof; i++ {
+		a, _ := snet.AddrFromString(fmt.Sprintf("1-ffaa:1:1,[10.0.0.%d]", i))
+		addrs = append(addrs, &SCIONAddress{IA: a.IA, Host: a.Host.L3})
+	}
+	return addrs
+}
+
+func sortedSCIONAddr6(nof int) []*SCIONAddress {
+	addrs := []*SCIONAddress{}
+	for i := 0; i < nof; i++ {
+		a, _ := snet.AddrFromString(fmt.Sprintf("1-ffaa:1:1,[::ffff:10.0.0.%d]", i))
+		addrs = append(addrs, &SCIONAddress{IA: a.IA, Host: a.Host.L3})
+	}
+	return addrs
 }

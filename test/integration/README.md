@@ -24,11 +24,13 @@ The integration test covers the following parts:
 - SCION connection handling and sending messages over SCION between all components
   (To run the SCION part of the integration test, you need to have SCION installed and
   start a local topology like this, WARNING this overwrites the gen folder:
+  ```
   cd $SC; PYTHONPATH=$PYTHONPATH:$SC/topology:$SC/python python/topology/generator.py -c $SC/topology/Tiny.topo
   echo  '1-ff00_0_110' > ./gen/ia
   ./supervisor/supervisor.sh reload
   ./supervisor/supervisor.sh start dispatcher
-  ./supervisor/supervisor.sh start as1-ff00_0_110:*)
+  ./supervisor/supervisor.sh start as1-ff00_0_110:*
+  ```
 - recursive lookup with and without alias
 - preprocessing and publishing zone information
 - preloading caches of a caching resolver from checkpoint files

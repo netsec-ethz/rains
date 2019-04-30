@@ -2,13 +2,13 @@
 package libresolve
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"time"
 
-	"bytes"
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/cache"
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
@@ -351,13 +351,13 @@ func (r *Resolver) handleAssertion(a *section.Assertion, redirMap map[string]str
 		case object.OTServiceInfo:
 			srvMap[a.FQDN()] = o.Value.(object.ServiceInfo)
 		case object.OTIP6Addr:
-			ipMap[a.FQDN()] = o.Value.(string)
+			ipMap[a.FQDN()] = o.Value.(net.IP).String()
 		case object.OTIP4Addr:
-			ipMap[a.FQDN()] = o.Value.(string)
+			ipMap[a.FQDN()] = o.Value.(net.IP).String()
 		case object.OTScionAddr6:
-			ipMap[a.FQDN()] = o.Value.(string)
+			ipMap[a.FQDN()] = o.Value.(*object.SCIONAddress).String()
 		case object.OTScionAddr4:
-			ipMap[a.FQDN()] = o.Value.(string)
+			ipMap[a.FQDN()] = o.Value.(*object.SCIONAddress).String()
 		case object.OTName:
 			nameMap[a.FQDN()] = o.Value.(object.Name)
 		}

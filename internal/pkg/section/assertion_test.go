@@ -2,6 +2,7 @@ package section
 
 import (
 	"math/rand"
+	"net"
 	"reflect"
 	"sort"
 	"testing"
@@ -179,19 +180,19 @@ func checkObjects(objs1, objs2 []object.Object, t *testing.T) {
 				}
 			}
 		case object.OTIP6Addr:
-			if o1.Value.(string) != o2.Value.(string) {
+			if o1.Value.(net.IP).String() != o2.Value.(net.IP).String() {
 				t.Errorf("Object Value IP6 mismatch at position %d", i)
 			}
 		case object.OTIP4Addr:
-			if o1.Value.(string) != o2.Value.(string) {
+			if o1.Value.(net.IP).String() != o2.Value.(net.IP).String() {
 				t.Errorf("Object Value IP4 mismatch at position %d", i)
 			}
 		case object.OTScionAddr6:
-			if o1.Value.(string) != o2.Value.(string) {
+			if o1.Value.(*object.SCIONAddress).String() != o2.Value.(*object.SCIONAddress).String() {
 				t.Errorf("Object Value scionIP6 mismatch at position %d", i)
 			}
 		case object.OTScionAddr4:
-			if o1.Value.(string) != o2.Value.(string) {
+			if o1.Value.(*object.SCIONAddress).String() != o2.Value.(*object.SCIONAddress).String() {
 				t.Errorf("Object Value scionIP4 mismatch at position %d", i)
 			}
 		case object.OTRedirection:

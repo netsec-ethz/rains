@@ -12,6 +12,7 @@ import (
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/snet"
 	"golang.org/x/crypto/ed25519"
 )
@@ -20,6 +21,18 @@ import (
 type Object struct {
 	Type  Type
 	Value interface{}
+}
+
+type SCIONAddress struct {
+	IA   addr.IA
+	Host addr.HostAddr
+}
+
+func (sa *SCIONAddress) String() string {
+	if sa.Host == nil {
+		return fmt.Sprintf("%s,<nil>", sa.IA)
+	}
+	return fmt.Sprintf("%s,[%v]", sa.IA, sa.Host)
 }
 
 // UnmarshalArray takes in a CBOR decoded array and populates the object.
@@ -52,25 +65,23 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		if !ok {
 			return errors.New("cbor object encoding of ip6 not a byte array")
 		}
-		ip := net.IP(v)
-		obj.Value = ip.String()
+		obj.Value = net.IP(v)
 	case OTIP4Addr:
 		v, ok := in[1].([]byte)
 		if !ok {
 			return errors.New("cbor object encoding of ip6 not a byte array")
 		}
-		ip := net.IP(v)
-		obj.Value = ip.String()
+		obj.Value = net.IP(v)
 	case OTScionAddr6:
 		addrStr, ok := in[1].(string)
 		if !ok {
-			return fmt.Errorf("failed to unmarshal OTScionAddr6: %T", in[1])
+			return fmt.Errorf("wrong object value for OTScionAddr6: %T", in[1])
 		}
 		addr, err := snet.AddrFromString(addrStr)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal OTScionAddr6: %v", err)
+			return fmt.Errorf("failed to unmarshal OTScionAddr6: %T", in[1])
 		}
-		obj.Value = fmt.Sprintf("%s,[%v]", addr.IA, addr.Host.L3)
+		obj.Value = &SCIONAddress{IA: addr.IA, Host: addr.Host.L3}
 	case OTScionAddr4:
 		addrStr, ok := in[1].(string)
 		if !ok {
@@ -78,9 +89,9 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 		}
 		addr, err := snet.AddrFromString(addrStr)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal OTScionAddr4: %v", err)
+			return fmt.Errorf("failed to unmarshal OTScionAddr4: %T", in[1])
 		}
-		obj.Value = fmt.Sprintf("%s,[%v]", addr.IA, addr.Host.L3)
+		obj.Value = &SCIONAddress{IA: addr.IA, Host: addr.Host.L3}
 	case OTRedirection:
 		obj.Value = in[1]
 	case OTDelegation:
@@ -285,27 +296,29 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 		}
 		res = []interface{}{OTName, no.Name, ots}
 	case OTIP6Addr:
-		addrStr := obj.Value.(string)
-		addr := net.ParseIP(addrStr)
+		addr, ok := obj.Value.(net.IP)
+		if !ok {
+			return fmt.Errorf("expected OTIP6Addr to be net.IP but got: %T", obj.Value)
+		}
 		res = []interface{}{OTIP6Addr, []byte(addr)}
 	case OTIP4Addr:
-		addrStr := obj.Value.(string)
-		addr := net.ParseIP(addrStr)
+		addr, ok := obj.Value.(net.IP)
+		if !ok {
+			return fmt.Errorf("expected OTIP4Addr to be net.IP but got: %T", obj.Value)
+		}
 		res = []interface{}{OTIP4Addr, []byte(addr)}
 	case OTScionAddr6:
-		addrStr := obj.Value.(string)
-		addr, err := snet.AddrFromString(addrStr)
-		if err != nil {
-			return err
+		addr, ok := obj.Value.(*SCIONAddress)
+		if !ok {
+			return fmt.Errorf("expected OTSCIONAddr6 to be *SCIONAddressress but got: %T", obj.Value)
 		}
-		res = []interface{}{OTScionAddr6, fmt.Sprintf("%s,[%v]", addr.IA, addr.Host.L3)}
+		res = []interface{}{OTScionAddr6, fmt.Sprintf("%s", addr)}
 	case OTScionAddr4:
-		addrStr := obj.Value.(string)
-		addr, err := snet.AddrFromString(addrStr)
-		if err != nil {
-			return err
+		addr, ok := obj.Value.(*SCIONAddress)
+		if !ok {
+			return fmt.Errorf("expected OTSCIONAddr4 to be *SCIONAddressress but got: %T", obj.Value)
 		}
-		res = []interface{}{OTScionAddr4, fmt.Sprintf("%s,[%v]", addr.IA, addr.Host.L3)}
+		res = []interface{}{OTScionAddr4, fmt.Sprintf("%s", addr)}
 	case OTRedirection:
 		res = []interface{}{OTRedirection, obj.Value}
 	case OTDelegation:
@@ -411,6 +424,26 @@ func (o Object) CompareTo(object Object) int {
 			if v1 < v2 {
 				return -1
 			} else if v1 > v2 {
+				return 1
+			}
+		} else {
+			logObjectTypeAssertionFailure(object.Type, object.Value)
+		}
+	case net.IP:
+		if v2, ok := object.Value.(net.IP); ok {
+			if v1.String() < v2.String() {
+				return -1
+			} else if v1.String() > v2.String() {
+				return 1
+			}
+		} else {
+			logObjectTypeAssertionFailure(object.Type, object.Value)
+		}
+	case *SCIONAddress:
+		if v2, ok := object.Value.(*SCIONAddress); ok {
+			if v1.String() < v2.String() {
+				return -1
+			} else if v1.String() > v2.String() {
 				return 1
 			}
 		} else {
