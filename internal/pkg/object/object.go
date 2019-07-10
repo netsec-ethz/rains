@@ -592,7 +592,7 @@ func (t Type) CLIString() string {
 	case OTCertInfo:
 		return "cert"
 	case OTCTInfo:
-		return "cet"
+		return "ct"
 	case OTServiceInfo:
 		return "srv"
 	case OTRegistrar:
