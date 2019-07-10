@@ -38,6 +38,7 @@ func LoadPrivateKeys(path string) (map[keys.PublicKeyID]interface{}, error) {
 		return nil, fmt.Errorf("Was not able to read directory: %v", err)
 	}
 	for _, f := range files {
+		fmt.Errorf("%s", f.Name())
 		if strings.HasSuffix(f.Name(), keyManager.SecSuffix) {
 			keyPem, err := keyManager.DecryptKey(path, f.Name(), "")
 			if err != nil {

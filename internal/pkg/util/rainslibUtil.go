@@ -34,6 +34,7 @@ func init() {
 	gob.Register(&section.Zone{})
 	gob.Register(object.ServiceInfo{})
 	gob.Register(object.Certificate{})
+	gob.Register(object.CTProof{})
 	gob.Register(object.Name{})
 	gob.Register(net.IP{})
 	gob.Register(&object.SCIONAddress{})

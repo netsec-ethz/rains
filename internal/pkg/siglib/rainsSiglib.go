@@ -299,6 +299,7 @@ func checkObjectFields(objs []object.Object) bool {
 				return false
 			}
 		case object.OTCertInfo:
+		case object.OTCTInfo:
 		case object.OTServiceInfo:
 			if srvInfo, ok := obj.Value.(object.ServiceInfo); ok {
 				if containsZoneFileType(srvInfo.Name) {

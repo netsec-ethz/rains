@@ -185,6 +185,13 @@ func encodeObjects(o []object.Object, indent string) string {
 				log.Warn("Type assertion failed. Expected object.Certificate", "actualType", fmt.Sprintf("%T", obj.Value))
 				return ""
 			}
+		case object.OTCTInfo:
+			if ct, ok := obj.Value.(object.CTProof); ok {
+				encoding += fmt.Sprintf("%s%s", addIndentToType(TypeCT), hex.EncodeToString(ct.Data))
+			} else {
+				log.Warn("Type assertion failed. Expected object.CTProof", "actualType", fmt.Sprintf("%T", obj.Value))
+				return ""
+			}
 		case object.OTServiceInfo:
 			if srvInfo, ok := obj.Value.(object.ServiceInfo); ok {
 				encoding += fmt.Sprintf("%s%s %d %d", addIndentToType(TypeServiceInfo), srvInfo.Name, srvInfo.Port, srvInfo.Priority)

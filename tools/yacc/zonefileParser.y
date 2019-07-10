@@ -82,6 +82,16 @@ error) {
     }, nil
 }
 
+func DecodeCT(ctproof string) (object.CTProof, error) {
+    data, err := hex.DecodeString(ctproof)
+    if err != nil {
+        return object.CTProof{}, err
+    }
+    return object.CTProof{
+        Data:     data,
+    }, nil
+}
+
 func DecodeSrv(name, portString, priorityString string) (object.ServiceInfo, error) {
     port, err := strconv.Atoi(portString)
     if  err != nil || port < 0 || port > 65535 {
@@ -151,7 +161,7 @@ var output []section.WithSigForward
 %type <assertion>       assertion assertionBody
 %type <objects>         objects
 %type <object>          object name ip4 ip6 scionip4 scionip6 redir deleg nameset 
-%type <object>          cert srv regr regt infra extra next
+%type <object>          cert ct srv regr regt infra extra next
 %type <objectTypes>     oTypes
 %type <objectType>      oType
 %type <signatures>      annotation annotationBody
@@ -167,7 +177,7 @@ var output []section.WithSigForward
 // Section types
 %token assertionType shardType pshardType zoneType
 // Object types
-%token nameType ip4Type ip6Type scionip4Type scionip6Type redirType delegType namesetType certType
+%token nameType ip4Type ip6Type scionip4Type scionip6Type redirType delegType namesetType certType ctType
 %token srvType regrType regtType infraType extraType nextType
 // Annotation types
 %token sigType 
@@ -381,6 +391,7 @@ object          : name
                 | deleg
                 | nameset
                 | cert
+                | ct
                 | srv
                 | regr
                 | regt
@@ -443,6 +454,10 @@ oType           : nameType
                 | certType
                 {
                     $$ = object.OTCertInfo
+                }
+                | ctType
+                {
+                    $$ = object.OTCTInfo
                 }
                 | srvType
                 {
@@ -549,6 +564,18 @@ cert            : certType protocolType certUsage hashType ID
                     $$ = object.Object{
                         Type: object.OTCertInfo,
                         Value: cert,
+                    }
+                }
+
+ct              : ctType ID
+                {
+                    ct, err := DecodeCT($2)
+                    if err != nil {
+                        log.Error("semantic error:", "Decode certificate transparency proof", err)
+                    }
+                    $$ = object.Object{
+                        Type: object.OTCTInfo,
+                        Value: ct,
                     }
                 }
 
@@ -776,6 +803,8 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
 		return namesetType
 	case zonefile.TypeCertificate :
 		return certType
+	case zonefile.TypeCT :
+		return ctType
 	case zonefile.TypeServiceInfo :
 		return srvType
 	case zonefile.TypeRegistrar :

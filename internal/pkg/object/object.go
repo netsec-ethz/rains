@@ -152,6 +152,15 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 			Data:     data,
 		}
 		obj.Value = co
+	case OTCTInfo:
+		data, ok := in[1].([]byte)
+		if !ok {
+			return errors.New("cbor object encoding of cert data not a byte array")
+		}
+		co := CTProof{
+			Data: data,
+		}
+		obj.Value = co
 	case OTServiceInfo:
 		name, ok := in[1].(string)
 		if !ok {
@@ -340,6 +349,12 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 			return fmt.Errorf("expected OTCertInfo object to be Certificate, but got: %T", obj.Value)
 		}
 		res = []interface{}{OTCertInfo, int(co.Type), int(co.Usage), int(co.HashAlgo), co.Data}
+	case OTCTInfo:
+		co, ok := obj.Value.(CTProof)
+		if !ok {
+			return fmt.Errorf("expected OTCTInfo object to be CTProof, but got: %T", obj.Value)
+		}
+		res = []interface{}{OTCTInfo, co.Data}
 	case OTServiceInfo:
 		si, ok := obj.Value.(ServiceInfo)
 		if !ok {
@@ -511,6 +526,7 @@ const (
 	OTNextKey     Type = 13
 	OTScionAddr6  Type = 14
 	OTScionAddr4  Type = 15
+	OTCTInfo      Type = 16
 )
 
 //ParseTypes returns the object type(s) specified in qType
@@ -534,6 +550,8 @@ func ParseTypes(qType string) ([]Type, error) {
 		return []Type{OTNameset}, nil
 	case "cert":
 		return []Type{OTCertInfo}, nil
+	case "ct":
+		return []Type{OTCTInfo}, nil
 	case "srv":
 		return []Type{OTServiceInfo}, nil
 	case "regr":
@@ -573,6 +591,8 @@ func (t Type) CLIString() string {
 		return "nameset"
 	case OTCertInfo:
 		return "cert"
+	case OTCTInfo:
+		return "cet"
 	case OTServiceInfo:
 		return "srv"
 	case OTRegistrar:
@@ -592,7 +612,7 @@ func (t Type) CLIString() string {
 //AllTypes returns all object types.
 func AllTypes() []Type {
 	return []Type{OTName, OTIP6Addr, OTIP4Addr, OTRedirection,
-		OTDelegation, OTNameset, OTCertInfo, OTServiceInfo,
+		OTDelegation, OTNameset, OTCertInfo, OTCTInfo, OTServiceInfo,
 		OTRegistrar, OTRegistrant, OTInfraKey, OTExtraKey,
 		OTNextKey, OTScionAddr6, OTScionAddr4}
 }
@@ -634,6 +654,11 @@ type Certificate struct {
 	Usage    CertificateUsage
 	HashAlgo algorithmTypes.Hash
 	Data     []byte
+}
+
+//CTProof contains a certificate presence/absence proof for a certain ISD
+type CTProof struct {
+	Data []byte
 }
 
 //CompareTo compares two certificateObject objects and returns 0 if they are equal, 1 if c is greater than cert and -1 if c is smaller than cert

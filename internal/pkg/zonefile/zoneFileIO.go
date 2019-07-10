@@ -29,6 +29,7 @@ const (
 	TypeDelegation    = ":deleg:"
 	TypeNameSet       = ":nameset:"
 	TypeCertificate   = ":cert:"
+	TypeCT            = ":ct:"
 	TypeServiceInfo   = ":srv:"
 	TypeRegistrar     = ":regr:"
 	TypeRegistrant    = ":regt:"
