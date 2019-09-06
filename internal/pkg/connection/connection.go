@@ -120,7 +120,7 @@ func CreateConnection(addr net.Addr) (conn net.Conn, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("No valid SCION address: err: %v", err)
 		}
-		if !srcAddr.IA.Eq(addr.IA) {
+		if !srcAddr.IA.Equal(addr.IA) {
 			pathEntry, err := choosePathSCION(context.TODO(), srcAddr, addr)
 			if err != nil {
 				return nil, err

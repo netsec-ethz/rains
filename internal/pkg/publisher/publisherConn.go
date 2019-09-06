@@ -63,7 +63,7 @@ func connectAndSendMsg(ctx context.Context, msg message.Message, server net.Addr
 			return
 		}
 		saddr := server.(*snet.Addr)
-		if !SCIONSrc.IA.Eq(saddr.IA) {
+		if !SCIONSrc.IA.Equal(saddr.IA) {
 			pathEntry := choosePath(ctx, SCIONSrc, saddr)
 			if pathEntry == nil {
 				log.Error(fmt.Sprintf("failed to find path from %s to %s", SCIONSrc, saddr))
