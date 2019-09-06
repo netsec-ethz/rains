@@ -144,7 +144,7 @@ func choosePathSCION(ctx context.Context, local, remote *snet.Addr) (*sd.PathRep
 		return nil, errors.New("SCION network not initialized")
 	}
 	pathMgr := snet.DefNetwork.PathResolver()
-	pathSet := pathMgr.Query(ctx, local.IA, remote.IA)
+	pathSet := pathMgr.Query(ctx, local.IA, remote.IA, sd.PathReqFlags{})
 	for _, p := range pathSet {
 		return p.Entry, nil
 	}
