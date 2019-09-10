@@ -6,7 +6,7 @@ BUILD_PATH=${PWD}/build/
 
 LDFLAGS = -ldflags "-X main.buildinfo_hostname=${HOSTNAME} -X main.buildinfo_commit=${COMMIT} -X main.buildinfo_branch=${BRANCH}"
 
-all: clean rainsd rainsd zonepub rdig zoneman keymanager
+all: clean rainsd rainsd zonepub rdig keymanager
 
 clean:
 	rm -rf ${BUILD_PATH}
@@ -25,11 +25,6 @@ zonepub:
 rdig:
 	cd ${BUILD_PATH}; \
 	go build ${LDFLAGS} -o rdig github.com/netsec-ethz/rains/cmd/rdig ; \
-	cd - >/dev/null
-
-zoneman:
-	cd ${BUILD_PATH}; \
-	go build ${LDFLAGS} -o zoneman github.com/netsec-ethz/rains/cmd/zoneManager ;\
 	cd - >/dev/null
 
 keymanager:
