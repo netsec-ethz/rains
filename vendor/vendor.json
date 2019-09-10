@@ -208,6 +208,12 @@
 			"revisionTime": "2019-09-07T08:44:30Z"
 		},
 		{
+			"checksumSHA1": "zPWRjzsPeXCoqmidIcJtHbvrvRs=",
+			"path": "github.com/pierrec/xxHash/xxHash32",
+			"revision": "a0006b13c722f7f12368c00a3d3c2ae8a999a0c6",
+			"revisionTime": "2017-07-14T08:24:55Z"
+		},
+		{
 			"checksumSHA1": "I7hloldMJZTqUx6hbVDp5nk9fZQ=",
 			"path": "github.com/pkg/errors",
 			"revision": "27936f6d90f9c8e1145f11ed52ffffbfdb9e0af7",
