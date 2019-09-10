@@ -15,7 +15,7 @@ jobs:
       - restore_cache:
           keys:
             - v2-pkg-cache
-      - run: go get -u github.com/golang/dep/cmd/dep
+      - run: go get -u github.com/kardianos/govendor
       - run:
           name: scion
           command: |
@@ -34,7 +34,11 @@ jobs:
       - run:
           name: run build
           command: |
-            dep ensure
+            # TODO: Update base image ethznetsec/scion_base after the update
+            curl https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz -o /tmp/go.tar.gz
+            sudo rm -rf /usr/local/go
+            sudo tar -xzf /tmp/go.tar.gz -C /usr/local/
+            govendor sync
             go build -v cmd/rainsd/rainsd.go
             go build -v cmd/rdig/rdig.go
             go build -v cmd/zonepub/zonepub.go
@@ -42,9 +46,9 @@ jobs:
           name: run tests
           command: |
             go fmt ./...
-            go vet ./internal/...
-            go vet ./cmd/...
-            go vet ./test/...
+            go vet -composites=false ./internal/...
+            go vet -composites=false ./cmd/...
+            go vet -composites=false ./test/...
             go test ./internal/pkg/...
             go test -v ./test/integration/
       - save_cache:
