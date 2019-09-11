@@ -20,6 +20,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/scionproto/scion/go/lib/snet"
+	"github.com/scionproto/scion/go/lib/sock/reliable"
 )
 
 //sendTo sends message to the specified receiver.
@@ -166,7 +167,9 @@ func (s *Server) listen(id string) {
 			return
 		}
 		if snet.DefNetwork == nil {
-			if err := snet.Init(addr.IA, s.config.SciondSock, s.config.DispatcherSock); err != nil {
+			if err := snet.Init(addr.IA, s.config.SciondSock,
+				reliable.NewDispatcherService(s.config.DispatcherSock)); err != nil {
+
 				log.Warn("failed to initialize snet", "err", err)
 				return
 			}

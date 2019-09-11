@@ -20,9 +20,9 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	"github.com/scionproto/scion/go/lib/snet"
+	"github.com/scionproto/scion/go/lib/sock/reliable"
 )
 
-const defaultDispatcher = "/run/shm/dispatcher/default.sock"
 const defaultSciond = "/run/shm/sciond/default.sock"
 
 func scionAddrToSciond(a *snet.Addr) string {
@@ -52,7 +52,7 @@ func (r *Rainspub) Publish() error {
 	// If we have a SCION source address, initialize snet now.
 	if r.Config.SrcAddr.Type == connection.SCION && snet.DefNetwork == nil {
 		SCIONLocal := r.Config.SrcAddr.Addr.(*snet.Addr)
-		if err := snet.Init(SCIONLocal.IA, scionAddrToSciond(SCIONLocal), defaultDispatcher); err != nil {
+		if err := snet.Init(SCIONLocal.IA, scionAddrToSciond(SCIONLocal), reliable.NewDispatcherService("")); err != nil {
 			return fmt.Errorf("failed to initialize snet: %v", err)
 		}
 	}

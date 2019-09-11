@@ -9,6 +9,7 @@
 # Folders
 _obj
 _test
+vendor/*/
 
 #Large benchmarking files
 *zonefileDeleg1000000

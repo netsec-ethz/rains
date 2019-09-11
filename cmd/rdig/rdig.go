@@ -16,6 +16,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/snet"
+	"github.com/scionproto/scion/go/lib/sock/reliable"
 	flag "github.com/spf13/pflag"
 )
 
@@ -122,7 +123,9 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error: invalid local AS id from flag localAS: %v", err)
 		}
-		if err := snet.Init(SCIONLocal.IA, *sciondSock, *dispatcherSock); err != nil {
+		if err := snet.Init(SCIONLocal.IA, *sciondSock,
+			reliable.NewDispatcherService(*dispatcherSock)); err != nil {
+
 			log.Fatalf("failed to initialize snet: %v", err)
 		}
 	}

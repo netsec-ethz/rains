@@ -19,6 +19,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	saddr "github.com/scionproto/scion/go/lib/addr"
+	"github.com/scionproto/scion/go/lib/sciond"
 	sd "github.com/scionproto/scion/go/lib/sciond"
 	"github.com/scionproto/scion/go/lib/snet"
 	"github.com/scionproto/scion/go/lib/spath"
@@ -120,7 +121,7 @@ func CreateConnection(addr net.Addr) (conn net.Conn, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("No valid SCION address: err: %v", err)
 		}
-		if !srcAddr.IA.Eq(addr.IA) {
+		if !srcAddr.IA.Equal(addr.IA) {
 			pathEntry, err := choosePathSCION(context.TODO(), srcAddr, addr)
 			if err != nil {
 				return nil, err
@@ -144,7 +145,7 @@ func choosePathSCION(ctx context.Context, local, remote *snet.Addr) (*sd.PathRep
 		return nil, errors.New("SCION network not initialized")
 	}
 	pathMgr := snet.DefNetwork.PathResolver()
-	pathSet := pathMgr.Query(ctx, local.IA, remote.IA)
+	pathSet := pathMgr.Query(ctx, local.IA, remote.IA, sciond.PathReqFlags{})
 	for _, p := range pathSet {
 		return p.Entry, nil
 	}
