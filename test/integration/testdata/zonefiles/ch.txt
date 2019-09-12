@@ -3,4 +3,5 @@
     :A: ethz [ :deleg:   :ed25519: 1 e399545d248fb3ece0cd822ee3b6222df06fd278308923d9bebef997c9a1afa9 ]
     :A: _rains._tcp.ns.ethz [ :srv:     ns1.ethz.ch. 5024 0 ]
     :A: ns1.ethz [ :ip4:     127.0.0.1 ]
+    :A: _ISDA._ABS.ns1.ethz [ :ct:   3aQCxwd5Hguy4vzgV0nSmnWRTjNf78srKMr8EcwYwRWqnGINIcXM40nBJ1c1yUNO ]
 ]
