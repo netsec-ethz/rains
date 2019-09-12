@@ -27,12 +27,6 @@
 			"revisionTime": "2018-10-11T13:03:14Z"
 		},
 		{
-			"checksumSHA1": "PYXuf7wvcj492uWhjvmXlyyQUYc=",
-			"path": "github.com/cheekybits/genny/generic",
-			"revision": "df3d48aa411e8e28498e452e42cc1e40498a9e58",
-			"revisionTime": "2019-06-11T08:46:15Z"
-		},
-		{
 			"checksumSHA1": "s8t6UaijV8WMK0RMdX00OPI5z0o=",
 			"path": "github.com/dchest/cmac",
 			"revision": "62ff55a1048c485e83f1882466f535da624e944a",
@@ -88,90 +82,6 @@
 			"revisionTime": "2018-11-12T14:05:56Z"
 		},
 		{
-			"checksumSHA1": "n9F+4ZW8PHQsou+udK7jm+SezFk=",
-			"path": "github.com/lucas-clemente/quic-go",
-			"revision": "fc962d18373aa730d5f84786cebec841f5e7ef22",
-			"revisionTime": "2019-09-08T03:23:46Z"
-		},
-		{
-			"checksumSHA1": "Sq4KoDeXI2iJxihHtaFoOND9ayI=",
-			"path": "github.com/lucas-clemente/quic-go/internal/ackhandler",
-			"revision": "fc962d18373aa730d5f84786cebec841f5e7ef22",
-			"revisionTime": "2019-09-08T03:23:46Z"
-		},
-		{
-			"checksumSHA1": "e6PkXeppf7qbi0InCPfSzn6bXBA=",
-			"path": "github.com/lucas-clemente/quic-go/internal/congestion",
-			"revision": "fc962d18373aa730d5f84786cebec841f5e7ef22",
-			"revisionTime": "2019-09-08T03:23:46Z"
-		},
-		{
-			"checksumSHA1": "HDkX616FVT7b8nZ0H5poD3xzD2I=",
-			"path": "github.com/lucas-clemente/quic-go/internal/flowcontrol",
-			"revision": "fc962d18373aa730d5f84786cebec841f5e7ef22",
-			"revisionTime": "2019-09-08T03:23:46Z"
-		},
-		{
-			"checksumSHA1": "DunM8pc0qZAxitrd/FJZdJgYb5M=",
-			"path": "github.com/lucas-clemente/quic-go/internal/handshake",
-			"revision": "fc962d18373aa730d5f84786cebec841f5e7ef22",
-			"revisionTime": "2019-09-08T03:23:46Z"
-		},
-		{
-			"checksumSHA1": "9iFF4JULrpsEwWBTjcqDXoVK/mU=",
-			"path": "github.com/lucas-clemente/quic-go/internal/protocol",
-			"revision": "fc962d18373aa730d5f84786cebec841f5e7ef22",
-			"revisionTime": "2019-09-08T03:23:46Z"
-		},
-		{
-			"checksumSHA1": "eOBm9o3NgesqqCvlzbmtxlPtJf0=",
-			"path": "github.com/lucas-clemente/quic-go/internal/qerr",
-			"revision": "fc962d18373aa730d5f84786cebec841f5e7ef22",
-			"revisionTime": "2019-09-08T03:23:46Z"
-		},
-		{
-			"checksumSHA1": "y/La+61fLrqkAcHXk/ckUAocIhY=",
-			"path": "github.com/lucas-clemente/quic-go/internal/utils",
-			"revision": "fc962d18373aa730d5f84786cebec841f5e7ef22",
-			"revisionTime": "2019-09-08T03:23:46Z"
-		},
-		{
-			"checksumSHA1": "NtOWvdgUS1ULG74Jn7Yk7nz5Gys=",
-			"path": "github.com/lucas-clemente/quic-go/internal/wire",
-			"revision": "fc962d18373aa730d5f84786cebec841f5e7ef22",
-			"revisionTime": "2019-09-08T03:23:46Z"
-		},
-		{
-			"checksumSHA1": "QIwVxQPQYFoXXGDdHk7yCKSe22U=",
-			"path": "github.com/lucas-clemente/quic-go/quictrace",
-			"revision": "fc962d18373aa730d5f84786cebec841f5e7ef22",
-			"revisionTime": "2019-09-08T03:23:46Z"
-		},
-		{
-			"checksumSHA1": "BEmwZjenZ5kQw704NYtyHqaW8NQ=",
-			"path": "github.com/lucas-clemente/quic-go/quictrace/pb",
-			"revision": "fc962d18373aa730d5f84786cebec841f5e7ef22",
-			"revisionTime": "2019-09-08T03:23:46Z"
-		},
-		{
-			"checksumSHA1": "j4eMhpVKh7QbPBE/vZL+VxQwJT0=",
-			"path": "github.com/marten-seemann/chacha20",
-			"revision": "36564989294fee5f3957d3e3fbfc655e10786ec0",
-			"revisionTime": "2019-09-06T10:21:14Z"
-		},
-		{
-			"checksumSHA1": "xJ/ZPgaoP3Gd5ETWGhqufsqptuw=",
-			"path": "github.com/marten-seemann/chacha20/internal/subtle",
-			"revision": "36564989294fee5f3957d3e3fbfc655e10786ec0",
-			"revisionTime": "2019-09-06T10:21:14Z"
-		},
-		{
-			"checksumSHA1": "0tv1F1gQaFDa6D3TBteolJAj734=",
-			"path": "github.com/marten-seemann/qtls",
-			"revision": "83d1e691eac8bbfaf8562d5b61d8de406f7ba2f6",
-			"revisionTime": "2019-09-06T03:51:05Z"
-		},
-		{
 			"checksumSHA1": "SEnjvwVyfuU2xBaOfXfwPD5MZqk=",
 			"path": "github.com/mattn/go-colorable",
 			"revision": "efa589957cd060542a26d2dd7832fd6a6c6c3ade",
@@ -199,12 +109,6 @@
 			"checksumSHA1": "FGg99nQ56Fo3radSCuU1AeEUJug=",
 			"path": "github.com/pierrec/lz4",
 			"revision": "08c27939df1bd95e881e2c2367a749964ad1fceb",
-			"revisionTime": "2019-09-07T08:44:30Z"
-		},
-		{
-			"checksumSHA1": "XxQwMkOgl4p0iuaVClAr0KIDtLg=",
-			"path": "github.com/pierrec/lz4/internal/xxh32",
-			"revision": "0554902aa74a6a41b367c6352ebcc922b26782b1",
 			"revisionTime": "2019-09-07T08:44:30Z"
 		},
 		{
@@ -280,7 +184,7 @@
 			"revisionTime": "2019-09-08T14:08:41Z"
 		},
 		{
-			"checksumSHA1": "e3TyrmLAEAfPBlUrWZzrpUEW9wU=",
+			"checksumSHA1": "zQ/HOY1D82HaPq9ejydImblc0EE=",
 			"origin": "github.com/netsec-ethz/netsec-scion/go/lib/addr",
 			"path": "github.com/scionproto/scion/go/lib/addr",
 			"revision": "a37267b8658955d883d4d66fef62d45ecb9e18b9",
@@ -476,7 +380,7 @@
 			"revisionTime": "2019-08-27T08:37:21Z"
 		},
 		{
-			"checksumSHA1": "4iZ2gYcM8xiU7dZ/8SJyU0zFVtY=",
+			"checksumSHA1": "MfT5vrDvW61f+D5h+tdloUHzH5g=",
 			"origin": "github.com/netsec-ethz/netsec-scion/go/lib/snet",
 			"path": "github.com/scionproto/scion/go/lib/snet",
 			"revision": "a37267b8658955d883d4d66fef62d45ecb9e18b9",
@@ -493,13 +397,6 @@
 			"checksumSHA1": "iDVDTGOWknHqcvumCFo/YSWKBTI=",
 			"origin": "github.com/netsec-ethz/netsec-scion/go/lib/snet/internal/pathsource",
 			"path": "github.com/scionproto/scion/go/lib/snet/internal/pathsource",
-			"revision": "a37267b8658955d883d4d66fef62d45ecb9e18b9",
-			"revisionTime": "2019-08-27T08:37:21Z"
-		},
-		{
-			"checksumSHA1": "e56Av9YuAsw2e+kbz5Ca/LXdz8o=",
-			"origin": "github.com/netsec-ethz/netsec-scion/go/lib/snet/squic",
-			"path": "github.com/scionproto/scion/go/lib/snet/squic",
 			"revision": "a37267b8658955d883d4d66fef62d45ecb9e18b9",
 			"revisionTime": "2019-08-27T08:37:21Z"
 		},
@@ -572,24 +469,6 @@
 			"revisionTime": "2018-12-23T18:29:23Z"
 		},
 		{
-			"checksumSHA1": "lti8heEDFEXVoSUCfs53pnRVtAg=",
-			"path": "golang.org/x/crypto/chacha20poly1305",
-			"revision": "094676da4a83be5288d281081bba63a173ce6772",
-			"revisionTime": "2018-07-12T15:07:55Z"
-		},
-		{
-			"checksumSHA1": "1ezNasqd516o9HG59beqc5s+2Ro=",
-			"path": "golang.org/x/crypto/cryptobyte",
-			"revision": "094676da4a83be5288d281081bba63a173ce6772",
-			"revisionTime": "2018-07-12T15:07:55Z"
-		},
-		{
-			"checksumSHA1": "YEoV2AiZZPDuF7pMVzDt7buS9gc=",
-			"path": "golang.org/x/crypto/cryptobyte/asn1",
-			"revision": "094676da4a83be5288d281081bba63a173ce6772",
-			"revisionTime": "2018-07-12T15:07:55Z"
-		},
-		{
 			"checksumSHA1": "iMiexJL/mzhSh5W6NaWkLUvpx74=",
 			"path": "golang.org/x/crypto/curve25519",
 			"revision": "094676da4a83be5288d281081bba63a173ce6772",
@@ -606,18 +485,6 @@
 			"path": "golang.org/x/crypto/ed25519/internal/edwards25519",
 			"revision": "3d3f9f413869b949e48070b5bc593aa22cc2b8f2",
 			"revisionTime": "2018-11-10T06:03:37Z"
-		},
-		{
-			"checksumSHA1": "ELSEW2KG0p3oua5lIxl1xW2oFBo=",
-			"path": "golang.org/x/crypto/hkdf",
-			"revision": "094676da4a83be5288d281081bba63a173ce6772",
-			"revisionTime": "2018-07-12T15:07:55Z"
-		},
-		{
-			"checksumSHA1": "h4wzbDZpTQFnG8pZg2UVMX4UUqQ=",
-			"path": "golang.org/x/crypto/internal/chacha20",
-			"revision": "094676da4a83be5288d281081bba63a173ce6772",
-			"revisionTime": "2018-07-12T15:07:55Z"
 		},
 		{
 			"checksumSHA1": "/U7f2gaH6DnEmLguVLDbipU6kXU=",
