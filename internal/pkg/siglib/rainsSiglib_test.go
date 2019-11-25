@@ -76,9 +76,9 @@ func TestCheckSectionSignaturesErrors(t *testing.T) {
 		inputPublicKeys map[keys.PublicKeyID][]keys.PublicKey
 		want            bool
 	}{
-		{nil, nil, false},                                                                                                                                //msg nil
-		{&section.Assertion{}, nil, false},                                                                                                               //pkeys nil
-		{&section.Assertion{}, keys0, true},                                                                                                              //no signatures
+		{nil, nil, false},                   //msg nil
+		{&section.Assertion{}, nil, false},  //pkeys nil
+		{&section.Assertion{}, keys0, true}, //no signatures
 		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{}}, SubjectName: ":ip55:"}, keys0, false},                                          //checkStringField false
 		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{}}}, keys0, false},                                                                 //no matching algotype in keys
 		{&section.Assertion{Signatures: []signature.Sig{signature.Sig{PublicKeyID: keys.PublicKeyID{Algorithm: algorithmTypes.Ed25519}}}}, keys1, false}, //sig expired

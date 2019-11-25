@@ -1,3 +1,5 @@
+// +build integration
+
 package integration
 
 import (
@@ -6,9 +8,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -105,24 +108,10 @@ func TestFullCoverageSCION(t *testing.T) {
 func TestFullCoverageCLIToolsSCION(t *testing.T) {
 	// Same integration test as TestFullCoverage, using the CLI tools instead
 
-	// build the CLI tools
-	toolDir, err := ioutil.TempDir("", "rains_tools")
-	if err != nil {
-		t.Fatalf("Error during tmp dir creation: %v", err)
-	} else {
-		log.Info("Created tmp dir", "path", toolDir)
-	}
-
-	for _, tool := range []string{"rainsd", "zonepub", "rdig"} {
-		cmd := exec.Command("/bin/bash", "-c",
-			fmt.Sprintf("go build -o %s/%s -v "+
-				"$GOPATH/src/github.com/netsec-ethz/rains/cmd/%[2]s/%[2]s.go",
-				toolDir, tool))
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("Error during build of %v: %v", tool, err)
-		}
-	}
-	log.Info("Built all tools")
+	binDir, _ := filepath.Abs("../../build")
+	pathZonepub := filepath.Join(binDir, "publisher")
+	pathRainsd := filepath.Join(binDir, "rainsd")
+	pathRdig := filepath.Join(binDir, "rdig")
 
 	//Generate self signed root key
 	keySetup(t, "testdata/keys/root")
@@ -138,10 +127,6 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 				fmt.Printf("Successfully stopped process: %v\n", cmd.Process.Pid)
 			}
 		}
-
-		if err := os.RemoveAll(toolDir); err != nil {
-			fmt.Printf("Error while removing %v: %v", toolDir, err)
-		}
 	}()
 	rootConfig, err := rainsd.LoadConfig("testdata/conf/SCIONnamingServerRoot.conf")
 	if err != nil {
@@ -155,49 +140,56 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 	}
 	rootHostAddr := fmt.Sprintf("%s,[%v]", rootAddr.IA, rootAddr.Host.L3)
 	rootPort := rootAddr.Host.L4.Port()
-	rainsdCmd := fmt.Sprintf("%s/rainsd --sciondSock /run/shm/sciond/sd1-ff00_0_110.sock "+
-		"./testdata/conf/SCIONnamingServerRoot.conf --id nameServerRootCLI 2>&1", toolDir)
-	cmd := exec.Command("/bin/bash", "-c", rainsdCmd)
+	cmd := exec.Command(pathRainsd,
+		"--sciondSock",
+		"/run/shm/sciond/sd1-ff00_0_110.sock",
+		"./testdata/conf/SCIONnamingServerRoot.conf",
+		"--id",
+		"nameServerRootCLI",
+	)
+
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	commands = append(commands, cmd)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 	}
-	log.Info("Started rainsd for", "zone", "Root", "cmd", rainsdCmd)
+	log.Info("Started rainsd for", "zone", "Root", "cmd", cmd)
 	time.Sleep(250 * time.Millisecond)
 
-	publishCmd := fmt.Sprintf("%s/zonepub ./testdata/conf/SCIONpublisherRoot.conf 2>&1", toolDir)
-	cmd = exec.Command("/bin/bash", "-c", publishCmd)
+	cmd = exec.Command(pathZonepub,
+		"./testdata/conf/SCIONpublisherRoot.conf",
+	)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Error during zonepub: %v", err)
 	}
-	log.Info("Published zone for", "zone", "Root", "cmd", publishCmd)
+	log.Info("Published zone for", "zone", "Root", "cmd", cmd)
 	time.Sleep(1000 * time.Millisecond)
 
 	for _, zone := range []string{"ch", "ethz.ch"} {
-		rainsdCmd = fmt.Sprintf("%s/rainsd "+
-			"--sciondSock /run/shm/sciond/sd1-ff00_0_110.sock "+
-			"./testdata/conf/SCIONnamingServer%[2]s.conf "+
-			"--rootServerAddress %s:%d --id nameServer%[2]sCLI 2>&1", toolDir, zone,
-			rootHostAddr, rootPort)
-		cmd = exec.Command("/bin/bash", "-c", rainsdCmd)
+		cmd = exec.Command(pathRainsd,
+			"--sciondSock",
+			"/run/shm/sciond/sd1-ff00_0_110.sock",
+			fmt.Sprintf("./testdata/conf/SCIONnamingServer%s.conf", zone),
+			"--rootServerAddress",
+			fmt.Sprintf("%s:%d", rootHostAddr, rootPort),
+			"--id",
+			fmt.Sprintf("nameServer%sCLI", zone),
+		)
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		commands = append(commands, cmd)
 		if err := cmd.Start(); err != nil {
 			t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 		}
-		log.Info("Started rainsd for", "zone", zone, "cmd", rainsdCmd)
+		log.Info("Started rainsd for", "zone", zone, "cmd", cmd)
 		time.Sleep(250 * time.Millisecond)
 
-		publishCmd = fmt.Sprintf("%s/zonepub "+
-			"./testdata/conf/SCIONpublisher%s.conf 2>&1", toolDir, zone)
-		cmd = exec.Command("/bin/bash", "-c", publishCmd)
+		cmd = exec.Command(pathZonepub, fmt.Sprintf("./testdata/conf/SCIONpublisher%s.conf", zone))
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("Error during zonepub: %v", err)
 		}
-		log.Info("Published zone for", "zone", zone, "cmd", publishCmd)
+		log.Info("Published zone for", "zone", zone, "cmd", cmd)
 		time.Sleep(1000 * time.Millisecond)
 	}
 
@@ -212,17 +204,22 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 		t.Fatalf("Was not able to load ServerAddress from resolver config: %v", err)
 	}
 	resolverHostAddr := fmt.Sprintf("%s,[%v]", resolverAddr.IA, resolverAddr.Host.L3)
-	resolverPort := resolverAddr.Host.L4.Port()
-	resolverCmd := fmt.Sprintf("%s/rainsd --sciondSock /run/shm/sciond/sd1-ff00_0_110.sock "+
-		"./testdata/conf/SCIONresolver.conf "+
-		"--rootServerAddress %s:%d --id resolverCLI 2>&1", toolDir, rootHostAddr, rootPort)
-	cmd = exec.Command("/bin/bash", "-c", resolverCmd)
+	resolverPort := strconv.Itoa(int(resolverAddr.Host.L4.Port()))
+	cmd = exec.Command(pathRainsd,
+		"--sciondSock",
+		"/run/shm/sciond/sd1-ff00_0_110.sock",
+		"./testdata/conf/SCIONresolver.conf",
+		"--rootServerAddress",
+		fmt.Sprintf("%s:%d", rootHostAddr, rootPort),
+		"--id",
+		"resolverCLI",
+	)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	commands = append(commands, cmd)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 	}
-	log.Info("Started rainsd resolver", "cmd", resolverCmd)
+	log.Info("Started rainsd resolver", "cmd", cmd)
 	time.Sleep(1000 * time.Millisecond)
 
 	// Load queries with expected answer
@@ -238,11 +235,18 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error during rdig %v: %v", "type", err)
 		}
-		rdigCmd := fmt.Sprintf("%s/rdig --localAS 1-ff00:0:110 "+
-			"--sciondSock /run/shm/sciond/sd1-ff00_0_110.sock -p %d @%s %s %s",
-			toolDir, resolverPort, resolverHostAddr, rquery.Name, qtype)
-		log.Info("Running:", "rdig query", rdigCmd)
-		cmd = exec.Command("/bin/bash", "-c", rdigCmd)
+		cmd = exec.Command(pathRdig,
+			"--localAS",
+			"1-ff00:0:110",
+			"--sciondSock",
+			"/run/shm/sciond/sd1-ff00_0_110.sock",
+			"-p",
+			string(resolverPort),
+			fmt.Sprintf("@%s", resolverHostAddr),
+			rquery.Name,
+			qtype,
+		)
+		log.Info("Run", "cmd", cmd)
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		cmdOut, _ := cmd.StdoutPipe()
 		if err := cmd.Start(); err != nil {
