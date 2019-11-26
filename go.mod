@@ -1,5 +1,7 @@
 module github.com/netsec-ethz/rains
 
+go 1.11
+
 require (
 	github.com/britram/borat v0.0.0-20181011130314-f891bcfcfb9b
 	github.com/d4l3k/messagediff v1.2.1 // indirect
