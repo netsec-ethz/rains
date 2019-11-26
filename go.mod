@@ -11,4 +11,4 @@ require (
 	gopkg.in/d4l3k/messagediff.v1 v1.2.1 // indirect
 )
 
-replace github.com/scionproto/scion => github.com/netsec-ethz/netsec-scion v0.0.0-20191125131751-ff10566d67ac
+replace github.com/scionproto/scion => github.com/netsec-ethz/scion v0.0.0-20191125131751-ff10566d67ac

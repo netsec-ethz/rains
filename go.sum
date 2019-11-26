@@ -60,8 +60,8 @@ github.com/mattn/go-isatty v0.0.2/go.mod h1:M+lRXTBqGeGNdLjl/ufCoiOlB5xdOkqRJdNx
 github.com/mattn/go-sqlite3 v1.9.1-0.20180719091609-b3511bfdd742/go.mod h1:FPy6KqzDD04eiIsT53CuJW3U88zkxoIYsOqkbpncsNc=
 github.com/matttproud/golang_protobuf_extensions v1.0.1 h1:4hp9jkHxhMHkqkrB3Ix0jegS5sx/RkqARlsWZ6pIwiU=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
-github.com/netsec-ethz/netsec-scion v0.0.0-20191125131751-ff10566d67ac h1:3BLvYV1/YT/gUU2SJ9ooIXre0RMg62yU/F0N8IyvQjs=
-github.com/netsec-ethz/netsec-scion v0.0.0-20191125131751-ff10566d67ac/go.mod h1:QRqz4BE99GSaV3rjKFxe65OKal3MHoHodFFBYFSmw08=
+github.com/netsec-ethz/scion v0.0.0-20191125131751-ff10566d67ac h1:r3+9Ty3FmRHYOpSXgnrCIs0iFdtvjLU+q1lEbAyYfn8=
+github.com/netsec-ethz/scion v0.0.0-20191125131751-ff10566d67ac/go.mod h1:QRqz4BE99GSaV3rjKFxe65OKal3MHoHodFFBYFSmw08=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.10.3/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/gomega v1.7.1/go.mod h1:XdKZgCCFLUoM/7CFJVPcG8C1xQ1AJ0vpAezJrB7JYyY=
