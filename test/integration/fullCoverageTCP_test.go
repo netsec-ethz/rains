@@ -143,7 +143,7 @@ func TestFullCoverageCLITools(t *testing.T) {
 		"--id",
 		"nameServerRoot",
 	)
-	log.Info("Start", "cmd", cmd.String())
+	log.Info("Start", fmt.Sprintf("cmd=%s %s", cmd.Path, cmd.Args))
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 	}
@@ -151,7 +151,7 @@ func TestFullCoverageCLITools(t *testing.T) {
 	time.Sleep(250 * time.Millisecond)
 
 	cmd = exec.Command(pathZonepub, "./testdata/conf/publisherRoot.conf")
-	log.Info("Execute", "cmd", cmd.String())
+	log.Info("Execute", fmt.Sprintf("cmd=%s %s", cmd.Path, cmd.Args))
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Error during zonepub %v: %v", "zonepub", err)
 	}
@@ -165,7 +165,7 @@ func TestFullCoverageCLITools(t *testing.T) {
 			"--id",
 			fmt.Sprintf("nameServer%s", zone),
 		)
-		log.Info("Start", "cmd", cmd.String())
+		log.Info("Start", fmt.Sprintf("cmd=%s %s", cmd.Path, cmd.Args))
 		if err := cmd.Start(); err != nil {
 			t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 		}
@@ -173,7 +173,7 @@ func TestFullCoverageCLITools(t *testing.T) {
 		time.Sleep(250 * time.Millisecond)
 
 		cmd = exec.Command(pathZonepub, fmt.Sprintf("./testdata/conf/publisher%s.conf", zone))
-		log.Info("Execute", "cmd", cmd.String())
+		log.Info("Execute", fmt.Sprintf("cmd=%s %s", cmd.Path, cmd.Args))
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("Error during zonepub %v: %v", "zonepub", err)
 		}
@@ -198,7 +198,7 @@ func TestFullCoverageCLITools(t *testing.T) {
 		"--id",
 		"resolver",
 	)
-	log.Info("Start", "cmd", cmd.String())
+	log.Info("Start", fmt.Sprintf("cmd=%s %s", cmd.Path, cmd.Args))
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 	}
@@ -225,7 +225,7 @@ func TestFullCoverageCLITools(t *testing.T) {
 			rquery.Name,
 			qtype,
 		)
-		log.Info("Execute", "cmd", cmd.String())
+		log.Info("Execute", fmt.Sprintf("cmd=%s %s", cmd.Path, cmd.Args))
 		cmdOut, _ := cmd.StdoutPipe()
 		if err := cmd.Start(); err != nil {
 			t.Fatalf("Error during rdig %v: %v", "rdig", err)

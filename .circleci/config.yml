@@ -2,7 +2,9 @@ version: 2
 jobs:
   build:
     docker:
-      - image: ethznetsec/scion_base
+      - image: circleci/buildpack-deps:xenial
+        user: root
+    resource_class: medium
     working_directory: /tmp/go/src/github.com/netsec-ethz/rains
     steps:
       - run:
@@ -10,48 +12,67 @@ jobs:
           command: |
               echo 'export GOPATH=/tmp/go' >> $BASH_ENV
               echo 'export SC=/tmp/go/src/github.com/scionproto/scion' >> $BASH_ENV
-              echo 'export PATH=$PATH:/tmp/go/bin' >> $BASH_ENV
+              echo 'export PATH="$HOME/.local/bin:$GOPATH/bin:/root/bin:/usr/local/go/bin:$PATH"' >> $BASH_ENV
       - checkout
       - restore_cache:
           keys:
-            - v2-pkg-cache
-      - run: go get -u github.com/kardianos/govendor
+            - v2-pkg-cache-{{ checksum "go.sum" }}
       - run:
-          name: scion
+          name: install Go
           command: |
-            sudo apt-get install --assume-yes libpcap0.8 libpcap0.8-dev 
+            wget https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz -O /tmp/go.tar.gz
+            tar -xzf /tmp/go.tar.gz -C /usr/local/
+      - run:
+          name: build scion
+          command: |
+            apt-get update
+            apt-get install --assume-yes git python capnproto
             mkdir -p $GOPATH/src/github.com/scionproto/scion
             git clone https://github.com/netsec-ethz/scion $GOPATH/src/github.com/scionproto/scion
             cd $GOPATH/src/github.com/scionproto/scion
-            ./env/deps
-            make
+            unset -v GOPATH
+            for service in "border" "cert_srv" "godispatcher" "path_srv" "sciond"; do go build -o ./bin/${service} github.com/scionproto/scion/go/${service}/; echo "Built ${service}"; done
+      - run:
+          name: generate local SCION gen config
+          working_directory: $GOPATH/src/github.com/scionproto/scion
+          command: |
+            cd $GOPATH/src/github.com/scionproto/scion
+            apt-get install --assume-yes python3-pip python3-yaml python3-pygments libssl-dev python3-openssl python3-nacl python3-lz4
+            pip3 install --user -r env/pip3/requirements.txt
+            echo -e '#!/bin/bash\necho "0.0.0.0"' > tools/docker-ip
+            mkdir ./gen-certs
+            openssl genrsa -out "gen-certs/tls.key" 2048; openssl req -new -x509 -key "gen-certs/tls.key" -out "gen-certs/tls.pem" -days 3650 -subj /CN=scion_def_srv
             PYTHONPATH=$PYTHONPATH:./topology:./python python/topology/generator.py -c ./topology/Tiny.topo
             mkdir ./gen-cache/
             echo  '1-ff00_0_110' > ./gen/ia
-            ./supervisor/supervisor.sh reload
-            ./supervisor/supervisor.sh start dispatcher
-            ./supervisor/supervisor.sh start as1-ff00_0_110:*
       - run:
-          name: run build
+          name: run SCION AS
+          working_directory: $GOPATH/src/github.com/scionproto/scion
           command: |
-            # TODO: Update base image ethznetsec/scion_base after the update
-            curl https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz -o /tmp/go.tar.gz
-            sudo rm -rf /usr/local/go
-            sudo tar -xzf /tmp/go.tar.gz -C /usr/local/
-            govendor sync
-            go build -v cmd/rainsd/rainsd.go
-            go build -v cmd/rdig/rdig.go
-            go build -v cmd/zonepub/zonepub.go
+            cd $GOPATH/src/github.com/scionproto/scion
+            apt-get install --assume-yes python-pip
+            useradd --create-home --shell /bin/bash --groups sudo scion
+            chown scion:scion -R ./
+            su scion -c 'pip2 install --user supervisor==3.3.1 supervisor-wildcards==0.1.3'
+            su scion -c 'PATH="/home/scion/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" ./supervisor/supervisor.sh reload'
+            su scion -c 'PATH="/home/scion/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" ./supervisor/supervisor.sh start dispatcher'
+            su scion -c 'PATH="/home/scion/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" ./supervisor/supervisor.sh start as1-ff00_0_110:*'
       - run:
-          name: run tests
+          name: run rains build
           command: |
-            go fmt ./...
-            go vet -composites=false ./internal/...
-            go vet -composites=false ./cmd/...
-            go vet -composites=false ./test/...
-            go test ./internal/pkg/...
-            go test -v ./test/integration/
+            unset -v GOPATH
+            make all
+      - run:
+          name: run unit tests
+          command: |
+            unset -v GOPATH
+            make unit
+      - run:
+          name: run integration tests
+          command: |
+            unset -v GOPATH
+            make integration
       - save_cache:
-          key: v2-pkg-cache
+          key: v2-pkg-cache-{{ checksum "go.sum" }}
           paths:
-            - "/tmp/go/pkg"
+            - "/root/go/pkg"
