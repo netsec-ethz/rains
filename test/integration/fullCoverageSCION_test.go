@@ -241,7 +241,7 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 			"--sciondSock",
 			"/run/shm/sciond/sd1-ff00_0_110.sock",
 			"-p",
-			string(resolverPort),
+			resolverPort,
 			fmt.Sprintf("@%s", resolverHostAddr),
 			rquery.Name,
 			qtype,
