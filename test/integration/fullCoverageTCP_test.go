@@ -1,3 +1,5 @@
+// +build integration
+
 package integration
 
 import (
@@ -8,6 +10,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -107,23 +110,10 @@ func TestFullCoverage(t *testing.T) {
 func TestFullCoverageCLITools(t *testing.T) {
 	// Same integration test as TestFullCoverage, using the CLI tools instead
 
-	// build the CLI tools
-	toolDir, err := ioutil.TempDir("", "rains_tools")
-	if err != nil {
-		t.Fatalf("Error during tmp dir creation: %v", err)
-	} else {
-		log.Info("Created tmp dir", "path", toolDir)
-	}
-
-	for _, tool := range []string{"rainsd", "zonepub", "rdig"} {
-		cmd := exec.Command("/bin/bash", "-c",
-			fmt.Sprintf("go build -o %s/%s -v "+
-				"$GOPATH/src/github.com/netsec-ethz/rains/cmd/%[2]s/%[2]s.go",
-				toolDir, tool))
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("Error during build of %v: %v", tool, err)
-		}
-	}
+	binDir, _ := filepath.Abs("../../build")
+	pathZonepub := filepath.Join(binDir, "publisher")
+	pathRainsd := filepath.Join(binDir, "rainsd")
+	pathRdig := filepath.Join(binDir, "rdig")
 
 	//Generate self signed root key
 	keySetup(t, "testdata/keys/root")
@@ -137,10 +127,6 @@ func TestFullCoverageCLITools(t *testing.T) {
 				fmt.Printf("Failed to kill process: %v", err)
 			}
 		}
-
-		if err := os.RemoveAll(toolDir); err != nil {
-			fmt.Printf("Error while removing %v: %v", toolDir, err)
-		}
 	}()
 	rootConfig, err := rainsd.LoadConfig("testdata/conf/namingServerRoot.conf")
 	if err != nil {
@@ -152,35 +138,42 @@ func TestFullCoverageCLITools(t *testing.T) {
 	}
 	rootIP := rootIPAddr.IP.String()
 	rootPort := strconv.Itoa(rootIPAddr.Port)
-	cmd := exec.Command("/bin/bash", "-c",
-		fmt.Sprintf("%s/rainsd "+
-			"./testdata/conf/namingServerRoot.conf --id nameServerRoot", toolDir))
+	cmd := exec.Command(pathRainsd,
+		"./testdata/conf/namingServerRoot.conf",
+		"--id",
+		"nameServerRoot",
+	)
+	log.Info("Start", "cmd", cmd.String())
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 	}
 	commands = append(commands, cmd)
 	time.Sleep(250 * time.Millisecond)
 
-	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/zonepub "+
-		"./testdata/conf/publisherRoot.conf", toolDir))
+	cmd = exec.Command(pathZonepub, "./testdata/conf/publisherRoot.conf")
+	log.Info("Execute", "cmd", cmd.String())
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("Error during zonepub %v: %v", "zonepub", err)
 	}
 	time.Sleep(1000 * time.Millisecond)
 
 	for _, zone := range []string{"ch", "ethz.ch"} {
-		cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/rainsd "+
-			"./testdata/conf/namingServer%[2]s.conf "+
-			"--rootServerAddress %s:%s --id nameServer%[2]s", toolDir, zone, rootIP,
-			rootPort))
+		cmd = exec.Command(pathRainsd,
+			fmt.Sprintf("./testdata/conf/namingServer%s.conf", zone),
+			"--rootServerAddress",
+			fmt.Sprintf("%s:%s", rootIP, rootPort),
+			"--id",
+			fmt.Sprintf("nameServer%s", zone),
+		)
+		log.Info("Start", "cmd", cmd.String())
 		if err := cmd.Start(); err != nil {
 			t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 		}
 		commands = append(commands, cmd)
 		time.Sleep(250 * time.Millisecond)
 
-		cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/zonepub "+
-			"./testdata/conf/publisher%s.conf", toolDir, zone))
+		cmd = exec.Command(pathZonepub, fmt.Sprintf("./testdata/conf/publisher%s.conf", zone))
+		log.Info("Execute", "cmd", cmd.String())
 		if err := cmd.Run(); err != nil {
 			t.Fatalf("Error during zonepub %v: %v", "zonepub", err)
 		}
@@ -198,9 +191,14 @@ func TestFullCoverageCLITools(t *testing.T) {
 	}
 	resolverIP := resolverIPAddr.IP.String()
 	resolverPort := strconv.Itoa(resolverIPAddr.Port)
-	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/rainsd "+
-		"./testdata/conf/resolver.conf "+
-		"--rootServerAddress %s:%s --id resolver", toolDir, rootIP, rootPort))
+	cmd = exec.Command(pathRainsd,
+		"./testdata/conf/resolver.conf",
+		"--rootServerAddress",
+		fmt.Sprintf("%s:%s", rootIP, rootPort),
+		"--id",
+		"resolver",
+	)
+	log.Info("Start", "cmd", cmd.String())
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Error during rainsd %v: %v", "rainsd", err)
 	}
@@ -220,10 +218,14 @@ func TestFullCoverageCLITools(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error during rdig %v: %v", "type", err)
 		}
-		log.Info("Running:", "rdig query", fmt.Sprintf("%s/rdig -p %s @%s %s %s",
-			toolDir, resolverPort, resolverIP, rquery.Name, qtype))
-		cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("%s/rdig -p %s @%s %s %s",
-			toolDir, resolverPort, resolverIP, rquery.Name, qtype))
+		cmd = exec.Command(pathRdig,
+			"-p",
+			resolverPort,
+			fmt.Sprintf("@%s", resolverIP),
+			rquery.Name,
+			qtype,
+		)
+		log.Info("Execute", "cmd", cmd.String())
 		cmdOut, _ := cmd.StdoutPipe()
 		if err := cmd.Start(); err != nil {
 			t.Fatalf("Error during rdig %v: %v", "rdig", err)

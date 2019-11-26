@@ -12,37 +12,36 @@ clean:
 	rm -rf ${BUILD_PATH}
 	mkdir ${BUILD_PATH}
 
-rainsd:
-	cd ${BUILD_PATH}; \
-	go build ${LDFLAGS} -o rainsd github.com/netsec-ethz/rains/cmd/rainsd ; \
-	cd - >/dev/null
+rainsd: vet
+	go build ${LDFLAGS} -o ${BUILD_PATH}/rainsd github.com/netsec-ethz/rains/cmd/rainsd
 
-zonepub:
-	cd ${BUILD_PATH}; \
-	go build ${LDFLAGS} -o publisher github.com/netsec-ethz/rains/cmd/zonepub ; \
-	cd - >/dev/null
+zonepub: vet
+	go build ${LDFLAGS} -o ${BUILD_PATH}/publisher github.com/netsec-ethz/rains/cmd/zonepub
 
-rdig:
-	cd ${BUILD_PATH}; \
-	go build ${LDFLAGS} -o rdig github.com/netsec-ethz/rains/cmd/rdig ; \
-	cd - >/dev/null
+rdig: vet
+	go build ${LDFLAGS} -o ${BUILD_PATH}/rdig github.com/netsec-ethz/rains/cmd/rdig
 
-keymanager:
-	cd ${BUILD_PATH}; \
-	go build ${LDFLAGS} -o keymanager github.com/netsec-ethz/rains/cmd/keyManager ;\
-	cd - >/dev/null
+keymanager: vet
+	go build ${LDFLAGS} -o ${BUILD_PATH}/keymanager github.com/netsec-ethz/rains/cmd/keyManager
 
-tests:
+
+test: vet unit integration
+
+vet:
 	go fmt ./...
 	go vet ./internal/...
 	go vet ./cmd/...
 	go vet ./test/...
+
+unit:
 	go test ./internal/pkg/...
-	go test -v ./test/integration/
+
+integration: rainsd rdig zonepub
+	go test -v -tags=integration ./test/integration/
 
 cover:
 	go test -coverprofile=coverage.out -coverpkg=./internal/pkg/... ./internal/pkg/... ./test/...
 	go tool cover -html=coverage.out -o coverage.html
 	firefox coverage.html
 
-.PHONY: clean rainsd zonepub rdig zoneman keymanager
+.PHONY: clean rainsd zonepub rdig zoneman keymanager vet unit integration

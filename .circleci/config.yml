@@ -21,7 +21,7 @@ jobs:
           command: |
             sudo apt-get install --assume-yes libpcap0.8 libpcap0.8-dev 
             mkdir -p $GOPATH/src/github.com/scionproto/scion
-            git clone https://github.com/netsec-ethz/netsec-scion $GOPATH/src/github.com/scionproto/scion
+            git clone https://github.com/netsec-ethz/scion $GOPATH/src/github.com/scionproto/scion
             cd $GOPATH/src/github.com/scionproto/scion
             ./env/deps
             make
