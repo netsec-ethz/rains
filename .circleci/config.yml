@@ -14,42 +14,46 @@ jobs:
               echo 'export SC=/tmp/go/src/github.com/scionproto/scion' >> $BASH_ENV
               echo 'export PATH="$HOME/.local/bin:$GOPATH/bin:/root/bin:/usr/local/go/bin:$PATH"' >> $BASH_ENV
       - checkout
-      - restore_cache:
-          keys:
-            - v2-pkg-cache-{{ checksum "go.sum" }}
       - run:
           name: install Go
           command: |
             wget https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz -O /tmp/go.tar.gz
             tar -xzf /tmp/go.tar.gz -C /usr/local/
       - run:
-          name: build scion
+          name: get scion sources
           command: |
             apt-get update
             apt-get install --assume-yes git python capnproto
             mkdir -p $GOPATH/src/github.com/scionproto/scion
             git clone https://github.com/netsec-ethz/scion $GOPATH/src/github.com/scionproto/scion
-            cd $GOPATH/src/github.com/scionproto/scion
+            cat $GOPATH/src/github.com/scionproto/scion/env/pip3/requirements.txt > /tmp/scion_pip3_requirements.txt
+      - restore_cache:
+          keys:
+            - v2-pkg-cache-{{ checksum "go.sum" }}-{{ "/tmp/scion_pip3_requirements.txt" }}
+            - v2-pkg-cache-{{ checksum "go.sum" }}
+      - run:
+          name: build scion services
+          command: |
+            cd $SC
             unset -v GOPATH
             for service in "border" "cert_srv" "godispatcher" "path_srv" "sciond"; do go build -o ./bin/${service} github.com/scionproto/scion/go/${service}/; echo "Built ${service}"; done
       - run:
           name: generate local SCION gen config
-          working_directory: $GOPATH/src/github.com/scionproto/scion
           command: |
-            cd $GOPATH/src/github.com/scionproto/scion
-            apt-get install --assume-yes python3-pip python3-yaml python3-pygments libssl-dev python3-openssl python3-nacl python3-lz4
-            pip3 install --user -r env/pip3/requirements.txt
+            cd $SC
+            apt-get install --assume-yes python3-venv python3-pip python3-yaml python3-pygments libssl-dev python3-openssl python3-nacl python3-lz4
+            python3 -m venv --system-site-packages venv; source venv/bin/activate
+            pip3 install -r env/pip3/requirements.txt
             echo -e '#!/bin/bash\necho "0.0.0.0"' > tools/docker-ip
             mkdir ./gen-certs
             openssl genrsa -out "gen-certs/tls.key" 2048; openssl req -new -x509 -key "gen-certs/tls.key" -out "gen-certs/tls.pem" -days 3650 -subj /CN=scion_def_srv
-            PYTHONPATH=$PYTHONPATH:./topology:./python python/topology/generator.py -c ./topology/Tiny.topo
+            PYTHONPATH=$PYTHONPATH:./topology:./python python3 python/topology/generator.py -c ./topology/Tiny.topo
             mkdir ./gen-cache/
             echo  '1-ff00_0_110' > ./gen/ia
       - run:
           name: run SCION AS
-          working_directory: $GOPATH/src/github.com/scionproto/scion
           command: |
-            cd $GOPATH/src/github.com/scionproto/scion
+            cd $SC
             apt-get install --assume-yes python-pip
             useradd --create-home --shell /bin/bash --groups sudo scion
             chown scion:scion -R ./
@@ -76,3 +80,8 @@ jobs:
           key: v2-pkg-cache-{{ checksum "go.sum" }}
           paths:
             - "/root/go/pkg"
+      - save_cache:
+          key: v2-pkg-cache-{{ checksum "go.sum" }}-{{ checksum "/tmp/scion_pip3_requirements.txt" }}
+          paths:
+            - "/root/go/pkg"
+            - "${SC}/venv"
