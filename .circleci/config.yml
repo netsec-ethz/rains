@@ -2,56 +2,89 @@ version: 2
 jobs:
   build:
     docker:
-      - image: ethznetsec/scion_base
+      # Can't use debian base image, because outdated cryptography does not install
+      #- image: circleci/golang:1.11-stretch
+      - image: circleci/buildpack-deps:xenial
+        user: root
+    resource_class: medium
     working_directory: /tmp/go/src/github.com/netsec-ethz/rains
     steps:
       - run:
           name: setup envvar
           command: |
-              echo 'export GOPATH=/tmp/go' >> $BASH_ENV
               echo 'export SC=/tmp/go/src/github.com/scionproto/scion' >> $BASH_ENV
-              echo 'export PATH=$PATH:/tmp/go/bin' >> $BASH_ENV
+              echo 'export PATH="/usr/local/go/bin:$PATH"' >> $BASH_ENV
       - checkout
+      - run:
+          name: install Go
+          command: |
+            wget https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz -O /tmp/go.tar.gz
+            tar -xzf /tmp/go.tar.gz -C /usr/local/
+      - run:
+          name: get scion sources
+          command: |
+            apt-get update
+            apt-get install --assume-yes git capnproto
+            mkdir -p $SC
+            git clone https://github.com/netsec-ethz/scion $SC
+            cat ${SC}/env/pip3/requirements.txt > /tmp/scion_pip3_requirements.txt
       - restore_cache:
           keys:
-            - v2-pkg-cache
-      - run: go get -u github.com/kardianos/govendor
+            - v2-pkg-cache-{{ checksum "go.sum" }}-{{ checksum "/tmp/scion_pip3_requirements.txt" }}
+            - v2-pkg-cache-{{ checksum "go.sum" }}
       - run:
-          name: scion
+          name: run rains vet
           command: |
-            sudo apt-get install --assume-yes libpcap0.8 libpcap0.8-dev 
-            mkdir -p $GOPATH/src/github.com/scionproto/scion
-            git clone https://github.com/netsec-ethz/scion $GOPATH/src/github.com/scionproto/scion
-            cd $GOPATH/src/github.com/scionproto/scion
-            ./env/deps
-            make
-            PYTHONPATH=$PYTHONPATH:./topology:./python python/topology/generator.py -c ./topology/Tiny.topo
+            make vet
+      - run:
+          name: run rains build
+          command: |
+            make all
+      - run:
+          name: run unit tests
+          command: |
+            make unit
+      - run:
+          name: build scion services
+          command: |
+            cd $SC
+            for service in "border" "cert_srv" "godispatcher" "beacon_srv" "path_srv" "sciond"; do
+              go build -o ./bin/${service} github.com/scionproto/scion/go/${service}/;
+              echo "Built ${service}";
+            done
+      - run:
+          name: generate local SCION gen config
+          command: |
+            cd $SC
+            apt-get install --assume-yes python3-venv python3-pip python3-yaml python3-pygments libssl-dev python3-openssl python3-nacl python3-lz4
+            python3 -m venv --system-site-packages venv; source venv/bin/activate
+            pip3 install -r env/pip3/requirements.txt
+            pip3 install supervisor==4.1.0 supervisor-wildcards==0.1.3
+            echo -e '#!/bin/bash\necho "0.0.0.0"' > tools/docker-ip
+            mkdir ./gen-certs
+            openssl genrsa -out "gen-certs/tls.key" 2048; openssl req -new -x509 -key "gen-certs/tls.key" -out "gen-certs/tls.pem" -days 3650 -subj /CN=scion_def_srv
+            PYTHONPATH=$PYTHONPATH:./topology:./python python3 python/topology/generator.py -c ./topology/Tiny.topo
             mkdir ./gen-cache/
             echo  '1-ff00_0_110' > ./gen/ia
-            ./supervisor/supervisor.sh reload
-            ./supervisor/supervisor.sh start dispatcher
-            ./supervisor/supervisor.sh start as1-ff00_0_110:*
       - run:
-          name: run build
+          name: run SCION AS
           command: |
-            # TODO: Update base image ethznetsec/scion_base after the update
-            curl https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz -o /tmp/go.tar.gz
-            sudo rm -rf /usr/local/go
-            sudo tar -xzf /tmp/go.tar.gz -C /usr/local/
-            govendor sync
-            go build -v cmd/rainsd/rainsd.go
-            go build -v cmd/rdig/rdig.go
-            go build -v cmd/zonepub/zonepub.go
+            cd $SC; source venv/bin/activate
+            useradd --create-home --shell /bin/bash --groups sudo scion
+            chown scion:scion -R ./
+            su scion -c 'source venv/bin/activate && ./supervisor/supervisor.sh reload'
+            su scion -c 'source venv/bin/activate && ./supervisor/supervisor.sh start dispatcher'
+            su scion -c 'source venv/bin/activate && ./supervisor/supervisor.sh start as1-ff00_0_110:*'
       - run:
-          name: run tests
+          name: run integration tests
           command: |
-            go fmt ./...
-            go vet -composites=false ./internal/...
-            go vet -composites=false ./cmd/...
-            go vet -composites=false ./test/...
-            go test ./internal/pkg/...
-            go test -v ./test/integration/
+            make integration
       - save_cache:
-          key: v2-pkg-cache
+          key: v2-pkg-cache-{{ checksum "go.sum" }}
           paths:
-            - "/tmp/go/pkg"
+            - "/root/go/pkg"
+      - save_cache:
+          key: v2-pkg-cache-{{ checksum "go.sum" }}-{{ checksum "/tmp/scion_pip3_requirements.txt" }}
+          paths:
+            - "/root/go/pkg"
+            - "${SC}/venv"
