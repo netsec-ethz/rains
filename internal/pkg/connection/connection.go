@@ -1,33 +1,24 @@
 package connection
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"reflect"
-	"strings"
 
 	"bytes"
-	"io/ioutil"
 
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
+	"github.com/netsec-ethz/rains/internal/pkg/connection/scion"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
-	saddr "github.com/scionproto/scion/go/lib/addr"
-	"github.com/scionproto/scion/go/lib/sciond"
-	sd "github.com/scionproto/scion/go/lib/sciond"
 	"github.com/scionproto/scion/go/lib/snet"
-	"github.com/scionproto/scion/go/lib/spath"
 )
 
 const MaxUDPPacketBytes = 9000
-const vpnServerIP = "10.0.8.1:1194"
-const vpnServerPublicIP = "192.33.93.195:1194"
 
 //Info contains address information about one actor of a connection of the declared type
 type Info struct {
@@ -107,66 +98,10 @@ func CreateConnection(addr net.Addr) (conn net.Conn, err error) {
 	case *net.TCPAddr:
 		return tls.Dial(addr.Network(), addr.String(), &tls.Config{InsecureSkipVerify: true})
 	case *snet.Addr:
-		addr := addr.(*snet.Addr)
-		rawIA, err := ioutil.ReadFile(fmt.Sprintf("%s/gen/ia", os.Getenv("SC")))
-		if err != nil {
-			return nil, fmt.Errorf("Error: Unable to read ia file from $SC/gen/ia: %v", err)
-		}
-		localIA, _ := saddr.IAFromFileFmt(strings.TrimSpace(string(rawIA[:])), false)
-		localAddr, err := getLocalIP()
-		if err != nil {
-			return nil, errors.New("No valid local address")
-		}
-		srcAddr, err := snet.AddrFromString(fmt.Sprintf("%s,[%v]", localIA.String(), localAddr.String()))
-		if err != nil {
-			return nil, fmt.Errorf("No valid SCION address: err: %v", err)
-		}
-		if !srcAddr.IA.Equal(addr.IA) {
-			pathEntry, err := choosePathSCION(context.TODO(), srcAddr, addr)
-			if err != nil {
-				return nil, err
-			}
-			addr.Path = spath.New(pathEntry.Path.FwdPath)
-			if err := addr.Path.InitOffsets(); err != nil {
-				return nil, fmt.Errorf("failed to InitOffsets on remote SCION address: %v", err)
-			}
-			addr.NextHop, _ = pathEntry.HostInfo.Overlay()
-		}
-		return snet.DialSCION("udp4", srcAddr, addr)
+		return scion.Dial(addr.(*snet.Addr))
 	default:
 		return nil, fmt.Errorf("unsupported Network address type: %s", addr)
 	}
-}
-
-// choosePathSCION is a naive implementation of a path selection algorithm that
-// chooses the first available path.
-func choosePathSCION(ctx context.Context, local, remote *snet.Addr) (*sd.PathReplyEntry, error) {
-	if snet.DefNetwork == nil {
-		return nil, errors.New("SCION network not initialized")
-	}
-	pathMgr := snet.DefNetwork.PathResolver()
-	pathSet := pathMgr.Query(ctx, local.IA, remote.IA, sciond.PathReqFlags{})
-	for _, p := range pathSet {
-		return p.Entry, nil
-	}
-	return nil, fmt.Errorf("failed to find path from %s to %s", local, remote)
-}
-
-func getLocalIP() (net.IP, error) {
-	// check if we are using the default VPN
-	conn, err := net.Dial("udp", vpnServerIP)
-	if err != nil {
-		// check what the outbound address is for Internet traffic
-		conn, err = net.Dial("udp", vpnServerPublicIP)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to determine local address: %v", err)
-		}
-	}
-	defer conn.Close()
-
-	// get the address on the local side
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	return localAddr.IP, nil
 }
 
 func Listen(conn net.Conn, tok token.Token, done chan<- message.Message, ec chan<- error) {

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
@@ -20,7 +19,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	"github.com/scionproto/scion/go/lib/snet"
-	"github.com/scionproto/scion/go/lib/sock/reliable"
 )
 
 const defaultSciond = "/run/shm/sciond/default.sock"
@@ -49,13 +47,6 @@ func New(config Config) *Rainspub {
 //Publish performs various tasks of a zone's publishing process to rains servers according to its
 //configuration. This implementation assumes that there is exactly one zone per zonefile.
 func (r *Rainspub) Publish() error {
-	// If we have a SCION source address, initialize snet now.
-	if r.Config.SrcAddr.Type == connection.SCION && snet.DefNetwork == nil {
-		SCIONLocal := r.Config.SrcAddr.Addr.(*snet.Addr)
-		if err := snet.Init(SCIONLocal.IA, scionAddrToSciond(SCIONLocal), reliable.NewDispatcherService("")); err != nil {
-			return fmt.Errorf("failed to initialize snet: %v", err)
-		}
-	}
 	encoder := zonefile.IO{}
 	zoneContent, err := encoder.LoadZonefile(r.Config.ZonefilePath)
 	if err != nil {
@@ -469,7 +460,7 @@ func (r *Rainspub) publishSections(msg message.Message) []net.Addr {
 	var errorConns []net.Addr
 	results := make(chan net.Addr, len(r.Config.AuthServers))
 	for _, info := range r.Config.AuthServers {
-		go connectAndSendMsg(context.TODO(), msg, info.Addr, r.Config.SrcAddr, results)
+		go connectAndSendMsg(context.TODO(), msg, info.Addr, results)
 	}
 	for i := 0; i < len(r.Config.AuthServers); i++ {
 		if errorConn := <-results; errorConn != nil {

@@ -17,10 +17,10 @@ import (
 
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"github.com/netsec-ethz/rains/internal/pkg/connection/scion"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/scionproto/scion/go/lib/snet"
-	"github.com/scionproto/scion/go/lib/sock/reliable"
 )
 
 //sendTo sends message to the specified receiver.
@@ -166,15 +166,7 @@ func (s *Server) listen(id string) {
 			log.Warn(fmt.Sprintf("Type assertion failed. Expected *connection.SCIONAddr, got %T", addr))
 			return
 		}
-		if snet.DefNetwork == nil {
-			if err := snet.Init(addr.IA, s.config.SciondSock,
-				reliable.NewDispatcherService(s.config.DispatcherSock)); err != nil {
-
-				log.Warn("failed to initialize snet", "err", err)
-				return
-			}
-		}
-		listener, err := snet.ListenSCION("udp4", addr)
+		listener, err := scion.Listen(addr)
 		srvLogger.Info(fmt.Sprintf("Started SCION listener on %v", addr), "id", id)
 		if err != nil {
 			log.Warn("failed to ListenSCION", "err", err)

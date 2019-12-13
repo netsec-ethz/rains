@@ -35,10 +35,6 @@ var tcpTimeout time.Duration
 var tlsCertificateFile string
 var tlsPrivateKeyFile string
 
-// SCION specific settings
-var dispatcherSock string
-var sciondSock string
-
 //inbox
 var prioBufferSize int
 var normalBufferSize int
@@ -133,10 +129,6 @@ func init() {
 		"certificate file proving the server's identity.")
 	rootCmd.Flags().StringVar(&tlsPrivateKeyFile, "tlsPrivateKeyFile", "data/cert/server.key", "The path to the server's tls "+
 		"private key file proving the server's identity.")
-
-	// SCION specific settings
-	rootCmd.Flags().StringVar(&dispatcherSock, "dispatcherSock", "/run/shm/dispatcher/default.sock", "Path to the dispatcher socket.")
-	rootCmd.Flags().StringVar(&sciondSock, "sciondSock", "/run/shm/sciond/default.sock", "Path to the sciond socket.")
 
 	//inbox
 	rootCmd.Flags().IntVar(&prioBufferSize, "prioBufferSize", 50, "The maximum number of messages in the priority buffer.")
@@ -260,12 +252,6 @@ func updateConfig(config *rainsd.Config) {
 	}
 	if rootCmd.Flag("tlsPrivateKeyFile").Changed {
 		config.TLSPrivateKeyFile = tlsPrivateKeyFile
-	}
-	if rootCmd.Flag("dispatcherSock").Changed {
-		config.DispatcherSock = dispatcherSock
-	}
-	if rootCmd.Flag("sciondSock").Changed {
-		config.SciondSock = sciondSock
 	}
 	if rootCmd.Flag("prioBufferSize").Changed {
 		config.PrioBufferSize = prioBufferSize
