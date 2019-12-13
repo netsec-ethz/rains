@@ -31,6 +31,7 @@ type network struct {
 	snet.Network
 	localIA       addr.IA
 	hostInLocalAS net.IP
+	PathQuerier   snet.PathQuerier
 }
 
 var defNetwork network
@@ -122,16 +123,14 @@ func initDefNetwork() error {
 	if err != nil {
 		return err
 	}
+	pathQuerier := sciond.Querier{Connector: sciondConn, IA: localIA}
 	n := snet.NewNetworkWithPR(
 		localIA,
 		dispatcher,
-		sciond.Querier{
-			Connector: sciondConn,
-			IA:        localIA,
-		},
+		pathQuerier,
 		sciond.RevHandler{Connector: sciondConn},
 	)
-	defNetwork = network{n, localIA, hostInLocalAS}
+	defNetwork = network{n, localIA, hostInLocalAS, pathQuerier}
 	return nil
 }
 
@@ -166,13 +165,13 @@ func statSocket(path string) error {
 		return err
 	}
 	if !isSocket(fileinfo.Mode()) {
-		return fmt.Errorf("%s is not a socket", path)
+		return fmt.Errorf("%s is not a socket (mode: %s)", path, fileinfo.Mode())
 	}
 	return nil
 }
 
 func isSocket(mode os.FileMode) bool {
-	return mode&os.ModeSocket == 0
+	return mode&os.ModeSocket != 0
 }
 
 func findLocalIA(sciondConn sciond.Connector) (addr.IA, error) {
