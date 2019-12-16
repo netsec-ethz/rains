@@ -166,7 +166,7 @@ func (s *Server) listen(id string) {
 			log.Warn(fmt.Sprintf("Type assertion failed. Expected *connection.SCIONAddr, got %T", addr))
 			return
 		}
-		listener, err := scion.Listen(addr)
+		listener, err := scion.Listen(addr.ToNetUDPAddr())
 		srvLogger.Info(fmt.Sprintf("Started SCION listener on %v", addr), "id", id)
 		if err != nil {
 			log.Warn("failed to ListenSCION", "err", err)
