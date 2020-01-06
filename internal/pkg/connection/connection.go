@@ -98,7 +98,7 @@ func CreateConnection(addr net.Addr) (conn net.Conn, err error) {
 	case *net.TCPAddr:
 		return tls.Dial(addr.Network(), addr.String(), &tls.Config{InsecureSkipVerify: true})
 	case *snet.Addr:
-		return scion.Dial(addr.(*snet.Addr))
+		return scion.DialAddr(addr.(*snet.Addr))
 	default:
 		return nil, fmt.Errorf("unsupported Network address type: %s", addr)
 	}

@@ -49,7 +49,7 @@ func connectAndSendMsg(ctx context.Context, msg message.Message, server net.Addr
 			result <- server
 		}
 	case *snet.Addr:
-		conn, err := scion.Dial(server.(*snet.Addr))
+		conn, err := scion.DialAddr(server.(*snet.Addr))
 		if err != nil {
 			log.Error(fmt.Sprintf("failed to DialSCION: %v", err))
 			result <- server

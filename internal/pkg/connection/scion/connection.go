@@ -45,15 +45,19 @@ func Network() *network {
 	return &defNetwork
 }
 
-func Dial(raddr *snet.Addr) (snet.Conn, error) {
+// NOTE(matzf): not used/available here in RAINS as this implements the host name lookup
+//func Dial(address string) (snet.Conn, error) {
+//}
+
+func DialAddr(raddr *snet.Addr) (snet.Conn, error) {
 	laddr := localAddr(raddr)
-	// XXX: snet.Addr will be removed...
-	raddr_new := snet.NewUDPAddr(raddr.IA, raddr.Path, raddr.NextHop, &net.UDPAddr{IP: raddr.Host.L3.IP(), Port: int(raddr.Host.L4)})
-	return Network().Dial("udp", laddr, raddr_new, addr.SvcNone, 0)
+	return Network().Dial("udp", laddr, ToSNetUDPAddr(raddr), addr.SvcNone, 0)
 }
 
 func Listen(listen *net.UDPAddr) (snet.Conn, error) {
-	if listen.IP.IsUnspecified() {
+	if listen == nil {
+		listen = localAddr(nil)
+	} else if listen.IP == nil || listen.IP.IsUnspecified() {
 		ip := localAddr(nil).IP
 		listen = &net.UDPAddr{IP: ip, Port: listen.Port, Zone: listen.Zone}
 	}
@@ -86,10 +90,17 @@ func localAddr(raddr *snet.Addr) *net.UDPAddr {
 	return &net.UDPAddr{IP: localIP, Port: 0}
 }
 
+// ToSNetUDPAddr is a helper to convert snet.Addr to the newer snet.UDPAddr type
+// XXX: snet.Addr will be removed...
+func ToSNetUDPAddr(addr *snet.Addr) *snet.UDPAddr {
+	return snet.NewUDPAddr(addr.IA, addr.Path, addr.NextHop, &net.UDPAddr{IP: addr.Host.L3.IP(), Port: int(addr.Host.L4)})
+}
+
 func mustInitDefNetwork() {
 	err := initDefNetwork()
 	if err != nil {
-		panic(fmt.Errorf("Error initializing SCION network: %v", err))
+		fmt.Fprintf(os.Stderr, "Error initializing SCION network: %v\n", err)
+		os.Exit(1)
 	}
 }
 
