@@ -119,9 +119,9 @@ func Listen(conn net.Conn, tok token.Token, done chan<- message.Message, ec chan
 		}
 	case *snet.Addr:
 		buf := make([]byte, MaxUDPPacketBytes)
-		n, _, err := conn.(snet.Conn).ReadFromSCION(buf)
+		n, _, err := conn.(snet.Conn).ReadFrom(buf)
 		if err != nil {
-			ec <- fmt.Errorf("Failed to ReadFromSCION: %v", err)
+			ec <- fmt.Errorf("Failed to ReadFrom: %v", err)
 		}
 		data := buf[:n]
 		if err := cbor.NewReader(bytes.NewReader(data)).Unmarshal(&msg); err != nil {

@@ -39,7 +39,7 @@ func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 		if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
 			return fmt.Errorf("failed to marshal message to conn: %v", err)
 		}
-		if _, err := conn.WriteToSCION(encoding.Bytes(), saddr); err != nil {
+		if _, err := conn.WriteTo(encoding.Bytes(), saddr); err != nil {
 			log.Warn("Was not able to send encoded message")
 			return fmt.Errorf("unable to send encoded message: %v", err)
 		}
@@ -184,9 +184,9 @@ func (s *Server) listen(id string) {
 			default:
 			}
 			buf := make([]byte, connection.MaxUDPPacketBytes)
-			n, addr, err := listener.ReadFromSCION(buf)
+			n, addr, err := listener.ReadFrom(buf)
 			if err != nil {
-				log.Warn("Failed to ReadFromSCION", "err", err)
+				log.Warn("Failed to ReadFrom", "err", err)
 				continue
 			}
 			data := buf[:n]

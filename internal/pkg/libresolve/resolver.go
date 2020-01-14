@@ -465,9 +465,9 @@ func (r *Resolver) answerDelegQueries(conn net.Conn) {
 				breaking = true
 			}
 		case *snet.Addr:
-			n, _, err := conn.(snet.Conn).ReadFromSCION(buf)
+			n, _, err := conn.(snet.Conn).ReadFrom(buf)
 			if err != nil {
-				log.Warn("Failed to ReadFromSCION", "err", err)
+				log.Warn("Failed to ReadFrom", "err", err)
 				breaking = true
 			}
 			data := buf[:n]

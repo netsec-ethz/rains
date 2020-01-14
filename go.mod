@@ -1,12 +1,12 @@
 module github.com/netsec-ethz/rains
 
-go 1.11
+go 1.13
 
 require (
 	github.com/britram/borat v0.0.0-20181011130314-f891bcfcfb9b
 	github.com/d4l3k/messagediff v1.2.1 // indirect
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
-	github.com/scionproto/scion v0.4.1-0.20200106112200-51a6fea1cb1b
+	github.com/scionproto/scion v0.4.1-0.20200114081339-1352c6c3645c
 	github.com/spf13/cobra v0.0.4-0.20190109003409-7547e83b2d85
 	github.com/spf13/pflag v1.0.4-0.20181223182923-24fa6976df40
 	golang.org/x/crypto v0.0.0-20190909091759-094676da4a83
