@@ -1,14 +1,14 @@
 package connection
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"reflect"
-
-	"bytes"
 
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection/scion"
@@ -94,45 +94,54 @@ const (
 
 //CreateConnection returns a newly created connection with connInfo or an error
 func CreateConnection(addr net.Addr) (conn net.Conn, err error) {
-	switch addr.(type) {
+	switch a := addr.(type) {
 	case *net.TCPAddr:
-		return tls.Dial(addr.Network(), addr.String(), &tls.Config{InsecureSkipVerify: true})
+		return tls.Dial(a.Network(), a.String(), &tls.Config{InsecureSkipVerify: true})
 	case *snet.Addr:
-		return scion.DialAddr(addr.(*snet.Addr))
+		return scion.DialAddr(a)
 	default:
 		return nil, fmt.Errorf("unsupported Network address type: %s", addr)
 	}
 }
 
-func Listen(conn net.Conn, tok token.Token, done chan<- message.Message, ec chan<- error) {
-	var msg message.Message
-	switch conn.LocalAddr().(type) {
-	case *net.TCPAddr:
-		reader := cbor.NewReader(conn)
-		if err := reader.Unmarshal(&msg); err != nil {
-			if err.Error() == "failed to read tag: EOF" {
-				ec <- fmt.Errorf("connection has been closed: %v", err)
-			} else {
-				ec <- fmt.Errorf("failed to unmarshal response: %v", err)
-			}
-			return
-		}
-	case *snet.Addr:
-		buf := make([]byte, MaxUDPPacketBytes)
-		n, _, err := conn.(snet.Conn).ReadFrom(buf)
-		if err != nil {
-			ec <- fmt.Errorf("Failed to ReadFrom: %v", err)
-		}
-		data := buf[:n]
-		if err := cbor.NewReader(bytes.NewReader(data)).Unmarshal(&msg); err != nil {
-			ec <- fmt.Errorf("failed to unmarshal CBOR: %v", err)
-		}
+func ReceiveMessage(conn net.Conn, tok token.Token, done chan<- message.Message, ec chan<- error) {
+	msg, err := receiveMessage(conn)
+	if err != nil {
+		ec <- err
 	}
+	// XXX(matzf): this gives up after one wrong message? Why not _at least_ retry until timeout?!
 	if msg.Token != tok {
 		if n, ok := msg.Content[0].(*section.Notification); !ok || n.Token != tok {
 			ec <- fmt.Errorf("token response mismatch: got %v, want %v", msg.Token, tok)
 			return
 		}
 	}
-	done <- msg
+	done <- *msg
+}
+
+// receiveMessage receives and unmarshals one message.Message from conn.
+// conn can either be a datagram (PacketConn) or a stream connection.
+func receiveMessage(conn net.Conn) (*message.Message, error) {
+	var reader io.Reader
+	switch c := conn.(type) {
+	case net.PacketConn:
+		// XXX(matzf): this is a weird check because it requires the conn to be
+		// Conn and PacketConn, but this works for snet.Conn and net.UDPConn.
+
+		// Read one datagram and then parse message from buffer
+		buf := make([]byte, MaxUDPPacketBytes)
+		n, _, err := c.ReadFrom(buf)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to Read: %v", err)
+		}
+		reader = bytes.NewReader(buf[:n])
+	default:
+		reader = conn
+	}
+
+	msg := new(message.Message)
+	if err := cbor.NewReader(reader).Unmarshal(msg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal CBOR: %v", err)
+	}
+	return msg, nil
 }
