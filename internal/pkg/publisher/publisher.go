@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"sort"
 	"time"
 
@@ -18,17 +17,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
-	"github.com/scionproto/scion/go/lib/snet"
 )
-
-const defaultSciond = "/run/shm/sciond/default.sock"
-
-func scionAddrToSciond(a *snet.Addr) string {
-	if _, err := os.Stat(defaultSciond); err == nil {
-		return defaultSciond
-	}
-	return fmt.Sprintf("/run/shm/sciond/sd%s.sock", a.IA.FileFmt(false))
-}
 
 //Rainspub represents the publishing process of a zone authority. It can be configured to do
 //anything from just one step to the whole process of publishing information to the zone's
