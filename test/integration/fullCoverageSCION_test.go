@@ -145,8 +145,6 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 	rootHostAddr := fmt.Sprintf("%s,[%v]", rootAddr.IA, rootAddr.Host.L3)
 	rootPort := rootAddr.Host.L4
 	cmd := exec.Command(pathRainsd,
-		"--sciondSock",
-		"/run/shm/sciond/sd1-ff00_0_110.sock",
 		"./testdata/conf/SCIONnamingServerRoot.conf",
 		"--id",
 		"nameServerRootCLI",
@@ -172,8 +170,6 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 
 	for _, zone := range []string{"ch", "ethz.ch"} {
 		cmd = exec.Command(pathRainsd,
-			"--sciondSock",
-			"/run/shm/sciond/sd1-ff00_0_110.sock",
 			fmt.Sprintf("./testdata/conf/SCIONnamingServer%s.conf", zone),
 			"--rootServerAddress",
 			fmt.Sprintf("%s:%d", rootHostAddr, rootPort),
@@ -210,8 +206,6 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 	resolverHostAddr := fmt.Sprintf("%s,[%v]", resolverAddr.IA, resolverAddr.Host.L3)
 	resolverPort := strconv.Itoa(int(resolverAddr.Host.L4))
 	cmd = exec.Command(pathRainsd,
-		"--sciondSock",
-		"/run/shm/sciond/sd1-ff00_0_110.sock",
 		"./testdata/conf/SCIONresolver.conf",
 		"--rootServerAddress",
 		fmt.Sprintf("%s:%d", rootHostAddr, rootPort),
@@ -240,10 +234,6 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 			t.Fatalf("Error during rdig %v: %v", "type", err)
 		}
 		cmd = exec.Command(pathRdig,
-			"--localAS",
-			"1-ff00:0:110",
-			"--sciondSock",
-			"/run/shm/sciond/sd1-ff00_0_110.sock",
 			"-p",
 			resolverPort,
 			fmt.Sprintf("@%s", resolverHostAddr),
