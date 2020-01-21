@@ -104,8 +104,8 @@ func CreateConnection(addr net.Addr) (conn net.Conn, err error) {
 	}
 }
 
-func ReceiveMessage(conn net.Conn, tok token.Token, done chan<- message.Message, ec chan<- error) {
-	msg, err := receiveMessage(conn)
+func ReceiveMessageAsync(conn net.Conn, tok token.Token, done chan<- message.Message, ec chan<- error) {
+	msg, err := ReceiveMessage(conn)
 	if err != nil {
 		ec <- err
 	}
@@ -119,9 +119,9 @@ func ReceiveMessage(conn net.Conn, tok token.Token, done chan<- message.Message,
 	done <- *msg
 }
 
-// receiveMessage receives and unmarshals one message.Message from conn.
+// ReceiveMessage receives and unmarshals one message.Message from conn.
 // conn can either be a datagram (PacketConn) or a stream connection.
-func receiveMessage(conn net.Conn) (*message.Message, error) {
+func ReceiveMessage(conn net.Conn) (*message.Message, error) {
 	var reader io.Reader
 	switch c := conn.(type) {
 	case net.PacketConn:
@@ -144,4 +144,20 @@ func receiveMessage(conn net.Conn) (*message.Message, error) {
 		return nil, fmt.Errorf("failed to unmarshal CBOR: %v", err)
 	}
 	return msg, nil
+}
+
+// WriteMessage marshals one message.Message and writes it to conn.
+// conn can either be a datagram (PacketConn) or a stream connection.
+func WriteMessage(conn net.Conn, msg *message.Message) error {
+
+	// Note: buffer message as direct Write to the Conn would be wrong for
+	// datagram connections and potentially slow for stream connections
+	encoding := new(bytes.Buffer)
+	if err := cbor.NewWriter(encoding).Marshal(msg); err != nil {
+		return fmt.Errorf("failed to marshal message: %s", err)
+	}
+	if _, err := conn.Write(encoding.Bytes()); err != nil {
+		return fmt.Errorf("unable to write encoded message to connection: %s", err)
+	}
+	return nil
 }

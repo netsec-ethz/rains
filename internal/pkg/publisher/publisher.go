@@ -1,7 +1,6 @@
 package publisher
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -446,11 +445,20 @@ func (r *Rainspub) publishZone(zoneContent []section.Section) {
 //then sends sections to all of them. It returns the connection information of those servers it was
 //not able to push sections, otherwise nil is returned.
 func (r *Rainspub) publishSections(msg message.Message) []net.Addr {
-	var errorConns []net.Addr
 	results := make(chan net.Addr, len(r.Config.AuthServers))
 	for _, info := range r.Config.AuthServers {
-		go connectAndSendMsg(context.TODO(), msg, info.Addr, results)
+		go func(server net.Addr) {
+			err := connectAndSendMsg(msg, server)
+			if err != nil {
+				log.Error("Error sending message to server", "sever", server, "err", err)
+				results <- server
+			} else {
+				log.Debug("Successfully published information.", "server", server)
+				results <- nil
+			}
+		}(info.Addr)
 	}
+	var errorConns []net.Addr
 	for i := 0; i < len(r.Config.AuthServers); i++ {
 		if errorConn := <-results; errorConn != nil {
 			errorConns = append(errorConns, errorConn)

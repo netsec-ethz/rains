@@ -9,7 +9,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/libresolve"
 	"github.com/netsec-ethz/rains/internal/pkg/util"
-	"github.com/scionproto/scion/go/lib/snet"
 )
 
 const (
@@ -41,8 +40,8 @@ type Server struct {
 	queues InputQueues
 	//caches contains all caches of this server
 	caches *Caches
-	//scionConn is the server UDP socket if we are in that mode, or nil otherwise.
-	scionConn snet.Conn
+	//packetConn is the server UDP socket if we are in that mode, or nil otherwise.
+	packetConn net.PacketConn
 }
 
 //New returns a pointer to a newly created rainsd server instance with the given config. The server
@@ -133,7 +132,7 @@ func (s *Server) Shutdown() {
 			conn.Close()
 		}
 	case connection.SCION:
-		s.scionConn.Close()
+		s.packetConn.Close()
 	default:
 		log.Warn("Unsupported Network address type.")
 	}

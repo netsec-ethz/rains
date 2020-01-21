@@ -1,7 +1,6 @@
 package util
 
 import (
-	"bytes"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
@@ -142,17 +140,9 @@ func SendQuery(msg message.Message, addr net.Addr, timeout time.Duration) (
 
 	done := make(chan message.Message)
 	ec := make(chan error)
-	go connection.ReceiveMessage(conn, msg.Token, done, ec)
+	go connection.ReceiveMessageAsync(conn, msg.Token, done, ec)
 
-	// Note: buffer message as direct Write to the Conn would be wrong for
-	// datagram connections and potentially slow for stream connections
-	encoding := new(bytes.Buffer)
-	if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
-		return message.Message{}, fmt.Errorf("failed to marshal message to conn: %v", err)
-	}
-	if _, err := conn.Write(encoding.Bytes()); err != nil {
-		return message.Message{}, fmt.Errorf("unable to write encoded message to connection: %v", err)
-	}
+	connection.WriteMessage(conn, &msg)
 
 	select {
 	case msg := <-done:

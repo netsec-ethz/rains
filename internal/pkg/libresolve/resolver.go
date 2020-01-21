@@ -2,7 +2,6 @@
 package libresolve
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"net"
@@ -11,7 +10,6 @@ import (
 
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/cache"
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/datastructures/safeHashMap"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
@@ -151,8 +149,7 @@ func (r *Resolver) ServerLookup(query *query.Name, addr net.Addr, token token.To
 	if conn, ok := r.Connections.GetConnection(addr); ok {
 		log.Info("recResolver answers query", "answer", msg, "token", token, "conn",
 			conn[0].RemoteAddr(), "resolver", conn[0].LocalAddr())
-		writer := cbor.NewWriter(conn[0])
-		if err := writer.Marshal(msg); err != nil {
+		if err := connection.WriteMessage(conn[0], msg); err != nil {
 			r.createConnAndWrite(addr, msg) //Connection has been closed in the mean time
 		}
 	} else {
@@ -168,23 +165,11 @@ func (r *Resolver) createConnAndWrite(addr net.Addr, msg *message.Message) {
 	}
 	go r.answerDelegQueries(conn)
 
-	switch conn.LocalAddr().(type) {
-	case *net.TCPAddr:
-		r.Connections.AddConnection(conn)
-		writer := cbor.NewWriter(conn)
-		if err := writer.Marshal(&msg); err != nil {
-			log.Error("failed to marshal message", err)
-			r.Connections.CloseAndRemoveConnections(addr)
-		}
-	case *snet.Addr:
-		encoding := new(bytes.Buffer)
-		if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
-			log.Error("failed to marshal message to conn:", err)
-		}
-		if _, err := conn.Write(encoding.Bytes()); err != nil {
-			log.Error("unable to write encoded message to connection:", err)
-		}
+	err = connection.WriteMessage(conn, msg)
+	if err != nil {
+		log.Error("error sending query", "err", err, "msg", msg)
 	}
+
 }
 
 func (r *Resolver) forwardQuery(q *query.Name) (*message.Message, error) {
@@ -446,70 +431,28 @@ func (r *Resolver) handleRedirect(name string, srvMap map[string]object.ServiceI
 //answerDelegQueries answers delegation queries on conn from its cache. The cache is populated
 //through delegations received in a recursive lookup.
 func (r *Resolver) answerDelegQueries(conn net.Conn) {
-	reader := cbor.NewReader(conn)
-	writer := cbor.NewWriter(conn)
-	buf := make([]byte, connection.MaxUDPPacketBytes)
-
-	breaking := false
 	for {
-		var msg message.Message
-		switch conn.LocalAddr().(type) {
-		case *net.TCPAddr:
-			if err := reader.Unmarshal(&msg); err != nil {
-				if err.Error() == "failed to read tag: EOF" {
-					log.Info("Connection has been closed", "remoteAddr", conn.RemoteAddr())
-				} else {
-					log.Warn(fmt.Sprintf("failed to read from client: %v", err))
-				}
-				r.Connections.CloseAndRemoveConnection(conn)
-				breaking = true
-			}
-		case *snet.Addr:
-			n, _, err := conn.(snet.Conn).ReadFrom(buf)
-			if err != nil {
-				log.Warn("Failed to ReadFrom", "err", err)
-				breaking = true
-			}
-			data := buf[:n]
-			if err := cbor.NewReader(bytes.NewReader(data)).Unmarshal(&msg); err != nil {
-				log.Warn("failed to unmarshal CBOR", "err", err)
-				breaking = true
-			}
-		}
-		if breaking {
+		queryMsg, err := connection.ReceiveMessage(conn)
+		if err != nil {
+			log.Error("error while receiving response", "err", err)
+			r.Connections.CloseAndRemoveConnection(conn)
 			break
 		}
 
-		answer := r.getDelegations(msg)
-		log.Info("received delegation query. Answer with cached assertions", "query", msg, "assertions", answer)
-		msg = message.Message{Token: msg.Token, Content: answer}
+		answer := r.getDelegations(queryMsg)
+		log.Info("received delegation query. Answer with cached assertions", "query", *queryMsg, "assertions", answer)
+		answerMsg := &message.Message{Token: queryMsg.Token, Content: answer}
 
-		switch conn.LocalAddr().(type) {
-		case *net.TCPAddr:
-			if err := writer.Marshal(&msg); err != nil {
-				log.Error("failed to marshal message", err)
-				r.Connections.CloseAndRemoveConnection(conn)
-				breaking = true
-			}
-		case *snet.Addr:
-			encoding := new(bytes.Buffer)
-			if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
-				log.Error("failed to marshal message to conn", err)
-				breaking = true
-			}
-			if _, err := conn.Write(encoding.Bytes()); err != nil {
-				log.Error("unable to write encoded message to connection", err)
-				breaking = true
-			}
-		}
-		if breaking {
+		err = connection.WriteMessage(conn, answerMsg)
+		if err != nil {
+			r.Connections.CloseAndRemoveConnection(conn)
 			break
 		}
 	}
 }
 
 //getDelegations returns all cached delegations answering a query in msg.
-func (r *Resolver) getDelegations(msg message.Message) []section.Section {
+func (r *Resolver) getDelegations(msg *message.Message) []section.Section {
 	answer := []section.Section{}
 	for _, s := range msg.Content {
 		if q, ok := s.(*query.Name); ok {
