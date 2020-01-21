@@ -132,7 +132,6 @@ func SendQuery(msg message.Message, addr net.Addr, timeout time.Duration) (
 	message.Message, error) {
 
 	conn, err := connection.CreateConnection(addr)
-	fmt.Printf("SendQuery: %T, %T\n", addr, conn)
 	if err != nil {
 		return message.Message{}, err
 	}
