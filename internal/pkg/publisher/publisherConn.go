@@ -31,11 +31,12 @@ func connectAndSendMsg(msg message.Message, server net.Addr) error {
 	for deadline.After(time.Now()) {
 		replyMsg, err := connection.ReceiveMessage(conn)
 		if err != nil {
-			//only accept notification messages in response to published information.
-			if n, ok := replyMsg.Content[0].(*section.Notification); ok && n.Token == msg.Token {
-				if handleResponse(msg.Content[0].(*section.Notification)) {
-					return nil
-				}
+			return fmt.Errorf("error receiving message: %s", err)
+		}
+		//only accept notification messages in response to published information.
+		if n, ok := replyMsg.Content[0].(*section.Notification); ok && n.Token == msg.Token {
+			if handleResponse(msg.Content[0].(*section.Notification)) {
+				return nil
 			}
 		}
 	}
