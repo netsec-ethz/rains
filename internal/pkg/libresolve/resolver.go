@@ -165,6 +165,8 @@ func (r *Resolver) createConnAndWrite(addr net.Addr, msg *message.Message) {
 	}
 	go r.answerDelegQueries(conn)
 
+	r.Connections.AddConnection(conn)
+
 	err = connection.WriteMessage(conn, msg)
 	if err != nil {
 		log.Error("error sending query", "err", err, "msg", msg)
