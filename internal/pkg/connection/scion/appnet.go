@@ -98,10 +98,7 @@ func DefNetwork() *Network {
 // that updates the paths in case they expire or are revoked.
 func DialAddr(raddr *snet.Addr) (snet.Conn, error) {
 	if raddr.Path == nil {
-		err := SetDefaultPath(raddr)
-		if err != nil {
-			return nil, err
-		}
+		SetDefaultPath(raddr)
 	}
 	laddr := &net.UDPAddr{IP: localIP(raddr)}
 	return DefNetwork().Dial(context.TODO(), "udp", laddr, ToSNetUDPAddr(raddr), addr.SvcNone)
