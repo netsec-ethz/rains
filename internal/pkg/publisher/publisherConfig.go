@@ -13,7 +13,6 @@ import (
 type Config struct {
 	ZonefilePath    string
 	AuthServers     []connection.Info
-	SrcAddr         connection.Info // Only used for SCION addresses.
 	PrivateKeyPath  string
 	ShardingConf    ShardingConfig
 	PShardingConf   PShardingConfig

@@ -89,7 +89,6 @@ program. Keys are to be specified in a top-level JSON map.
   from the zone key cache. (default 15m0s)
 * `--rootZonePublicKeyPath`: string Path to the file storing the RAINS' root zone public key.
   (default "data/keys/rootDelegationAssertion.gob")
-* `--sciondSock`: string TODO write description
 * `--serverAddress`: main.addressFlag The network address of this server. (default 127.0.0.1:55553)
 * `--tcpTimeout`: duration TCPTimeout is the maximum amount of time a dial will wait for a tcp
   connect to complete. (default 5m0s)

@@ -1,7 +1,6 @@
 package util
 
 import (
-	"bytes"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
-	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
@@ -21,7 +19,6 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 	"github.com/scionproto/scion/go/lib/addr"
-	"github.com/scionproto/scion/go/lib/snet"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -133,6 +130,7 @@ func NewNotificationMessage(tok token.Token, t section.NotificationType, data st
 //or an error.
 func SendQuery(msg message.Message, addr net.Addr, timeout time.Duration) (
 	message.Message, error) {
+
 	conn, err := connection.CreateConnection(addr)
 	if err != nil {
 		return message.Message{}, err
@@ -141,25 +139,9 @@ func SendQuery(msg message.Message, addr net.Addr, timeout time.Duration) (
 
 	done := make(chan message.Message)
 	ec := make(chan error)
-	go connection.Listen(conn, msg.Token, done, ec)
+	go connection.ReceiveMessageAsync(conn, msg.Token, done, ec)
 
-	switch addr.(type) {
-	case *net.TCPAddr:
-		writer := cbor.NewWriter(conn)
-		if err := writer.Marshal(&msg); err != nil {
-			return message.Message{}, fmt.Errorf("failed to marshal message: %v", err)
-		}
-	case *snet.Addr:
-		encoding := new(bytes.Buffer)
-		if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
-			return message.Message{}, fmt.Errorf("failed to marshal message to conn: %v", err)
-		}
-		if _, err := conn.Write(encoding.Bytes()); err != nil {
-			return message.Message{}, fmt.Errorf("unable to write encoded message to connection: %v", err)
-		}
-	default:
-		log.Error("Unsupported connection information type.", "conn", conn)
-	}
+	connection.WriteMessage(conn, &msg)
 
 	select {
 	case msg := <-done:

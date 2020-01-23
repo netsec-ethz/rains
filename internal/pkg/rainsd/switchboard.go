@@ -17,38 +17,49 @@ import (
 
 	"github.com/netsec-ethz/rains/internal/pkg/cbor"
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
+	"github.com/netsec-ethz/rains/internal/pkg/connection/scion"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 	"github.com/scionproto/scion/go/lib/snet"
-	"github.com/scionproto/scion/go/lib/sock/reliable"
 )
 
-//sendTo sends message to the specified receiver.
+//sendTo sends message to the specified receiver with retries
 func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 	backoffMilliSeconds int) (err error) {
+
 	// In any case we add the capabilities of this server to the message.
 	msg.Capabilities = []message.Capability{message.Capability(s.capabilityHash)}
-	// SCION is a special case because it is operating on a connectionless protocol so we
-	// keep the server socket in the Server struct and use that to send.
-	if saddr, ok := receiver.(*snet.Addr); ok {
-		conn := s.scionConn
-		if conn == nil {
-			return errors.New("underlying scion connection was nil")
-		}
-		encoding := new(bytes.Buffer)
-		if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
-			return fmt.Errorf("failed to marshal message to conn: %v", err)
-		}
-		if _, err := conn.WriteToSCION(encoding.Bytes(), saddr); err != nil {
-			log.Warn("Was not able to send encoded message")
-			return fmt.Errorf("unable to send encoded message: %v", err)
-		}
+	encodedMsg := new(bytes.Buffer)
+	if err := cbor.NewWriter(encodedMsg).Marshal(&msg); err != nil {
+		return fmt.Errorf("failed to marshal message: %v", err)
+	}
+
+	// Try to send the message, with given number of retries
+	backoff := time.Duration(backoffMilliSeconds) * time.Millisecond
+	if err := s.sendToTry(encodedMsg.Bytes(), receiver); err == nil {
 		return nil
 	}
-	conns, ok := s.caches.ConnCache.GetConnection(receiver)
-	if !ok {
-		switch receiver.(type) {
-		case *net.TCPAddr:
+	for i := 1; i < retries; i++ {
+		time.Sleep(backoff)
+		backoff *= 2
+		if err := s.sendToTry(encodedMsg.Bytes(), receiver); err == nil {
+			return nil
+		}
+	}
+	log.Error("Was not able to send the message. No retries left.", "receiver", receiver)
+	return errors.New("Was not able to send the mesage. No retries left")
+}
+
+//sendToTry sends message to the specified receiver.
+func (s *Server) sendToTry(encodedMsg []byte, receiver net.Addr) (err error) {
+	if s.packetConn != nil {
+		if _, err := s.packetConn.WriteTo(encodedMsg, receiver); err != nil {
+			return fmt.Errorf("unable to send message: %v", err)
+		}
+		return nil
+	} else {
+		conns, ok := s.caches.ConnCache.GetConnection(receiver)
+		if !ok {
 			conn, err := createConnection(receiver, s.config.KeepAlivePeriod, s.certPool)
 			//add connection to cache
 			conns = append(conns, conn)
@@ -57,41 +68,20 @@ func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 				return err
 			}
 			s.caches.ConnCache.AddConnection(conn)
-			//handle connection
-			if tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-				go s.handleConnection(conn, tcpAddr)
-			} else {
-				log.Warn("Type assertion failed. Expected *net.TCPAddr", "addr", conn.RemoteAddr())
-			}
-			//add capabilities to message
-			msg.Capabilities = []message.Capability{message.Capability(s.capabilityHash)}
+			go s.handleConnection(conn, receiver)
 			conns = []net.Conn{conn}
 		}
-	}
-	for _, conn := range conns {
-		log.Debug("Send message", "dst", conn.RemoteAddr(), "content", msg)
-		//FIXME CFE, cannot write to conn directly because if conn is a channel it does not work.
-		//This is because the cbor library writes multiple times to the connection, but the channel
-		//receiver only listens for one message. Is there a way for the receiver to determine when a
-		//message is processed and then stop listening?
-		encoding := new(bytes.Buffer)
-		if err := cbor.NewWriter(encoding).Marshal(&msg); err != nil {
-			log.Warn(fmt.Sprintf("failed to marshal message to conn: %v", err))
-			s.caches.ConnCache.CloseAndRemoveConnection(conn)
-			continue
+		for _, conn := range conns {
+			if _, err := conn.Write(encodedMsg); err != nil {
+				s.caches.ConnCache.CloseAndRemoveConnection(conn)
+				log.Warn("Was not able to send encoded message")
+			} else {
+				log.Debug("Send successful", "receiver", receiver)
+				return nil
+			}
 		}
-		if _, err := conn.Write(encoding.Bytes()); err != nil {
-			log.Warn("Was not able to send encoded message")
-		}
-		log.Debug("Send successful", "receiver", receiver)
-		return nil
+		return errors.New("unable to send message on any connection")
 	}
-	if retries > 0 {
-		time.Sleep(time.Duration(backoffMilliSeconds) * time.Millisecond)
-		return s.sendTo(msg, receiver, retries-1, 2*backoffMilliSeconds)
-	}
-	log.Error("Was not able to send the message. No retries left.", "receiver", receiver)
-	return errors.New("Was not able to send the mesage. No retries left")
 }
 
 func (s *Server) sendToRecursiveResolver(msg message.Message) {
@@ -117,13 +107,6 @@ func createConnection(receiver net.Addr, keepAlive time.Duration, pool *x509.Cer
 
 //Listen listens for incoming connections and creates a go routine for each connection.
 func (s *Server) listen(id string) {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println("Recovered in listen", r, "id", id)
-			return
-		}
-
-	}()
 	srvLogger := log.New("id", id, "addr", s.Addr().String())
 	switch s.config.ServerAddress.Type {
 	case connection.TCP:
@@ -166,23 +149,15 @@ func (s *Server) listen(id string) {
 			log.Warn(fmt.Sprintf("Type assertion failed. Expected *connection.SCIONAddr, got %T", addr))
 			return
 		}
-		if snet.DefNetwork == nil {
-			if err := snet.Init(addr.IA, s.config.SciondSock,
-				reliable.NewDispatcherService(s.config.DispatcherSock)); err != nil {
-
-				log.Warn("failed to initialize snet", "err", err)
-				return
-			}
-		}
-		listener, err := snet.ListenSCION("udp4", addr)
+		conn, err := scion.Listen(addr.ToNetUDPAddr())
 		srvLogger.Info(fmt.Sprintf("Started SCION listener on %v", addr), "id", id)
 		if err != nil {
 			log.Warn("failed to ListenSCION", "err", err)
 			return
 		}
-		defer listener.Close()
+		defer conn.Close()
 		defer srvLogger.Info("SCION Shutdown listener", "id", id)
-		s.scionConn = listener
+		s.packetConn = conn
 		for {
 			select {
 			case <-s.shutdown:
@@ -192,9 +167,9 @@ func (s *Server) listen(id string) {
 			default:
 			}
 			buf := make([]byte, connection.MaxUDPPacketBytes)
-			n, addr, err := listener.ReadFromSCION(buf)
+			n, addr, err := s.packetConn.ReadFrom(buf)
 			if err != nil {
-				log.Warn("Failed to ReadFromSCION", "err", err)
+				log.Warn("Failed to ReadFrom", "err", err)
 				continue
 			}
 			data := buf[:n]

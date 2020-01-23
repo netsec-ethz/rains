@@ -27,10 +27,6 @@ type Config struct {
 	TLSCertificateFile string
 	TLSPrivateKeyFile  string
 
-	// SCION specific settings
-	DispatcherSock string
-	SciondSock     string
-
 	//inbox
 	PrioBufferSize          int
 	NormalBufferSize        int
@@ -83,10 +79,6 @@ func DefaultConfig() Config {
 		TCPTimeout:         5 * time.Minute,
 		TLSCertificateFile: "data/cert/server.crt",
 		TLSPrivateKeyFile:  "data/cert/server.key",
-
-		// SCION specific settings
-		DispatcherSock: "/run/shm/dispatcher/default.sock",
-		SciondSock:     "/run/shm/sciond/default.sock",
 
 		//inbox
 		PrioBufferSize:          50,
