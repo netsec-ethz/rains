@@ -63,10 +63,12 @@ jobs:
       - run:
           name: Configure and start local SCION AS
           command: |
+            export PYTHONPATH=~/scion/python/
             cd ~/scion
+
             # Generate Tiny.topo
             printf '#!/bin/bash\necho "0.0.0.0"' > tools/docker-ip   # Some hackery to make the scripts run
-            PYTHONPATH=$PYTHONPATH:./python python3 python/topology/generator.py -c ./topology/Tiny.topo
+            python/topology/generator.py -c ./topology/Tiny.topo
             # Generate gen-certs
             mkdir gen-certs gen-cache
             openssl genrsa -out "gen-certs/tls.key" 2048
@@ -79,7 +81,7 @@ jobs:
             # Start one AS (1-ff00:0:110 is referenced explicitly from the integration tests)
             supervisor/supervisor.sh reload
             supervisor/supervisor.sh start dispatcher
-            supervisor/supervisor.sh start as1-ff00_0_110:
+            supervisor/supervisor.sh start as1-ff00_0_110:*
       - run:
           name: Integration tests
           command: |
