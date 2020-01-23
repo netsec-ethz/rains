@@ -108,6 +108,7 @@ func ReceiveMessageAsync(conn net.Conn, tok token.Token, done chan<- message.Mes
 	msg, err := ReceiveMessage(conn)
 	if err != nil {
 		ec <- err
+		return
 	}
 	// XXX(matzf): this gives up after one wrong message? Why not _at least_ retry until timeout?!
 	if msg.Token != tok {
