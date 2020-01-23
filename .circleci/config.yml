@@ -67,21 +67,24 @@ jobs:
             cd ~/scion
 
             # Generate Tiny.topo
-            printf '#!/bin/bash\necho "0.0.0.0"' > tools/docker-ip   # Some hackery to make the scripts run
+            printf '#!/bin/bash\necho "0.0.0.0"' > tools/docker-ip # Some hackery to make topo scripts run
             python/topology/generator.py -c ./topology/Tiny.topo
             # Generate gen-certs
             mkdir gen-certs gen-cache
             openssl genrsa -out "gen-certs/tls.key" 2048
             openssl req -new -x509 -key "gen-certs/tls.key" -out "gen-certs/tls.pem" -days 3650 -subj /CN=scion_def_srv
 
-            # Some setup
             sudo mkdir /run/shm -m 777
-            python/integration/set_ipv6_addr.py -a
 
-            # Start one AS (1-ff00:0:110 is referenced explicitly from the integration tests)
+            # Start one AS only (1-ff00:0:110 is referenced explicitly from the integration tests)
+            # XXX(matzf): explicitly start services but not the routers (which are not needed here) -- routers require to set some IPv6 addresses and this does not seem to work here
             supervisor/supervisor.sh reload
-            supervisor/supervisor.sh start dispatcher
-            supervisor/supervisor.sh start as1-ff00_0_110:*
+            supervisor/supervisor.sh start \
+              dispatcher \
+              as1-ff00_0_110:bs1-ff00_0_110-1 \
+              as1-ff00_0_110:cs1-ff00_0_110-1 \
+              as1-ff00_0_110:ps1-ff00_0_110-1 \
+              as1-ff00_0_110:sd1-ff00_0_110
       - run:
           name: Integration tests
           command: |
