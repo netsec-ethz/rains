@@ -26,12 +26,12 @@ The dispatcher and sciond sockets are assumed to be at default locations, but th
 be overridden using environment variables:
 
 		SCION_DISPATCHER_SOCKET: /run/shm/dispatcher/default.sock
-		SCION_DEAMON_SOCKET: /run/shm/sciond/default.sock
+		SCION_DAEMON_SOCKET: /run/shm/sciond/default.sock
 
 This is convenient for the normal use case of running a the endhost stack for
 a single SCION AS. When running multiple local ASes, e.g. during development, the path
 to the sciond corresponding to the desired AS needs to be specified in the
-SCION_DEAMON_SOCKET environment variable.
+SCION_DAEMON_SOCKET environment variable.
 
 
 Wildcard IP Addresses
@@ -211,7 +211,7 @@ func findSciondSocket() (string, error) {
 	}
 	err := statSocket(path)
 	if err != nil {
-		return "", fmt.Errorf("error looking for SCION dispatcher socket at %s (override with SCION_DAEMON_SOCKET): %v", path, err)
+		return "", fmt.Errorf("error looking for SCION daemon socket at %s (override with SCION_DAEMON_SOCKET): %v", path, err)
 	}
 	return path, nil
 
