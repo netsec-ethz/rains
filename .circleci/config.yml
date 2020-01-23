@@ -10,15 +10,15 @@ jobs:
             - v3-pkg-cache-{{ checksum "go.sum" }}
             - v3-pkg-cache
       - run:
-          name: run rains vet
+          name: Lint
           command: |
             make vet
       - run:
-          name: run rains build
+          name: Build
           command: |
             make all
       - run:
-          name: run unit tests
+          name: Unit tests
           command: |
             make unit
       - save_cache:
@@ -33,7 +33,7 @@ jobs:
     steps:
       - checkout
       - run:
-          name: checkout scion
+          name: Checkout SCION
           command: |
             # Get scion version from go modules. The sed command extracts the
             # replacement if one is specified in the go.mod file.
@@ -50,36 +50,38 @@ jobs:
             - v1-pkg-cache-{{ checksum "~/scion/go.sum" }}-
             - v1-pkg-cache-
       - run:
-          name: build scion services
+          name: Build SCION services and install python3 dependencies
           command: |
             cd ~/scion
             for service in "border" "cert_srv" "godispatcher" "beacon_srv" "path_srv" "sciond" "tools/scion-pki"; do
               go build -o ./bin/ ./go/${service}/ && echo "Built ${service}";
             done
-      - run:
-          name: install python3 and scion dependencies
-          command: |
+
             sudo apt-get update && sudo apt-get install --assume-yes python3 python3-pip
             pip3 install -U wheel setuptools
             pip3 install -r ~/scion/env/pip3/requirements.txt
       - run:
-          name: generate local SCION gen config
+          name: Configure and start local SCION AS
           command: |
             cd ~/scion
-            printf '#!/bin/bash\necho "0.0.0.0"' > tools/docker-ip
-            mkdir gen-certs gen-cache
-            openssl genrsa -out "gen-certs/tls.key" 2048; openssl req -new -x509 -key "gen-certs/tls.key" -out "gen-certs/tls.pem" -days 3650 -subj /CN=scion_def_srv
+            # Generate Tiny.topo
+            printf '#!/bin/bash\necho "0.0.0.0"' > tools/docker-ip   # Some hackery to make the scripts run
             PYTHONPATH=$PYTHONPATH:./python python3 python/topology/generator.py -c ./topology/Tiny.topo
-      - run:
-          name: run SCION AS
-          command: |
-            cd ~/scion
+            # Generate gen-certs
+            mkdir gen-certs gen-cache
+            openssl genrsa -out "gen-certs/tls.key" 2048
+            openssl req -new -x509 -key "gen-certs/tls.key" -out "gen-certs/tls.pem" -days 3650 -subj /CN=scion_def_srv
+
+            # Some setup
             sudo mkdir /run/shm -m 777
+            python/integration/set_ipv6_addr.py -a
+
+            # Start one AS (1-ff00:0:110 is referenced explicitly from the integration tests)
             supervisor/supervisor.sh reload
             supervisor/supervisor.sh start dispatcher
-            supervisor/supervisor.sh start as1-ff00_0_110:*
+            supervisor/supervisor.sh start as1-ff00_0_110:
       - run:
-          name: run integration tests
+          name: Integration tests
           command: |
             make integration
       - save_cache:
