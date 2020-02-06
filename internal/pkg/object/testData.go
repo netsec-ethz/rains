@@ -5,8 +5,6 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/scionproto/scion/go/lib/snet"
-
 	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
@@ -14,21 +12,19 @@ import (
 )
 
 var (
-	ip4TestAddr      = net.ParseIP("192.0.2.0")
-	ip6TestAddr      = net.ParseIP("2001:db8::")
-	sAddr4, _        = snet.AddrFromString("1-ff00:0:111,[192.0.2.0]")
-	scionip4TestAddr = &SCIONAddress{IA: sAddr4.IA, Host: sAddr4.Host.L3}
-	sAddr6, _        = snet.AddrFromString("1-ff00:0:111,[2001:db8::]")
-	scionip6TestAddr = &SCIONAddress{IA: sAddr6.IA, Host: sAddr6.Host.L3}
-	testDomain       = "example.com"
+	ip4TestAddr         = net.ParseIP("192.0.2.0")
+	ip6TestAddr         = net.ParseIP("2001:db8::")
+	scionip4TestAddr, _ = ParseSCIONAddress("1-ff00:0:111,[192.0.2.0]")
+	scionip6TestAddr, _ = ParseSCIONAddress("1-ff00:0:111,[2001:db8::]")
+	testDomain          = "example.com"
 )
 
 //AllObjects returns all objects with valid content
 func AllObjects() []Object {
 	ip6Object := Object{Type: OTIP6Addr, Value: ip6TestAddr}
 	ip4Object := Object{Type: OTIP4Addr, Value: ip4TestAddr}
-	scionip6Object := Object{Type: OTScionAddr6, Value: scionip6TestAddr}
-	scionip4Object := Object{Type: OTScionAddr4, Value: scionip4TestAddr}
+	scionip6Object := Object{Type: OTScionAddr, Value: scionip6TestAddr}
+	scionip4Object := Object{Type: OTScionAddr, Value: scionip4TestAddr}
 	redirObject := Object{Type: OTRedirection, Value: testDomain}
 	delegObject := Object{Type: OTDelegation, Value: PublicKey()}
 	nameSetObject := Object{Type: OTNameset, Value: NamesetExpr("Would be an expression")}
@@ -49,7 +45,7 @@ func AllObjects() []Object {
 func NameObject() Object {
 	nameObjectContent := Name{
 		Name:  testDomain,
-		Types: []Type{OTIP4Addr, OTIP6Addr, OTScionAddr4, OTScionAddr6},
+		Types: []Type{OTIP4Addr, OTIP6Addr, OTScionAddr},
 	}
 	return Object{Type: OTName, Value: nameObjectContent}
 }
@@ -88,62 +84,54 @@ func PublicKey() keys.PublicKey {
 	}
 }
 
-func SortedObjects(nofObj int) []Object {
+func SortedObjects() []Object {
+	nofObj := 10 // any more and all the numerical strings will not sort as expected
 	objects := []Object{}
-	if nofObj > 15 {
-		nofObj = 15
-	}
+
 	nos := sortedNameObjects(nofObj)
 	ip4s := sortedIPv4(nofObj)
 	ip6s := sortedIPv6(nofObj)
-	scAddr4s := sortedSCIONAddr4(nofObj)
-	scAddr6s := sortedSCIONAddr6(nofObj)
+	scAddrs := sortedSCIONAddr(nofObj)
 	pkeys := sortedPublicKeys(nofObj)
 	certs := sortedCertificates(nofObj)
 	sis := sortedServiceInfo(nofObj)
-	for i := 0; i < nofObj; i++ {
-		for j := 0; j < nofObj/2; j++ {
+	for t := OTName; t <= OTScionAddr; t++ {
+		for j := 0; j < nofObj; j++ {
 			var value interface{}
-			switch i {
-			case 0:
+			switch t {
+			case OTName:
 				value = nos[j]
-			case 1:
+			case OTIP6Addr:
 				value = ip6s[j] //ip6
-			case 2:
+			case OTIP4Addr:
 				value = ip4s[j] //ip4
-			case 3:
+			case OTRedirection:
 				value = strconv.Itoa(j) //redir
-			case 4:
+			case OTDelegation:
 				value = pkeys[j]
-			case 5:
+			case OTNameset:
 				value = NamesetExpr(strconv.Itoa(j))
-			case 6:
+			case OTCertInfo:
 				value = certs[j]
-			case 7:
+			case OTServiceInfo:
 				value = sis[j]
-			case 8:
+			case OTRegistrar:
 				value = strconv.Itoa(j) //registrar
-			case 9:
+			case OTRegistrant:
 				value = strconv.Itoa(j) //registrant
-			case 10:
+			case OTInfraKey:
 				value = pkeys[j]
-			case 11:
+			case OTNextKey:
 				value = pkeys[j]
-			case 12:
-				value = pkeys[j]
-			case 14:
-				value = scAddr6s[j] // scionip6
-			case 15:
-				value = scAddr4s[j] // scionip4
-
+			case OTScionAddr:
+				value = scAddrs[j]
 			}
 			objects = append(objects, Object{
-				Type:  Type(i + 1),
+				Type:  t,
 				Value: value,
 			})
 		}
 	}
-	fmt.Printf("%v", objects)
 	return objects
 }
 
@@ -248,25 +236,21 @@ func sortedIPv4(nof int) []net.IP {
 func sortedIPv6(nof int) []net.IP {
 	ips := []net.IP{}
 	for i := 0; i < nof; i++ {
-		ips = append(ips, net.ParseIP(fmt.Sprintf("::ffff:0.0.0.%d", i)))
+		ips = append(ips, net.ParseIP(fmt.Sprintf("::f00:c00:%x", i)))
 	}
 	return ips
 }
 
-func sortedSCIONAddr4(nof int) []*SCIONAddress {
+func sortedSCIONAddr(nof int) []*SCIONAddress {
 	addrs := []*SCIONAddress{}
-	for i := 0; i < nof; i++ {
-		a, _ := snet.AddrFromString(fmt.Sprintf("1-ffaa:1:1,[10.0.0.%d]", i))
-		addrs = append(addrs, &SCIONAddress{IA: a.IA, Host: a.Host.L3})
+	i := 0
+	for ; i < nof/2; i++ {
+		a, _ := ParseSCIONAddress(fmt.Sprintf("1-ffaa:1:1,[10.0.0.%d]", i))
+		addrs = append(addrs, a)
 	}
-	return addrs
-}
-
-func sortedSCIONAddr6(nof int) []*SCIONAddress {
-	addrs := []*SCIONAddress{}
-	for i := 0; i < nof; i++ {
-		a, _ := snet.AddrFromString(fmt.Sprintf("1-ffaa:1:1,[::ffff:10.0.0.%d]", i))
-		addrs = append(addrs, &SCIONAddress{IA: a.IA, Host: a.Host.L3})
+	for ; i < nof; i++ {
+		a, _ := ParseSCIONAddress(fmt.Sprintf("1-ffaa:1:1,[::f00:c00:%x]", i))
+		addrs = append(addrs, a)
 	}
 	return addrs
 }

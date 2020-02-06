@@ -4,6 +4,13 @@ package keys
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[RainsKeySpace-0]
+}
+
 const _KeySpaceID_name = "RainsKeySpace"
 
 var _KeySpaceID_index = [...]uint8{0, 13}

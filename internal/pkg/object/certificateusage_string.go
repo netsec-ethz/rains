@@ -4,6 +4,14 @@ package object
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[CUTrustAnchor-2]
+	_ = x[CUEndEntity-3]
+}
+
 const _CertificateUsage_name = "CUTrustAnchorCUEndEntity"
 
 var _CertificateUsage_index = [...]uint8{0, 13, 24}

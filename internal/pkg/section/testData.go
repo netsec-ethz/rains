@@ -153,8 +153,7 @@ func AllObjectType() []object.Type {
 		object.OTInfraKey,
 		object.OTIP4Addr,
 		object.OTIP6Addr,
-		object.OTScionAddr4,
-		object.OTScionAddr6,
+		object.OTScionAddr,
 		object.OTName,
 		object.OTNameset,
 		object.OTNextKey,
@@ -167,7 +166,7 @@ func AllObjectType() []object.Type {
 
 func sortedAssertions(nof int) []*Assertion {
 	assertions := []*Assertion{}
-	objs := object.SortedObjects(13)
+	objs := object.SortedObjects()
 	for i := 0; i < nof; i++ {
 		for j := 0; j < nof; j++ {
 			for k := 0; k < nof; k++ {

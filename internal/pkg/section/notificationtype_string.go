@@ -4,6 +4,21 @@ package section
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[NTHeartbeat-100]
+	_ = x[NTCapHashNotKnown-399]
+	_ = x[NTBadMessage-400]
+	_ = x[NTRcvInconsistentMsg-403]
+	_ = x[NTNoAssertionsExist-404]
+	_ = x[NTMsgTooLarge-413]
+	_ = x[NTUnspecServerErr-500]
+	_ = x[NTServerNotCapable-501]
+	_ = x[NTNoAssertionAvail-504]
+}
+
 const (
 	_NotificationType_name_0 = "NTHeartbeat"
 	_NotificationType_name_1 = "NTCapHashNotKnownNTBadMessage"

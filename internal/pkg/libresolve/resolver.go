@@ -39,16 +39,14 @@ const (
 )
 
 var AllowedAddrTypes = map[object.Type]bool{
-	object.OTIP6Addr:    true,
-	object.OTIP4Addr:    true,
-	object.OTScionAddr6: true,
-	object.OTScionAddr4: true,
+	object.OTIP6Addr:   true,
+	object.OTIP4Addr:   true,
+	object.OTScionAddr: true,
 }
 var AllowedRedirectTypes = map[object.Type]bool{
 	object.OTIP6Addr:     true,
 	object.OTIP4Addr:     true,
-	object.OTScionAddr6:  true,
-	object.OTScionAddr4:  true,
+	object.OTScionAddr:   true,
 	object.OTServiceInfo: true,
 	object.OTName:        true,
 }
@@ -341,9 +339,7 @@ func (r *Resolver) handleAssertion(a *section.Assertion, redirMap map[string]str
 			ipMap[a.FQDN()] = o.Value.(net.IP).String()
 		case object.OTIP4Addr:
 			ipMap[a.FQDN()] = o.Value.(net.IP).String()
-		case object.OTScionAddr6:
-			ipMap[a.FQDN()] = o.Value.(*object.SCIONAddress).String()
-		case object.OTScionAddr4:
+		case object.OTScionAddr:
 			ipMap[a.FQDN()] = o.Value.(*object.SCIONAddress).String()
 		case object.OTName:
 			nameMap[a.FQDN()] = o.Value.(object.Name)
@@ -379,7 +375,7 @@ func (r *Resolver) handleRedirect(name string, srvMap map[string]object.ServiceI
 	ipMap map[string]string, nameMap map[string]object.Name, allowedTypes map[object.Type]bool) (
 	net.Addr, error) {
 	var err error
-	if allowedTypes[object.OTIP6Addr] || allowedTypes[object.OTIP4Addr] || allowedTypes[object.OTScionAddr6] || allowedTypes[object.OTScionAddr4] {
+	if allowedTypes[object.OTIP6Addr] || allowedTypes[object.OTIP4Addr] || allowedTypes[object.OTScionAddr] {
 		if ipAddr, ok := ipMap[name]; ok {
 			var addr net.Addr
 			var tcpErr error

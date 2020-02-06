@@ -24,14 +24,24 @@ rdig: vet
 keymanager: vet
 	go build ${LDFLAGS} -o ${BUILD_PATH}/keymanager github.com/netsec-ethz/rains/cmd/keyManager
 
-
-test: vet unit integration
-
 vet:
 	go fmt ./...
 	go vet ./internal/...
 	go vet ./cmd/...
 	go vet ./test/...
+
+generate: internal/pkg/zonefile/zoneFileParser.go go_generate
+
+internal/pkg/zonefile/zoneFileParser.go: internal/pkg/zonefile/zoneFileParser.y
+	$(if $(which goyacc), go install golang.org/x/tools/cmd/goyacc)
+	goyacc -p "ZFP" -o $@ $<
+
+go_generate:
+	$(if $(which stringer), go install golang.org/x/tools/cmd/stringer)
+	# XXX: not running github.com/campoy/jsonenums as its currently broken with modules!
+	go generate -run stringer ./...
+
+test: vet unit integration
 
 unit:
 	go test ./internal/pkg/...
@@ -44,4 +54,4 @@ cover:
 	go tool cover -html=coverage.out -o coverage.html
 	firefox coverage.html
 
-.PHONY: clean rainsd zonepub rdig zoneman keymanager vet unit integration
+.PHONY: all clean rainsd zonepub rdig zoneman keymanager vet generate go_generate test unit integration

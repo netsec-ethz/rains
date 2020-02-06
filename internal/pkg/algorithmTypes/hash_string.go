@@ -4,6 +4,19 @@ package algorithmTypes
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[NoHashAlgo-0]
+	_ = x[Sha256-1]
+	_ = x[Sha384-2]
+	_ = x[Sha512-3]
+	_ = x[Shake256-4]
+	_ = x[Fnv64-5]
+	_ = x[Fnv128-6]
+}
+
 const _Hash_name = "NoHashAlgoSha256Sha384Sha512Shake256Fnv64Fnv128"
 
 var _Hash_index = [...]uint8{0, 10, 16, 22, 28, 36, 41, 47}

@@ -1,9 +1,6 @@
 package zonefile
 
 import (
-	"bufio"
-	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -23,8 +20,7 @@ const (
 	TypeName          = ":name:"
 	TypeIP6           = ":ip6:"
 	TypeIP4           = ":ip4:"
-	TypeScionIP6      = ":scionip6:"
-	TypeScionIP4      = ":scionip4:"
+	TypeScion         = ":scion:"
 	TypeRedirection   = ":redir:"
 	TypeDelegation    = ":deleg:"
 	TypeNameSet       = ":nameset:"
@@ -96,14 +92,7 @@ type IO struct{}
 
 //Decode returns all assertions contained in the given zonefile
 func (p IO) Decode(zoneFile []byte) ([]section.WithSigForward, error) {
-	lines := removeComments(bufio.NewScanner(bytes.NewReader(zoneFile)))
-	log.Debug("Preprocessed input", "data", lines)
-	parser := ZFPNewParser()
-	parser.Parse(&ZFPLex{lines: lines})
-	if len(parser.Result()) == 0 {
-		return nil, errors.New("zonefile malformed. Was not able to parse it.")
-	}
-	return parser.Result(), nil
+	return parse(zoneFile)
 }
 
 //DecodeNameQueriesUnsafe takes as input a byte string of name queries encoded in a format
