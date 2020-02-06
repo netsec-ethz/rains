@@ -568,7 +568,7 @@ func (t Type) CLIString() string {
 	case OTIP4Addr:
 		return "ip4"
 	case OTScionAddr:
-		return "scionip4"
+		return "scion"
 	case OTRedirection:
 		return "redir"
 	case OTDelegation:

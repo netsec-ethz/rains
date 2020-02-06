@@ -1,8 +1,5 @@
-:Q: . www.ethz.ch. [ 15 ] -1 [ ]
-:A: www ethz.ch. . [ :scion: 2-ff00:0:222,[198.175.162.241] ]
-
 :Q: . www.ethz.ch. [ 14 ] -1 [ ]
-:A: www ethz.ch. . [ :scion: 2-ff00:0:222,[2001:db8:85a3::8a2e:370:7334] ]
+:A: www ethz.ch. . [ :scion: 2-ff00:0:222,[198.175.162.241] ]
 
 :Q: . www.ethz.ch. [ 1 ] -1 [ ]
 :A: www ethz.ch. . [ :name: a [ :scion: ] ]
@@ -16,8 +13,7 @@
 :Q: . www.ethz.ch. [ 9 ] -1 [ ]
 :Z: ethz.ch. . [
     :A: _ftp._udpscion    [ :srv: ftp.ethz.ch. 20 0 ]
-    :A: www  [ :name: a [ :scion: :scion: ] ]
+    :A: www  [ :name: a [ :scion: ] ]
     :A: www  [ :cert: :tls: :endEntity: :sha256: e28b1bd3a73882b198dfe4f0fa954c ]
-    :A: www  [ :scion: 2-ff00:0:222,[2001:db8:85a3::8a2e:370:7334] ]
     :A: www  [ :scion: 2-ff00:0:222,[198.175.162.241] ]
 ]
