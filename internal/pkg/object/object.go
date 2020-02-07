@@ -530,7 +530,7 @@ func ParseTypes(qType string) ([]Type, error) {
 		return []Type{OTIP6Addr}, nil
 	case "ip4":
 		return []Type{OTIP4Addr}, nil
-	case "scionip":
+	case "scion":
 		return []Type{OTScionAddr}, nil
 	case "redir":
 		return []Type{OTRedirection}, nil
