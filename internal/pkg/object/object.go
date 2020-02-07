@@ -325,7 +325,7 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 	case OTScionAddr:
 		addr, ok := obj.Value.(*SCIONAddress)
 		if !ok {
-			return fmt.Errorf("expected OTSCIONAddr6 to be *SCIONAddressress but got: %T", obj.Value)
+			return fmt.Errorf("expected OTSCIONAddr to be *SCIONAddressress but got: %T", obj.Value)
 		}
 		res = []interface{}{OTScionAddr, addr.Pack()}
 	case OTRedirection:
