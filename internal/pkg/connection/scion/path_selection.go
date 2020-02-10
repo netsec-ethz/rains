@@ -17,11 +17,12 @@ package scion
 import (
 	"context"
 
+	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/snet"
 )
 
-// SetPath is a helper function to set the path on an snet.Addr
-func SetPath(addr *snet.Addr, path snet.Path) {
+// SetPath is a helper function to set the path on an snet.UDPAddr
+func SetPath(addr *snet.UDPAddr, path snet.Path) {
 	if path == nil {
 		addr.Path = nil
 		addr.NextHop = nil
@@ -33,15 +34,25 @@ func SetPath(addr *snet.Addr, path snet.Path) {
 
 // SetDefaultPath sets the first path returned by a query to sciond.
 // This is a no-op if if remote is in the local AS.
-func SetDefaultPath(addr *snet.Addr) error {
-	if addr.IA == DefNetwork().IA {
-		SetPath(addr, nil)
-	} else {
-		paths, err := DefNetwork().PathQuerier.Query(context.Background(), addr.IA)
-		if err != nil || len(paths) == 0 {
-			return err
-		}
-		SetPath(addr, paths[0])
+func SetDefaultPath(addr *snet.UDPAddr) error {
+	paths, err := QueryPaths(addr.IA)
+	if err != nil || len(paths) == 0 {
+		return err
 	}
+	SetPath(addr, paths[0])
 	return nil
+}
+
+// QueryPaths queries the DefNetwork's sciond PathQuerier connection for paths to addr
+// If addr is in the local IA, an empty slice and no error is returned.
+func QueryPaths(ia addr.IA) ([]snet.Path, error) {
+	if ia == DefNetwork().IA {
+		return nil, nil
+	} else {
+		paths, err := DefNetwork().PathQuerier.Query(context.Background(), ia)
+		if err != nil || len(paths) == 0 {
+			return nil, err
+		}
+		return paths, nil
+	}
 }

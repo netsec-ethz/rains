@@ -96,12 +96,15 @@ func DefNetwork() *Network {
 // support long lived connections well, as the path *will* expire.
 // This is all that snet currently provides, we'll need to add a layer on top
 // that updates the paths in case they expire or are revoked.
-func DialAddr(raddr *snet.Addr) (snet.Conn, error) {
+func DialAddr(raddr *snet.UDPAddr) (snet.Conn, error) {
 	if raddr.Path == nil {
-		SetDefaultPath(raddr)
+		err := SetDefaultPath(raddr)
+		if err != nil {
+			return nil, err
+		}
 	}
 	laddr := &net.UDPAddr{IP: localIP(raddr)}
-	return DefNetwork().Dial(context.TODO(), "udp", laddr, ToSNetUDPAddr(raddr), addr.SvcNone)
+	return DefNetwork().Dial(context.TODO(), "udp", laddr, raddr, addr.SvcNone)
 }
 
 // Listen acts like net.ListenUDP in a SCION network.
@@ -134,7 +137,7 @@ func ListenPort(port uint16) (snet.Conn, error) {
 // The purpose of this function is to workaround not being able to bind to
 // wildcard addresses in snet.
 // See note on wildcard addresses in the package documentation.
-func localIP(raddr *snet.Addr) net.IP {
+func localIP(raddr *snet.UDPAddr) net.IP {
 	if raddr.NextHop != nil {
 		nextHop := raddr.NextHop.IP
 		return findSrcIP(nextHop)
@@ -149,17 +152,6 @@ func localIP(raddr *snet.Addr) net.IP {
 // See note on wildcard addresses in the package documentation.
 func defaultLocalIP() net.IP {
 	return findSrcIP(DefNetwork().hostInLocalAS)
-}
-
-// ToSNetUDPAddr is a helper to convert snet.Addr to the newer snet.UDPAddr type
-// XXX: snet.Addr will be removed...
-func ToSNetUDPAddr(addr *snet.Addr) *snet.UDPAddr {
-	return snet.NewUDPAddr(
-		addr.IA,
-		addr.Path,
-		addr.NextHop,
-		&net.UDPAddr{IP: addr.Host.L3.IP(), Port: int(addr.Host.L4)},
-	)
 }
 
 func mustInitDefNetwork() {

@@ -281,7 +281,7 @@ func (i *addressesFlag) Set(value string) error {
 		if tcpAddr, err := net.ResolveTCPAddr("tcp", addr); err == nil {
 			i.value = append(i.value, connection.Info{Type: connection.TCP, Addr: tcpAddr})
 		} else {
-			if scionAddr, err := snet.AddrFromString(value); err == nil {
+			if scionAddr, err := snet.UDPAddrFromString(value); err == nil {
 				i.value = append(i.value, connection.Info{Type: connection.SCION, Addr: scionAddr})
 			} else {
 				return err
