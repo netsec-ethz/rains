@@ -411,7 +411,7 @@ func (o *Object) Sort() {
 		sort.Slice(name.Types, func(i, j int) bool { return name.Types[i] < name.Types[j] })
 	}
 	if o.Type == OTExtraKey {
-		log.Error("Sort not implemented for external key. Format not yet defined")
+		panic("Sort not implemented for external key. Format not yet defined")
 	}
 }
 
@@ -440,24 +440,16 @@ func (o Object) CompareTo(object Object) int {
 		}
 	case net.IP:
 		if v2, ok := object.Value.(net.IP); ok {
-			if v1.String() < v2.String() {
-				return -1
-			} else if v1.String() > v2.String() {
-				return 1
-			}
-		} else {
-			logObjectTypeAssertionFailure(object.Type, object.Value)
+			return bytes.Compare(v1, v2)
 		}
+		logObjectTypeAssertionFailure(object.Type, object.Value)
 	case *SCIONAddress:
 		if v2, ok := object.Value.(*SCIONAddress); ok {
-			if v1.String() < v2.String() {
-				return -1
-			} else if v1.String() > v2.String() {
-				return 1
-			}
-		} else {
-			logObjectTypeAssertionFailure(object.Type, object.Value)
+			raw1 := v1.Pack()
+			raw2 := v2.Pack()
+			return bytes.Compare(raw1, raw2)
 		}
+		logObjectTypeAssertionFailure(object.Type, object.Value)
 	case keys.PublicKey:
 		if v2, ok := object.Value.(keys.PublicKey); ok {
 			return v1.CompareTo(v2)

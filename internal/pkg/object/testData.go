@@ -5,7 +5,6 @@ import (
 	"net"
 	"strconv"
 
-	log "github.com/inconshreveable/log15"
 	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 	"golang.org/x/crypto/ed25519"
@@ -85,9 +84,13 @@ func PublicKey() keys.PublicKey {
 }
 
 func SortedObjects() []Object {
-	nofObj := 10 // any more and all the numerical strings will not sort as expected
+	// Note: nofObjects should be more than 10, to test that things that should
+	// sort numerically are not actually just sorted lexicographically (which is
+	// the same for 0-9).
+	nofObj := 17
 	objects := []Object{}
 
+	strings := sortedStrings(nofObj)
 	nos := sortedNameObjects(nofObj)
 	ip4s := sortedIPv4(nofObj)
 	ip6s := sortedIPv6(nofObj)
@@ -106,31 +109,46 @@ func SortedObjects() []Object {
 			case OTIP4Addr:
 				value = ip4s[j] //ip4
 			case OTRedirection:
-				value = strconv.Itoa(j) //redir
+				value = strings[j] //redir
 			case OTDelegation:
 				value = pkeys[j]
 			case OTNameset:
-				value = NamesetExpr(strconv.Itoa(j))
+				value = NamesetExpr(strings[j])
 			case OTCertInfo:
 				value = certs[j]
 			case OTServiceInfo:
 				value = sis[j]
 			case OTRegistrar:
-				value = strconv.Itoa(j) //registrar
+				value = strings[j] //registrar
 			case OTRegistrant:
-				value = strconv.Itoa(j) //registrant
+				value = strings[j] //registrant
 			case OTInfraKey:
+				value = pkeys[j]
+			case OTExtraKey:
 				value = pkeys[j]
 			case OTNextKey:
 				value = pkeys[j]
 			case OTScionAddr:
 				value = scAddrs[j]
+			default:
+				panic("missing case")
 			}
 			objects = append(objects, Object{
 				Type:  t,
 				Value: value,
 			})
 		}
+	}
+	return objects
+}
+
+func sortedStrings(nof int) []string {
+	if nof > 100 {
+		panic("not sorted for nof > 100, need to increase field width")
+	}
+	objects := make([]string, nof)
+	for i := 0; i < nof; i++ {
+		objects[i] = fmt.Sprintf("%20d", i)
 	}
 	return objects
 }
@@ -157,8 +175,7 @@ func sortedNameObjects(nof int) []Name {
 
 func sortedPublicKeys(nof int) []keys.PublicKey {
 	if nof > 255 {
-		log.Error("nof must be smaller than 256", "nof", nof)
-		nof = 255
+		panic("nof must be smaller than 256")
 	}
 	pkeys := []keys.PublicKey{}
 	for i := 1; i < 5; i++ {
@@ -186,8 +203,7 @@ func sortedPublicKeys(nof int) []keys.PublicKey {
 
 func sortedCertificates(nof int) []Certificate {
 	if nof > 255 {
-		log.Error("nof must be smaller than 256", "nof", nof)
-		nof = 255
+		panic("nof must be smaller than 256")
 	}
 	certs := []Certificate{}
 	for i := 0; i < 2; i++ {
@@ -226,6 +242,9 @@ func sortedServiceInfo(nof int) []ServiceInfo {
 }
 
 func sortedIPv4(nof int) []net.IP {
+	if nof > 255 {
+		panic("nof must be smaller than 256")
+	}
 	ips := []net.IP{}
 	for i := 0; i < nof; i++ {
 		ips = append(ips, net.ParseIP(fmt.Sprintf("0.0.0.%d", i)))
@@ -245,11 +264,11 @@ func sortedSCIONAddr(nof int) []*SCIONAddress {
 	addrs := []*SCIONAddress{}
 	i := 0
 	for ; i < nof/2; i++ {
-		a, _ := ParseSCIONAddress(fmt.Sprintf("1-ffaa:1:1,[10.0.0.%d]", i))
+		a, _ := ParseSCIONAddress(fmt.Sprintf("1-ffaa:1:1,[::f00:c00:%x]", i))
 		addrs = append(addrs, a)
 	}
 	for ; i < nof; i++ {
-		a, _ := ParseSCIONAddress(fmt.Sprintf("1-ffaa:1:1,[::f00:c00:%x]", i))
+		a, _ := ParseSCIONAddress(fmt.Sprintf("1-ffaa:1:1,[10.0.0.%d]", i))
 		addrs = append(addrs, a)
 	}
 	return addrs

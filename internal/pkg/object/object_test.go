@@ -215,6 +215,19 @@ func TestObjectSort(t *testing.T) {
 		t.Errorf("name objects are in wrong order after obj.Sort() expected=%v actual%v", expectedObj, obj)
 	}
 	//error case
+	// XXX(matzf): left this here, but what's the point of this???
 	obj = Object{Type: OTExtraKey, Value: ""}
-	obj.Sort()
+	assertPanic(t, obj.Sort)
+}
+
+// assertPanic tests function f, expecting a panic
+// C.f. https://stackoverflow.com/a/31596110
+func assertPanic(t *testing.T, f func()) {
+
+	defer func() {
+		if recover() == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+	f()
 }
