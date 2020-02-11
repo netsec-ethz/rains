@@ -33,15 +33,14 @@ func (sa *SCIONAddress) String() string {
 }
 
 func ParseSCIONAddress(address string) (*SCIONAddress, error) {
-	addr, err := snet.AddrFromString(address)
+	addr, err := snet.UDPAddrFromString(address)
 	if err != nil {
 		return nil, err
 	}
-	host := addr.ToNetUDPAddr()
-	if host.Port != 0 {
+	if addr.Host.Port != 0 {
 		return nil, errors.New("address without port expected")
 	}
-	return &SCIONAddress{IA: addr.IA, IP: host.IP}, nil
+	return &SCIONAddress{IA: addr.IA, IP: addr.Host.IP}, nil
 }
 
 func (a *SCIONAddress) Pack() []byte {

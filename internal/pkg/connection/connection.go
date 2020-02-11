@@ -66,7 +66,7 @@ func UnmarshalNetAddr(data []byte) (Type, net.Addr, error) {
 		if !ok {
 			return -1, nil, errors.New("local address must be a string")
 		}
-		scionLocal, err := snet.AddrFromString(local)
+		scionLocal, err := snet.UDPAddrFromString(local)
 		if err != nil {
 			return -1, nil, fmt.Errorf("failed to parse local addr: %v", err)
 		}
@@ -97,7 +97,7 @@ func CreateConnection(addr net.Addr) (conn net.Conn, err error) {
 	switch a := addr.(type) {
 	case *net.TCPAddr:
 		return tls.Dial(a.Network(), a.String(), &tls.Config{InsecureSkipVerify: true})
-	case *snet.Addr:
+	case *snet.UDPAddr:
 		return scion.DialAddr(a)
 	default:
 		return nil, fmt.Errorf("unsupported Network address type: %s", addr)

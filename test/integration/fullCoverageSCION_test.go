@@ -136,14 +136,8 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Was not able to load namingServerRoot config: %v", err)
 	}
-	rootAddr, err := snet.AddrFromString(
-		strings.Replace(rootConfig.ServerAddress.Addr.String(), " (UDP)", "", 1))
-	if err != nil {
-		t.Fatalf("Was not able to load ServerAddress from namingServerRoot config: %v, %v",
-			err, rootConfig.ServerAddress.Addr)
-	}
-	rootHostAddr := fmt.Sprintf("%s,[%v]", rootAddr.IA, rootAddr.Host.L3)
-	rootPort := rootAddr.Host.L4
+	rootServerAddr := rootConfig.ServerAddress.Addr.String()
+
 	cmd := exec.Command(pathRainsd,
 		"./testdata/conf/SCIONnamingServerRoot.conf",
 		"--id",
@@ -172,7 +166,7 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 		cmd = exec.Command(pathRainsd,
 			fmt.Sprintf("./testdata/conf/SCIONnamingServer%s.conf", zone),
 			"--rootServerAddress",
-			fmt.Sprintf("%s:%d", rootHostAddr, rootPort),
+			rootServerAddr,
 			"--id",
 			fmt.Sprintf("nameServer%sCLI", zone),
 		)
@@ -198,17 +192,14 @@ func TestFullCoverageCLIToolsSCION(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Was not able to load resolver config: %v", err)
 	}
-	resolverAddr, err := snet.AddrFromString(
-		strings.Replace(resolverConfig.ServerAddress.Addr.String(), " (UDP)", "", 1))
-	if err != nil {
-		t.Fatalf("Was not able to load ServerAddress from resolver config: %v", err)
-	}
-	resolverHostAddr := fmt.Sprintf("%s,[%v]", resolverAddr.IA, resolverAddr.Host.L3)
-	resolverPort := strconv.Itoa(int(resolverAddr.Host.L4))
+	resolverAddr := resolverConfig.ServerAddress.Addr.(*snet.UDPAddr)
+	resolverHostAddr := fmt.Sprintf("%s,%s", resolverAddr.IA, resolverAddr.Host.IP)
+	resolverPort := strconv.Itoa(resolverAddr.Host.Port)
+
 	cmd = exec.Command(pathRainsd,
 		"./testdata/conf/SCIONresolver.conf",
 		"--rootServerAddress",
-		fmt.Sprintf("%s:%d", rootHostAddr, rootPort),
+		rootServerAddr,
 		"--id",
 		"resolverCLI",
 	)

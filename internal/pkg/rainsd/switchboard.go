@@ -144,12 +144,12 @@ func (s *Server) listen(id string) {
 			}
 		}
 	case connection.SCION:
-		addr, ok := s.config.ServerAddress.Addr.(*snet.Addr)
+		addr, ok := s.config.ServerAddress.Addr.(*snet.UDPAddr)
 		if !ok {
 			log.Warn(fmt.Sprintf("Type assertion failed. Expected *connection.SCIONAddr, got %T", addr))
 			return
 		}
-		conn, err := scion.Listen(addr.ToNetUDPAddr())
+		conn, err := scion.Listen(addr.Host)
 		srvLogger.Info(fmt.Sprintf("Started SCION listener on %v", addr), "id", id)
 		if err != nil {
 			log.Warn("failed to ListenSCION", "err", err)

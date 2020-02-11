@@ -381,7 +381,7 @@ func (r *Resolver) handleRedirect(name string, srvMap map[string]object.ServiceI
 			var tcpErr error
 			addr, tcpErr = net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", ipAddr, rainsPort))
 			if tcpErr != nil {
-				addr, err = snet.AddrFromString(fmt.Sprintf("%s:%d", ipAddr, rainsPort))
+				addr, err = snet.UDPAddrFromString(fmt.Sprintf("%s:%d", ipAddr, rainsPort))
 				if err != nil {
 					log.Error("Not an IP addr nor a SCION addr at handleRedirect OTXAddrX", "addr", addr, "tcpErr", tcpErr, "scionErr", err)
 				}
@@ -399,7 +399,7 @@ func (r *Resolver) handleRedirect(name string, srvMap map[string]object.ServiceI
 				ip := addr.String()[:portSep]
 				addr, tcpErr = net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", ip, srvVal.Port))
 				if tcpErr != nil {
-					addr, err = snet.AddrFromString(fmt.Sprintf("%s:%d", ip, srvVal.Port))
+					addr, err = snet.UDPAddrFromString(fmt.Sprintf("%s:%d", ip, srvVal.Port))
 					if err != nil {
 						log.Error("Not and IP addr nor a SCION addr at handleRedirect OTXAddrX", "addr", addr, "tcpErr", tcpErr, "scionErr", err)
 					}
