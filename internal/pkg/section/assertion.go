@@ -239,8 +239,8 @@ func (a *Assertion) CompareTo(assertion *Assertion) int {
 		return 1
 	}
 	for i, o := range a.Content {
-		if o.CompareTo(assertion.Content[i]) != 0 {
-			return o.CompareTo(assertion.Content[i])
+		if cmp := o.CompareTo(assertion.Content[i]); cmp != 0 {
+			return cmp
 		}
 	}
 	return 0

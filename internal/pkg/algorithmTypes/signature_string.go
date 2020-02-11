@@ -4,6 +4,14 @@ package algorithmTypes
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[Ed25519-1]
+	_ = x[Ed448-2]
+}
+
 const _Signature_name = "Ed25519Ed448"
 
 var _Signature_index = [...]uint8{0, 7, 12}

@@ -4,6 +4,14 @@ package connection
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[TCP-1]
+	_ = x[SCION-2]
+}
+
 const _Type_name = "TCPSCION"
 
 var _Type_index = [...]uint8{0, 3, 8}

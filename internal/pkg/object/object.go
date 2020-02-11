@@ -24,15 +24,40 @@ type Object struct {
 }
 
 type SCIONAddress struct {
-	IA   addr.IA
-	Host addr.HostAddr
+	IA addr.IA
+	IP net.IP
 }
 
 func (sa *SCIONAddress) String() string {
-	if sa.Host == nil {
-		return fmt.Sprintf("%s,<nil>", sa.IA)
+	return fmt.Sprintf("%s,[%v]", sa.IA, sa.IP)
+}
+
+func ParseSCIONAddress(address string) (*SCIONAddress, error) {
+	addr, err := snet.AddrFromString(address)
+	if err != nil {
+		return nil, err
 	}
-	return fmt.Sprintf("%s,[%v]", sa.IA, sa.Host)
+	host := addr.ToNetUDPAddr()
+	if host.Port != 0 {
+		return nil, errors.New("address without port expected")
+	}
+	return &SCIONAddress{IA: addr.IA, IP: host.IP}, nil
+}
+
+func (a *SCIONAddress) Pack() []byte {
+	buf := make([]byte, addr.IABytes+len(a.IP))
+	a.IA.Write(buf)
+	copy(buf[addr.IABytes:], a.IP)
+	return buf
+}
+
+func SCIONAddressFromRaw(buf []byte) (*SCIONAddress, error) {
+	if len(buf) != addr.IABytes+net.IPv4len && len(buf) != addr.IABytes+net.IPv6len {
+		return nil, errors.New("invalid scion address, bad length")
+	}
+	ia := addr.IAFromRaw(buf)
+	ip := net.IP(buf[addr.IABytes:])
+	return &SCIONAddress{IA: ia, IP: ip}, nil
 }
 
 // UnmarshalArray takes in a CBOR decoded array and populates the object.
@@ -72,26 +97,16 @@ func (obj *Object) UnmarshalArray(in []interface{}) error {
 			return errors.New("cbor object encoding of ip6 not a byte array")
 		}
 		obj.Value = net.IP(v)
-	case OTScionAddr6:
-		addrStr, ok := in[1].(string)
+	case OTScionAddr:
+		v, ok := in[1].([]byte)
 		if !ok {
-			return fmt.Errorf("wrong object value for OTScionAddr6: %T", in[1])
+			return fmt.Errorf("wrong object value for OTScionAddr: %T", in[1])
 		}
-		addr, err := snet.AddrFromString(addrStr)
+		addr, err := SCIONAddressFromRaw(v)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal OTScionAddr6: %T", in[1])
+			return fmt.Errorf("failed to unmarshal OTScionAddr: %T", in[1])
 		}
-		obj.Value = &SCIONAddress{IA: addr.IA, Host: addr.Host.L3}
-	case OTScionAddr4:
-		addrStr, ok := in[1].(string)
-		if !ok {
-			return fmt.Errorf("wrong object value for OTScionAddr4: %T", in[1])
-		}
-		addr, err := snet.AddrFromString(addrStr)
-		if err != nil {
-			return fmt.Errorf("failed to unmarshal OTScionAddr4: %T", in[1])
-		}
-		obj.Value = &SCIONAddress{IA: addr.IA, Host: addr.Host.L3}
+		obj.Value = addr
 	case OTRedirection:
 		obj.Value = in[1]
 	case OTDelegation:
@@ -307,18 +322,12 @@ func (obj Object) MarshalCBOR(w *cbor.CBORWriter) error {
 			return fmt.Errorf("expected OTIP4Addr to be net.IP but got: %T", obj.Value)
 		}
 		res = []interface{}{OTIP4Addr, []byte(addr)}
-	case OTScionAddr6:
+	case OTScionAddr:
 		addr, ok := obj.Value.(*SCIONAddress)
 		if !ok {
-			return fmt.Errorf("expected OTSCIONAddr6 to be *SCIONAddressress but got: %T", obj.Value)
+			return fmt.Errorf("expected OTSCIONAddr to be *SCIONAddressress but got: %T", obj.Value)
 		}
-		res = []interface{}{OTScionAddr6, fmt.Sprintf("%s", addr)}
-	case OTScionAddr4:
-		addr, ok := obj.Value.(*SCIONAddress)
-		if !ok {
-			return fmt.Errorf("expected OTSCIONAddr4 to be *SCIONAddressress but got: %T", obj.Value)
-		}
-		res = []interface{}{OTScionAddr4, fmt.Sprintf("%s", addr)}
+		res = []interface{}{OTScionAddr, addr.Pack()}
 	case OTRedirection:
 		res = []interface{}{OTRedirection, obj.Value}
 	case OTDelegation:
@@ -402,7 +411,7 @@ func (o *Object) Sort() {
 		sort.Slice(name.Types, func(i, j int) bool { return name.Types[i] < name.Types[j] })
 	}
 	if o.Type == OTExtraKey {
-		log.Error("Sort not implemented for external key. Format not yet defined")
+		panic("Sort not implemented for external key. Format not yet defined")
 	}
 }
 
@@ -431,24 +440,16 @@ func (o Object) CompareTo(object Object) int {
 		}
 	case net.IP:
 		if v2, ok := object.Value.(net.IP); ok {
-			if v1.String() < v2.String() {
-				return -1
-			} else if v1.String() > v2.String() {
-				return 1
-			}
-		} else {
-			logObjectTypeAssertionFailure(object.Type, object.Value)
+			return bytes.Compare(v1, v2)
 		}
+		logObjectTypeAssertionFailure(object.Type, object.Value)
 	case *SCIONAddress:
 		if v2, ok := object.Value.(*SCIONAddress); ok {
-			if v1.String() < v2.String() {
-				return -1
-			} else if v1.String() > v2.String() {
-				return 1
-			}
-		} else {
-			logObjectTypeAssertionFailure(object.Type, object.Value)
+			raw1 := v1.Pack()
+			raw2 := v2.Pack()
+			return bytes.Compare(raw1, raw2)
 		}
+		logObjectTypeAssertionFailure(object.Type, object.Value)
 	case keys.PublicKey:
 		if v2, ok := object.Value.(keys.PublicKey); ok {
 			return v1.CompareTo(v2)
@@ -509,8 +510,7 @@ const (
 	OTInfraKey    Type = 11
 	OTExtraKey    Type = 12
 	OTNextKey     Type = 13
-	OTScionAddr6  Type = 14
-	OTScionAddr4  Type = 15
+	OTScionAddr   Type = 14
 )
 
 //ParseTypes returns the object type(s) specified in qType
@@ -522,10 +522,8 @@ func ParseTypes(qType string) ([]Type, error) {
 		return []Type{OTIP6Addr}, nil
 	case "ip4":
 		return []Type{OTIP4Addr}, nil
-	case "scionip6":
-		return []Type{OTScionAddr6}, nil
-	case "scionip4":
-		return []Type{OTScionAddr4}, nil
+	case "scion":
+		return []Type{OTScionAddr}, nil
 	case "redir":
 		return []Type{OTRedirection}, nil
 	case "deleg":
@@ -561,10 +559,8 @@ func (t Type) CLIString() string {
 		return "ip6"
 	case OTIP4Addr:
 		return "ip4"
-	case OTScionAddr6:
-		return "scionip6"
-	case OTScionAddr4:
-		return "scionip4"
+	case OTScionAddr:
+		return "scion"
 	case OTRedirection:
 		return "redir"
 	case OTDelegation:
@@ -594,7 +590,7 @@ func AllTypes() []Type {
 	return []Type{OTName, OTIP6Addr, OTIP4Addr, OTRedirection,
 		OTDelegation, OTNameset, OTCertInfo, OTServiceInfo,
 		OTRegistrar, OTRegistrant, OTInfraKey, OTExtraKey,
-		OTNextKey, OTScionAddr6, OTScionAddr4}
+		OTNextKey, OTScionAddr}
 }
 
 //Name contains a name associated with a name as an alias. Types specifies for which object connection the alias is valid

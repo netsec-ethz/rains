@@ -4,6 +4,16 @@ package section
 
 import "strconv"
 
+func _() {
+	// An "invalid array index" compiler error signifies that the constant values have changed.
+	// Re-run the stringer command to generate them again.
+	var x [1]struct{}
+	_ = x[BloomKM12-1]
+	_ = x[BloomKM16-2]
+	_ = x[BloomKM20-3]
+	_ = x[BloomKM24-4]
+}
+
 const _BloomFilterAlgo_name = "BloomKM12BloomKM16BloomKM20BloomKM24"
 
 var _BloomFilterAlgo_index = [...]uint8{0, 9, 18, 27, 36}

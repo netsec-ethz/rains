@@ -2,5 +2,5 @@
     :A: ethz [ :redir:   _rains._udpscion.ns.ethz.ch. ]
     :A: ethz [ :deleg:   :ed25519: 1 e399545d248fb3ece0cd822ee3b6222df06fd278308923d9bebef997c9a1afa9 ]
     :A: _rains._udpscion.ns.ethz [ :srv:     ns1.ethz.ch. 5024 0 ]
-    :A: ns1.ethz [ :scionip4:     1-ff00:0:110,[127.0.0.1]:5024 ]
+    :A: ns1.ethz [ :scion:     1-ff00:0:110,[127.0.0.1] ]
 ]

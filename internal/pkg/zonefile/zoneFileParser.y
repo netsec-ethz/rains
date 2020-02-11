@@ -1,33 +1,28 @@
-// To build it:
-// goyacc -p "ZFP" zonefileParser.y (produces y.go)
-// go build -o zonefileParser y.go
-// run ./zonefileParser, the zonefile must be placed in the same directory and
-// must be called zonefile.txt
+// To build, run `make generate`, or equivalently
+// goyacc -p "ZFP" -o zoneFileParser.go zonefileParser.y
 
 %{
 
-package main
+package zonefile
 
 import (  
 	"bufio"
-    "bytes"
-    "encoding/hex"
-    "errors"
+	"bytes"
+	"encoding/hex"
+	"errors"
 	"fmt"
-	"io/ioutil"
-    "net"
-    "strconv"
-    "strings"
-    log "github.com/inconshreveable/log15"
-    "github.com/netsec-ethz/rains/internal/pkg/signature"
-    "github.com/netsec-ethz/rains/internal/pkg/section"
-    "github.com/netsec-ethz/rains/internal/pkg/object"
-    "github.com/netsec-ethz/rains/internal/pkg/keys"
-    "github.com/netsec-ethz/rains/internal/pkg/zonefile"
-    "github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
-    "github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
-    "github.com/scionproto/scion/go/lib/snet"
-    "golang.org/x/crypto/ed25519"
+	"net"
+	"strconv"
+	"strings"
+
+	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/algorithmTypes"
+	"github.com/netsec-ethz/rains/internal/pkg/datastructures/bitarray"
+	"github.com/netsec-ethz/rains/internal/pkg/keys"
+	"github.com/netsec-ethz/rains/internal/pkg/object"
+	"github.com/netsec-ethz/rains/internal/pkg/section"
+	"github.com/netsec-ethz/rains/internal/pkg/signature"
+	"golang.org/x/crypto/ed25519"
 )
 
 //AddSigs adds signatures to section
@@ -150,7 +145,7 @@ var output []section.WithSigForward
 %type <assertions>      shardContent zoneContent
 %type <assertion>       assertion assertionBody
 %type <objects>         objects
-%type <object>          object name ip4 ip6 scionip4 scionip6 redir deleg nameset 
+%type <object>          object name ip4 ip6 scion redir deleg nameset 
 %type <object>          cert srv regr regt infra extra next
 %type <objectTypes>     oTypes
 %type <objectType>      oType
@@ -167,7 +162,7 @@ var output []section.WithSigForward
 // Section types
 %token assertionType shardType pshardType zoneType
 // Object types
-%token nameType ip4Type ip6Type scionip4Type scionip6Type redirType delegType namesetType certType
+%token nameType ip4Type ip6Type scionType redirType delegType namesetType certType
 %token srvType regrType regtType infraType extraType nextType
 // Annotation types
 %token sigType 
@@ -375,8 +370,7 @@ objects         : object
 object          : name
                 | ip6
                 | ip4
-                | scionip4
-                | scionip6
+                | scion
                 | redir
                 | deleg
                 | nameset
@@ -420,13 +414,9 @@ oType           : nameType
                 {
                     $$ = object.OTIP6Addr
                 }
-                | scionip4Type
+                | scionType
                 {
-                    $$ = object.OTScionAddr4
-                }
-                | scionip6Type
-                {
-                    $$ = object.OTScionAddr6
+                    $$ = object.OTScionAddr
                 }
                 | redirType
                 {
@@ -490,26 +480,15 @@ ip4             : ip4Type ID
                         Value: ip,
                     }
                 }
-scionip6        : scionip6Type ID
-                {   
-                    addr, err := snet.AddrFromString($2)
-                    if err != nil {
-                        log.Error("semantic error:", "AddrFromString", "not a valid SCION address")
-                    }
-                    $$ = object.Object{
-                        Type: object.OTScionAddr6,
-                        Value: &object.SCIONAddress{IA: addr.IA, Host: addr.Host.L3},
-                    }
-                }
-scionip4        : scionip4Type ID
+scion           : scionType ID
                 {
-                    addr, err := snet.AddrFromString($2)
+                    addr, err := object.ParseSCIONAddress($2)
                     if err != nil {
-                        log.Error("semantic error:", "AddrFromString", "not a valid SCION address")
+                        log.Error("semantic error:", "ParseSCIONAddress", "not a valid SCION address")
                     }
                     $$ = object.Object{
-                        Type: object.OTScionAddr4,
-                        Value: &object.SCIONAddress{IA: addr.IA, Host: addr.Host.L3},
+                        Type: object.OTScionAddr,
+                        Value: addr,
                     }
                 }
 redir           : redirType ID
@@ -749,96 +728,94 @@ func (l *ZFPLex) Lex(lval *ZFPSymType) int {
         l.linePos++
     }
     //return token
-    switch word {
-	case zonefile.TypeAssertion :
-        return assertionType
-    case zonefile.TypeShard :
-        return shardType
-    case zonefile.TypePshard :
-        return pshardType
-    case zonefile.TypeZone :
-        return zoneType
-    case zonefile.TypeName :
+	switch word {
+	case TypeAssertion :
+		return assertionType
+	case TypeShard :
+		return shardType
+	case TypePshard :
+		return pshardType
+	case TypeZone :
+		return zoneType
+	case TypeName :
 		return nameType
-	case zonefile.TypeIP6 :
+	case TypeIP6 :
 		return ip6Type
-	case zonefile.TypeIP4 :
+	case TypeIP4 :
 		return ip4Type
-    case zonefile.TypeScionIP6:
-        return scionip6Type
-    case zonefile.TypeScionIP4:
-        return scionip4Type
-	case zonefile.TypeRedirection :
+	case TypeScion:
+		return scionType
+	case TypeRedirection :
 		return redirType
-	case zonefile.TypeDelegation :
+	case TypeDelegation :
 		return delegType
-	case zonefile.TypeNameSet :
+	case TypeNameSet :
 		return namesetType
-	case zonefile.TypeCertificate :
+	case TypeCertificate :
 		return certType
-	case zonefile.TypeServiceInfo :
+	case TypeServiceInfo :
 		return srvType
-	case zonefile.TypeRegistrar :
+	case TypeRegistrar :
 		return regrType
-	case zonefile.TypeRegistrant :
+	case TypeRegistrant :
 		return regtType
-	case zonefile.TypeInfraKey :
+	case TypeInfraKey :
 		return infraType
-	case zonefile.TypeExternalKey :
+	case TypeExternalKey :
 		return extraType
-	case zonefile.TypeNextKey :
+	case TypeNextKey :
 		return nextType
-    case zonefile.TypeSignature :
-        return sigType
-    case zonefile.TypeEd25519 :
-        return ed25519Type
-    case zonefile.TypeUnspecified :
-        return unspecified
-    case zonefile.TypePTTLS :
-        return tls
-    case zonefile.TypeCUTrustAnchor :
-        return trustAnchor
-    case zonefile.TypeCUEndEntity :
-        return endEntity
-    case zonefile.TypeNoHash :
-        return noHash
-    case zonefile.TypeSha256 :
-        return sha256
-    case zonefile.TypeSha384 :
-        return sha384
-    case zonefile.TypeSha512 :
-        return sha512
-    case zonefile.TypeShake256 :
-        return shake256
-    case zonefile.TypeFnv64 :
-        return fnv64
-    case zonefile.TypeFnv128 :
-        return fnv128
-    case zonefile.TypeKM12 :
-        return bloomKM12
-    case zonefile.TypeKM16 :
-        return bloomKM16
-    case zonefile.TypeKM20 :
-        return bloomKM20
-    case zonefile.TypeKM24 :
-        return bloomKM24
-    case zonefile.TypeKSRains :
-        return rains
-    case "<" :
-        return rangeBegin
-    case ">" :
-        return rangeEnd
-    case "[" :
-        return lBracket
-    case "]" :
-        return rBracket
-    case "(" :
-        return lParenthesis
-    case ")" :
-        return rParenthesis
+	case TypeSignature :
+		return sigType
+	case TypeEd25519 :
+		return ed25519Type
+	case TypeUnspecified :
+		return unspecified
+	case TypePTTLS :
+		return tls
+	case TypeCUTrustAnchor :
+		return trustAnchor
+	case TypeCUEndEntity :
+		return endEntity
+	case TypeNoHash :
+		return noHash
+	case TypeSha256 :
+		return sha256
+	case TypeSha384 :
+		return sha384
+	case TypeSha512 :
+		return sha512
+	case TypeShake256 :
+		return shake256
+	case TypeFnv64 :
+		return fnv64
+	case TypeFnv128 :
+		return fnv128
+	case TypeKM12 :
+		return bloomKM12
+	case TypeKM16 :
+		return bloomKM16
+	case TypeKM20 :
+		return bloomKM20
+	case TypeKM24 :
+		return bloomKM24
+	case TypeKSRains :
+		return rains
+	case "<" :
+		return rangeBegin
+	case ">" :
+		return rangeEnd
+	case "[" :
+		return lBracket
+	case "]" :
+		return rBracket
+	case "(" :
+		return lParenthesis
+	case ")" :
+		return rParenthesis
 	default :
-        lval.str = word
-        return ID
+		lval.str = word
+		return ID
 	}
 }
 
@@ -857,17 +834,6 @@ func (l *ZFPLex) Error(s string) {
     }
 }
 
-func main() {
-    file, err := ioutil.ReadFile("zonefile.txt")
-    if err != nil {
-        log.Error(err.Error())
-        return
-    }
-    lines := removeComments(bufio.NewScanner(bytes.NewReader(file)))
-    log.Debug("Preprocessed input", "data", lines)
-    ZFPParse(&ZFPLex{lines: lines})
-}
-
 func removeComments(scanner *bufio.Scanner) [][]string {
     var lines [][]string
     for scanner.Scan() {
@@ -881,4 +847,15 @@ func removeComments(scanner *bufio.Scanner) [][]string {
         lines = append(lines, words)
     }
     return lines
+}
+
+func parse(zoneFile []byte) ([]section.WithSigForward, error) {
+	lines := removeComments(bufio.NewScanner(bytes.NewReader(zoneFile)))
+	log.Debug("Preprocessed input", "data", lines)
+	parser := ZFPNewParser()
+	parser.Parse(&ZFPLex{lines: lines})
+	if len(output) == 0 {
+		return nil, errors.New("zonefile malformed. Was not able to parse it.")
+	}
+	return output, nil
 }

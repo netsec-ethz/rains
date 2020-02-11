@@ -187,13 +187,9 @@ func checkObjects(objs1, objs2 []object.Object, t *testing.T) {
 			if o1.Value.(net.IP).String() != o2.Value.(net.IP).String() {
 				t.Errorf("Object Value IP4 mismatch at position %d", i)
 			}
-		case object.OTScionAddr6:
+		case object.OTScionAddr:
 			if o1.Value.(*object.SCIONAddress).String() != o2.Value.(*object.SCIONAddress).String() {
-				t.Errorf("Object Value scionIP6 mismatch at position %d", i)
-			}
-		case object.OTScionAddr4:
-			if o1.Value.(*object.SCIONAddress).String() != o2.Value.(*object.SCIONAddress).String() {
-				t.Errorf("Object Value scionIP4 mismatch at position %d", i)
+				t.Errorf("Object Value scion mismatch at position %d", i)
 			}
 		case object.OTRedirection:
 			if o1.Value.(string) != o2.Value.(string) {

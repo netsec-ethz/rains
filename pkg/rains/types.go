@@ -22,8 +22,7 @@ const (
 	OTInfraKey
 	OTExtraKey
 	OTNextKey
-	OTScionAddr6
-	OTScionAddr4
+	OTScionAddr
 )
 
 //AllTypes returns all object types
@@ -31,7 +30,7 @@ func AllTypes() []Type {
 	return []Type{OTName, OTIP6Addr, OTIP4Addr, OTRedirection,
 		OTDelegation, OTNameset, OTCertInfo, OTServiceInfo,
 		OTRegistrar, OTRegistrant, OTInfraKey, OTExtraKey,
-		OTNextKey, OTScionAddr6, OTScionAddr4}
+		OTNextKey, OTScionAddr}
 }
 
 func convertTyps(types []Type) []object.Type {

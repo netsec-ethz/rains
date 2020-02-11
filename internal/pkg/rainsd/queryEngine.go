@@ -258,13 +258,8 @@ func (s *Server) handleRedirect(name, context string, cache cache.Assertion, all
 			return asserts, nil
 		}
 	}
-	if allowedTypes[object.OTScionAddr6] {
-		if asserts, ok := cache.Get(name, context, object.OTScionAddr6, true); ok {
-			return asserts, nil
-		}
-	}
-	if allowedTypes[object.OTScionAddr4] {
-		if asserts, ok := cache.Get(name, context, object.OTScionAddr4, true); ok {
+	if allowedTypes[object.OTScionAddr] {
+		if asserts, ok := cache.Get(name, context, object.OTScionAddr, true); ok {
 			return asserts, nil
 		}
 	}

@@ -33,11 +33,9 @@ page which explains all commands and flags that are supported.
 ### On your machine
 
 1. Make sure that you are using a clean and recently updated Ubuntu 16.04.
-2. Make sure that you have a Go workspace setup
-3. Download the repo e.g. `go get github.com/netsec-ethz/rains`
-4. Download and install SCION according to the [README](https://github.com/scionproto/scion)
-4. Create the necessary binaries by calling [make](Makefile)
-5. Use the binaries created in the cmd [folder](cmd/)
+1. Download the repo e.g. `git clone https://github.com/netsec-ethz/rains`
+1. Create the necessary binaries by calling [make](Makefile)
+1. Use the binaries created in the cmd [folder](cmd/)
 
 ### In SCION lab
 
