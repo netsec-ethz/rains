@@ -148,7 +148,7 @@ func sortedStrings(nof int) []string {
 	}
 	objects := make([]string, nof)
 	for i := 0; i < nof; i++ {
-		objects[i] = fmt.Sprintf("%20d", i)
+		objects[i] = fmt.Sprintf("%02d", i)
 	}
 	return objects
 }
