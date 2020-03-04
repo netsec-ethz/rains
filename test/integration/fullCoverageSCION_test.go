@@ -18,6 +18,7 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/netsec-ethz/rains/internal/pkg/connection/scion"
 	"github.com/netsec-ethz/rains/internal/pkg/libresolve"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
 	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
@@ -27,13 +28,20 @@ import (
 	"syscall"
 )
 
+func checkEnvAS110() {
+	_, ok := os.LookupEnv("SCION_DAEMON_SOCKET")
+	if !ok || scion.DefNetwork().IA.String() != "1-ff00:0:110" {
+		panic("Expecting to run in tiny topo. Need to set SCION_DAEMON_SOCKET for 1-ff00:0:110.")
+	}
+}
+
 func TestFullCoverageSCION(t *testing.T) {
+	checkEnvAS110()
+
 	h := log.CallerFileHandler(log.StdoutHandler)
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlInfo, h))
 	//Generate self signed root key
 	keySetup(t, "testdata/keys/root")
-
-	os.Setenv("SCION_DAEMON_SOCKET", "/run/shm/sciond/sd1-ff00_0_110.sock")
 
 	//Start authoritative Servers and publish zonefiles to them
 	rootServer := startSCIONAuthServer(t, "Root", nil)
@@ -109,8 +117,7 @@ func TestFullCoverageSCION(t *testing.T) {
 }
 
 func TestFullCoverageCLIToolsSCION(t *testing.T) {
-	// Same integration test as TestFullCoverage, using the CLI tools instead
-	os.Setenv("SCION_DAEMON_SOCKET", "/run/shm/sciond/sd1-ff00_0_110.sock")
+	checkEnvAS110()
 
 	binDir, _ := filepath.Abs("../../build")
 	pathZonepub := filepath.Join(binDir, "publisher")

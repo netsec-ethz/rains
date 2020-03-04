@@ -81,13 +81,12 @@ jobs:
             supervisor/supervisor.sh reload
             supervisor/supervisor.sh start \
               dispatcher \
-              as1-ff00_0_110:bs1-ff00_0_110-1 \
               as1-ff00_0_110:cs1-ff00_0_110-1 \
-              as1-ff00_0_110:ps1-ff00_0_110-1 \
               as1-ff00_0_110:sd1-ff00_0_110
       - run:
           name: Integration tests
           command: |
+            export SCION_DAEMON_SOCKET="127.0.0.12:30255"
             make integration
       - save_cache:
           key: v1-pkg-cache-{{ checksum "~/scion/go.sum" }}-{{ checksum "go.sum" }}
