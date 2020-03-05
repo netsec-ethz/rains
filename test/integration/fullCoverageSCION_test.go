@@ -29,9 +29,9 @@ import (
 )
 
 func checkEnvAS110() {
-	_, ok := os.LookupEnv("SCION_DAEMON_SOCKET")
+	_, ok := os.LookupEnv("SCION_DAEMON_ADDRESS")
 	if !ok || scion.DefNetwork().IA.String() != "1-ff00:0:110" {
-		panic("Expecting to run in tiny topo. Need to set SCION_DAEMON_SOCKET for 1-ff00:0:110.")
+		panic("Expecting to run in tiny topo. Need to set SCION_DAEMON_ADDRESS for 1-ff00:0:110.")
 	}
 }
 

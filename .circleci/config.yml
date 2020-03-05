@@ -86,7 +86,7 @@ jobs:
       - run:
           name: Integration tests
           command: |
-            export SCION_DAEMON_SOCKET="127.0.0.12:30255"
+            export SCION_DAEMON_ADDRESS="127.0.0.12:30255"
             make integration
       - save_cache:
           key: v1-pkg-cache-{{ checksum "~/scion/go.sum" }}-{{ checksum "go.sum" }}
