@@ -362,7 +362,7 @@ func (i *addressFlag) Set(value string) (err error) {
 	i.value = connection.Info{}
 	i.value.Addr, err = net.ResolveTCPAddr("", value)
 	if err != nil { // Not an IP address
-		i.value.Addr, err = snet.UDPAddrFromString(value)
+		i.value.Addr, err = snet.ParseUDPAddr(value)
 		if err == nil {
 			i.value.Type = connection.SCION
 		}

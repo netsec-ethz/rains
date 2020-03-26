@@ -33,7 +33,7 @@ func (sa *SCIONAddress) String() string {
 }
 
 func ParseSCIONAddress(address string) (*SCIONAddress, error) {
-	addr, err := snet.UDPAddrFromString(address)
+	addr, err := snet.ParseUDPAddr(address)
 	if err != nil {
 		return nil, err
 	}

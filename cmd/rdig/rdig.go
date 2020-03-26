@@ -76,7 +76,7 @@ func main() {
 	}
 
 	var serverAddr net.Addr
-	serverAddr, err := snet.UDPAddrFromString(fmt.Sprintf("%s:%d", server, *port))
+	serverAddr, err := snet.ParseUDPAddr(fmt.Sprintf("%s:%d", server, *port))
 	if err != nil {
 		// was not a valid SCION address, try to parse it as a regular IP address
 		serverAddr, err = net.ResolveTCPAddr("", fmt.Sprintf("%s:%d", server, *port))

@@ -66,7 +66,7 @@ func UnmarshalNetAddr(data []byte) (Type, net.Addr, error) {
 		if !ok {
 			return -1, nil, errors.New("local address must be a string")
 		}
-		scionLocal, err := snet.UDPAddrFromString(local)
+		scionLocal, err := snet.ParseUDPAddr(local)
 		if err != nil {
 			return -1, nil, fmt.Errorf("failed to parse local addr: %v", err)
 		}
