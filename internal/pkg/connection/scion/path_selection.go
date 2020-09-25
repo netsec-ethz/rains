@@ -28,7 +28,7 @@ func SetPath(addr *snet.UDPAddr, path snet.Path) {
 		addr.NextHop = nil
 	} else {
 		addr.Path = path.Path()
-		addr.NextHop = path.OverlayNextHop()
+		addr.NextHop = path.UnderlayNextHop()
 	}
 }
 
