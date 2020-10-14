@@ -133,7 +133,12 @@ func Listen(listen *net.UDPAddr) (*snet.Conn, error) {
 		}
 		listen = &net.UDPAddr{IP: localIP, Port: listen.Port, Zone: listen.Zone}
 	}
-	return DefNetwork().Listen(context.Background(), "udp", listen, addr.SvcNone)
+	defNetwork := DefNetwork()
+	integrationEnv, _ := os.LookupEnv("SCION_GO_INTEGRATION")
+	if integrationEnv == "1" || integrationEnv == "true" || integrationEnv == "TRUE" {
+		fmt.Printf("Listening ia=:%v\n", defNetwork.IA)
+	}
+	return defNetwork.Listen(context.Background(), "udp", listen, addr.SvcNone)
 }
 
 // ListenPort is a shortcut to Listen on a specific port with a wildcard IP address.
@@ -195,11 +200,17 @@ func initDefNetwork() error {
 		return err
 	}
 	pathQuerier := sciond.Querier{Connector: sciondConn, IA: localIA}
-	n := snet.NewNetwork(
-		localIA,
-		dispatcher,
-		sciond.RevHandler{Connector: sciondConn},
-	)
+	n := &snet.SCIONNetwork{
+		LocalIA: localIA,
+		Dispatcher: &snet.DefaultPacketDispatcherService{
+			Dispatcher: dispatcher,
+			SCMPHandler: snet.DefaultSCMPHandler{
+				RevocationHandler: sciond.RevHandler{Connector: sciondConn},
+			},
+			Version2: true,
+		},
+		Version2: true,
+	}
 	defNetwork = Network{Network: n, IA: localIA, PathQuerier: pathQuerier, hostInLocalAS: hostInLocalAS}
 	return nil
 }

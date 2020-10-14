@@ -27,9 +27,9 @@ jobs:
             - "/go/pkg"
 
   integration:
-    docker:
-      - image: circleci/golang:1.13-stretch
-    resource_class: medium
+    machine:
+      image: ubuntu-1604:202007-01
+
     steps:
       - checkout
       - run:
@@ -57,7 +57,7 @@ jobs:
           name: Build SCION services and install python3 dependencies
           command: |
             cd ~/scion
-            for service in "border" "cs" "godispatcher" "sciond" "tools/scion-pki"; do
+            for service in "posix-router" "cs" "dispatcher" "scion-pki" "sciond"; do
               go build -o ./bin/ ./go/${service}/ && echo "Built ${service}";
             done
 
@@ -67,12 +67,12 @@ jobs:
       - run:
           name: Configure and start local SCION AS
           command: |
-            export PYTHONPATH=~/scion/python/
             cd ~/scion
+            export PYTHONPATH=python/:.
 
             # Generate Tiny.topo
             printf '#!/bin/bash\necho "0.0.0.0"' > tools/docker-ip # Some hackery to make topo scripts run
-            python/topology/generator.py -c ./topology/Tiny.topo
+            python3 python/topology/generator.py -c ./topology/tiny.topo
             # Generate gen-certs
             mkdir gen-certs gen-cache
             openssl genrsa -out "gen-certs/tls.key" 2048
