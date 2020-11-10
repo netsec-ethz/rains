@@ -6,7 +6,7 @@ require (
 	github.com/britram/borat v0.0.0-20181011130314-f891bcfcfb9b
 	github.com/d4l3k/messagediff v1.2.1 // indirect
 	github.com/inconshreveable/log15 v0.0.0-20180818164646-67afb5ed74ec
-	github.com/scionproto/scion v0.5.1-0.20201030092940-20c62ae47cc8
+	github.com/scionproto/scion v0.5.1-0.20201109090843-8b06407464f6
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
