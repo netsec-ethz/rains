@@ -103,7 +103,7 @@ func DefNetwork() *Network {
 // This is all that snet currently provides, we'll need to add a layer on top
 // that updates the paths in case they expire or are revoked.
 func DialAddr(raddr *snet.UDPAddr) (*snet.Conn, error) {
-	if raddr.Path == nil {
+	if raddr.Path.IsEmpty() {
 		err := SetDefaultPath(raddr)
 		if err != nil {
 			return nil, err
@@ -133,7 +133,12 @@ func Listen(listen *net.UDPAddr) (*snet.Conn, error) {
 		}
 		listen = &net.UDPAddr{IP: localIP, Port: listen.Port, Zone: listen.Zone}
 	}
-	return DefNetwork().Listen(context.Background(), "udp", listen, addr.SvcNone)
+	defNetwork := DefNetwork()
+	integrationEnv, _ := os.LookupEnv("SCION_GO_INTEGRATION")
+	if integrationEnv == "1" || integrationEnv == "true" || integrationEnv == "TRUE" {
+		fmt.Printf("Listening ia=:%v\n", defNetwork.IA)
+	}
+	return defNetwork.Listen(context.Background(), "udp", listen, addr.SvcNone)
 }
 
 // ListenPort is a shortcut to Listen on a specific port with a wildcard IP address.
@@ -195,10 +200,9 @@ func initDefNetwork() error {
 		return err
 	}
 	pathQuerier := sciond.Querier{Connector: sciondConn, IA: localIA}
-	n := snet.NewNetworkWithPR(
+	n := snet.NewNetwork(
 		localIA,
 		dispatcher,
-		pathQuerier,
 		sciond.RevHandler{Connector: sciondConn},
 	)
 	defNetwork = Network{Network: n, IA: localIA, PathQuerier: pathQuerier, hostInLocalAS: hostInLocalAS}
@@ -208,7 +212,7 @@ func initDefNetwork() error {
 func findSciond(ctx context.Context) (sciond.Connector, error) {
 	address, ok := os.LookupEnv("SCION_DAEMON_ADDRESS")
 	if !ok {
-		address = sciond.DefaultSCIONDAddress
+		address = sciond.DefaultAPIAddress
 	}
 	sciondConn, err := sciond.NewService(address).Connect(ctx)
 	if err != nil {
@@ -255,7 +259,7 @@ func isSocket(mode os.FileMode) bool {
 
 // findAnyHostInLocalAS returns the IP address of some (infrastructure) host in the local AS.
 func findAnyHostInLocalAS(ctx context.Context, sciondConn sciond.Connector) (net.IP, error) {
-	addr, err := sciond.TopoQuerier{Connector: sciondConn}.OverlayAnycast(ctx, addr.SvcBS)
+	addr, err := sciond.TopoQuerier{Connector: sciondConn}.UnderlayAnycast(ctx, addr.SvcCS)
 	if err != nil {
 		return nil, err
 	}
