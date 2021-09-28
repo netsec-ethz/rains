@@ -28,7 +28,7 @@ be overridden using environment variables:
 		SCION_DISPATCHER_SOCKET: /run/shm/dispatcher/default.sock
 		SCION_DAEMON_ADDRESS: 127.0.0.1:30255
 
-This is convenient for the normal use case of running a the endhost stack for a
+This is convenient for the normal use case of running the endhost stack for a
 single SCION AS. When running multiple local ASes, e.g. during development, the
 address of the sciond corresponding to the desired AS needs to be specified in
 the SCION_DAEMON_ADDRESS environment variable.
@@ -59,7 +59,7 @@ import (
 	"time"
 
 	"github.com/scionproto/scion/go/lib/addr"
-	"github.com/scionproto/scion/go/lib/sciond"
+	"github.com/scionproto/scion/go/lib/daemon"
 	"github.com/scionproto/scion/go/lib/snet"
 	"github.com/scionproto/scion/go/lib/snet/addrutil"
 	"github.com/scionproto/scion/go/lib/sock/reliable"
@@ -187,38 +187,38 @@ func initDefNetwork() error {
 	if err != nil {
 		return err
 	}
-	sciondConn, err := findSciond(ctx)
+	daemonConn, err := findSciond(ctx)
 	if err != nil {
 		return err
 	}
-	localIA, err := sciondConn.LocalIA(ctx)
+	localIA, err := daemonConn.LocalIA(ctx)
 	if err != nil {
 		return err
 	}
-	hostInLocalAS, err := findAnyHostInLocalAS(ctx, sciondConn)
+	hostInLocalAS, err := findAnyHostInLocalAS(ctx, daemonConn)
 	if err != nil {
 		return err
 	}
-	pathQuerier := sciond.Querier{Connector: sciondConn, IA: localIA}
+	pathQuerier := daemon.Querier{Connector: daemonConn, IA: localIA}
 	n := snet.NewNetwork(
 		localIA,
 		dispatcher,
-		sciond.RevHandler{Connector: sciondConn},
+		daemon.RevHandler{Connector: daemonConn},
 	)
 	defNetwork = Network{Network: n, IA: localIA, PathQuerier: pathQuerier, hostInLocalAS: hostInLocalAS}
 	return nil
 }
 
-func findSciond(ctx context.Context) (sciond.Connector, error) {
+func findSciond(ctx context.Context) (daemon.Connector, error) {
 	address, ok := os.LookupEnv("SCION_DAEMON_ADDRESS")
 	if !ok {
-		address = sciond.DefaultAPIAddress
+		address = daemon.DefaultAPIAddress
 	}
-	sciondConn, err := sciond.NewService(address).Connect(ctx)
+	daemonConn, err := daemon.NewService(address).Connect(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to SCIOND at %s (override with SCION_DAEMON_ADDRESS): %w", address, err)
 	}
-	return sciondConn, nil
+	return daemonConn, nil
 }
 
 func findDispatcher() (reliable.Dispatcher, error) {
@@ -258,8 +258,8 @@ func isSocket(mode os.FileMode) bool {
 }
 
 // findAnyHostInLocalAS returns the IP address of some (infrastructure) host in the local AS.
-func findAnyHostInLocalAS(ctx context.Context, sciondConn sciond.Connector) (net.IP, error) {
-	addr, err := sciond.TopoQuerier{Connector: sciondConn}.UnderlayAnycast(ctx, addr.SvcCS)
+func findAnyHostInLocalAS(ctx context.Context, sciondConn daemon.Connector) (net.IP, error) {
+	addr, err := daemon.TopoQuerier{Connector: sciondConn}.UnderlayAnycast(ctx, addr.SvcCS)
 	if err != nil {
 		return nil, err
 	}

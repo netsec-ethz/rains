@@ -28,7 +28,7 @@ jobs:
 
   integration:
     machine:
-      image: ubuntu-1604:202007-01
+      image: ubuntu-2004:202107-02
 
     steps:
       - checkout
@@ -61,7 +61,7 @@ jobs:
             python3 --version
 
             cd ~/scion
-            for service in "posix-router" "cs" "dispatcher" "scion-pki" "sciond"; do
+            for service in "posix-router" "cs" "dispatcher" "scion-pki" "daemon"; do
               go build -o ./bin/ ./go/${service}/ && echo "Built ${service}";
             done
 
@@ -75,11 +75,10 @@ jobs:
 
             # Generate tiny.topo
             printf '#!/bin/bash\necho "0.0.0.0"' > tools/docker-ip # Some hackery to make topo scripts run
-            python3 python/topology/generator.py -c ./topology/tiny.topo
+            python3 python/topology/generator.py -c ./topology/tiny4.topo
             mkdir gen-cache
 
             # Start one AS only (1-ff00:0:110 is referenced explicitly from the integration tests)
-            # XXX(matzf): explicitly start services but not the routers (which are not needed here) -- routers require to set some IPv6 addresses and this does not seem to work here
             supervisor/supervisor.sh reload
             supervisor/supervisor.sh start \
               dispatcher \
