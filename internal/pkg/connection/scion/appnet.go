@@ -200,11 +200,13 @@ func initDefNetwork() error {
 		return err
 	}
 	pathQuerier := daemon.Querier{Connector: daemonConn, IA: localIA}
-	n := snet.NewNetwork(
-		localIA,
-		dispatcher,
-		daemon.RevHandler{Connector: daemonConn},
-	)
+	n := &snet.SCIONNetwork{
+		LocalIA: localIA,
+		Dispatcher: &snet.DefaultPacketDispatcherService{
+			Dispatcher:  dispatcher,
+			SCMPHandler: &snet.DefaultSCMPHandler{},
+		},
+	}
 	defNetwork = Network{Network: n, IA: localIA, PathQuerier: pathQuerier, hostInLocalAS: hostInLocalAS}
 	return nil
 }
