@@ -19,28 +19,22 @@ import (
 
 	"github.com/scionproto/scion/go/lib/addr"
 	"github.com/scionproto/scion/go/lib/snet"
-	"github.com/scionproto/scion/go/lib/spath"
+	"github.com/scionproto/scion/go/lib/snet/path"
 )
-
-// SetPath is a helper function to set the path on an snet.UDPAddr
-func SetPath(addr *snet.UDPAddr, path snet.Path) {
-	if path == nil {
-		addr.Path = spath.Path{}
-		addr.NextHop = nil
-	} else {
-		addr.Path = path.Path()
-		addr.NextHop = path.UnderlayNextHop()
-	}
-}
 
 // SetDefaultPath sets the first path returned by a query to sciond.
 // This is a no-op if if remote is in the local AS.
 func SetDefaultPath(addr *snet.UDPAddr) error {
 	paths, err := QueryPaths(addr.IA)
-	if err != nil || len(paths) == 0 {
+	if err != nil {
 		return err
+	} else if len(paths) > 0 {
+		addr.Path = paths[0].Dataplane()
+		addr.NextHop = paths[0].UnderlayNextHop()
+	} else {
+		addr.Path = path.Empty{}
+		addr.NextHop = nil
 	}
-	SetPath(addr, paths[0])
 	return nil
 }
 
