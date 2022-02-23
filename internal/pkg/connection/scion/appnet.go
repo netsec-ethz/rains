@@ -62,6 +62,7 @@ import (
 	"github.com/scionproto/scion/go/lib/daemon"
 	"github.com/scionproto/scion/go/lib/snet"
 	"github.com/scionproto/scion/go/lib/snet/addrutil"
+	"github.com/scionproto/scion/go/lib/snet/path"
 	"github.com/scionproto/scion/go/lib/sock/reliable"
 )
 
@@ -103,7 +104,7 @@ func DefNetwork() *Network {
 // This is all that snet currently provides, we'll need to add a layer on top
 // that updates the paths in case they expire or are revoked.
 func DialAddr(raddr *snet.UDPAddr) (*snet.Conn, error) {
-	if raddr.Path.IsEmpty() {
+	if _, ok := raddr.Path.(path.Empty); ok || raddr.Path == nil {
 		err := SetDefaultPath(raddr)
 		if err != nil {
 			return nil, err

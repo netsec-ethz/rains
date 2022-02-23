@@ -2,8 +2,12 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.13-stretch
+      - image: cimg/go:1.17
     steps:
+      - run:
+          name: Go version
+          command: |
+            go version
       - checkout
       - restore_cache:
           keys:
@@ -28,7 +32,7 @@ jobs:
 
   integration:
     machine:
-      image: ubuntu-2004:202107-02
+      image: ubuntu-2004:202111-02 # using go1.17.3
 
     steps:
       - checkout
