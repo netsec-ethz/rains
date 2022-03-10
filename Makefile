@@ -6,7 +6,7 @@ BUILD_PATH=${PWD}/build/
 
 LDFLAGS = -ldflags "-X main.buildinfo_hostname=${HOSTNAME} -X main.buildinfo_commit=${COMMIT} -X main.buildinfo_branch=${BRANCH}"
 
-all: clean rainsd rainsd zonepub rdig keymanager
+all: clean rainsd zonepub rdig keymanager
 
 clean:
 	rm -rf ${BUILD_PATH}

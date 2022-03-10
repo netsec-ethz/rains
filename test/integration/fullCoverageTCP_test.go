@@ -1,4 +1,4 @@
-// +build integration
+//go:build integration
 
 package integration
 
@@ -353,6 +353,8 @@ func decodeAnswers(input []byte, t *testing.T) []section.WithSigForward {
 
 func sendQueryVerifyResponse(t *testing.T, query query.Name, connInfo net.Addr,
 	answer section.Section) {
+
+	t.Helper()
 	msg := message.Message{Token: token.New(), Content: []section.Section{&query}}
 	log.Warn("Integration test sends query", "msg", msg)
 	answerMsg, err := util.SendQuery(msg, connInfo, time.Second)

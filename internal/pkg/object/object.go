@@ -2,6 +2,7 @@ package object
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -45,7 +46,7 @@ func ParseSCIONAddress(address string) (*SCIONAddress, error) {
 
 func (a *SCIONAddress) Pack() []byte {
 	buf := make([]byte, addr.IABytes+len(a.IP))
-	a.IA.Write(buf)
+	binary.BigEndian.PutUint64(buf, uint64(a.IA))
 	copy(buf[addr.IABytes:], a.IP)
 	return buf
 }
@@ -54,7 +55,7 @@ func SCIONAddressFromRaw(buf []byte) (*SCIONAddress, error) {
 	if len(buf) != addr.IABytes+net.IPv4len && len(buf) != addr.IABytes+net.IPv6len {
 		return nil, errors.New("invalid scion address, bad length")
 	}
-	ia := addr.IAFromRaw(buf)
+	ia := addr.IA(binary.BigEndian.Uint64(buf))
 	ip := net.IP(buf[addr.IABytes:])
 	return &SCIONAddress{IA: ia, IP: ip}, nil
 }

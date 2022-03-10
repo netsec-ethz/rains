@@ -1,4 +1,4 @@
-// +build integration
+//go:build integration
 
 package integration
 
@@ -14,10 +14,15 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
+	"syscall"
 	"testing"
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/stretchr/testify/require"
+
+	"github.com/netsec-ethz/rains/internal/pkg/connection"
 	"github.com/netsec-ethz/rains/internal/pkg/connection/scion"
 	"github.com/netsec-ethz/rains/internal/pkg/libresolve"
 	"github.com/netsec-ethz/rains/internal/pkg/publisher"
@@ -25,7 +30,8 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 	"github.com/scionproto/scion/go/lib/snet"
-	"syscall"
+	"github.com/scionproto/scion/go/lib/snet/path"
+	"github.com/scionproto/scion/go/lib/xtest"
 )
 
 func checkEnvAS110() {
@@ -33,6 +39,48 @@ func checkEnvAS110() {
 	if !ok || scion.DefNetwork().IA.String() != "1-ff00:0:110" {
 		panic("Expecting to run in tiny topo. Need to set SCION_DAEMON_ADDRESS for 1-ff00:0:110.")
 	}
+}
+
+func TestSCIONConnectivity(t *testing.T) {
+	checkEnvAS110()
+	serverAddr := snet.UDPAddr{
+		IA:      xtest.MustParseIA("1-ff00:0:110"),
+		Path:    path.Empty{},
+		Host:    xtest.MustParseUDPAddr(t, "127.0.0.1:12345"),
+		NextHop: nil,
+	}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	wgGotMsg := sync.WaitGroup{}
+	wgGotMsg.Add(1)
+	go func() {
+		conn, err := scion.Listen(serverAddr.Host)
+		require.NoError(t, err)
+		defer conn.Close()
+		t.Log("server ready")
+		wg.Done()
+
+		defer wgGotMsg.Done()
+		buf := make([]byte, connection.MaxUDPPacketBytes)
+		n, addr, err := conn.ReadFrom(buf)
+		require.NoError(t, err)
+		msg := string(buf[:n])
+		t.Logf("server got data from '%s', len: %d. Message is: %s", addr.String(), n, msg)
+		require.Equal(t, "hello server", msg)
+	}()
+
+	wg.Wait()
+	t.Log("start client")
+	conn, err := connection.CreateConnection(&serverAddr)
+	require.NoError(t, err)
+	defer conn.Close()
+	encoding := new(bytes.Buffer)
+	_, err = encoding.WriteString("hello server")
+	require.NoError(t, err)
+	_, err = conn.Write(encoding.Bytes())
+	require.NoError(t, err)
+	wgGotMsg.Wait()
 }
 
 func TestFullCoverageSCION(t *testing.T) {
