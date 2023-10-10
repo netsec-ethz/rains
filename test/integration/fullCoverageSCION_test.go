@@ -29,9 +29,9 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
-	"github.com/scionproto/scion/go/lib/snet"
-	"github.com/scionproto/scion/go/lib/snet/path"
-	"github.com/scionproto/scion/go/lib/xtest"
+	"github.com/scionproto/scion/pkg/private/xtest"
+	"github.com/scionproto/scion/pkg/snet"
+	"github.com/scionproto/scion/pkg/snet/path"
 )
 
 func checkEnvAS110() {

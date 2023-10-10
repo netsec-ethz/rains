@@ -18,7 +18,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 	"github.com/netsec-ethz/rains/internal/pkg/token"
-	"github.com/scionproto/scion/go/lib/addr"
+	"github.com/scionproto/scion/pkg/addr"
 	"golang.org/x/crypto/ed25519"
 )
 
@@ -34,8 +34,7 @@ func init() {
 	gob.Register(object.Name{})
 	gob.Register(net.IP{})
 	gob.Register(&object.SCIONAddress{})
-	gob.Register(addr.HostIPv4{})
-	gob.Register(addr.HostIPv6{})
+	gob.Register(addr.Host{})
 }
 
 //MaxCacheValidity defines the maximum duration each section containing signatures can be valid, starting from time.Now()
