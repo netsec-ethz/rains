@@ -48,7 +48,11 @@ jobs:
             # name; the format looks like this:
             #   github.com/scionproto/scion v0.4.1-c0ffeeabc    # pseudo-tag followed by commit hash, or
             #   github.com/scionproto/scion v0.5.0              # actual tag
-            scion_commit=${scion_mod_version##*[ -]}
+            # Was previously scion_commit=${scion_mod_version##*[ -]}
+            # Having the newest commit would lead to a lot of upgrades below
+            # It should not matter if we build SCION binaries with different version than the apps
+            # as long as there are no major breaks
+            scion_commit=5883c725f748 # v0.6.1-0.20220202161514-5883c725f748
             git clone ${scion_repo} ~/scion
             cd ~/scion
             git checkout --quiet ${scion_commit}
