@@ -2,40 +2,44 @@ version: 2
 jobs:
   build:
     docker:
-      - image: cimg/go:1.17
+      - image: cimg/go:1.20
     steps:
       - run:
           name: Go version
           command: |
             go version
+      - run:
+          name: Install libpam0g-dev
+          command:
+            sudo apt-get update && sudo apt-get install -y libpam0g-dev
       - checkout
       - restore_cache:
           keys:
             - v3-pkg-cache-{{ checksum "go.sum" }}
             - v3-pkg-cache
       - run:
-          name: Lint
-          command: |
-            make vet
-      - run:
           name: Build
-          command: |
-            make all
+          command: make build
       - run:
-          name: Unit tests
+          name: Run Linters
           command: |
-            make unit
+            make setup_lint
+            make lint
+      - run:
+          name: Run unit tests
+          command: make test
       - save_cache:
           key: v3-pkg-cache-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg"
+            - "~/go/pkg"
+            - "~/.cache/go-build"
 
   integration:
     machine:
       image: ubuntu-2004:202111-02 # using go1.17.3
-
     steps:
       - checkout
+      # The following step are shared with netsec-ethz/rains
       - run:
           name: Checkout SCION
           command: |
@@ -43,20 +47,16 @@ jobs:
             # replacement if one is specified in the go.mod file.
             scion_mod_version=$(go list -m github.com/scionproto/scion | sed -s 's/.*\s*=>\s*//')
             scion_repo=https://${scion_mod_version% *}.git
-            # Extract the tag or commit hash; this is the last part of the go
-            # modules version string, separated by a space from the module
-            # name; the format looks like this:
-            #   github.com/scionproto/scion v0.4.1-c0ffeeabc    # pseudo-tag followed by commit hash, or
-            #   github.com/scionproto/scion v0.5.0              # actual tag
+            # Extract the commit hash, which is the last part of the go modules version
             scion_commit=${scion_mod_version##*[ -]}
             git clone ${scion_repo} ~/scion
             cd ~/scion
             git checkout --quiet ${scion_commit}
       - restore_cache:
           keys:
-            - v1-pkg-cache-{{ checksum "~/scion/go.sum" }}-{{ checksum "go.sum" }}
-            - v1-pkg-cache-{{ checksum "~/scion/go.sum" }}-
-            - v1-pkg-cache-
+            - v2-integration-pkg-cache-{{ checksum "~/scion/go.sum" }}-{{ checksum "go.sum" }}
+            - v2-integration-pkg-cache-{{ checksum "~/scion/go.sum" }}-
+            - v2-integration-pkg-cache-
       - run:
           name: Build SCION services and install python3 dependencies
           command: |
@@ -65,7 +65,7 @@ jobs:
             python3 --version
 
             cd ~/scion
-            for service in "posix-router" "cs" "dispatcher" "scion-pki" "daemon"; do
+            for service in "posix-router" "cs" "dispatcher" "scion-pki" "daemon" "co"; do
               go build -o ./bin/ ./go/${service}/ && echo "Built ${service}";
             done
 
@@ -77,26 +77,39 @@ jobs:
             cd ~/scion
             export PYTHONPATH=python/:.
 
-            # Generate tiny.topo
+            # Generate tiny4.topo
             printf '#!/bin/bash\necho "0.0.0.0"' > tools/docker-ip # Some hackery to make topo scripts run
+            # Use IPv4 addresses for this test
             python3 python/topology/generator.py -c ./topology/tiny4.topo
+            # Link the gen directory containing sciond_addresses.json and as_list.json
+            ln -s ~/scion/gen /home/circleci/project/gen
             mkdir gen-cache
 
-            # Start one AS only (1-ff00:0:110 is referenced explicitly from the integration tests)
+            # Start all AS tiny4.topo
             supervisor/supervisor.sh reload
-            supervisor/supervisor.sh start \
-              dispatcher \
-              as1-ff00_0_110:cs1-ff00_0_110-1 \
-              as1-ff00_0_110:sd1-ff00_0_110
+            supervisor/supervisor.sh start all
+      - run:
+          name: Install libpam0g-dev
+          command:
+            sudo apt-get update && sudo apt-get install -y libpam0g-dev
+      # Use different Go version to build scion-apps
+      - run:
+          name: Install Go 1.20.7 to build scion-apps
+          command: |
+            wget https://go.dev/dl/go1.20.7.linux-amd64.tar.gz
+            sudo rm -rf /usr/local/go
+            sudo tar -C /usr/local -xzf go1.20.7.linux-amd64.tar.gz
       - run:
           name: Integration tests
           command: |
-            export SCION_DAEMON_ADDRESS="127.0.0.12:30255"
             make integration
+      - store_artifacts:
+          path: /tmp/scion-apps-integration/
       - save_cache:
-          key: v1-pkg-cache-{{ checksum "~/scion/go.sum" }}-{{ checksum "go.sum" }}
+          key: v2-integration-pkg-cache-{{ checksum "~/scion/go.sum" }}-{{ checksum "go.sum" }}
           paths:
-            - "/go/pkg"
+            - "~/.go_workspace/"
+            - "~/.cache/go-build/"
 
 workflows:
   version: 2
