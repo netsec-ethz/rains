@@ -53,7 +53,7 @@ jobs:
             # So we pin it to an older version that matches the integration tests
             # It should not matter if we build SCION binaries with different version than the apps
             # as long as there are no major breaks
-            scion_commit=5883c725f748 # v0.6.1-0.20220202161514-5883c725f748
+            scion_commit=5883c725f748 # Previously: v0.6.1-0.20220202161514-5883c725f748; Now: v0.8.1-0.20231010074308-1774cbfccb4c
             git clone ${scion_repo} ~/scion
             cd ~/scion
             git checkout --quiet ${scion_commit}
