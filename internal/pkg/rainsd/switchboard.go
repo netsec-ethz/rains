@@ -20,7 +20,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/connection/scion"
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 	"github.com/netsec-ethz/rains/internal/pkg/query"
-	"github.com/scionproto/scion/go/lib/snet"
+	"github.com/scionproto/scion/pkg/snet"
 )
 
 //sendTo sends message to the specified receiver with retries
