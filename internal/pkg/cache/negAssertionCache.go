@@ -10,7 +10,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
 
-//negAssertionCacheValue is the value stored in the assertionCacheImpl.cache
+// negAssertionCacheValue is the value stored in the assertionCacheImpl.cache
 type negAssertionCacheValue struct {
 	sections map[string]sectionExpiration //section.Hash -> sectionExpiration
 	cacheKey string
@@ -45,30 +45,30 @@ func NewNegAssertion(maxSize int) *NegAssertionImpl {
 	}
 }
 
-//Add adds a shard together with an expiration time (number of seconds since 01.01.1970) to
-//the cache. It returns false if the cache is full and an element was removed according to least
-//recently used strategy. It also adds shard to the consistency cache.
+// Add adds a shard together with an expiration time (number of seconds since 01.01.1970) to
+// the cache. It returns false if the cache is full and an element was removed according to least
+// recently used strategy. It also adds shard to the consistency cache.
 func (c *NegAssertionImpl) AddShard(shard *section.Shard, expiration int64, isInternal bool) bool {
 	return add(c, shard, expiration, isInternal)
 }
 
-//Add adds a pshard together with an expiration time (number of seconds since 01.01.1970) to
-//the cache. It returns false if the cache is full and an element was removed according to least
-//recently used strategy. It also adds shard to the consistency cache.
+// Add adds a pshard together with an expiration time (number of seconds since 01.01.1970) to
+// the cache. It returns false if the cache is full and an element was removed according to least
+// recently used strategy. It also adds shard to the consistency cache.
 func (c *NegAssertionImpl) AddPshard(pshard *section.Pshard, expiration int64, isInternal bool) bool {
 	return add(c, pshard, expiration, isInternal)
 }
 
-//Add adds a zone together with an expiration time (number of seconds since 01.01.1970) to
-//the cache. It returns false if the cache is full and an element was removed according to least
-//recently used strategy. It also adds zone to the consistency cache.
+// Add adds a zone together with an expiration time (number of seconds since 01.01.1970) to
+// the cache. It returns false if the cache is full and an element was removed according to least
+// recently used strategy. It also adds zone to the consistency cache.
 func (c *NegAssertionImpl) AddZone(zone *section.Zone, expiration int64, isInternal bool) bool {
 	return add(c, zone, expiration, isInternal)
 }
 
-//add adds a section together with an expiration time (number of seconds since 01.01.1970) to
-//the cache. It returns false if the cache is full and an element was removed according to least
-//recently used strategy.
+// add adds a section together with an expiration time (number of seconds since 01.01.1970) to
+// the cache. It returns false if the cache is full and an element was removed according to least
+// recently used strategy.
 func add(c *NegAssertionImpl, s section.WithSigForward, expiration int64, isInternal bool) bool {
 	isFull := false
 	key := zoneCtxKey(s.GetSubjectZone(), s.GetContext())
@@ -116,8 +116,8 @@ func add(c *NegAssertionImpl, s section.WithSigForward, expiration int64, isInte
 	return !isFull
 }
 
-//Get returns true and a set of assertions matching the given key if there exist some. Otherwise
-//nil and false is returned.
+// Get returns true and a set of assertions matching the given key if there exist some. Otherwise
+// nil and false is returned.
 func (c *NegAssertionImpl) Get(zone, context string, interval section.Interval) ([]section.WithSigForward, bool) {
 	key := zoneCtxKey(zone, context)
 	v, ok := c.cache.Get(key)
@@ -139,7 +139,7 @@ func (c *NegAssertionImpl) Get(zone, context string, interval section.Interval) 
 	return secs, len(secs) > 0
 }
 
-//RemoveExpiredValues goes through the cache and removes all expired shards and zones.
+// RemoveExpiredValues goes through the cache and removes all expired shards and zones.
 func (c *NegAssertionImpl) RemoveExpiredValues() {
 	for _, v := range c.cache.GetAll() {
 		value := v.(*negAssertionCacheValue)
@@ -167,8 +167,8 @@ func (c *NegAssertionImpl) RemoveExpiredValues() {
 	}
 }
 
-//RemoveZone deletes all shards and zones in the assertionCache and consistencyCache of the given
-//subjectZone.
+// RemoveZone deletes all shards and zones in the assertionCache and consistencyCache of the given
+// subjectZone.
 func (c *NegAssertionImpl) RemoveZone(zone string) {
 	if set, ok := c.zoneMap.Remove(zone); ok {
 		for _, key := range set.(*safeHashMap.Map).GetAllKeys() {
@@ -188,7 +188,7 @@ func (c *NegAssertionImpl) RemoveZone(zone string) {
 	}
 }
 
-//Checkpoint returns all cached assertions
+// Checkpoint returns all cached assertions
 func (c *NegAssertionImpl) Checkpoint() (sections []section.Section) {
 	entries := c.cache.GetAll()
 	for _, e := range entries {
@@ -204,7 +204,7 @@ func (c *NegAssertionImpl) Checkpoint() (sections []section.Section) {
 	return
 }
 
-//Len returns the number of elements in the cache.
+// Len returns the number of elements in the cache.
 func (c *NegAssertionImpl) Len() int {
 	return c.counter.Value()
 }

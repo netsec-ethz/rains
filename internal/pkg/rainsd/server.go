@@ -18,7 +18,7 @@ const (
 	shutdownChannels = nofReapers + nofCheckPointers + noListeners
 )
 
-//Server represents a rainsd server instance.
+// Server represents a rainsd server instance.
 type Server struct {
 	//resolver can be configured as a forwarder or perform recursive lookup by itself.
 	resolver *libresolve.Resolver
@@ -44,8 +44,8 @@ type Server struct {
 	packetConn net.PacketConn
 }
 
-//New returns a pointer to a newly created rainsd server instance with the given config. The server
-//logs with the provided level of logging.
+// New returns a pointer to a newly created rainsd server instance with the given config. The server
+// logs with the provided level of logging.
 func New(config Config, id string) (server *Server, err error) {
 	log.Info("server New", "id", id)
 	server = &Server{config: config}
@@ -80,7 +80,7 @@ func New(config Config, id string) (server *Server, err error) {
 	return
 }
 
-//Addr returns the server's address
+// Addr returns the server's address
 func (s *Server) Addr() net.Addr {
 	return s.config.ServerAddress.Addr
 }
@@ -89,13 +89,13 @@ func (s *Server) Config() Config {
 	return s.config
 }
 
-//SetResolver adds a resolver which can forward or recursively resolve queries for this server
+// SetResolver adds a resolver which can forward or recursively resolve queries for this server
 func (s *Server) SetResolver(resolver *libresolve.Resolver) {
 	s.resolver = resolver
 }
 
-//Start starts up the server and it begins to listen for incoming connections according to its
-//config.
+// Start starts up the server and it begins to listen for incoming connections according to its
+// config.
 func (s *Server) Start(monitorResources bool, id string) error {
 	go s.workPrio()
 	go s.workBoth()
@@ -118,8 +118,8 @@ func (s *Server) Start(monitorResources bool, id string) error {
 	return nil
 }
 
-//Shutdown closes the input channels and stops the function creating new go routines to handle the
-//input. Already running worker go routines will finish eventually.
+// Shutdown closes the input channels and stops the function creating new go routines to handle the
+// input. Already running worker go routines will finish eventually.
 func (s *Server) Shutdown() {
 	for i := 0; i < shutdownChannels; i++ {
 		s.shutdown <- true

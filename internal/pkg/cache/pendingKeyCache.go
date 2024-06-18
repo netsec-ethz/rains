@@ -31,8 +31,8 @@ func NewPendingKey(maxSize int) *PendingKeyImpl {
 	}
 }
 
-//Add adds ss to the cache together with the token and expiration time of the query sent to the
-//host with the addr defined in ss.
+// Add adds ss to the cache together with the token and expiration time of the query sent to the
+// host with the addr defined in ss.
 func (c *PendingKeyImpl) Add(ss util.MsgSectionSender, t token.Token, expiration int64) {
 	if c.counter.IsFull() {
 		log.Error("Pending key cache is full")
@@ -45,8 +45,8 @@ func (c *PendingKeyImpl) Add(ss util.MsgSectionSender, t token.Token, expiration
 	c.counter.Inc()
 }
 
-//GetAndRemove returns util.MsgSectionSender which corresponds to token and true, and deletes it from
-//the cache. False is returned if no util.MsgSectionSender matched token.
+// GetAndRemove returns util.MsgSectionSender which corresponds to token and true, and deletes it from
+// the cache. False is returned if no util.MsgSectionSender matched token.
 func (c *PendingKeyImpl) GetAndRemove(t token.Token) (util.MsgSectionSender, bool) {
 	if val, present := c.tokenMap.Get(t.String()); present {
 		c.tokenMap.Remove(t.String())
@@ -56,14 +56,14 @@ func (c *PendingKeyImpl) GetAndRemove(t token.Token) (util.MsgSectionSender, boo
 	return util.MsgSectionSender{}, false
 }
 
-//ContainsToken returns true if t is cached
+// ContainsToken returns true if t is cached
 func (c *PendingKeyImpl) ContainsToken(t token.Token) bool {
 	_, present := c.tokenMap.Get(t.String())
 	return present
 }
 
-//RemoveExpiredValues deletes all expired entries. It logs the host's addr which was not able to
-//respond in time.
+// RemoveExpiredValues deletes all expired entries. It logs the host's addr which was not able to
+// respond in time.
 func (c *PendingKeyImpl) RemoveExpiredValues() {
 	keys := c.tokenMap.GetAllKeys()
 	for _, key := range keys {
@@ -78,7 +78,7 @@ func (c *PendingKeyImpl) RemoveExpiredValues() {
 	}
 }
 
-//Len returns the number of sections in the cache
+// Len returns the number of sections in the cache
 func (c *PendingKeyImpl) Len() int {
 	return c.tokenMap.Len()
 }

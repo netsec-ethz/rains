@@ -13,7 +13,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
 
-//Pshard contains information about a pshard
+// Pshard contains information about a pshard
 type Pshard struct {
 	Signatures  []signature.Sig
 	SubjectZone string
@@ -92,79 +92,79 @@ func (s *Pshard) MarshalCBOR(w *cbor.CBORWriter) error {
 	return w.WriteIntMap(m)
 }
 
-//AllSigs returns the pshard's signatures
+// AllSigs returns the pshard's signatures
 func (s *Pshard) AllSigs() []signature.Sig {
 	return s.Signatures
 }
 
-//Sigs returns s's signatures in keyspace
+// Sigs returns s's signatures in keyspace
 func (s *Pshard) Sigs(keySpace keys.KeySpaceID) []signature.Sig {
 	return filterSigs(s.Signatures, keySpace)
 }
 
-//AddSig adds the given signature
+// AddSig adds the given signature
 func (s *Pshard) AddSig(sig signature.Sig) {
 	s.Signatures = append(s.Signatures, sig)
 }
 
-//DeleteSig deletes ith signature
+// DeleteSig deletes ith signature
 func (s *Pshard) DeleteSig(i int) {
 	s.Signatures = append(s.Signatures[:i], s.Signatures[i+1:]...)
 }
 
-//DeleteAllSigs deletes all signature
+// DeleteAllSigs deletes all signature
 func (s *Pshard) DeleteAllSigs() {
 	s.Signatures = []signature.Sig{}
 }
 
-//GetContext returns the context of the pshard
+// GetContext returns the context of the pshard
 func (s *Pshard) GetContext() string {
 	return s.Context
 }
 
-//GetSubjectZone returns the zone of the pshard
+// GetSubjectZone returns the zone of the pshard
 func (s *Pshard) GetSubjectZone() string {
 	return s.SubjectZone
 }
 
-//Begin returns the begining of the interval of this pshard.
+// Begin returns the begining of the interval of this pshard.
 func (s *Pshard) Begin() string {
 	return s.RangeFrom
 }
 
-//End returns the end of the interval of this pshard.
+// End returns the end of the interval of this pshard.
 func (s *Pshard) End() string {
 	return s.RangeTo
 }
 
-//UpdateValidity updates the validity of this pshard if the validity period is extended.
-//It makes sure that the validity is never larger than maxValidity
+// UpdateValidity updates the validity of this pshard if the validity period is extended.
+// It makes sure that the validity is never larger than maxValidity
 func (s *Pshard) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
 	s.validSince, s.validUntil = UpdateValidity(validSince, validUntil, s.validSince, s.validUntil,
 		maxValidity)
 }
 
-//ValidSince returns the earliest validSince date of all contained signatures
+// ValidSince returns the earliest validSince date of all contained signatures
 func (s *Pshard) ValidSince() int64 {
 	return s.validSince
 }
 
-//ValidUntil returns the latest validUntil date of all contained signatures
+// ValidUntil returns the latest validUntil date of all contained signatures
 func (s *Pshard) ValidUntil() int64 {
 	return s.validUntil
 }
 
-//SetValidSince sets the validSince time
+// SetValidSince sets the validSince time
 func (s *Pshard) SetValidSince(validSince int64) {
 	s.validSince = validSince
 }
 
-//SetValidUntil sets the validUntil time
+// SetValidUntil sets the validUntil time
 func (s *Pshard) SetValidUntil(validUntil int64) {
 	s.validUntil = validUntil
 }
 
-//Hash returns a string containing all information uniquely identifying a pshard.
+// Hash returns a string containing all information uniquely identifying a pshard.
 func (s *Pshard) Hash() string {
 	if s == nil {
 		return "P_nil"
@@ -175,12 +175,12 @@ func (s *Pshard) Hash() string {
 	return encoding.String()
 }
 
-//Sort sorts the content of the pshard lexicographically.
+// Sort sorts the content of the pshard lexicographically.
 func (s *Pshard) Sort() {
 	//nothing to sort
 }
 
-//String implements Stringer interface
+// String implements Stringer interface
 func (s *Pshard) String() string {
 	if s == nil {
 		return "Pshard:nil"
@@ -189,20 +189,20 @@ func (s *Pshard) String() string {
 		s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, s.BloomFilter, s.Signatures)
 }
 
-//InRange returns true if subjectName is inside the shard range
+// InRange returns true if subjectName is inside the shard range
 func (s *Pshard) InRange(subjectName string) bool {
 	return (s.RangeFrom == "" && s.RangeTo == "") || (s.RangeFrom == "" && s.RangeTo > subjectName) ||
 		(s.RangeTo == "" && s.RangeFrom < subjectName) ||
 		(s.RangeFrom < subjectName && s.RangeTo > subjectName)
 }
 
-//IsConsistent returns true if all contained assertions have no subjectZone and context and are
-//within the shards range.
+// IsConsistent returns true if all contained assertions have no subjectZone and context and are
+// within the shards range.
 func (s *Pshard) IsConsistent() bool {
 	return true
 }
 
-//NeededKeys adds to keysNeeded key meta data which is necessary to verify all s's signatures.
+// NeededKeys adds to keysNeeded key meta data which is necessary to verify all s's signatures.
 func (s *Pshard) NeededKeys(keysNeeded map[signature.MetaData]bool) {
 	extractNeededKeys(s, keysNeeded)
 }
@@ -214,8 +214,8 @@ func (s *Pshard) DontAddSigInMarshaller() {
 	s.sign = true
 }
 
-//Copy creates a copy of the shard with the given context and subjectZone values. The contained
-//assertions are not modified
+// Copy creates a copy of the shard with the given context and subjectZone values. The contained
+// assertions are not modified
 func (s *Pshard) Copy(context, subjectZone string) *Pshard {
 	stub := &Pshard{}
 	*stub = *s
@@ -224,8 +224,8 @@ func (s *Pshard) Copy(context, subjectZone string) *Pshard {
 	return stub
 }
 
-//IsNonexistent returns true if all types of q do not exist. An error is returned, when q is not
-//within the pshard's range or if its context and zone does not match the pshard.
+// IsNonexistent returns true if all types of q do not exist. An error is returned, when q is not
+// within the pshard's range or if its context and zone does not match the pshard.
 func (s *Pshard) IsNonexistent(q *query.Name) (bool, error) {
 	if q.Context != s.Context {
 		return false, errors.New("query has different context")
@@ -245,8 +245,8 @@ func (s *Pshard) IsNonexistent(q *query.Name) (bool, error) {
 	return true, nil
 }
 
-//AddAssertion adds a to the s' Bloom filter. An error is returned, if a is not within s' range or
-//if they have a different context or zone.
+// AddAssertion adds a to the s' Bloom filter. An error is returned, if a is not within s' range or
+// if they have a different context or zone.
 func (s *Pshard) AddAssertion(a *Assertion) error {
 	if a.Context != s.Context {
 		return fmt.Errorf("assertion has different context pshardCtx=%s aCtx=%s", s.Context, a.Context)
@@ -265,8 +265,8 @@ func (s *Pshard) AddAssertion(a *Assertion) error {
 	return nil
 }
 
-//CompareTo compares two pshards and returns 0 if they are equal, 1 if s is greater than pshard and
-//-1 if s is smaller than pshard
+// CompareTo compares two pshards and returns 0 if they are equal, 1 if s is greater than pshard and
+// -1 if s is smaller than pshard
 func (s *Pshard) CompareTo(pshard *Pshard) int {
 	if s.SubjectZone < pshard.SubjectZone {
 		return -1

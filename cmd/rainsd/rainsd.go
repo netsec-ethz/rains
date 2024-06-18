@@ -26,7 +26,7 @@ var zoneKeyCheckPointInterval time.Duration
 var checkPointPath string
 var preLoadCaches bool
 
-//switchboard
+// switchboard
 var serverAddress addressFlag
 var rootServerAddress addressFlag
 var maxConnections int
@@ -35,7 +35,7 @@ var tcpTimeout time.Duration
 var tlsCertificateFile string
 var tlsPrivateKeyFile string
 
-//inbox
+// inbox
 var prioBufferSize int
 var normalBufferSize int
 var notificationBufferSize int
@@ -45,7 +45,7 @@ var notificationWorkerCount int
 var capabilitiesCacheSize int
 var capabilities string
 
-//verify
+// verify
 var zoneKeyCacheSize int
 var zoneKeyCacheWarnSize int
 var maxPublicKeysPerZone int
@@ -54,7 +54,7 @@ var delegationQueryValidity time.Duration
 var reapZoneKeyCacheInterval time.Duration
 var reapPendingKeyCacheInterval time.Duration
 
-//engine
+// engine
 var assertionCacheSize int
 var negativeAssertionCacheSize int
 var pendingQueryCacheSize int
@@ -215,7 +215,7 @@ func main() {
 	}
 }
 
-//updateConfig overrides config with the provided cmd line flags
+// updateConfig overrides config with the provided cmd line flags
 func updateConfig(config *rainsd.Config) {
 	if rootCmd.Flag("rootZonePublicKeyPath").Changed {
 		config.RootZonePublicKeyPath = rootZonePublicKeyPath

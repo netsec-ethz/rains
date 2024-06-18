@@ -11,7 +11,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
-//notify handles incoming notification messages
+// notify handles incoming notification messages
 func (s *Server) notify(msgSender util.MsgSectionSender) {
 	notifLog := log.New("notificationMsgSection", msgSender.Sections[0])
 	sec := msgSender.Sections[0].(*section.Notification)
@@ -67,13 +67,13 @@ func (s *Server) notify(msgSender util.MsgSectionSender) {
 	}
 }
 
-//capabilityIsHash returns true if capabilities are represented as a hash.
+// capabilityIsHash returns true if capabilities are represented as a hash.
 func capabilityIsHash(capabilities string) bool {
 	return !strings.HasPrefix(capabilities, "urn:")
 }
 
-//dropPendingSectionsAndQueries removes all entries from the pending caches matching token and
-//forwards the received notification or unspecServerErr depending on serverError flag
+// dropPendingSectionsAndQueries removes all entries from the pending caches matching token and
+// forwards the received notification or unspecServerErr depending on serverError flag
 func dropPendingSectionsAndQueries(token token.Token, notification *section.Notification,
 	serverError bool, s *Server) {
 	if ss, ok := s.caches.PendingKeys.GetAndRemove(token); ok {

@@ -2,19 +2,19 @@ package safeHashMap
 
 import "sync"
 
-//Map is a concurrency safe hash map
+// Map is a concurrency safe hash map
 type Map struct {
 	hashMap map[string]interface{}
 	mux     sync.RWMutex
 }
 
-//New returns a new concurrency safe hash map
+// New returns a new concurrency safe hash map
 func New() *Map {
 	return &Map{hashMap: make(map[string]interface{})}
 }
 
-//Add inserts the key value pair to the map. If there is already a mapping it will be overwritten by
-//the new value. It returns true if there was not yet a mapping.
+// Add inserts the key value pair to the map. If there is already a mapping it will be overwritten by
+// the new value. It returns true if there was not yet a mapping.
 func (m *Map) Add(key string, value interface{}) bool {
 	m.mux.Lock()
 	defer m.mux.Unlock()
@@ -23,9 +23,9 @@ func (m *Map) Add(key string, value interface{}) bool {
 	return len(m.hashMap) > size
 }
 
-//GetOrAdd only inserts the key value pair to Map if there has not yet been a mapping for key. It
-//first returns the already existing value associated with the key or otherwise the new value. The
-//second return value is a boolean value which is true if the mapping has not yet been present.
+// GetOrAdd only inserts the key value pair to Map if there has not yet been a mapping for key. It
+// first returns the already existing value associated with the key or otherwise the new value. The
+// second return value is a boolean value which is true if the mapping has not yet been present.
 func (m *Map) GetOrAdd(key string, value interface{}) (interface{}, bool) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
@@ -37,8 +37,8 @@ func (m *Map) GetOrAdd(key string, value interface{}) (interface{}, bool) {
 	return value, true
 }
 
-//Get returns if the key is present the value associated with it from the map and true. Otherwise
-//the value type's zero value and false is returned
+// Get returns if the key is present the value associated with it from the map and true. Otherwise
+// the value type's zero value and false is returned
 func (m *Map) Get(key string) (interface{}, bool) {
 	m.mux.RLock()
 	defer m.mux.RUnlock()
@@ -46,7 +46,7 @@ func (m *Map) Get(key string) (interface{}, bool) {
 	return v, ok
 }
 
-//GetAll returns all contained values
+// GetAll returns all contained values
 func (m *Map) GetAll() []interface{} {
 	m.mux.RLock()
 	defer m.mux.RUnlock()
@@ -57,7 +57,7 @@ func (m *Map) GetAll() []interface{} {
 	return values
 }
 
-//GetAllKeys returns all keys
+// GetAllKeys returns all keys
 func (m *Map) GetAllKeys() []string {
 	m.mux.RLock()
 	defer m.mux.RUnlock()
@@ -68,8 +68,8 @@ func (m *Map) GetAllKeys() []string {
 	return keys
 }
 
-//Remove deletes the key value pair from the map.
-//It returns the value and true if an element was deleted. Otherwise nil and false
+// Remove deletes the key value pair from the map.
+// It returns the value and true if an element was deleted. Otherwise nil and false
 func (m *Map) Remove(key string) (interface{}, bool) {
 	m.mux.Lock()
 	defer m.mux.Unlock()
@@ -79,7 +79,7 @@ func (m *Map) Remove(key string) (interface{}, bool) {
 	return value, len(m.hashMap) < size
 }
 
-//Len returns the number of elements in the map
+// Len returns the number of elements in the map
 func (m *Map) Len() int {
 	m.mux.RLock()
 	defer m.mux.RUnlock()

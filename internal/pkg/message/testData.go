@@ -17,7 +17,7 @@ const (
 	globalContext   = "."
 )
 
-//GetMessage returns a messages containing all  The assertion contains an instance of every object.Types
+// GetMessage returns a messages containing all  The assertion contains an instance of every object.Types
 func GetMessage() Message {
 	sig := signature.Sig{
 		PublicKeyID: keys.PublicKeyID{

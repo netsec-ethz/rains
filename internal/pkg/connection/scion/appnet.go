@@ -18,23 +18,22 @@ scionproto/scion package snet.
 
 NOTE: this is identical with github.com/netsec-ethz/scion-apps/pkg/appnet, with some omissions
 
-Dispatcher and SCION daemon connections
+# Dispatcher and SCION daemon connections
 
 During the hidden initialisation of this package, the dispatcher and sciond
 connections are opened. The sciond connection determines the local IA.
 The dispatcher and sciond sockets are assumed to be at default locations, but this can
 be overridden using environment variables:
 
-		SCION_DISPATCHER_SOCKET: /run/shm/dispatcher/default.sock
-		SCION_DAEMON_ADDRESS: 127.0.0.1:30255
+	SCION_DISPATCHER_SOCKET: /run/shm/dispatcher/default.sock
+	SCION_DAEMON_ADDRESS: 127.0.0.1:30255
 
 This is convenient for the normal use case of running the endhost stack for a
 single SCION AS. When running multiple local ASes, e.g. during development, the
 address of the sciond corresponding to the desired AS needs to be specified in
 the SCION_DAEMON_ADDRESS environment variable.
 
-
-Wildcard IP Addresses
+# Wildcard IP Addresses
 
 snet does not currently support binding to wildcard addresses. This will hopefully be
 added soon-ish, but in the meantime, this package emulates this functionality.

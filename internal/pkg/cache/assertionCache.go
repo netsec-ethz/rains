@@ -14,7 +14,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
 
-//assertionCacheValue is the value stored in the AssertionImpl.cache
+// assertionCacheValue is the value stored in the AssertionImpl.cache
 type assertionCacheValue struct {
 	assertions map[string]assertionExpiration //assertion.Hash -> assertionExpiration
 	cacheKey   string
@@ -62,7 +62,7 @@ func mergeSubjectZone(subject, zone string) string {
 	return fmt.Sprintf("%s.%s", subject, zone)
 }
 
-//assertionCacheMapKey returns the key for AssertionImpl.cache based on the assertion
+// assertionCacheMapKey returns the key for AssertionImpl.cache based on the assertion
 func assertionCacheMapKey(name, zone, context string, oType object.Type) string {
 	key := fmt.Sprintf("%s %s %d", mergeSubjectZone(name, zone), context, oType)
 	log.Debug("assertionCacheMapKey", "key", key)
@@ -75,9 +75,9 @@ func assertionCacheMapKeyFQDN(fqdn, context string, oType object.Type) string {
 	return key
 }
 
-//Add adds an assertion together with an expiration time (number of seconds since 01.01.1970) to
-//the cache. It returns false if the cache is full and an element was removed according to least
-//recently used strategy. It also adds the shard to the consistency cache.
+// Add adds an assertion together with an expiration time (number of seconds since 01.01.1970) to
+// the cache. It returns false if the cache is full and an element was removed according to least
+// recently used strategy. It also adds the shard to the consistency cache.
 func (c *AssertionImpl) Add(a *section.Assertion, expiration int64, isInternal bool) bool {
 	isFull := false
 	for _, o := range a.Content {
@@ -148,8 +148,8 @@ func zoneHierarchy(fqdn string) []string {
 	return attempts
 }
 
-//Get returns true and a set of assertions matching the given key if there exist some. Otherwise
-//nil and false is returned.
+// Get returns true and a set of assertions matching the given key if there exist some. Otherwise
+// nil and false is returned.
 // If strict is true then only a direct match for the provided FQDN is looked up.
 // Otherwise, a search up the domain name hierarchy is performed to get the topmost match.
 func (c *AssertionImpl) Get(fqdn, context string, objType object.Type, strict bool) ([]*section.Assertion, bool) {
@@ -186,8 +186,8 @@ func (c *AssertionImpl) Get(fqdn, context string, objType object.Type, strict bo
 	return assertions, len(assertions) > 0
 }
 
-//RemoveExpiredValues goes through the cache and removes all expired assertions from the
-//assertionCache and the consistency cache.
+// RemoveExpiredValues goes through the cache and removes all expired assertions from the
+// assertionCache and the consistency cache.
 func (c *AssertionImpl) RemoveExpiredValues() {
 	for _, v := range c.cache.GetAll() {
 		value := v.(*assertionCacheValue)
@@ -218,7 +218,7 @@ func (c *AssertionImpl) RemoveExpiredValues() {
 	}
 }
 
-//RemoveZone deletes all assertions in the assertionCache and consistencyCache of the given zone.
+// RemoveZone deletes all assertions in the assertionCache and consistencyCache of the given zone.
 func (c *AssertionImpl) RemoveZone(zone string) {
 	if set, ok := c.zoneMap.Remove(zone); ok {
 		for _, key := range set.(*safeHashMap.Map).GetAllKeys() {
@@ -243,7 +243,7 @@ func (c *AssertionImpl) RemoveZone(zone string) {
 	}
 }
 
-//Checkpoint returns all cached assertions
+// Checkpoint returns all cached assertions
 func (c *AssertionImpl) Checkpoint() (assertions []section.Section) {
 	entries := c.cache.GetAll()
 	for _, e := range entries {
@@ -259,7 +259,7 @@ func (c *AssertionImpl) Checkpoint() (assertions []section.Section) {
 	return
 }
 
-//Len returns the number of elements in the cache.
+// Len returns the number of elements in the cache.
 func (c *AssertionImpl) Len() int {
 	return c.counter.Value()
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
 
-//Shard contains information about the shard
+// Shard contains information about the shard
 type Shard struct {
 	Signatures  []signature.Sig
 	SubjectZone string
@@ -107,37 +107,37 @@ func (s *Shard) MarshalCBOR(w *cbor.CBORWriter) error {
 	return w.WriteIntMap(m)
 }
 
-//AllSigs returns the shard's signatures
+// AllSigs returns the shard's signatures
 func (s *Shard) AllSigs() []signature.Sig {
 	return s.Signatures
 }
 
-//Sigs returns s's signatures in keyspace
+// Sigs returns s's signatures in keyspace
 func (s *Shard) Sigs(keySpace keys.KeySpaceID) []signature.Sig {
 	return filterSigs(s.Signatures, keySpace)
 }
 
-//AddSig adds the given signature
+// AddSig adds the given signature
 func (s *Shard) AddSig(sig signature.Sig) {
 	s.Signatures = append(s.Signatures, sig)
 }
 
-//DeleteSig deletes ith signature
+// DeleteSig deletes ith signature
 func (s *Shard) DeleteSig(i int) {
 	s.Signatures = append(s.Signatures[:i], s.Signatures[i+1:]...)
 }
 
-//DeleteAllSigs deletes all signature
+// DeleteAllSigs deletes all signature
 func (s *Shard) DeleteAllSigs() {
 	s.Signatures = []signature.Sig{}
 }
 
-//GetContext returns the context of the shard
+// GetContext returns the context of the shard
 func (s *Shard) GetContext() string {
 	return s.Context
 }
 
-//GetSubjectZone returns the zone of the shard
+// GetSubjectZone returns the zone of the shard
 func (s *Shard) GetSubjectZone() string {
 	return s.SubjectZone
 }
@@ -155,8 +155,8 @@ func (s *Shard) RemoveCtxAndZoneFromContent() {
 	}
 }
 
-//Copy creates a copy of the shard with the given context and subjectZone values. The contained
-//assertions are not modified
+// Copy creates a copy of the shard with the given context and subjectZone values. The contained
+// assertions are not modified
 func (s *Shard) Copy(context, subjectZone string) *Shard {
 	stub := &Shard{}
 	*stub = *s
@@ -165,44 +165,44 @@ func (s *Shard) Copy(context, subjectZone string) *Shard {
 	return stub
 }
 
-//Begin returns the begining of the interval of this shard.
+// Begin returns the begining of the interval of this shard.
 func (s *Shard) Begin() string {
 	return s.RangeFrom
 }
 
-//End returns the end of the interval of this shard.
+// End returns the end of the interval of this shard.
 func (s *Shard) End() string {
 	return s.RangeTo
 }
 
-//UpdateValidity updates the validity of this shard if the validity period is extended.
-//It makes sure that the validity is never larger than maxValidity
+// UpdateValidity updates the validity of this shard if the validity period is extended.
+// It makes sure that the validity is never larger than maxValidity
 func (s *Shard) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
 	s.validSince, s.validUntil = UpdateValidity(validSince, validUntil, s.validSince, s.validUntil,
 		maxValidity)
 }
 
-//ValidSince returns the earliest validSince date of all contained signatures
+// ValidSince returns the earliest validSince date of all contained signatures
 func (s *Shard) ValidSince() int64 {
 	return s.validSince
 }
 
-//ValidUntil returns the latest validUntil date of all contained signatures
+// ValidUntil returns the latest validUntil date of all contained signatures
 func (s *Shard) ValidUntil() int64 {
 	return s.validUntil
 }
 
-//SetValidSince sets the validSince time
+// SetValidSince sets the validSince time
 func (s *Shard) SetValidSince(validSince int64) {
 	s.validSince = validSince
 }
 
-//SetValidUntil sets the validUntil time
+// SetValidUntil sets the validUntil time
 func (s *Shard) SetValidUntil(validUntil int64) {
 	s.validUntil = validUntil
 }
 
-//Hash returns a string containing all information uniquely identifying a shard.
+// Hash returns a string containing all information uniquely identifying a shard.
 func (s *Shard) Hash() string {
 	if s == nil {
 		return "S_nil"
@@ -213,7 +213,7 @@ func (s *Shard) Hash() string {
 	return encoding.String()
 }
 
-//Sort sorts the content of the shard lexicographically.
+// Sort sorts the content of the shard lexicographically.
 func (s *Shard) Sort() {
 	for _, a := range s.Content {
 		a.Sort()
@@ -221,8 +221,8 @@ func (s *Shard) Sort() {
 	sort.Slice(s.Content, func(i, j int) bool { return s.Content[i].CompareTo(s.Content[j]) < 0 })
 }
 
-//CompareTo compares two shards and returns 0 if they are equal, 1 if s is greater than shard and -1
-//if s is smaller than shard
+// CompareTo compares two shards and returns 0 if they are equal, 1 if s is greater than shard and -1
+// if s is smaller than shard
 func (s *Shard) CompareTo(shard *Shard) int {
 	if s.SubjectZone < shard.SubjectZone {
 		return -1
@@ -253,7 +253,7 @@ func (s *Shard) CompareTo(shard *Shard) int {
 	return 0
 }
 
-//String implements Stringer interface
+// String implements Stringer interface
 func (s *Shard) String() string {
 	if s == nil {
 		return "Shard:nil"
@@ -262,7 +262,7 @@ func (s *Shard) String() string {
 		s.SubjectZone, s.Context, s.RangeFrom, s.RangeTo, s.Content, s.Signatures)
 }
 
-//InRange returns true if subjectName is inside the shard range
+// InRange returns true if subjectName is inside the shard range
 func (s *Shard) InRange(subjectName string) bool {
 	return (s.RangeFrom == "<" && s.RangeTo == ">") || (s.RangeFrom == "<" && s.RangeTo > subjectName) ||
 		(s.RangeTo == ">" && s.RangeFrom < subjectName) ||
@@ -271,8 +271,8 @@ func (s *Shard) InRange(subjectName string) bool {
 		(s.RangeTo == "" && s.RangeFrom < subjectName)
 }
 
-//IsConsistent returns true if all contained assertions have no subjectZone and context and are
-//within the shards range.
+// IsConsistent returns true if all contained assertions have no subjectZone and context and are
+// within the shards range.
 func (s *Shard) IsConsistent() bool {
 	for _, a := range s.Content {
 		if sectionHasContextOrSubjectZone(a) {
@@ -288,13 +288,13 @@ func (s *Shard) IsConsistent() bool {
 	return true
 }
 
-//sectionHasContextOrSubjectZone returns false if the section's subjectZone and context are both the
-//empty string
+// sectionHasContextOrSubjectZone returns false if the section's subjectZone and context are both the
+// empty string
 func sectionHasContextOrSubjectZone(section WithSig) bool {
 	return section.GetSubjectZone() != "" || section.GetContext() != ""
 }
 
-//NeededKeys adds to keysNeeded key meta data which is necessary to verify all s's signatures.
+// NeededKeys adds to keysNeeded key meta data which is necessary to verify all s's signatures.
 func (s *Shard) NeededKeys(keysNeeded map[signature.MetaData]bool) {
 	extractNeededKeys(s, keysNeeded)
 	for _, a := range s.Content {

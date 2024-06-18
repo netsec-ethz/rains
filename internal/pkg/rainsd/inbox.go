@@ -29,8 +29,8 @@ type InputQueues struct {
 	NotifyW chan struct{}
 }
 
-//deliver pushes all incoming messages to the prio or normal channel.
-//A message is added to the priority channel if it is the response to a non-expired delegation query
+// deliver pushes all incoming messages to the prio or normal channel.
+// A message is added to the priority channel if it is the response to a non-expired delegation query
 func deliver(msg *message.Message, sender net.Addr, prioChannel chan util.MsgSectionSender,
 	normalChannel chan util.MsgSectionSender, notificationChannel chan util.MsgSectionSender,
 	pendingKeys cache.PendingKey) {
@@ -78,8 +78,8 @@ func deliver(msg *message.Message, sender net.Addr, prioChannel chan util.MsgSec
 	}
 }
 
-//processCapability processes capabilities and sends a notification back to the sender if the hash
-//is not understood.
+// processCapability processes capabilities and sends a notification back to the sender if the hash
+// is not understood.
 func processCapability(caps []message.Capability, sender net.Addr, token token.Token) {
 	log.Debug("Processing Capabilities not yet supported")
 	/*log.Debug("Process capabilities", "capabilities", caps)
@@ -97,22 +97,22 @@ func processCapability(caps []message.Capability, sender net.Addr, token token.T
 	}*/
 }
 
-//addCapabilityAndRespond adds caps to the connection cache entry of sender and sends its own
-//capabilities back if it has not already received capability information on this connection.
+// addCapabilityAndRespond adds caps to the connection cache entry of sender and sends its own
+// capabilities back if it has not already received capability information on this connection.
 func addCapabilityAndRespond(sender net.Addr, caps []message.Capability) {
 	/*if !connCache.AddCapabilityList(sender, caps) {
 		sendCapability(sender, []message.Capability{message.Capability(capabilityHash)})
 	}*/
 }
 
-//isZoneBlacklisted returns true if zone is blacklisted
+// isZoneBlacklisted returns true if zone is blacklisted
 func isZoneBlacklisted(zone string) bool {
 	return false
 }
 
-//workBoth works on the prioChannel and on the normalChannel. A worker only fetches a message from
-//the normalChannel if the prioChannel is empty. the channel normalWorkers enforces a maximum number
-//of go routines working on the prioChannel and normalChannel.
+// workBoth works on the prioChannel and on the normalChannel. A worker only fetches a message from
+// the normalChannel if the prioChannel is empty. the channel normalWorkers enforces a maximum number
+// of go routines working on the prioChannel and normalChannel.
 func (s *Server) workBoth() {
 	for {
 		select {
@@ -144,7 +144,7 @@ func (s *Server) workBoth() {
 	}
 }
 
-//normalWorkerHandler handles sections on the normalChannel
+// normalWorkerHandler handles sections on the normalChannel
 func normalWorkerHandler(s *Server, msg util.MsgSectionSender) {
 	if msg.Sections != nil {
 		s.verify(msg)
@@ -152,14 +152,14 @@ func normalWorkerHandler(s *Server, msg util.MsgSectionSender) {
 	<-s.queues.NormalW
 }
 
-//workPrio works on the prioChannel. It waits on the prioChannel and creates a new go routine which handles the section.
-//the channel prioWorkers enforces a maximum number of go routines working on the prioChannel.
-//The prio channel is necessary to avoid a blocking of the server. e.g. in the following unrealistic scenario
-//1) normal queue fills up with non delegation queries which all are missing a public key
-//2) The non-delegation queries get processed by the normalWorkers and added to the pendingSignature cache
-//3) For each non-delegation query that gets taken off the queue a new non-delegation query or expired
-//   delegation query wins against all waiting valid delegation-queries.
-//4) Then although the server is working all the time, no section is added to the caches.
+// workPrio works on the prioChannel. It waits on the prioChannel and creates a new go routine which handles the section.
+// the channel prioWorkers enforces a maximum number of go routines working on the prioChannel.
+// The prio channel is necessary to avoid a blocking of the server. e.g. in the following unrealistic scenario
+//  1. normal queue fills up with non delegation queries which all are missing a public key
+//  2. The non-delegation queries get processed by the normalWorkers and added to the pendingSignature cache
+//  3. For each non-delegation query that gets taken off the queue a new non-delegation query or expired
+//     delegation query wins against all waiting valid delegation-queries.
+//  4. Then although the server is working all the time, no section is added to the caches.
 func (s *Server) workPrio() {
 	for {
 		select {
@@ -178,7 +178,7 @@ func (s *Server) workPrio() {
 	}
 }
 
-//prioWorkerHandler handles sections on the prioChannel
+// prioWorkerHandler handles sections on the prioChannel
 func prioWorkerHandler(s *Server, msg util.MsgSectionSender, prioWorker bool) {
 	if msg.Sections != nil {
 		s.verify(msg)
@@ -188,9 +188,9 @@ func prioWorkerHandler(s *Server, msg util.MsgSectionSender, prioWorker bool) {
 	}
 }
 
-//workNotification works on the notificationChannel. It waits on the notificationChannel and creates
-//a new go routine which handles the notification. the channel notificationWorkers enforces a
-//maximum number of go routines working on the notificationChannel
+// workNotification works on the notificationChannel. It waits on the notificationChannel and creates
+// a new go routine which handles the notification. the channel notificationWorkers enforces a
+// maximum number of go routines working on the notificationChannel
 func (s *Server) workNotification() {
 	for {
 		select {
@@ -209,7 +209,7 @@ func (s *Server) workNotification() {
 	}
 }
 
-//handleNotification works on notificationChannel.
+// handleNotification works on notificationChannel.
 func handleNotification(s *Server, msg util.MsgSectionSender) {
 	if msg.Sections != nil {
 		s.notify(msg)

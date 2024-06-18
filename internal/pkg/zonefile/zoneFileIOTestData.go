@@ -21,7 +21,7 @@ type objectIndent struct {
 	Indents []string
 }
 
-//getObjectsAndEncodings returns a slice of options and a slice of their encodings used for testing
+// getObjectsAndEncodings returns a slice of options and a slice of their encodings used for testing
 func getObjectsAndEncodings() (objectIndent, []string) {
 	//objects
 	objects := [][]object.Object{}
@@ -163,7 +163,7 @@ func getObjectsAndEncodings() (objectIndent, []string) {
 	return objectIndent{Objects: objects, Indents: indents}, encodings
 }
 
-//getSignature returns a signature. Currently it is not used for encoding. It is used to test that encoder can handle unnecessary content on sections
+// getSignature returns a signature. Currently it is not used for encoding. It is used to test that encoder can handle unnecessary content on sections
 func getSignature() signature.Sig {
 	return signature.Sig{
 		PublicKeyID: keys.PublicKeyID{
@@ -175,7 +175,7 @@ func getSignature() signature.Sig {
 		Data:       []byte("SignatureData")}
 }
 
-//getAssertionAndEncodings returns a slice of assertions and a slice of their encodings used for testing
+// getAssertionAndEncodings returns a slice of assertions and a slice of their encodings used for testing
 func getAssertionAndEncodings(indent string) ([]*section.Assertion, []string) {
 	//assertions
 	assertions := []*section.Assertion{}
@@ -221,7 +221,7 @@ func getAssertionAndEncodings(indent string) ([]*section.Assertion, []string) {
 	return assertions, encodings
 }
 
-//getShardAndEncodings returns a slice of shards and a slice of their encodings used for testing
+// getShardAndEncodings returns a slice of shards and a slice of their encodings used for testing
 func getShardAndEncodings() ([]*section.Shard, []string) {
 	//shards
 	shards := []*section.Shard{}
@@ -283,7 +283,7 @@ func getShardAndEncodings() ([]*section.Shard, []string) {
 	return shards, encodings
 }
 
-//getZonesAndEncodings returns a slice of zones and a slice of their encodings used for testing
+// getZonesAndEncodings returns a slice of zones and a slice of their encodings used for testing
 func getZonesAndEncodings() ([]*section.Zone, []string) {
 	//zones
 	zones := []*section.Zone{}
@@ -312,7 +312,7 @@ func getZonesAndEncodings() ([]*section.Zone, []string) {
 	return zones, encodings
 }
 
-//getQueriesAndEncodings returns a slice of queries and a slice of their encodings used for testing
+// getQueriesAndEncodings returns a slice of queries and a slice of their encodings used for testing
 func getQueriesAndEncodings() ([]*query.Name, []string) {
 	//addressqueries
 	queries := []*query.Name{}
@@ -332,7 +332,7 @@ func getQueriesAndEncodings() ([]*query.Name, []string) {
 	return queries, encodings
 }
 
-//getNotificationsAndEncodings returns a slice of notifications and a slice of their encodings used for testing
+// getNotificationsAndEncodings returns a slice of notifications and a slice of their encodings used for testing
 func getNotificationsAndEncodings() ([]*section.Notification, []string) {
 	//addressqueries
 	notifications := []*section.Notification{}
@@ -352,7 +352,7 @@ func getNotificationsAndEncodings() ([]*section.Notification, []string) {
 	return notifications, encodings
 }
 
-//getMessagesAndEncodings returns a slice of messages and a slice of their encodings used for testing
+// getMessagesAndEncodings returns a slice of messages and a slice of their encodings used for testing
 func getMessagesAndEncodings() ([]*message.Message, []string) {
 	//messages
 	messages := []*message.Message{}

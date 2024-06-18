@@ -20,7 +20,7 @@ import (
 
 const MaxUDPPacketBytes = 9000
 
-//Info contains address information about one actor of a connection of the declared type
+// Info contains address information about one actor of a connection of the declared type
 type Info struct {
 	Type Type
 	Addr net.Addr
@@ -81,10 +81,11 @@ func UnmarshalNetAddr(data []byte) (Type, net.Addr, error) {
 	return t, value.(net.Addr), nil
 }
 
-//Type enumerates connection types
+// Type enumerates connection types
 type Type int
 
-//run 'go generate' in this directory if a new networkAddrType is added [source https://github.com/campoy/jsonenums]
+// run 'go generate' in this directory if a new networkAddrType is added [source https://github.com/campoy/jsonenums]
+//
 //go:generate jsonenums -type=Type
 //go:generate stringer -type=Type
 const (
@@ -92,7 +93,7 @@ const (
 	SCION
 )
 
-//CreateConnection returns a newly created connection with connInfo or an error
+// CreateConnection returns a newly created connection with connInfo or an error
 func CreateConnection(addr net.Addr) (conn net.Conn, err error) {
 	switch a := addr.(type) {
 	case *net.TCPAddr:

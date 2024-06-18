@@ -20,7 +20,7 @@ const (
 	QOMaxFreshness
 )
 
-//AllOptions returns all query options
+// AllOptions returns all query options
 func AllOptions() []Option {
 	return []Option{QOMinE2ELatency, QOMinLastHopAnswerSize,
 		QOMinInfoLeakage, QOCachedAnswersOnly,

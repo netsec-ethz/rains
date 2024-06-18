@@ -16,7 +16,7 @@ const (
 	rainsTag = 0xE99BA8
 )
 
-//Message represents a Message
+// Message represents a Message
 type Message struct {
 	//Capabilities is a slice of capabilities or the hash thereof which the server originating the
 	//message has.
@@ -177,7 +177,7 @@ func (rm *Message) MarshalCBOR(w *cbor.CBORWriter) error {
 	return w.WriteIntMap(m)
 }
 
-//Capability is a urn of a capability
+// Capability is a urn of a capability
 type Capability string
 
 const (

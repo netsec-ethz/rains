@@ -18,7 +18,7 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-//Object contains a Value of to the specified Type
+// Object contains a Value of to the specified Type
 type Object struct {
 	Type  Type
 	Value interface{}
@@ -405,7 +405,7 @@ func pubkeyToCBORBytes(p keys.PublicKey) []byte {
 	}
 }
 
-//Sort sorts the content of o lexicographically.
+// Sort sorts the content of o lexicographically.
 func (o *Object) Sort() {
 	if name, ok := o.Value.(Name); ok {
 		sort.Slice(name.Types, func(i, j int) bool { return name.Types[i] < name.Types[j] })
@@ -415,7 +415,7 @@ func (o *Object) Sort() {
 	}
 }
 
-//CompareTo compares two objects and returns 0 if they are equal, 1 if o is greater than object and -1 if o is smaller than object
+// CompareTo compares two objects and returns 0 if they are equal, 1 if o is greater than object and -1 if o is smaller than object
 func (o Object) CompareTo(object Object) int {
 	if o.Type < object.Type {
 		return -1
@@ -481,18 +481,18 @@ func (o Object) CompareTo(object Object) int {
 	return 0
 }
 
-//String implements Stringer interface
+// String implements Stringer interface
 func (o Object) String() string {
 	return fmt.Sprintf("OT:%d OV:%v", o.Type, o.Value)
 }
 
-//logObjectTypeAssertionFailure logs that it was not possible to type assert value as t
+// logObjectTypeAssertionFailure logs that it was not possible to type assert value as t
 func logObjectTypeAssertionFailure(t Type, value interface{}) {
 	log.Error("Object Type and corresponding type assertion of object's value do not match",
 		"objectType", t, "objectValueType", fmt.Sprintf("%T", value))
 }
 
-//Type identifier for object connection. ID chosen according to RAINS Protocol Specification
+// Type identifier for object connection. ID chosen according to RAINS Protocol Specification
 type Type int
 
 //go:generate stringer -type=Type
@@ -513,7 +513,7 @@ const (
 	OTScionAddr   Type = 14
 )
 
-//ParseTypes returns the object type(s) specified in qType
+// ParseTypes returns the object type(s) specified in qType
 func ParseTypes(qType string) ([]Type, error) {
 	switch qType {
 	case "name":
@@ -550,7 +550,7 @@ func ParseTypes(qType string) ([]Type, error) {
 	return []Type{Type(-1)}, fmt.Errorf("%s is not a query option", qType)
 }
 
-//TypeString returns the CLI type string corresponding to the object type specified in qType
+// TypeString returns the CLI type string corresponding to the object type specified in qType
 func (t Type) CLIString() string {
 	switch t {
 	case OTName:
@@ -585,7 +585,7 @@ func (t Type) CLIString() string {
 	return t.String()
 }
 
-//AllTypes returns all object types.
+// AllTypes returns all object types.
 func AllTypes() []Type {
 	return []Type{OTName, OTIP6Addr, OTIP4Addr, OTRedirection,
 		OTDelegation, OTNameset, OTCertInfo, OTServiceInfo,
@@ -593,14 +593,14 @@ func AllTypes() []Type {
 		OTNextKey, OTScionAddr}
 }
 
-//Name contains a name associated with a name as an alias. Types specifies for which object connection the alias is valid
+// Name contains a name associated with a name as an alias. Types specifies for which object connection the alias is valid
 type Name struct {
 	Name string
 	//Types for which the Name is valid
 	Types []Type
 }
 
-//CompareTo compares two nameObjects and returns 0 if they are equal, 1 if n is greater than nameObject and -1 if n is smaller than nameObject
+// CompareTo compares two nameObjects and returns 0 if they are equal, 1 if n is greater than nameObject and -1 if n is smaller than nameObject
 func (n Name) CompareTo(nameObj Name) int {
 	if n.Name < nameObj.Name {
 		return -1
@@ -621,10 +621,10 @@ func (n Name) CompareTo(nameObj Name) int {
 	return 0
 }
 
-//NamesetExpr encodes a modified POSIX Extended Regular Expression format
+// NamesetExpr encodes a modified POSIX Extended Regular Expression format
 type NamesetExpr string
 
-//Certificate contains a certificate and its meta data (type, usage and hash algorithm identifier)
+// Certificate contains a certificate and its meta data (type, usage and hash algorithm identifier)
 type Certificate struct {
 	Type     ProtocolType
 	Usage    CertificateUsage
@@ -632,7 +632,7 @@ type Certificate struct {
 	Data     []byte
 }
 
-//CompareTo compares two certificateObject objects and returns 0 if they are equal, 1 if c is greater than cert and -1 if c is smaller than cert
+// CompareTo compares two certificateObject objects and returns 0 if they are equal, 1 if c is greater than cert and -1 if c is smaller than cert
 func (c Certificate) CompareTo(cert Certificate) int {
 	if c.Type < cert.Type {
 		return -1
@@ -650,12 +650,12 @@ func (c Certificate) CompareTo(cert Certificate) int {
 	return bytes.Compare(c.Data, cert.Data)
 }
 
-//String implements Stringer interface
+// String implements Stringer interface
 func (c Certificate) String() string {
 	return fmt.Sprintf("{%d %d %d %s}", c.Type, c.Usage, c.HashAlgo, hex.EncodeToString(c.Data))
 }
 
-//ProtocolType is an identifier for a protocol. The ID is chosen according to the RAINS Protocol Specification.
+// ProtocolType is an identifier for a protocol. The ID is chosen according to the RAINS Protocol Specification.
 type ProtocolType int
 
 //go:generate stringer -type=ProtocolType
@@ -664,7 +664,7 @@ const (
 	PTTLS         ProtocolType = 1
 )
 
-//CertificateUsage is an identifier for a certificate usage. The ID is chosen according to the RAINS Protocol Specification.
+// CertificateUsage is an identifier for a certificate usage. The ID is chosen according to the RAINS Protocol Specification.
 type CertificateUsage int
 
 //go:generate stringer -type=CertificateUsage
@@ -673,14 +673,14 @@ const (
 	CUEndEntity   CertificateUsage = 3
 )
 
-//ServiceInfo contains information how to access a named service
+// ServiceInfo contains information how to access a named service
 type ServiceInfo struct {
 	Name     string
 	Port     uint16
 	Priority uint
 }
 
-//CompareTo compares two serviceInfo objects and returns 0 if they are equal, 1 if s is greater than serviceInfo and -1 if s is smaller than serviceInfo
+// CompareTo compares two serviceInfo objects and returns 0 if they are equal, 1 if s is greater than serviceInfo and -1 if s is smaller than serviceInfo
 func (s ServiceInfo) CompareTo(serviceInfo ServiceInfo) int {
 	if s.Name < serviceInfo.Name {
 		return -1

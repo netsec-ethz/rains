@@ -30,7 +30,7 @@ const (
 	globalContext     = "."
 )
 
-//GetZone returns an zone containing a shard, assertion with all object types and a pshard. The zone is valid.
+// GetZone returns an zone containing a shard, assertion with all object types and a pshard. The zone is valid.
 func GetZone() *Zone {
 	return &Zone{
 		//FIXME CFE add pshard
@@ -40,7 +40,7 @@ func GetZone() *Zone {
 	}
 }
 
-//GetShard returns a shard containing an assertion with all object types that is valid.
+// GetShard returns a shard containing an assertion with all object types that is valid.
 func GetShard() *Shard {
 	return &Shard{
 		Content:     []*Assertion{GetAssertion()},
@@ -51,7 +51,7 @@ func GetShard() *Shard {
 	}
 }
 
-//GetPshard returns a shard containing an assertion with all object types that is valid.
+// GetPshard returns a shard containing an assertion with all object types that is valid.
 func GetPshard() *Pshard {
 	return &Pshard{
 		BloomFilter: GetBloomFilter(),
@@ -62,7 +62,7 @@ func GetPshard() *Pshard {
 	}
 }
 
-//GetAssertion returns an assertion containing all objects types that is valid.
+// GetAssertion returns an assertion containing all objects types that is valid.
 func GetAssertion() *Assertion {
 	return &Assertion{
 		Content:     object.AllObjects(),
@@ -72,7 +72,7 @@ func GetAssertion() *Assertion {
 	}
 }
 
-//Datastructure returns a datastructure object with valid content
+// Datastructure returns a datastructure object with valid content
 func GetBloomFilter() BloomFilter {
 	return BloomFilter{
 		Algorithm: BloomKM12,
@@ -81,7 +81,7 @@ func GetBloomFilter() BloomFilter {
 	}
 }
 
-//Signature returns a signature object with all fields set except signature data.
+// Signature returns a signature object with all fields set except signature data.
 func Signature() signature.Sig {
 	return signature.Sig{
 		PublicKeyID: keys.PublicKeyID{
@@ -94,7 +94,7 @@ func Signature() signature.Sig {
 	}
 }
 
-//AllAllowedNetworkObjects returns a list of objects that are allowed for network subjectAddresses; with valid content
+// AllAllowedNetworkObjects returns a list of objects that are allowed for network subjectAddresses; with valid content
 func AllAllowedNetworkObjects() []object.Object {
 	redirObject := object.Object{Type: object.OTRedirection, Value: testDomain}
 	delegObject := object.Object{Type: object.OTDelegation, Value: object.PublicKey()}
@@ -102,7 +102,7 @@ func AllAllowedNetworkObjects() []object.Object {
 	return []object.Object{redirObject, delegObject, registrantObject}
 }
 
-//Notification returns a notification with all fields set
+// Notification returns a notification with all fields set
 func GetNotification() *Notification {
 	return &Notification{
 		Token: token.New(),
@@ -111,7 +111,7 @@ func GetNotification() *Notification {
 	}
 }
 
-//NotificationNoData returns a notification with all fields set except data.
+// NotificationNoData returns a notification with all fields set except data.
 func NotificationNoData() *Notification {
 	return &Notification{
 		Token: token.New(),
@@ -119,7 +119,7 @@ func NotificationNoData() *Notification {
 	}
 }
 
-//GetQuery returns a query with all query options set and querying all types.
+// GetQuery returns a query with all query options set and querying all types.
 func GetQuery() *query.Name {
 	return &query.Name{
 		Context:    globalContext,
@@ -130,7 +130,7 @@ func GetQuery() *query.Name {
 	}
 }
 
-//AllQueryOptions returns all query options
+// AllQueryOptions returns all query options
 func AllQueryOptions() []query.Option {
 	return []query.Option{
 		query.QOCachedAnswersOnly,
@@ -144,7 +144,7 @@ func AllQueryOptions() []query.Option {
 	}
 }
 
-//Allobject.Types returns all object types
+// Allobject.Types returns all object types
 func AllObjectType() []object.Type {
 	return []object.Type{
 		object.OTCertInfo,
@@ -292,7 +292,7 @@ func sortedNotifications(nofNotifications int) []*Notification {
 	return notifications
 }
 
-//nofTokens must be smaller than 256
+// nofTokens must be smaller than 256
 func sortedTokens(nofTokens int) []token.Token {
 	if nofTokens > 255 {
 		log.Error("nofTokens must be smaller than 256", "nofTokens", nofTokens)

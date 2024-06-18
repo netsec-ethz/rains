@@ -54,7 +54,7 @@ const (
 	indent12 = indent8 + indent4
 )
 
-//ZoneFileIO is the interface for all parsers of zone files for RAINS
+// ZoneFileIO is the interface for all parsers of zone files for RAINS
 type ZoneFileIO interface {
 	//Decode takes as input a byte string of section(s) in zonefile format. It returns a slice of
 	//all contained assertions, shards, and zones in the provided order or an error in case of
@@ -87,17 +87,17 @@ type ZoneFileIO interface {
 	EncodeAndStore(path string, section []section.Section) error
 }
 
-//Parser can be used to parse and encode RAINS zone files
+// Parser can be used to parse and encode RAINS zone files
 type IO struct{}
 
-//Decode returns all assertions contained in the given zonefile
+// Decode returns all assertions contained in the given zonefile
 func (p IO) Decode(zoneFile []byte) ([]section.WithSigForward, error) {
 	return parse(zoneFile)
 }
 
-//DecodeNameQueriesUnsafe takes as input a byte string of name queries encoded in a format
-//resembling the zone file format. It returns the queries. It panics when the input format is
-//incorrect.
+// DecodeNameQueriesUnsafe takes as input a byte string of name queries encoded in a format
+// resembling the zone file format. It returns the queries. It panics when the input format is
+// incorrect.
 func (p IO) DecodeNameQueriesUnsafe(encoding []byte) []*query.Name {
 	queries := []*query.Name{}
 	scanner := NewWordScanner(encoding)
@@ -107,8 +107,8 @@ func (p IO) DecodeNameQueriesUnsafe(encoding []byte) []*query.Name {
 	return queries
 }
 
-//LoadZonefile takes as input a path to a file containing a zone in zonefile format. It returns the zone
-//exactly as it is in the zonefile or an error in case of failure.
+// LoadZonefile takes as input a path to a file containing a zone in zonefile format. It returns the zone
+// exactly as it is in the zonefile or an error in case of failure.
 func (p IO) LoadZonefile(path string) ([]section.WithSigForward, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -117,8 +117,8 @@ func (p IO) LoadZonefile(path string) ([]section.WithSigForward, error) {
 	return p.Decode(data)
 }
 
-//Encode returns the given sections represented in the zone file format if it is a zoneSection.
-//In all other cases it returns the sections in a displayable format similar to the zone file format
+// Encode returns the given sections represented in the zone file format if it is a zoneSection.
+// In all other cases it returns the sections in a displayable format similar to the zone file format
 func (p IO) Encode(sections []section.Section) string {
 	var encodings []string
 	for _, s := range sections {
@@ -127,8 +127,8 @@ func (p IO) Encode(sections []section.Section) string {
 	return strings.Join(encodings, "\n")
 }
 
-//EncodeSection returns the given section represented in the zone file format if it is a zoneSection.
-//In all other cases it returns the section in a displayable format similar to the zone file format
+// EncodeSection returns the given section represented in the zone file format if it is a zoneSection.
+// In all other cases it returns the section in a displayable format similar to the zone file format
 func (p IO) EncodeSection(s section.Section) string {
 	encoding := ""
 	switch s := s.(type) {
@@ -151,9 +151,9 @@ func (p IO) EncodeSection(s section.Section) string {
 	return encoding
 }
 
-//EncodeAndStore stores the given section represented in zone file format if
-//it is an assertion, shard, pshard, or zone. In all other cases it stores
-//the section in a displayable format similar to the zone file format
+// EncodeAndStore stores the given section represented in zone file format if
+// it is an assertion, shard, pshard, or zone. In all other cases it stores
+// the section in a displayable format similar to the zone file format
 func (p IO) EncodeAndStore(path string, sections []section.Section) error {
 	encoding := p.Encode(sections)
 	return ioutil.WriteFile(path, []byte(encoding), 0600)

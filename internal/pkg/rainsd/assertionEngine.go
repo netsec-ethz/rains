@@ -11,10 +11,10 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
-//assert checks the consistency of the incoming section with sections in the cache.
-//it adds a section with valid signatures to the assertion/shard/zone cache. Triggers any pending queries answered by it.
-//The section's signatures MUST have already been verified and there MUST be at least one valid
-//rains signature on the message
+// assert checks the consistency of the incoming section with sections in the cache.
+// it adds a section with valid signatures to the assertion/shard/zone cache. Triggers any pending queries answered by it.
+// The section's signatures MUST have already been verified and there MUST be at least one valid
+// rains signature on the message
 func (s *Server) assert(ss util.SectionWithSigSender) {
 	log.Debug("Adding section to cache", "section", ss)
 	if sectionsAreInconsistent(ss.Sections, s.caches.AssertionsCache, s.caches.NegAssertionCache) {
@@ -29,14 +29,14 @@ func (s *Server) assert(ss util.SectionWithSigSender) {
 	log.Info(fmt.Sprintf("Finished handling %T", ss.Sections), "section", ss.Sections)
 }
 
-//sectionsAreInconsistent returns true if at least one section is not consistent with cached element
-//which are valid at the same time.
+// sectionsAreInconsistent returns true if at least one section is not consistent with cached element
+// which are valid at the same time.
 func sectionsAreInconsistent(sec []section.WithSigForward, assertionsCache cache.Assertion,
 	negAssertionCache cache.NegativeAssertion) bool {
 	return false
 }
 
-//addSectionToCache adds sec to the cache if it comlies with the server's caching policy
+// addSectionToCache adds sec to the cache if it comlies with the server's caching policy
 func addSectionsToCache(sections []section.WithSigForward, authorities []ZoneContext,
 	assertionsCache cache.Assertion, negAssertionCache cache.NegativeAssertion,
 	zoneKeyCache cache.ZonePublicKey) {
@@ -65,31 +65,31 @@ func addSectionsToCache(sections []section.WithSigForward, authorities []ZoneCon
 	}
 }
 
-//shouldAssertionBeCached returns true if assertion should be cached
+// shouldAssertionBeCached returns true if assertion should be cached
 func shouldAssertionBeCached(assertion *section.Assertion) bool {
 	return len(assertion.Signatures) > 0
 }
 
-//shouldShardBeCached returns true if shard should be cached
+// shouldShardBeCached returns true if shard should be cached
 func shouldShardBeCached(shard *section.Shard) bool {
 	log.Info("Shard will be cached", "shard", shard)
 	return true
 }
 
-//shouldShardBeCached returns true if shard should be cached
+// shouldShardBeCached returns true if shard should be cached
 func shouldPshardBeCached(pshard *section.Pshard) bool {
 	log.Info("Shard will be cached", "shard", pshard)
 	return true
 }
 
-//shouldZoneBeCached returns true if zone should be cached
+// shouldZoneBeCached returns true if zone should be cached
 func shouldZoneBeCached(zone *section.Zone) bool {
 	log.Info("Zone will be cached", "zone", zone)
 	return true
 }
 
-//addAssertionToCache adds a to the assertion cache and to the public key cache in case a holds a
-//public key.
+// addAssertionToCache adds a to the assertion cache and to the public key cache in case a holds a
+// public key.
 func addAssertionToCache(a *section.Assertion, isAuthoritative bool, assertionsCache cache.Assertion,
 	zoneKeyCache cache.ZonePublicKey) {
 	assertionsCache.Add(a, a.ValidUntil(), isAuthoritative)
@@ -108,8 +108,8 @@ func addAssertionToCache(a *section.Assertion, isAuthoritative bool, assertionsC
 	}
 }
 
-//addShardToCache adds shard to the negAssertion cache and all contained assertions to the
-//assertionsCache.
+// addShardToCache adds shard to the negAssertion cache and all contained assertions to the
+// assertionsCache.
 func addShardToCache(shard *section.Shard, isAuthoritative bool, assertionsCache cache.Assertion,
 	negAssertionCache cache.NegativeAssertion, zoneKeyCache cache.ZonePublicKey) {
 	for _, assertion := range shard.Content {
@@ -122,15 +122,15 @@ func addShardToCache(shard *section.Shard, isAuthoritative bool, assertionsCache
 	log.Debug("Added shard to cache", "shard", *shard)
 }
 
-//addPshardToCache adds pshard to the negAssertion cache
+// addPshardToCache adds pshard to the negAssertion cache
 func addPshardToCache(pshard *section.Pshard, isAuthoritative bool, assertionsCache cache.Assertion,
 	negAssertionCache cache.NegativeAssertion, zoneKeyCache cache.ZonePublicKey) {
 	negAssertionCache.AddPshard(pshard, pshard.ValidUntil(), isAuthoritative)
 	log.Debug("Added pshard to cache", "pshard", *pshard)
 }
 
-//addZoneToCache adds zone and all contained shards to the negAssertion cache and all contained
-//assertions to the assertionCache.
+// addZoneToCache adds zone and all contained shards to the negAssertion cache and all contained
+// assertions to the assertionCache.
 func addZoneToCache(zone *section.Zone, isAuthoritative bool, assertionsCache cache.Assertion,
 	negAssertionCache cache.NegativeAssertion, zoneKeyCache cache.ZonePublicKey) {
 	for _, assertion := range zone.Content {

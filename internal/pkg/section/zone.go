@@ -14,7 +14,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
 
-//Zone contains information about the zone
+// Zone contains information about the zone
 type Zone struct {
 	Signatures  []signature.Sig
 	SubjectZone string
@@ -85,37 +85,37 @@ func (z *Zone) MarshalCBOR(w *cbor.CBORWriter) error {
 	return w.WriteIntMap(m)
 }
 
-//AllSigs returns the zone's signatures
+// AllSigs returns the zone's signatures
 func (z *Zone) AllSigs() []signature.Sig {
 	return z.Signatures
 }
 
-//Sigs returns z's signatures in keyspace
+// Sigs returns z's signatures in keyspace
 func (z *Zone) Sigs(keySpace keys.KeySpaceID) []signature.Sig {
 	return filterSigs(z.Signatures, keySpace)
 }
 
-//AddSig adds the given signature
+// AddSig adds the given signature
 func (z *Zone) AddSig(sig signature.Sig) {
 	z.Signatures = append(z.Signatures, sig)
 }
 
-//DeleteSig deletes ith signature
+// DeleteSig deletes ith signature
 func (z *Zone) DeleteSig(i int) {
 	z.Signatures = append(z.Signatures[:i], z.Signatures[i+1:]...)
 }
 
-//DeleteAllSigs deletes all signature
+// DeleteAllSigs deletes all signature
 func (z *Zone) DeleteAllSigs() {
 	z.Signatures = []signature.Sig{}
 }
 
-//GetContext returns the context of the zone
+// GetContext returns the context of the zone
 func (z *Zone) GetContext() string {
 	return z.Context
 }
 
-//GetSubjectZone returns the zone of the zone
+// GetSubjectZone returns the zone of the zone
 func (z *Zone) GetSubjectZone() string {
 	return z.SubjectZone
 }
@@ -133,44 +133,44 @@ func (z *Zone) RemoveCtxAndZoneFromContent() {
 	}
 }
 
-//Begin returns the begining of the interval of this zone.
+// Begin returns the begining of the interval of this zone.
 func (z *Zone) Begin() string {
 	return ""
 }
 
-//End returns the end of the interval of this zone.
+// End returns the end of the interval of this zone.
 func (z *Zone) End() string {
 	return ""
 }
 
-//UpdateValidity updates the validity of this zone if the validity period is extended.
-//It makes sure that the validity is never larger than maxValidity
+// UpdateValidity updates the validity of this zone if the validity period is extended.
+// It makes sure that the validity is never larger than maxValidity
 func (z *Zone) UpdateValidity(validSince, validUntil int64, maxValidity time.Duration) {
 	z.validSince, z.validUntil = UpdateValidity(validSince, validUntil, z.validSince, z.validUntil,
 		maxValidity)
 }
 
-//ValidSince returns the earliest validSince date of all contained signatures
+// ValidSince returns the earliest validSince date of all contained signatures
 func (z *Zone) ValidSince() int64 {
 	return z.validSince
 }
 
-//ValidUntil returns the latest validUntil date of all contained signatures
+// ValidUntil returns the latest validUntil date of all contained signatures
 func (z *Zone) ValidUntil() int64 {
 	return z.validUntil
 }
 
-//SetValidSince sets the validSince time
+// SetValidSince sets the validSince time
 func (z *Zone) SetValidSince(validSince int64) {
 	z.validSince = validSince
 }
 
-//SetValidUntil sets the validUntil time
+// SetValidUntil sets the validUntil time
 func (z *Zone) SetValidUntil(validUntil int64) {
 	z.validUntil = validUntil
 }
 
-//Hash returns a string containing all information uniquely identifying a shard.
+// Hash returns a string containing all information uniquely identifying a shard.
 func (z *Zone) Hash() string {
 	if z == nil {
 		return "Z_nil"
@@ -181,7 +181,7 @@ func (z *Zone) Hash() string {
 	return encoding.String()
 }
 
-//Sort sorts the content of the zone lexicographically.
+// Sort sorts the content of the zone lexicographically.
 func (z *Zone) Sort() {
 	for _, s := range z.Content {
 		s.Sort()
@@ -191,8 +191,8 @@ func (z *Zone) Sort() {
 	})
 }
 
-//CompareTo compares two zones and returns 0 if they are equal, 1 if z is greater than zone and -1
-//if z is smaller than zone
+// CompareTo compares two zones and returns 0 if they are equal, 1 if z is greater than zone and -1
+// if z is smaller than zone
 func (z *Zone) CompareTo(zone *Zone) int {
 	if z.SubjectZone < zone.SubjectZone {
 		return -1
@@ -215,7 +215,7 @@ func (z *Zone) CompareTo(zone *Zone) int {
 	return 0
 }
 
-//String implements Stringer interface
+// String implements Stringer interface
 func (z *Zone) String() string {
 	if z == nil {
 		return "Zone:nil"
@@ -224,7 +224,7 @@ func (z *Zone) String() string {
 		z.SubjectZone, z.Context, z.Content, z.Signatures)
 }
 
-//IsConsistent returns true if all contained assertions and shards are consistent
+// IsConsistent returns true if all contained assertions and shards are consistent
 func (z *Zone) IsConsistent() bool {
 	for _, section := range z.Content {
 		if sectionHasContextOrSubjectZone(section) {
@@ -235,7 +235,7 @@ func (z *Zone) IsConsistent() bool {
 	return true
 }
 
-//NeededKeys adds to keysNeeded key meta data which is necessary to verify all z's signatures.
+// NeededKeys adds to keysNeeded key meta data which is necessary to verify all z's signatures.
 func (z *Zone) NeededKeys(keysNeeded map[signature.MetaData]bool) {
 	extractNeededKeys(z, keysNeeded)
 	for _, section := range z.Content {

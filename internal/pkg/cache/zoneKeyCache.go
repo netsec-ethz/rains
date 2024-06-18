@@ -69,12 +69,12 @@ func NewZoneKey(maxSize, warnSize, maxKeysPerZone int) *ZoneKeyImpl {
 	}
 }
 
-//Add adds publicKey together with the assertion containing it to the cache. Returns false if
-//the cache exceeds a configured (during initialization of the cache) amount of entries. If the
-//cache is full it removes a public key according to some metric. The cache logs a message when
-//a zone has more than a certain (configurable) amount of public keys. (An external service can
-//then decide if it wants to blacklist a given zone). If the internal flag is set, the publicKey
-//will only be removed after it expired.
+// Add adds publicKey together with the assertion containing it to the cache. Returns false if
+// the cache exceeds a configured (during initialization of the cache) amount of entries. If the
+// cache is full it removes a public key according to some metric. The cache logs a message when
+// a zone has more than a certain (configurable) amount of public keys. (An external service can
+// then decide if it wants to blacklist a given zone). If the internal flag is set, the publicKey
+// will only be removed after it expired.
 func (c *ZoneKeyImpl) Add(assertion *section.Assertion, publicKey keys.PublicKey, internal bool) bool {
 	log.Info("Adding key to cache", "publicKey", publicKey, "assertion", assertion)
 	subjectName := assertion.FQDN()
@@ -136,8 +136,8 @@ func (c *ZoneKeyImpl) Add(assertion *section.Assertion, publicKey keys.PublicKey
 	return c.counter.Value() < c.warnSize
 }
 
-//Get returns true and a valid public key matching zone and publicKeyID. It returns false if
-//there exists no valid public key in the cache.
+// Get returns true and a valid public key matching zone and publicKeyID. It returns false if
+// there exists no valid public key in the cache.
 func (c *ZoneKeyImpl) Get(zone, context string, sigMetaData signature.MetaData) (
 	keys.PublicKey, *section.Assertion, bool) {
 	e, ok := c.cache.Get(fmt.Sprintf("%s,%s,%d,%d", zone, context, sigMetaData.Algorithm, sigMetaData.KeyPhase))
@@ -157,7 +157,7 @@ func (c *ZoneKeyImpl) Get(zone, context string, sigMetaData signature.MetaData) 
 	return keys.PublicKey{}, nil, false
 }
 
-//RemoveExpiredKeys deletes all expired public keys from the cache.
+// RemoveExpiredKeys deletes all expired public keys from the cache.
 func (c *ZoneKeyImpl) RemoveExpiredKeys() {
 	values := c.cache.GetAll()
 	for _, value := range values {
@@ -183,7 +183,7 @@ func (c *ZoneKeyImpl) RemoveExpiredKeys() {
 	}
 }
 
-//Checkpoint returns all cached assertions
+// Checkpoint returns all cached assertions
 func (c *ZoneKeyImpl) Checkpoint() (assertions []section.Section) {
 	entries := c.cache.GetAll()
 	for _, e := range entries {
@@ -195,7 +195,7 @@ func (c *ZoneKeyImpl) Checkpoint() (assertions []section.Section) {
 	return
 }
 
-//Len returns the number of public keys currently in the cache.
+// Len returns the number of public keys currently in the cache.
 func (c *ZoneKeyImpl) Len() int {
 	return c.counter.Value()
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/signature"
 )
 
-//Section can be either an Assertion, Shard, Zone, Query, Notification, AddressAssertion, AddressZone, AddressQuery section
+// Section can be either an Assertion, Shard, Zone, Query, Notification, AddressAssertion, AddressZone, AddressQuery section
 type Section interface {
 	Sort()
 	String() string
@@ -17,8 +17,8 @@ type Section interface {
 	UnmarshalMap(m map[int]interface{}) error
 }
 
-//WithSig is an interface for a section protected by a signature. In the current
-//implementation it can be an Assertion, Shard, Zone, AddressAssertion, AddressZone
+// WithSig is an interface for a section protected by a signature. In the current
+// implementation it can be an Assertion, Shard, Zone, AddressAssertion, AddressZone
 type WithSig interface {
 	Section
 	AllSigs() []signature.Sig
@@ -40,20 +40,20 @@ type WithSig interface {
 	DontAddSigInMarshaller()
 }
 
-//WithSigForward can be either an Assertion, Shard or Zone
+// WithSigForward can be either an Assertion, Shard or Zone
 type WithSigForward interface {
 	WithSig
 	Interval
 }
 
-//Query is the interface for a query section. In the current implementation it can be
-//a query or an addressQuery
+// Query is the interface for a query section. In the current implementation it can be
+// a query or an addressQuery
 type Query interface {
 	GetContext() string
 	GetExpiration() int64
 }
 
-//Interval defines an interval over strings
+// Interval defines an interval over strings
 type Interval interface {
 	//Begin of the interval
 	Begin() string
@@ -61,8 +61,8 @@ type Interval interface {
 	End() string
 }
 
-//Hasher can be implemented by objects that are not natively hashable.
-//For an object to be a map key (or a part thereof), it must be hashable.
+// Hasher can be implemented by objects that are not natively hashable.
+// For an object to be a map key (or a part thereof), it must be hashable.
 type Hasher interface {
 	//Hash must return a string uniquely identifying the object
 	//It must hold for all objects that o1 == o2 iff o1.Hash() == o2.Hash()

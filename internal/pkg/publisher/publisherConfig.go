@@ -8,8 +8,8 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
 
-//Config lists configurations for publishing zone information, see zonepub flag description for
-//detail.
+// Config lists configurations for publishing zone information, see zonepub flag description for
+// detail.
 type Config struct {
 	ZonefilePath    string
 	AuthServers     []connection.Info
@@ -24,7 +24,7 @@ type Config struct {
 	DoPublish       bool
 }
 
-//ShardingConfig contains configuration options on how to split a zone into shards.
+// ShardingConfig contains configuration options on how to split a zone into shards.
 type ShardingConfig struct {
 	KeepShards            bool
 	DoSharding            bool
@@ -32,7 +32,7 @@ type ShardingConfig struct {
 	MaxShardSize          int
 }
 
-//PShardingConfig contains configuration options on how to split a zone into probabilistic shards.
+// PShardingConfig contains configuration options on how to split a zone into probabilistic shards.
 type PShardingConfig struct {
 	KeepPshards            bool
 	DoPsharding            bool
@@ -40,15 +40,15 @@ type PShardingConfig struct {
 	BloomFilterConf        BloomFilterConfig
 }
 
-//BloomFilterConfig specifies the bloom filter's meta data
+// BloomFilterConfig specifies the bloom filter's meta data
 type BloomFilterConfig struct {
 	BFAlgo          section.BloomFilterAlgo
 	BFHash          algorithmTypes.Hash
 	BloomFilterSize int
 }
 
-//MetaDataConfig determines how the signature meta data is generated and to which section(s) it is
-//added.
+// MetaDataConfig determines how the signature meta data is generated and to which section(s) it is
+// added.
 type MetaDataConfig struct {
 	AddSignatureMetaData       bool
 	AddSigMetaDataToAssertions bool
@@ -61,7 +61,7 @@ type MetaDataConfig struct {
 	SigSigningInterval         time.Duration
 }
 
-//ConsistencyConfig determines which consistency checks are performed prior to signing.
+// ConsistencyConfig determines which consistency checks are performed prior to signing.
 type ConsistencyConfig struct {
 	DoConsistencyCheck bool
 	SortShards         bool
@@ -70,7 +70,7 @@ type ConsistencyConfig struct {
 	CheckStringFields  bool
 }
 
-//DefaultConfig return the default configuration for the zone publisher.
+// DefaultConfig return the default configuration for the zone publisher.
 func DefaultConfig() Config {
 	return Config{
 		ZonefilePath:   "data/zonefiles/zf.txt",

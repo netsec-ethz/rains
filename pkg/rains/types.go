@@ -25,7 +25,7 @@ const (
 	OTScionAddr
 )
 
-//AllTypes returns all object types
+// AllTypes returns all object types
 func AllTypes() []Type {
 	return []Type{OTName, OTIP6Addr, OTIP4Addr, OTRedirection,
 		OTDelegation, OTNameset, OTCertInfo, OTServiceInfo,

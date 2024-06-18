@@ -16,7 +16,7 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
-//Options
+// Options
 var port = flag.UintP("port", "p", 55553,
 	"is the port number that rdig will send its queries to.")
 var keyPhase = flag.IntP("keyphase", "k", 0,
@@ -30,7 +30,7 @@ var insecureTLS = flag.BoolP("insecureTLS", "i", false,
 var tok = flag.StringP("token", "t", "",
 	"specifies a token to be used in the query instead of using a randomly generated one.")
 
-//Query Options
+// Query Options
 var minEE = flag.BoolP("minEE", "1", false, "Query option: Minimize end-to-end latency")
 var minAS = flag.BoolP("minAS", "2", false, "Query option: Minimize last-hop answer size (bandwidth)")
 var minIL = flag.BoolP("minIL", "3", false, "Query option: Minimize information leakage beyond first hop")
@@ -116,8 +116,8 @@ func parseAllQueryOptions() []query.Option {
 	return qOptions
 }
 
-//handleArgs stores the cmd line argument with prefix '@' in srvAddr and additional arguments in
-//name and qType. It returns false when no name was specified
+// handleArgs stores the cmd line argument with prefix '@' in srvAddr and additional arguments in
+// name and qType. It returns false when no name was specified
 func handleArgs(srvAddr, name *string, args ...string) (types []object.Type, noName bool) {
 	nameSet := false
 	typeMap := make(map[object.Type]bool)

@@ -22,7 +22,7 @@ const (
 	rainsSrvPrefix = "_rains."
 )
 
-//processQuery processes msgSender containing a query section
+// processQuery processes msgSender containing a query section
 func (s *Server) processQuery(msgSender util.MsgSectionSender) {
 	queries := []*query.Name{}
 	for _, sec := range msgSender.Sections {
@@ -42,7 +42,7 @@ func (s *Server) processQuery(msgSender util.MsgSectionSender) {
 	}
 }
 
-//answerQueryCachingResolver is how a caching resolver answers queries
+// answerQueryCachingResolver is how a caching resolver answers queries
 func answerQueriesCachingResolver(ss util.MsgSectionSender, s *Server) {
 	log.Info("Start processing query as cr", "queries", ss.Sections)
 	queries := []*query.Name{}
@@ -85,7 +85,7 @@ func answerQueriesCachingResolver(ss util.MsgSectionSender, s *Server) {
 	}
 }
 
-//answerQueryAuthoritative is how an authoritative server answers queries
+// answerQueryAuthoritative is how an authoritative server answers queries
 func answerQueriesAuthoritative(qs []*query.Name, sender net.Addr, token token.Token, s *Server) {
 	log.Info("Start processing query as authority", "queries", qs)
 	for _, q := range qs {
@@ -129,7 +129,7 @@ func answerQueriesAuthoritative(qs []*query.Name, sender net.Addr, token token.T
 		"sections", sections)
 }
 
-//cacheLookup answers q with a cached entry if there is one. True is returned in case of a cache hit
+// cacheLookup answers q with a cached entry if there is one. True is returned in case of a cache hit
 func cacheLookup(q *query.Name, sender net.Addr, token token.Token, s *Server) []section.Section {
 	assertions := assertionCacheLookup(q, s)
 	if len(assertions) > 0 {
@@ -194,8 +194,8 @@ func filterAnswer(sections []section.WithSigForward) (answer []section.Section) 
 	return
 }
 
-//glueRecordNames returns the unique names for which glue records should be looked up based on qs.
-//It assumes that the names of all delegates do not contain a dot '.'.
+// glueRecordNames returns the unique names for which glue records should be looked up based on qs.
+// It assumes that the names of all delegates do not contain a dot '.'.
 func glueRecordNames(qs []*query.Name, zoneAuths []ZoneContext) map[ZoneContext]bool {
 	result := make(map[ZoneContext]bool)
 	for _, q := range qs {
