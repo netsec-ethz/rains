@@ -41,10 +41,10 @@ func SetDefaultPath(addr *snet.UDPAddr) error {
 // QueryPaths queries the DefNetwork's sciond PathQuerier connection for paths to addr
 // If addr is in the local IA, an empty slice and no error is returned.
 func QueryPaths(ia addr.IA) ([]snet.Path, error) {
-	if ia == DefNetwork().IA {
+	if ia == Host().IA {
 		return nil, nil
 	} else {
-		paths, err := DefNetwork().PathQuerier.Query(context.Background(), ia)
+		paths, err := queryPaths(context.TODO(), ia)
 		if err != nil || len(paths) == 0 {
 			return nil, err
 		}
