@@ -18,7 +18,7 @@ var (
 	testDomain          = "example.com"
 )
 
-//AllObjects returns all objects with valid content
+// AllObjects returns all objects with valid content
 func AllObjects() []Object {
 	ip6Object := Object{Type: OTIP6Addr, Value: ip6TestAddr}
 	ip4Object := Object{Type: OTIP4Addr, Value: ip4TestAddr}
@@ -40,7 +40,7 @@ func AllObjects() []Object {
 		registrantObject, infraObject, extraObject, nextKey, scionip6Object, scionip4Object}
 }
 
-//NameObject returns a name object with valid content
+// NameObject returns a name object with valid content
 func NameObject() Object {
 	nameObjectContent := Name{
 		Name:  testDomain,
@@ -49,7 +49,7 @@ func NameObject() Object {
 	return Object{Type: OTName, Value: nameObjectContent}
 }
 
-//Certificate returns a certificate object with valid content
+// Certificate returns a certificate object with valid content
 func CertificateObject() Object {
 	certificate := Certificate{
 		Type:     PTTLS,
@@ -60,7 +60,7 @@ func CertificateObject() Object {
 	return Object{Type: OTCertInfo, Value: certificate}
 }
 
-//ServiceObject returns a service information object with valid content
+// ServiceObject returns a service information object with valid content
 func ServiceObject() Object {
 	serviceInfo := ServiceInfo{
 		Name:     "srvName",
@@ -70,7 +70,7 @@ func ServiceObject() Object {
 	return Object{Type: OTServiceInfo, Value: serviceInfo}
 }
 
-//PublicKey returns a public key with a freshly generated public key and valid content
+// PublicKey returns a public key with a freshly generated public key and valid content
 func PublicKey() keys.PublicKey {
 	pubKey, _, _ := ed25519.GenerateKey(nil)
 	return keys.PublicKey{

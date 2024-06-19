@@ -10,7 +10,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
-//TODO make compatible with new pendingQueryCache
+// TODO make compatible with new pendingQueryCache
 func TestPendingQueryCache(t *testing.T) {
 	mss, _ := getQueries()
 	var tests = []struct {

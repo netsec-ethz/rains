@@ -9,7 +9,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
-//Config lists possible configurations of a rains server
+// Config lists possible configurations of a rains server
 type Config struct {
 	//general
 	RootZonePublicKeyPath          string
@@ -58,7 +58,7 @@ type Config struct {
 	ReapPendingQCacheInterval     time.Duration         //in seconds
 }
 
-//DefaultConfig return the default configuration for the zone publisher.
+// DefaultConfig return the default configuration for the zone publisher.
 func DefaultConfig() Config {
 	serverAddr, _ := net.ResolveTCPAddr("", "127.0.0.1:55553")
 	return Config{

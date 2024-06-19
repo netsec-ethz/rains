@@ -105,7 +105,7 @@ func mockServer(tcpAddr string, t *testing.T) {
 	}
 }
 
-//handleConn responds with the same message as received
+// handleConn responds with the same message as received
 func handleConn(c net.Conn) {
 	input := bufio.NewScanner(c)
 	for input.Scan() {

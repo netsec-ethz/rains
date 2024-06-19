@@ -10,7 +10,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/message"
 )
 
-//connCacheValue is the value pointed to by the hash map in the ConnectionImpl
+// connCacheValue is the value pointed to by the hash map in the ConnectionImpl
 type connCacheValue struct {
 	connections  []net.Conn
 	capabilities []message.Capability
@@ -39,7 +39,7 @@ func networkAddr(addr net.Addr) string {
 	return fmt.Sprintf("%s %s", addr.Network(), addr.String())
 }
 
-//AddConnection adds conn to the cache. If the cache is full the least recently used connection is removed.
+// AddConnection adds conn to the cache. If the cache is full the least recently used connection is removed.
 func (c *ConnectionImpl) AddConnection(conn net.Conn) {
 	v := &connCacheValue{connections: []net.Conn{}}
 	e, _ := c.cache.GetOrAdd(networkAddr(conn.RemoteAddr()), v, false)
@@ -72,9 +72,9 @@ func (c *ConnectionImpl) AddConnection(conn net.Conn) {
 	}
 }
 
-//AddCapability adds capabilities to the destAddr entry. It returns false if there is no entry in
-//the cache for dstAddr. If there is already a capability list associated with destAddr, it will be
-//overwritten.
+// AddCapability adds capabilities to the destAddr entry. It returns false if there is no entry in
+// the cache for dstAddr. If there is already a capability list associated with destAddr, it will be
+// overwritten.
 func (c *ConnectionImpl) AddCapabilityList(dstAddr net.Addr, capabilities []message.Capability) bool {
 	if e, ok := c.cache.Get(networkAddr(dstAddr)); ok {
 		v := e.(*connCacheValue)
@@ -89,8 +89,8 @@ func (c *ConnectionImpl) AddCapabilityList(dstAddr net.Addr, capabilities []mess
 	return false
 }
 
-//GetConnection returns true and all cached connection objects to dstAddr.
-//GetConnection returns false if there is no cached connection to dstAddr.
+// GetConnection returns true and all cached connection objects to dstAddr.
+// GetConnection returns false if there is no cached connection to dstAddr.
 func (c *ConnectionImpl) GetConnection(dstAddr net.Addr) ([]net.Conn, bool) {
 	if e, ok := c.cache.Get(networkAddr(dstAddr)); ok {
 		v := e.(*connCacheValue)
@@ -104,8 +104,8 @@ func (c *ConnectionImpl) GetConnection(dstAddr net.Addr) ([]net.Conn, bool) {
 	return nil, false
 }
 
-//Get returns true and the capability list of dstAddr.
-//Get returns false if there is no capability list of dstAddr.
+// Get returns true and the capability list of dstAddr.
+// Get returns false if there is no capability list of dstAddr.
 func (c *ConnectionImpl) GetCapabilityList(dstAddr net.Addr) ([]message.Capability, bool) {
 	if e, ok := c.cache.Get(networkAddr(dstAddr)); ok {
 		v := e.(*connCacheValue)
@@ -119,7 +119,7 @@ func (c *ConnectionImpl) GetCapabilityList(dstAddr net.Addr) ([]message.Capabili
 	return nil, false
 }
 
-//CloseAndRemoveConnection closes conn and removes it from the cache
+// CloseAndRemoveConnection closes conn and removes it from the cache
 func (c *ConnectionImpl) CloseAndRemoveConnection(conn net.Conn) {
 	conn.Close()
 	if e, ok := c.cache.Get(networkAddr(conn.RemoteAddr())); ok {
@@ -143,7 +143,7 @@ func (c *ConnectionImpl) CloseAndRemoveConnection(conn net.Conn) {
 	}
 }
 
-//CloseAndRemoveConnections closes all cached connections to addr and removes them from the cache
+// CloseAndRemoveConnections closes all cached connections to addr and removes them from the cache
 func (c *ConnectionImpl) CloseAndRemoveConnections(addr net.Addr) {
 	if e, ok := c.cache.Get(networkAddr(addr)); ok {
 		v := e.(*connCacheValue)
@@ -160,7 +160,7 @@ func (c *ConnectionImpl) CloseAndRemoveConnections(addr net.Addr) {
 	}
 }
 
-//CloseAndRemoveAllConnections closes all cached connections and removes them from the cache
+// CloseAndRemoveAllConnections closes all cached connections and removes them from the cache
 func (c *ConnectionImpl) CloseAndRemoveAllConnections() {
 	for _, e := range c.cache.GetAll() {
 		v := e.(*connCacheValue)

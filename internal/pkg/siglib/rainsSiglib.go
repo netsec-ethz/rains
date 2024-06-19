@@ -21,8 +21,8 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
-//CheckSectionSignatures verifies all signatures on s and its content. It assumes that s is sorted.
-//Expired signatures are removed. Returns true if all non expired signatures are correct.
+// CheckSectionSignatures verifies all signatures on s and its content. It assumes that s is sorted.
+// Expired signatures are removed. Returns true if all non expired signatures are correct.
 func CheckSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys.PublicKey,
 	maxVal util.MaxCacheValidity) bool {
 	s.DontAddSigInMarshaller()
@@ -51,9 +51,9 @@ func CheckSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 	return true
 }
 
-//checkSectionSignatures verifies all signatures on the section (but not signatures on the section's
-//content). It assumes that the section is sorted. Expired signatures are removed. Returns true if
-//all non expired signatures are correct.
+// checkSectionSignatures verifies all signatures on the section (but not signatures on the section's
+// content). It assumes that the section is sorted. Expired signatures are removed. Returns true if
+// all non expired signatures are correct.
 func checkSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys.PublicKey,
 	maxVal util.MaxCacheValidity) bool {
 	log.Debug(fmt.Sprintf("Check %T signature", s), "section", s)
@@ -105,9 +105,9 @@ func checkSectionSignatures(s section.WithSig, pkeys map[keys.PublicKeyID][]keys
 	return len(s.Sigs(keys.RainsKeySpace)) > 0
 }
 
-//SignSectionUnsafe signs a section and all contained assertions with the given private Key and
-//adds the resulting bytestring to the given signatures. s must be sorted. It does not check the
-//validity of s or sig. Returns false if the signature was not added to the section.
+// SignSectionUnsafe signs a section and all contained assertions with the given private Key and
+// adds the resulting bytestring to the given signatures. s must be sorted. It does not check the
+// validity of s or sig. Returns false if the signature was not added to the section.
 func SignSectionUnsafe(s section.WithSig, ks map[keys.PublicKeyID]interface{}) error {
 	s.DontAddSigInMarshaller()
 	if err := signSectionUnsafe(s, ks); err != nil {
@@ -139,10 +139,10 @@ func SignSectionUnsafe(s section.WithSig, ks map[keys.PublicKeyID]interface{}) e
 	return nil
 }
 
-//signSectionUnsafe signs a section with the given private Key and adds the resulting bytestring to
-//the given signatures. It assumes that s is sorted, the sign flag is set to true, and contained
-//assertions have a non-empty zone and context values. It does not check the validity of s or sig.
-//Returns false if it was not able to sign all signatures
+// signSectionUnsafe signs a section with the given private Key and adds the resulting bytestring to
+// the given signatures. It assumes that s is sorted, the sign flag is set to true, and contained
+// assertions have a non-empty zone and context values. It does not check the validity of s or sig.
+// Returns false if it was not able to sign all signatures
 func signSectionUnsafe(s section.WithSig, ks map[keys.PublicKeyID]interface{}) error {
 	encoding := new(bytes.Buffer)
 	if err := s.MarshalCBOR(cbor.NewCBORWriter(encoding)); err != nil {
@@ -160,9 +160,9 @@ func signSectionUnsafe(s section.WithSig, ks map[keys.PublicKeyID]interface{}) e
 	return nil
 }
 
-//ValidSectionAndSignature returns true if the section is not nil, all the signatures ValidUntil are
-//in the future, the string fields do not contain  <whitespace>:<non whitespace>:<whitespace>, and
-//the section's content is sorted (by sorting it).
+// ValidSectionAndSignature returns true if the section is not nil, all the signatures ValidUntil are
+// in the future, the string fields do not contain  <whitespace>:<non whitespace>:<whitespace>, and
+// the section's content is sorted (by sorting it).
 func ValidSectionAndSignature(s section.WithSig) bool {
 	log.Debug("Validating section and signature before signing")
 	if s == nil {
@@ -179,8 +179,8 @@ func ValidSectionAndSignature(s section.WithSig) bool {
 	return true
 }
 
-//CheckSignatureNotExpired returns true if s is nil or all the signatures ValidUntil are in the
-//future
+// CheckSignatureNotExpired returns true if s is nil or all the signatures ValidUntil are in the
+// future
 func CheckSignatureNotExpired(s section.WithSig) bool {
 	if s == nil {
 		return true
@@ -194,9 +194,9 @@ func CheckSignatureNotExpired(s section.WithSig) bool {
 	return true
 }
 
-//checkMessageStringFields returns true if the capabilities and all string fields in the contained
-//sections of the given message do not contain a zone file type marker, i.e. not a substring
-//matching regrex expression '\s:\S+:\s'
+// checkMessageStringFields returns true if the capabilities and all string fields in the contained
+// sections of the given message do not contain a zone file type marker, i.e. not a substring
+// matching regrex expression '\s:\S+:\s'
 func checkMessageStringFields(msg *message.Message) bool {
 	if msg == nil || !checkCapabilities(msg.Capabilities) {
 		return false
@@ -209,8 +209,8 @@ func checkMessageStringFields(msg *message.Message) bool {
 	return true
 }
 
-//CheckStringFields returns true if non of the string fields of the given section contain a zone
-//file type marker. It panics if the interface s contains a type but the interfaces value is nil
+// CheckStringFields returns true if non of the string fields of the given section contain a zone
+// file type marker. It panics if the interface s contains a type but the interfaces value is nil
 func CheckStringFields(s section.Section) bool {
 	switch s := s.(type) {
 	case *section.Assertion:
@@ -335,7 +335,7 @@ func checkCapabilities(caps []message.Capability) bool {
 	return true
 }
 
-//containsZoneFileType returns true if input contains a zone file type definition expression
+// containsZoneFileType returns true if input contains a zone file type definition expression
 func containsZoneFileType(input string) bool {
 	re := regexp.MustCompile("\\s:\\S+:\\s|^:\\S+:\\s|\\s:\\S+:$|^:\\S+:$")
 	if re.FindString(input) != "" {
@@ -354,7 +354,7 @@ func getPublicKey(pkeys []keys.PublicKey, sigMetaData signature.MetaData) (keys.
 	return keys.PublicKey{}, false
 }
 
-//updateSectionValidity updates the validity of the section according to the signature validity and the publicKey validity used to verify this signature
+// updateSectionValidity updates the validity of the section according to the signature validity and the publicKey validity used to verify this signature
 func updateSectionValidity(sec section.WithSig, pkeyValidSince, pkeyValidUntil, sigValidSince,
 	sigValidUntil int64, maxVal util.MaxCacheValidity) {
 	if sec != nil {

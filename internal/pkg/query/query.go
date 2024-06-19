@@ -9,7 +9,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/object"
 )
 
-//Name contains information about the query
+// Name contains information about the query
 type Name struct {
 	Context     string
 	Name        string
@@ -95,22 +95,22 @@ func (q *Name) MarshalCBOR(w *cbor.CBORWriter) error {
 	return w.WriteIntMap(m)
 }
 
-//GetContext returns q's context
+// GetContext returns q's context
 func (q *Name) GetContext() string {
 	return q.Context
 }
 
-//GetExpiration returns q's expiration
+// GetExpiration returns q's expiration
 func (q *Name) GetExpiration() int64 {
 	return q.Expiration
 }
 
-//ContainsOption returns true if the query contains the given query option.
+// ContainsOption returns true if the query contains the given query option.
 func (q *Name) ContainsOption(option Option) bool {
 	return containsOption(option, q.Options)
 }
 
-//containsOption return true if option is contained in options
+// containsOption return true if option is contained in options
 func containsOption(option Option, options []Option) bool {
 	for _, opt := range options {
 		if opt == option {
@@ -120,13 +120,13 @@ func containsOption(option Option, options []Option) bool {
 	return false
 }
 
-//Sort sorts the content of the query lexicographically.
+// Sort sorts the content of the query lexicographically.
 func (q *Name) Sort() {
 	sort.Slice(q.Options, func(i, j int) bool { return q.Options[i] < q.Options[j] })
 }
 
-//CompareTo compares two queries and returns 0 if they are equal, 1 if q is greater than query and
-//-1 if q is smaller than query
+// CompareTo compares two queries and returns 0 if they are equal, 1 if q is greater than query and
+// -1 if q is smaller than query
 func (q *Name) CompareTo(query *Name) int {
 	if q.Context < query.Context {
 		return -1
@@ -176,7 +176,7 @@ func (q *Name) CompareTo(query *Name) int {
 	return 0
 }
 
-//String implements Stringer interface
+// String implements Stringer interface
 func (q *Name) String() string {
 	if q == nil {
 		return "Query:nil"
@@ -185,7 +185,7 @@ func (q *Name) String() string {
 		q.Context, q.Name, q.Types, q.Expiration, q.Options, q.CurrentTime, q.KeyPhase)
 }
 
-//Option enables a client or server to specify performance/privacy tradeoffs
+// Option enables a client or server to specify performance/privacy tradeoffs
 type Option int
 
 //go:generate stringer -type=Option

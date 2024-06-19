@@ -18,22 +18,22 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
 )
 
-//Rainspub represents the publishing process of a zone authority. It can be configured to do
-//anything from just one step to the whole process of publishing information to the zone's
-//authoritative servers.
+// Rainspub represents the publishing process of a zone authority. It can be configured to do
+// anything from just one step to the whole process of publishing information to the zone's
+// authoritative servers.
 type Rainspub struct {
 	Config Config
 }
 
-//New creates a Rainspub instance and returns a pointer to it.
+// New creates a Rainspub instance and returns a pointer to it.
 func New(config Config) *Rainspub {
 	return &Rainspub{
 		Config: config,
 	}
 }
 
-//Publish performs various tasks of a zone's publishing process to rains servers according to its
-//configuration. This implementation assumes that there is exactly one zone per zonefile.
+// Publish performs various tasks of a zone's publishing process to rains servers according to its
+// configuration. This implementation assumes that there is exactly one zone per zonefile.
 func (r *Rainspub) Publish() error {
 	encoder := zonefile.IO{}
 	zoneContent, err := encoder.LoadZonefile(r.Config.ZonefilePath)
@@ -91,8 +91,8 @@ func (r *Rainspub) Publish() error {
 	return nil
 }
 
-//splitZoneContent returns assertions, pshards and shards contained in zone as three separate
-//slices.
+// splitZoneContent returns assertions, pshards and shards contained in zone as three separate
+// slices.
 func splitZoneContent(zoneContent []section.WithSigForward, keepShards, keepPshards bool) (
 	*section.Zone, []*section.Shard, []*section.Pshard, error) {
 	shards := []*section.Shard{}
@@ -120,7 +120,7 @@ func splitZoneContent(zoneContent []section.WithSigForward, keepShards, keepPsha
 	return zone, shards, pshards, nil
 }
 
-//DoSharding creates shards based on the zone's content and config.
+// DoSharding creates shards based on the zone's content and config.
 func DoSharding(zone, ctx string, assertions []*section.Assertion, shards []*section.Shard,
 	config ShardingConfig, sortAssertions bool) ([]*section.Shard, error) {
 	var newShards []*section.Shard
@@ -143,7 +143,7 @@ func DoSharding(zone, ctx string, assertions []*section.Assertion, shards []*sec
 	return newShards, nil
 }
 
-//DoPsharding creates pshards based on the zone's content and config.
+// DoPsharding creates pshards based on the zone's content and config.
 func DoPsharding(zone, ctx string, assertions []*section.Assertion,
 	pshards []*section.Pshard, conf PShardingConfig, sortAssertions bool) ([]*section.Pshard, error) {
 	if sortAssertions {
@@ -162,8 +162,8 @@ func DoPsharding(zone, ctx string, assertions []*section.Assertion,
 	return newPshards, nil
 }
 
-//groupAssertionsToShardsBySize groups assertions into shards such that each shard is not exceeding
-//maxSize. It returns a slice of the created shards.
+// groupAssertionsToShardsBySize groups assertions into shards such that each shard is not exceeding
+// maxSize. It returns a slice of the created shards.
 func groupAssertionsToShardsBySize(subjectZone, context string, assertions []*section.Assertion,
 	config ShardingConfig) ([]*section.Shard, error) {
 	encoder := zonefile.IO{}
@@ -200,8 +200,8 @@ func groupAssertionsToShardsBySize(subjectZone, context string, assertions []*se
 	return shards, nil
 }
 
-//groupAssertionByName returns a slice where each entry is a slice of assertions having the same
-//subject name.
+// groupAssertionByName returns a slice where each entry is a slice of assertions having the same
+// subject name.
 func groupAssertionByName(assertions []*section.Assertion,
 	config ShardingConfig) [][]*section.Assertion {
 	var output [][]*section.Assertion
@@ -217,8 +217,8 @@ func groupAssertionByName(assertions []*section.Assertion,
 	return output
 }
 
-//groupAssertionsToShardsByNumber creates shards containing a maximum number of different assertion
-//names according to the configuration. It returns a slice of the created shards.
+// groupAssertionsToShardsByNumber creates shards containing a maximum number of different assertion
+// names according to the configuration. It returns a slice of the created shards.
 func groupAssertionsToShardsByNumber(subjectZone, context string,
 	assertions []*section.Assertion, config ShardingConfig) []*section.Shard {
 	shards := []*section.Shard{}
@@ -248,8 +248,8 @@ func groupAssertionsToShardsByNumber(subjectZone, context string,
 	return shards
 }
 
-//groupAssertionsToShardsByNumber creates shards containing a maximum number of different assertion
-//names according to the configuration. It returns a slice of the created shards.
+// groupAssertionsToShardsByNumber creates shards containing a maximum number of different assertion
+// names according to the configuration. It returns a slice of the created shards.
 func groupAssertionsToPshards(subjectZone, context string, assertions []*section.Assertion,
 	config PShardingConfig) ([]*section.Pshard, error) {
 	pshards := []*section.Pshard{}
@@ -284,7 +284,7 @@ func groupAssertionsToPshards(subjectZone, context string, assertions []*section
 	return pshards, nil
 }
 
-//newBloomFilter returns a newly created bloom filter of the given
+// newBloomFilter returns a newly created bloom filter of the given
 func newPshard(subjectZone, context string, config BloomFilterConfig) *section.Pshard {
 	var size int
 	if config.BloomFilterSize%8 == 0 {
@@ -303,7 +303,7 @@ func newPshard(subjectZone, context string, config BloomFilterConfig) *section.P
 	}
 }
 
-//addSignatureMetaData adds signature meta data to the section based on the configuration.
+// addSignatureMetaData adds signature meta data to the section based on the configuration.
 func addSignatureMetaData(zone *section.Zone, shards []*section.Shard, pshards []*section.Pshard,
 	config MetaDataConfig) {
 	signature := signature.Sig{
@@ -352,7 +352,7 @@ func addSignatureMetaData(zone *section.Zone, shards []*section.Shard, pshards [
 	}
 }
 
-//isConsistent performs the checks specified in config
+// isConsistent performs the checks specified in config
 func isConsistent(zone *section.Zone, shards []*section.Shard, pshards []*section.Pshard,
 	config ConsistencyConfig) bool {
 	if !doConsistencyCheck(zone, config) {
@@ -371,7 +371,7 @@ func isConsistent(zone *section.Zone, shards []*section.Shard, pshards []*sectio
 	return true
 }
 
-//doConsistencyCheck returns true if section is consistent
+// doConsistencyCheck returns true if section is consistent
 func doConsistencyCheck(section section.WithSigForward, config ConsistencyConfig) bool {
 	if config.DoConsistencyCheck {
 		if !siglib.ValidSectionAndSignature(section) {
@@ -420,8 +420,8 @@ func signZoneContent(zone *section.Zone, shards []*section.Shard, pshards []*sec
 	return nil
 }
 
-//publishZone publishes the zone's content either to the specified authoritative servers or to a
-//file in zonefile format.
+// publishZone publishes the zone's content either to the specified authoritative servers or to a
+// file in zonefile format.
 func (r *Rainspub) publishZone(zoneContent []section.Section) {
 	if r.Config.DoPublish {
 		//TODO check if zone is not too large. If it is, split it up and send
@@ -441,9 +441,9 @@ func (r *Rainspub) publishZone(zoneContent []section.Section) {
 	}
 }
 
-//publishSections establishes connections to all authoritative servers according to the r.Config. It
-//then sends sections to all of them. It returns the connection information of those servers it was
-//not able to push sections, otherwise nil is returned.
+// publishSections establishes connections to all authoritative servers according to the r.Config. It
+// then sends sections to all of them. It returns the connection information of those servers it was
+// not able to push sections, otherwise nil is returned.
 func (r *Rainspub) publishSections(msg message.Message) []net.Addr {
 	results := make(chan net.Addr, len(r.Config.AuthServers))
 	for _, info := range r.Config.AuthServers {

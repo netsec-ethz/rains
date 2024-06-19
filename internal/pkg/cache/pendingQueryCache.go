@@ -15,13 +15,13 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
-//pqcValue contains sectionSender objets waiting for a query answer to arrive until expiration.
+// pqcValue contains sectionSender objets waiting for a query answer to arrive until expiration.
 type pqcValue struct {
 	sss        []util.MsgSectionSender
 	expiration int64
 }
 
-//pqcKey returns a unique string representation of sections. Sections MUST only contain queries
+// pqcKey returns a unique string representation of sections. Sections MUST only contain queries
 func pqcKey(sections []section.Section) (string, error) {
 	result := []string{}
 	for _, q := range sections {
@@ -59,9 +59,9 @@ func NewPendingQuery(maxSize int) *PendingQueryImpl {
 	}
 }
 
-//Add checks if this server has already forwarded a msg containing the same queries as ss. If
-//this is the case, ss is added to the cache and false is returned. If not, ss is added together
-//with t and expiration to the cache and true is returned.
+// Add checks if this server has already forwarded a msg containing the same queries as ss. If
+// this is the case, ss is added to the cache and false is returned. If not, ss is added together
+// with t and expiration to the cache and true is returned.
 func (c *PendingQueryImpl) Add(ss util.MsgSectionSender, t token.Token, expiration int64) bool {
 	c.qmux.Lock()
 	c.tmux.Lock()
@@ -90,8 +90,8 @@ func (c *PendingQueryImpl) Add(ss util.MsgSectionSender, t token.Token, expirati
 	return true
 }
 
-//GetAndRemove returns all util.MsgSectionSenders which correspond to token and delete them from the
-//cache.
+// GetAndRemove returns all util.MsgSectionSenders which correspond to token and delete them from the
+// cache.
 func (c *PendingQueryImpl) GetAndRemove(t token.Token) []util.MsgSectionSender {
 	c.qmux.Lock()
 	c.tmux.Lock()
@@ -108,7 +108,7 @@ func (c *PendingQueryImpl) GetAndRemove(t token.Token) []util.MsgSectionSender {
 	return nil
 }
 
-//RemoveExpiredValues deletes all expired entries.
+// RemoveExpiredValues deletes all expired entries.
 func (c *PendingQueryImpl) RemoveExpiredValues() {
 	c.qmux.Lock()
 	c.tmux.Lock()
@@ -125,7 +125,7 @@ func (c *PendingQueryImpl) RemoveExpiredValues() {
 	}
 }
 
-//Len returns the number of sections in the cache
+// Len returns the number of sections in the cache
 func (c *PendingQueryImpl) Len() int {
 	return c.counter.Value()
 }

@@ -7,7 +7,7 @@ import (
 	log "github.com/inconshreveable/log15"
 )
 
-//Cache is a LRU cache where some elements are not subject to the LRU removal strategy. This cache is safe for concurrent use.
+// Cache is a LRU cache where some elements are not subject to the LRU removal strategy. This cache is safe for concurrent use.
 type Cache struct {
 	mux sync.RWMutex
 
@@ -22,7 +22,7 @@ type entry struct {
 	value    interface{}
 }
 
-//New returns a freshly created cache with all its internal structures initialized
+// New returns a freshly created cache with all its internal structures initialized
 func New() *Cache {
 	cache := Cache{
 		internalList: list.New(),
@@ -32,9 +32,9 @@ func New() *Cache {
 	return &cache
 }
 
-//GetOrAdd only inserts the key value pair to Cache if there has not yet been a mapping for key. It
-//first returns the already existing value associated with the key or otherwise the new value. The
-//second return value is a boolean value which is true if the mapping has not yet been present.
+// GetOrAdd only inserts the key value pair to Cache if there has not yet been a mapping for key. It
+// first returns the already existing value associated with the key or otherwise the new value. The
+// second return value is a boolean value which is true if the mapping has not yet been present.
 func (c *Cache) GetOrAdd(key string, value interface{}, isInternal bool) (interface{}, bool) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
@@ -60,8 +60,8 @@ func (c *Cache) GetOrAdd(key string, value interface{}, isInternal bool) (interf
 	return value, true
 }
 
-//Get returns if the key is present the value associated with it from the map and true. Otherwise
-//the value type's zero value and false is returned
+// Get returns if the key is present the value associated with it from the map and true. Otherwise
+// the value type's zero value and false is returned
 func (c *Cache) Get(key string) (interface{}, bool) {
 	c.mux.RLock()
 	defer c.mux.RUnlock()
@@ -78,7 +78,7 @@ func (c *Cache) Get(key string) (interface{}, bool) {
 	return nil, false
 }
 
-//GetAll returns all contained values. It does not affect lru list order.
+// GetAll returns all contained values. It does not affect lru list order.
 func (c *Cache) GetAll() []interface{} {
 	c.mux.RLock()
 	defer c.mux.RUnlock()
@@ -89,8 +89,8 @@ func (c *Cache) GetAll() []interface{} {
 	return values
 }
 
-//Remove deletes the key value pair from the map.
-//It returns the value and true if an element was deleted. Otherwise the value and false.
+// Remove deletes the key value pair from the map.
+// It returns the value and true if an element was deleted. Otherwise the value and false.
 func (c *Cache) Remove(key string) (interface{}, bool) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
@@ -108,8 +108,8 @@ func (c *Cache) Remove(key string) (interface{}, bool) {
 	return v.value, true
 }
 
-//GetLeastRecentlyUsed returns the least recently used key value pair. It does not update the
-//recentness of the element
+// GetLeastRecentlyUsed returns the least recently used key value pair. It does not update the
+// recentness of the element
 func (c *Cache) GetLeastRecentlyUsed() (string, interface{}) {
 	c.mux.RLock()
 	defer c.mux.RUnlock()
@@ -121,7 +121,7 @@ func (c *Cache) GetLeastRecentlyUsed() (string, interface{}) {
 	return "", nil
 }
 
-//Len returns the number of elements in the cache
+// Len returns the number of elements in the cache
 func (c *Cache) Len() int {
 	c.mux.RLock()
 	defer c.mux.RUnlock()

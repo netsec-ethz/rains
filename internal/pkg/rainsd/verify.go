@@ -18,13 +18,13 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
-//verify verifies msgSender. It checks the consistency of the msgSender.Section and if it is
-//inconsistent a notification msg is sent. (Consistency with cached elements is checked later in the
-//engine) It validates all signatures (including contained once), stripping of expired once. If no
-//signature remains on an assertion, shard, zone, addressAssertion or addressZone it gets dropped
-//(signatures of contained sections are not taken into account). If there happens an error in the
-//signature verification process of any signature, the whole msgSender gets dropped (signatures of
-//contained sections are also considered)
+// verify verifies msgSender. It checks the consistency of the msgSender.Section and if it is
+// inconsistent a notification msg is sent. (Consistency with cached elements is checked later in the
+// engine) It validates all signatures (including contained once), stripping of expired once. If no
+// signature remains on an assertion, shard, zone, addressAssertion or addressZone it gets dropped
+// (signatures of contained sections are not taken into account). If there happens an error in the
+// signature verification process of any signature, the whole msgSender gets dropped (signatures of
+// contained sections are also considered)
 func (s *Server) verify(msgSender util.MsgSectionSender) {
 	log.Info(fmt.Sprintf("Verify %T", msgSender.Sections), "server", s.Addr(), "util.MsgSectionSender", msgSender)
 	//msgSender.Sections contains either Queries or Assertions. It gets separated in the inbox.
@@ -56,11 +56,11 @@ func hasAuthority(msgSender util.MsgSectionSender, s *Server) bool {
 	return true
 }
 
-//verifySections first checks the internal consistency of all sections. It then determines if all
-//public keys necessary to verify all signatures are present. If not, queries to obtain the missing
-//keys are sent and ss is put on the pendingKeyCache. Otherwise all Signatures are verified. As soon
-//as one signature is invalid, processing of ss stops. When everything works well, ss is forwarded
-//to the engine.
+// verifySections first checks the internal consistency of all sections. It then determines if all
+// public keys necessary to verify all signatures are present. If not, queries to obtain the missing
+// keys are sent and ss is put on the pendingKeyCache. Otherwise all Signatures are verified. As soon
+// as one signature is invalid, processing of ss stops. When everything works well, ss is forwarded
+// to the engine.
 func verifySections(ss util.MsgSectionSender, s *Server, isAuthoritative bool) {
 	keys := make(map[keys.PublicKeyID][]keys.PublicKey)
 	missingKeys := make(map[missingKeyMetaData]bool)
@@ -95,7 +95,7 @@ func verifySections(ss util.MsgSectionSender, s *Server, isAuthoritative bool) {
 	log.Info("Invalid signature")
 }
 
-//verifyQueries forwards the received query to be processed if it is consistent and not expired.
+// verifyQueries forwards the received query to be processed if it is consistent and not expired.
 func verifyQueries(msgSender util.MsgSectionSender, s *Server) {
 	for i, q := range msgSender.Sections {
 		q := q.(*query.Name)
@@ -111,8 +111,8 @@ func verifyQueries(msgSender util.MsgSectionSender, s *Server) {
 	s.processQuery(msgSender)
 }
 
-//contextInvalid return true if it is not the global context and the context does not contain a
-//context marker '-cx'.
+// contextInvalid return true if it is not the global context and the context does not contain a
+// context marker '-cx'.
 func contextInvalid(context string) bool {
 	if context != "." && !strings.Contains(context, "cx-") {
 		log.Warn("Context is malformed.", "context", context)
@@ -121,7 +121,7 @@ func contextInvalid(context string) bool {
 	return false
 }
 
-//isQueryExpired returns true if the query has expired
+// isQueryExpired returns true if the query has expired
 func isQueryExpired(expires int64) bool {
 	if expires < time.Now().Unix() {
 		log.Warn("Query expired", "expirationTime", expires, "now", time.Now().Unix())
@@ -131,8 +131,8 @@ func isQueryExpired(expires int64) bool {
 	return false
 }
 
-//publicKeysPresent adds all public keys that are cached to keys and for all that are not, the
-//corresponding signature meta data is added to missingKeys
+// publicKeysPresent adds all public keys that are cached to keys and for all that are not, the
+// corresponding signature meta data is added to missingKeys
 func publicKeysPresent(s section.WithSigForward, zoneKeyCache cache.ZonePublicKey,
 	keys map[keys.PublicKeyID][]keys.PublicKey, missingKeys map[missingKeyMetaData]bool) {
 	keysNeeded := make(map[signature.MetaData]bool)
@@ -151,8 +151,8 @@ func publicKeysPresent(s section.WithSigForward, zoneKeyCache cache.ZonePublicKe
 	}
 }
 
-//verifySignatures verifies all signatures of ss.Section and strips off expired signatures. It
-//returns false if there is no signature left any of the messages
+// verifySignatures verifies all signatures of ss.Section and strips off expired signatures. It
+// returns false if there is no signature left any of the messages
 func verifySignatures(ss util.MsgSectionSender, keys map[keys.PublicKeyID][]keys.PublicKey, s *Server) (
 	[]section.WithSigForward, bool) {
 	sections := []section.WithSigForward{}
@@ -166,8 +166,8 @@ func verifySignatures(ss util.MsgSectionSender, keys map[keys.PublicKeyID][]keys
 	return sections, true
 }
 
-//handleMissingKeys adds sectionSender to the pending key cache and sends a delegation query if
-//necessary
+// handleMissingKeys adds sectionSender to the pending key cache and sends a delegation query if
+// necessary
 func handleMissingKeys(ss util.MsgSectionSender, missingKeys map[missingKeyMetaData]bool, s *Server,
 	isAuthoritative bool) {
 	sec := ss.Sections
@@ -197,8 +197,8 @@ func handleMissingKeys(ss util.MsgSectionSender, missingKeys map[missingKeyMetaD
 	}
 }
 
-//getQueryValidity returns the expiration value for a delegation query. It is either a configured
-//upper bound or if smaller the longest validity time of all present signatures.
+// getQueryValidity returns the expiration value for a delegation query. It is either a configured
+// upper bound or if smaller the longest validity time of all present signatures.
 func getQueryValidity(sigs []signature.Sig, delegQValidity time.Duration) (validity int64) {
 	for _, sig := range sigs {
 		if sig.ValidUntil > validity {

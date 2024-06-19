@@ -11,8 +11,8 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-//PublicKeyID contains all necessary information to distinguish different public keys from the same
-//authority
+// PublicKeyID contains all necessary information to distinguish different public keys from the same
+// authority
 type PublicKeyID struct {
 	//Algorithm determines the signature algorithm to be used for signing and verification
 	Algorithm algorithmTypes.Signature
@@ -26,12 +26,12 @@ func (p PublicKeyID) String() string {
 	return fmt.Sprintf("AT=%s KS=%s KP=%d", p.Algorithm, p.KeySpace, p.KeyPhase)
 }
 
-//Hash returns a string containing all information uniquely identifying a public key ID.
+// Hash returns a string containing all information uniquely identifying a public key ID.
 func (p PublicKeyID) Hash() string {
 	return fmt.Sprintf("%d,%d,%d", p.Algorithm, p.KeySpace, p.KeyPhase)
 }
 
-//PublicKey contains information about a public key
+// PublicKey contains information about a public key
 type PublicKey struct {
 	PublicKeyID
 	ValidSince int64
@@ -39,8 +39,8 @@ type PublicKey struct {
 	Key        interface{}
 }
 
-//CompareTo compares two publicKey objects and returns 0 if they are equal, 1 if p is greater than
-//pkey and -1 if p is smaller than pkey
+// CompareTo compares two publicKey objects and returns 0 if they are equal, 1 if p is greater than
+// pkey and -1 if p is smaller than pkey
 func (p PublicKey) CompareTo(pkey PublicKey) int {
 	if p.Algorithm < pkey.Algorithm {
 		return -1
@@ -75,7 +75,7 @@ func (p PublicKey) CompareTo(pkey PublicKey) int {
 	return 0
 }
 
-//String implements Stringer interface
+// String implements Stringer interface
 func (p PublicKey) String() string {
 	keyString := ""
 	switch k1 := p.Key.(type) {
@@ -87,7 +87,7 @@ func (p PublicKey) String() string {
 	return fmt.Sprintf("{%s VS=%d VU=%d data=%s}", p.PublicKeyID, p.ValidSince, p.ValidUntil, keyString)
 }
 
-//Hash returns a string containing all information uniquely identifying a public key.
+// Hash returns a string containing all information uniquely identifying a public key.
 func (p PublicKey) Hash() string {
 	keyString := ""
 	switch k1 := p.Key.(type) {
@@ -99,7 +99,7 @@ func (p PublicKey) Hash() string {
 	return fmt.Sprintf("%s,%d,%d,%s", p.PublicKeyID.Hash(), p.ValidSince, p.ValidUntil, keyString)
 }
 
-//KeySpaceID identifies a key space
+// KeySpaceID identifies a key space
 type KeySpaceID int
 
 //go:generate stringer -type=KeySpaceID

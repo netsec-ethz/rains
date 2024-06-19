@@ -1,6 +1,6 @@
 package section
 
-//Intersect returns true if a and b are overlapping
+// Intersect returns true if a and b are overlapping
 func Intersect(a, b Interval) bool {
 	//case1: both intervals are points => compare with equality
 	if a.Begin() == a.End() && b.Begin() == b.End() && a.Begin() != "" && b.Begin() != "" {
@@ -22,30 +22,30 @@ func Intersect(a, b Interval) bool {
 	return a.Begin() < b.End() && a.End() > b.Begin()
 }
 
-//TotalInterval is an interval over the whole namespace
+// TotalInterval is an interval over the whole namespace
 type TotalInterval struct{}
 
-//Begin defines the start of the total namespace
+// Begin defines the start of the total namespace
 func (t TotalInterval) Begin() string {
 	return ""
 }
 
-//End defines the end of the total namespace
+// End defines the end of the total namespace
 func (t TotalInterval) End() string {
 	return ""
 }
 
-//StringInterval implements Interval for a single string value
+// StringInterval implements Interval for a single string value
 type StringInterval struct {
 	Name string
 }
 
-//Begin defines the start of a StringInterval namespace
+// Begin defines the start of a StringInterval namespace
 func (s StringInterval) Begin() string {
 	return s.Name
 }
 
-//End defines the end of a StringInterval namespace
+// End defines the end of a StringInterval namespace
 func (s StringInterval) End() string {
 	return s.Name
 }

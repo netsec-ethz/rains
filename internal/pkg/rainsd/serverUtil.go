@@ -36,7 +36,7 @@ type missingKeyMetaData struct {
 	KeyPhase int
 }
 
-//ZoneContext stores a context and a zone
+// ZoneContext stores a context and a zone
 type ZoneContext struct {
 	Zone    string
 	Context string
@@ -48,8 +48,8 @@ type checkPointValue struct {
 	ValidUntil []int64
 }
 
-//sendNotificationMsg sends a message containing freshly generated token and a notification section with
-//notificationType, token, and data to destination.
+// sendNotificationMsg sends a message containing freshly generated token and a notification section with
+// notificationType, token, and data to destination.
 func sendNotificationMsg(tok token.Token, destination net.Addr,
 	notificationType section.NotificationType, data string, s *Server) {
 	notification := &section.Notification{
@@ -60,8 +60,8 @@ func sendNotificationMsg(tok token.Token, destination net.Addr,
 	sendSection(notification, token.Token{}, destination, s)
 }
 
-//sendSections creates a messages containing token and sections and sends it to destination. If
-//token is empty, a new token is generated
+// sendSections creates a messages containing token and sections and sends it to destination. If
+// token is empty, a new token is generated
 func sendSections(sections []section.Section, tok token.Token, destination net.Addr, s *Server) error {
 	if tok == [16]byte{} {
 		tok = token.New()
@@ -70,19 +70,19 @@ func sendSections(sections []section.Section, tok token.Token, destination net.A
 	return s.sendTo(msg, destination, 1, 1)
 }
 
-//sendSection creates a messages containing token and section and sends it to destination. If
-//token is empty, a new token is generated
+// sendSection creates a messages containing token and section and sends it to destination. If
+// token is empty, a new token is generated
 func sendSection(sec section.Section, token token.Token, destination net.Addr, s *Server) error {
 	return sendSections([]section.Section{sec}, token, destination, s)
 }
 
-//sendCapability sends a message with capabilities to sender
+// sendCapability sends a message with capabilities to sender
 func sendCapability(destination net.Addr, capabilities []message.Capability, s *Server) {
 	msg := message.Message{Token: token.New(), Capabilities: capabilities}
 	s.sendTo(msg, destination, 1, 1)
 }
 
-//LoadConfig loads server configuration
+// LoadConfig loads server configuration
 func LoadConfig(configPath string) (Config, error) {
 	config := Config{}
 	file, err := ioutil.ReadFile(configPath)
@@ -113,7 +113,7 @@ func LoadConfig(configPath string) (Config, error) {
 	return config, nil
 }
 
-//StoreConfig stores server configuration
+// StoreConfig stores server configuration
 func StoreConfig(config Config, configPath string) error {
 	data, err := json.Marshal(config)
 	if err != nil {
@@ -123,7 +123,7 @@ func StoreConfig(config Config, configPath string) error {
 	return err
 }
 
-//loadTLSCertificate load a tls certificate from certPath
+// loadTLSCertificate load a tls certificate from certPath
 func loadTLSCertificate(certPath string, TLSPrivateKeyPath string) (*x509.CertPool, tls.Certificate, error) {
 	pool := x509.NewCertPool()
 	file, err := ioutil.ReadFile(certPath)
@@ -145,9 +145,9 @@ func loadTLSCertificate(certPath string, TLSPrivateKeyPath string) (*x509.CertPo
 	return pool, cert, nil
 }
 
-//initOwnCapabilities sorts capabilities in lexicographically increasing order.
-//It stores the hex encoded sha256 hash of the sorted capabilities to capabilityHash
-//and a string representation of the capability list to capabilityList
+// initOwnCapabilities sorts capabilities in lexicographically increasing order.
+// It stores the hex encoded sha256 hash of the sorted capabilities to capabilityHash
+// and a string representation of the capability list to capabilityList
 func initOwnCapabilities(capabilities []message.Capability) (string, string) {
 	//TODO CFE when we have CBOR use it to normalize&serialize the array before hashing it.
 	//Currently we use the hard coded version from the draft.
@@ -159,7 +159,7 @@ func initOwnCapabilities(capabilities []message.Capability) (string, string) {
 	return capabilityHash, strings.Join(cs, " ")
 }
 
-//loadRootZonePublicKey stores the root zone public key from disk into the zoneKeyCache.
+// loadRootZonePublicKey stores the root zone public key from disk into the zoneKeyCache.
 func loadRootZonePublicKey(keyPath string, zoneKeyCache cache.ZonePublicKey,
 	maxValidity util.MaxCacheValidity) error {
 	a := new(section.Assertion)
@@ -199,7 +199,7 @@ func loadRootZonePublicKey(keyPath string, zoneKeyCache cache.ZonePublicKey,
 	return err
 }
 
-//measureSystemRessources measures current cpu usage
+// measureSystemRessources measures current cpu usage
 func measureSystemRessources() {
 	//Not yet implemented
 }
@@ -313,7 +313,7 @@ func isAuthoritative(s section.WithSigForward, authorities []ZoneContext) bool {
 	return isAuthoritative
 }
 
-//repeatFuncCaller executes function in intervals of waitTime
+// repeatFuncCaller executes function in intervals of waitTime
 func repeatFuncCaller(function func(), waitTime time.Duration, stop chan bool) {
 	for {
 		select {

@@ -49,6 +49,7 @@ _testmain.go
 /cmd/zonepub/data/newZonefile.txt
 internal/pkg/keyManager/testdata/test_pub.pem
 internal/pkg/keyManager/testdata/test_sec.pem
+internal/pkg/util/test/test.gob
 
 #test coverage files
 *coverage.out

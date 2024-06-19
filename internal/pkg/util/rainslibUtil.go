@@ -37,7 +37,7 @@ func init() {
 	gob.Register(addr.Host{})
 }
 
-//MaxCacheValidity defines the maximum duration each section containing signatures can be valid, starting from time.Now()
+// MaxCacheValidity defines the maximum duration each section containing signatures can be valid, starting from time.Now()
 type MaxCacheValidity struct {
 	AssertionValidity time.Duration
 	ShardValidity     time.Duration
@@ -45,21 +45,21 @@ type MaxCacheValidity struct {
 	ZoneValidity      time.Duration
 }
 
-//MsgSectionSender contains the message section section and connection infos about the sender
+// MsgSectionSender contains the message section section and connection infos about the sender
 type MsgSectionSender struct {
 	Sender   net.Addr
 	Sections []section.Section
 	Token    token.Token
 }
 
-//SectionWithSigSender contains a section with a signature and connection infos about the sender
+// SectionWithSigSender contains a section with a signature and connection infos about the sender
 type SectionWithSigSender struct {
 	Sender   net.Addr
 	Sections []section.WithSigForward
 	Token    token.Token
 }
 
-//Save stores the object to the file located at the specified path gob encoded.
+// Save stores the object to the file located at the specified path gob encoded.
 func Save(path string, object interface{}) error {
 	file, err := os.Create(path)
 	defer file.Close()
@@ -70,8 +70,8 @@ func Save(path string, object interface{}) error {
 	return err
 }
 
-//Load fetches the gob encoded object from the file located at path. Make sure that all types that
-//are behind an interface are registered in the init method.
+// Load fetches the gob encoded object from the file located at path. Make sure that all types that
+// are behind an interface are registered in the init method.
 func Load(path string, object interface{}) error {
 	file, err := os.Open(path)
 	defer file.Close()
@@ -87,7 +87,7 @@ func Load(path string, object interface{}) error {
 	return err
 }
 
-//NewQueryMessage creates a new message containing a query body with values obtained from the input parameter
+// NewQueryMessage creates a new message containing a query body with values obtained from the input parameter
 func NewQueryMessage(name, context string, expTime int64, objType []object.Type,
 	queryOptions []query.Option, token token.Token) message.Message {
 	query := query.Name{
@@ -100,7 +100,7 @@ func NewQueryMessage(name, context string, expTime int64, objType []object.Type,
 	return message.Message{Token: token, Content: []section.Section{&query}}
 }
 
-//NewNotificationsMessage creates a new message containing notification bodies with values obtained from the input parameter
+// NewNotificationsMessage creates a new message containing notification bodies with values obtained from the input parameter
 func NewNotificationsMessage(tokens []token.Token, types []section.NotificationType, data []string) (message.Message, error) {
 	if len(tokens) != len(types) || len(types) != len(data) {
 		log.Warn("input slices have not the same length", "tokenLen", len(tokens), "typesLen", len(types), "dataLen", len(data))
@@ -118,15 +118,15 @@ func NewNotificationsMessage(tokens []token.Token, types []section.NotificationT
 	return msg, nil
 }
 
-//NewNotificationMessage creates a new message containing one notification body with values obtained from the input parameter
+// NewNotificationMessage creates a new message containing one notification body with values obtained from the input parameter
 func NewNotificationMessage(tok token.Token, t section.NotificationType, data string) message.Message {
 	msg, _ := NewNotificationsMessage([]token.Token{tok}, []section.NotificationType{t}, []string{data})
 	return msg
 }
 
-//SendQuery creates a connection with connInfo, frames msg and writes it to the connection.
-//It then waits for the response. When it receives the response or times out, it returns the answer
-//or an error.
+// SendQuery creates a connection with connInfo, frames msg and writes it to the connection.
+// It then waits for the response. When it receives the response or times out, it returns the answer
+// or an error.
 func SendQuery(msg message.Message, addr net.Addr, timeout time.Duration) (
 	message.Message, error) {
 

@@ -151,7 +151,7 @@ func init() {
 		"size is not exceeded.")
 }
 
-//main initializes rainspub
+// main initializes rainspub
 func main() {
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
@@ -165,7 +165,7 @@ func main() {
 	}
 }
 
-//updateConfig overrides config with the provided cmd line flags
+// updateConfig overrides config with the provided cmd line flags
 func updateConfig(config *publisher.Config) {
 	if rootCmd.Flag("zonefilePath").Changed {
 		config.ZonefilePath = zonefilePath

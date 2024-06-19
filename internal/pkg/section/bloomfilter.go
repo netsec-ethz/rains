@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-//BloomFilter is a probabilistic datastructure for membership queries.
+// BloomFilter is a probabilistic datastructure for membership queries.
 type BloomFilter struct {
 	Algorithm BloomFilterAlgo
 	Hash      algorithmTypes.Hash
@@ -49,8 +49,8 @@ func (b BloomFilter) MarshalCBOR(w *cbor.CBORWriter) error {
 	return w.WriteArray([]interface{}{b.Algorithm, b.Hash, []byte(b.Filter)})
 }
 
-//Contains returns true if a might be part of the set represented by the bloom filter. It
-//returns false if a is certainly not part of the set.
+// Contains returns true if a might be part of the set represented by the bloom filter. It
+// returns false if a is certainly not part of the set.
 func (b BloomFilter) Contains(name, zone, context string, t object.Type) (bool, error) {
 	hash1, hash2, err := calcHash(b.Hash, encoding(name, zone, context, t))
 	if err != nil {
@@ -66,8 +66,8 @@ func (b BloomFilter) Contains(name, zone, context string, t object.Type) (bool, 
 	return true, nil
 }
 
-//Add sets the corresponding bits to 1 in the bloom filter based on BloomFilterAlgo and
-//the hash function defined in b.
+// Add sets the corresponding bits to 1 in the bloom filter based on BloomFilterAlgo and
+// the hash function defined in b.
 func (b BloomFilter) Add(name, zone, context string, t object.Type) error {
 	hash1, hash2, err := calcHash(b.Hash, encoding(name, zone, context, t))
 	if err != nil {
@@ -110,8 +110,8 @@ func calcHash(hashType algorithmTypes.Hash, encoding []byte) (uint64, uint64, er
 	}
 }
 
-//CompareTo compares two BloomFilters and returns 0 if they are equal, 1 if b is greater than
-//bloomFilter and -1 if b is smaller than bloomFilter
+// CompareTo compares two BloomFilters and returns 0 if they are equal, 1 if b is greater than
+// bloomFilter and -1 if b is smaller than bloomFilter
 func (b BloomFilter) CompareTo(bloomFilter BloomFilter) int {
 	if b.Algorithm < bloomFilter.Algorithm {
 		return -1
@@ -129,8 +129,8 @@ func (b BloomFilter) CompareTo(bloomFilter BloomFilter) int {
 	return bytes.Compare(b.Filter, bloomFilter.Filter)
 }
 
-//BloomFilterAlgo enumerates several ways how to add an assertion to the bloom
-//filter.
+// BloomFilterAlgo enumerates several ways how to add an assertion to the bloom
+// filter.
 type BloomFilterAlgo int
 
 //go:generate stringer -type=BloomFilterAlgo
@@ -142,8 +142,8 @@ const (
 	BloomKM24
 )
 
-//NumberOfHashes determines how many bits in the bloom filter are set in an
-//addition and checked on a lookup.
+// NumberOfHashes determines how many bits in the bloom filter are set in an
+// addition and checked on a lookup.
 func (b BloomFilterAlgo) NumberOfHashes() int {
 	switch b {
 	case BloomKM12:

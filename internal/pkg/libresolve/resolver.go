@@ -76,7 +76,7 @@ type Resolver struct {
 	handleAnswer      answerHandler
 }
 
-//New creates a resolver with the given parameters and default settings
+// New creates a resolver with the given parameters and default settings
 func New(rootNS, forwarders []net.Addr, rootKeyPath string, mode ResolutionMode, addr net.Addr,
 	maxConn int, maxCacheValidity util.MaxCacheValidity, maxRecursiveCount int) (*Resolver, error) {
 	r := &Resolver{
@@ -111,8 +111,8 @@ func New(rootNS, forwarders []net.Addr, rootKeyPath string, mode ResolutionMode,
 	return r, nil
 }
 
-//ClientLookup forwards the query to the specified forwarders or performs a recursive lookup starting at
-//the specified root servers. It returns the received information.
+// ClientLookup forwards the query to the specified forwarders or performs a recursive lookup starting at
+// the specified root servers. It returns the received information.
 func (r *Resolver) ClientLookup(query *query.Name) (*message.Message, error) {
 	switch r.Mode {
 	case Recursive:
@@ -124,8 +124,8 @@ func (r *Resolver) ClientLookup(query *query.Name) (*message.Message, error) {
 	}
 }
 
-//ServerLookup forwards the query to the specified forwarders or performs a recursive lookup
-//starting at the specified root servers. It sends the received information to conInfo.
+// ServerLookup forwards the query to the specified forwarders or performs a recursive lookup
+// starting at the specified root servers. It sends the received information to conInfo.
 func (r *Resolver) ServerLookup(query *query.Name, addr net.Addr, token token.Token) {
 	var msg *message.Message
 	var err error
@@ -350,16 +350,16 @@ func (r *Resolver) handleAssertion(a *section.Assertion, redirMap map[string]str
 	}
 }
 
-//handleShard checks if s is an answer to the query. Note that a shard containing a positive answer
-//for the query is considered answering it although this is not allowed by the protocol. The caller
-//is responsible for checking this property.
+// handleShard checks if s is an answer to the query. Note that a shard containing a positive answer
+// for the query is considered answering it although this is not allowed by the protocol. The caller
+// is responsible for checking this property.
 func (r *Resolver) handleShard(s *section.Shard, types map[object.Type]bool, name string, isFinal *bool) {
 	if strings.HasSuffix(name, s.SubjectZone) && s.InRange(strings.TrimSuffix(name, s.SubjectZone)) {
 		*isFinal = true
 	}
 }
 
-//handleZone checks if z or the contained assertions are an answer to the query.
+// handleZone checks if z or the contained assertions are an answer to the query.
 func (r *Resolver) handleZone(z *section.Zone, redirMap map[string]string,
 	srvMap map[string]object.ServiceInfo, ipMap map[string]string, nameMap map[string]object.Name,
 	types map[object.Type]bool, name string, isFinal, isRedir *bool) {
@@ -426,8 +426,8 @@ func (r *Resolver) handleRedirect(name string, srvMap map[string]object.ServiceI
 	return nil, fmt.Errorf("redir name did not end in a host addr. redirName=%s", name)
 }
 
-//answerDelegQueries answers delegation queries on conn from its cache. The cache is populated
-//through delegations received in a recursive lookup.
+// answerDelegQueries answers delegation queries on conn from its cache. The cache is populated
+// through delegations received in a recursive lookup.
 func (r *Resolver) answerDelegQueries(conn net.Conn) {
 	for {
 		queryMsg, err := connection.ReceiveMessage(conn)
@@ -449,7 +449,7 @@ func (r *Resolver) answerDelegQueries(conn net.Conn) {
 	}
 }
 
-//getDelegations returns all cached delegations answering a query in msg.
+// getDelegations returns all cached delegations answering a query in msg.
 func (r *Resolver) getDelegations(msg *message.Message) []section.Section {
 	answer := []section.Section{}
 	for _, s := range msg.Content {

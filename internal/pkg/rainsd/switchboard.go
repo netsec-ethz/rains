@@ -23,7 +23,7 @@ import (
 	"github.com/scionproto/scion/pkg/snet"
 )
 
-//sendTo sends message to the specified receiver with retries
+// sendTo sends message to the specified receiver with retries
 func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 	backoffMilliSeconds int) (err error) {
 
@@ -50,7 +50,7 @@ func (s *Server) sendTo(msg message.Message, receiver net.Addr, retries,
 	return errors.New("Was not able to send the mesage. No retries left")
 }
 
-//sendToTry sends message to the specified receiver.
+// sendToTry sends message to the specified receiver.
 func (s *Server) sendToTry(encodedMsg []byte, receiver net.Addr) (err error) {
 	if s.packetConn != nil {
 		if _, err := s.packetConn.WriteTo(encodedMsg, receiver); err != nil {
@@ -92,7 +92,7 @@ func (s *Server) sendToRecursiveResolver(msg message.Message) {
 	}
 }
 
-//createConnection establishes a connection with receiver
+// createConnection establishes a connection with receiver
 func createConnection(receiver net.Addr, keepAlive time.Duration, pool *x509.CertPool) (net.Conn, error) {
 	switch receiver.(type) {
 	case *net.TCPAddr:
@@ -105,7 +105,7 @@ func createConnection(receiver net.Addr, keepAlive time.Duration, pool *x509.Cer
 	}
 }
 
-//Listen listens for incoming connections and creates a go routine for each connection.
+// Listen listens for incoming connections and creates a go routine for each connection.
 func (s *Server) listen(id string) {
 	srvLogger := log.New("id", id, "addr", s.Addr().String())
 	switch s.config.ServerAddress.Type {
@@ -188,7 +188,7 @@ func (s *Server) listen(id string) {
 	}
 }
 
-//handleConnection deframes all incoming messages on conn and passes them to the inbox along with the dstAddr
+// handleConnection deframes all incoming messages on conn and passes them to the inbox along with the dstAddr
 func (s *Server) handleConnection(conn net.Conn, dstAddr net.Addr) {
 	log.Info("New connection", "serverAddr", s.Addr(), "conn", dstAddr)
 	reader := cbor.NewReader(conn)
@@ -214,7 +214,7 @@ func (s *Server) handleConnection(conn net.Conn, dstAddr net.Addr) {
 	s.caches.ConnCache.CloseAndRemoveConnection(conn)
 }
 
-//isIPBlacklisted returns true if addr is blacklisted
+// isIPBlacklisted returns true if addr is blacklisted
 func isIPBlacklisted(addr net.Addr) bool {
 	return false
 }

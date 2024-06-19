@@ -28,7 +28,7 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-//AddSigs adds signatures to section
+// AddSigs adds signatures to section
 func AddSigs(sec section.WithSigForward, signatures []signature.Sig) {
 	for _, sig := range signatures {
 		sec.AddSig(sig)
@@ -108,7 +108,7 @@ func DecodeValidity(validSince, validUntil string) (int64, int64, error) {
 	return vsince, vuntil, nil
 }
 
-//Result gets stored in this variable
+// Result gets stored in this variable
 var output []section.WithSigForward
 
 //line internal/pkg/zonefile/zoneFileParser.y:116

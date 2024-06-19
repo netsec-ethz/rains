@@ -13,7 +13,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/keys"
 )
 
-//LoadConfig loads configuration information from configPath
+// LoadConfig loads configuration information from configPath
 func LoadConfig(configPath string) (Config, error) {
 	var config Config
 	file, err := ioutil.ReadFile(configPath)
@@ -29,8 +29,8 @@ func LoadConfig(configPath string) (Config, error) {
 	return config, nil
 }
 
-//LoadPrivateKeys reads private keys from the path provided in the config and returns a map from
-//PublicKeyID to the corresponding private key data.
+// LoadPrivateKeys reads private keys from the path provided in the config and returns a map from
+// PublicKeyID to the corresponding private key data.
 func LoadPrivateKeys(path string) (map[keys.PublicKeyID]interface{}, error) {
 	output := make(map[keys.PublicKeyID]interface{})
 	files, err := ioutil.ReadDir(path)

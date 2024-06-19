@@ -15,7 +15,7 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
-//encodeZone return z in zonefile format.
+// encodeZone return z in zonefile format.
 func encodeZone(z *section.Zone) string {
 	zone := fmt.Sprintf("%s %s %s [\n", TypeZone, z.SubjectZone, z.Context)
 	for _, sec := range z.Content {
@@ -34,8 +34,8 @@ func encodeZone(z *section.Zone) string {
 	return fmt.Sprintf("%s]\n", zone)
 }
 
-//encodeShard returns s in zonefile format. If addZoneAndContext is true, the context and subject
-//zone are present for the shard and for all contained assertions.
+// encodeShard returns s in zonefile format. If addZoneAndContext is true, the context and subject
+// zone are present for the shard and for all contained assertions.
 func encodeShard(s *section.Shard, context, subjectZone, indent string) string {
 	rangeFrom := s.RangeFrom
 	rangeTo := s.RangeTo
@@ -63,8 +63,8 @@ func encodeShard(s *section.Shard, context, subjectZone, indent string) string {
 	return fmt.Sprintf("%s%s%s]\n", indent, shard, indent)
 }
 
-//encodePshard returns s in zonefile format. If addZoneAndContext is true, the context and subject
-//zone are present for the pshard.
+// encodePshard returns s in zonefile format. If addZoneAndContext is true, the context and subject
+// zone are present for the pshard.
 func encodePshard(s *section.Pshard, context, subjectZone, indent string) string {
 	rangeFrom := s.RangeFrom
 	rangeTo := s.RangeTo
@@ -90,7 +90,7 @@ func encodePshard(s *section.Pshard, context, subjectZone, indent string) string
 	return fmt.Sprintf("%s%s\n", indent, pshard)
 }
 
-//encodeBloomFilter returns b in zonefile format.
+// encodeBloomFilter returns b in zonefile format.
 func encodeBloomFilter(b section.BloomFilter) string {
 	algo := ""
 	switch b.Algorithm {
@@ -119,8 +119,8 @@ func encodeBloomFilter(b section.BloomFilter) string {
 	return fmt.Sprintf("%s %s %s", algo, hash, hex.EncodeToString(b.Filter))
 }
 
-//encodeAssertion returns a in zonefile format. If addZoneAndContext is true, the context and
-//subject zone are also present.
+// encodeAssertion returns a in zonefile format. If addZoneAndContext is true, the context and
+// subject zone are also present.
 func encodeAssertion(a *section.Assertion, context, zone, indent string, addZoneAndContext bool) string {
 	var assertion string
 	if addZoneAndContext {
@@ -146,7 +146,7 @@ func encodeAssertion(a *section.Assertion, context, zone, indent string, addZone
 	return fmt.Sprintf("%s %s ]%s", assertion, encodeObjects(a.Content, ""), signature)
 }
 
-//encodeObjects returns o in zonefile format.
+// encodeObjects returns o in zonefile format.
 func encodeObjects(o []object.Object, indent string) string {
 	var objects []string
 	for _, obj := range o {
@@ -224,14 +224,14 @@ func encodeObjects(o []object.Object, indent string) string {
 	return strings.Join(objects, "\n")
 }
 
-//addIndentToType returns the object type ot with appropriate indent such that the object value start at the same
-//indent.
+// addIndentToType returns the object type ot with appropriate indent such that the object value start at the same
+// indent.
 func addIndentToType(ot string) string {
 	result := indent12
 	return ot + result[len(ot):]
 }
 
-//encodeNameObject returns no represented as a string in zone file format.
+// encodeNameObject returns no represented as a string in zone file format.
 func encodeNameObject(no object.Name) string {
 	nameObject := []string{}
 	for _, oType := range no.Types {
@@ -271,7 +271,7 @@ func encodeNameObject(no object.Name) string {
 	return fmt.Sprintf("%s [ %s ]", no.Name, strings.Join(nameObject, " "))
 }
 
-//encodeEd25519PublicKey returns pkey represented as a string in zone file format.
+// encodeEd25519PublicKey returns pkey represented as a string in zone file format.
 func encodeEd25519PublicKey(pkey keys.PublicKey) string {
 	if key, ok := pkey.Key.(ed25519.PublicKey); ok {
 		return fmt.Sprintf("%s %d %s", TypeEd25519, pkey.KeyPhase, hex.EncodeToString(key))
@@ -280,7 +280,7 @@ func encodeEd25519PublicKey(pkey keys.PublicKey) string {
 	return ""
 }
 
-//encodeKeySpace returns keySpace represented as a string in zone file format.
+// encodeKeySpace returns keySpace represented as a string in zone file format.
 func encodeKeySpace(keySpace keys.KeySpaceID) string {
 	switch keySpace {
 	case keys.RainsKeySpace:
@@ -291,7 +291,7 @@ func encodeKeySpace(keySpace keys.KeySpaceID) string {
 	return ""
 }
 
-//encodeCertificate returns cert represented as a string in zone file format.
+// encodeCertificate returns cert represented as a string in zone file format.
 func encodeCertificate(cert object.Certificate) string {
 	var pt, cu, ca string
 	switch cert.Type {

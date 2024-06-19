@@ -12,7 +12,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/util"
 )
 
-//Connection stores persistent stream-oriented network connections.
+// Connection stores persistent stream-oriented network connections.
 type Connection interface {
 	//AddConnection adds conn to the cache. If the cache capacity is reached, a connection from the cache will be
 	//chosen by some metric, closed and removed.
@@ -37,7 +37,7 @@ type Connection interface {
 	Len() int
 }
 
-//Capability stores a mapping from a hash of a capability list to a pointer of the list.
+// Capability stores a mapping from a hash of a capability list to a pointer of the list.
 type Capability interface {
 	//Add normalizes and serializes capabilities and then calculates a sha256 hash over it. It then
 	//stores the mapping from the hash to a pointer of the list.
@@ -50,8 +50,8 @@ type Capability interface {
 	Len() int
 }
 
-//ZonePublicKey is used to store public keys of zones and a pointer to delegation assertions
-//containing them.
+// ZonePublicKey is used to store public keys of zones and a pointer to delegation assertions
+// containing them.
 type ZonePublicKey interface {
 	//Add adds publicKey together with the assertion containing it to the cache. Returns false if
 	//the cache exceeds a configured (during initialization of the cache) amount of entries. If the
@@ -103,7 +103,7 @@ type PendingQuery interface {
 	Len() int
 }
 
-//Assertion is used to store and efficiently lookup assertions
+// Assertion is used to store and efficiently lookup assertions
 type Assertion interface {
 	//Add adds an assertion together with an expiration time (number of seconds since 01.01.1970) to
 	//the cache. It returns false if the cache is full and a non internal element has been removed

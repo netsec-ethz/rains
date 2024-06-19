@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-//Signature specifies a signature algorithm type
+// Signature specifies a signature algorithm type
 type Signature int
 
 //go:generate stringer -type=Signature
@@ -15,7 +15,7 @@ const (
 	Ed448
 )
 
-//AtoSig returns a signature algorithm type based on common string representation thereof.
+// AtoSig returns a signature algorithm type based on common string representation thereof.
 func AtoSig(str string) (Signature, error) {
 	switch str {
 	case Ed25519.String(), "ed25519", "ED25519", strconv.Itoa(int(Ed25519)):
@@ -26,7 +26,7 @@ func AtoSig(str string) (Signature, error) {
 	return Signature(-1), fmt.Errorf("%s is not a signature algorithm type", str)
 }
 
-//Hash specifies a hash algorithm type
+// Hash specifies a hash algorithm type
 type Hash int
 
 //go:generate stringer -type=Hash

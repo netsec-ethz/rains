@@ -7,8 +7,8 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/query"
 )
 
-//decodeNameQueryUnsafe returns a name query. It assumes the encoding is in the correct format and
-//does not perform input validation
+// decodeNameQueryUnsafe returns a name query. It assumes the encoding is in the correct format and
+// does not perform input validation
 func decodeNameQueryUnsafe(scanner *WordScanner) *query.Name {
 	scanner.Scan()
 	q := &query.Name{}
@@ -24,8 +24,8 @@ func decodeNameQueryUnsafe(scanner *WordScanner) *query.Name {
 	return q
 }
 
-//decodeObjectTypesUnsafe returns query connection. It assumes the encoding is in the correct format
-//and does not perform input validation
+// decodeObjectTypesUnsafe returns query connection. It assumes the encoding is in the correct format
+// and does not perform input validation
 func decodeObjectTypesUnsafe(scanner *WordScanner) []object.Type {
 	types := []object.Type{}
 	scanner.Scan()
@@ -37,8 +37,8 @@ func decodeObjectTypesUnsafe(scanner *WordScanner) []object.Type {
 	return types
 }
 
-//decodeQueryOptionsUnsafe returns query options. It assumes the encoding is in the correct format
-//and does not perform input validation
+// decodeQueryOptionsUnsafe returns query options. It assumes the encoding is in the correct format
+// and does not perform input validation
 func decodeQueryOptionsUnsafe(scanner *WordScanner) []query.Option {
 	options := []query.Option{}
 	scanner.Scan()

@@ -59,7 +59,7 @@ func (sig Sig) MarshalCBOR(w *cbor.CBORWriter) error {
 	return w.WriteArray(res)
 }
 
-//MetaData contains meta data of the signature
+// MetaData contains meta data of the signature
 type MetaData struct {
 	keys.PublicKeyID
 	//ValidSince defines the time from which on this signature is valid. ValidSince is represented as seconds since the UNIX epoch UTC.
@@ -68,7 +68,7 @@ type MetaData struct {
 	ValidUntil int64
 }
 
-//Sig contains meta data of the signature and the signature data itself.
+// Sig contains meta data of the signature and the signature data itself.
 type Sig struct {
 	keys.PublicKeyID
 	//ValidSince defines the time from which on this signature is valid. ValidSince is represented as seconds since the UNIX epoch UTC.
@@ -80,7 +80,7 @@ type Sig struct {
 	sign bool //set to true before signing and false afterwards
 }
 
-//MetaData returns the signatures metaData
+// MetaData returns the signatures metaData
 func (sig Sig) MetaData() MetaData {
 	return MetaData{
 		PublicKeyID: sig.PublicKeyID,
@@ -89,7 +89,7 @@ func (sig Sig) MetaData() MetaData {
 	}
 }
 
-//String implements Stringer interface
+// String implements Stringer interface
 func (sig Sig) String() string {
 	data := "notYetImplementedInStringMethod"
 	if sig.Algorithm == algorithmTypes.Ed25519 {
@@ -103,8 +103,8 @@ func (sig Sig) String() string {
 		sig.KeySpace, sig.Algorithm, sig.ValidSince, sig.ValidUntil, sig.KeyPhase, data)
 }
 
-//CompareTo compares two signature objects and returns 0 if they are equal, 1 if sig is greater than
-//s and -1 if sig is smaller than s
+// CompareTo compares two signature objects and returns 0 if they are equal, 1 if sig is greater than
+// s and -1 if sig is smaller than s
 func (sig Sig) CompareTo(s Sig) int {
 	if sig.Algorithm < s.Algorithm {
 		return -1
@@ -136,8 +136,8 @@ func (sig Sig) CompareTo(s Sig) int {
 	return 0
 }
 
-//SignData adds signature meta data to encoding. It then signs the encoding with privateKey and updates sig.Data field with the generated signature
-//In case of an error an error is returned indicating the cause, otherwise nil is returned
+// SignData adds signature meta data to encoding. It then signs the encoding with privateKey and updates sig.Data field with the generated signature
+// In case of an error an error is returned indicating the cause, otherwise nil is returned
 func (sig *Sig) SignData(privateKey interface{}, encoding []byte) error {
 	if privateKey == nil {
 		return errors.New("privateKey is nil")
@@ -160,8 +160,8 @@ func (sig *Sig) SignData(privateKey interface{}, encoding []byte) error {
 	}
 }
 
-//VerifySignature adds signature meta data to the encoding. It then signs the encoding with privateKey and compares the resulting signature with the sig.Data.
-//Returns true if there exist signatures and they are identical
+// VerifySignature adds signature meta data to the encoding. It then signs the encoding with privateKey and compares the resulting signature with the sig.Data.
+// Returns true if there exist signatures and they are identical
 func (sig *Sig) VerifySignature(publicKey interface{}, encoding []byte) bool {
 	if sig.Data == nil {
 		log.Warn("sig does not contain signature data", "sig", sig)

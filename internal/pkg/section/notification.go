@@ -12,7 +12,7 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/token"
 )
 
-//Notification contains information about the notification
+// Notification contains information about the notification
 type Notification struct {
 	Token token.Token
 	Type  NotificationType
@@ -50,13 +50,13 @@ func (n *Notification) MarshalCBOR(w *cbor.CBORWriter) error {
 	return w.WriteIntMap(m)
 }
 
-//Sort sorts the content of the notification lexicographically.
+// Sort sorts the content of the notification lexicographically.
 func (n *Notification) Sort() {
 	//notification is already sorted (it does not contain a list of elements).
 }
 
-//CompareTo compares two notifications and returns 0 if they are equal, 1 if n is greater than
-//notification and -1 if n is smaller than notification
+// CompareTo compares two notifications and returns 0 if they are equal, 1 if n is greater than
+// notification and -1 if n is smaller than notification
 func (n *Notification) CompareTo(notification *Notification) int {
 	if comp := token.Compare(n.Token, notification.Token); comp != 0 {
 		return comp
@@ -72,7 +72,7 @@ func (n *Notification) CompareTo(notification *Notification) int {
 	return 0
 }
 
-//String implements Stringer interface
+// String implements Stringer interface
 func (n *Notification) String() string {
 	if n == nil {
 		return "Notification:nil"
@@ -81,7 +81,7 @@ func (n *Notification) String() string {
 		hex.EncodeToString(n.Token[:]), n.Type, n.Data)
 }
 
-//filterSigs returns only those signatures which are in the given keySpace
+// filterSigs returns only those signatures which are in the given keySpace
 func filterSigs(signatures []signature.Sig, keySpace keys.KeySpaceID) []signature.Sig {
 	sigs := []signature.Sig{}
 	for _, sig := range signatures {
@@ -92,7 +92,7 @@ func filterSigs(signatures []signature.Sig, keySpace keys.KeySpaceID) []signatur
 	return sigs
 }
 
-//NotificationType defines the type of a notification section
+// NotificationType defines the type of a notification section
 type NotificationType int
 
 //go:generate stringer -type=NotificationType

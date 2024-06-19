@@ -37,7 +37,7 @@ const (
 	HexEncoding = "hexEncoding"
 )
 
-//LoadPublicKeys returns all public keys stored in the directory at keypath in pem format.
+// LoadPublicKeys returns all public keys stored in the directory at keypath in pem format.
 func LoadPublicKeys(keyPath string) ([]*pem.Block, error) {
 	output := []*pem.Block{}
 	files, err := ioutil.ReadDir(keyPath)
@@ -68,11 +68,11 @@ func loadPemBlock(folder, name string) (*pem.Block, error) {
 	return pblock, nil
 }
 
-//GenerateKey generates a keypair according to algo and stores them separately at keyPath/name in
-//pem format. The suffix of the filename is either PublicKey or PrivateKey. The private key is
-//encrypted using pwd. Both pem blocks contain the description and the key phase in the header. The
-//private key pem block additionally has a salt and iv value in the header required for decryption.
-//Returns the public key in pem format or an error
+// GenerateKey generates a keypair according to algo and stores them separately at keyPath/name in
+// pem format. The suffix of the filename is either PublicKey or PrivateKey. The private key is
+// encrypted using pwd. Both pem blocks contain the description and the key phase in the header. The
+// private key pem block additionally has a salt and iv value in the header required for decryption.
+// Returns the public key in pem format or an error
 func GenerateKey(keyPath, name, description, algo, pwd string, phase int) error {
 	var publicKey, privateKey []byte
 	algoType, err := algorithmTypes.AtoSig(algo)
@@ -160,7 +160,7 @@ func encryptPrivateKey(pwd string, privateKey []byte) (salt, iv, ciphertext []by
 	return
 }
 
-//DecryptKey decryptes the private key stored at keyPath/name with pwd and returns it in pem format.
+// DecryptKey decryptes the private key stored at keyPath/name with pwd and returns it in pem format.
 func DecryptKey(keyPath, name, pwd string) (*pem.Block, error) {
 	pblock, err := loadPemBlock(keyPath, name)
 	if err != nil {
@@ -189,7 +189,7 @@ func DecryptKey(keyPath, name, pwd string) (*pem.Block, error) {
 	return pblock, nil
 }
 
-//PemToKeyID decodes a pem encoded private key into a publicKeyID and a privateKey Object
+// PemToKeyID decodes a pem encoded private key into a publicKeyID and a privateKey Object
 func PemToKeyID(block *pem.Block) (keyID keys.PublicKeyID, pkey interface{}, err error) {
 	phase, err := strconv.Atoi(block.Headers[KeyPhase])
 	if err != nil {
@@ -215,8 +215,8 @@ func PemToKeyID(block *pem.Block) (keyID keys.PublicKeyID, pkey interface{}, err
 	return
 }
 
-//SelfSignedDelegation creates, self signs, and stores a delgation assertion for the key pair with
-//name at path.
+// SelfSignedDelegation creates, self signs, and stores a delgation assertion for the key pair with
+// name at path.
 func SelfSignedDelegation(srcPath, dstPath, pwd, zone, context string, validityPeriod time.Duration) error {
 	folder, file := path.Split(srcPath)
 	block, err := DecryptKey(folder, file+SecSuffix, pwd)

@@ -32,10 +32,17 @@ jobs:
 
   integration:
     machine:
-      image: ubuntu-2004:202111-02 # using go1.17.3
+      image: ubuntu-2004:202111-02 # contains go1.17.3
 
     steps:
       - checkout
+      # Use different Go version to build everything.
+      - run:
+          name: Install Go 1.21.10
+          command: |
+            wget https://go.dev/dl/go1.21.10.linux-amd64.tar.gz
+            sudo rm -rf /usr/local/go
+            sudo tar -C /usr/local -xzf go1.21.10.linux-amd64.tar.gz
       - run:
           name: Checkout SCION
           command: |
@@ -53,7 +60,7 @@ jobs:
             # So we pin it to an older version that matches the integration tests
             # It should not matter if we build SCION binaries with different version than the apps
             # as long as there are no major breaks
-            scion_commit=5883c725f748 # Previously: v0.6.1-0.20220202161514-5883c725f748; Now: v0.8.1-0.20231010074308-1774cbfccb4c
+            scion_commit=50b971ca2 # Previously: v0.8.1-0.20231010074308-1774cbfccb4c; ; Now: v0.11.1-0.20240610170620-50b971ca2d4b
             git clone ${scion_repo} ~/scion
             cd ~/scion
             git checkout --quiet ${scion_commit}
@@ -70,12 +77,12 @@ jobs:
             python3 --version
 
             cd ~/scion
-            for service in "posix-router" "cs" "dispatcher" "scion-pki" "daemon"; do
-              go build -o ./bin/ ./go/${service}/ && echo "Built ${service}";
+            for service in "router" "control" "dispatcher" "scion-pki" "daemon"; do
+              go build -o ./bin/ ./${service}/... && echo "Built ${service}";
             done
 
             pip3 install -U wheel setuptools
-            pip3 install -r ~/scion/env/pip3/requirements.txt
+            pip3 install -r ~/scion/tools/env/pip3/requirements.txt
       - run:
           name: Configure and start local SCION AS
           command: |
@@ -83,23 +90,15 @@ jobs:
             export PYTHONPATH=python/:.
 
             # Generate tiny.topo
-            printf '#!/bin/bash\necho "0.0.0.0"' > tools/docker-ip # Some hackery to make topo scripts run
-            python3 python/topology/generator.py -c ./topology/tiny4.topo
+            python3 tools/topogen.py -c ./topology/tiny4.topo
             mkdir gen-cache
 
             # Start one AS only (1-ff00:0:110 is referenced explicitly from the integration tests)
-            supervisor/supervisor.sh reload
-            supervisor/supervisor.sh start \
+            tools/supervisor.sh reload
+            tools/supervisor.sh start \
               dispatcher \
               as1-ff00_0_110:cs1-ff00_0_110-1 \
               as1-ff00_0_110:sd1-ff00_0_110
-       # Use different Go version to build scion-apps
-      - run:
-          name: Install Go 1.21.3 to build scion-apps
-          command: |
-            wget https://go.dev/dl/go1.21.3.linux-amd64.tar.gz
-            sudo rm -rf /usr/local/go
-            sudo tar -C /usr/local -xzf go1.21.3.linux-amd64.tar.gz
       - run:
           name: Integration tests
           command: |

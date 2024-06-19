@@ -11,8 +11,8 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 )
 
-//connectAndSendMsg establishes a connection to server and sends msg. It returns the server info on
-//the result channel if it was not able to send the whole msg to it, else nil.
+// connectAndSendMsg establishes a connection to server and sends msg. It returns the server info on
+// the result channel if it was not able to send the whole msg to it, else nil.
 func connectAndSendMsg(msg message.Message, server net.Addr) error {
 
 	conn, err := connection.CreateConnection(server)
@@ -43,8 +43,8 @@ func connectAndSendMsg(msg message.Message, server net.Addr) error {
 	return fmt.Errorf("timeout while waiting for response")
 }
 
-//handleResponse handles the received notification message and returns true if the connection can
-//be closed.
+// handleResponse handles the received notification message and returns true if the connection can
+// be closed.
 func handleResponse(n *section.Notification) bool {
 	switch n.Type {
 	case section.NTHeartbeat, section.NTNoAssertionsExist, section.NTNoAssertionAvail:

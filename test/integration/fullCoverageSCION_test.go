@@ -20,6 +20,9 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/scionproto/scion/pkg/private/xtest"
+	"github.com/scionproto/scion/pkg/snet"
+	"github.com/scionproto/scion/pkg/snet/path"
 	"github.com/stretchr/testify/require"
 
 	"github.com/netsec-ethz/rains/internal/pkg/connection"
@@ -29,14 +32,11 @@ import (
 	"github.com/netsec-ethz/rains/internal/pkg/rainsd"
 	"github.com/netsec-ethz/rains/internal/pkg/section"
 	"github.com/netsec-ethz/rains/internal/pkg/zonefile"
-	"github.com/scionproto/scion/pkg/private/xtest"
-	"github.com/scionproto/scion/pkg/snet"
-	"github.com/scionproto/scion/pkg/snet/path"
 )
 
 func checkEnvAS110() {
 	_, ok := os.LookupEnv("SCION_DAEMON_ADDRESS")
-	if !ok || scion.DefNetwork().IA.String() != "1-ff00:0:110" {
+	if !ok || scion.Host().IA.String() != "1-ff00:0:110" {
 		panic("Expecting to run in tiny topo. Need to set SCION_DAEMON_ADDRESS for 1-ff00:0:110.")
 	}
 }
