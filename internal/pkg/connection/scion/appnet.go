@@ -65,6 +65,7 @@ import (
 type hostContext struct {
 	IA            addr.IA
 	Sciond        daemon.Connector
+	Topology      snet.Topology
 	HostInLocalAS net.IP
 }
 
@@ -107,7 +108,7 @@ func DialAddr(raddr *snet.UDPAddr) (*snet.Conn, error) {
 
 	// New network every time (inexpensive).
 	sn := snet.SCIONNetwork{
-		Topology:    Host().Sciond,
+		Topology:    Host().Topology,
 		SCMPHandler: snet.DefaultSCMPHandler{},
 	}
 	return sn.Dial(context.TODO(), "udp", laddr, raddr)
@@ -132,7 +133,7 @@ func Listen(listen *net.UDPAddr) (*snet.Conn, error) {
 
 	// New network every time (inexpensive).
 	sn := snet.SCIONNetwork{
-		Topology:    Host().Sciond,
+		Topology:    Host().Topology,
 		SCMPHandler: snet.DefaultSCMPHandler{},
 	}
 	integrationEnv, _ := os.LookupEnv("SCION_GO_INTEGRATION")
@@ -158,6 +159,10 @@ func initHostContext() (hostContext, error) {
 	if err != nil {
 		return hostContext{}, err
 	}
+	topo, err := daemon.LoadTopology(ctx, sciondConn)
+	if err != nil {
+		return hostContext{}, err
+	}
 	localIA, err := sciondConn.LocalIA(ctx)
 	if err != nil {
 		return hostContext{}, err
@@ -169,6 +174,7 @@ func initHostContext() (hostContext, error) {
 	return hostContext{
 		IA:            localIA,
 		Sciond:        sciondConn,
+		Topology:      topo,
 		HostInLocalAS: hostInLocalAS,
 	}, nil
 }

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	log "github.com/inconshreveable/log15"
+	"github.com/scionproto/scion/pkg/addr"
 	"github.com/scionproto/scion/pkg/private/xtest"
 	"github.com/scionproto/scion/pkg/snet"
 	"github.com/scionproto/scion/pkg/snet/path"
@@ -44,7 +45,7 @@ func checkEnvAS110() {
 func TestSCIONConnectivity(t *testing.T) {
 	checkEnvAS110()
 	serverAddr := snet.UDPAddr{
-		IA:      xtest.MustParseIA("1-ff00:0:110"),
+		IA:      addr.MustParseIA("1-ff00:0:110"),
 		Path:    path.Empty{},
 		Host:    xtest.MustParseUDPAddr(t, "127.0.0.1:12345"),
 		NextHop: nil,
