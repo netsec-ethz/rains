@@ -83,6 +83,17 @@ jobs:
 
             pip3 install -U wheel setuptools
             pip3 install -r ~/scion/tools/env/pip3/requirements.txt
+
+            mkdir -p bin
+            cat > bin/supervisord <<EOF
+#!/bin/sh
+exec python3 -m supervisor.supervisord "$@"
+EOF
+            cat > bin/supervisorctl <<EOF
+#!/bin/sh
+exec python3 -m supervisor.supervisorctl "$@"
+EOF
+            chmod +x bin/supervisord bin/supervisorctl
       - run:
           name: Configure and start local SCION AS
           command: |
