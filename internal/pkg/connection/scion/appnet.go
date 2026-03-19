@@ -56,6 +56,7 @@ import (
 
 	"github.com/scionproto/scion/pkg/addr"
 	"github.com/scionproto/scion/pkg/daemon"
+	"github.com/scionproto/scion/pkg/daemon/types"
 	"github.com/scionproto/scion/pkg/snet"
 	"github.com/scionproto/scion/pkg/snet/addrutil"
 )
@@ -226,6 +227,6 @@ func defaultLocalIP() (net.IP, error) {
 }
 
 func queryPaths(ctx context.Context, dst addr.IA) ([]snet.Path, error) {
-	flags := daemon.PathReqFlags{Refresh: false, Hidden: false}
+	flags := types.PathReqFlags{Refresh: false, Hidden: false}
 	return Host().Sciond.Paths(ctx, addr.IA(dst), 0, flags)
 }
