@@ -76,6 +76,7 @@ jobs:
             go version
             python3 --version
 
+            rains_repo_dir=$PWD
             cd ~/scion
             for service in "router" "control" "dispatcher" "scion-pki" "daemon"; do
               go build -o ./bin/ ./${service}/... && echo "Built ${service}";
@@ -85,15 +86,12 @@ jobs:
             pip3 install -r ~/scion/tools/env/pip3/requirements.txt
 
             mkdir -p bin
-            cat > bin/supervisord <<EOF
-#!/bin/sh
-exec python3 -m supervisor.supervisord "$@"
-EOF
-            cat > bin/supervisorctl <<EOF
-#!/bin/sh
-exec python3 -m supervisor.supervisorctl "$@"
-EOF
-            chmod +x bin/supervisord bin/supervisorctl
+            if [ ! -x bin/supervisord ]; then
+              install -m 0755 "${rains_repo_dir}/.circleci/bin/supervisord" bin/supervisord
+            fi
+            if [ ! -x bin/supervisorctl ]; then
+              install -m 0755 "${rains_repo_dir}/.circleci/bin/supervisorctl" bin/supervisorctl
+            fi
       - run:
           name: Configure and start local SCION AS
           command: |
